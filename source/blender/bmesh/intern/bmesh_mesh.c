@@ -1148,7 +1148,7 @@ void BM_lnorspace_update(BMesh *bm)
 /* Auxillary function only used by rebuild to detect if any spaces were not marked in invalidate.
    Reports error if any of the lnor spaces change after rebuilding, meaning that the all possible
    lnor spaces to be rebuilt were not correctly marked */
-static void BM_lnorspace_err(BMesh *bm)
+void BM_lnorspace_err(BMesh *bm)
 {
 	bm->spacearr_dirty |= BM_SPACEARR_DIRTY_ALL;
 	bool clear = true;

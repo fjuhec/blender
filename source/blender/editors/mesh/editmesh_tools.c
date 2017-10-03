@@ -5985,7 +5985,7 @@ void MESH_OT_mark_freestyle_face(wmOperatorType *ot)
 #endif
 
 /* Initialize loop normal data */
-static int init_point_normals(bContext *C, wmOperator *op, const wmEvent *event)
+static int init_point_normals(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
 {
 	Object *obedit = CTX_data_edit_object(C);
 	BMesh *bm = BKE_editmesh_from_object(obedit)->bm;
@@ -5999,7 +5999,7 @@ static int init_point_normals(bContext *C, wmOperator *op, const wmEvent *event)
 	return ld->totloop;
 }
 
-static void apply_point_normals(bContext *C, wmOperator *op, const wmEvent *event, float target[3])
+static void apply_point_normals(bContext *C, wmOperator *op, const wmEvent *UNUSED(event), float target[3])
 {
 	Object *obedit = CTX_data_edit_object(C);
 	BMesh *bm = BKE_editmesh_from_object(obedit)->bm;
@@ -6116,7 +6116,6 @@ static int edbm_point_normals_modal(bContext *C, wmOperator *op, const wmEvent *
 	BMEditMesh *em = BKE_editmesh_from_object(obedit);
 	BMesh *bm = em->bm;
 	float target[3];
-	int i = 0;
 
 	bool handled = false;
 	PropertyRNA *prop = RNA_struct_find_property(op->ptr, "target_location");
@@ -6140,7 +6139,6 @@ static int edbm_point_normals_modal(bContext *C, wmOperator *op, const wmEvent *
 			handled = true;
 		}
 		if (event->type == RIGHTMOUSE) {
-
 			view3d_operator_needs_opengl(C);
 			bool retval = EDBM_select_pick(C, event->mval, false, false, false);
 			if (!retval) {
@@ -6153,62 +6151,63 @@ static int edbm_point_normals_modal(bContext *C, wmOperator *op, const wmEvent *
 			handled = true;
 		}
 		else if (event->type == LKEY) {
-
 			switch (v3d->around) {
-			case V3D_AROUND_CENTER_BOUNDS:
-				/* calculateCenterBound */
-			{
-				float min[3], max[3];
-				BM_ITER_MESH(v, &viter, bm, BM_VERTS_OF_MESH) {
-					if (BM_elem_flag_test(v, BM_ELEM_SELECT)) {
-						if (i) {
-							minmax_v3v3_v3(min, max, v->co);
+				case V3D_AROUND_CENTER_BOUNDS:  /* calculateCenterBound */
+				{
+					float min[3], max[3];
+					int i = 0;
+					BM_ITER_MESH(v, &viter, bm, BM_VERTS_OF_MESH) {
+						if (BM_elem_flag_test(v, BM_ELEM_SELECT)) {
+							if (i) {
+								minmax_v3v3_v3(min, max, v->co);
+							}
+							else {
+								copy_v3_v3(min, v->co);
+								copy_v3_v3(max, v->co);
+							}
+							i++;
 						}
-						else {
-							copy_v3_v3(min, v->co);
-							copy_v3_v3(max, v->co);
+					}
+					mid_v3_v3v3(target, min, max);
+					add_v3_v3(target, obedit->loc);
+					RNA_property_float_set_array(op->ptr, prop, target);
+					break;
+				}
+
+				case V3D_AROUND_CENTER_MEAN:
+				{
+					zero_v3(target);
+					int i = 0;
+					BM_ITER_MESH(v, &viter, bm, BM_VERTS_OF_MESH) {
+						if (BM_elem_flag_test(v, BM_ELEM_SELECT)) {
+							add_v3_v3(target, v->co);
+							add_v3_v3(target, obedit->loc);
+							i++;
 						}
-						i++;
 					}
+					mul_v3_fl(target, 1.0f / (float)i);
+					RNA_property_float_set_array(op->ptr, prop, target);
+					break;
 				}
-				mid_v3_v3v3(target, min, max);
-				add_v3_v3(target, obedit->loc);
-				RNA_property_float_set_array(op->ptr, prop, target);
-			}
-			break;
 
-			case V3D_AROUND_CENTER_MEAN:
-				zero_v3(target);
-				
-				BM_ITER_MESH(v, &viter, bm, BM_VERTS_OF_MESH) {
-					if (BM_elem_flag_test(v, BM_ELEM_SELECT)) {
-						add_v3_v3(target, v->co);
-						add_v3_v3(target, obedit->loc);
-						i++;
+				case V3D_AROUND_CURSOR:
+					copy_v3_v3(target, ED_view3d_cursor3d_get(scene, v3d));
+					RNA_property_float_set_array(op->ptr, prop, target);
+					break;
+
+				case V3D_AROUND_ACTIVE:
+					if (!ED_object_editmode_calc_active_center(obedit, false, target)) {
+						point_normals_free(C, op, false);
+						return OPERATOR_CANCELLED;
 					}
-				}
-				mul_v3_fl(target, 1.0f / (float)i);
-				RNA_property_float_set_array(op->ptr, prop, target);
-				break;
+					add_v3_v3(target, obedit->loc);
+					RNA_property_float_set_array(op->ptr, prop, target);
+					break;
 
-			case V3D_AROUND_CURSOR:
-				copy_v3_v3(target, ED_view3d_cursor3d_get(scene, v3d));
-				RNA_property_float_set_array(op->ptr, prop, target);
-				break;
-
-			case V3D_AROUND_ACTIVE:
-				if (!ED_object_editmode_calc_active_center(obedit, false, target)) {
+				default:
+					BKE_report(op->reports, RPT_ERROR, "Does not support Indivisual Origin as pivot");
 					point_normals_free(C, op, false);
 					return OPERATOR_CANCELLED;
-				}
-				add_v3_v3(target, obedit->loc);
-				RNA_property_float_set_array(op->ptr, prop, target);
-				break;
-
-			default:
-				BKE_report(op->reports, RPT_ERROR, "Does not support Indivisual Origin as pivot");
-				point_normals_free(C, op, false);
-				return OPERATOR_CANCELLED;
 			}
 			handled = true;
 		}
@@ -6274,9 +6273,6 @@ static int edbm_point_normals_modal(bContext *C, wmOperator *op, const wmEvent *
 
 static int edbm_point_normals_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
-	Object *obedit = CTX_data_edit_object(C);
-	BMesh *bm = BKE_editmesh_from_object(obedit)->bm;
-
 	if (!init_point_normals(C, op, event)) {
 		point_normals_free(C, op, false);
 		return OPERATOR_CANCELLED;
@@ -6285,8 +6281,9 @@ static int edbm_point_normals_invoke(bContext *C, wmOperator *op, const wmEvent 
 	WM_event_add_modal_handler(C, op);
 
 	char header[UI_MAX_DRAW_STR];
-	BLI_snprintf(header, sizeof(header), IFACE_("L Key to use Pivot as target, M Key to point to mouse, O Key to point to object origin, "
-		"Left Click to point to new cursor location, Right Click on mesh to point to mesh"));
+	BLI_snprintf(header, sizeof(header),
+	             IFACE_("L Key to use Pivot as target, M Key to point to mouse, O Key to point to object origin, "
+	                    "Left Click to point to new cursor location, Right Click on mesh to point to mesh"));
 
 	ED_area_headerprint(CTX_wm_area(C), header);
 
@@ -6308,9 +6305,12 @@ static int edbm_point_normals_exec(bContext *C, wmOperator *op)
 	}
 	float target[3];
 
-	bool point_away = RNA_boolean_get(op->ptr, "point_away"), align = RNA_boolean_get(op->ptr, "align");
+#if 0  /* UNUSED */
+	const bool point_away = RNA_boolean_get(op->ptr, "point_away");
+#endif
+	const bool align = RNA_boolean_get(op->ptr, "align");
 
-	if (align) {								/* Set TransData loc to center loc if align true */
+	if (align) {  /* Set TransData loc to center loc if align true */
 		float *center = MEM_mallocN(sizeof(*center) * 3, "__func__");
 		LoopNormalData *ld = op->customdata;
 		TransDataLoopNormal *t = ld->normal;
@@ -6404,7 +6404,7 @@ static void custom_loops_tag(BMesh *bm)
 	}
 }
 
-static bool merge_loop(bContext *C, wmOperator *op, LoopNormalData *ld)
+static bool merge_loop(bContext *C, wmOperator *UNUSED(op), LoopNormalData *ld)
 {
 	Object *obedit = CTX_data_edit_object(C);
 	BMEditMesh *em = BKE_editmesh_from_object(obedit);
@@ -6455,7 +6455,7 @@ static bool merge_loop(bContext *C, wmOperator *op, LoopNormalData *ld)
 	return true;
 }
 
-static bool split_loop(bContext *C, wmOperator *op, LoopNormalData *ld)
+static bool split_loop(bContext *C, wmOperator *UNUSED(op), LoopNormalData *UNUSED(ld))
 {
 	Object *obedit = CTX_data_edit_object(C);
 	BMEditMesh *em = BKE_editmesh_from_object(obedit);
@@ -6924,7 +6924,7 @@ void MESH_OT_custom_normal_tools(struct wmOperatorType *ot)
 	ot->prop = RNA_def_enum(ot->srna, "mode", normal_vector_tool_items, COPY, "Mode", "Mode of tools taking input from Interface");
 	RNA_def_property_flag(ot->prop, PROP_HIDDEN);
 
-	PropertyRNA *prop = RNA_def_boolean(ot->srna, "absolute", 0, "Absolute Coordinates", "Copy Absolute coordinates or Normal vector");
+	RNA_def_boolean(ot->srna, "absolute", 0, "Absolute Coordinates", "Copy Absolute coordinates or Normal vector");
 }
 
 static int edbm_set_normals_from_faces_exec(bContext *C, wmOperator *op)
@@ -6974,10 +6974,8 @@ static int edbm_set_normals_from_faces_exec(bContext *C, wmOperator *op)
 						short *clnors = BM_ELEM_CD_GET_VOID_P(l, cd_clnors_offset);
 						BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[loop_index], vnors[v_index], clnors);
 
-						while (loops) {
-							int loop_index = GET_INT_FROM_POINTER(loops->link);
-							BLI_BITMAP_ENABLE(loop_set, loop_index);
-							loops = loops->next;
+						for (; loops; loops = loops->next) {
+							BLI_BITMAP_ENABLE(loop_set, GET_INT_FROM_POINTER(loops->link));
 						}
 					}
 				}
@@ -7044,7 +7042,7 @@ static int edbm_smoothen_normals_exec(bContext *C, wmOperator *op)
 	TransDataLoopNormal *tld = ld->normal;
 
 	for (int i = 0; i < ld->totloop; i++, tld++) {
-		BMLoop *l = loop_at_index[tld->loop_index];
+		l = loop_at_index[tld->loop_index];
 		float loop_normal[3];
 
 		BM_ITER_ELEM(f, &fiter, l->v, BM_FACES_OF_VERT) {

@@ -4294,7 +4294,7 @@ static void initNormalRotation(TransInfo *t)
 }
 
 /* Works by getting custom normal from clnor_data, transform, then store */
-static void applyNormalRotation(TransInfo *t, const int mval[2])
+static void applyNormalRotation(TransInfo *t, const int UNUSED(mval[2]))
 {
 	BMEditMesh *em = BKE_editmesh_from_object(t->obedit);
 	BMesh *bm = em->bm;
