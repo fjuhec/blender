@@ -226,12 +226,14 @@ static int palette_new_gpencil_exec(bContext *C, wmOperator *UNUSED(op))
 	/* add new palette for use with active paletteslot */
 	bGPDpaletteref *palslot = BKE_gpencil_paletteslot_get_active(gpd);
 	if (palslot && palslot->palette) {
-		/* we need to replace the existing palette with a new one */
-		Palette *palette = BKE_palette_add(bmain, "Palette");
+		/* Replace the existing palette with a copy of the original datablock
+		 * (as done in the rest of Blender)
+		 */
+		Palette *palette = BKE_palette_copy(bmain, palslot->palette);
 		BKE_gpencil_paletteslot_set_palette(gpd, palslot, palette);
 	}
 	else {
-		/* just create everything that doesn't exist already */
+		/* Just create everything that doesn't exist already */
 		palslot = BKE_gpencil_paletteslot_validate(bmain, gpd);
 	}
 	
