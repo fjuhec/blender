@@ -753,7 +753,7 @@ bGPdata *BKE_gpencil_data_addnew(const char name[])
  *
  * \param array Flat array of point data values. Each entry has GP_PRIM_DATABUF_SIZE values
  */
-void BKE_gpencil_stroke_add_points(bGPDstroke *gps, float *array, int totpoints)
+void BKE_gpencil_stroke_add_points(bGPDstroke *gps, const float *array, const int totpoints)
 {
 	for (int i = 0; i < totpoints; i++) {
 		bGPDspoint *pt = &gps->points[i];
