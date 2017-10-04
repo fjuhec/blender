@@ -855,11 +855,16 @@ bGPDframe *BKE_gpencil_frame_duplicate(const bGPDframe *gpf_src)
 /* fix any null value in palettes (this must be removed in the future) */
 static void gpencil_fix_null_palette(const bContext *C, bGPDstroke *gps_src)
 {
+	bGPdata *gpd = CTX_data_gpencil_data(C);
 	Palette *tmp_palette = NULL;
 
 	tmp_palette = BKE_palette_get_active_from_context(C);
 	if (!tmp_palette) {
-		tmp_palette = BKE_palette_add_gpencil(C);
+		bGPDpaletteref *palslot;
+		
+		palslot = BKE_gpencil_paletteslot_addnew(CTX_data_main(C), gpd,
+			                                     "Auto-Generated Palette");
+		tmp_palette = palslot->palette;
 	}
 
 	gps_src->palette = tmp_palette;
@@ -1545,6 +1550,21 @@ bGPDpaletteref *BKE_gpencil_paletteslot_add(bGPdata *gpd, Palette *palette)
 	
 	/* return new slot */
 	return palslot;
+}
+
+/* Wrapper for BKE_gpencil_paletteslot_add() to add a new Palette + slot, 
+ * and set all the usercounts correctly
+ */
+bGPDpaletteref *BKE_gpencil_paletteslot_addnew(Main *bmain, bGPdata *gpd, char name[MAX_ID_NAME - 2])
+{
+	/* create the palette first */
+	Palette *palette = BKE_palette_add(bmain, name);
+	
+	/* lower the usercount, as assigning to the slot will add its own instead */
+	id_us_min(&palette->id);
+	
+	/* create and return the new slot */
+	return BKE_gpencil_paletteslot_add(gpd, palette);
 }
 
 /* Get active palette slot, and add all default settings if we don't find anything */
