@@ -983,6 +983,23 @@ void BKE_gpencil_copy_data(Main *UNUSED(bmain), bGPdata *gpd_dst, const bGPdata 
 		bGPDlayer *gpl_dst = BKE_gpencil_layer_duplicate(gpl_src);  /* TODO here too could add unused flags... */
 		BLI_addtail(&gpd_dst->layers, gpl_dst);
 	}
+	
+	/* copy palette slots */
+	BLI_listbase_clear(&gpd_dst->palette_slots);
+	for (const bGPDpaletteref *palslot_src = gpd_src->palette_slots.first; palslot_src; palslot_src = palslot_src->next) {
+		bGPDpaletteref *palslot_dst = MEM_dupallocN(palslot_src);
+		
+		/* TODO: Separate out into separate function, and make use of LIB_ID_COPY flags? */
+		if (palslot_dst->palette) {
+			/* XXX: Better safe than sorry... at worst, usercount won't go down,
+			 * and the user has to reload?
+			 */
+			id_us_plus(&palslot_dst->palette->id);
+		}
+		palslot_dst->next = palslot_dst->prev = NULL;
+		
+		BLI_addtail(&gpd_dst->palette_slots, palslot_dst);
+	}
 
 	/* copy palettes */
 	BLI_listbase_clear(&gpd_dst->palettes);
