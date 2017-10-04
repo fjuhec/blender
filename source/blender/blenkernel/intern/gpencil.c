@@ -722,16 +722,18 @@ bGPdata *BKE_gpencil_data_addnew(const char name[])
 	/* initial settings */
 	gpd->flag = (GP_DATA_DISPINFO | GP_DATA_EXPAND);
 	
-	/* for now, stick to view is also enabled by default
-	 * since this is more useful...
-	 */
+	/* general flags */
 	gpd->flag |= GP_DATA_VIEWALIGN;
+	
+	/* GP object specific settings */
 	gpd->flag |= GP_DATA_STROKE_SHOW_EDIT_LINES;
+	ARRAY_SET_ITEMS(gpd->line_color, 0.6f, 0.6f, 0.6f, 0.3f);
+	
 	gpd->xray_mode = GP_XRAY_3DSPACE;
 	gpd->batch_cache_data = NULL;
 	gpd->pixfactor = GP_DEFAULT_PIX_FACTOR;
-	ARRAY_SET_ITEMS(gpd->line_color, 0.6f, 0.6f, 0.6f, 0.3f);
-	/* onion-skinning settings */
+	
+	/* onion-skinning settings (datablock level) */
 	gpd->onion_flag |= (GP_ONION_GHOST_PREVCOL | GP_ONION_GHOST_NEXTCOL);
 	gpd->onion_flag |= GP_ONION_FADE;
 	gpd->onion_factor = 0.5f;
@@ -1545,7 +1547,9 @@ bGPDpaletteref *BKE_gpencil_paletteslot_validate(Main *bmain, bGPdata *gpd)
 	}
 	
 	/* ensure a palette exists */
-	/* XXX: use "active palette" instead of making a new one each time? */
+	/* XXX: use "active palette" instead of making a new one each time?
+	 *      (or use active one on "gp_object" in scene?)
+	 */
 	if (palslot->palette == NULL) {
 		/* NOTE: no need to increment user count when setting this one here,
 		 * as the db already has 2 users (1 from "Fake User", and the other
