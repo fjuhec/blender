@@ -162,6 +162,14 @@ void paint_update_brush_rake_rotation(struct UnifiedPaintSettings *ups, struct B
 
 void BKE_paint_stroke_get_average(struct Scene *scene, struct Object *ob, float stroke[3]);
 
+/* Used for both vertex color and weight paint */
+struct SculptVertexPaintGeomMap {
+	int *vert_map_mem;
+	struct MeshElemMap *vert_to_loop;
+	int *poly_map_mem;
+	struct MeshElemMap *vert_to_poly;
+};
+
 /* Session data (mode-specific) */
 
 typedef struct SculptSession {
@@ -207,10 +215,42 @@ typedef struct SculptSession {
 
 	struct SculptStroke *stroke;
 	struct StrokeCache *cache;
+
+	union {
+		struct {
+			struct SculptVertexPaintGeomMap gmap;
+
+			/* For non-airbrush painting to re-apply from the original (MLoop aligned). */
+			unsigned int *previous_color;
+			float        *previous_accum;
+		} vpaint;
+
+		struct {
+			struct SculptVertexPaintGeomMap gmap;
+
+			/* Vertex aligned arrays of weights. */
+			float *previous_accum;
+			/* Keep track of how much each vertex has been painted (non-airbrush only). */
+			float *alpha_weight;
+
+			/* Needed to continuously re-apply over the same weights (VP_FLAG_SPRAY disabled).
+			 * Lazy initialize as needed (flag is set to 1 to tag it as uninitialized). */
+			struct MDeformVert *dvert_prev;
+		} wpaint;
+
+		//struct {
+		//ToDo: identify sculpt-only fields
+		//} sculpt;
+	} mode;
+	int mode_type;
+
+	/* This flag prevents PBVH from being freed when creating the vp_handle for texture paint. */
+	bool building_vp_handle;
 } SculptSession;
 
 void BKE_sculptsession_free(struct Object *ob);
 void BKE_sculptsession_free_deformMats(struct SculptSession *ss);
+void BKE_sculptsession_free_vwpaint_data(struct SculptSession *ss);
 void BKE_sculptsession_bm_to_me(struct Object *ob, bool reorder);
 void BKE_sculptsession_bm_to_me_for_render(struct Object *object);
 void BKE_sculpt_update_mesh_elements(
