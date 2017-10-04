@@ -132,6 +132,7 @@
 #include "BKE_effect.h"
 #include "BKE_fcurve.h"
 #include "BKE_global.h" // for G
+#include "BKE_gpencil.h"
 #include "BKE_group.h"
 #include "BKE_layer.h"
 #include "BKE_library.h" // for which_libbase
@@ -6538,6 +6539,9 @@ static void lib_link_gpencil(FileData *fd, Main *main)
 	/* Relink all datablock linked by GP datablock */
 	for (bGPdata *gpd = main->gpencil.first; gpd; gpd = gpd->id.next) {
 		if (gpd->id.tag & LIB_TAG_NEED_LINK) {
+			/* XXX: early 2.8, pre-paletteslot version patching */
+			bool *palettes_needed = MEM_callocN(sizeof(bool) * palette_count, "palettes_needed");
+			
 			/* Layers */
 			for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
 				/* Layer -> Parent References */
@@ -6547,6 +6551,7 @@ static void lib_link_gpencil(FileData *fd, Main *main)
 				for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
 					/* Strokes -> Palette References */
 					for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
+						/* Relink palette */
 						gps->palette = newlibadr(fd, gpd->id.lib, gps->palette);
 						
 						/* Relink color
@@ -6566,6 +6571,10 @@ static void lib_link_gpencil(FileData *fd, Main *main)
 								ARRAY_SET_ITEMS(gps->palcolor->rgb, 1.0f, 0.0f, 1.0f, 1.0f);
 							}
 						}
+						
+						
+						/* XXX: Temporary version-patching code for early 2.8 files without any palette slots */
+						if (i >= 0) palettes_needed[i] = true;
 					}
 				}
 			}
@@ -6574,7 +6583,20 @@ static void lib_link_gpencil(FileData *fd, Main *main)
 			for (bGPDpaletteref *palslot = gpd->palette_slots.first; palslot; palslot = palslot->next) {
 				palslot->palette = newlibadr_us(fd, gpd->id.lib, palslot->palette);
 			}
-
+			
+			
+			/* XXX: Temporary version-patching code for early 2.8 files without any palette slots */
+			if (BLI_listbase_is_empty(&gpd->palette_slots)) {
+				for (i = 0; i < palette_count; i++) {
+					if (palettes_needed[i]) {
+						BKE_gpencil_paletteslot_add(gpd, BLI_findlink(&main->palettes, i));
+					}
+				}
+			}
+			MEM_freeN(palettes_needed);
+			
+			
+			/* Datablock Stuff */
 			IDP_LibLinkProperty(gpd->id.properties, fd);
 			lib_link_animdata(fd, &gpd->id, gpd->adt);
 
