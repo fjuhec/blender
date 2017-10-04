@@ -1516,8 +1516,11 @@ bGPDpaletteref *BKE_gpencil_paletteslot_validate(Main *bmain, bGPdata *gpd)
 	/* ensure a palette exists */
 	/* XXX: use "active palette" instead of making a new one each time? */
 	if (palslot->palette == NULL) {
+		/* NOTE: no need to increment user count when setting this one here,
+		 * as the db already has 2 users (1 from "Fake User", and the other
+		 * is for whoever uses it now - i.e. the palette slot!)
+		 */
 		palslot->palette = BKE_palette_add(bmain, "Palette");
-		id_us_plus(&palslot->palette->id);
 	}
 	
 	/* ensure the palette has colors, and that the active one is usable */
