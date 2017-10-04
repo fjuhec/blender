@@ -257,12 +257,8 @@ void GPENCIL_OT_brush_select(struct wmOperatorType *ot);
 
 void GPENCIL_OT_sculpt_select(struct wmOperatorType *ot);
 
-void GPENCIL_OT_palette_add(struct wmOperatorType *ot);
-void GPENCIL_OT_palette_remove(struct wmOperatorType *ot);
-void GPENCIL_OT_palette_change(struct wmOperatorType *ot);
 
-void GPENCIL_OT_palettecolor_add(struct wmOperatorType *ot);
-void GPENCIL_OT_palettecolor_remove(struct wmOperatorType *ot);
+void GPENCIL_OT_convert_old_palettes(struct wmOperatorType *ot);
 
 /* undo stack ---------- */
 
@@ -276,9 +272,7 @@ void GPENCIL_OT_interpolate(struct wmOperatorType *ot);
 void GPENCIL_OT_interpolate_sequence(struct wmOperatorType *ot);
 void GPENCIL_OT_interpolate_reverse(struct wmOperatorType *ot);
 
-void GPENCIL_OT_convert_old_palettes(struct wmOperatorType *ot);
-
-/* vertex groups */
+/* vertex groups ------------ */
 void GPENCIL_OT_vertex_group_assign(struct wmOperatorType *ot);
 void GPENCIL_OT_vertex_group_remove_from(struct wmOperatorType *ot);
 void GPENCIL_OT_vertex_group_select(struct wmOperatorType *ot);
