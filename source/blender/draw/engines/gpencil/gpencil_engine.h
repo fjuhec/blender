@@ -232,6 +232,8 @@ typedef struct GPENCIL_e_data {
 	struct GPUTexture *painting_color_tx;
 
 	struct GPUTexture *gpencil_blank_texture;
+
+	float inv_viewport_size[2];
 } GPENCIL_e_data; /* Engine data */
 
 /* Gwn_Batch Cache */

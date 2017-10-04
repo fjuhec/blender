@@ -54,6 +54,8 @@ extern char datatoc_gpencil_wave_frag_glsl[];
 extern char datatoc_gpencil_pixel_frag_glsl[];
 extern char datatoc_gpencil_swirl_frag_glsl[];
 extern char datatoc_gpencil_painting_frag_glsl[];
+extern char datatoc_common_fxaa_lib_glsl[];
+extern char datatoc_gpu_shader_fullscreen_vert_glsl[];
 
 /* *********** STATIC *********** */
 static GPENCIL_e_data e_data = {NULL}; /* Engine data */
@@ -213,7 +215,12 @@ static void GPENCIL_cache_init(void *vedata)
 
 	/* full screen for mix zdepth*/
 	if (!e_data.gpencil_fullscreen_sh) {
-		e_data.gpencil_fullscreen_sh = DRW_shader_create_fullscreen(datatoc_gpencil_zdepth_mix_frag_glsl, NULL);
+		e_data.gpencil_fullscreen_sh = DRW_shader_create_with_lib(
+			datatoc_gpu_shader_fullscreen_vert_glsl, NULL,
+			datatoc_gpencil_zdepth_mix_frag_glsl,
+			datatoc_common_fxaa_lib_glsl,
+			"#define FXAA_ALPHA\n"
+			"#define USE_FXAA\n");
 	}
 	if (!e_data.gpencil_vfx_blur_sh) {
 		e_data.gpencil_vfx_blur_sh = DRW_shader_create_fullscreen(datatoc_gpencil_gaussian_blur_frag_glsl, NULL);
@@ -305,12 +312,16 @@ static void GPENCIL_cache_init(void *vedata)
 		}
 
 		/* we need a full screen pass to combine the result of zdepth */
+		copy_v2_v2(e_data.inv_viewport_size, DRW_viewport_size_get());
+		invert_v2(e_data.inv_viewport_size);
+
 		struct Gwn_Batch *quad = DRW_cache_fullscreen_quad_get();
 		psl->mix_pass = DRW_pass_create("GPencil Mix Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
 		DRWShadingGroup *mix_shgrp = DRW_shgroup_create(e_data.gpencil_fullscreen_sh, psl->mix_pass);
 		DRW_shgroup_call_add(mix_shgrp, quad, NULL);
 		DRW_shgroup_uniform_buffer(mix_shgrp, "strokeColor", &e_data.temp_fbcolor_color_tx);
 		DRW_shgroup_uniform_buffer(mix_shgrp, "strokeDepth", &e_data.temp_fbcolor_depth_tx);
+		DRW_shgroup_uniform_vec2(mix_shgrp, "rcpDimensions", e_data.inv_viewport_size, 1);
 
 		/* mix vfx pass */
 		struct Gwn_Batch *vfxquad = DRW_cache_fullscreen_quad_get();
@@ -319,6 +330,7 @@ static void GPENCIL_cache_init(void *vedata)
 		DRW_shgroup_call_add(mix_vfx_shgrp, vfxquad, NULL);
 		DRW_shgroup_uniform_buffer(mix_vfx_shgrp, "strokeColor", &e_data.vfx_fbcolor_color_tx_a);
 		DRW_shgroup_uniform_buffer(mix_vfx_shgrp, "strokeDepth", &e_data.vfx_fbcolor_depth_tx_a);
+		DRW_shgroup_uniform_vec2(mix_vfx_shgrp, "rcpDimensions", e_data.inv_viewport_size, 1);
 
 		/* mix pass no blend */
 		struct Gwn_Batch *quad_noblend = DRW_cache_fullscreen_quad_get();
