@@ -861,13 +861,14 @@ void GPENCIL_OT_stroke_arrange(wmOperatorType *ot)
 	ot->idname = "GPENCIL_OT_stroke_arrange";
 	ot->description = "Arrange selected strokes up/down in the drawing order of the active layer";
 
-	/* api callbacks */
+	/* callbacks */
 	ot->exec = gp_stroke_arrange_exec;
 	ot->poll = gp_active_layer_poll;
 
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
-
+	
+	/* properties */
 	ot->prop = RNA_def_enum(ot->srna, "direction", slot_move, GP_STROKE_MOVE_UP, "Direction", "");
 }
 
@@ -961,14 +962,18 @@ void GPENCIL_OT_stroke_change_palette(wmOperatorType *ot)
 	ot->idname = "GPENCIL_OT_stroke_change_palette";
 	ot->description = "Move strokes to active palette";
 
-	/* api callbacks */
+	/* callbacks */
 	ot->exec = gp_stroke_change_palette_exec;
 	ot->poll = gp_active_layer_poll;
-
+	
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+	
 	/* properties */
 	ot->prop = RNA_def_enum(ot->srna, "type", palette_move_type, GP_MOVE_PALETTE_SELECT, "Type", "");
 
 }
+
 /* ******************* Move Stroke to new color ************************** */
 
 static int gp_stroke_change_color_exec(bContext *C, wmOperator *UNUSED(op))
@@ -1027,9 +1032,12 @@ void GPENCIL_OT_stroke_change_color(wmOperatorType *ot)
 	ot->idname = "GPENCIL_OT_stroke_change_color";
 	ot->description = "Move selected strokes to active color";
 
-	/* api callbacks */
+	/* callbacks */
 	ot->exec = gp_stroke_change_color_exec;
 	ot->poll = gp_active_layer_poll;
+	
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
 /* ******************* Lock color of non selected Strokes colors ************************** */
@@ -1089,6 +1097,9 @@ void GPENCIL_OT_stroke_lock_color(wmOperatorType *ot)
 	/* api callbacks */
 	ot->exec = gp_stroke_lock_color_exec;
 	ot->poll = gp_active_layer_poll;
+	
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
 /* ************************************************ */
@@ -1122,11 +1133,12 @@ void GPENCIL_OT_brush_add(wmOperatorType *ot)
 	ot->idname = "GPENCIL_OT_brush_add";
 	ot->description = "Add new Grease Pencil drawing brush for the active Grease Pencil data-block";
 
-	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
-
 	/* callbacks */
 	ot->exec = gp_brush_add_exec;
 	ot->poll = gp_add_poll;
+	
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
 /* ******************* Remove Active Brush ************************* */
@@ -1171,11 +1183,12 @@ void GPENCIL_OT_brush_remove(wmOperatorType *ot)
 	ot->idname = "GPENCIL_OT_brush_remove";
 	ot->description = "Remove active Grease Pencil drawing brush";
 
-	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
-
 	/* callbacks */
 	ot->exec = gp_brush_remove_exec;
 	ot->poll = gp_active_brush_poll;
+	
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
 /* ********************** Change Brush ***************************** */
