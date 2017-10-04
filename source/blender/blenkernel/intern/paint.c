@@ -371,6 +371,9 @@ Palette *BKE_palette_get_active_from_context(const bContext *C)
 	Object *ob = CTX_data_active_object(C);
 	Palette *palette = NULL;
 
+	/* XXX: Object detection fails in some contexts
+	 * (e.g. Properties Editor when drawing UI)
+	 */
 	if ((ob) && (ob->type == OB_GPENCIL)) {
 		bGPdata *gpd = CTX_data_gpencil_data(C);
 		bGPDpaletteref *palslot = BKE_gpencil_paletteslot_get_active(gpd);

@@ -97,10 +97,10 @@ class MATERIAL_PT_gpencil_palette_colors(Panel):
         layout = self.layout
         
         gpd = context.gpencil_data
-        slot = gpd.palette_slots[gpd.active_palette_index] # XXX
-        
-        #palette = context.active_palette
-        palette = slot.palette if slot else None
+        slot = gpd.active_palette_slot
+        #palette = slot.palette
+        palette = context.active_gpencil_palette
+        #assert(slot.palette == palette)
 
         row = layout.row()
         row.template_ID(slot, "palette", new="palette.new_gpencil")
@@ -118,7 +118,7 @@ class MATERIAL_PT_gpencil_palette_colors(Panel):
             col = row.column()
 
             sub = col.column(align=True)
-            sub.operator("palette.color_add", icon='ZOOMIN', text="").grease_pencil = True
+            sub.operator("palette.color_add", icon='ZOOMIN', text="")
             sub.operator("palette.color_delete", icon='ZOOMOUT', text="")
 
             palcol = context.active_palettecolor
@@ -147,12 +147,12 @@ class MATERIAL_PT_gpencil_palette_strokecolor(Panel):
 
     @classmethod
     def poll(cls, context):
-        return context.object and context.object.type == 'GPENCIL' and context.active_palettecolor
+        return context.object and context.object.type == 'GPENCIL' and context.active_gpencil_palettecolor
 
     @staticmethod
     def draw(self, context):
         layout = self.layout
-        palette = context.active_palette
+        palette = context.active_gpencil_palette
         pcolor = palette.colors.active
 
         split = layout.split(percentage=1.0)
@@ -193,12 +193,12 @@ class MATERIAL_PT_gpencil_palette_fillcolor(Panel):
 
     @classmethod
     def poll(cls, context):
-        return context.object and context.object.type == 'GPENCIL' and context.active_palettecolor
+        return context.object and context.object.type == 'GPENCIL' and context.active_gpencil_palettecolor
  
     @staticmethod
     def draw(self, context):
         layout = self.layout
-        palette = context.active_palette
+        palette = context.active_gpencil_palette
         pcolor = palette.colors.active
 
         # color settings

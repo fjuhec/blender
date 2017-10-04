@@ -1885,6 +1885,7 @@ void BKE_gpencil_palettecolor_delete_allstrokes(bContext *C, PaletteColor *palco
 
 	Main *bmain = CTX_data_main(C);
 
+	/* TODO: Optimise this by only checking GP datablocks that reference the palette this comes from */
 	for (gpd = bmain->gpencil.first; gpd; gpd = gpd->id.next) {
 		for (gpl = gpd->layers.first; gpl; gpl = gpl->next) {
 			for (gpf = gpl->frames.first; gpf; gpf = gpf->next) {

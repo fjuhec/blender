@@ -214,12 +214,8 @@ static void PALETTE_OT_new(wmOperatorType *ot)
 
 static int palette_poll(bContext *C)
 {
-	Paint *paint = BKE_paint_get_active_from_context(C);
-
-	if (paint && paint->palette != NULL)
-		return true;
-
-	return false;
+	Palette *palette = BKE_palette_get_active_from_context(C);
+	return (palette != NULL);
 }
 
 static int palette_new_gpencil_exec(bContext *C, wmOperator *UNUSED(op))
@@ -316,18 +312,22 @@ static void PALETTE_OT_lock_layer(wmOperatorType *ot)
 static int palette_color_add_exec(bContext *C, wmOperator *op)
 {
 	Scene *scene = CTX_data_scene(C);
+	Palette *palette = BKE_palette_get_active_from_context(C);
 	Paint *paint = BKE_paint_get_active_from_context(C);
-	Brush *brush = paint->brush;
-	PaintMode mode = BKE_paintmode_get_active_from_context(C);
-	Palette *palette = paint->palette;
 	PaletteColor *color;
 
-	const bool grease_pencil = RNA_boolean_get(op->ptr, "grease_pencil");
-
+	/* Add a new color and make it active */
 	color = BKE_palette_color_add(palette);
 	palette->active_color = BLI_listbase_count(&palette->colors) - 1;
 
-	if (!grease_pencil) {
+	/* For Grease Pencil, the active palette won't be the one the current
+	 * Paint context stores (as it comes from the active Palette Slot on the
+	 * current GP Object instead)
+	 */
+	if (palette != paint->palette) {
+		PaintMode mode = BKE_paintmode_get_active_from_context(C);
+		Brush *brush = paint->brush;
+		
 		if (ELEM(mode, ePaintTextureProjective, ePaintTexture2D, ePaintVertex)) {
 			copy_v3_v3(color->rgb, BKE_brush_color_get(scene, brush));
 			color->value = 0.0;
@@ -337,9 +337,6 @@ static int palette_color_add_exec(bContext *C, wmOperator *op)
 			color->value = brush->weight;
 		}
 	}
-	
-	/* disable option to avoid errors */
-	RNA_boolean_set(op->ptr, "grease_pencil", false);
 
 	return OPERATOR_FINISHED;
 }
@@ -354,24 +351,23 @@ static void PALETTE_OT_color_add(wmOperatorType *ot)
 	/* api callbacks */
 	ot->exec = palette_color_add_exec;
 	ot->poll = palette_poll;
+
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
-
-	/* grease pencil */
-	RNA_def_boolean(ot->srna, "grease_pencil", false, "Grease Pencil", "The color is for grease pencil mode");
 }
 
 
 static int palette_color_delete_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	Paint *paint = BKE_paint_get_active_from_context(C);
-	Palette *palette = paint->palette;
+	Palette *palette = BKE_palette_get_active_from_context(C);
 	PaletteColor *color = BLI_findlink(&palette->colors, palette->active_color);
 
 	if (color) {
-		/* delete the gp strokes */
+		/* delete any gp strokes using this color */
 		BKE_gpencil_palettecolor_delete_allstrokes(C, color);
-
+		
+		/* delete the active color */
 		BKE_palette_color_remove(palette, color);
 	}
 
@@ -396,6 +392,7 @@ static void PALETTE_OT_color_delete(wmOperatorType *ot)
 }
 
 /* ********************** Isolate palette color **************************** */
+
 static int palettecolor_isolate_exec(bContext *C, wmOperator *op)
 {
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
@@ -474,6 +471,7 @@ static void PALETTE_OT_palettecolor_isolate(wmOperatorType *ot)
 }
 
 /* *********************** Hide Palette colors ******************************** */
+
 static int palettecolor_hide_exec(bContext *C, wmOperator *op)
 {
 	Palette *palette = BKE_palette_get_active_from_context(C);
@@ -525,6 +523,7 @@ static void PALETTE_OT_palettecolor_hide(wmOperatorType *ot)
 }
 
 /* ********************** Show All Colors ***************************** */
+
 static int palettecolor_reveal_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	Palette *palette = BKE_palette_get_active_from_context(C);
@@ -561,6 +560,7 @@ static void PALETTE_OT_palettecolor_reveal(wmOperatorType *ot)
 }
 
 /* ***************** Lock/Unlock All Palette colors ************************ */
+
 static int palettecolor_lock_all_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	Palette *palette = BKE_palette_get_active_from_context(C);
@@ -597,6 +597,7 @@ static void PALETTE_OT_palettecolor_lock_all(wmOperatorType *ot)
 }
 
 /* -------------------------- */
+
 static int palettecolor_unlock_all_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	Palette *palette = BKE_palette_get_active_from_context(C);
@@ -633,6 +634,7 @@ static void PALETTE_OT_palettecolor_unlock_all(wmOperatorType *ot)
 }
 
 /* ******************* Move Color Up/Down ************************** */
+
 enum {
 	PALETTE_COLOR_MOVE_UP = -1,
 	PALETTE_COLOR_MOVE_DOWN = 1
@@ -682,6 +684,7 @@ static void PALETTE_OT_palettecolor_move(wmOperatorType *ot)
 }
 
 /* ***************** Select all strokes using Palette color ************************ */
+
 static int palettecolor_select_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
@@ -740,6 +743,7 @@ static void PALETTE_OT_palettecolor_select(wmOperatorType *ot)
 }
 
 /* ***************** Duplicate Palette color ************************ */
+
 static int palettecolor_duplicate_exec(bContext *C, wmOperator *op)
 {
 	Palette *palette = BKE_palette_get_active_from_context(C);

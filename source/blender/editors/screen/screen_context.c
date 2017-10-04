@@ -480,17 +480,23 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 		}
 	}
 	else if (CTX_data_equals(member, "active_gpencil_palette")) {
-		Palette *palette = BKE_palette_get_active_from_context(C);
-
-		if (palette) {
+		/* XXX: see comment for gpencil_data case... */
+		bGPdata *gpd = ED_gpencil_data_get_active_direct((ID *)sc, scene, sa, obact);
+		bGPDpaletteref *palslot = BKE_gpencil_paletteslot_get_active(gpd);
+		
+		if (palslot && palslot->palette) {
+			Palette *palette = palslot->palette;
 			CTX_data_pointer_set(result, &palette->id, &RNA_Palette, palette);
 			return 1;
 		}
 	}
 	else if (CTX_data_equals(member, "active_gpencil_palettecolor")) {
-		Palette *palette = BKE_palette_get_active_from_context(C);
-
-		if (palette) {
+		/* XXX: see comment for gpencil_data case... */
+		bGPdata *gpd = ED_gpencil_data_get_active_direct((ID *)sc, scene, sa, obact);
+		bGPDpaletteref *palslot = BKE_gpencil_paletteslot_get_active(gpd);
+		
+		if (palslot && palslot->palette) {
+			Palette *palette = palslot->palette;
 			PaletteColor *palcolor = BKE_palette_color_get_active(palette);
 			if (palcolor) {
 				CTX_data_pointer_set(result, &palette->id, &RNA_PaletteColor, palcolor);
@@ -499,7 +505,6 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 		}
 	}
 	else if (CTX_data_equals(member, "active_gpencil_brush")) {
-		/* XXX: see comment for gpencil_data case... */
 		bGPDbrush *brush = BKE_gpencil_brush_getactive(scene->toolsettings);
 
 		if (brush) {

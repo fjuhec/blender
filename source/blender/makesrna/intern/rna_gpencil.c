@@ -170,6 +170,27 @@ static void rna_GPencil_active_palette_index_range(PointerRNA *ptr, int *min, in
 	*max = BLI_listbase_count(&gpd->palette_slots) - 1;
 }
 
+
+static PointerRNA rna_GPencil_active_palette_slot_get(PointerRNA *ptr)
+{
+	bGPdata *gpd = (bGPdata *)ptr->id.data;
+	bGPDpaletteref *palslot = BKE_gpencil_paletteslot_get_active(gpd);
+	
+	return rna_pointer_inherit_refine(ptr, &RNA_GPencilPaletteSlot, palslot);
+}
+
+static void rna_GPencil_active_palette_slot_set(PointerRNA *ptr, PointerRNA value)
+{
+	bGPdata *gpd = (bGPdata *)ptr->id.data;
+	bGPDpaletteref *palslot = value.data;
+	int index = BLI_findindex(&gpd->palette_slots, palslot);
+	
+	if (index >= 0) {
+		gpd->active_palette_slot = index;
+	}
+}
+
+
 static char *rna_GPencilLayer_path(PointerRNA *ptr)
 {
 	bGPDlayer *gpl = (bGPDlayer *)ptr->data;
@@ -1377,6 +1398,7 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
 	/* Animation Data */
 	rna_def_animdata_common(srna);
 	
+	
 	/* Palette Slots */
 	prop = RNA_def_property(srna, "palette_slots", PROP_COLLECTION, PROP_NONE);
 	RNA_def_property_collection_sdna(prop, NULL, "palette_slots", NULL);
@@ -1392,6 +1414,14 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Active Palette Index", "Index of active palette slot");
 	RNA_def_property_update(prop, NC_MATERIAL, NULL);
 	
+	prop = RNA_def_property(srna, "active_palette_slot", PROP_POINTER, PROP_NONE);
+	RNA_def_property_struct_type(prop, "GPencilPaletteSlot");
+	RNA_def_property_pointer_funcs(prop, "rna_GPencil_active_palette_slot_get",
+	                               "rna_GPencil_active_palette_slot_set", NULL, NULL);
+	RNA_def_property_flag(prop, PROP_EDITABLE);
+	//RNA_def_property_editable_func(prop, "rna_GPencil_active_palette_slot_editable");
+	RNA_def_property_ui_text(prop, "Active Palette Slot", "Active palette slot being displayed");
+	RNA_def_property_update(prop, NC_MATERIAL, NULL);
 	
 	
 	/* xray modes */
