@@ -155,11 +155,11 @@ ID *BKE_override_create_from(Main *bmain, ID *reference_id)
 	}
 	id_us_min(local_id);
 
-	/* Remapping *before* defining override (this will have to be fixed btw, remapping of ref pointer...). */
-	BKE_libblock_remap(bmain, reference_id, local_id, ID_REMAP_SKIP_INDIRECT_USAGE);
-
 	BKE_override_init(local_id, reference_id);
 	local_id->flag |= LIB_AUTOOVERRIDE;
+
+	/* Remapping, we obviously only want to affect local data (and not our own reference pointer to overriden ID). */
+	BKE_libblock_remap(bmain, reference_id, local_id, ID_REMAP_SKIP_INDIRECT_USAGE | ID_REMAP_SKIP_STATIC_OVERRIDE);
 
 	return local_id;
 }
