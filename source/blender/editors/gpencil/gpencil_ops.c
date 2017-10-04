@@ -685,6 +685,10 @@ void ED_operatortypes_gpencil(void)
 	WM_operatortype_append(GPENCIL_OT_brush_select);
 
 	WM_operatortype_append(GPENCIL_OT_sculpt_select);
+	
+	/* palette slots */
+	WM_operatortype_append(GPENCIL_OT_palette_slot_add);
+	WM_operatortype_append(GPENCIL_OT_palette_slot_remove);
 
 	/* conversion of old palettes */
 	WM_operatortype_append(GPENCIL_OT_convert_old_palettes);

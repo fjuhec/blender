@@ -1103,6 +1103,88 @@ void GPENCIL_OT_stroke_lock_color(wmOperatorType *ot)
 }
 
 /* ************************************************ */
+/* Palette Slot Operators */
+
+/* ********************* Add Palette SLot ************************* */
+
+static int gp_paletteslot_add_exec(bContext *C, wmOperator *UNUSED(op))
+{
+	bGPdata *gpd = CTX_data_gpencil_data(C);
+	
+	/* just add an empty slot */
+	BKE_gpencil_paletteslot_add(gpd, NULL);
+	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_ADDED, NULL);
+	
+	return OPERATOR_FINISHED;
+}
+
+void GPENCIL_OT_palette_slot_add(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Add Palette Slot";
+	ot->idname = "GPENCIL_OT_palette_slot_add";
+	ot->description = "Add new Palette Slot to refer to a Palette used by this Grease Pencil object";
+	
+	/* callbacks */
+	ot->exec = gp_paletteslot_add_exec;
+	ot->poll = gp_active_layer_poll; // XXX
+	
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+}
+
+/* ******************* Remove Palette Slot *********************** */
+
+static int gp_paletteslot_active_poll(bContext *C)
+{
+	bGPdata *gpd = ED_gpencil_data_get_active(C);
+	bGPDpaletteref *palslot = BKE_gpencil_paletteslot_get_active(gpd);
+
+	return (palslot != NULL);
+}
+
+static int gp_paletteslot_remove_exec(bContext *C, wmOperator *op)
+{
+	bGPdata *gpd = ED_gpencil_data_get_active(C);
+	bGPDpaletteref *palslot = BKE_gpencil_paletteslot_get_active(gpd);
+	
+	/* 1) Check if palette is still used anywhere */
+	if (BKE_gpencil_paletteslot_has_users(gpd, palslot)) {
+		/* XXX: Change strokes to the new active slot's palette instead? */
+		BKE_report(op->reports, RPT_ERROR, "Cannot remove, Palette still in use");
+		return OPERATOR_CANCELLED;
+	}
+	
+	/* 2) Remove the slot (will unlink user and free it) */
+	if ((palslot->next == NULL) && (gpd->active_palette_slot > 0)) {
+		/* fix active slot index */
+		gpd->active_palette_slot--;
+	}
+	
+	BKE_gpencil_palette_slot_free(gpd, palslot);
+		
+	/* updates */
+	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_REMOVED, NULL);
+	return OPERATOR_FINISHED;
+}
+
+void GPENCIL_OT_palette_slot_remove(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Remove Palette Slot";
+	ot->idname = "GPENCIL_OT_palette_slot_remove";
+	ot->description = "Remove active Palette Slot to refer to a Palette used by this Grease Pencil object";
+	
+	/* callbacks */
+	ot->exec = gp_paletteslot_remove_exec;
+	ot->poll = gp_paletteslot_active_poll;
+	
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+}
+
+
+/* ************************************************ */
 /* Drawing Brushes Operators */
 
 /* ******************* Add New Brush ************************ */

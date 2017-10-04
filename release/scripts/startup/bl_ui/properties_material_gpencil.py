@@ -75,8 +75,8 @@ class MATERIAL_PT_gpencil_palette_slots(Panel):
         col = row.column()
 
         sub = col.column(align=True)
-        sub.operator("palette.color_add", icon='ZOOMIN', text="").grease_pencil = True
-        sub.operator("palette.color_delete", icon='ZOOMOUT', text="")
+        sub.operator("gpencil.palette_slot_add", icon='ZOOMIN', text="")
+        sub.operator("gpencil.palette_slot_remove", icon='ZOOMOUT', text="")
 
         sub = col.column(align=True)
         sub.operator_menu_enum("gpencil.stroke_change_palette", text="", icon='ARROW_LEFTRIGHT', property="type")

@@ -257,6 +257,8 @@ void GPENCIL_OT_brush_select(struct wmOperatorType *ot);
 
 void GPENCIL_OT_sculpt_select(struct wmOperatorType *ot);
 
+void GPENCIL_OT_palette_slot_add(struct wmOperatorType *ot);
+void GPENCIL_OT_palette_slot_remove(struct wmOperatorType *ot);
 
 void GPENCIL_OT_convert_old_palettes(struct wmOperatorType *ot);
 

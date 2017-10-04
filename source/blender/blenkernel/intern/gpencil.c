@@ -1463,6 +1463,34 @@ bGPDpaletteref *BKE_gpencil_paletteslot_find(bGPdata *gpd, const Palette *palett
 	return NULL;
 }
 
+/* Check if palette is used by any strokes... */
+bool BKE_gpencil_paletteslot_has_users(const bGPdata *gpd, const bGPDpaletteref *palslot)
+{
+	Palette *palette;
+	bGPDlayer *gpl;
+	bGPDframe *gpf;
+	bGPDstroke *gps;
+	
+	/* quick-exit checks */
+	if (ELEM(NULL, gpd, palslot, palslot->palette))
+		return false;
+	
+	palette = palslot->palette;
+	
+	/* check if any strokes use this */
+	for (gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+		for (gpf = gpl->frames.first; gpf; gpf = gpf->next) {
+			for (gps = gpf->strokes.first; gps; gps = gps->next) {
+				if (gps->palette == palette)
+					return true;
+			}
+		}
+	}
+	
+	/* nothing found */
+	return false;
+}
+
 /* Add Slots --------------------------------------- */
 
 /* Create a new palette slot (and optionally assign a palette to it) */
@@ -1492,6 +1520,9 @@ bGPDpaletteref *BKE_gpencil_paletteslot_add(bGPdata *gpd, Palette *palette)
 		palslot->palette = palette;
 		id_us_plus(&palette->id);
 	}
+	
+	/* update active palette */
+	gpd->active_palette_slot = BLI_listbase_count(&gpd->palette_slots) - 1;
 	
 	/* return new slot */
 	return palslot;

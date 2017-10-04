@@ -737,6 +737,7 @@ static void rna_def_gpencil_palette_slot(BlenderRNA *brna)
 	RNA_def_struct_sdna(srna, "bGPDpaletteref");
 	RNA_def_struct_path_func(srna, "rna_GPencilPaletteSlot_path");
 	RNA_def_struct_ui_text(srna, "Grease Pencil Palette Slot", "Reference for a Palette used in Grease Pencil datablock");
+	RNA_def_struct_ui_icon(srna, ICON_COLOR);
 	
 	prop = RNA_def_property(srna, "name", PROP_STRING, PROP_NONE);
 	RNA_def_property_string_funcs(prop, "rna_GPencilPaletteSlot_name_get", "rna_GPencilPaletteSlot_name_length", NULL);
