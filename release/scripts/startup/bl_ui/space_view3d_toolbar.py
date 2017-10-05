@@ -1132,6 +1132,8 @@ class VIEW3D_PT_tools_brush(Panel, View3DPaintPanel):
             row = col.row()
             row.prop(brush, "use_frontface", text="Front Faces Only")
 
+            col.row().prop(brush, "use_projected", expand=True)
+
             # direction
             col.separator()
             col.row().prop(brush, "direction", expand=True)
@@ -1186,6 +1188,8 @@ class VIEW3D_PT_tools_brush(Panel, View3DPaintPanel):
                 col.prop(brush, "use_accumulate")
                 col.separator()
 
+            col.row().prop(brush, "use_projected")
+
             col = layout.column()
             col.prop(toolsettings, "use_auto_normalize", text="Auto Normalize")
             col.prop(toolsettings, "use_multipaint", text="Multi-Paint")
@@ -1217,8 +1221,11 @@ class VIEW3D_PT_tools_brush(Panel, View3DPaintPanel):
             # row.prop(brush, "use_pressure_jitter", toggle=True, text="")
             col.separator()
             col.prop(brush, "vertex_tool", text="Blend")
+
             col.prop(brush, "use_accumulate")
             col.prop(brush, "use_alpha")
+
+            col.row().prop("use_projected")
 
             col.separator()
             col.template_ID(settings, "palette", new="palette.new")
@@ -1812,8 +1819,6 @@ class VIEW3D_PT_tools_weightpaint_options(Panel, View3DPaintPanel):
         col = layout.column()
         col.label("Falloff:")
         row = col.row()
-        row.prop(wpaint, "falloff_shape", expand=True)
-        row = col.row()
         row.prop(wpaint, "use_backface_culling")
         row = col.row()
         row.prop(wpaint, "use_normal_falloff")
@@ -1854,8 +1859,6 @@ class VIEW3D_PT_tools_vertexpaint(Panel, View3DPaintPanel):
 
         col = layout.column()
         col.label("Falloff:")
-        row = col.row()
-        row.prop(vpaint, "falloff_shape", expand=True)
         row = col.row()
         row.prop(vpaint, "use_backface_culling")
         row = col.row()
