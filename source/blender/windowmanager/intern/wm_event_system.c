@@ -355,7 +355,7 @@ void wm_event_do_notifiers(bContext *C)
 					else if (note->data == ND_WORKSPACE_DELETE) {
 						WorkSpace *workspace = note->reference;
 
-						ED_workspace_delete(workspace, CTX_data_main(C), C, wm, win);   // XXX hrms, think this over!
+						ED_workspace_delete(workspace, CTX_data_main(C), C, wm);   // XXX hrms, think this over!
 						if (G.debug & G_DEBUG_EVENTS)
 							printf("%s: Workspace delete %p\n", __func__, workspace);
 					}

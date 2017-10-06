@@ -34,23 +34,24 @@ typedef enum {
 
 typedef struct Gwn_ShaderInput {
 	struct Gwn_ShaderInput* next;
-	const char* name;
+	uint32_t name_offset;
 	unsigned name_hash;
-	GLenum gl_type;
 	Gwn_UniformBuiltin builtin_type; // only for uniform inputs
-	GLint size;
+	GLenum gl_type; // only for attrib inputs
+	GLint size; // only for attrib inputs
 	GLint location;
 } Gwn_ShaderInput;
 
-#define GWN_NUM_SHADERINTERFACE_BUCKETS 1009
+#define GWN_NUM_SHADERINTERFACE_BUCKETS 257
 
 typedef struct Gwn_ShaderInterface {
-	uint16_t uniform_ct;
-	uint16_t attrib_ct;
-	Gwn_ShaderInput* uniform_buckets[GWN_NUM_SHADERINTERFACE_BUCKETS];
+	GLint program;
+	uint32_t name_buffer_offset;
 	Gwn_ShaderInput* attrib_buckets[GWN_NUM_SHADERINTERFACE_BUCKETS];
+	Gwn_ShaderInput* uniform_buckets[GWN_NUM_SHADERINTERFACE_BUCKETS];
+	Gwn_ShaderInput* ubo_buckets[GWN_NUM_SHADERINTERFACE_BUCKETS];
 	Gwn_ShaderInput* builtin_uniforms[GWN_NUM_UNIFORMS];
-	Gwn_ShaderInput inputs[0]; // dynamic size, uniforms followed by attribs
+	char* name_buffer;
 } Gwn_ShaderInterface;
 
 Gwn_ShaderInterface* GWN_shaderinterface_create(GLint program_id);
@@ -58,4 +59,5 @@ void GWN_shaderinterface_discard(Gwn_ShaderInterface*);
 
 const Gwn_ShaderInput* GWN_shaderinterface_uniform(const Gwn_ShaderInterface*, const char* name);
 const Gwn_ShaderInput* GWN_shaderinterface_uniform_builtin(const Gwn_ShaderInterface*, Gwn_UniformBuiltin);
+const Gwn_ShaderInput* GWN_shaderinterface_ubo(const Gwn_ShaderInterface*, const char* name);
 const Gwn_ShaderInput* GWN_shaderinterface_attr(const Gwn_ShaderInterface*, const char* name);
