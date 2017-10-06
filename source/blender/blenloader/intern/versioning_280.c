@@ -407,13 +407,13 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 				Palette *first = NULL;
 				for (bGPDpalette *oldpalette = gpd->palettes.first; oldpalette; oldpalette = oldpalette->next) {
 					/* create palette */
-					Palette *newpalette = BKE_palette_add(main, oldpalette->info);
+					bGPDpaletteref *palslot = BKE_gpencil_paletteslot_addnew(main, gpd, oldpalette->info);
+					Palette *newpalette = palslot->palette;
+					
 					/* save first to use later */
 					if (first == NULL) {
 						first = newpalette;
 					}
-					/* enable fake user by default */
-					id_fake_user_set(&newpalette->id);
 
 					for (bGPDpalettecolor *oldcolor = oldpalette->colors.first; oldcolor; oldcolor = oldcolor->next) {
 						PaletteColor *newcolor = BKE_palette_color_add_name(newpalette, oldcolor->info);
