@@ -329,6 +329,11 @@ struct uiBut {
 	uiBlock *block;
 };
 
+typedef struct uiButTab {
+	uiBut but;
+	struct wmOperatorType *unlink_ot;
+} uiButTab;
+
 typedef struct ColorPicker {
 	struct ColorPicker *next, *prev;
 	float color_data[3]; /* colr data may be HSV or HSL for now */

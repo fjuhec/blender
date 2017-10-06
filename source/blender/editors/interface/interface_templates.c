@@ -704,7 +704,7 @@ static void template_ID(
 
 static void template_ID_tabs(
         bContext *C, uiLayout *layout, TemplateID *template, StructRNA *type, int flag,
-        const char *newop, const char *UNUSED(openop), const char *UNUSED(unlinkop))
+        const char *newop, const char *UNUSED(openop), const char *unlinkop)
 {
 	const ARegion *region = CTX_wm_region(C);
 	const PointerRNA active_ptr = RNA_property_pointer_get(&template->ptr, template->prop);
@@ -712,29 +712,34 @@ static void template_ID_tabs(
 
 	uiBlock *block = uiLayoutGetBlock(layout);
 	uiStyle *style = UI_style_get_dpi();
-	uiBut *but;
 
 
 	for (ID *id = template->idlb->first; id; id = id->next) {
+		wmOperatorType *unlink_ot = WM_operatortype_find(unlinkop, false);
 		const char *id_name = id->name + 2;
-		const int but_width = UI_fontstyle_string_width(&style->widgetlabel, id_name) + UI_UNIT_X;
+		const bool is_active = active_ptr.data == id;
+		const unsigned int but_width = UI_fontstyle_string_width(&style->widgetlabel, id_name) + UI_UNIT_X +
+		                               (is_active ? ICON_DEFAULT_WIDTH_SCALE : 0);
+		uiButTab *tab;
 
-		but = uiDefButR_prop(
+		tab = (uiButTab *)uiDefButR_prop(
 		        block, UI_BTYPE_TAB, 0, id_name, 0, 0, but_width, UI_UNIT_Y,
 		        &template->ptr, template->prop, 0, 0.0f,
 		        sizeof(id->name) - 2, 0.0f, 0.0f, "");
-		UI_but_funcN_set(but, id_search_call_cb, MEM_dupallocN(template), id);
-		but->poin = &id->name[2];
+		UI_but_funcN_set(&tab->but, id_search_call_cb, MEM_dupallocN(template), id);
+		tab->but.poin = &id->name[2];
+		tab->unlink_ot = unlink_ot;
 
-		UI_but_func_rename_set(but, id_rename_cb, id);
-		if (active_ptr.data == id) {
-			UI_but_flag_enable(but, UI_SELECT);
+		UI_but_func_rename_set(&tab->but, id_rename_cb, id);
+		if (is_active) {
+			UI_but_flag_enable(&tab->but, UI_SELECT | UI_BUT_VALUE_CLEAR);
 		}
-		UI_but_drawflag_enable(but, but_align);
+		UI_but_drawflag_enable(&tab->but, but_align);
 	}
 
 	if (flag & UI_ID_ADD_NEW) {
 		const bool editable = RNA_property_editable(&template->ptr, template->prop);
+		uiBut *but;
 
 		if (active_ptr.type) {
 			type = active_ptr.type;

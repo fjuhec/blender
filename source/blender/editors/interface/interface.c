@@ -2005,7 +2005,7 @@ static bool ui_but_icon_extra_is_visible_text_clear(const uiBut *but)
 
 static bool ui_but_icon_extra_is_visible_search_unlink(const uiBut *but)
 {
-	BLI_assert(but->type == UI_BTYPE_SEARCH_MENU);
+	BLI_assert(ELEM(but->type, UI_BTYPE_SEARCH_MENU, UI_BTYPE_TAB));
 	return ((but->editstr == NULL) &&
 	        (but->drawstr[0] != '\0') &&
 	        (but->flag & UI_BUT_VALUE_CLEAR));
@@ -2046,6 +2046,11 @@ uiButExtraIconType ui_but_icon_extra_get(uiBut *but)
 			}
 			else if (ui_but_icon_extra_is_visible_search_eyedropper(but)) {
 				return UI_BUT_ICONEXTRA_EYEDROPPER;
+			}
+			break;
+		case UI_BTYPE_TAB:
+			if (ui_but_icon_extra_is_visible_search_unlink(but)) {
+				return UI_BUT_ICONEXTRA_CLEAR;
 			}
 			break;
 		default:
@@ -3121,6 +3126,16 @@ void ui_block_cm_to_display_space_range(uiBlock *block, float *min, float *max)
 	*max = max_fff(UNPACK3(pixel));
 }
 
+static uiBut *ui_but_alloc(const eButType type)
+{
+	switch (type) {
+		case UI_BTYPE_TAB:
+			return MEM_callocN(sizeof(uiButTab), "uiButTab");
+		default:
+			return MEM_callocN(sizeof(uiBut), "uiBut");
+	}
+}
+
 /**
  * \brief ui_def_but is the function that draws many button types
  *
@@ -3154,7 +3169,7 @@ static uiBut *ui_def_but(
 		}
 	}
 
-	but = MEM_callocN(sizeof(uiBut), "uiBut");
+	but = ui_but_alloc(type & BUTTYPE);
 
 	but->type = type & BUTTYPE;
 	but->pointype = type & UI_BUT_POIN_TYPES;

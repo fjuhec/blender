@@ -352,6 +352,13 @@ void wm_event_do_notifiers(bContext *C)
 						if (G.debug & G_DEBUG_EVENTS)
 							printf("%s: Workspace set %p\n", __func__, note->reference);
 					}
+					else if (note->data == ND_WORKSPACE_DELETE) {
+						WorkSpace *workspace = note->reference;
+
+						ED_workspace_delete(workspace, CTX_data_main(C), C, wm, win);   // XXX hrms, think this over!
+						if (G.debug & G_DEBUG_EVENTS)
+							printf("%s: Workspace delete %p\n", __func__, workspace);
+					}
 					else if (note->data == ND_LAYOUTBROWSE) {
 						bScreen *ref_screen = BKE_workspace_layout_screen_get(note->reference);
 

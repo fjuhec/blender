@@ -3873,6 +3873,21 @@ static int ui_do_but_KEYEVT(
 	return WM_UI_HANDLER_CONTINUE;
 }
 
+static bool ui_but_is_mouse_over_icon_extra(const ARegion *region, uiBut *but, const int mouse_xy[2])
+{
+	int x = mouse_xy[0], y = mouse_xy[1];
+	rcti icon_rect;
+
+	BLI_assert(ui_but_icon_extra_get(but) != UI_BUT_ICONEXTRA_NONE);
+
+	ui_window_to_block(region, but->block, &x, &y);
+
+	BLI_rcti_rctf_copy(&icon_rect, &but->rect);
+	icon_rect.xmin = icon_rect.xmax - (BLI_rcti_size_y(&icon_rect));
+
+	return BLI_rcti_isect_pt(&icon_rect, x, y);
+}
+
 static int ui_do_but_TAB(bContext *C, uiBlock *block, uiBut *but, uiHandleButtonData *data, const wmEvent *event)
 {
 	if (data->state == BUTTON_STATE_HIGHLIGHT) {
@@ -3883,6 +3898,17 @@ static int ui_do_but_TAB(bContext *C, uiBlock *block, uiBut *but, uiHandleButton
 			return WM_UI_HANDLER_BREAK;
 		}
 		else if (ELEM(event->type, LEFTMOUSE, PADENTER, RETKEY) && (event->val == KM_CLICK)) {
+			const bool has_icon_extra = ui_but_icon_extra_get(but) == UI_BUT_ICONEXTRA_CLEAR;
+
+			if (has_icon_extra && ui_but_is_mouse_over_icon_extra(data->region, but, &event->x)) {
+				uiButTab *tab = (uiButTab *)but;
+				wmOperatorType *ot_backup = but->optype;
+
+				but->optype = tab->unlink_ot;
+				/* Force calling unlink/delete operator. */
+				ui_apply_but(C, block, but, data, true);
+				but->optype = ot_backup;
+			}
 			button_activate_state(C, but, BUTTON_STATE_EXIT);
 			return WM_UI_HANDLER_BREAK;
 		}
@@ -3897,21 +3923,6 @@ static int ui_do_but_TAB(bContext *C, uiBlock *block, uiBut *but, uiHandleButton
 	}
 
 	return WM_UI_HANDLER_CONTINUE;
-}
-
-static bool ui_but_is_mouse_over_icon_extra(const ARegion *region, uiBut *but, const int mouse_xy[2])
-{
-	int x = mouse_xy[0], y = mouse_xy[1];
-	rcti icon_rect;
-
-	BLI_assert(ui_but_icon_extra_get(but) != UI_BUT_ICONEXTRA_NONE);
-
-	ui_window_to_block(region, but->block, &x, &y);
-
-	BLI_rcti_rctf_copy(&icon_rect, &but->rect);
-	icon_rect.xmin = icon_rect.xmax - (BLI_rcti_size_y(&icon_rect));
-
-	return BLI_rcti_isect_pt(&icon_rect, x, y);
 }
 
 static int ui_do_but_TEX(
