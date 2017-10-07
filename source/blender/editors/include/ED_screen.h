@@ -91,7 +91,6 @@ int     ED_area_header_switchbutton(const struct bContext *C, struct uiBlock *bl
 /* areas */
 void    ED_area_initialize(struct wmWindowManager *wm, struct wmWindow *win, struct ScrArea *sa);
 void    ED_area_exit(struct bContext *C, struct ScrArea *sa);
-void    ED_area_global_initialize(struct wmWindowManager *wm, struct wmWindow *win, struct ScrArea *sa);
 int     ED_screen_area_active(const struct bContext *C);
 void    ED_screen_global_areas_create(const struct bContext *C, struct wmWindow *win);
 void    ED_area_do_listen(struct bScreen *sc, ScrArea *sa, struct wmNotifier *note, const Scene *scene);

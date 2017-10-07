@@ -770,7 +770,6 @@ void ED_screen_refresh(wmWindowManager *wm, wmWindow *win)
 		const int window_size_y = WM_window_pixels_y(win);
 		const int screen_size_x = WM_window_screen_pixels_x(win);
 		const int screen_size_y = WM_window_screen_pixels_y(win);
-		ScrArea *sa;
 		rcti window_rect;
 
 		window_rect.xmin = 0;
@@ -791,13 +790,10 @@ void ED_screen_refresh(wmWindowManager *wm, wmWindow *win)
 			wm_subwindow_position(win, screen->mainwin, &window_rect, false);
 		}
 
-		for (sa = win->global_areas.first; sa; sa = sa->next) {
-			ED_area_global_initialize(wm, win, sa);
-		}
-		for (sa = screen->areabase.first; sa; sa = sa->next) {
+		ED_screen_areas_iter(win, screen, area) {
 			/* set spacetype and region callbacks, calls init() */
 			/* sets subwindows for regions, adds handlers */
-			ED_area_initialize(wm, win, sa);
+			ED_area_initialize(wm, win, area);
 		}
 	
 		/* wake up animtimer */
