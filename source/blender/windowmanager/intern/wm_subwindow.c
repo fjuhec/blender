@@ -245,8 +245,8 @@ void wm_subwindow_position(wmWindow *win, int swinid, const rcti *winrct, bool a
 	wmSubWindow *swin = swin_from_swinid(win, swinid);
 	
 	if (swin) {
-		const int screen_size_x = WM_window_pixels_x(win);
-		const int screen_size_y = WM_window_pixels_y(win);
+		const int window_size_x = WM_window_pixels_x(win);
+		const int window_size_y = WM_window_pixels_y(win);
 
 		int width, height;
 		
@@ -265,10 +265,10 @@ void wm_subwindow_position(wmWindow *win, int swinid, const rcti *winrct, bool a
 		 * fixed it). - zr  (2001!)
 		 */
 		
-		if (swin->winrct.xmax > screen_size_x)
-			swin->winrct.xmax = screen_size_x;
-		if (swin->winrct.ymax > screen_size_y)
-			swin->winrct.ymax = screen_size_y;
+		if (swin->winrct.xmax > window_size_x)
+			swin->winrct.xmax = window_size_x;
+		if (swin->winrct.ymax > window_size_y)
+			swin->winrct.ymax = window_size_y;
 		
 		if (activate) {
 			/* extra service */

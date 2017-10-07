@@ -508,8 +508,13 @@ void select_connected_scredge(bScreen *sc, ScrEdge *edge)
 	}
 }
 
-/* test if screen vertices should be scaled */
-static void screen_test_scale(const wmWindow *win, bScreen *sc, int winsize_x, int winsize_y)
+/**
+ * Test if screen vertices should be scaled and do if needed.
+ */
+static void screen_vertices_scale(
+        const wmWindow *win, bScreen *sc,
+        int window_size_x, int window_size_y,
+        int screen_size_x, int screen_size_y)
 {
 	/* clamp Y size of header sized areas when expanding windows
 	 * avoids annoying empty space around file menu */
@@ -545,7 +550,7 @@ static void screen_test_scale(const wmWindow *win, bScreen *sc, int winsize_x, i
 #define TEMP_TOP 2
 
 	/* if the window's Y axis grows, clamp header sized areas */
-	if (winsize_y_prev < winsize_y) {  /* growing? */
+	if (winsize_y_prev < screen_size_y) {  /* growing? */
 		const int headery_margin_max = headery_init + 4;
 		for (sa = sc->areabase.first; sa; sa = sa->next) {
 			ARegion *ar = BKE_area_find_region_type(sa, RGN_TYPE_HEADER);
@@ -568,9 +573,9 @@ static void screen_test_scale(const wmWindow *win, bScreen *sc, int winsize_x, i
 #endif
 
 
-	if (winsize_x_prev != winsize_x || winsize_y_prev != winsize_y) {
-		facx = ((float)winsize_x - 1) / ((float)winsize_x_prev - 1);
-		facy = ((float)winsize_y - 1) / ((float)winsize_y_prev - 1);
+	if (winsize_x_prev != screen_size_x || winsize_y_prev != screen_size_y) {
+		facx = ((float)screen_size_x - 1) / ((float)winsize_x_prev - 1);
+		facy = ((float)screen_size_y - 1) / ((float)winsize_y_prev - 1);
 		
 		/* make sure it fits! */
 		for (sv = sc->vertbase.first; sv; sv = sv->next) {
@@ -581,20 +586,20 @@ static void screen_test_scale(const wmWindow *win, bScreen *sc, int winsize_x, i
 			//sv->vec.x += AREAGRID - 1;
 			//sv->vec.x -=  (sv->vec.x % AREAGRID);
 
-			CLAMP(sv->vec.x, 0, winsize_x - 1);
+			CLAMP(sv->vec.x, 0, screen_size_x - 1);
 			
 			tempf = ((float)sv->vec.y) * facy;
 			sv->vec.y = (short)(tempf + 0.5f);
 			//sv->vec.y += AREAGRID - 1;
 			//sv->vec.y -=  (sv->vec.y % AREAGRID);
 
-			CLAMP(sv->vec.y, 0, winsize_y - 1);
+			CLAMP(sv->vec.y, 0, screen_size_y - 1);
 		}
 	}
 
 
 #ifdef USE_HEADER_SIZE_CLAMP
-	if (winsize_y_prev < winsize_y) {  /* growing? */
+	if (winsize_y_prev < screen_size_y) {  /* growing? */
 		for (sa = sc->areabase.first; sa; sa = sa->next) {
 			ScrEdge *se = NULL;
 
@@ -654,7 +659,7 @@ static void screen_test_scale(const wmWindow *win, bScreen *sc, int winsize_x, i
 		/* adjust headery if verts are along the edge of window */
 		if (sa->v1->vec.y > 0)
 			headery += U.pixelsize;
-		if (sa->v2->vec.y < winsize_y - 1)
+		if (sa->v2->vec.y < screen_size_y - 1)
 			headery += U.pixelsize;
 		
 		if (sa->v2->vec.y - sa->v1->vec.y + 1 < headery) {
@@ -679,16 +684,15 @@ static void screen_test_scale(const wmWindow *win, bScreen *sc, int winsize_x, i
 		}
 	}
 
-	/* Global areas have a fixed size that only changes with the DPI. Here we ensure that exactly this size is set. */
+	/* Global areas have a fixed size that only changes with the DPI. Here we ensure that exactly this size is set.
+	 * TODO Assumes global area to be top-aligned. Should be made more generic */
 	for (ScrArea *area = win->global_areas.first; area; area = area->next) {
-		short px = (short)U.pixelsize;
-
 		/* width */
 		area->v1->vec.x = area->v2->vec.x = 0;
-		area->v3->vec.x = area->v4->vec.x = win->sizex;
+		area->v3->vec.x = area->v4->vec.x = window_size_x;
 		/* height */
-		area->v1->vec.y = area->v4->vec.y = win->sizey - ED_area_global_size_y(win, area);
-		area->v2->vec.y = area->v3->vec.y = win->sizey - px;
+		area->v1->vec.y = area->v4->vec.y = window_size_y - ED_area_global_size_y(win, area) - U.pixelsize;
+		area->v2->vec.y = area->v3->vec.y = window_size_y;
 	}
 }
 
@@ -778,7 +782,7 @@ void ED_screen_refresh(wmWindowManager *wm, wmWindow *win)
 		WM_window_set_dpi(win);
 		screen_refresh_headersizes();
 
-		screen_test_scale(win, screen, screen_size_x, screen_size_y);
+		screen_vertices_scale(win, screen, window_size_x, window_size_y, screen_size_x, screen_size_y);
 
 		if (screen->mainwin == 0) {
 			screen->mainwin = wm_subwindow_open(win, &window_rect, false);
@@ -831,11 +835,13 @@ void ED_screen_ensure_updated(wmWindowManager *wm, wmWindow *win, bScreen *scree
 		ED_screen_refresh(wm, win);
 	}
 	else {
+		const int window_size_x = WM_window_pixels_x(win);
+		const int window_size_y = WM_window_pixels_y(win);
 		const int screen_size_x = WM_window_screen_pixels_x(win);
 		const int screen_size_y = WM_window_screen_pixels_y(win);
 		bool has_updated = false;
 
-		screen_test_scale(win, screen, screen_size_x, screen_size_y);
+		screen_vertices_scale(win, screen, window_size_x, window_size_y, screen_size_x, screen_size_y);
 
 		ED_screen_areas_iter(win, screen, area) {
 			if (area->flag & AREA_FLAG_REGION_SIZE_UPDATE) {

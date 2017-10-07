@@ -1373,20 +1373,33 @@ static void region_rect_recursive(wmWindow *win, ScrArea *sa, ARegion *ar, rcti 
 	region_rect_recursive(win, sa, ar->next, remainder, quad, add_azones);
 }
 
-static void area_calc_totrct(ScrArea *sa, int sizex, int sizey)
+static void area_calc_totrct(ScrArea *sa, int window_size_x, int window_size_y)
 {
-	short rt = (short) U.pixelsize;
+	short px = (short)U.pixelsize;
 
-	if (sa->v1->vec.x > 0) sa->totrct.xmin = sa->v1->vec.x + rt;
-	else sa->totrct.xmin = sa->v1->vec.x;
-	if (sa->v4->vec.x < sizex - 1) sa->totrct.xmax = sa->v4->vec.x - rt;
-	else sa->totrct.xmax = sa->v4->vec.x;
-	
-	if (sa->v1->vec.y > 0) sa->totrct.ymin = sa->v1->vec.y + rt;
-	else sa->totrct.ymin = sa->v1->vec.y;
-	if (sa->v2->vec.y < sizey - 1) sa->totrct.ymax = sa->v2->vec.y - rt;
-	else sa->totrct.ymax = sa->v2->vec.y;
-	
+	sa->totrct.xmin = sa->v1->vec.x;
+	sa->totrct.xmax = sa->v4->vec.x;
+	sa->totrct.ymin = sa->v1->vec.y;
+	sa->totrct.ymax = sa->v2->vec.y;
+
+	/* scale down totrct by 1 pixel on all sides not matching window borders */
+	if (sa->totrct.xmin > 0) {
+		sa->totrct.xmin += px;
+	}
+	if (sa->totrct.xmax < (window_size_x - 1)) {
+		sa->totrct.xmax -= px;
+	}
+	if (sa->totrct.ymin > 0) {
+		sa->totrct.ymin += px;
+	}
+	if (sa->totrct.ymax < (window_size_y - 1)) {
+		sa->totrct.ymax -= px;
+	}
+	BLI_assert(sa->totrct.xmin >= 0);
+	BLI_assert(sa->totrct.xmax >= 0);
+	BLI_assert(sa->totrct.ymin >= 0);
+	BLI_assert(sa->totrct.ymax >= 0);
+
 	/* for speedup */
 	sa->winx = BLI_rcti_size_x(&sa->totrct) + 1;
 	sa->winy = BLI_rcti_size_y(&sa->totrct) + 1;
@@ -1509,8 +1522,8 @@ void screen_area_update_region_sizes(wmWindowManager *wm, wmWindow *win, ScrArea
 void ED_area_initialize(wmWindowManager *wm, wmWindow *win, ScrArea *sa)
 {
 	const bScreen *screen = WM_window_get_active_screen(win);
-	const int screen_size_x = WM_window_screen_pixels_x(win);
-	const int screen_size_y = WM_window_screen_pixels_y(win);
+	const int window_size_x = WM_window_pixels_x(win);
+	const int window_size_y = WM_window_pixels_y(win);
 	ARegion *ar;
 	rcti rect;
 	
@@ -1526,7 +1539,7 @@ void ED_area_initialize(wmWindowManager *wm, wmWindow *win, ScrArea *sa)
 		ar->type = BKE_regiontype_from_id(sa->type, ar->regiontype);
 
 	/* area sizes */
-	area_calc_totrct(sa, screen_size_x, screen_size_y);
+	area_calc_totrct(sa, window_size_x, window_size_y);
 
 	/* clear all azones, add the area triange widgets */
 	area_azone_initialize(win, screen, sa);
