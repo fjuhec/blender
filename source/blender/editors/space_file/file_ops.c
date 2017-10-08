@@ -2279,7 +2279,7 @@ static int file_rename_poll(bContext *C)
 			poll = false;
 		}
 		else {
-			char dir[FILE_MAX];
+			char dir[FILE_MAX_LIBEXTRA];
 			if (filelist_islibrary(sfile->files, dir, NULL)) {
 				poll = false;
 			}
@@ -2311,7 +2311,7 @@ static int file_delete_poll(bContext *C)
 	SpaceFile *sfile = CTX_wm_space_file(C);
 
 	if (sfile && sfile->params) {
-		char dir[FILE_MAX];
+		char dir[FILE_MAX_LIBEXTRA];
 		int numfiles = filelist_files_ensure(sfile->files, sfile->params);
 		int i;
 		int num_selected = 0;
