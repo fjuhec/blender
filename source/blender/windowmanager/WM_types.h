@@ -638,6 +638,7 @@ typedef struct wmReport {
 #define WM_DRAG_NAME	3
 #define WM_DRAG_VALUE	4
 #define WM_DRAG_COLOR	5
+#define WM_DRAG_LIBPATH	6
 
 typedef enum wmDragFlags {
 	WM_DRAG_NOP         = 0,
@@ -651,8 +652,10 @@ typedef struct wmDrag {
 	
 	int icon, type;					/* type, see WM_DRAG defines above */
 	void *poin;
-	char path[1024]; /* FILE_MAX */
+	char path[1090]; /* FILE_MAX + MAX_ID_NAME */
 	double value;
+
+	char ae_idname[64];  /* BKE_ST_MAXNAME */
 	
 	struct ImBuf *imb;						/* if no icon but imbuf should be drawn around cursor */
 	float scale;

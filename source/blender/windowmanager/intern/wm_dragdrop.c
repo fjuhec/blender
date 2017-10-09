@@ -34,6 +34,7 @@
 
 #include "DNA_windowmanager_types.h"
 #include "DNA_screen_types.h"
+#include "DNA_space_types.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -45,6 +46,7 @@
 #include "BIF_glutil.h"
 
 #include "BKE_context.h"
+#include "BKE_screen.h"
 
 #include "IMB_imbuf_types.h"
 
@@ -151,10 +153,18 @@ wmDrag *WM_event_start_drag(struct bContext *C, int icon, int type, void *poin, 
 	drag->flags = flags;
 	drag->icon = icon;
 	drag->type = type;
-	if (type == WM_DRAG_PATH)
+	if (ELEM(type, WM_DRAG_PATH, WM_DRAG_LIBPATH)) {
 		BLI_strncpy(drag->path, poin, FILE_MAX);
-	else
+		if (type == WM_DRAG_LIBPATH) {
+			SpaceFile *sfile = CTX_wm_space_file(C);
+			if (sfile) {
+				BLI_strncpy(drag->ae_idname, sfile->asset_engine, BKE_ST_MAXNAME);
+			}
+		}
+	}
+	else {
 		drag->poin = poin;
+	}
 	drag->value = value;
 	
 	return drag;

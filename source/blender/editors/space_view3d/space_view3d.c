@@ -45,11 +45,14 @@
 #include "BKE_context.h"
 #include "BKE_depsgraph.h"
 #include "BKE_icons.h"
+#include "BKE_idcode.h"
 #include "BKE_library.h"
 #include "BKE_main.h"
 #include "BKE_object.h"
 #include "BKE_scene.h"
 #include "BKE_screen.h"
+
+#include "../blenloader/BLO_readfile.h"
 
 #include "ED_space_api.h"
 #include "ED_screen.h"
@@ -584,6 +587,24 @@ static void view3d_main_region_exit(wmWindowManager *wm, ARegion *ar)
 	}
 }
 
+static int view3d_path_link_drop_poll(bContext *UNUSED(C), wmDrag *drag, const wmEvent *event)
+{
+	if (event->shift == false) {
+		if (drag->type == WM_DRAG_LIBPATH) {
+			char libname[FILE_MAX];
+			char *group, *name;
+			if (!BLO_library_path_explode(drag->path, libname, &group, &name) /* later... && (!aet || !path_to_idcode(path))*/ ) {
+				return 0;
+			}
+			switch (BKE_idcode_from_name(group)) {
+				case ID_OB:
+					return 1;
+			}
+		}
+	}
+	return 0;
+}
+
 static int view3d_ob_drop_poll(bContext *UNUSED(C), wmDrag *drag, const wmEvent *UNUSED(event))
 {
 	if (drag->type == WM_DRAG_ID) {
@@ -662,6 +683,13 @@ static int view3d_ima_mesh_drop_poll(bContext *C, wmDrag *drag, const wmEvent *e
 	return 0;
 }
 
+static void view3d_path_link_drop_copy(wmDrag *drag, wmDropBox *drop)
+{
+	RNA_string_set(drop->ptr, "asset_engine", drag->ae_idname);
+	RNA_string_set(drop->ptr, "directory", "");
+	RNA_string_set(drop->ptr, "filename", drag->path);
+}
+
 static void view3d_ob_drop_copy(wmDrag *drag, wmDropBox *drop)
 {
 	ID *id = drag->poin;
@@ -702,8 +730,11 @@ static void view3d_id_path_drop_copy(wmDrag *drag, wmDropBox *drop)
 /* region dropbox definition */
 static void view3d_dropboxes(void)
 {
+	wmDropBox *drop;
 	ListBase *lb = WM_dropboxmap_find("View3D", SPACE_VIEW3D, RGN_TYPE_WINDOW);
 	
+	drop = WM_dropbox_add(lb, "WM_OT_link", view3d_path_link_drop_poll, view3d_path_link_drop_copy);
+	drop->opcontext = WM_OP_EXEC_DEFAULT;
 	WM_dropbox_add(lb, "OBJECT_OT_add_named", view3d_ob_drop_poll, view3d_ob_drop_copy);
 	WM_dropbox_add(lb, "OBJECT_OT_drop_named_material", view3d_mat_drop_poll, view3d_id_drop_copy);
 	WM_dropbox_add(lb, "MESH_OT_drop_named_image", view3d_ima_mesh_drop_poll, view3d_id_path_drop_copy);

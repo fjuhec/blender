@@ -264,7 +264,8 @@ static void draw_tile(int sx, int sy, int width, int height, int colorid, int sh
 }
 
 
-static void file_draw_icon(uiBlock *block, const char *path, int sx, int sy, int icon, int width, int height, bool drag)
+static void file_draw_icon(
+        uiBlock *block, const char *path, int sx, int sy, int icon, int width, int height, bool drag, const bool is_libpath)
 {
 	uiBut *but;
 	int x, y;
@@ -280,7 +281,7 @@ static void file_draw_icon(uiBlock *block, const char *path, int sx, int sy, int
 
 	if (drag) {
 		/* path is no more static, cannot give it directly to but... */
-		UI_but_drag_set_path(but, BLI_strdup(path), true);
+		UI_but_drag_set_path(but, BLI_strdup(path), true, is_libpath);
 	}
 }
 
@@ -324,7 +325,8 @@ void file_calc_previews(const bContext *C, ARegion *ar)
 
 static void file_draw_preview(
         uiBlock *block, const char *path, int sx, int sy, const float icon_aspect,
-        ImBuf *imb, const int icon, FileLayout *layout, const bool is_icon, const int typeflags, const bool drag)
+        ImBuf *imb, const int icon, FileLayout *layout, const bool is_icon, const int typeflags,
+        const bool drag, const bool is_libpath)
 {
 	uiBut *but;
 	float fx, fy;
@@ -404,7 +406,7 @@ static void file_draw_preview(
 	/* dragregion */
 	if (drag) {
 		/* path is no more static, cannot give it directly to but... */
-		UI_but_drag_set_image(but, BLI_strdup(path), icon, imb, scale, true);
+		UI_but_drag_set_image(but, BLI_strdup(path), icon, imb, scale, true, is_libpath);
 	}
 
 	glDisable(GL_BLEND);
@@ -521,6 +523,8 @@ void file_draw_list(const bContext *C, ARegion *ar)
 	const bool update_stat_strings = small_size != SMALL_SIZE_CHECK(layout->curr_size);
 	const float thumb_icon_aspect = sqrtf(64.0f / (float)(params->thumbnail_size));
 
+	const bool is_libpath = (sfile->params->type == FILE_LOADLIB);
+
 	numfiles = filelist_files_ensure(files, params);
 	
 	if (params->display != FILE_IMGDISPLAY) {
@@ -617,11 +621,11 @@ void file_draw_list(const bContext *C, ARegion *ar)
 			}
 
 			file_draw_preview(block, path, sx, sy, thumb_icon_aspect,
-			                  imb, icon, layout, is_icon, file->typeflag, do_drag);
+			                  imb, icon, layout, is_icon, file->typeflag, do_drag, is_libpath);
 		}
 		else {
 			file_draw_icon(block, path, sx, sy - (UI_UNIT_Y / 6), filelist_geticon(files, i, true),
-			               ICON_DEFAULT_WIDTH_SCALE, ICON_DEFAULT_HEIGHT_SCALE, do_drag);
+			               ICON_DEFAULT_WIDTH_SCALE, ICON_DEFAULT_HEIGHT_SCALE, do_drag, is_libpath);
 			sx += ICON_DEFAULT_WIDTH_SCALE + 0.2f * UI_UNIT_X;
 		}
 
