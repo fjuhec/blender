@@ -101,6 +101,7 @@
 #include "ED_curve.h" /* for curve_editnurbs */
 #include "ED_clip.h"
 #include "ED_screen.h"
+#include "ED_gpencil.h"
 
 #include "WM_types.h"
 #include "WM_api.h"
@@ -1193,7 +1194,7 @@ void initTransInfo(bContext *C, TransInfo *t, wmOperator *op, const wmEvent *eve
 	}
 	
 	/* GPencil editing context */
-	if ((gpd) && (gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_PAINTMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE))) {
+	if (GPENCIL_ANY_MODE(gpd)) {
 		t->options |= CTX_GPENCIL_STROKES;
 	}
 

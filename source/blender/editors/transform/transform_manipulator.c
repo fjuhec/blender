@@ -594,7 +594,7 @@ static int calc_manipulator_stats(const bContext *C, struct TransformBounds *tbo
 	Base *base;
 	Object *ob = OBACT_NEW(sl);
 	bGPdata *gpd = CTX_data_gpencil_data(C);
-	const bool is_gp_edit = ((gpd) && (gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_PAINTMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE)));
+	const bool is_gp_edit = GPENCIL_ANY_MODE(gpd);
 	int a, totsel = 0;
 
 	/* transform widget matrix */

@@ -3075,7 +3075,7 @@ static int viewselected_exec(bContext *C, wmOperator *op)
 	Scene *scene = CTX_data_scene(C);
 	SceneLayer *sl = CTX_data_scene_layer(C);
 	bGPdata *gpd = CTX_data_gpencil_data(C);
-	const bool is_gp_edit = ((gpd) && (gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_PAINTMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE)));
+	const bool is_gp_edit = GPENCIL_ANY_MODE(gpd);
 	const bool is_face_map = ((is_gp_edit == false) && ar->manipulator_map &&
 	                          WM_manipulatormap_is_any_selected(ar->manipulator_map));
 	Object *ob = OBACT_NEW(sl);

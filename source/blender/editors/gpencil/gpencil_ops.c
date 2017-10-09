@@ -126,7 +126,7 @@ static int gp_stroke_sculptmode_poll(bContext *C)
 	else {
 		/* weight paint is a submode of sculpt */
 		if ((ob) && (ob->type == OB_GPENCIL)) {
-			return ((gpd) && (gpd->flag & (GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE)));
+			return GPENCIL_SCULPT_OR_WEIGHT_MODE(gpd);
 		}
 	}
 

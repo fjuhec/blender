@@ -131,7 +131,7 @@ static bool gpencil_batch_cache_valid(Object *ob, bGPdata *gpd, int cfra)
 		return false;
 	}
 
-	cache->is_editmode = gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE);
+	cache->is_editmode = (bool)(GPENCIL_ANY_EDIT_MODE(gpd));
 
 	if (cfra != cache->cache_frame) {
 		return false;
@@ -194,7 +194,7 @@ static void gpencil_batch_cache_init(Object *ob, int cfra)
 	cache->batch_edit = MEM_callocN(sizeof(struct Gwn_Batch) * cache->cache_size, "Gpencil_Batch_Edit");
 	cache->batch_edlin = MEM_callocN(sizeof(struct Gwn_Batch) * cache->cache_size, "Gpencil_Batch_Edlin");
 
-	cache->is_editmode = gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE);
+	cache->is_editmode = (bool)(GPENCIL_ANY_EDIT_MODE(gpd));
 	gpd->flag &= ~GP_DATA_CACHE_IS_DIRTY;
 
 	cache->cache_idx = 0;
@@ -604,7 +604,7 @@ static void gpencil_add_stroke_shgroup(GpencilBatchCache *cache, DRWShadingGroup
 /* add edit points shading group to pass */
 static void gpencil_add_editpoints_shgroup(GPENCIL_StorageList *stl, GpencilBatchCache *cache, ToolSettings *ts,
 	Object *ob, bGPdata *gpd, bGPDlayer *gpl, bGPDframe *gpf, bGPDstroke *gps) {
-	if ((gpl->flag & GP_LAYER_LOCKED) == 0 && (gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE)))
+	if (((gpl->flag & GP_LAYER_LOCKED) == 0) && (GPENCIL_ANY_EDIT_MODE(gpd)))
 	{
 		const DRWContextState *draw_ctx = DRW_context_state_get();
 		Object *obact = draw_ctx->obact;
@@ -1203,7 +1203,7 @@ void gpencil_array_modifiers(GPENCIL_StorageList *stl, Object *ob)
 
 	if ((ob) && (ob->gpd)) {
 		gpd = ob->gpd;
-		if (gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE)) {
+		if (GPENCIL_ANY_EDIT_MODE(gpd)) {
 			return;
 		}
 	}

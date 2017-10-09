@@ -1392,7 +1392,7 @@ static void gp_brush_drawcursor(bContext *C, int x, int y, void *UNUSED(customda
 	}
 
 	/* for sculpt use sculpt brush size */
-	if (gpd->flag & (GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE)) {
+	if (GPENCIL_SCULPT_OR_WEIGHT_MODE(gpd)) {
 		if (brush) {
 			if ((brush->flag & GP_EDITBRUSH_FLAG_ENABLE_CURSOR) == 0) {
 				return;

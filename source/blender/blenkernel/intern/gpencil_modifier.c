@@ -50,6 +50,8 @@
 #include "BKE_modifier.h"
 #include "BKE_colortools.h"
 
+#define GPENCIL_ANY_EDIT_MODE(gpd) ((gpd) && (gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE))) 
+
 /* used to save temp strokes */
 typedef struct tGPencilStrokeCache {
 	struct bGPDstroke *gps;
@@ -967,7 +969,7 @@ void BKE_gpencil_stroke_modifiers(Object *ob, bGPDlayer *gpl, bGPDframe *UNUSED(
 {
 	ModifierData *md;
 	bGPdata *gpd = ob->gpd;
-	bool is_edit = (bool)((gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE)));
+	bool is_edit = (bool)(GPENCIL_ANY_EDIT_MODE(gpd));
 
 	int id = 0;
 	for (md = ob->modifiers.first; md; md = md->next) {
@@ -1022,7 +1024,7 @@ void BKE_gpencil_geometry_modifiers(Object *ob, bGPDlayer *gpl, bGPDframe *gpf)
 {
 	ModifierData *md;
 	bGPdata *gpd = ob->gpd;
-	bool is_edit = (bool)((gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE)));
+	bool is_edit = (bool)(GPENCIL_ANY_EDIT_MODE(gpd));
 
 	int id = 0;
 	for (md = ob->modifiers.first; md; md = md->next) {
