@@ -54,8 +54,6 @@ extern char datatoc_gpencil_wave_frag_glsl[];
 extern char datatoc_gpencil_pixel_frag_glsl[];
 extern char datatoc_gpencil_swirl_frag_glsl[];
 extern char datatoc_gpencil_painting_frag_glsl[];
-extern char datatoc_common_fxaa_lib_glsl[];
-extern char datatoc_gpu_shader_fullscreen_vert_glsl[];
 
 /* *********** STATIC *********** */
 static GPENCIL_e_data e_data = {NULL}; /* Engine data */
@@ -215,12 +213,7 @@ static void GPENCIL_cache_init(void *vedata)
 
 	/* full screen for mix zdepth*/
 	if (!e_data.gpencil_fullscreen_sh) {
-		e_data.gpencil_fullscreen_sh = DRW_shader_create_with_lib(
-			datatoc_gpu_shader_fullscreen_vert_glsl, NULL,
-			datatoc_gpencil_zdepth_mix_frag_glsl,
-			datatoc_common_fxaa_lib_glsl,
-			"#define FXAA_ALPHA\n"
-			"#define USE_FXAA\n");
+		e_data.gpencil_fullscreen_sh = DRW_shader_create_fullscreen(datatoc_gpencil_zdepth_mix_frag_glsl, NULL);
 	}
 	if (!e_data.gpencil_vfx_blur_sh) {
 		e_data.gpencil_vfx_blur_sh = DRW_shader_create_fullscreen(datatoc_gpencil_gaussian_blur_frag_glsl, NULL);
@@ -312,16 +305,12 @@ static void GPENCIL_cache_init(void *vedata)
 		}
 
 		/* we need a full screen pass to combine the result of zdepth */
-		copy_v2_v2(e_data.inv_viewport_size, DRW_viewport_size_get());
-		invert_v2(e_data.inv_viewport_size);
-
 		struct Gwn_Batch *quad = DRW_cache_fullscreen_quad_get();
 		psl->mix_pass = DRW_pass_create("GPencil Mix Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
 		DRWShadingGroup *mix_shgrp = DRW_shgroup_create(e_data.gpencil_fullscreen_sh, psl->mix_pass);
 		DRW_shgroup_call_add(mix_shgrp, quad, NULL);
 		DRW_shgroup_uniform_buffer(mix_shgrp, "strokeColor", &e_data.temp_fbcolor_color_tx);
 		DRW_shgroup_uniform_buffer(mix_shgrp, "strokeDepth", &e_data.temp_fbcolor_depth_tx);
-		DRW_shgroup_uniform_vec2(mix_shgrp, "rcpDimensions", e_data.inv_viewport_size, 1);
 
 		/* mix vfx pass */
 		struct Gwn_Batch *vfxquad = DRW_cache_fullscreen_quad_get();
@@ -330,7 +319,6 @@ static void GPENCIL_cache_init(void *vedata)
 		DRW_shgroup_call_add(mix_vfx_shgrp, vfxquad, NULL);
 		DRW_shgroup_uniform_buffer(mix_vfx_shgrp, "strokeColor", &e_data.vfx_fbcolor_color_tx_a);
 		DRW_shgroup_uniform_buffer(mix_vfx_shgrp, "strokeDepth", &e_data.vfx_fbcolor_depth_tx_a);
-		DRW_shgroup_uniform_vec2(mix_vfx_shgrp, "rcpDimensions", e_data.inv_viewport_size, 1);
 
 		/* mix pass no blend */
 		struct Gwn_Batch *quad_noblend = DRW_cache_fullscreen_quad_get();
@@ -601,7 +589,9 @@ static void GPENCIL_draw_scene(void *vedata)
 	if (stl->g_data->session_flag & GP_DRW_PAINT_PAINTING) {
 		DRW_framebuffer_bind(dfbl->default_fb);
 		DRW_draw_pass(psl->painting_pass);
+		MULTISAMPLE_SYNC_ENABLE(dfbl);
 		DRW_draw_pass(psl->drawing_pass);
+		MULTISAMPLE_SYNC_DISABLE(dfbl);
 		/* free memory */
 		gpencil_free_obj_list(stl);
 		return;
@@ -645,9 +635,21 @@ static void GPENCIL_draw_scene(void *vedata)
 				}
 
 				if (end_grp >= init_grp) {
+					if (dfbl->multisample_fb != NULL) {
+						DRW_framebuffer_blit(fbl->temp_color_fb, dfbl->multisample_fb, false);
+						DRW_framebuffer_blit(fbl->temp_color_fb, dfbl->multisample_fb, true);
+						DRW_framebuffer_bind(dfbl->multisample_fb);
+					}
+
 					DRW_draw_pass_subset(psl->stroke_pass,
 						stl->shgroups[init_grp].shgrps_fill != NULL ? stl->shgroups[init_grp].shgrps_fill : stl->shgroups[init_grp].shgrps_stroke,
 						stl->shgroups[end_grp].shgrps_stroke);
+
+					if (dfbl->multisample_fb != NULL) {
+						DRW_framebuffer_blit(dfbl->multisample_fb, fbl->temp_color_fb, false);
+						DRW_framebuffer_blit(dfbl->multisample_fb, fbl->temp_color_fb, true);
+						DRW_framebuffer_bind(fbl->temp_color_fb);
+					}
 				}
 				/* Current buffer drawing */
 				if (ob->gpd->sbuffer_size > 0) {
