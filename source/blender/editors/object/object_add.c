@@ -1343,6 +1343,16 @@ static int object_delete_exec(bContext *C, wmOperator *op)
 			}
 		}
 
+		/* remove as scene default annotation object */
+		if (ob->type == OB_GPENCIL) {
+			Scene *scene_iter;
+			for (scene_iter = bmain->scene.first; scene_iter; scene_iter = scene_iter->id.next) {
+				if (scene->gp_object == ob) {
+					scene->gp_object = NULL;
+				}
+			}
+		}
+
 		/* remove from current scene only */
 		ED_base_object_free_and_unlink(bmain, scene, ob);
 		changed = true;
