@@ -986,7 +986,7 @@ static int outliner_show_active_exec(bContext *C, wmOperator *UNUSED(op))
 	TreeElement *te;
 	int xdelta, ytop;
 
-	Object *obact = OBACT_NEW;
+	Object *obact = OBACT_NEW(sl);
 
 	if (!obact)
 		return OPERATOR_CANCELLED;
@@ -994,7 +994,7 @@ static int outliner_show_active_exec(bContext *C, wmOperator *UNUSED(op))
 
 	te = outliner_find_id(so, &so->tree, &obact->id);
 
-	if (obact->type == OB_ARMATURE) {
+	if (te != NULL && obact->type == OB_ARMATURE) {
 		/* traverse down the bone hierarchy in case of armature */
 		TreeElement *te_obact = te;
 
@@ -1846,7 +1846,7 @@ static int outliner_orphans_purge_invoke(bContext *C, wmOperator *op, const wmEv
 {
 	/* present a prompt to informing users that this change is irreversible */
 	return WM_operator_confirm_message(C, op,
-	                                   "Purging unused data-blocks cannot be undone. "
+	                                   "Purging unused data-blocks cannot be undone and saves to current .blend file. "
 	                                   "Click here to proceed...");
 }
 
@@ -1868,7 +1868,8 @@ void OUTLINER_OT_orphans_purge(wmOperatorType *ot)
 	/* identifiers */
 	ot->idname = "OUTLINER_OT_orphans_purge";
 	ot->name = "Purge All";
-	ot->description = "Clear all orphaned data-blocks without any users from the file (cannot be undone)";
+	ot->description = "Clear all orphaned data-blocks without any users from the file "
+	                  "(cannot be undone, saves to current .blend file)";
 	
 	/* callbacks */
 	ot->invoke = outliner_orphans_purge_invoke;
@@ -1903,7 +1904,7 @@ static int parent_drop_exec(bContext *C, wmOperator *op)
 		return OPERATOR_CANCELLED;
 	}
 
-	ED_object_parent_set(op->reports, bmain, scene, ob, par, partype, false, false, NULL);
+	ED_object_parent_set(op->reports, C, scene, ob, par, partype, false, false, NULL);
 
 	DEG_relations_tag_update(bmain);
 	WM_event_add_notifier(C, NC_OBJECT | ND_TRANSFORM, NULL);
@@ -1977,7 +1978,7 @@ static int parent_drop_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 		}
 
 		if ((par->type != OB_ARMATURE) && (par->type != OB_CURVE) && (par->type != OB_LATTICE)) {
-			if (ED_object_parent_set(op->reports, bmain, scene, ob, par, partype, false, false, NULL)) {
+			if (ED_object_parent_set(op->reports, C, scene, ob, par, partype, false, false, NULL)) {
 				DEG_relations_tag_update(bmain);
 				WM_event_add_notifier(C, NC_OBJECT | ND_TRANSFORM, NULL);
 				WM_event_add_notifier(C, NC_OBJECT | ND_PARENT, NULL);

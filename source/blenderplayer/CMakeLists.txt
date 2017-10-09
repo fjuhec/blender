@@ -27,10 +27,6 @@
 
 setup_libdirs()
 
-if(WITH_CODEC_QUICKTIME)
-	add_definitions(-DWITH_QUICKTIME)
-endif()
-
 if(WIN32 AND NOT UNIX)
 	string(SUBSTRING ${BLENDER_VERSION} 0 1 bver1)
 	string(SUBSTRING ${BLENDER_VERSION} 2 1 bver2)
@@ -91,6 +87,12 @@ list(APPEND BLENDER_LINK_LIBS
 	blenkernel_blc
 )
 
+if(WITH_AUDASPACE AND NOT WITH_SYSTEM_AUDASPACE)
+	list(APPEND BLENDER_LINK_LIBS
+		audaspace
+		audaspace-py)
+endif()
+
 if(CMAKE_SYSTEM_NAME MATCHES "Linux")
 	list(APPEND BLENDER_LINK_LIBS extern_binreloc)
 endif()
@@ -150,6 +152,8 @@ endif()
 		bf_blenfont
 		bf_blentranslation
 		bf_intern_audaspace
+		audaspace
+		audaspace-py
 		blenkernel_blc
 		bf_bmesh
 		bf_blenlib
@@ -199,10 +203,6 @@ endif()
 
 	if(WITH_GHOST_XDND)
 		list(APPEND BLENDER_SORTED_LIBS extern_xdnd)
-	endif()
-
-	if(WITH_CODEC_QUICKTIME)
-		list(APPEND BLENDER_SORTED_LIBS bf_quicktime)
 	endif()
 
 	if(WITH_CXX_GUARDEDALLOC)

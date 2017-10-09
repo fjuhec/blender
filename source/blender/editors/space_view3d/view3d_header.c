@@ -283,7 +283,7 @@ void uiTemplateHeader3D(uiLayout *layout, struct bContext *C)
 	SceneLayer *sl = CTX_data_scene_layer(C);
 	ToolSettings *ts = CTX_data_tool_settings(C);
 	PointerRNA v3dptr, toolsptr, sceneptr;
-	Object *ob = OBACT_NEW;
+	Object *ob = OBACT_NEW(sl);
 	Object *obedit = CTX_data_edit_object(C);
 	bGPdata *gpd = CTX_data_gpencil_data(C);
 	uiBlock *block;
@@ -314,7 +314,7 @@ void uiTemplateHeader3D(uiLayout *layout, struct bContext *C)
 			PointerRNA meshptr;
 
 			RNA_pointer_create(ob->data, &RNA_Mesh, ob->data, &meshptr);
-			if (ob->mode & (OB_MODE_TEXTURE_PAINT | OB_MODE_VERTEX_PAINT)) {
+			if (ob->mode & (OB_MODE_TEXTURE_PAINT)) {
 				uiItemR(layout, &meshptr, "use_paint_mask", UI_ITEM_R_ICON_ONLY, "", ICON_NONE);
 			}
 			else {

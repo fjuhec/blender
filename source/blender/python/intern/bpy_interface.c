@@ -72,6 +72,7 @@
 #include "../generic/bgl.h"
 #include "../generic/blf_py_api.h"
 #include "../generic/idprop_py_api.h"
+#include "../gawain/gwn_py_api.h"
 #include "../bmesh/bmesh_py_api.h"
 #include "../mathutils/mathutils.h"
 
@@ -212,6 +213,7 @@ static struct _inittab bpy_internal_modules[] = {
 	{"mathutils.kdtree", PyInit_mathutils_kdtree},
 #endif
 	{"_bpy_path", BPyInit__bpy_path},
+	{"_gawain", BPyInit_gawain},
 	{"bgl", BPyInit_bgl},
 	{"blf", BPyInit_blf},
 	{"bmesh", BPyInit_bmesh},
@@ -870,6 +872,7 @@ static void bpy_module_delay_init(PyObject *bpy_proxy)
 
 	BLI_strncpy(filename_abs, filename_rel, sizeof(filename_abs));
 	BLI_path_cwd(filename_abs, sizeof(filename_abs));
+	Py_DECREF(filename_obj);
 
 	argv[0] = filename_abs;
 	argv[1] = NULL;

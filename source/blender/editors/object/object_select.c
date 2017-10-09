@@ -425,7 +425,7 @@ static int object_select_linked_exec(bContext *C, wmOperator *op)
 		CTX_DATA_END;
 	}
 	
-	ob = OBACT_NEW;
+	ob = OBACT_NEW(sl);
 	if (ob == NULL) {
 		BKE_report(op->reports, RPT_ERROR, "No active object");
 		return OPERATOR_CANCELLED;
@@ -836,7 +836,7 @@ static int object_select_grouped_exec(bContext *C, wmOperator *op)
 		CTX_DATA_END;
 	}
 
-	ob = OBACT_NEW;
+	ob = OBACT_NEW(sl);
 	if (ob == NULL) {
 		BKE_report(op->reports, RPT_ERROR, "No active object");
 		return OPERATOR_CANCELLED;
@@ -940,13 +940,13 @@ static int object_select_all_exec(bContext *C, wmOperator *op)
 	{
 		switch (action) {
 			case SEL_SELECT:
-			    ED_object_base_select(base, BA_SELECT);
+				ED_object_base_select(base, BA_SELECT);
 				break;
 			case SEL_DESELECT:
-			    ED_object_base_select(base, BA_DESELECT);
+				ED_object_base_select(base, BA_DESELECT);
 				break;
 			case SEL_INVERT:
-			    if ((base->flag & BASE_SELECTED) != 0) {
+				if ((base->flag & BASE_SELECTED) != 0) {
 					ED_object_base_select(base, BA_DESELECT);
 				}
 				else {

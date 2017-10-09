@@ -45,7 +45,7 @@ if(${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_BINARY_DIR})
 	endif()
 endif()
 
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.5)
 
 if(NOT EXECUTABLE_OUTPUT_PATH)
 	set(FIRST_RUN TRUE)
@@ -58,7 +58,9 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/build_files/cmake/Modules")
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/build_files/cmake/platform")
 
 # avoid having empty buildtype
-set(CMAKE_BUILD_TYPE_INIT "Release")
+if(NOT DEFINED CMAKE_BUILD_TYPE_INIT)
+	set(CMAKE_BUILD_TYPE_INIT "Release")
+endif()
 
 # quiet output for Makefiles, 'make -s' helps too
 # set_property(GLOBAL PROPERTY RULE_MESSAGES OFF)
@@ -289,7 +291,7 @@ if(WITH_X11)
 endif()
 
 if(UNIX AND NOT APPLE)
-	option(WITH_SYSTEM_GLEW "Use GLEW OpenGL wrapper library provided by the operating system" ON)
+	option(WITH_SYSTEM_GLEW "Use GLEW OpenGL wrapper library provided by the operating system" OFF)
 	option(WITH_SYSTEM_GLES "Use OpenGL ES library provided by the operating system"           ON)
 else()
 	# not an option for other OS's
@@ -333,10 +335,6 @@ option(WITH_CODEC_SNDFILE       "Enable libsndfile Support (http://www.mega-nerd
 # Alembic support
 option(WITH_ALEMBIC             "Enable Alembic Support" OFF)
 option(WITH_ALEMBIC_HDF5        "Enable Legacy Alembic Support (not officially supported)" OFF)
-
-if(APPLE)
-	option(WITH_CODEC_QUICKTIME     "Enable Quicktime Support" OFF)
-endif()
 
 # 3D format support
 # Disable opencollada when we don't have precompiled libs
@@ -390,10 +388,14 @@ if(UNIX AND NOT APPLE)
 endif()
 
 option(WITH_PYTHON_INSTALL       "Copy system python into the blender install folder" ON)
-if(WITH_PYTHON_INSTALL)
-	option(WITH_PYTHON_INSTALL_NUMPY "Copy system numpy into the blender install folder"  ON)
+if(WITH_PYTHON_INSTALL OR (WITH_AUDASPACE AND NOT WITH_SYSTEM_AUDASPACE))
 	set(PYTHON_NUMPY_PATH            "" CACHE PATH "Path to python site-packages or dist-packages containing 'numpy' module")
 	mark_as_advanced(PYTHON_NUMPY_PATH)
+	set(PYTHON_NUMPY_INCLUDE_DIRS ${PYTHON_NUMPY_PATH}/numpy/core/include CACHE PATH "Path to the include directory of the numpy module")
+	mark_as_advanced(PYTHON_NUMPY_INCLUDE_DIRS)
+endif()
+if(WITH_PYTHON_INSTALL)
+	option(WITH_PYTHON_INSTALL_NUMPY "Copy system numpy into the blender install folder"  ON)
 
 	if(UNIX AND NOT APPLE)
 		option(WITH_PYTHON_INSTALL_REQUESTS "Copy system requests into the blender install folder" ON)
@@ -492,7 +494,12 @@ endif()
 # Experimental support of C11 and C++11
 #
 # We default options to whatever default standard in the current compiler.
-if(CMAKE_COMPILER_IS_GNUCC AND (NOT "${CMAKE_C_COMPILER_VERSION}" VERSION_LESS "6.0") AND (NOT WITH_CXX11))
+if(APPLE)
+	set(_c11_init ON)
+	set(_cxx11_init ON)
+	set(WITH_C11 ON)
+	set(WITH_CXX11 ON)
+elseif(CMAKE_COMPILER_IS_GNUCC AND (NOT "${CMAKE_C_COMPILER_VERSION}" VERSION_LESS "6.0") AND (NOT WITH_CXX11))
 	set(_c11_init ON)
 else()
 	set(_c11_init OFF)
@@ -573,6 +580,12 @@ if(NOT WITH_GAMEENGINE AND WITH_PLAYER)
 	message(FATAL_ERROR "WITH_PLAYER requires WITH_GAMEENGINE")
 endif()
 
+if(NOT WITH_CXX11)
+	if(WITH_AUDASPACE AND NOT WITH_SYSTEM_AUDASPACE)
+		message(FATAL_ERROR "WITH_AUDASPACE requires WITH_CXX11")
+	endif()
+endif()
+
 if(NOT WITH_AUDASPACE)
 	if(WITH_OPENAL)
 		message(FATAL_ERROR "WITH_OPENAL requires WITH_AUDASPACE")
@@ -621,16 +634,11 @@ if(NOT WITH_BOOST)
 	endmacro()
 
 	set_and_warn(WITH_CYCLES         OFF)
-	set_and_warn(WITH_AUDASPACE      OFF)
 	set_and_warn(WITH_INTERNATIONAL  OFF)
 	set_and_warn(WITH_OPENVDB        OFF)
 	set_and_warn(WITH_OPENCOLORIO    OFF)
 	set_and_warn(WITH_MOD_BOOLEAN    OFF)
-
-	set_and_warn(WITH_OPENAL         OFF)  # depends on AUDASPACE
-	set_and_warn(WITH_GAMEENGINE     OFF)  # depends on AUDASPACE
-	set_and_warn(WITH_PLAYER         OFF)  # depends on GAMEENGINE
-elseif(WITH_CYCLES OR WITH_OPENIMAGEIO OR WITH_AUDASPACE OR WITH_INTERNATIONAL OR
+elseif(WITH_CYCLES OR WITH_OPENIMAGEIO OR WITH_INTERNATIONAL OR
        WITH_OPENVDB OR WITH_OPENCOLORIO OR WITH_MOD_BOOLEAN)
 	# Keep enabled
 else()
@@ -698,35 +706,10 @@ TEST_SHARED_PTR_SUPPORT()
 TEST_UNORDERED_MAP_SUPPORT()
 
 if(WITH_AUDASPACE)
-	if(WITH_SYSTEM_AUDASPACE)
-		set(AUDASPACE_DEFINITIONS
-			-DWITH_AUDASPACE
-			-DWITH_SYSTEM_AUDASPACE
-			"-DAUD_DEVICE_H=<AUD_Device.h>"
-			"-DAUD_SPECIAL_H=<AUD_Special.h>"
-			"-DAUD_SOUND_H=<AUD_Sound.h>"
-			"-DAUD_HANDLE_H=<AUD_Handle.h>"
-			"-DAUD_SEQUENCE_H=<AUD_Sequence.h>"
-			"-DAUD_TYPES_H=<AUD_Types.h>"
-			"-DAUD_PYTHON_H=<python/PyAPI.h>"
-		)
-	else()
-		set(AUDASPACE_C_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/intern/audaspace/intern")
-		set(AUDASPACE_PY_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/intern/audaspace/intern")
-		set(AUDASPACE_DEFINITIONS
-			-DWITH_AUDASPACE
-			"-DAUD_DEVICE_H=<AUD_C-API.h>"
-			"-DAUD_SPECIAL_H=<AUD_C-API.h>"
-			"-DAUD_SOUND_H=<AUD_C-API.h>"
-			"-DAUD_HANDLE_H=<AUD_C-API.h>"
-			"-DAUD_SEQUENCE_H=<AUD_C-API.h>"
-			"-DAUD_TYPES_H=<AUD_Space.h>"
-		)
+	if(NOT WITH_SYSTEM_AUDASPACE)
+		set(AUDASPACE_C_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/extern/audaspace/bindings/C" "${CMAKE_BINARY_DIR}/extern/audaspace")
+		set(AUDASPACE_PY_INCLUDE_DIRS "${CMAKE_SOURCE_DIR}/extern/audaspace/bindings")
 	endif()
-endif()
-
-if(APPLE)
-	apple_check_quicktime()
 endif()
 
 #-----------------------------------------------------------------------------
@@ -1294,6 +1277,7 @@ if(CMAKE_COMPILER_IS_GNUCC)
 	ADD_CHECK_C_COMPILER_FLAG(C_WARNINGS C_WARN_NO_DIV_BY_ZERO -Wno-div-by-zero)
 	ADD_CHECK_C_COMPILER_FLAG(C_WARNINGS C_WARN_TYPE_LIMITS -Wtype-limits)
 	ADD_CHECK_C_COMPILER_FLAG(C_WARNINGS C_WARN_FORMAT_SIGN -Wformat-signedness)
+	ADD_CHECK_C_COMPILER_FLAG(C_WARNINGS C_WARN_RESTRICT -Wrestrict)
 
 	# gcc 4.2 gives annoying warnings on every file with this
 	if(NOT "${CMAKE_C_COMPILER_VERSION}" VERSION_LESS "4.3")
@@ -1335,6 +1319,7 @@ if(CMAKE_COMPILER_IS_GNUCC)
 	ADD_CHECK_CXX_COMPILER_FLAG(CXX_WARNINGS CXX_WARN_WRITE_STRINGS -Wwrite-strings)
 	ADD_CHECK_CXX_COMPILER_FLAG(CXX_WARNINGS CXX_WARN_UNDEF -Wundef)
 	ADD_CHECK_CXX_COMPILER_FLAG(CXX_WARNINGS CXX_WARN_FORMAT_SIGN -Wformat-signedness)
+	ADD_CHECK_CXX_COMPILER_FLAG(CXX_WARNINGS CXX_WARN_RESTRICT -Wrestrict)
 
 	# gcc 4.2 gives annoying warnings on every file with this
 	if(NOT "${CMAKE_C_COMPILER_VERSION}" VERSION_LESS "4.3")
@@ -1371,7 +1356,7 @@ elseif(CMAKE_C_COMPILER_ID MATCHES "Clang")
 		set(CMAKE_REQUIRED_FLAGS "-L${LIBDIR}/openmp/lib -liomp5") # these are only used for the checks
 	endif()
 
-	# strange, clang complains these are not supported, but then yses them.
+	# strange, clang complains these are not supported, but then uses them.
 	ADD_CHECK_C_COMPILER_FLAG(C_WARNINGS C_WARN_ALL -Wall)
 	ADD_CHECK_C_COMPILER_FLAG(C_WARNINGS C_WARN_ERROR_IMPLICIT_FUNCTION_DECLARATION -Werror=implicit-function-declaration)
 	ADD_CHECK_C_COMPILER_FLAG(C_WARNINGS C_WARN_ERROR_RETURN_TYPE  -Werror=return-type)
@@ -1445,6 +1430,7 @@ elseif(CMAKE_C_COMPILER_ID MATCHES "MSVC")
 		"/wd4800"  # forcing value to bool 'true' or 'false'
 		# errors:
 		"/we4013"  # 'function' undefined; assuming extern returning int
+		"/we4133"  # incompatible pointer types
 		"/we4431"  # missing type specifier - int assumed
 	)
 
@@ -1467,10 +1453,15 @@ if(WITH_PYTHON)
 		)
 	endif()
 
-	if(WIN32 OR APPLE)
+	if(WIN32)
 		# pass, we have this in an archive to extract
-	elseif(WITH_PYTHON_INSTALL AND WITH_PYTHON_INSTALL_NUMPY)
-		find_python_package(numpy)
+	elseif((WITH_PYTHON_INSTALL AND WITH_PYTHON_INSTALL_NUMPY) OR (WITH_AUDASPACE AND NOT WITH_SYSTEM_AUDASPACE))
+		if(("${PYTHON_NUMPY_PATH}" STREQUAL "") OR (${PYTHON_NUMPY_PATH} MATCHES NOTFOUND))
+			find_python_package(numpy)
+			unset(PYTHON_NUMPY_INCLUDE_DIRS CACHE)
+			set(PYTHON_NUMPY_INCLUDE_DIRS ${PYTHON_NUMPY_PATH}/numpy/core/include CACHE PATH "Path to the include directory of the numpy module")
+		        mark_as_advanced(PYTHON_NUMPY_INCLUDE_DIRS)
+		endif()
 	endif()
 
 	if(WIN32 OR APPLE)
@@ -1721,4 +1712,3 @@ endif()
 if(0)
 	print_all_vars()
 endif()
-

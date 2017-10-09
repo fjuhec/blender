@@ -79,7 +79,6 @@ set(SRC_HEADERS
 	kernel_compat_cpu.h
 	kernel_compat_cuda.h
 	kernel_compat_opencl.h
-	kernel_debug.h
 	kernel_differential.h
 	kernel_emission.h
 	kernel_film.h
@@ -202,6 +201,7 @@ set(SRC_GEOM_HEADERS
 	geom/geom.h
 	geom/geom_attribute.h
 	geom/geom_curve.h
+	geom/geom_curve_intersect.h
 	geom/geom_motion_curve.h
 	geom/geom_motion_triangle.h
 	geom/geom_motion_triangle_intersect.h
@@ -233,6 +233,7 @@ set(SRC_FILTER_HEADERS
 set(SRC_UTIL_HEADERS
 	../util/util_atomic.h
 	../util/util_color.h
+	../util/util_defines.h
 	../util/util_half.h
 	../util/util_hash.h
 	../util/util_math.h
@@ -320,7 +321,7 @@ if(WITH_CYCLES_CUDA_BINARIES)
 	set(CUDA_VERSION "${CUDA_VERSION_MAJOR}${CUDA_VERSION_MINOR}")
 
 	# warn for other versions
-	if(CUDA_VERSION MATCHES "80")
+	if(CUDA_VERSION MATCHES "80" OR CUDA_VERSION MATCHES "90")
 	else()
 		message(WARNING
 			"CUDA version ${CUDA_VERSION_MAJOR}.${CUDA_VERSION_MINOR} detected, "
@@ -398,13 +399,17 @@ if(WITH_CYCLES_CUDA_BINARIES)
 	endmacro()
 
 	foreach(arch ${CYCLES_CUDA_BINARIES_ARCH})
-		# Compile regular kernel
-		CYCLES_CUDA_KERNEL_ADD(${arch} kernel "" "${cuda_sources}" FALSE)
-		CYCLES_CUDA_KERNEL_ADD(${arch} filter "" "${cuda_filter_sources}" FALSE)
+		if(CUDA_VERSION MATCHES "90" AND ${arch} MATCHES "sm_2.")
+			message(STATUS "CUDA binaries for ${arch} disabled, not supported by CUDA 9.")
+		else()
+			# Compile regular kernel
+			CYCLES_CUDA_KERNEL_ADD(${arch} kernel "" "${cuda_sources}" FALSE)
+			CYCLES_CUDA_KERNEL_ADD(${arch} filter "" "${cuda_filter_sources}" FALSE)
 
-		if(WITH_CYCLES_CUDA_SPLIT_KERNEL_BINARIES)
-			# Compile split kernel
-			CYCLES_CUDA_KERNEL_ADD(${arch} kernel_split "-D__SPLIT__" ${cuda_sources} FALSE)
+			if(WITH_CYCLES_CUDA_SPLIT_KERNEL_BINARIES)
+				# Compile split kernel
+				CYCLES_CUDA_KERNEL_ADD(${arch} kernel_split "-D__SPLIT__" ${cuda_sources} FALSE)
+			endif()
 		endif()
 	endforeach()
 

@@ -172,7 +172,7 @@ static void paint_draw_line_cursor(bContext *C, int x, int y, void *customdata)
 
 	uint shdr_pos = GWN_vertformat_attr_add(immVertexFormat(), "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
 
-	immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_COLOR);
+	immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_UNIFORM_COLOR);
 
 	float viewport_size[4];
 	glGetFloatv(GL_VIEWPORT, viewport_size);
@@ -589,7 +589,10 @@ static float paint_stroke_integrate_overlap(Brush *br, float factor)
 			max = overlap;
 	}
 
-	return 1.0f / max;
+	if (max == 0.0f)
+		return 1.0f;
+	else
+		return 1.0f / max;
 }
 
 static float paint_space_stroke_spacing_variable(const Scene *scene, PaintStroke *stroke, float pressure, float dpressure, float length)

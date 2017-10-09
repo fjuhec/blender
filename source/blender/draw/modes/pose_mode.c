@@ -101,7 +101,9 @@ static void POSE_cache_init(void *vedata)
 
 	{
 		/* Non Meshes Pass (Camera, empties, lamps ...) */
-		DRWState state = DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS | DRW_STATE_BLEND | DRW_STATE_WIRE;
+		DRWState state =
+		        DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS |
+		        DRW_STATE_BLEND | DRW_STATE_WIRE;
 		psl->relationship = DRW_pass_create("Bone Relationship Pass", state);
 
 		/* Relationship Lines */
@@ -191,5 +193,6 @@ DrawEngineType draw_engine_pose_type = {
 	&POSE_cache_populate,
 	NULL,
 	NULL,
-	&POSE_draw_scene
+	&POSE_draw_scene,
+	NULL,
 };

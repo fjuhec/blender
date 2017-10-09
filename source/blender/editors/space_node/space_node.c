@@ -49,8 +49,6 @@
 #include "ED_node.h"
 #include "ED_render.h"
 #include "ED_screen.h"
-#include "WM_api.h"
-#include "WM_types.h"
 
 #include "UI_resources.h"
 #include "UI_view2d.h"
@@ -58,6 +56,7 @@
 #include "RNA_access.h"
 
 #include "WM_api.h"
+#include "WM_types.h"
 
 #include "node_intern.h"  /* own include */
 
@@ -866,6 +865,9 @@ static void node_widgets(void)
 	wmManipulatorMapType *mmap_type = WM_manipulatormaptype_ensure(
 	        &(const struct wmManipulatorMapType_Params){SPACE_NODE, RGN_TYPE_WINDOW});
 	WM_manipulatorgrouptype_append_and_link(mmap_type, NODE_WGT_backdrop_transform);
+	WM_manipulatorgrouptype_append_and_link(mmap_type, NODE_WGT_backdrop_crop);
+	WM_manipulatorgrouptype_append_and_link(mmap_type, NODE_WGT_backdrop_sun_beams);
+	WM_manipulatorgrouptype_append_and_link(mmap_type, NODE_WGT_backdrop_corner_pin);
 }
 
 static void node_id_remap(ScrArea *UNUSED(sa), SpaceLink *slink, ID *old_id, ID *new_id)

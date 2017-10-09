@@ -41,11 +41,13 @@ struct DerivedMesh;
 struct ImagePool;
 struct MTex;
 struct Scene;
+struct SceneLayer;
+struct Render;
 
 /* render_texture.c */
 /* used by particle.c, effect.c, editmesh_modes.c and brush.c, returns 1 if rgb, 0 otherwise */
 int externtex(
-        struct MTex *mtex, const float vec[3], float *tin, float *tr, float *tg, float *tb, float *ta,
+        const struct MTex *mtex, const float vec[3], float *tin, float *tr, float *tg, float *tb, float *ta,
         const int thread, struct ImagePool *pool, const bool skip_load_image, const bool texnode_preview);
 void texture_rgb_blend(float in[3], const float tex[3], const float out[3], float fact, float facg, int blendtype);
 float texture_value_blend(float tex, float out, float fact, float facg, int blendtype);
@@ -70,17 +72,20 @@ struct PointDensity;
 
 void RE_point_density_cache(
         struct Scene *scene,
+        struct SceneLayer *sl,
         struct PointDensity *pd,
         const bool use_render_params);
 
 void RE_point_density_minmax(
         struct Scene *scene,
+        struct SceneLayer *sl,
         struct PointDensity *pd,
         const bool use_render_params,
         float r_min[3], float r_max[3]);
 
 void RE_point_density_sample(
         struct Scene *scene,
+        struct SceneLayer *sl,
         struct PointDensity *pd,
         const int resolution,
         const bool use_render_params,

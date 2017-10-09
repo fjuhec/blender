@@ -85,7 +85,7 @@ static void do_version_workspaces_create_from_screens(Main *bmain)
 	for (bScreen *screen = bmain->screen.first; screen; screen = screen->id.next) {
 		const bScreen *screen_parent = screen_parent_find(screen);
 		WorkSpace *workspace;
-		SceneLayer *layer = BKE_scene_layer_render_active(screen->scene);
+		SceneLayer *layer = BKE_scene_layer_from_scene_get(screen->scene);
 		ListBase *transform_orientations;
 
 		if (screen_parent) {
@@ -287,7 +287,7 @@ void do_versions_after_linking_280(Main *main)
 	if (!MAIN_VERSION_ATLEAST(main, 280, 0)) {
 		for (bScreen *screen = main->screen.first; screen; screen = screen->id.next) {
 			/* same render-layer as do_version_workspaces_after_lib_link will activate,
-			 * so same layer as BKE_scene_layer_context_active would return */
+			 * so same layer as BKE_scene_layer_from_workspace_get would return */
 			SceneLayer *layer = screen->scene->render_layers.first;
 
 			for (ScrArea *sa = screen->areabase.first; sa; sa = sa->next) {
@@ -345,7 +345,18 @@ static void do_version_layer_collections_idproperties(ListBase *lb)
 
 void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 {
+
 	if (!MAIN_VERSION_ATLEAST(main, 280, 0)) {
+		for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
+			if (STREQ(scene->r.engine, RE_engine_id_BLENDER_RENDER)) {
+#ifdef WITH_CLAY_ENGINE
+				BLI_strncpy(scene->r.engine, RE_engine_id_BLENDER_CLAY, sizeof(scene->r.engine));
+#else
+				BLI_strncpy(scene->r.engine, RE_engine_id_BLENDER_EEVEE, sizeof(scene->r.engine));
+#endif
+			}
+		}
+
 		if (!DNA_struct_elem_find(fd->filesdna, "Scene", "ListBase", "render_layers")) {
 			for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
 				/* Master Collection */
@@ -366,13 +377,13 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 	}
 
 	if (!MAIN_VERSION_ATLEAST(main, 280, 1)) {
-		if (!DNA_struct_elem_find(fd->filesdna, "Lamp", "float", "bleedexp"))	{
+		if (!DNA_struct_elem_find(fd->filesdna, "Lamp", "float", "bleedexp")) {
 			for (Lamp *la = main->lamp.first; la; la = la->id.next) {
 				la->bleedexp = 120.0f;
 			}
 		}
 
-		if (!DNA_struct_elem_find(fd->filesdna, "GPUDOFSettings", "float", "ratio"))	{
+		if (!DNA_struct_elem_find(fd->filesdna, "GPUDOFSettings", "float", "ratio")) {
 			for (Camera *ca = main->camera.first; ca; ca = ca->id.next) {
 				ca->gpu_dof.ratio = 1.0f;
 			}
@@ -422,30 +433,81 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 	}
 
 	{
-		{
-			/* Eevee shader nodes renamed because of the output node system.
-			 * Note that a new output node is not being added here, because it would be overkill
-			 * to handle this case in lib_verify_nodetree. */
-			bool error = false;
-			FOREACH_NODETREE(main, ntree, id) {
-				if (ntree->type == NTREE_SHADER) {
-					for (bNode *node = ntree->nodes.first; node; node = node->next) {
-						if (node->type == SH_NODE_EEVEE_METALLIC && STREQ(node->idname, "ShaderNodeOutputMetallic")) {
-							BLI_strncpy(node->idname, "ShaderNodeEeveeMetallic", sizeof(node->idname));
-							error = true;
-						}
+		if (!DNA_struct_elem_find(fd->filesdna, "Lamp", "float", "cascade_max_dist")) {
+			for (Lamp *la = main->lamp.first; la; la = la->id.next) {
+				la->cascade_max_dist = 1000.0f;
+				la->cascade_count = 4;
+				la->cascade_exponent = 0.8f;
+				la->cascade_fade = 0.1f;
+			}
+		}
 
-						if (node->type == SH_NODE_EEVEE_SPECULAR && STREQ(node->idname, "ShaderNodeOutputSpecular")) {
-							BLI_strncpy(node->idname, "ShaderNodeEeveeSpecular", sizeof(node->idname));
-							error = true;
-						}
+		if (!DNA_struct_elem_find(fd->filesdna, "Lamp", "float", "contact_dist")) {
+			for (Lamp *la = main->lamp.first; la; la = la->id.next) {
+				la->contact_dist = 1.0f;
+				la->contact_bias = 0.03f;
+				la->contact_spread = 0.2f;
+				la->contact_thickness = 0.5f;
+			}
+		}
+	}
+
+	{
+		typedef enum eNTreeDoVersionErrors {
+			NTREE_DOVERSION_NO_ERROR = 0,
+			NTREE_DOVERSION_NEED_OUTPUT = (1 << 0),
+			NTREE_DOVERSION_TRANSPARENCY_EMISSION = (1 << 1),
+		} eNTreeDoVersionErrors;
+
+		/* Eevee shader nodes renamed because of the output node system.
+		 * Note that a new output node is not being added here, because it would be overkill
+		 * to handle this case in lib_verify_nodetree.
+		 *
+		 * Also, metallic node is now unified into the principled node. */
+		eNTreeDoVersionErrors error = NTREE_DOVERSION_NO_ERROR;
+
+		FOREACH_NODETREE(main, ntree, id) {
+			if (ntree->type == NTREE_SHADER) {
+				for (bNode *node = ntree->nodes.first; node; node = node->next) {
+					if (node->type == 194 /* SH_NODE_EEVEE_METALLIC */ &&
+					    STREQ(node->idname, "ShaderNodeOutputMetallic"))
+					{
+						BLI_strncpy(node->idname, "ShaderNodeEeveeMetallic", sizeof(node->idname));
+						error |= NTREE_DOVERSION_NEED_OUTPUT;
+					}
+
+					else if (node->type == SH_NODE_EEVEE_SPECULAR && STREQ(node->idname, "ShaderNodeOutputSpecular")) {
+						BLI_strncpy(node->idname, "ShaderNodeEeveeSpecular", sizeof(node->idname));
+						error |= NTREE_DOVERSION_NEED_OUTPUT;
+					}
+
+					else if (node->type == 196 /* SH_NODE_OUTPUT_EEVEE_MATERIAL */ &&
+					         STREQ(node->idname, "ShaderNodeOutputEeveeMaterial"))
+					{
+						node->type = SH_NODE_OUTPUT_MATERIAL;
+						BLI_strncpy(node->idname, "ShaderNodeOutputMaterial", sizeof(node->idname));
+					}
+
+					else if (node->type == 194 /* SH_NODE_EEVEE_METALLIC */ &&
+					         STREQ(node->idname, "ShaderNodeEeveeMetallic"))
+					{
+						node->type = SH_NODE_BSDF_PRINCIPLED;
+						BLI_strncpy(node->idname, "ShaderNodeBsdfPrincipled", sizeof(node->idname));
+						node->custom1 = SHD_GLOSSY_MULTI_GGX;
+						error |= NTREE_DOVERSION_TRANSPARENCY_EMISSION;
 					}
 				}
-			} FOREACH_NODETREE_END
-			if (error) {
-				BKE_report(fd->reports, RPT_ERROR, "Eevee material conversion problem. Error in console");
-				printf("You need to connect Eevee Metallic and Specular shader nodes to new material output nodes.\n");
 			}
+		} FOREACH_NODETREE_END
+
+		if (error & NTREE_DOVERSION_NEED_OUTPUT) {
+			BKE_report(fd->reports, RPT_ERROR, "Eevee material conversion problem. Error in console");
+			printf("You need to connect Principled and Eevee Specular shader nodes to new material output nodes.\n");
+		}
+
+		if (error & NTREE_DOVERSION_TRANSPARENCY_EMISSION) {
+			BKE_report(fd->reports, RPT_ERROR, "Eevee material conversion problem. Error in console");
+			printf("You need to combine transparency and emission shaders to the converted Principled shader nodes.\n");
 		}
 	}
 }

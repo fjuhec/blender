@@ -1,5 +1,6 @@
 
 #define M_PI        3.14159265358979323846  /* pi */
+#define M_2PI       6.28318530717958647692  /* 2*pi */
 #define M_PI_2      1.57079632679489661923  /* pi/2 */
 #define M_1_PI      0.318309886183790671538  /* 1/pi */
 #define M_1_2PI     0.159154943091895335768  /* 1/(2*pi) */
@@ -8,62 +9,45 @@
 #define LUT_SIZE 64
 
 uniform mat4 ProjectionMatrix;
+uniform mat4 ViewProjectionMatrix;
+uniform mat4 ViewMatrixInverse;
 uniform vec4 viewvecs[2];
+#ifndef SHADOW_SHADER
+uniform mat4 ViewMatrix;
+#else
+layout(std140) uniform shadow_render_block {
+	mat4 ShadowMatrix[6];
+	mat4 FaceViewMatrix[6];
+	vec4 lampPosition;
+	float cubeTexelSize;
+	float storedTexelSize;
+	float nearClip;
+	float farClip;
+	int shadowSampleCount;
+	float shadowInvSampleCount;
+};
+
+flat in int shFace; /* Shadow layer we are rendering to. */
+#define ViewMatrix      FaceViewMatrix[shFace]
+#endif
+
+uniform vec2 mipRatio[10];
+
+/* Buffers */
+uniform sampler2D colorBuffer;
+uniform sampler2D depthBuffer;
+uniform sampler2D maxzBuffer;
+uniform sampler2D minzBuffer;
+uniform sampler2DArray planarDepth;
+
+#define cameraForward   normalize(ViewMatrixInverse[2].xyz)
+#define cameraPos       ViewMatrixInverse[3].xyz
+#define cameraVec      ((ProjectionMatrix[3][3] == 0.0) ? normalize(cameraPos - worldPosition) : cameraForward)
+#define viewCameraVec  ((ProjectionMatrix[3][3] == 0.0) ? normalize(-viewPosition) : vec3(0.0, 0.0, 1.0))
 
 /* ------- Structures -------- */
 
-struct ProbeData {
-	vec4 position_type;
-	vec4 attenuation_fac_type;
-	mat4 influencemat;
-	mat4 parallaxmat;
-};
-
-#define PROBE_PARALLAX_BOX    1.0
-#define PROBE_ATTENUATION_BOX 1.0
-
-#define p_position      position_type.xyz
-#define p_parallax_type position_type.w
-#define p_atten_fac     attenuation_fac_type.x
-#define p_atten_type    attenuation_fac_type.y
-
-struct PlanarData {
-	vec4 plane_equation;
-	vec4 clip_vec_x_fade_scale;
-	vec4 clip_vec_y_fade_bias;
-	vec4 clip_edges;
-	vec4 facing_scale_bias;
-	mat4 reflectionmat; /* transform world space into reflection texture space */
-};
-
-#define pl_plane_eq      plane_equation
-#define pl_normal        plane_equation.xyz
-#define pl_facing_scale  facing_scale_bias.x
-#define pl_facing_bias   facing_scale_bias.y
-#define pl_fade_scale    clip_vec_x_fade_scale.w
-#define pl_fade_bias     clip_vec_y_fade_bias.w
-#define pl_clip_pos_x    clip_vec_x_fade_scale.xyz
-#define pl_clip_pos_y    clip_vec_y_fade_bias.xyz
-#define pl_clip_edges    clip_edges
-
-struct GridData {
-	mat4 localmat;
-	ivec4 resolution_offset;
-	vec4 ws_corner_atten_scale; /* world space corner position */
-	vec4 ws_increment_x_atten_bias; /* world space vector between 2 opposite cells */
-	vec4 ws_increment_y;
-	vec4 ws_increment_z;
-};
-
-#define g_corner        ws_corner_atten_scale.xyz
-#define g_atten_scale   ws_corner_atten_scale.w
-#define g_atten_bias    ws_increment_x_atten_bias.w
-#define g_increment_x   ws_increment_x_atten_bias.xyz
-#define g_increment_y   ws_increment_y.xyz
-#define g_increment_z   ws_increment_z.xyz
-#define g_resolution    resolution_offset.xyz
-#define g_offset        resolution_offset.w
-
+/* ------ Lights ----- */
 struct LightData {
 	vec4 position_influence;      /* w : InfluenceRadius */
 	vec4 color_spec;              /* w : Spec Intensity */
@@ -89,52 +73,56 @@ struct LightData {
 #define l_radius       spotdata_radius_shadow.z
 #define l_shadowid     spotdata_radius_shadow.w
 
-
-struct ShadowCubeData {
-	vec4 near_far_bias_exp;
-};
-
-/* convenience aliases */
-#define sh_cube_near   near_far_bias_exp.x
-#define sh_cube_far    near_far_bias_exp.y
-#define sh_cube_bias   near_far_bias_exp.z
-#define sh_cube_exp    near_far_bias_exp.w
-
-
-struct ShadowMapData {
-	mat4 shadowmat;
-	vec4 near_far_bias;
-};
-
-/* convenience aliases */
-#define sh_map_near   near_far_bias.x
-#define sh_map_far    near_far_bias.y
-#define sh_map_bias   near_far_bias.z
-
+/* ------ Shadows ----- */
 #ifndef MAX_CASCADE_NUM
 #define MAX_CASCADE_NUM 4
 #endif
 
-struct ShadowCascadeData {
-	mat4 shadowmat[MAX_CASCADE_NUM];
-	/* arrays of float are not aligned so use vec4 */
-	vec4 split_distances;
-	vec4 bias;
+struct ShadowData {
+	vec4 near_far_bias_exp;
+	vec4 shadow_data_start_end;
+	vec4 contact_shadow_data;
 };
 
-struct ShadingData {
-	vec3 V; /* View vector */
-	vec3 N; /* World Normal of the fragment */
-	vec3 W; /* World Position of the fragment */
-	vec3 l_vector; /* Current Light vector */
+struct ShadowCubeData {
+	vec4 position;
 };
+
+struct ShadowCascadeData {
+	mat4 shadowmat[MAX_CASCADE_NUM];
+	vec4 split_start_distances;
+	vec4 split_end_distances;
+};
+
+/* convenience aliases */
+#define sh_near   near_far_bias_exp.x
+#define sh_far    near_far_bias_exp.y
+#define sh_bias   near_far_bias_exp.z
+#define sh_exp    near_far_bias_exp.w
+#define sh_bleed  near_far_bias_exp.w
+#define sh_tex_start    shadow_data_start_end.x
+#define sh_data_start   shadow_data_start_end.y
+#define sh_multi_nbr    shadow_data_start_end.z
+#define sh_contact_dist            contact_shadow_data.x
+#define sh_contact_offset          contact_shadow_data.y
+#define sh_contact_spread          contact_shadow_data.z
+#define sh_contact_thickness       contact_shadow_data.w
 
 /* ------- Convenience functions --------- */
 
 vec3 mul(mat3 m, vec3 v) { return m * v; }
 mat3 mul(mat3 m1, mat3 m2) { return m1 * m2; }
+vec3 transform_direction(mat4 m, vec3 v) { return mat3(m) * v; }
+vec3 transform_point(mat4 m, vec3 v) { return (m * vec4(v, 1.0)).xyz; }
+vec3 project_point(mat4 m, vec3 v) {
+	vec4 tmp = m * vec4(v, 1.0);
+	return tmp.xyz / tmp.w;
+}
 
+float min_v2(vec2 v) { return min(v.x, v.y); }
 float min_v3(vec3 v) { return min(v.x, min(v.y, v.z)); }
+float max_v2(vec2 v) { return max(v.x, v.y); }
+float max_v3(vec3 v) { return max(v.x, max(v.y, v.z)); }
 
 float saturate(float a) { return clamp(a, 0.0, 1.0); }
 vec2 saturate(vec2 a) { return clamp(a, 0.0, 1.0); }
@@ -147,20 +135,43 @@ float len_squared(vec3 a) { return dot(a, a); }
 
 float inverse_distance(vec3 V) { return max( 1 / length(V), 1e-8); }
 
+vec2 mip_ratio_interp(float mip) {
+	float low_mip = floor(mip);
+	return mix(mipRatio[int(low_mip)], mipRatio[int(low_mip + 1.0)], mip - low_mip);
+}
 /* ------- Fast Math ------- */
 
 /* [Drobot2014a] Low Level Optimizations for GCN */
-float fast_sqrt(float x)
+float fast_sqrt(float v)
 {
-	return intBitsToFloat(0x1fbd1df5 + (floatBitsToInt(x) >> 1));
+	return intBitsToFloat(0x1fbd1df5 + (floatBitsToInt(v) >> 1));
+}
+
+vec2 fast_sqrt(vec2 v)
+{
+	return intBitsToFloat(0x1fbd1df5 + (floatBitsToInt(v) >> 1));
 }
 
 /* [Eberly2014] GPGPU Programming for Games and Science */
-float fast_acos(float x)
+float fast_acos(float v)
 {
-	float res = -0.156583 * abs(x) + M_PI_2;
-	res *= fast_sqrt(1.0 - abs(x));
-	return (x >= 0) ? res : M_PI - res;
+	float res = -0.156583 * abs(v) + M_PI_2;
+	res *= fast_sqrt(1.0 - abs(v));
+	return (v >= 0) ? res : M_PI - res;
+}
+
+vec2 fast_acos(vec2 v)
+{
+	vec2 res = -0.156583 * abs(v) + M_PI_2;
+	res *= fast_sqrt(1.0 - abs(v));
+	v.x = (v.x >= 0) ? res.x : M_PI - res.x;
+	v.y = (v.y >= 0) ? res.y : M_PI - res.y;
+	return v;
+}
+
+float point_plane_projection_dist(vec3 lineorigin, vec3 planeorigin, vec3 planenormal)
+{
+	return dot(planenormal, planeorigin - lineorigin);
 }
 
 float line_plane_intersect_dist(vec3 lineorigin, vec3 linedirection, vec3 planeorigin, vec3 planenormal)
@@ -178,6 +189,12 @@ float line_plane_intersect_dist(vec3 lineorigin, vec3 linedirection, vec4 plane)
 vec3 line_plane_intersect(vec3 lineorigin, vec3 linedirection, vec3 planeorigin, vec3 planenormal)
 {
 	float dist = line_plane_intersect_dist(lineorigin, linedirection, planeorigin, planenormal);
+	return lineorigin + linedirection * dist;
+}
+
+vec3 line_plane_intersect(vec3 lineorigin, vec3 linedirection, vec4 plane)
+{
+	float dist = line_plane_intersect_dist(lineorigin, linedirection, plane);
 	return lineorigin + linedirection * dist;
 }
 
@@ -275,20 +292,41 @@ float buffer_depth(bool is_persp, float z, float zf, float zn)
 	}
 }
 
-vec3 get_view_space_from_depth(vec2 uvcoords, float depth)
+float get_view_z_from_depth(float depth)
 {
 	if (ProjectionMatrix[3][3] == 0.0) {
 		float d = 2.0 * depth - 1.0;
-		float zview = -ProjectionMatrix[3][2] / (d + ProjectionMatrix[2][2]);
-		return (viewvecs[0].xyz + vec3(uvcoords, 0.0) * viewvecs[1].xyz) * zview;
+		return -ProjectionMatrix[3][2] / (d + ProjectionMatrix[2][2]);
+	}
+	else {
+		return viewvecs[0].z + depth * viewvecs[1].z;
+	}
+}
+
+vec2 get_uvs_from_view(vec3 view)
+{
+	vec3 ndc = project_point(ProjectionMatrix, view);
+	return ndc.xy * 0.5 + 0.5;
+}
+
+vec3 get_view_space_from_depth(vec2 uvcoords, float depth)
+{
+	if (ProjectionMatrix[3][3] == 0.0) {
+		return (viewvecs[0].xyz + vec3(uvcoords, 0.0) * viewvecs[1].xyz) * get_view_z_from_depth(depth);
 	}
 	else {
 		return viewvecs[0].xyz + vec3(uvcoords, depth) * viewvecs[1].xyz;
 	}
 }
 
-vec3 get_specular_dominant_dir(vec3 N, vec3 R, float roughness)
+vec3 get_world_space_from_depth(vec2 uvcoords, float depth)
 {
+	return (ViewMatrixInverse * vec4(get_view_space_from_depth(uvcoords, depth), 1.0)).xyz;
+}
+
+vec3 get_specular_reflection_dominant_dir(vec3 N, vec3 V, float roughness)
+{
+	vec3 R = -reflect(V, N);
 	float smoothness = 1.0 - roughness;
 	float fac = smoothness * (sqrt(smoothness) + roughness);
 	return normalize(mix(N, R, fac));
@@ -299,14 +337,125 @@ float specular_occlusion(float NV, float AO, float roughness)
 	return saturate(pow(NV + AO, roughness) - 1.0 + AO);
 }
 
+/* --- Refraction utils --- */
+
+float ior_from_f0(float f0)
+{
+	float f = sqrt(f0);
+	return (-f - 1.0) / (f - 1.0);
+}
+
+float f0_from_ior(float eta)
+{
+	float A = (eta - 1.0) / (eta + 1.0);
+	return A * A;
+}
+
+vec3 get_specular_refraction_dominant_dir(vec3 N, vec3 V, float roughness, float ior)
+{
+	/* TODO: This a bad approximation. Better approximation should fit
+	 * the refracted vector and roughness into the best prefiltered reflection
+	 * lobe. */
+	/* Correct the IOR for ior < 1.0 to not see the abrupt delimitation or the TIR */
+	ior = (ior < 1.0) ? mix(ior, 1.0, roughness) : ior;
+	float eta = 1.0 / ior;
+
+	float NV = dot(N, -V);
+
+	/* Custom Refraction. */
+	float k = 1.0 - eta * eta * (1.0 - NV * NV);
+	k = max(0.0, k); /* Only this changes. */
+	vec3 R = eta * -V - (eta * NV + sqrt(k)) * N;
+
+	return R;
+}
+
+float get_btdf_lut(sampler2DArray btdf_lut_tex, float NV, float roughness, float ior)
+{
+	const vec3 lut_scale_bias_texel_size = vec3((LUT_SIZE - 1.0), 0.5, 1.5) / LUT_SIZE;
+
+	vec3 coords;
+	/* Try to compensate for the low resolution and interpolation error. */
+	coords.x = (ior > 1.0)
+	           ? (0.9 + lut_scale_bias_texel_size.z) + (0.1 - lut_scale_bias_texel_size.z) * f0_from_ior(ior)
+	           : (0.9 + lut_scale_bias_texel_size.z) * ior * ior;
+	coords.y = 1.0 - saturate(NV);
+	coords.xy *= lut_scale_bias_texel_size.x;
+	coords.xy += lut_scale_bias_texel_size.y;
+
+	const float lut_lvl_ofs = 4.0; /* First texture lvl of roughness. */
+	const float lut_lvl_scale = 16.0; /* How many lvl of roughness in the lut. */
+
+	float mip = roughness * lut_lvl_scale;
+	float mip_floor = floor(mip);
+
+	coords.z = lut_lvl_ofs + mip_floor + 1.0;
+	float btdf_high = textureLod(btdf_lut_tex, coords, 0.0).r;
+
+	coords.z -= 1.0;
+	float btdf_low = textureLod(btdf_lut_tex, coords, 0.0).r;
+
+	float btdf = (ior == 1.0) ? 1.0 : mix(btdf_low, btdf_high, mip - coords.z);
+
+	return btdf;
+}
+
+/* ---- Encode / Decode Normal buffer data ---- */
+/* From http://aras-p.info/texts/CompactNormalStorage.html
+ * Using Method #4: Spheremap Transform */
+vec2 normal_encode(vec3 n, vec3 view)
+{
+    float p = sqrt(n.z * 8.0 + 8.0);
+    return n.xy / p + 0.5;
+}
+
+vec3 normal_decode(vec2 enc, vec3 view)
+{
+    vec2 fenc = enc * 4.0 - 2.0;
+    float f = dot(fenc, fenc);
+    float g = sqrt(1.0 - f / 4.0);
+    vec3 n;
+    n.xy = fenc*g;
+    n.z = 1 - f / 2;
+    return n;
+}
+
+/* Fresnel monochromatic, perfect mirror */
+float F_eta(float eta, float cos_theta)
+{
+	/* compute fresnel reflectance without explicitly computing
+	 * the refracted direction */
+	float c = abs(cos_theta);
+	float g = eta * eta - 1.0 + c * c;
+	float result;
+
+	if (g > 0.0) {
+		g = sqrt(g);
+		vec2 g_c = vec2(g) + vec2(c, -c);
+		float A = g_c.y / g_c.x;
+		A *= A;
+		g_c *= c;
+		float B = (g_c.y - 1.0) / (g_c.x + 1.0);
+		B *= B;
+		result = 0.5 * A * (1.0 + B);
+	}
+	else {
+		result = 1.0;  /* TIR (no refracted component) */
+	}
+
+	return result;
+}
+
 /* Fresnel */
 vec3 F_schlick(vec3 f0, float cos_theta)
 {
-	float fac = pow(1.0 - cos_theta, 5);
+	float fac = 1.0 - cos_theta;
+	float fac2 = fac * fac;
+	fac = fac2 * fac2 * fac;
 
 	/* Unreal specular matching : if specular color is below 2% intensity,
 	 * (using green channel for intensity) treat as shadowning */
-	return saturate(50.0 * f0.g) * fac + (1.0 - fac) * f0;
+	return saturate(50.0 * dot(f0, vec3(0.3, 0.6, 0.1))) * fac + (1.0 - fac) * f0;
 }
 
 /* Fresnel approximation for LTC area lights (not MRP) */
@@ -315,16 +464,16 @@ vec3 F_area(vec3 f0, vec2 lut)
 	vec2 fac = normalize(lut.xy);
 
 	/* Unreal specular matching : if specular color is below 2% intensity,
-	 * (using green channel for intensity) treat as shadowning */
-	return saturate(50.0 * f0.g) * fac.y + fac.x * f0;
+	 * treat as shadowning */
+	return saturate(50.0 * dot(f0, vec3(0.3, 0.6, 0.1))) * fac.y + fac.x * f0;
 }
 
-/* Fresnel approximation for LTC area lights (not MRP) */
+/* Fresnel approximation for IBL */
 vec3 F_ibl(vec3 f0, vec2 lut)
 {
 	/* Unreal specular matching : if specular color is below 2% intensity,
-	 * (using green channel for intensity) treat as shadowning */
-	return saturate(50.0 * f0.g) * lut.y + lut.x * f0;
+	 * treat as shadowning */
+	return saturate(50.0 * dot(f0, vec3(0.3, 0.6, 0.1))) * lut.y + lut.x * f0;
 }
 
 /* GGX */
@@ -361,3 +510,140 @@ float bsdf_ggx(vec3 N, vec3 L, vec3 V, float roughness)
 	/* bsdf = D * G / (4.0 * NL * NV); /* Reference function */
 	return NL * a2 / (D * G); /* NL to Fit cycles Equation : line. 345 in bsdf_microfacet.h */
 }
+
+void accumulate_light(vec3 light, float fac, inout vec4 accum)
+{
+	accum += vec4(light, 1.0) * min(fac, (1.0 - accum.a));
+}
+
+/* ----------- Cone Apperture Approximation --------- */
+
+/* Return a fitted cone angle given the input roughness */
+float cone_cosine(float r)
+{
+	/* Using phong gloss
+	 * roughness = sqrt(2/(gloss+2)) */
+	float gloss = -2 + 2 / (r * r);
+	/* Drobot 2014 in GPUPro5 */
+	// return cos(2.0 * sqrt(2.0 / (gloss + 2)));
+	/* Uludag 2014 in GPUPro5 */
+	// return pow(0.244, 1 / (gloss + 1));
+	/* Jimenez 2016 in Practical Realtime Strategies for Accurate Indirect Occlusion*/
+	return exp2(-3.32193 * r * r);
+}
+
+/* --------- Closure ---------- */
+#ifdef VOLUMETRICS
+
+struct Closure {
+	vec3 absorption;
+	vec3 scatter;
+	vec3 emission;
+	float anisotropy;
+};
+
+#define CLOSURE_DEFAULT Closure(vec3(0.0), vec3(0.0), vec3(0.0), 0.0)
+
+Closure closure_mix(Closure cl1, Closure cl2, float fac)
+{
+	Closure cl;
+	cl.absorption = mix(cl1.absorption, cl2.absorption, fac);
+	cl.scatter = mix(cl1.scatter, cl2.scatter, fac);
+	cl.emission = mix(cl1.emission, cl2.emission, fac);
+	cl.anisotropy = mix(cl1.anisotropy, cl2.anisotropy, fac);
+	return cl;
+}
+
+Closure closure_add(Closure cl1, Closure cl2)
+{
+	Closure cl;
+	cl.absorption = cl1.absorption + cl2.absorption;
+	cl.scatter = cl1.scatter + cl2.scatter;
+	cl.emission = cl1.emission + cl2.emission;
+	cl.anisotropy = (cl1.anisotropy + cl2.anisotropy) / 2.0; /* Average phase (no multi lobe) */
+	return cl;
+}
+#else
+
+struct Closure {
+	vec3 radiance;
+	float opacity;
+	vec4 ssr_data;
+	vec2 ssr_normal;
+	int ssr_id;
+};
+
+/* This is hacking ssr_id to tag transparent bsdf */
+#define TRANSPARENT_CLOSURE_FLAG -2
+#define REFRACT_CLOSURE_FLAG -3
+
+#define CLOSURE_DEFAULT Closure(vec3(0.0), 1.0, vec4(0.0), vec2(0.0), -1)
+
+uniform int outputSsrId;
+
+Closure closure_mix(Closure cl1, Closure cl2, float fac)
+{
+	Closure cl;
+	if (cl1.ssr_id == outputSsrId) {
+		cl.ssr_data = mix(cl1.ssr_data.xyzw, vec4(vec3(0.0), cl1.ssr_data.w), fac); /* do not blend roughness */
+		cl.ssr_normal = cl1.ssr_normal;
+		cl.ssr_id = cl1.ssr_id;
+	}
+	else {
+		cl.ssr_data = mix(vec4(vec3(0.0), cl2.ssr_data.w), cl2.ssr_data.xyzw, fac); /* do not blend roughness */
+		cl.ssr_normal = cl2.ssr_normal;
+		cl.ssr_id = cl2.ssr_id;
+	}
+	if (cl1.ssr_id == TRANSPARENT_CLOSURE_FLAG) {
+		cl1.radiance = cl2.radiance;
+	}
+	if (cl2.ssr_id == TRANSPARENT_CLOSURE_FLAG) {
+		cl2.radiance = cl1.radiance;
+	}
+	cl.radiance = mix(cl1.radiance, cl2.radiance, fac);
+	cl.opacity = mix(cl1.opacity, cl2.opacity, fac);
+	return cl;
+}
+
+Closure closure_add(Closure cl1, Closure cl2)
+{
+	Closure cl = (cl1.ssr_id == outputSsrId) ? cl1 : cl2;
+	cl.radiance = cl1.radiance + cl2.radiance;
+	cl.opacity = cl1.opacity + cl2.opacity;
+	return cl;
+}
+
+#if defined(MESH_SHADER) && !defined(USE_ALPHA_HASH) && !defined(USE_ALPHA_CLIP) && !defined(SHADOW_SHADER) && !defined(USE_MULTIPLY)
+layout(location = 0) out vec4 fragColor;
+layout(location = 1) out vec4 ssrNormals;
+layout(location = 2) out vec4 ssrData;
+
+Closure nodetree_exec(void); /* Prototype */
+
+#define NODETREE_EXEC
+void main()
+{
+	Closure cl = nodetree_exec();
+	fragColor = vec4(cl.radiance, cl.opacity);
+	ssrNormals = cl.ssr_normal.xyyy;
+	ssrData = cl.ssr_data;
+}
+
+#endif /* MESH_SHADER && !SHADOW_SHADER */
+
+#endif /* VOLUMETRICS */
+
+Closure nodetree_exec(void); /* Prototype */
+
+/* TODO find a better place */
+#ifdef USE_MULTIPLY
+
+out vec4 fragColor;
+
+#define NODETREE_EXEC
+void main()
+{
+	Closure cl = nodetree_exec();
+	fragColor = vec4(mix(vec3(1.0), cl.radiance, cl.opacity), 1.0);
+}
+#endif

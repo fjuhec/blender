@@ -57,6 +57,7 @@
 /* prototype */
 struct EngineSettingsCB_Type;
 static void layer_collection_free(SceneLayer *sl, LayerCollection *lc);
+static void layer_collection_objects_populate(SceneLayer *sl, LayerCollection *lc, ListBase *objects);
 static LayerCollection *layer_collection_add(SceneLayer *sl, LayerCollection *parent, SceneCollection *sc);
 static LayerCollection *find_layer_collection_by_scene_collection(LayerCollection *lc, const SceneCollection *sc);
 static IDProperty *collection_engine_settings_create(struct EngineSettingsCB_Type *ces_type, const bool populate);
@@ -69,9 +70,9 @@ static void object_bases_iterator_next(BLI_Iterator *iter, const int flag);
 
 /**
  * Returns the SceneLayer to be used for rendering
- * Most of the time BKE_scene_layer_context_active should be used instead
+ * Most of the time BKE_scene_layer_from_workspace_get should be used instead
  */
-SceneLayer *BKE_scene_layer_render_active(const Scene *scene)
+SceneLayer *BKE_scene_layer_from_scene_get(const Scene *scene)
 {
 	SceneLayer *sl = BLI_findlink(&scene->render_layers, scene->active_layer);
 	BLI_assert(sl);
@@ -81,23 +82,18 @@ SceneLayer *BKE_scene_layer_render_active(const Scene *scene)
 /**
  * Returns the SceneLayer to be used for drawing, outliner, and other context related areas.
  */
-SceneLayer *BKE_scene_layer_context_active_ex(const Main *bmain, const Scene *UNUSED(scene))
+SceneLayer *BKE_scene_layer_from_workspace_get(const struct WorkSpace *workspace)
 {
-	/* XXX We should really pass the workspace as argument, but would require
-	 * some bigger changes since it's often not available where we call this.
-	 * Just working around this by getting active window from WM for now */
-	for (wmWindowManager *wm = bmain->wm.first; wm; wm = wm->id.next) {
-		/* Called on startup, so 'winactive' may not be set, in that case fall back to first window. */
-		wmWindow *win = wm->winactive ? wm->winactive : wm->windows.first;
-		const WorkSpace *workspace = BKE_workspace_active_get(win->workspace_hook);
-		return BKE_workspace_render_layer_get(workspace);
-	}
-
-	return NULL;
+	return BKE_workspace_render_layer_get(workspace);
 }
-SceneLayer *BKE_scene_layer_context_active(const Scene *scene)
+
+/**
+ * This is a placeholder to know which areas of the code need to be addressed for the Workspace changes.
+ * Never use this, you should either use BKE_scene_layer_workspace_active or get SceneLayer explicitly.
+ */
+SceneLayer *BKE_scene_layer_context_active_PLACEHOLDER(const Scene *scene)
 {
-	return BKE_scene_layer_context_active_ex(G.main, scene);
+	return BKE_scene_layer_from_scene_get(scene);
 }
 
 /**
@@ -293,11 +289,7 @@ static Base *object_base_add(SceneLayer *sl, Object *ob)
 
 /* LayerCollection */
 
-/**
- * When freeing the entire SceneLayer at once we don't bother with unref
- * otherwise SceneLayer is passed to keep the syncing of the LayerCollection tree
- */
-static void layer_collection_free(SceneLayer *sl, LayerCollection *lc)
+static void layer_collection_objects_unpopulate(SceneLayer *sl, LayerCollection *lc)
 {
 	if (sl) {
 		for (LinkData *link = lc->object_bases.first; link; link = link->next) {
@@ -306,6 +298,15 @@ static void layer_collection_free(SceneLayer *sl, LayerCollection *lc)
 	}
 
 	BLI_freelistN(&lc->object_bases);
+}
+
+/**
+ * When freeing the entire SceneLayer at once we don't bother with unref
+ * otherwise SceneLayer is passed to keep the syncing of the LayerCollection tree
+ */
+static void layer_collection_free(SceneLayer *sl, LayerCollection *lc)
+{
+	layer_collection_objects_unpopulate(sl, lc);
 	BLI_freelistN(&lc->overrides);
 
 	if (lc->properties) {
@@ -354,6 +355,15 @@ static LayerCollection *collection_from_index(ListBase *lb, const int number, in
 		}
 	}
 	return NULL;
+}
+
+/**
+ * Get the collection for a given index
+ */
+LayerCollection *BKE_layer_collection_from_index(SceneLayer *sl, const int index)
+{
+	int i = 0;
+	return collection_from_index(&sl->layer_collections, index, &i);
 }
 
 /**
@@ -800,6 +810,60 @@ void BKE_collection_unlink(SceneLayer *sl, LayerCollection *lc)
 	BLI_remlink(&sl->layer_collections, lc);
 	MEM_freeN(lc);
 	sl->active_collection = 0;
+}
+
+/**
+ * Recursively enable nested collections
+ */
+static void layer_collection_enable(SceneLayer *sl, LayerCollection *lc)
+{
+	layer_collection_objects_populate(sl, lc, &lc->scene_collection->objects);
+
+	for (LayerCollection *nlc = lc->layer_collections.first; nlc; nlc = nlc->next) {
+		layer_collection_enable(sl, nlc);
+	}
+}
+
+/**
+ * Enable collection
+ * Add its objects bases to SceneLayer
+ * Depsgraph needs to be rebuilt afterwards
+ */
+void BKE_collection_enable(SceneLayer *sl, LayerCollection *lc)
+{
+	if ((lc->flag & COLLECTION_DISABLED) == 0) {
+		return;
+	}
+
+	lc->flag &= ~COLLECTION_DISABLED;
+	layer_collection_enable(sl, lc);
+}
+
+/**
+ * Recursively disable nested collections
+ */
+static void layer_collection_disable(SceneLayer *sl, LayerCollection *lc)
+{
+	layer_collection_objects_unpopulate(sl, lc);
+
+	for (LayerCollection *nlc = lc->layer_collections.first; nlc; nlc = nlc->next) {
+		layer_collection_disable(sl, nlc);
+	}
+}
+
+/**
+ * Disable collection
+ * Remove all its object bases from SceneLayer
+ * Depsgraph needs to be rebuilt afterwards
+ */
+void BKE_collection_disable(SceneLayer *sl, LayerCollection *lc)
+{
+	if ((lc->flag & COLLECTION_DISABLED) != 0) {
+		return;
+	}
+
+	lc->flag |= COLLECTION_DISABLED;
+	layer_collection_disable(sl, lc);
 }
 
 static void layer_collection_object_add(SceneLayer *sl, LayerCollection *lc, Object *ob)
@@ -1356,7 +1420,7 @@ void BKE_collection_engine_property_add_float_array(
 	val.array.len = array_length;
 	val.array.type = IDP_FLOAT;
 
-	IDProperty *idprop= IDP_New(IDP_ARRAY, &val, name);
+	IDProperty *idprop = IDP_New(IDP_ARRAY, &val, name);
 	memcpy(IDP_Array(idprop), values, sizeof(float) * idprop->len);
 	IDP_AddToGroup(props, idprop);
 }
@@ -1739,10 +1803,10 @@ static void idproperty_reset(IDProperty **props, IDProperty *props_ref)
 	}
 }
 
-void BKE_layer_eval_layer_collection_pre(struct EvaluationContext *UNUSED(eval_ctx),
+void BKE_layer_eval_layer_collection_pre(const struct EvaluationContext *UNUSED(eval_ctx),
                                          Scene *scene, SceneLayer *scene_layer)
 {
-	DEBUG_PRINT("%s on %s\n", __func__, scene_layer->name);
+	DEBUG_PRINT("%s on %s (%p)\n", __func__, scene_layer->name, scene_layer);
 	for (Base *base = scene_layer->object_bases.first; base != NULL; base = base->next) {
 		base->flag &= ~(BASE_VISIBLED | BASE_SELECTABLED);
 		idproperty_reset(&base->collection_properties, scene->collection_properties);
@@ -1756,14 +1820,16 @@ void BKE_layer_eval_layer_collection_pre(struct EvaluationContext *UNUSED(eval_c
 	scene_layer->flag |= SCENE_LAYER_ENGINE_DIRTY;
 }
 
-void BKE_layer_eval_layer_collection(struct EvaluationContext *UNUSED(eval_ctx),
+void BKE_layer_eval_layer_collection(const struct EvaluationContext *UNUSED(eval_ctx),
                                      LayerCollection *layer_collection,
                                      LayerCollection *parent_layer_collection)
 {
-	DEBUG_PRINT("%s on %s, parent %s\n",
+	DEBUG_PRINT("%s on %s (%p), parent %s (%p)\n",
 	            __func__,
 	            layer_collection->scene_collection->name,
-	            (parent_layer_collection != NULL) ? parent_layer_collection->scene_collection->name : "NONE");
+	            layer_collection->scene_collection,
+	            (parent_layer_collection != NULL) ? parent_layer_collection->scene_collection->name : "NONE",
+	            (parent_layer_collection != NULL) ? parent_layer_collection->scene_collection : NULL);
 
 	/* visibility */
 	layer_collection->flag_evaluated = layer_collection->flag;
@@ -1794,6 +1860,9 @@ void BKE_layer_eval_layer_collection(struct EvaluationContext *UNUSED(eval_ctx),
 			IDP_MergeGroup(base->collection_properties, layer_collection->properties_evaluated, true);
 			base->flag |= BASE_VISIBLED;
 		}
+		else {
+			base->flag &= ~BASE_VISIBLED;
+		}
 
 		if (is_selectable) {
 			base->flag |= BASE_SELECTABLED;
@@ -1801,10 +1870,10 @@ void BKE_layer_eval_layer_collection(struct EvaluationContext *UNUSED(eval_ctx),
 	}
 }
 
-void BKE_layer_eval_layer_collection_post(struct EvaluationContext *UNUSED(eval_ctx),
+void BKE_layer_eval_layer_collection_post(const struct EvaluationContext *UNUSED(eval_ctx),
                                           SceneLayer *scene_layer)
 {
-	DEBUG_PRINT("%s on %s\n", __func__, scene_layer->name);
+	DEBUG_PRINT("%s on %s (%p)\n", __func__, scene_layer->name, scene_layer);
 	/* if base is not selectabled, clear select */
 	for (Base *base = scene_layer->object_bases.first; base; base = base->next) {
 		if ((base->flag & BASE_SELECTABLED) == 0) {

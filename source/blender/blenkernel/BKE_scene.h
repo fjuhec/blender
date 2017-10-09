@@ -39,12 +39,12 @@ extern "C" {
 
 struct AviCodecData;
 struct BaseLegacy;
+struct Depsgraph;
 struct EvaluationContext;
 struct Main;
 struct Object;
-struct Base;
-struct QuicktimeCodecData;
 struct RenderData;
+struct SceneLayer;
 struct SceneRenderLayer;
 struct Scene;
 struct SceneCollection;
@@ -69,7 +69,6 @@ typedef enum eSceneCopyMethod {
 struct Base *_setlooper_base_step(struct Scene **sce_iter, struct Base *base);
 
 void free_avicodecdata(struct AviCodecData *acd);
-void free_qtcodecdata(struct QuicktimeCodecData *acd);
 
 void BKE_scene_free_ex(struct Scene *sce, const bool do_id_user);
 void BKE_scene_free(struct Scene *sce);
@@ -97,8 +96,9 @@ typedef struct SceneBaseIter {
 	int phase;
 } SceneBaseIter;
 
-int BKE_scene_base_iter_next(struct EvaluationContext *eval_ctx, struct SceneBaseIter *iter,
-                             struct Scene **scene, int val, struct BaseLegacy **base, struct Object **ob);
+int BKE_scene_base_iter_next(
+        const struct EvaluationContext *eval_ctx, struct SceneBaseIter *iter,
+        struct Scene **scene, int val, struct BaseLegacy **base, struct Object **ob);
 
 void BKE_scene_base_flag_to_objects(struct SceneLayer *sl);
 void BKE_scene_base_flag_from_objects(struct Scene *scene);
@@ -110,6 +110,7 @@ void BKE_scene_object_base_flag_sync_from_object(struct Base *base);
 void BKE_scene_set_background(struct Main *bmain, struct Scene *sce);
 struct Scene *BKE_scene_set_name(struct Main *bmain, const char *name);
 
+void BKE_scene_copy_data(struct Main *bmain, struct Scene *sce_dst, const struct Scene *sce_src, const int flag);
 struct Scene *BKE_scene_copy(struct Main *bmain, struct Scene *sce, int type);
 void BKE_scene_groups_relink(struct Scene *sce);
 
@@ -165,6 +166,8 @@ bool BKE_scene_check_rigidbody_active(const struct Scene *scene);
 int BKE_scene_num_threads(const struct Scene *scene);
 int BKE_render_num_threads(const struct RenderData *r);
 
+int BKE_render_preview_pixel_size(const struct RenderData *r);
+
 double BKE_scene_unit_scale(const struct UnitSettings *unit, const int unit_type, double value);
 
 /* multiview */
@@ -184,9 +187,11 @@ void        BKE_scene_multiview_view_prefix_get(struct Scene *scene, const char 
 void        BKE_scene_multiview_videos_dimensions_get(const struct RenderData *rd, const size_t width, const size_t height, size_t *r_width, size_t *r_height);
 int         BKE_scene_multiview_num_videos_get(const struct RenderData *rd);
 
+/* depsgraph */
+struct Depsgraph *BKE_scene_get_depsgraph(struct Scene *scene, struct SceneLayer *scene_layer);
+
 #ifdef __cplusplus
 }
 #endif
 
 #endif
-

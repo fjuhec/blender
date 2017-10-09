@@ -316,7 +316,7 @@ static void draw_movieclip_buffer(const bContext *C, SpaceClip *sc, ARegion *ar,
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-		imm_draw_checker_box(x, y, x + zoomx * ibuf->x, y + zoomy * ibuf->y);
+		imm_draw_box_checker_2d(x, y, x + zoomx * ibuf->x, y + zoomy * ibuf->y);
 	}
 
 	/* non-scaled proxy shouldn't use filtering */
@@ -361,7 +361,7 @@ static void draw_stabilization_border(SpaceClip *sc, ARegion *ar, int width, int
 		gpuScale2f(zoomx, zoomy);
 		gpuMultMatrix(sc->stabmat);
 
-		immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_COLOR);
+		immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_UNIFORM_COLOR);
 
 		float viewport_size[4];
 		glGetFloatv(GL_VIEWPORT, viewport_size);
@@ -372,7 +372,7 @@ static void draw_stabilization_border(SpaceClip *sc, ARegion *ar, int width, int
 		immUniform1f("dash_width", 6.0f);
 		immUniform1f("dash_factor", 0.5f);
 
-		imm_draw_line_box(shdr_pos, 0.0f, 0.0f, width, height);
+		imm_draw_box_wire_2d(shdr_pos, 0.0f, 0.0f, width, height);
 
 		immUnbindProgram();
 
@@ -384,9 +384,11 @@ static void draw_stabilization_border(SpaceClip *sc, ARegion *ar, int width, int
 
 static void draw_track_path(SpaceClip *sc, MovieClip *UNUSED(clip), MovieTrackingTrack *track)
 {
+#define MAX_STATIC_PATH 64
 	int count = sc->path_length;
 	int i, a, b, curindex = -1;
-	float path[102][2];
+	float path_static[(MAX_STATIC_PATH + 1) * 2][2];
+	float (*path)[2];
 	int tiny = sc->flag & SC_SHOW_TINY_MARKER, framenr, start_frame;
 	MovieTrackingMarker *marker;
 
@@ -398,6 +400,13 @@ static void draw_track_path(SpaceClip *sc, MovieClip *UNUSED(clip), MovieTrackin
 	marker = BKE_tracking_marker_get(track, framenr);
 	if (marker->framenr != framenr || marker->flag & MARKER_DISABLED)
 		return;
+
+	if (count < MAX_STATIC_PATH) {
+		path = path_static;
+	}
+	else {
+		path = MEM_mallocN(sizeof(*path) * (count + 1) * 2, "path");
+	}
 
 	a = count;
 	i = framenr - 1;
@@ -533,6 +542,11 @@ static void draw_track_path(SpaceClip *sc, MovieClip *UNUSED(clip), MovieTrackin
 	}
 
 	immUnbindProgram();
+
+	if (path != path_static) {
+		MEM_freeN(path);
+	}
+#undef MAX_STATIC_PATH
 }
 
 static void draw_marker_outline(SpaceClip *sc, MovieTrackingTrack *track, MovieTrackingMarker *marker,
@@ -604,7 +618,7 @@ static void draw_marker_outline(SpaceClip *sc, MovieTrackingTrack *track, MovieT
 	               ((marker->flag & MARKER_DISABLED) == 0 || (sc->flag & SC_SHOW_MARKER_PATTERN) == 0)) != 0;
 
 	if (sc->flag & SC_SHOW_MARKER_SEARCH && show_search) {
-		imm_draw_line_box(position, marker->search_min[0],
+		imm_draw_box_wire_2d(position, marker->search_min[0],
 		                            marker->search_min[1],
 		                            marker->search_max[0],
 		                            marker->search_max[1]);
@@ -651,7 +665,7 @@ static void draw_marker_areas(SpaceClip *sc, MovieTrackingTrack *track, MovieTra
 	/* Since we are switching solid and dashed lines in rather complex logic here, just always go with dashed shader. */
 	immUnbindProgram();
 
-	immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_COLOR);
+	immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_UNIFORM_COLOR);
 
 	float viewport_size[4];
 	glGetFloatv(GL_VIEWPORT, viewport_size);
@@ -781,7 +795,7 @@ static void draw_marker_areas(SpaceClip *sc, MovieTrackingTrack *track, MovieTra
 	               ((marker->flag & MARKER_DISABLED) == 0 || (sc->flag & SC_SHOW_MARKER_PATTERN) == 0)) != 0;
 
 	if ((track->search_flag & SELECT) == sel && (sc->flag & SC_SHOW_MARKER_SEARCH) && show_search) {
-		imm_draw_line_box(shdr_pos, marker->search_min[0], marker->search_min[1],
+		imm_draw_box_wire_2d(shdr_pos, marker->search_min[0], marker->search_min[1],
 		                            marker->search_max[0], marker->search_max[1]);
 	}
 
@@ -1192,7 +1206,7 @@ static void draw_plane_marker_ex(SpaceClip *sc, Scene *scene, MovieTrackingPlane
 	if (draw_plane_quad || is_selected_track) {
 		const uint shdr_pos = GWN_vertformat_attr_add(immVertexFormat(), "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
 
-		immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_COLOR);
+		immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_UNIFORM_COLOR);
 
 		float viewport_size[4];
 		glGetFloatv(GL_VIEWPORT, viewport_size);

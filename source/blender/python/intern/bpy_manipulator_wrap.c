@@ -58,8 +58,6 @@ static bool bpy_manipulatortype_target_property_def(
 {
 	/* Note: names based on 'rna_rna.c' */
 	PyObject *empty_tuple = PyTuple_New(0);
-	static const char * const _keywords[] = {"id", "type", "array_length", NULL};
-	static _PyArg_Parser _parser = {"|$ssi:register_class", _keywords, 0};
 
 	struct {
 		char *id;
@@ -72,6 +70,8 @@ static bool bpy_manipulatortype_target_property_def(
 		.array_length = 1,
 	};
 
+	static const char * const _keywords[] = {"id", "type", "array_length", NULL};
+	static _PyArg_Parser _parser = {"|$ssi:register_class", _keywords, 0};
 	if (!_PyArg_ParseTupleAndKeywordsFast(
 	        empty_tuple, item,
 	        &_parser,
@@ -119,7 +119,7 @@ static void manipulator_properties_init(wmManipulatorType *wt)
 	/* only call this so pyrna_deferred_register_class gives a useful error
 	 * WM_operatortype_append_ptr will call RNA_def_struct_identifier
 	 * later */
-	RNA_def_struct_identifier(wt->srna, wt->idname);
+	RNA_def_struct_identifier_no_struct_map(wt->srna, wt->idname);
 
 	if (pyrna_deferred_register_class(wt->srna, py_class) != 0) {
 		PyErr_Print(); /* failed to register operator props */
@@ -132,27 +132,32 @@ static void manipulator_properties_init(wmManipulatorType *wt)
 		 * get direct from the dict to avoid raising a load of attribute errors (yes this isnt ideal) - campbell */
 		PyObject *py_class_dict = py_class->tp_dict;
 		PyObject *bl_target_properties = PyDict_GetItem(py_class_dict, bpy_intern_str_bl_target_properties);
-		PyObject *bl_target_properties_fast;
 
-		if (!(bl_target_properties_fast = PySequence_Fast(bl_target_properties, "bl_target_properties sequence"))) {
-			/* PySequence_Fast sets the error */
-			PyErr_Print();
-			PyErr_Clear();
-			return;
-		}
-
-		const uint items_len = PySequence_Fast_GET_SIZE(bl_target_properties_fast);
-		PyObject **items = PySequence_Fast_ITEMS(bl_target_properties_fast);
-
-		for (uint i = 0; i < items_len; i++) {
-			if (!bpy_manipulatortype_target_property_def(wt, items[i])) {
+		/* Some widgets may only exist to activate operators. */
+		if (bl_target_properties != NULL) {
+			PyObject *bl_target_properties_fast;
+			if (!(bl_target_properties_fast = PySequence_Fast(
+			          bl_target_properties, "bl_target_properties sequence")))
+			{
+				/* PySequence_Fast sets the error */
 				PyErr_Print();
 				PyErr_Clear();
-				break;
+				return;
 			}
-		}
 
-		Py_DECREF(bl_target_properties_fast);
+			const uint items_len = PySequence_Fast_GET_SIZE(bl_target_properties_fast);
+			PyObject **items = PySequence_Fast_ITEMS(bl_target_properties_fast);
+
+			for (uint i = 0; i < items_len; i++) {
+				if (!bpy_manipulatortype_target_property_def(wt, items[i])) {
+					PyErr_Print();
+					PyErr_Clear();
+					break;
+				}
+			}
+
+			Py_DECREF(bl_target_properties_fast);
+		}
 	}
 }
 

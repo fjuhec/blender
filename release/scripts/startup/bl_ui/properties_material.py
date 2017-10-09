@@ -1120,10 +1120,12 @@ def panel_node_draw(layout, ntree, output_type):
 
     if node:
         input = find_node_input(node, 'Surface')
-        layout.template_node_view(ntree, node, input)
-        return True
-
-    return False
+        if input:
+            layout.template_node_view(ntree, node, input)
+        else:
+            layout.label(text="Incompatible output node")
+    else:
+        layout.label(text="No output node")
 
 
 class EEVEE_MATERIAL_PT_surface(MaterialButtonsPanel, Panel):
@@ -1145,14 +1147,44 @@ class EEVEE_MATERIAL_PT_surface(MaterialButtonsPanel, Panel):
         layout.separator()
 
         if mat.use_nodes:
-            if not panel_node_draw(layout, mat.node_tree, 'OUTPUT_EEVEE_MATERIAL'):
-                layout.label(text="No output node")
+            panel_node_draw(layout, mat.node_tree, ('OUTPUT_EEVEE_MATERIAL', 'OUTPUT_MATERIAL'))
         else:
             raym = mat.raytrace_mirror
             layout.prop(mat, "diffuse_color", text="Base Color")
             layout.prop(raym, "reflect_factor", text="Metallic")
             layout.prop(mat, "specular_intensity", text="Specular")
             layout.prop(raym, "gloss_factor", text="Roughness")
+
+
+class EEVEE_MATERIAL_PT_options(MaterialButtonsPanel, Panel):
+    bl_label = "Options"
+    bl_context = "material"
+    COMPAT_ENGINES = {'BLENDER_EEVEE'}
+
+    @classmethod
+    def poll(cls, context):
+        engine = context.scene.render.engine
+        return context.material and (engine in cls.COMPAT_ENGINES)
+
+    def draw(self, context):
+        layout = self.layout
+
+        mat = context.material
+
+        layout.prop(mat, "blend_method")
+
+        if mat.blend_method != "OPAQUE":
+            layout.prop(mat, "transparent_shadow_method")
+
+            row = layout.row()
+            row.active = ((mat.blend_method == "CLIP") or (mat.transparent_shadow_method == "CLIP"))
+            layout.prop(mat, "alpha_threshold")
+
+        if mat.blend_method not in {"OPAQUE", "CLIP", "HASHED"}:
+            layout.prop(mat, "transparent_hide_backside")
+
+        layout.prop(mat, "use_screen_refraction")
+        layout.prop(mat, "refraction_depth")
 
 
 classes = (
@@ -1185,6 +1217,7 @@ classes = (
     MATERIAL_PT_custom_props,
     EEVEE_MATERIAL_PT_context_material,
     EEVEE_MATERIAL_PT_surface,
+    EEVEE_MATERIAL_PT_options,
 )
 
 if __name__ == "__main__":  # only for live edit.

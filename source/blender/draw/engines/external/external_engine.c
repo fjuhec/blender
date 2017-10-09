@@ -19,7 +19,7 @@
  *
  */
 
-/** \file external_engine.h
+/** \file external_engine.c
  *  \ingroup draw_engine
  *
  * Base engine for external render engines.
@@ -216,7 +216,8 @@ DrawEngineType draw_engine_external_type = {
 	&EXTERNAL_cache_populate,
 	&EXTERNAL_cache_finish,
 	NULL,
-	&EXTERNAL_draw_scene
+	&EXTERNAL_draw_scene,
+	NULL,
 };
 
 /* Note: currently unused, we should not register unless we want to see this when debugging the view. */

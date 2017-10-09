@@ -52,9 +52,11 @@
 
 #include "gpu_lamp_private.h"
 
-bool GPU_lamp_override_visible(GPULamp *lamp, SceneRenderLayer *srl, Material *ma)
+bool GPU_lamp_visible(GPULamp *lamp, SceneRenderLayer *srl, Material *ma)
 {
-	if (srl && srl->light_override)
+	if (lamp->hide)
+		return false;
+	else if (srl && srl->light_override)
 		return BKE_group_object_exists(srl->light_override, lamp->ob);
 	else if (ma && ma->group)
 		return BKE_group_object_exists(ma->group, lamp->ob);
@@ -281,6 +283,10 @@ GPULamp *GPU_lamp_from_blender(Scene *scene, Object *ob, Object *par)
 				return lamp;
 			}
 
+			GPU_texture_bind(lamp->depthtex, 0);
+			GPU_texture_compare_mode(lamp->depthtex, true);
+			GPU_texture_unbind(lamp->depthtex);
+
 			if (!GPU_framebuffer_texture_attach(lamp->fb, lamp->depthtex, 0, 0)) {
 				gpu_lamp_shadow_free(lamp);
 				return lamp;
@@ -338,6 +344,10 @@ GPULamp *GPU_lamp_from_blender(Scene *scene, Object *ob, Object *par)
 				return lamp;
 			}
 
+			GPU_texture_bind(lamp->tex, 0);
+			GPU_texture_compare_mode(lamp->tex, true);
+			GPU_texture_unbind(lamp->tex);
+
 			if (!GPU_framebuffer_texture_attach(lamp->fb, lamp->tex, 0, 0)) {
 				gpu_lamp_shadow_free(lamp);
 				return lamp;
@@ -366,7 +376,7 @@ GPULamp *GPU_lamp_from_blender(Scene *scene, Object *ob, Object *par)
 
 void GPU_lamp_engine_data_free(LampEngineData *led)
 {
-	for (int i = 0; i < MAX_LAMP_DATA; ++i)	{
+	for (int i = 0; i < MAX_LAMP_DATA; ++i) {
 		if (led->storage[i]) {
 			MEM_freeN(led->storage[i]);
 			led->storage[i] = NULL;
@@ -378,20 +388,9 @@ void GPU_lamp_free(Object *ob)
 {
 	GPULamp *lamp;
 	LinkData *link;
-	LinkData *nlink;
-	Material *ma;
 
 	for (link = ob->gpulamp.first; link; link = link->next) {
 		lamp = link->data;
-
-		while (lamp->materials.first) {
-			nlink = lamp->materials.first;
-			ma = nlink->data;
-			BLI_freelinkN(&lamp->materials, nlink);
-
-			if (ma->gpumaterial.first)
-				GPU_material_free(&ma->gpumaterial);
-		}
 
 		gpu_lamp_shadow_free(lamp);
 		GPU_lamp_engine_data_free(&lamp->data);

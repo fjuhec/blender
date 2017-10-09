@@ -25,6 +25,7 @@
 
 #include "device/device_split_kernel.h"
 
+#include "util/util_algorithm.h"
 #include "util/util_logging.h"
 #include "util/util_md5.h"
 #include "util/util_path.h"
@@ -98,6 +99,8 @@ public:
 
 	void thread_run(DeviceTask *task)
 	{
+		flush_texture_buffers();
+
 		if(task->type == DeviceTask::FILM_CONVERT) {
 			film_convert(*task, task->buffer, task->rgba_byte, task->rgba_half);
 		}
@@ -112,10 +115,19 @@ public:
 			 */
 			typedef struct KernelGlobals {
 				ccl_constant KernelData *data;
+				ccl_global char *buffers[8];
+
+				typedef struct _tex_info_t {
+					uint buffer, padding;
+					uint64_t offset;
+					uint width, height, depth, options;
+				} _tex_info_t;
+
 #define KERNEL_TEX(type, ttype, name) \
-				ccl_global type *name;
+				_tex_info_t name;
 #include "kernel/kernel_textures.h"
 #undef KERNEL_TEX
+
 				SplitData split_data;
 				SplitParams split_param_data;
 			} KernelGlobals;
@@ -180,7 +192,6 @@ struct CachedSplitMemory {
 	int id;
 	device_memory *split_data;
 	device_memory *ray_state;
-	device_ptr *rng_state;
 	device_memory *queue_index;
 	device_memory *use_queues_flag;
 	device_memory *work_pools;
@@ -213,14 +224,9 @@ public:
 					            kg,
 					            data,
 					            *cached_memory.split_data,
-					            *cached_memory.ray_state,
-					            *cached_memory.rng_state);
+					            *cached_memory.ray_state);
 
-/* TODO(sergey): Avoid map lookup here. */
-#define KERNEL_TEX(type, ttype, name) \
-				device->set_kernel_arg_mem(program(), &start_arg_index, #name);
-#include "kernel/kernel_textures.h"
-#undef KERNEL_TEX
+				device->set_kernel_arg_buffers(program(), &start_arg_index);
 
 			start_arg_index +=
 				device->kernel_set_args(program(),
@@ -263,7 +269,7 @@ public:
 	explicit OpenCLSplitKernel(OpenCLDeviceSplitKernel *device) : DeviceSplitKernel(device), device(device) {
 	}
 
-	virtual SplitKernelFunction* get_split_kernel_function(string kernel_name,
+	virtual SplitKernelFunction* get_split_kernel_function(const string& kernel_name,
 	                                                       const DeviceRequestedFeatures& requested_features)
 	{
 		OpenCLSplitKernelFunction* kernel = new OpenCLSplitKernelFunction(device, cached_memory);
@@ -348,14 +354,9 @@ public:
 			                kernel_data,
 			                split_data,
 			                num_global_elements,
-			                ray_state,
-			                rtile.rng_state);
+			                ray_state);
 
-/* TODO(sergey): Avoid map lookup here. */
-#define KERNEL_TEX(type, ttype, name) \
-	device->set_kernel_arg_mem(device->program_data_init(), &start_arg_index, #name);
-#include "kernel/kernel_textures.h"
-#undef KERNEL_TEX
+			device->set_kernel_arg_buffers(device->program_data_init(), &start_arg_index);
 
 		start_arg_index +=
 			device->kernel_set_args(device->program_data_init(),
@@ -397,7 +398,6 @@ public:
 
 		cached_memory.split_data = &split_data;
 		cached_memory.ray_state = &ray_state;
-		cached_memory.rng_state = &rtile.rng_state;
 		cached_memory.queue_index = &queue_index;
 		cached_memory.use_queues_flag = &use_queues_flag;
 		cached_memory.work_pools = &work_pool_wgs;
@@ -423,12 +423,18 @@ public:
 
 		cl_ulong max_buffer_size;
 		clGetDeviceInfo(device->cdDevice, CL_DEVICE_MAX_MEM_ALLOC_SIZE, sizeof(cl_ulong), &max_buffer_size, NULL);
+
+		if(DebugFlags().opencl.mem_limit) {
+			max_buffer_size = min(max_buffer_size,
+			                      cl_ulong(DebugFlags().opencl.mem_limit - device->stats.mem_used));
+		}
+
 		VLOG(1) << "Maximum device allocation size: "
 		        << string_human_readable_number(max_buffer_size) << " bytes. ("
 		        << string_human_readable_size(max_buffer_size) << ").";
 
 		size_t num_elements = max_elements_for_max_buffer_size(kg, data, max_buffer_size / 2);
-		int2 global_size = make_int2(round_down((int)sqrt(num_elements), 64), (int)sqrt(num_elements));
+		int2 global_size = make_int2(max(round_down((int)sqrt(num_elements), 64), 64), (int)sqrt(num_elements));
 		VLOG(1) << "Global size: " << global_size << ".";
 		return global_size;
 	}

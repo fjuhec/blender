@@ -366,8 +366,6 @@ GHOST_SystemCocoa::GHOST_SystemCocoa()
 	char *rstring = NULL;
 
 	m_modifierMask =0;
-	m_cursorDelta_x=0;
-	m_cursorDelta_y=0;
 	m_outsideLoopEventProcessed = false;
 	m_needDelayedApplicationBecomeActiveEventProcessing = false;
 	m_displayManager = new GHOST_DisplayManagerCocoa ();
@@ -643,6 +641,13 @@ GHOST_TSuccess GHOST_SystemCocoa::setMouseCursorPosition(GHOST_TInt32 x, GHOST_T
 	yf = screenRect.size.height -yf;
 
 	CGDisplayMoveCursorToPoint((CGDirectDisplayID)[[[windowScreen deviceDescription] objectForKey:@"NSScreenNumber"] unsignedIntValue], CGPointMake(xf, yf));
+
+	// See https://stackoverflow.com/a/17559012. By default, hardware events
+	// will be suppressed for 500ms after a synthetic mouse event. For unknown
+	// reasons CGEventSourceSetLocalEventsSuppressionInterval does not work,
+	// however calling CGAssociateMouseAndMouseCursorPosition also removes the
+	// delay, even if this is undocumented.
+	CGAssociateMouseAndMouseCursorPosition(true);
 
 	[pool drain];
 	return GHOST_kSuccess;
@@ -1249,27 +1254,6 @@ bool GHOST_SystemCocoa::handleTabletEvent(void *eventPtr)
 	}
 }
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED < 1070
-enum {
-	NSEventPhaseNone = 0,
-	NSEventPhaseBegan = 0x1 << 0,
-	NSEventPhaseStationary = 0x1 << 1,
-	NSEventPhaseChanged = 0x1 << 2,
-	NSEventPhaseEnded = 0x1 << 3,
-	NSEventPhaseCancelled = 0x1 << 4,
-};
-typedef NSUInteger NSEventPhase;
-
-@interface NSEvent (AvailableOn1070AndLater)
-- (BOOL)hasPreciseScrollingDeltas;
-- (CGFloat)scrollingDeltaX;
-- (CGFloat)scrollingDeltaY;
-- (NSEventPhase)momentumPhase;
-- (BOOL)isDirectionInvertedFromDevice;
-- (NSEventPhase)phase;
-@end
-#endif
-
 GHOST_TSuccess GHOST_SystemCocoa::handleMouseEvent(void *eventPtr)
 {
 	NSEvent *event = (NSEvent *)eventPtr;
@@ -1354,9 +1338,8 @@ GHOST_TSuccess GHOST_SystemCocoa::handleMouseEvent(void *eventPtr)
 					case GHOST_kGrabWrap: //Wrap cursor at area/window boundaries
 					{
 						NSPoint mousePos = [cocoawindow mouseLocationOutsideOfEventStream];
-						GHOST_TInt32 x_mouse= mousePos.x;
-						GHOST_TInt32 y_mouse= mousePos.y;
-						GHOST_TInt32 x_accum, y_accum, x_cur, y_cur, x, y;
+						GHOST_TInt32 x_mouse = mousePos.x;
+						GHOST_TInt32 y_mouse = mousePos.y;
 						GHOST_Rect bounds, windowBounds, correctedBounds;
 
 						/* fallback to window bounds */
@@ -1370,29 +1353,26 @@ GHOST_TSuccess GHOST_SystemCocoa::handleMouseEvent(void *eventPtr)
 						correctedBounds.m_b = (windowBounds.m_b - windowBounds.m_t) - correctedBounds.m_b;
 						correctedBounds.m_t = (windowBounds.m_b - windowBounds.m_t) - correctedBounds.m_t;
 
-						//Update accumulation counts
+						//Get accumulation from previous mouse warps
+						GHOST_TInt32 x_accum, y_accum;
 						window->getCursorGrabAccum(x_accum, y_accum);
-						x_accum += [event deltaX]-m_cursorDelta_x;
-						y_accum += -[event deltaY]-m_cursorDelta_y; //Strange Apple implementation (inverted coordinates for the deltaY) ...
-						window->setCursorGrabAccum(x_accum, y_accum);
 
 						//Warp mouse cursor if needed
-						x_mouse += [event deltaX]-m_cursorDelta_x;
-						y_mouse += -[event deltaY]-m_cursorDelta_y;
-						correctedBounds.wrapPoint(x_mouse, y_mouse, 2);
-
-						//Compensate for mouse moved event taking cursor position set into account
-						m_cursorDelta_x = x_mouse-mousePos.x;
-						m_cursorDelta_y = y_mouse-mousePos.y;
+						GHOST_TInt32 warped_x_mouse = x_mouse;
+						GHOST_TInt32 warped_y_mouse = y_mouse;
+						correctedBounds.wrapPoint(warped_x_mouse, warped_y_mouse, 4);
 
 						//Set new cursor position
-						window->clientToScreenIntern(x_mouse, y_mouse, x_cur, y_cur);
-						setMouseCursorPosition(x_cur, y_cur); /* wrap */
+						if (x_mouse != warped_x_mouse || y_mouse != warped_y_mouse) {
+							GHOST_TInt32 warped_x, warped_y;
+							window->clientToScreenIntern(warped_x_mouse, warped_y_mouse, warped_x, warped_y);
+							setMouseCursorPosition(warped_x, warped_y); /* wrap */
+							window->setCursorGrabAccum(x_accum + (x_mouse - warped_x_mouse), y_accum + (y_mouse - warped_y_mouse));
+						}
 
-						//Post event
-						window->getCursorGrabInitPos(x_cur, y_cur);
-						window->screenToClientIntern(x_cur, y_cur, x_cur, y_cur);
-						window->clientToScreenIntern(x_cur + x_accum, y_cur + y_accum, x, y);
+						//Generate event
+						GHOST_TInt32 x, y;
+						window->clientToScreenIntern(x_mouse + x_accum, y_mouse + y_accum, x, y);
 						pushEvent(new GHOST_EventCursor([event timestamp] * 1000, GHOST_kEventCursorMove, window, x, y));
 						break;
 					}
@@ -1404,9 +1384,6 @@ GHOST_TSuccess GHOST_SystemCocoa::handleMouseEvent(void *eventPtr)
 
 						window->clientToScreenIntern(mousePos.x, mousePos.y, x, y);
 						pushEvent(new GHOST_EventCursor([event timestamp] * 1000, GHOST_kEventCursorMove, window, x, y));
-
-						m_cursorDelta_x=0;
-						m_cursorDelta_y=0; //Mouse motion occurred between two cursor warps, so we can reset the delta counter
 						break;
 					}
 				}
@@ -1461,7 +1438,6 @@ GHOST_TSuccess GHOST_SystemCocoa::handleMouseEvent(void *eventPtr)
 					double dx;
 					double dy;
 
-#if MAC_OS_X_VERSION_MIN_REQUIRED >= 1070
 					/* with 10.7 nice scrolling deltas are supported */
 					dx = [event scrollingDeltaX];
 					dy = [event scrollingDeltaY];
@@ -1471,29 +1447,6 @@ GHOST_TSuccess GHOST_SystemCocoa::handleMouseEvent(void *eventPtr)
 						dx = [event deltaX];
 						dy = [event deltaY];
 					}
-#else
-					/* trying to pretend you have nice scrolls... */
-					dx = [event deltaX];
-					dy = -[event deltaY];
-					const double deltaMax = 50.0;
-
-					if ((dx == 0) && (dy == 0)) break;
-
-					/* Quadratic acceleration */
-					dx = dx*(fabs(dx) + 0.5);
-					if (dx < 0.0) dx -= 0.5;
-					else          dx += 0.5;
-					if      (dx < -deltaMax) dx = -deltaMax;
-					else if (dx >  deltaMax) dx =  deltaMax;
-
-					dy = dy*(fabs(dy) + 0.5);
-					if (dy < 0.0) dy -= 0.5;
-					else          dy += 0.5;
-					if      (dy < -deltaMax) dy= -deltaMax;
-					else if (dy >  deltaMax) dy=  deltaMax;
-
-					dy = -dy;
-#endif
 					window->clientToScreenIntern(mousePos.x, mousePos.y, x, y);
 
 					pushEvent(new GHOST_EventTrackpad([event timestamp] * 1000, window, GHOST_kTrackpadEventScroll, x, y, dx, dy));

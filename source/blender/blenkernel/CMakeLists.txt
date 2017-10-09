@@ -333,7 +333,7 @@ if(WIN32)
 endif()
 
 if(WITH_AUDASPACE)
-	add_definitions(${AUDASPACE_DEFINITIONS})
+	add_definitions(-DWITH_AUDASPACE)
 
 	list(APPEND INC_SYS
 		${AUDASPACE_C_INCLUDE_DIRS}
@@ -397,16 +397,6 @@ if(WITH_CODEC_AVI)
 	add_definitions(-DWITH_AVI)
 endif()
 
-if(WITH_CODEC_QUICKTIME)
-	list(APPEND INC
-		../quicktime
-	)
-	list(APPEND INC_SYS
-		${QUICKTIME_INCLUDE_DIRS}
-	)
-	add_definitions(-DWITH_QUICKTIME)
-endif()
-
 if(WITH_CODEC_FFMPEG)
 	list(APPEND SRC
 		intern/writeffmpeg.c
@@ -430,6 +420,10 @@ if(WITH_PYTHON)
 		../python
 	)
 	add_definitions(-DWITH_PYTHON)
+
+	if(WITH_PYTHON_SAFETY)
+		add_definitions(-DWITH_PYTHON_SAFETY)
+	endif()
 
 	if(WITH_PYTHON_SECURITY)
 		add_definitions(-DWITH_PYTHON_SECURITY)

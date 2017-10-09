@@ -60,7 +60,7 @@ EnumPropertyItem rna_enum_icon_items[] = {
 
 #ifdef RNA_RUNTIME
 
-static const char *rna_translate_ui_text(const char *text, const char *text_ctxt, StructRNA *type, PropertyRNA *prop,
+const char *rna_translate_ui_text(const char *text, const char *text_ctxt, StructRNA *type, PropertyRNA *prop,
                                          int translate)
 {
 	/* Also return text if UI labels translation is disabled. */
@@ -918,6 +918,7 @@ void RNA_api_ui_layout(StructRNA *srna)
 	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
 	parm = RNA_def_string(func, "property", NULL, 0, "", "Identifier of property in collection_properties");
 	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
+	api_ui_item_common(func);
 	parm = RNA_def_string(func, "custom_template", NULL, 0, "", "Optional template to use for property");
 
 	func = RNA_def_function(srna, "template_component_menu", "uiTemplateComponentMenu");

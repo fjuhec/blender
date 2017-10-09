@@ -292,7 +292,7 @@ static void createTransTexspace(TransInfo *t)
 	ID *id;
 	short *texflag;
 
-	ob = OBACT_NEW;
+	ob = OBACT_NEW(sl);
 
 	if (ob == NULL) { // Shouldn't logically happen, but still...
 		t->total = 0;
@@ -772,29 +772,37 @@ int count_set_pose_transflags(int *out_mode, short around, Object *ob)
 /* -------- Auto-IK ---------- */
 
 /* adjust pose-channel's auto-ik chainlen */
-static void pchan_autoik_adjust(bPoseChannel *pchan, short chainlen)
+static bool pchan_autoik_adjust(bPoseChannel *pchan, short chainlen)
 {
 	bConstraint *con;
+	bool changed = false;
 
 	/* don't bother to search if no valid constraints */
-	if ((pchan->constflag & (PCHAN_HAS_IK | PCHAN_HAS_TARGET)) == 0)
-		return;
+	if ((pchan->constflag & (PCHAN_HAS_IK | PCHAN_HAS_TARGET)) == 0) {
+		return changed;
+	}
 
 	/* check if pchan has ik-constraint */
 	for (con = pchan->constraints.first; con; con = con->next) {
 		if (con->type == CONSTRAINT_TYPE_KINEMATIC && (con->enforce != 0.0f)) {
 			bKinematicConstraint *data = con->data;
-			
+
 			/* only accept if a temporary one (for auto-ik) */
 			if (data->flag & CONSTRAINT_IK_TEMP) {
 				/* chainlen is new chainlen, but is limited by maximum chainlen */
-				if ((chainlen == 0) || (chainlen > data->max_rootbone))
+				const int old_rootbone = data->rootbone;
+				if ((chainlen == 0) || (chainlen > data->max_rootbone)) {
 					data->rootbone = data->max_rootbone;
-				else
+				}
+				else {
 					data->rootbone = chainlen;
+				}
+				changed |= (data->rootbone != old_rootbone);
 			}
 		}
 	}
+
+	return changed;
 }
 
 /* change the chain-length of auto-ik */
@@ -810,7 +818,13 @@ void transform_autoik_update(TransInfo *t, short mode)
 	}
 	else if (mode == -1) {
 		/* mode==-1 is from WHEELMOUSEUP... decreases len */
-		if (*chainlen > 0) (*chainlen)--;
+		if (*chainlen > 0) {
+			(*chainlen)--;
+		}
+		else {
+			/* IK length did not change, skip updates. */
+			return;
+		}
 	}
 
 	/* sanity checks (don't assume t->poseobj is set, or that it is an armature) */
@@ -818,8 +832,14 @@ void transform_autoik_update(TransInfo *t, short mode)
 		return;
 
 	/* apply to all pose-channels */
+	bool changed = false;
 	for (pchan = t->poseobj->pose->chanbase.first; pchan; pchan = pchan->next) {
-		pchan_autoik_adjust(pchan, *chainlen);
+		changed |= pchan_autoik_adjust(pchan, *chainlen);
+	}
+
+	if (changed) {
+		/* TODO(sergey): Consider doing partial update only. */
+		DEG_relations_tag_update(G.main);
 	}
 }
 
@@ -829,6 +849,7 @@ static void pose_grab_with_ik_clear(Object *ob)
 	bKinematicConstraint *data;
 	bPoseChannel *pchan;
 	bConstraint *con, *next;
+	bool relations_changed = false;
 
 	for (pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
 		/* clear all temporary lock flags */
@@ -842,6 +863,8 @@ static void pose_grab_with_ik_clear(Object *ob)
 			if (con->type == CONSTRAINT_TYPE_KINEMATIC) {
 				data = con->data;
 				if (data->flag & CONSTRAINT_IK_TEMP) {
+					relations_changed = true;
+
 					/* iTaSC needs clear for removed constraints */
 					BIK_clear_data(ob->pose);
 
@@ -857,8 +880,10 @@ static void pose_grab_with_ik_clear(Object *ob)
 		}
 	}
 
-	/* TODO(sergey): Consider doing partial update only. */
-	DEG_relations_tag_update(G.main);
+	if (relations_changed) {
+		/* TODO(sergey): Consider doing partial update only. */
+		DEG_relations_tag_update(G.main);
+	}
 }
 
 /* adds the IK to pchan - returns if added */
@@ -1485,6 +1510,48 @@ static TransDataCurveHandleFlags *initTransDataCurveHandles(TransData *td, struc
 	return hdata;
 }
 
+/**
+ * For the purpose of transform code we need to behave as if handles are selected,
+ * even when they aren't (see special case below).
+ */
+static int bezt_select_to_transform_triple_flag(
+        const BezTriple *bezt, const bool hide_handles)
+{
+	int flag = 0;
+
+	if (hide_handles) {
+		if (bezt->f2 & SELECT) {
+			flag = (1 << 0) | (1 << 1) | (1 << 2);
+		}
+	}
+	else {
+		flag = (
+			((bezt->f1 & SELECT) ? (1 << 0) : 0) |
+			((bezt->f2 & SELECT) ? (1 << 1) : 0) |
+			((bezt->f3 & SELECT) ? (1 << 2) : 0)
+		);
+	}
+
+	/* Special case for auto & aligned handles:
+	 * When a center point is being moved without the handles,
+	 * leaving the handles stationary makes no sense and only causes strange behavior,
+	 * where one handle is arbitrarily anchored, the other one is aligned and lengthened
+	 * based on where the center point is moved. Also a bug when cancelling, see: T52007.
+	 *
+	 * A more 'correct' solution could be to store handle locations in 'TransDataCurveHandleFlags'.
+	 * However that doesn't resolve odd behavior, so best transform the handles in this case.
+	 */
+	if ((flag != ((1 << 0) | (1 << 1) | (1 << 2))) && (flag & (1 << 1))) {
+		if (ELEM(bezt->h1, HD_AUTO, HD_ALIGN) &&
+		    ELEM(bezt->h2, HD_AUTO, HD_ALIGN))
+		{
+			flag = (1 << 0) | (1 << 1) | (1 << 2);
+		}
+	}
+
+	return flag;
+}
+
 static void createTransCurveVerts(TransInfo *t)
 {
 	Curve *cu = t->obedit->data;
@@ -1502,22 +1569,22 @@ static void createTransCurveVerts(TransInfo *t)
 	/* to be sure */
 	if (cu->editnurb == NULL) return;
 
+#define SEL_F1 (1 << 0)
+#define SEL_F2 (1 << 1)
+#define SEL_F3 (1 << 2)
+
 	/* count total of vertices, check identical as in 2nd loop for making transdata! */
 	nurbs = BKE_curve_editNurbs_get(cu);
 	for (nu = nurbs->first; nu; nu = nu->next) {
 		if (nu->type == CU_BEZIER) {
 			for (a = 0, bezt = nu->bezt; a < nu->pntsu; a++, bezt++) {
 				if (bezt->hide == 0) {
-					if (hide_handles) {
-						if (bezt->f2 & SELECT) countsel += 3;
-						if (is_prop_edit) count += 3;
-					}
-					else {
-						if (bezt->f1 & SELECT) countsel++;
-						if (bezt->f2 & SELECT) countsel++;
-						if (bezt->f3 & SELECT) countsel++;
-						if (is_prop_edit) count += 3;
-					}
+					const int bezt_tx = bezt_select_to_transform_triple_flag(bezt, hide_handles);
+					if (bezt_tx & SEL_F1) { countsel++; }
+					if (bezt_tx & SEL_F2) { countsel++; }
+					if (bezt_tx & SEL_F3) { countsel++; }
+					if (is_prop_edit) count += 3;
+
 				}
 			}
 		}
@@ -1568,10 +1635,10 @@ static void createTransCurveVerts(TransInfo *t)
 						}
 					}
 
-					if (is_prop_edit ||
-					    ((bezt->f2 & SELECT) && hide_handles) ||
-					    ((bezt->f1 & SELECT) && hide_handles == 0))
-					{
+					/* Elements that will be transform (not always a match to selection). */
+					const int bezt_tx = bezt_select_to_transform_triple_flag(bezt, hide_handles);
+
+					if (is_prop_edit || bezt_tx & SEL_F1) {
 						copy_v3_v3(td->iloc, bezt->vec[0]);
 						td->loc = bezt->vec[0];
 						copy_v3_v3(td->center, bezt->vec[(hide_handles ||
@@ -1602,7 +1669,7 @@ static void createTransCurveVerts(TransInfo *t)
 					}
 
 					/* This is the Curve Point, the other two are handles */
-					if (is_prop_edit || (bezt->f2 & SELECT)) {
+					if (is_prop_edit || bezt_tx & SEL_F2) {
 						copy_v3_v3(td->iloc, bezt->vec[1]);
 						td->loc = bezt->vec[1];
 						copy_v3_v3(td->center, td->loc);
@@ -1628,7 +1695,7 @@ static void createTransCurveVerts(TransInfo *t)
 							copy_m3_m3(td->axismtx, axismtx);
 						}
 
-						if ((bezt->f1 & SELECT) == 0 && (bezt->f3 & SELECT) == 0)
+						if ((bezt_tx & SEL_F1) == 0 && (bezt_tx & SEL_F3) == 0)
 							/* If the middle is selected but the sides arnt, this is needed */
 							if (hdata == NULL) { /* if the handle was not saved by the previous handle */
 								hdata = initTransDataCurveHandles(td, bezt);
@@ -1638,10 +1705,7 @@ static void createTransCurveVerts(TransInfo *t)
 						count++;
 						tail++;
 					}
-					if (is_prop_edit ||
-					    ((bezt->f2 & SELECT) && hide_handles) ||
-					    ((bezt->f3 & SELECT) && hide_handles == 0))
-					{
+					if (is_prop_edit || bezt_tx & SEL_F3) {
 						copy_v3_v3(td->iloc, bezt->vec[2]);
 						td->loc = bezt->vec[2];
 						copy_v3_v3(td->center, bezt->vec[(hide_handles ||
@@ -1696,6 +1760,26 @@ static void createTransCurveVerts(TransInfo *t)
 			for (a = nu->pntsu * nu->pntsv, bp = nu->bp; a > 0; a--, bp++) {
 				if (bp->hide == 0) {
 					if (is_prop_edit || (bp->f1 & SELECT)) {
+						float axismtx[3][3];
+
+						if (t->around == V3D_AROUND_LOCAL_ORIGINS) {
+							if (nu->pntsv == 1) {
+								float normal[3], plane[3];
+
+								BKE_nurb_bpoint_calc_normal(nu, bp, normal);
+								BKE_nurb_bpoint_calc_plane(nu, bp, plane);
+
+								if (createSpaceNormalTangent(axismtx, normal, plane)) {
+									/* pass */
+								}
+								else {
+									normalize_v3(normal);
+									axis_dominant_v3_to_m3(axismtx, normal);
+									invert_m3(axismtx);
+								}
+							}
+						}
+
 						copy_v3_v3(td->iloc, bp->vec);
 						td->loc = bp->vec;
 						copy_v3_v3(td->center, td->loc);
@@ -1714,6 +1798,11 @@ static void createTransCurveVerts(TransInfo *t)
 
 						copy_m3_m3(td->smtx, smtx);
 						copy_m3_m3(td->mtx, mtx);
+						if (t->around == V3D_AROUND_LOCAL_ORIGINS) {
+							if (nu->pntsv == 1) {
+								copy_m3_m3(td->axismtx, axismtx);
+							}
+						}
 
 						td++;
 						count++;
@@ -1729,6 +1818,10 @@ static void createTransCurveVerts(TransInfo *t)
 				calc_distanceCurveVerts(head, tail - 1);
 		}
 	}
+
+#undef SEL_F1
+#undef SEL_F2
+#undef SEL_F3
 }
 
 /* ********************* lattice *************** */
@@ -1918,7 +2011,7 @@ void flushTransParticles(TransInfo *t)
 {
 	Scene *scene = t->scene;
 	SceneLayer *sl = t->scene_layer;
-	Object *ob = OBACT_NEW;
+	Object *ob = OBACT_NEW(sl);
 	PTCacheEdit *edit = PE_get_current(scene, sl, ob);
 	ParticleSystem *psys = edit->psys;
 	ParticleSystemModifierData *psmd = NULL;
@@ -1958,7 +2051,9 @@ void flushTransParticles(TransInfo *t)
 			point->flag |= PEP_EDIT_RECALC;
 	}
 
-	PE_update_object(scene, sl, OBACT_NEW, 1);
+	EvaluationContext eval_ctx;
+	CTX_data_eval_ctx(t->context, &eval_ctx);
+	PE_update_object(&eval_ctx, scene, sl, OBACT_NEW(sl), 1);
 }
 
 /* ********************* mesh ****************** */
@@ -2370,6 +2465,7 @@ static void createTransEditVerts(TransInfo *t)
 {
 	TransData *tob = NULL;
 	TransDataExtension *tx = NULL;
+	EvaluationContext eval_ctx;
 	BMEditMesh *em = BKE_editmesh_from_object(t->obedit);
 	Mesh *me = t->obedit->data;
 	BMesh *bm = em->bm;
@@ -2387,6 +2483,10 @@ static void createTransEditVerts(TransInfo *t)
 	struct TransIslandData *island_info = NULL;
 	int island_info_tot;
 	int *island_vert_map = NULL;
+
+	DEG_evaluation_context_init_from_scene(&eval_ctx,
+	                                       t->scene, t->scene_layer,
+	                                       DAG_EVAL_VIEWPORT);
 
 	/* Even for translation this is needed because of island-orientation, see: T51651. */
 	const bool is_island_center = (t->around == V3D_AROUND_LOCAL_ORIGINS);
@@ -2471,7 +2571,7 @@ static void createTransEditVerts(TransInfo *t)
 		if (modifiers_isCorrectableDeformed(t->scene, t->obedit)) {
 			/* check if we can use deform matrices for modifier from the
 			 * start up to stack, they are more accurate than quats */
-			totleft = BKE_crazyspace_get_first_deform_matrices_editbmesh(t->scene, t->obedit, em, &defmats, &defcos);
+			totleft = BKE_crazyspace_get_first_deform_matrices_editbmesh(&eval_ctx, t->scene, t->obedit, em, &defmats, &defcos);
 		}
 
 		/* if we still have more modifiers, also do crazyspace
@@ -2484,7 +2584,7 @@ static void createTransEditVerts(TransInfo *t)
 		if (totleft > 0)
 #endif
 		{
-			mappedcos = BKE_crazyspace_get_mapped_editverts(t->scene, t->obedit);
+			mappedcos = BKE_crazyspace_get_mapped_editverts(&eval_ctx, t->scene, t->obedit);
 			quats = MEM_mallocN(em->bm->totvert * sizeof(*quats), "crazy quats");
 			BKE_crazyspace_set_quats_editmesh(em, defcos, mappedcos, quats, !prop_mode);
 			if (mappedcos)
@@ -2694,7 +2794,7 @@ void flushTransSeq(TransInfo *t)
 		tdsq = (TransDataSeq *)td->extra;
 		seq = tdsq->seq;
 		old_start = seq->start;
-		new_frame = iroundf(td2d->loc[0]);
+		new_frame = round_fl_to_int(td2d->loc[0]);
 
 		switch (tdsq->sel_flag) {
 			case SELECT:
@@ -2706,7 +2806,7 @@ void flushTransSeq(TransInfo *t)
 					seq->start = new_frame - tdsq->start_offset;
 #endif
 				if (seq->depth == 0) {
-					seq->machine = iroundf(td2d->loc[1]);
+					seq->machine = round_fl_to_int(td2d->loc[1]);
 					CLAMP(seq->machine, 1, MAXSEQ);
 				}
 				break;
@@ -3652,7 +3752,7 @@ void flushTransIntFrameActionData(TransInfo *t)
 
 	/* flush data! */
 	for (i = 0; i < t->total; i++, tfd++) {
-		*(tfd->sdata) = iroundf(tfd->val);
+		*(tfd->sdata) = round_fl_to_int(tfd->val);
 	}
 }
 
@@ -4680,7 +4780,7 @@ void flushTransGraphData(TransInfo *t)
 		
 		/* if int-values only, truncate to integers */
 		if (td->flag & TD_INTVALUES)
-			td2d->loc2d[1] = floorf(td2d->loc[1] + 0.5f);
+			td2d->loc2d[1] = floorf(td2d->loc[1] * inv_unit_scale - tdg->offset + 0.5f);
 		else
 			td2d->loc2d[1] = td2d->loc[1] * inv_unit_scale - tdg->offset;
 		
@@ -5310,6 +5410,9 @@ static void ObjectToTransData(TransInfo *t, TransData *td, Object *ob)
 	Scene *scene = t->scene;
 	bool constinv;
 	bool skip_invert = false;
+	EvaluationContext eval_ctx;
+
+	CTX_data_eval_ctx(t->context, &eval_ctx);
 
 	if (t->mode != TFM_DUMMY && ob->rigidbody_object) {
 		float rot[3][3], scale[3];
@@ -5333,7 +5436,8 @@ static void ObjectToTransData(TransInfo *t, TransData *td, Object *ob)
 			}
 			/* update object's loc/rot to get current rigid body transform */
 			mat4_to_loc_rot_size(ob->loc, rot, scale, ob->obmat);
-			BKE_object_mat3_to_rot(ob, rot, false);
+			sub_v3_v3(ob->loc, ob->dloc);
+			BKE_object_mat3_to_rot(ob, rot, false); /* drot is already corrected here */
 		}
 	}
 
@@ -5356,11 +5460,11 @@ static void ObjectToTransData(TransInfo *t, TransData *td, Object *ob)
 
 	if (skip_invert == false && constinv == false) {
 		ob->transflag |= OB_NO_CONSTRAINTS;  /* BKE_object_where_is_calc_time checks this */
-		BKE_object_where_is_calc(t->scene, ob);
+		BKE_object_where_is_calc(&eval_ctx, t->scene, ob);
 		ob->transflag &= ~OB_NO_CONSTRAINTS;
 	}
 	else
-		BKE_object_where_is_calc(t->scene, ob);
+		BKE_object_where_is_calc(&eval_ctx, t->scene, ob);
 
 	td->ob = ob;
 
@@ -5451,10 +5555,14 @@ static void set_trans_object_base_flags(TransInfo *t)
 	DEG_scene_relations_update(G.main, t->scene);
 
 	/* handle pending update events, otherwise they got copied below */
+	EvaluationContext eval_ctx;
+	DEG_evaluation_context_init_from_scene(&eval_ctx,
+	                                       t->scene, t->scene_layer,
+	                                       DAG_EVAL_VIEWPORT);
 	for (base = sl->object_bases.first; base; base = base->next) {
 		if (base->object->recalc & OB_RECALC_ALL) {
 			/* TODO(sergey): Ideally, it's not needed. */
-			BKE_object_handle_update(G.main->eval_ctx, t->scene, base->object);
+			BKE_object_handle_update(&eval_ctx, t->scene, base->object);
 		}
 	}
 
@@ -5467,8 +5575,8 @@ static void set_trans_object_base_flags(TransInfo *t)
 
 			/* if parent selected, deselect */
 			while (parsel) {
-				Base *parbase = BKE_scene_layer_base_find(sl, parsel);
-				if (parbase->flag & BASE_SELECTED) {
+				if (parsel->base_flag & BASE_SELECTED) {
+					Base *parbase = BKE_scene_layer_base_find(sl, parsel);
 					if (parbase) { /* in rare cases this can fail */
 						if (TESTBASELIB_BGMODE_NEW(parbase)) {
 							break;
@@ -5493,6 +5601,9 @@ static void set_trans_object_base_flags(TransInfo *t)
 			DEG_id_tag_update(&ob->id, OB_RECALC_OB);
 		}
 	}
+
+	/* all recalc flags get flushed to all layers, so a layer flip later on works fine */
+	DEG_scene_flush_update(G.main, t->scene);
 
 	/* and we store them temporal in base (only used for transform code) */
 	/* this because after doing updates, the object->recalc is cleared */
@@ -5572,6 +5683,7 @@ static int count_proportional_objects(TransInfo *t)
 
 	/* all recalc flags get flushed to all layers, so a layer flip later on works fine */
 	DEG_scene_relations_update(G.main, t->scene);
+	DEG_scene_flush_update(G.main, t->scene);
 
 	/* and we store them temporal in base (only used for transform code) */
 	/* this because after doing updates, the object->recalc is cleared */
@@ -5652,7 +5764,7 @@ void autokeyframe_ob_cb_func(bContext *C, Scene *scene, SceneLayer *sl, View3D *
 			}
 			else if (ELEM(tmode, TFM_ROTATION, TFM_TRACKBALL)) {
 				if (v3d->around == V3D_AROUND_ACTIVE) {
-					if (ob != OBACT_NEW)
+					if (ob != OBACT_NEW(sl))
 						do_loc = true;
 				}
 				else if (v3d->around == V3D_AROUND_CURSOR)
@@ -5663,7 +5775,7 @@ void autokeyframe_ob_cb_func(bContext *C, Scene *scene, SceneLayer *sl, View3D *
 			}
 			else if (tmode == TFM_RESIZE) {
 				if (v3d->around == V3D_AROUND_ACTIVE) {
-					if (ob != OBACT_NEW)
+					if (ob != OBACT_NEW(sl))
 						do_loc = true;
 				}
 				else if (v3d->around == V3D_AROUND_CURSOR)
@@ -5841,7 +5953,7 @@ void autokeyframe_pose_cb_func(bContext *C, Scene *scene, View3D *v3d, Object *o
 		 */
 		if (C && (ob->pose->avs.path_bakeflag & MOTIONPATH_BAKE_HAS_PATHS)) {
 			//ED_pose_clear_paths(C, ob); // XXX for now, don't need to clear
-			ED_pose_recalculate_paths(scene, ob);
+			ED_pose_recalculate_paths(C, scene, ob);
 		}
 	}
 	else {
@@ -5859,27 +5971,23 @@ static void special_aftertrans_update__movieclip(bContext *C, TransInfo *t)
 {
 	SpaceClip *sc = t->sa->spacedata.first;
 	MovieClip *clip = ED_space_clip_get_clip(sc);
-	MovieTrackingPlaneTrack *plane_track;
 	ListBase *plane_tracks_base = BKE_tracking_get_active_plane_tracks(&clip->tracking);
-	int framenr = ED_space_clip_get_clip_frame_number(sc);
-
-	for (plane_track = plane_tracks_base->first;
+	const int framenr = ED_space_clip_get_clip_frame_number(sc);
+	/* Update coordinates of modified plane tracks. */
+	for (MovieTrackingPlaneTrack *plane_track = plane_tracks_base->first;
 	     plane_track;
 	     plane_track = plane_track->next)
 	{
 		bool do_update = false;
-
 		if (plane_track->flag & PLANE_TRACK_HIDDEN) {
 			continue;
 		}
-
 		do_update |= PLANE_TRACK_VIEW_SELECTED(plane_track) != 0;
 		if (do_update == false) {
 			if ((plane_track->flag & PLANE_TRACK_AUTOKEY) == 0) {
 				int i;
 				for (i = 0; i < plane_track->point_tracksnr; i++) {
 					MovieTrackingTrack *track = plane_track->point_tracks[i];
-
 					if (TRACK_VIEW_SELECTED(sc, track)) {
 						do_update = true;
 						break;
@@ -5887,15 +5995,14 @@ static void special_aftertrans_update__movieclip(bContext *C, TransInfo *t)
 				}
 			}
 		}
-
 		if (do_update) {
 			BKE_tracking_track_plane_from_existing_motion(plane_track, framenr);
 		}
 	}
-
-	if (t->scene->nodetree) {
-		/* tracks can be used for stabilization nodes,
-		 * flush update for such nodes */
+	if (t->scene->nodetree != NULL) {
+		/* Tracks can be used for stabilization nodes,
+		 * flush update for such nodes.
+		 */
 		nodeUpdateID(t->scene->nodetree, &clip->id);
 		WM_event_add_notifier(C, NC_SCENE | ND_NODES, NULL);
 	}
@@ -6001,10 +6108,13 @@ static void special_aftertrans_update__mesh(bContext *UNUSED(C), TransInfo *t)
  * */
 void special_aftertrans_update(bContext *C, TransInfo *t)
 {
+	EvaluationContext eval_ctx;
 	Object *ob;
 //	short redrawipo=0, resetslowpar=1;
 	const bool canceled = (t->state == TRANS_CANCEL);
 	const bool duplicate = (t->mode == TFM_TIME_DUPLICATE);
+
+	CTX_data_eval_ctx(C, &eval_ctx);
 	
 	/* early out when nothing happened */
 	if (t->total == 0 || t->mode == TFM_DUMMY)
@@ -6344,7 +6454,7 @@ void special_aftertrans_update(bContext *C, TransInfo *t)
 			 * we need to update the pose otherwise no updates get called during
 			 * transform and the auto-ik is not applied. see [#26164] */
 			struct Object *pose_ob = t->poseobj;
-			BKE_pose_where_is(t->scene, pose_ob);
+			BKE_pose_where_is(&eval_ctx, t->scene, pose_ob);
 		}
 
 		/* set BONE_TRANSFORM flags for autokey, manipulator draw might have changed them */
@@ -7722,7 +7832,7 @@ static void createTransGPencil(bContext *C, TransInfo *t)
 	float mtx[3][3], smtx[3][3];
 	
 	const Scene *scene = CTX_data_scene(C);
-	const int cfra = CFRA;
+	const int cfra_scene = CFRA;
 	
 	const bool is_prop_edit = (t->flag & T_PROP_EDIT) != 0;
 	const bool is_prop_edit_connected = (t->flag & T_PROP_CONNECTED) != 0;
@@ -7747,7 +7857,7 @@ static void createTransGPencil(bContext *C, TransInfo *t)
 		if (gpencil_layer_is_editable(gpl) && (gpl->actframe != NULL)) {
 			bGPDframe *gpf = gpl->actframe;
 			bGPDstroke *gps;
-			
+
 			for (gps = gpf->strokes.first; gps; gps = gps->next) {
 				/* skip strokes that are invalid for current view */
 				if (ED_gpencil_stroke_can_use(C, gps) == false) {
@@ -7803,6 +7913,7 @@ static void createTransGPencil(bContext *C, TransInfo *t)
 	for (gpl = gpd->layers.first; gpl; gpl = gpl->next) {
 		/* only editable and visible layers are considered */
 		if (gpencil_layer_is_editable(gpl) && (gpl->actframe != NULL)) {
+			const int cfra = (gpl->flag & GP_LAYER_FRAMELOCK) ? gpl->actframe->framenum : cfra_scene;
 			bGPDframe *gpf = gpl->actframe;
 			bGPDstroke *gps;
 			float diff_mat[4][4];
@@ -7819,7 +7930,6 @@ static void createTransGPencil(bContext *C, TransInfo *t)
 			 * - This is useful when animating as it saves that "uh-oh" moment when you realize you've
 			 *   spent too much time editing the wrong frame...
 			 */
-			// XXX: should this be allowed when framelock is enabled?
 			if (gpf->framenum != cfra) {
 				gpf = BKE_gpencil_frame_addcopy(gpl, cfra);
 				/* in some weird situations (framelock enabled) return NULL */
@@ -7967,7 +8077,7 @@ void createTransData(bContext *C, TransInfo *t)
 {
 	Scene *scene = t->scene;
 	SceneLayer *sl = t->scene_layer;
-	Object *ob = OBACT_NEW;
+	Object *ob = OBACT_NEW(sl);
 
 	/* if tests must match recalcData for correct updates */
 	if (t->options & CTX_TEXTURE) {

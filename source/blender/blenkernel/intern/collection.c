@@ -261,6 +261,9 @@ void BKE_collection_object_add_from(Scene *scene, Object *ob_src, Object *ob_dst
 	for (SceneLayer *sl = scene->render_layers.first; sl; sl = sl->next) {
 		Base *base_src = BKE_scene_layer_base_find(sl, ob_src);
 		if (base_src != NULL) {
+			if (base_src->collection_properties == NULL) {
+				continue;
+			}
 			Base *base_dst = BKE_scene_layer_base_find(sl, ob_dst);
 			IDP_MergeGroup(base_dst->collection_properties, base_src->collection_properties, true);
 		}
@@ -565,7 +568,7 @@ void BKE_scene_collections_iterator_end(struct BLI_Iterator *iter)
 
 typedef struct SceneObjectsIteratorData {
 	GSet *visited;
-	LinkData *link;
+	LinkData *link_next;
 	BLI_Iterator scene_collection_iter;
 } SceneObjectsIteratorData;
 
@@ -597,8 +600,9 @@ static LinkData *object_base_unique(GSet *gs, LinkData *link)
 {
 	for (; link != NULL; link = link->next) {
 		Object *ob = link->data;
-		if (!BLI_gset_haskey(gs, ob)) {
-			BLI_gset_add(gs, ob);
+		void **ob_key_p;
+		if (!BLI_gset_ensure_p_ex(gs, ob, &ob_key_p)) {
+			*ob_key_p = ob;
 			return link;
 		}
 	}
@@ -608,10 +612,10 @@ static LinkData *object_base_unique(GSet *gs, LinkData *link)
 void BKE_scene_objects_iterator_next(BLI_Iterator *iter)
 {
 	SceneObjectsIteratorData *data = iter->data;
-	LinkData *link = data->link ? object_base_unique(data->visited, data->link->next) : NULL;
+	LinkData *link = data->link_next ? object_base_unique(data->visited, data->link_next) : NULL;
 
 	if (link) {
-		data->link = link;
+		data->link_next = link->next;
 		iter->current = link->data;
 	}
 	else {
@@ -623,8 +627,8 @@ void BKE_scene_objects_iterator_next(BLI_Iterator *iter)
 			/* get the first unique object of this collection */
 			LinkData *new_link = object_base_unique(data->visited, sc->objects.first);
 			if (new_link) {
-				data->link = new_link;
-				iter->current = data->link->data;
+				data->link_next = new_link->next;
+				iter->current = new_link->data;
 				return;
 			}
 			BKE_scene_collections_iterator_next(&data->scene_collection_iter);

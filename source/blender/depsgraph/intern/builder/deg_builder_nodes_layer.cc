@@ -24,7 +24,7 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/depsgraph/intern/builder/deg_builder_nodes_scene.cc
+/** \file blender/depsgraph/intern/builder/deg_builder_nodes_layer.cc
  *  \ingroup depsgraph
  *
  * Methods for constructing depsgraph's nodes
@@ -98,9 +98,7 @@ void DepsgraphNodeBuilder::build_scene_layer_collections(Scene *scene)
 {
 #ifdef WITH_COPY_ON_WRITE
 	/* Make sure we've got ID node, so we can get pointer to CoW datablock. */
-	IDDepsNode *id_node = add_id_node(&scene->id);
-	Scene *scene_cow = (Scene *)deg_expand_copy_on_write_datablock(m_graph,
-	                                                               id_node);
+	Scene *scene_cow = expand_cow_datablock(scene);
 #else
 	Scene *scene_cow = scene;
 #endif

@@ -57,10 +57,11 @@ GeometryExporter::GeometryExporter(COLLADASW::StreamWriter *sw, const ExportSett
 {
 }
 
-void GeometryExporter::exportGeom(Scene *sce)
+void GeometryExporter::exportGeom(const struct EvaluationContext *eval_ctx, Scene *sce)
 {
 	openLibrary();
 
+	mEvalCtx = eval_ctx;
 	mScene = sce;
 	GeometryFunctor gf;
 	gf.forEachMeshObjectInExportSet<GeometryExporter>(sce, *this, this->export_settings->export_set);
@@ -76,7 +77,7 @@ void GeometryExporter::operator()(Object *ob)
 #endif
 
 	bool use_instantiation = this->export_settings->use_object_instantiation;
-	Mesh *me = bc_get_mesh_copy( mScene, 
+	Mesh *me = bc_get_mesh_copy(mEvalCtx, mScene, 
 					ob,
 					this->export_settings->export_mesh_type,
 					this->export_settings->apply_modifiers,
@@ -479,12 +480,13 @@ void GeometryExporter::createVertexColorSource(std::string geom_id, Mesh *me)
 
 		source.setArrayId(layer_id + ARRAY_ID_SUFFIX);
 		source.setAccessorCount(me->totloop);
-		source.setAccessorStride(3);
+		source.setAccessorStride(4);
 
 		COLLADASW::SourceBase::ParameterNameList &param = source.getParameterNameList();
 		param.push_back("R");
 		param.push_back("G");
 		param.push_back("B");
+		param.push_back("A");
 
 		source.prepareToAppendValues();
 
@@ -496,7 +498,8 @@ void GeometryExporter::createVertexColorSource(std::string geom_id, Mesh *me)
 				source.appendValues(
 						mlc->r / 255.0f,
 						mlc->g / 255.0f,
-						mlc->b / 255.0f
+						mlc->b / 255.0f,
+						mlc->a / 255.0f
 				);
 			}
 		}

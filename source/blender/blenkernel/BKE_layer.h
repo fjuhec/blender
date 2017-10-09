@@ -33,13 +33,9 @@
 extern "C" {
 #endif
 
-#define TODO_LAYER_SYNC /* syncing of SceneCollection and LayerCollection trees*/
 #define TODO_LAYER_SYNC_FILTER /* syncing of filter_objects across all trees */
 #define TODO_LAYER_OVERRIDE /* CollectionOverride */
-#define TODO_LAYER_CONTEXT /* get/set current (context) SceneLayer */
-#define TODO_LAYER_BASE /* BaseLegacy to Base related TODO */
 #define TODO_LAYER_OPERATORS /* collection mamanger and property panel operators */
-#define TODO_LAYER_DEPSGRAPH /* placeholder for real Depsgraph fix */
 #define TODO_LAYER /* generic todo */
 
 #define ROOT_PROP "root"
@@ -56,13 +52,16 @@ struct RenderEngine;
 struct Scene;
 struct SceneCollection;
 struct SceneLayer;
+struct WorkSpace;
 
 void BKE_layer_exit(void);
 
-struct SceneLayer *BKE_scene_layer_render_active(const struct Scene *scene);
-struct SceneLayer *BKE_scene_layer_context_active_ex(const struct Main *bmain, const struct Scene *scene);
-struct SceneLayer *BKE_scene_layer_context_active(const struct Scene *scene);
+struct SceneLayer *BKE_scene_layer_from_scene_get(const struct Scene *scene);
+struct SceneLayer *BKE_scene_layer_from_workspace_get(const struct WorkSpace *workspace);
 struct SceneLayer *BKE_scene_layer_add(struct Scene *scene, const char *name);
+
+/* DEPRECATED */
+struct SceneLayer *BKE_scene_layer_context_active_PLACEHOLDER(const struct Scene *scene);
 
 void BKE_scene_layer_free(struct SceneLayer *sl);
 
@@ -82,6 +81,7 @@ struct LayerCollection *BKE_layer_collection_get_active_ensure(struct Scene *sce
 
 int BKE_layer_collection_count(struct SceneLayer *sl);
 
+struct LayerCollection *BKE_layer_collection_from_index(struct SceneLayer *sl, const int index);
 int BKE_layer_collection_findindex(struct SceneLayer *sl, const struct LayerCollection *lc);
 
 bool BKE_layer_collection_move_above(const struct Scene *scene, struct LayerCollection *lc_dst, struct LayerCollection *lc_src);
@@ -93,6 +93,9 @@ void BKE_layer_collection_resync(const struct Scene *scene, const struct SceneCo
 struct LayerCollection *BKE_collection_link(struct SceneLayer *sl, struct SceneCollection *sc);
 
 void BKE_collection_unlink(struct SceneLayer *sl, struct LayerCollection *lc);
+
+void BKE_collection_enable(struct SceneLayer *sl, struct LayerCollection *lc);
+void BKE_collection_disable(struct SceneLayer *sl, struct LayerCollection *lc);
 
 bool BKE_scene_layer_has_collection(struct SceneLayer *sl, const struct SceneCollection *sc);
 bool BKE_scene_has_object(struct Scene *scene, struct Object *ob);
@@ -145,13 +148,13 @@ void BKE_collection_engine_property_value_set_bool(struct IDProperty *props, con
 
 /* evaluation */
 
-void BKE_layer_eval_layer_collection_pre(struct EvaluationContext *eval_ctx,
+void BKE_layer_eval_layer_collection_pre(const struct EvaluationContext *eval_ctx,
                                          struct Scene *scene,
                                          struct SceneLayer *scene_layer);
-void BKE_layer_eval_layer_collection(struct EvaluationContext *eval_ctx,
+void BKE_layer_eval_layer_collection(const struct EvaluationContext *eval_ctx,
                                      struct LayerCollection *layer_collection,
                                      struct LayerCollection *parent_layer_collection);
-void BKE_layer_eval_layer_collection_post(struct EvaluationContext *eval_ctx,
+void BKE_layer_eval_layer_collection_post(const struct EvaluationContext *eval_ctx,
                                           struct SceneLayer *scene_layer);
 
 /* iterators */

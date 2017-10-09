@@ -951,9 +951,9 @@ Render *BlenderStrokeRenderer::RenderScene(Render * /*re*/, bool render)
 	}
 #endif
 
-	Render *freestyle_render = RE_NewRender(freestyle_scene->id.name);
+	Render *freestyle_render = RE_NewSceneRender(freestyle_scene);
 	DEG_scene_relations_update(freestyle_bmain, freestyle_scene);
-	freestyle_render->depsgraph = freestyle_scene->depsgraph;
+	freestyle_render->depsgraph = freestyle_scene->depsgraph_legacy;
 
 	RE_RenderFreestyleStrokes(freestyle_render, freestyle_bmain, freestyle_scene,
 	                          render && get_stroke_count() > 0);

@@ -49,6 +49,8 @@
 #include "draw_cache.h"
 #include "draw_view.h"
 
+#include "draw_manager_profiling.h"
+
 #include "MEM_guardedalloc.h"
 
 #include "RE_engine.h"
@@ -88,6 +90,29 @@ typedef char DRWViewportEmptyList;
 	DRW_VIEWPORT_LIST_SIZE(*(((ty *)NULL)->stl)) \
 }
 
+/* Use of multisample framebuffers. */
+#define MULTISAMPLE_SYNC_ENABLE(dfbl) { \
+	if (dfbl->multisample_fb != NULL) { \
+		DRW_stats_query_start("Multisample Blit"); \
+		DRW_framebuffer_blit(dfbl->default_fb, dfbl->multisample_fb, false); \
+		DRW_framebuffer_blit(dfbl->default_fb, dfbl->multisample_fb, true); \
+		DRW_framebuffer_bind(dfbl->multisample_fb); \
+		DRW_stats_query_end(); \
+	} \
+}
+
+#define MULTISAMPLE_SYNC_DISABLE(dfbl) { \
+	if (dfbl->multisample_fb != NULL) { \
+		DRW_stats_query_start("Multisample Resolve"); \
+		DRW_framebuffer_blit(dfbl->multisample_fb, dfbl->default_fb, false); \
+		DRW_framebuffer_blit(dfbl->multisample_fb, dfbl->default_fb, true); \
+		DRW_framebuffer_bind(dfbl->default_fb); \
+		DRW_stats_query_end(); \
+	} \
+}
+
+
+
 typedef struct DrawEngineDataSize {
 	int fbl_len;
 	int txl_len;
@@ -111,17 +136,22 @@ typedef struct DrawEngineType {
 
 	void (*draw_background)(void *vedata);
 	void (*draw_scene)(void *vedata);
+
+	void (*view_update)(void *vedata);
 } DrawEngineType;
 
 #ifndef __DRW_ENGINE_H__
 /* Buffer and textures used by the viewport by default */
 typedef struct DefaultFramebufferList {
 	struct GPUFrameBuffer *default_fb;
+	struct GPUFrameBuffer *multisample_fb;
 } DefaultFramebufferList;
 
 typedef struct DefaultTextureList {
 	struct GPUTexture *color;
 	struct GPUTexture *depth;
+	struct GPUTexture *multisample_color;
+	struct GPUTexture *multisample_depth;
 } DefaultTextureList;
 #endif
 
@@ -163,6 +193,7 @@ struct GPUTexture *DRW_texture_create_2D_array(
 struct GPUTexture *DRW_texture_create_cube(
         int w, DRWTextureFormat format, DRWTextureFlag flags, const float *fpixels);
 void DRW_texture_generate_mipmaps(struct GPUTexture *tex);
+void DRW_texture_update(struct GPUTexture *tex, const float *pixels);
 void DRW_texture_free(struct GPUTexture *tex);
 #define DRW_TEXTURE_FREE_SAFE(tex) do { \
 	if (tex != NULL) { \
@@ -253,7 +284,8 @@ typedef enum {
 	DRW_STATE_BLEND         = (1 << 14),
 	DRW_STATE_ADDITIVE      = (1 << 15),
 	DRW_STATE_MULTIPLY      = (1 << 16),
-	DRW_STATE_CLIP_PLANES   = (1 << 17),
+	DRW_STATE_TRANSMISSION  = (1 << 17),
+	DRW_STATE_CLIP_PLANES   = (1 << 18),
 
 	DRW_STATE_WRITE_STENCIL_SELECT = (1 << 27),
 	DRW_STATE_WRITE_STENCIL_ACTIVE = (1 << 28),
@@ -266,7 +298,8 @@ typedef enum {
 
 DRWShadingGroup *DRW_shgroup_create(struct GPUShader *shader, DRWPass *pass);
 DRWShadingGroup *DRW_shgroup_material_create(struct GPUMaterial *material, DRWPass *pass);
-DRWShadingGroup *DRW_shgroup_material_instance_create(struct GPUMaterial *material, DRWPass *pass, struct Gwn_Batch *geom);
+DRWShadingGroup *DRW_shgroup_material_instance_create(
+        struct GPUMaterial *material, DRWPass *pass, struct Gwn_Batch *geom, struct Object *ob);
 DRWShadingGroup *DRW_shgroup_instance_create(struct GPUShader *shader, DRWPass *pass, struct Gwn_Batch *geom);
 DRWShadingGroup *DRW_shgroup_point_batch_create(struct GPUShader *shader, DRWPass *pass);
 DRWShadingGroup *DRW_shgroup_line_batch_create(struct GPUShader *shader, DRWPass *pass);
@@ -296,6 +329,7 @@ void DRW_shgroup_call_dynamic_add_array(DRWShadingGroup *shgroup, const void *at
 void DRW_shgroup_set_instance_count(DRWShadingGroup *shgroup, int count);
 
 void DRW_shgroup_state_enable(DRWShadingGroup *shgroup, DRWState state);
+void DRW_shgroup_state_disable(DRWShadingGroup *shgroup, DRWState state);
 void DRW_shgroup_attrib_float(DRWShadingGroup *shgroup, const char *name, int size);
 
 void DRW_shgroup_uniform_texture(DRWShadingGroup *shgroup, const char *name, const struct GPUTexture *tex);
@@ -317,6 +351,7 @@ void DRW_shgroup_uniform_mat4(DRWShadingGroup *shgroup, const char *name, const 
 /* Passes */
 DRWPass *DRW_pass_create(const char *name, DRWState state);
 void DRW_pass_foreach_shgroup(DRWPass *pass, void (*callback)(void *userData, DRWShadingGroup *shgrp), void *userData);
+void DRW_pass_sort_shgroup_z(DRWPass *pass);
 
 /* Viewport */
 typedef enum {
@@ -353,10 +388,12 @@ void DRW_lamp_engine_data_free(struct LampEngineData *led);
 
 /* Settings */
 bool DRW_object_is_renderable(struct Object *ob);
-bool DRW_object_is_flat_normal(struct Object *ob);
+bool DRW_object_is_flat_normal(const struct Object *ob);
+int  DRW_object_is_mode_shade(const struct Object *ob);
 
 /* Draw commands */
 void DRW_draw_pass(DRWPass *pass);
+void DRW_draw_pass_subset(DRWPass *pass, DRWShadingGroup *start_group, DRWShadingGroup *end_group);
 
 void DRW_draw_text_cache_queue(struct DRWTextStore *dt);
 
@@ -385,6 +422,7 @@ bool DRW_state_is_depth(void);
 bool DRW_state_is_image_render(void);
 bool DRW_state_is_scene_render(void);
 bool DRW_state_show_text(void);
+bool DRW_state_draw_support(void);
 
 struct DRWTextStore *DRW_state_text_cache_get(void);
 
@@ -395,7 +433,7 @@ typedef struct DRWContextState {
 	struct View3D *v3d;     /* 'CTX_wm_view3d(C)' */
 
 	struct Scene *scene;    /* 'CTX_data_scene(C)' */
-	struct SceneLayer *sl;  /* 'CTX_data_scene_layer(C)' */
+	struct SceneLayer *scene_layer;  /* 'CTX_data_scene_layer(C)' */
 
 	/* Use 'scene->obedit' for edit-mode */
 	struct Object *obact;   /* 'OBACT_NEW' */
@@ -405,7 +443,6 @@ typedef struct DRWContextState {
 	const struct bContext *evil_C;
 } DRWContextState;
 
-void DRW_context_state_init(const struct bContext *C, DRWContextState *r_draw_ctx);
 const DRWContextState *DRW_context_state_get(void);
 
 #endif /* __DRW_RENDER_H__ */

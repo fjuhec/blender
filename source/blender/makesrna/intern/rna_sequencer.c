@@ -341,7 +341,7 @@ static void rna_Sequence_use_translation_set(PointerRNA *ptr, int value)
 		}
 	}
 	else {
-		seq->flag ^= SEQ_USE_TRANSFORM;
+		seq->flag &= ~SEQ_USE_TRANSFORM;
 	}
 }
 
@@ -355,7 +355,7 @@ static void rna_Sequence_use_crop_set(PointerRNA *ptr, int value)
 		}
 	}
 	else {
-		seq->flag ^= SEQ_USE_CROP;
+		seq->flag &= ~SEQ_USE_CROP;
 	}
 }
 
@@ -725,8 +725,9 @@ static void rna_Sequence_filepath_update(Main *bmain, Scene *UNUSED(scene), Poin
 static void rna_Sequence_sound_update(Main *bmain, Scene *scene, PointerRNA *ptr)
 {
 	Sequence *seq = (Sequence *) ptr->data;
-
-	BKE_sound_update_scene_sound(seq->scene_sound, seq->sound);
+	if (seq->sound != NULL) {
+		BKE_sound_update_scene_sound(seq->scene_sound, seq->sound);
+	}
 	rna_Sequence_update(bmain, scene, ptr);
 }
 

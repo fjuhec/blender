@@ -26,7 +26,7 @@ ARGS=$( \
 getopt \
 -o s:i:t:h \
 --long source:,install:,tmp:,info:,threads:,help,show-deps,no-sudo,no-build,no-confirm,\
-with-all,with-opencollada,\
+with-all,with-opencollada,with-jack,\
 ver-ocio:,ver-oiio:,ver-llvm:,ver-osl:,ver-osd:,ver-openvdb:,\
 force-all,force-python,force-numpy,force-boost,\
 force-ocio,force-openexr,force-oiio,force-llvm,force-osl,force-osd,force-openvdb,\
@@ -112,6 +112,9 @@ ARGUMENTS_INFO="\"COMMAND LINE ARGUMENTS:
 
     --with-opencollada
         Build and install the OpenCOLLADA libraries.
+
+    --with-jack
+        Install the jack libraries.
 
     --ver-ocio=<ver>
         Force version of OCIO library.
@@ -284,13 +287,13 @@ NO_BUILD=false
 NO_CONFIRM=false
 USE_CXX11=true  # Mandatory in blender2.8
 
-PYTHON_VERSION="3.5.3"
-PYTHON_VERSION_MIN="3.5"
+PYTHON_VERSION="3.6.2"
+PYTHON_VERSION_MIN="3.6"
 PYTHON_FORCE_BUILD=false
 PYTHON_FORCE_REBUILD=false
 PYTHON_SKIP=false
 
-NUMPY_VERSION="1.10.1"
+NUMPY_VERSION="1.13.1"
 NUMPY_VERSION_MIN="1.8"
 NUMPY_FORCE_BUILD=false
 NUMPY_FORCE_REBUILD=false
@@ -499,6 +502,9 @@ while true; do
     --with-opencollada)
       WITH_OPENCOLLADA=true; shift; continue
     ;;
+    --with-jack)
+      WITH_JACK=true; shift; continue;
+    ;;
     --ver-ocio)
       OCIO_VERSION="$2"
       OCIO_VERSION_MIN=$OCIO_VERSION
@@ -702,6 +708,9 @@ done
 if [ "$WITH_ALL" = true -a "$OPENCOLLADA_SKIP" = false ]; then
   WITH_OPENCOLLADA=true
 fi
+if [ "$WITH_ALL" = true ]; then
+  WITH_JACK=true
+fi
 
 
 WARNING "****WARNING****"
@@ -722,7 +731,7 @@ PRINT ""
 
 # This has to be done here, because user might force some versions...
 PYTHON_SOURCE=( "https://www.python.org/ftp/python/$PYTHON_VERSION/Python-$PYTHON_VERSION.tgz" )
-NUMPY_SOURCE=( "http://sourceforge.net/projects/numpy/files/NumPy/$NUMPY_VERSION/numpy-$NUMPY_VERSION.tar.gz" )
+NUMPY_SOURCE=( "https://github.com/numpy/numpy/releases/download/v$NUMPY_VERSION/numpy-$NUMPY_VERSION.tar.gz" )
 
 _boost_version_nodots=`echo "$BOOST_VERSION" | sed -r 's/\./_/g'`
 BOOST_SOURCE=( "http://sourceforge.net/projects/boost/files/boost/$BOOST_VERSION/boost_$_boost_version_nodots.tar.bz2/download" )
@@ -1143,7 +1152,7 @@ compile_Numpy() {
 
     cd $_src
 
-    $_python/bin/python3 setup.py install --prefix=$_inst
+    $_python/bin/python3 setup.py install --old-and-unmanageable --prefix=$_inst
 
     if [ -d $_inst ]; then
       # Can't use _create_inst_shortcut here...
@@ -1582,7 +1591,7 @@ compile_OIIO() {
   fi
 
   # To be changed each time we make edits that would modify the compiled result!
-  oiio_magic=16
+  oiio_magic=17
   _init_oiio
 
   # Clean install if needed!
@@ -1645,6 +1654,9 @@ compile_OIIO() {
       cmake_d="$cmake_d -D OPENEXR_HOME=$INST/openexr"
       INFO "ILMBASE_HOME=$INST/openexr"
     fi
+
+    # ptex is only needed when nicholas bishop is ready
+    cmake_d="$cmake_d -D USE_PTEX=OFF"
 
     # Optional tests and cmd tools
     cmake_d="$cmake_d -D USE_QT=OFF"
@@ -1757,7 +1769,7 @@ compile_LLVM() {
       cd $_src
 
       # XXX Ugly patching hack!
-      patch -p1 -i "$SCRIPT_DIR/install_deps_patches/llvm.patch"
+      patch -p1 -i "$SCRIPT_DIR/patches/install_deps_llvm.diff"
 
       cd $CWD
 
@@ -1863,7 +1875,7 @@ compile_OSL() {
       git reset --hard
 
       # XXX Ugly patching hack!
-      patch -p1 -i "$SCRIPT_DIR/install_deps_patches/osl.patch"
+      patch -p1 -i "$SCRIPT_DIR/patches/install_deps_osl.diff"
     fi
 
     # Always refresh the whole build!
@@ -2644,7 +2656,7 @@ install_DEB() {
     PRINT ""
   fi
 
-  if [ "$WITH_ALL" = true ]; then
+  if [ "$WITH_JACK" = true ]; then
     _packages="$_packages libspnav-dev"
     # Only install jack if jack2 is not already installed!
     JACK="libjack-dev"
@@ -2661,10 +2673,10 @@ install_DEB() {
   install_packages_DEB $_packages
 
   PRINT""
-  SNDFILE_DEV="libsndfile1-dev"
-  check_package_DEB $SNDFILE_DEV
+  LIBSNDFILE_DEV="libsndfile1-dev"
+  check_package_DEB $LIBSNDFILE_DEV
   if [ $? -eq 0 ]; then
-    install_packages_DEB $SNDFILE_DEV
+    install_packages_DEB $LIBSNDFILE_DEV
   fi
 
   PRINT ""
@@ -3181,7 +3193,7 @@ install_RPM() {
   if [ "$RPM" = "FEDORA" -o "$RPM" = "RHEL" ]; then
     _packages="$_packages freetype-devel tbb-devel"
 
-    if [ "$WITH_ALL" = true ]; then
+    if [ "$WITH_JACK" = true ]; then
       _packages="$_packages jack-audio-connection-kit-devel"
     fi
 
@@ -3259,10 +3271,10 @@ install_RPM() {
   fi
 
   PRINT""
-  SNDFILE_DEV="libsndfile-devel"
-  check_package_RPM $SNDFILE_DEV
+  LIBSNDFILE_DEV="libsndfile-devel"
+  check_package_RPM $LIBSNDFILE_DEV
   if [ $? -eq 0 ]; then
-    install_packages_RPM $SNDFILE_DEV
+    install_packages_RPM $LIBSNDFILE_DEV
   fi
 
   if [ "$WITH_ALL" = true ]; then
@@ -3655,17 +3667,21 @@ install_ARCH() {
   THEORA_USE=true
 
   if [ "$WITH_ALL" = true ]; then
-    _packages="$_packages jack libspnav"
+    _packages="$_packages libspnav"
+  fi
+
+  if [ "$WITH_JACK" = true ]; then
+    _packages="$_packages jack"
   fi
 
   PRINT ""
   install_packages_ARCH $_packages
 
   PRINT""
-  SNDFILE_DEV="libsndfile"
-  check_package_ARCH $SNDFILE_DEV
+  LIBSNDFILE_DEV="libsndfile"
+  check_package_ARCH $LIBSNDFILE_DEV
   if [ $? -eq 0 ]; then
-    install_packages_ARCH $SNDFILE_DEV
+    install_packages_ARCH $LIBSNDFILE_DEV
   fi
 
   PRINT ""
@@ -4315,6 +4331,14 @@ print_info() {
     _1="-D WITH_OPENCOLLADA=ON"
     PRINT "  $_1"
     _buildargs="$_buildargs $_1"
+  fi
+
+  if [ "$WITH_JACK" = true ]; then
+    _1="-D WITH_JACK=ON"
+    _2="-D WITH_JACK_DYNLOAD=ON"
+    PRINT "  $_1"
+    PRINT "  $_2"
+    _buildargs="$_buildargs $_1 $_2"
   fi
 
   if [ "$ALEMBIC_SKIP" = false ]; then

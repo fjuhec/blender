@@ -51,7 +51,6 @@
 
 #include "ED_screen.h"
 #include "ED_view3d.h"
-#include "ED_transform.h"
 #include "ED_transform_snap_object_context.h"
 #include "ED_space_api.h"
 
@@ -461,7 +460,7 @@ static void ruler_info_draw_pixel(const struct bContext *C, ARegion *ar, void *a
 		const uint shdr_pos = GWN_vertformat_attr_add(immVertexFormat(), "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
 
 		if (ruler_item->flag & RULERITEM_USE_ANGLE) {
-			immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_COLOR);
+			immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_UNIFORM_COLOR);
 
 			float viewport_size[4];
 			glGetFloatv(GL_VIEWPORT, viewport_size);
@@ -600,7 +599,7 @@ static void ruler_info_draw_pixel(const struct bContext *C, ARegion *ar, void *a
 			}
 		}
 		else {
-			immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_COLOR);
+			immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_UNIFORM_COLOR);
 
 			float viewport_size[4];
 			glGetFloatv(GL_VIEWPORT, viewport_size);
@@ -705,7 +704,7 @@ static void ruler_info_draw_pixel(const struct bContext *C, ARegion *ar, void *a
 			immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 			immUniformColor4fv(color_act);
 
-			imm_draw_circle_wire(pos, co_ss[0], co_ss[1], size * U.pixelsize, 32);
+			imm_draw_circle_wire_2d(pos, co_ss[0], co_ss[1], size * U.pixelsize, 32);
 
 			immUnbindProgram();
 		}
@@ -1042,9 +1041,12 @@ static int view3d_ruler_modal(bContext *C, wmOperator *op, const wmEvent *event)
 		}
 		case RETKEY:
 		{
-			view3d_ruler_to_gpencil(C, ruler_info);
-			do_draw = true;
-			exit_code = OPERATOR_FINISHED;
+			/* Enter may be used to invoke from search. */
+			if (event->val == KM_PRESS) {
+				view3d_ruler_to_gpencil(C, ruler_info);
+				do_draw = true;
+				exit_code = OPERATOR_FINISHED;
+			}
 			break;
 		}
 		case DELKEY:

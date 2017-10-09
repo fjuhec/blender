@@ -44,6 +44,7 @@ protected:
 	Object *m_object;
 	ExportSettings &m_settings;
 
+	EvaluationContext *m_eval_ctx;
 	Scene *m_scene;
 	uint32_t m_time_sampling;
 
@@ -56,7 +57,8 @@ protected:
 	std::string m_name;
 
 public:
-	AbcObjectWriter(Scene *scene,
+	AbcObjectWriter(EvaluationContext *eval_ctx,
+	                Scene *scene,
 	                Object *ob,
 	                uint32_t time_sampling,
 	                ExportSettings &settings,
@@ -90,7 +92,7 @@ struct ImportSettings {
 
 	/* Length and frame offset of file sequences. */
 	int sequence_len;
-	int offset;
+	int sequence_offset;
 
 	/* From MeshSeqCacheModifierData.read_flag */
 	int read_flag;
@@ -107,7 +109,7 @@ struct ImportSettings {
 	    , is_sequence(false)
 	    , set_frame_range(false)
 	    , sequence_len(1)
-	    , offset(0)
+	    , sequence_offset(0)
 	    , read_flag(0)
 	    , validate_meshes(false)
 	    , cache_file(NULL)
@@ -143,6 +145,8 @@ protected:
 	 * modifiers and/or constraints. */
 	int m_refcount;
 
+	bool m_inherits_xform;
+
 public:
 	AbcObjectReader *parent_reader;
 
@@ -167,6 +171,7 @@ public:
 	const std::string & name() const { return m_name; }
 	const std::string & object_name() const { return m_object_name; }
 	const std::string & data_name() const { return m_data_name; }
+	bool inherits_xform() const { return m_inherits_xform; }
 
 	virtual bool valid() const = 0;
 	virtual bool accepts_object_type(const Alembic::AbcCoreAbstract::ObjectHeader &alembic_header,
@@ -194,6 +199,9 @@ public:
 
 	void read_matrix(float r_mat[4][4], const float time,
 	                 const float scale, bool &is_constant);
+
+protected:
+	void determine_inherits_xform();
 };
 
 Imath::M44d get_matrix(const Alembic::AbcGeom::IXformSchema &schema, const float time);

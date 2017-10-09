@@ -70,6 +70,8 @@ typedef struct bDeformGroup {
 typedef struct bFaceMap {
 	struct bFaceMap *next, *prev;
 	char name[64];  /* MAX_VGROUP_NAME */
+	char flag;
+	char pad[7];
 } bFaceMap;
 
 /* Object Runtime display data */
@@ -297,14 +299,14 @@ typedef struct Object {
 
 	struct FluidsimSettings *fluidsimSettings; /* if fluidsim enabled, store additional settings */
 
-	/* Runtime valuated curve-specific data, not stored in the file */
-	struct CurveCache *curve_cache;
-
 	struct DerivedMesh *derivedDeform, *derivedFinal;
 	uint64_t lastDataMask;   /* the custom data layer mask that was last used to calculate derivedDeform and derivedFinal */
 	uint64_t customdata_mask; /* (extra) custom data layer mask to use for creating derivedmesh, set by depsgraph */
 	unsigned int state;			/* bit masks of game controllers that are active */
 	unsigned int init_state;	/* bit masks of initial state as recorded by the users */
+
+	/* Runtime valuated curve-specific data, not stored in the file */
+	struct CurveCache *curve_cache;
 
 	ListBase gpulamp;		/* runtime, for glsl lamp display only */
 	ListBase pc_ids;
@@ -720,6 +722,9 @@ typedef enum ObjectMode {
 
 /* any mode where the brush system is used */
 #define OB_MODE_ALL_PAINT (OB_MODE_SCULPT | OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT | OB_MODE_TEXTURE_PAINT)
+
+/* any mode that uses ob->sculpt */
+#define OB_MODE_ALL_SCULPT (OB_MODE_SCULPT | OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT)
 
 #define MAX_DUPLI_RECUR 8
 

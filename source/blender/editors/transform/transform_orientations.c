@@ -581,7 +581,7 @@ int getTransformOrientation_ex(const bContext *C, float normal[3], float plane[3
 	SceneLayer *sl = CTX_data_scene_layer(C);
 	Object *obedit = CTX_data_edit_object(C);
 	Base *base;
-	Object *ob = OBACT_NEW;
+	Object *ob = OBACT_NEW(sl);
 	int result = ORIENTATION_NONE;
 	const bool activeOnly = (around == V3D_AROUND_ACTIVE);
 
@@ -809,14 +809,20 @@ int getTransformOrientation_ex(const bContext *C, float normal[3], float plane[3
 		else if (ELEM(obedit->type, OB_CURVE, OB_SURF)) {
 			Curve *cu = obedit->data;
 			Nurb *nu = NULL;
-			BezTriple *bezt = NULL;
 			int a;
 			ListBase *nurbs = BKE_curve_editNurbs_get(cu);
 
-			if (activeOnly && BKE_curve_nurb_vert_active_get(cu, &nu, (void *)&bezt)) {
+			void *vert_act = NULL;
+			if (activeOnly && BKE_curve_nurb_vert_active_get(cu, &nu, &vert_act)) {
 				if (nu->type == CU_BEZIER) {
+					BezTriple *bezt = vert_act;
 					BKE_nurb_bezt_calc_normal(nu, bezt, normal);
 					BKE_nurb_bezt_calc_plane(nu, bezt, plane);
+				}
+				else {
+					BPoint *bp = vert_act;
+					BKE_nurb_bpoint_calc_normal(nu, bp, normal);
+					BKE_nurb_bpoint_calc_plane(nu, bp, plane);
 				}
 			}
 			else {
@@ -825,7 +831,7 @@ int getTransformOrientation_ex(const bContext *C, float normal[3], float plane[3
 				for (nu = nurbs->first; nu; nu = nu->next) {
 					/* only bezier has a normal */
 					if (nu->type == CU_BEZIER) {
-						bezt = nu->bezt;
+						BezTriple *bezt = nu->bezt;
 						a = nu->pntsu;
 						while (a--) {
 							short flag = 0;
@@ -875,6 +881,36 @@ int getTransformOrientation_ex(const bContext *C, float normal[3], float plane[3
 #undef SEL_F3
 
 							bezt++;
+						}
+					}
+					else if (nu->bp && (nu->pntsv == 1)) {
+						BPoint *bp = nu->bp;
+						a = nu->pntsu;
+						while (a--) {
+							if (bp->f1 & SELECT) {
+								float tvec[3];
+
+								BPoint *bp_prev = BKE_nurb_bpoint_get_prev(nu, bp);
+								BPoint *bp_next = BKE_nurb_bpoint_get_next(nu, bp);
+
+								const bool is_prev_sel = bp_prev && (bp_prev->f1 & SELECT);
+								const bool is_next_sel = bp_next && (bp_next->f1 & SELECT);
+								if (is_prev_sel == false && is_next_sel == false) {
+									/* Isolated, add based on surrounding */
+									BKE_nurb_bpoint_calc_normal(nu, bp, tvec);
+									add_v3_v3(normal, tvec);
+								}
+								else if (is_next_sel) {
+									/* A segment, add the edge normal */
+									sub_v3_v3v3(tvec, bp->vec, bp_next->vec	);
+									normalize_v3(tvec);
+									add_v3_v3(normal, tvec);
+								}
+
+								BKE_nurb_bpoint_calc_plane(nu, bp, tvec);
+								add_v3_v3(plane, tvec);
+							}
+							bp++;
 						}
 					}
 				}
@@ -1008,8 +1044,8 @@ int getTransformOrientation_ex(const bContext *C, float normal[3], float plane[3
 	}
 	else {
 		/* we need the one selected object, if its not active */
-		base = BASACT_NEW;
-		ob = OBACT_NEW;
+		base = BASACT_NEW(sl);
+		ob = OBACT_NEW(sl);
 		if (base && ((base->flag & BASE_SELECTED) != 0)) {
 			/* pass */
 		}

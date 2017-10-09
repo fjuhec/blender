@@ -172,7 +172,7 @@ struct EdgeRingOpSubdProps {
 };
 
 
-static void mesh_operator_edgering_props(wmOperatorType *ot, const int cuts_default)
+static void mesh_operator_edgering_props(wmOperatorType *ot, const int cuts_min, const int cuts_default)
 {
 	/* Note, these values must match delete_mesh() event values */
 	static EnumPropertyItem prop_subd_edgering_types[] = {
@@ -184,7 +184,7 @@ static void mesh_operator_edgering_props(wmOperatorType *ot, const int cuts_defa
 
 	PropertyRNA *prop;
 
-	prop = RNA_def_int(ot->srna, "number_cuts", cuts_default, 0, 1000, "Number of Cuts", "", 0, 64);
+	prop = RNA_def_int(ot->srna, "number_cuts", cuts_default, 0, 1000, "Number of Cuts", "", cuts_min, 64);
 	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 
 	RNA_def_enum(ot->srna, "interpolation", prop_subd_edgering_types, SUBD_RING_INTERP_PATH,
@@ -251,7 +251,7 @@ void MESH_OT_subdivide_edgering(wmOperatorType *ot)
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
 	/* properties */
-	mesh_operator_edgering_props(ot, 10);
+	mesh_operator_edgering_props(ot, 1, 10);
 }
 
 
@@ -3303,13 +3303,13 @@ static int edbm_separate_exec(bContext *C, wmOperator *op)
 		/* editmode separate */
 		switch (type) {
 			case MESH_SEPARATE_SELECTED:
-			    retval = mesh_separate_selected(bmain, scene, sl, base, em->bm);
+				retval = mesh_separate_selected(bmain, scene, sl, base, em->bm);
 				break;
 			case MESH_SEPARATE_MATERIAL:
-			    retval = mesh_separate_material(bmain, scene, sl, base, em->bm);
+				retval = mesh_separate_material(bmain, scene, sl, base, em->bm);
 				break;
 			case MESH_SEPARATE_LOOSE:
-			    retval = mesh_separate_loose(bmain, scene, sl, base, em->bm);
+				retval = mesh_separate_loose(bmain, scene, sl, base, em->bm);
 				break;
 			default:
 				BLI_assert(0);
@@ -3344,10 +3344,10 @@ static int edbm_separate_exec(bContext *C, wmOperator *op)
 
 					switch (type) {
 						case MESH_SEPARATE_MATERIAL:
-						    retval_iter = mesh_separate_material(bmain, scene, sl, base_iter, bm_old);
+							retval_iter = mesh_separate_material(bmain, scene, sl, base_iter, bm_old);
 							break;
 						case MESH_SEPARATE_LOOSE:
-						    retval_iter = mesh_separate_loose(bmain, scene, sl, base_iter, bm_old);
+							retval_iter = mesh_separate_loose(bmain, scene, sl, base_iter, bm_old);
 							break;
 						default:
 							BLI_assert(0);
@@ -5063,7 +5063,7 @@ static void sort_bmelem_flag(Scene *scene, Object *ob,
 	}
 
 	BM_mesh_remap(em->bm, map[0], map[1], map[2]);
-/*	DAG_id_tag_update(ob->data, 0);*/
+/*	DEG_id_tag_update(ob->data, 0);*/
 
 	for (j = 3; j--; ) {
 		if (map[j])
@@ -5451,7 +5451,7 @@ void MESH_OT_bridge_edge_loops(wmOperatorType *ot)
 	RNA_def_float(ot->srna, "merge_factor", 0.5f, 0.0f, 1.0f, "Merge Factor", "", 0.0f, 1.0f);
 	RNA_def_int(ot->srna, "twist_offset", 0, -1000, 1000, "Twist", "Twist offset for closed loops", -1000, 1000);
 
-	mesh_operator_edgering_props(ot, 0);
+	mesh_operator_edgering_props(ot, 0, 0);
 }
 
 static int edbm_wireframe_exec(bContext *C, wmOperator *op)

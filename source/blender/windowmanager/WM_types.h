@@ -121,6 +121,9 @@ struct ImBuf;
 #include "wm_event_types.h"
 #include "manipulators/WM_manipulator_types.h"
 
+/* Include external manipulator API's */
+#include "manipulators/WM_manipulator_api.h"
+
 /* ************** wmOperatorType ************************ */
 
 /* flag */
@@ -425,6 +428,7 @@ typedef struct wmGesture {
 
 	/* free pointer to use for operator allocs (if set, its freed on exit)*/
 	void *userdata;
+	bool  userdata_free;
 } wmGesture;
 
 /* ************** wmEvent ************************ */

@@ -62,7 +62,6 @@ public:
 		/* Cast arguments to cl types. */
 		cl_mem d_data = CL_MEM_PTR(const_mem_map["__data"]->device_pointer);
 		cl_mem d_buffer = CL_MEM_PTR(rtile.buffer);
-		cl_mem d_rng_state = CL_MEM_PTR(rtile.rng_state);
 		cl_int d_x = rtile.x;
 		cl_int d_y = rtile.y;
 		cl_int d_w = rtile.w;
@@ -79,13 +78,9 @@ public:
 			kernel_set_args(ckPathTraceKernel,
 			                0,
 			                d_data,
-			                d_buffer,
-			                d_rng_state);
+			                d_buffer);
 
-#define KERNEL_TEX(type, ttype, name) \
-		set_kernel_arg_mem(ckPathTraceKernel, &start_arg_index, #name);
-#include "kernel/kernel_textures.h"
-#undef KERNEL_TEX
+		set_kernel_arg_buffers(ckPathTraceKernel, &start_arg_index);
 
 		start_arg_index += kernel_set_args(ckPathTraceKernel,
 		                                   start_arg_index,

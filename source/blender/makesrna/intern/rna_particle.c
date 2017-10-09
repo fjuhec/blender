@@ -448,10 +448,12 @@ static int rna_ParticleSystem_tessfaceidx_on_emitter(ParticleSystem *particlesys
 	int totpart;
 	int totchild = 0;
 	int totface;
+	int totvert;
 	int num = -1;
 
 	DM_ensure_tessface(modifier->dm_final); /* BMESH - UNTIL MODIFIER IS UPDATED FOR MPoly */
 	totface = modifier->dm_final->getNumTessFaces(modifier->dm_final);
+	totvert = modifier->dm_final->getNumVerts(modifier->dm_final);
 
 	/* 1. check that everything is ok & updated */
 	if (!particlesystem || !totface) {
@@ -486,13 +488,29 @@ static int rna_ParticleSystem_tessfaceidx_on_emitter(ParticleSystem *particlesys
 				return num;
 			}
 		}
+		else if (part->from == PART_FROM_VERT) {
+			if (num != DMCACHE_NOTFOUND && num < totvert) {
+				MFace *mface = modifier->dm_final->getTessFaceDataArray(modifier->dm_final, CD_MFACE);
+
+				*r_fuv = &particle->fuv;
+
+				/* This finds the first face to contain the emitting vertex,
+				 * this is not ideal, but is mostly fine as UV seams generally
+				 * map to equal-colored parts of a texture */
+				for (int i = 0; i < totface; i++, mface++) {
+					if (ELEM(num, mface->v1, mface->v2, mface->v3, mface->v4)) {
+						return i;
+					}
+				}
+			}
+		}
 	}
 	else {
 		ChildParticle *cpa = particlesystem->child + particle_no - totpart;
 		num = cpa->num;
 
 		if (part->childtype == PART_CHILD_FACES) {
-			if (ELEM(part->from, PART_FROM_FACE, PART_FROM_VOLUME)) {
+			if (ELEM(part->from, PART_FROM_FACE, PART_FROM_VOLUME, PART_FROM_VERT)) {
 				if (num != DMCACHE_NOTFOUND && num < totface) {
 					*r_fuv = &cpa->fuv;
 					return num;
@@ -510,6 +528,22 @@ static int rna_ParticleSystem_tessfaceidx_on_emitter(ParticleSystem *particlesys
 				if (num != DMCACHE_NOTFOUND && num < totface) {
 					*r_fuv = &parent->fuv;
 					return num;
+				}
+			}
+			else if (part->from == PART_FROM_VERT) {
+				if (num != DMCACHE_NOTFOUND && num < totvert) {
+					MFace *mface = modifier->dm_final->getTessFaceDataArray(modifier->dm_final, CD_MFACE);
+
+					*r_fuv = &parent->fuv;
+
+					/* This finds the first face to contain the emitting vertex,
+					 * this is not ideal, but is mostly fine as UV seams generally
+					 * map to equal-colored parts of a texture */
+					for (int i = 0; i < totface; i++, mface++) {
+						if (ELEM(num, mface->v1, mface->v2, mface->v3, mface->v4)) {
+							return i;
+						}
+					}
 				}
 			}
 		}
@@ -580,8 +614,14 @@ static void rna_ParticleSystem_mcol_on_emitter(ParticleSystem *particlesystem, R
 	}
 }
 
-static void rna_ParticleSystem_set_resolution(ParticleSystem *particlesystem, Scene *scene, Object *object, int resolution)
+static void rna_ParticleSystem_set_resolution(ParticleSystem *particlesystem, Scene *scene, SceneLayer *sl, Object *object, int resolution)
 {
+	EvaluationContext eval_ctx;
+
+	DEG_evaluation_context_init(&eval_ctx, resolution);
+	eval_ctx.ctime = (float)scene->r.cfra + scene->r.subframe;
+	eval_ctx.scene_layer = sl;
+
 	if (resolution == eModifierMode_Render) {
 		ParticleSystemModifierData *psmd = psys_get_modifier(object, particlesystem);
 		float mat[4][4];
@@ -590,7 +630,7 @@ static void rna_ParticleSystem_set_resolution(ParticleSystem *particlesystem, Sc
 
 		psys_render_set(object, particlesystem, mat, mat, 1, 1, 0.f);
 		psmd->flag &= ~eParticleSystemFlag_psys_updated;
-		particle_system_update(scene, object, particlesystem, true);
+		particle_system_update(&eval_ctx, scene, object, particlesystem, true);
 	}
 	else {
 		ParticleSystemModifierData *psmd = psys_get_modifier(object, particlesystem);
@@ -600,7 +640,7 @@ static void rna_ParticleSystem_set_resolution(ParticleSystem *particlesystem, Sc
 		}
 		
 		psmd->flag &= ~eParticleSystemFlag_psys_updated;
-		particle_system_update(scene, object, particlesystem, false);
+		particle_system_update(&eval_ctx, scene, object, particlesystem, false);
 	}
 }
 
@@ -3513,6 +3553,7 @@ static void rna_def_particle_system(BlenderRNA *brna)
 	func = RNA_def_function(srna, "set_resolution", "rna_ParticleSystem_set_resolution");
 	RNA_def_function_ui_description(func, "Set the resolution to use for the number of particles");
 	RNA_def_pointer(func, "scene", "Scene", "", "Scene");
+	RNA_def_pointer(func, "scene_layer", "SceneLayer", "", "SceneLayer");
 	RNA_def_pointer(func, "object", "Object", "", "Object");
 	RNA_def_enum(func, "resolution", resolution_items, 0, "", "Resolution settings to apply");
 

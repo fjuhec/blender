@@ -75,6 +75,7 @@ void DepsgraphRelationBuilder::build_scene(Main *bmain, Scene *scene)
 	}
 
 	/* XXX store scene to access from DAG_get_scene */
+	m_graph->bmain = bmain;
 	m_graph->scene = scene;
 
 	/* scene objects */
@@ -82,6 +83,9 @@ void DepsgraphRelationBuilder::build_scene(Main *bmain, Scene *scene)
 		for (Base *base = (Base *)sl->object_bases.first; base; base = base->next) {
 			build_object(bmain, scene, base->object);
 		}
+	}
+	if (scene->camera != NULL) {
+		build_object(bmain, scene, scene->camera);
 	}
 
 	/* rigidbody */

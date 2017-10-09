@@ -41,6 +41,8 @@
 #include "DNA_world_types.h"
 #include "DNA_windowmanager_types.h"
 
+#include "DRW_engine.h"
+
 #include "BLI_listbase.h"
 #include "BLI_threads.h"
 #include "BLI_utildefines.h"
@@ -137,6 +139,16 @@ void ED_render_scene_update(Main *bmain, Scene *scene, int updated)
 
 					engine->flag &= ~RE_ENGINE_DO_UPDATE;
 					engine->type->view_update(engine, C);
+
+				}
+				else if ((RE_engines_find(scene->r.engine)->flag & RE_USE_LEGACY_PIPELINE) == 0) {
+					if (updated) {
+						CTX_wm_screen_set(C, sc);
+						CTX_wm_area_set(C, sa);
+						CTX_wm_region_set(C, ar);
+
+						DRW_notify_view_update(C);
+					}
 				}
 			}
 		}
@@ -202,7 +214,7 @@ void ED_render_engine_changed(Main *bmain)
 }
 
 /***************************** Updates ***********************************
- * ED_render_id_flush_update gets called from DAG_id_tag_update, to do   *
+ * ED_render_id_flush_update gets called from DEG_id_tag_update, to do   *
  * editor level updates when the ID changes. when these ID blocks are in *
  * the dependency graph, we can get rid of the manual dependency checks  */
 
@@ -299,8 +311,11 @@ static void material_changed(Main *bmain, Material *ma)
 	BKE_icon_changed(BKE_icon_id_ensure(&ma->id));
 
 	/* glsl */
-	if (ma->gpumaterial.first)
-		GPU_material_free(&ma->gpumaterial);
+	if (ma->id.tag & LIB_TAG_ID_RECALC) {
+		if (!BLI_listbase_is_empty(&ma->gpumaterial)) {
+			GPU_material_free(&ma->gpumaterial);
+		}
+	}
 
 	/* find node materials using this */
 	for (parent = bmain->mat.first; parent; parent = parent->id.next) {
@@ -348,7 +363,6 @@ static void material_changed(Main *bmain, Material *ma)
 static void lamp_changed(Main *bmain, Lamp *la)
 {
 	Object *ob;
-	Material *ma;
 
 	/* icons */
 	BKE_icon_changed(BKE_icon_id_ensure(&la->id));
@@ -357,10 +371,6 @@ static void lamp_changed(Main *bmain, Lamp *la)
 	for (ob = bmain->object.first; ob; ob = ob->id.next)
 		if (ob->data == la && ob->gpulamp.first)
 			GPU_lamp_free(ob);
-
-	for (ma = bmain->mat.first; ma; ma = ma->id.next)
-		if (ma->gpumaterial.first)
-			GPU_material_free(&ma->gpumaterial);
 
 	if (defmaterial.gpumaterial.first)
 		GPU_material_free(&defmaterial.gpumaterial);
@@ -476,26 +486,23 @@ static void texture_changed(Main *bmain, Tex *tex)
 	}
 }
 
-static void world_changed(Main *bmain, World *wo)
+static void world_changed(Main *UNUSED(bmain), World *wo)
 {
-	Material *ma;
-
 	/* icons */
 	BKE_icon_changed(BKE_icon_id_ensure(&wo->id));
 
 	/* XXX temporary flag waiting for depsgraph proper tagging */
 	wo->update_flag = 1;
-	
-	/* glsl */
-	for (ma = bmain->mat.first; ma; ma = ma->id.next)
-		if (ma->gpumaterial.first)
-			GPU_material_free(&ma->gpumaterial);
 
-	if (defmaterial.gpumaterial.first)
-		GPU_material_free(&defmaterial.gpumaterial);
-	
-	if (wo->gpumaterial.first)
-		GPU_material_free(&wo->gpumaterial);
+	/* glsl */
+	if (wo->id.tag & LIB_TAG_ID_RECALC) {
+		if (!BLI_listbase_is_empty(&defmaterial.gpumaterial)) {
+			GPU_material_free(&defmaterial.gpumaterial);
+		}
+		if (!BLI_listbase_is_empty(&wo->gpumaterial)) {
+			GPU_material_free(&wo->gpumaterial);
+		}
+	}
 }
 
 static void image_changed(Main *bmain, Image *ima)
@@ -517,30 +524,12 @@ static void scene_changed(Main *bmain, Scene *scene)
 
 	/* glsl */
 	for (ob = bmain->object.first; ob; ob = ob->id.next) {
-#if 0 /* This was needed by old glsl where all lighting was statically linked into the shader. */
-		if (ob->gpulamp.first)
-			GPU_lamp_free(ob);
-#endif
-		
 		if (ob->mode & OB_MODE_TEXTURE_PAINT) {
 			BKE_texpaint_slots_refresh_object(scene, ob);
 			BKE_paint_proj_mesh_data_check(scene, ob, NULL, NULL, NULL, NULL);
 			GPU_drawobject_free(ob->derivedFinal);
 		}
 	}
-
-#if 0 /* This was needed by old glsl where all lighting was statically linked into the shader. */
-	for (Material *ma = bmain->mat.first; ma; ma = ma->id.next)
-		if (ma->gpumaterial.first)
-			GPU_material_free(&ma->gpumaterial);
-
-	for (World *wo = bmain->world.first; wo; wo = wo->id.next)
-		if (wo->gpumaterial.first)
-			GPU_material_free(&wo->gpumaterial);
-	
-	if (defmaterial.gpumaterial.first)
-		GPU_material_free(&defmaterial.gpumaterial);
-#endif
 }
 
 void ED_render_id_flush_update(Main *bmain, ID *id)

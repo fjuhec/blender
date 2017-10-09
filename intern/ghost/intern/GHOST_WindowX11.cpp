@@ -59,10 +59,6 @@
 //For DPI value
 #include <X11/Xresource.h>
 
-#if defined(__sun__) || defined(__sun) || defined(__sparc) || defined(__sparc__) || defined(_AIX)
-#  include <strings.h>
-#endif
-
 #include <cstring>
 #include <cstdio>
 
@@ -1356,7 +1352,6 @@ GHOST_Context *GHOST_WindowX11::newDrawingContext(GHOST_TDrawingContextType type
 			        m_wantNumOfAASamples,
 			        m_window,
 			        m_display,
-			        m_visualInfo,
 			        (GLXFBConfig)m_fbconfig,
 			        profile_mask,
 			        4, minor,
@@ -1374,7 +1369,6 @@ GHOST_Context *GHOST_WindowX11::newDrawingContext(GHOST_TDrawingContextType type
 		        m_wantNumOfAASamples,
 		        m_window,
 		        m_display,
-		        m_visualInfo,
 		        (GLXFBConfig)m_fbconfig,
 		        profile_mask,
 		        3, 3,

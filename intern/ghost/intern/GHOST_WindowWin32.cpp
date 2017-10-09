@@ -402,21 +402,29 @@ void GHOST_WindowWin32::getClientBounds(GHOST_Rect &bounds) const
 {
 	RECT rect;
 	POINT coord;
-	::GetClientRect(m_hWnd, &rect);
+	if (!IsIconic(m_hWnd)) {
+		::GetClientRect(m_hWnd, &rect);
 
-	coord.x = rect.left;
-	coord.y = rect.top;
-	::ClientToScreen(m_hWnd, &coord);
+		coord.x = rect.left;
+		coord.y = rect.top;
+		::ClientToScreen(m_hWnd, &coord);
 
-	bounds.m_l = coord.x;
-	bounds.m_t = coord.y;
+		bounds.m_l = coord.x;
+		bounds.m_t = coord.y;
 
-	coord.x = rect.right;
-	coord.y = rect.bottom;
-	::ClientToScreen(m_hWnd, &coord);
+		coord.x = rect.right;
+		coord.y = rect.bottom;
+		::ClientToScreen(m_hWnd, &coord);
 
-	bounds.m_r = coord.x;
-	bounds.m_b = coord.y;
+		bounds.m_r = coord.x;
+		bounds.m_b = coord.y;
+	}
+	else {
+		bounds.m_b = 0;
+		bounds.m_l = 0;
+		bounds.m_r = 0;
+		bounds.m_t = 0;
+	}
 }
 
 
@@ -611,54 +619,48 @@ GHOST_TSuccess GHOST_WindowWin32::invalidate()
 GHOST_Context *GHOST_WindowWin32::newDrawingContext(GHOST_TDrawingContextType type)
 {
 	if (type == GHOST_kDrawingContextTypeOpenGL) {
-
-		// During development:
-		//   ask for 2.1 context, driver gives latest compatibility profile
-		//   (we check later to ensure it's >= 3.3 on Windows)
-		//
-		// Final Blender 2.8:
-		//   try 4.x core profile
-		//   try 3.3 core profile
-		//   no fallbacks
-
-		// TODO(merwin): query version of initial dummy context, request that + profile + debug
-
 		GHOST_Context *context;
 
 #if defined(WITH_GL_PROFILE_CORE)
-		// our minimum requirement is 3.3 core profile
-		// when we request a specific GL version:
-		//   - AMD and Intel give us exactly this version
-		//   - NVIDIA gives at least this version <-- desired behavior
-		// so we ask for 4.5, 4.4 ... 3.3 in descending order to get the best version on the user's system
-		for (int minor = 5; minor >= 0; --minor) {
+		GHOST_TUns8 major, minor;
+
+		if (GHOST_ContextWGL::getMaximumSupportedOpenGLVersion(
+		    m_hWnd,
+		    m_wantStereoVisual,
+		    m_wantAlphaBackground,
+		    m_wantNumOfAASamples,
+		    WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
+		    m_debug_context,
+		    &major, &minor))
+		{
 			context = new GHOST_ContextWGL(
-			        m_wantStereoVisual,
-			        m_wantAlphaBackground,
-			        m_wantNumOfAASamples,
-			        m_hWnd,
-			        m_hDC,
-			        WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
-			        4, minor,
-			        (m_debug_context ? WGL_CONTEXT_DEBUG_BIT_ARB : 0),
-			        GHOST_OPENGL_WGL_RESET_NOTIFICATION_STRATEGY);
+			    m_wantStereoVisual,
+			    m_wantAlphaBackground,
+			    m_wantNumOfAASamples,
+			    m_hWnd,
+			    m_hDC,
+			    WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
+			    major, minor,
+			    (m_debug_context ? WGL_CONTEXT_DEBUG_BIT_ARB : 0),
+			    GHOST_OPENGL_WGL_RESET_NOTIFICATION_STRATEGY);
 
-			if (context->initializeDrawingContext())
+			if (context->initializeDrawingContext()) {
 				return context;
-			else
+			}
+			else {
 				delete context;
+			}
 		}
-
-		context = new GHOST_ContextWGL(
-		        m_wantStereoVisual,
-		        m_wantAlphaBackground,
-		        m_wantNumOfAASamples,
-		        m_hWnd,
-		        m_hDC,
-		        WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
-		        3, 3,
-		        (m_debug_context ? WGL_CONTEXT_DEBUG_BIT_ARB : 0),
-		        GHOST_OPENGL_WGL_RESET_NOTIFICATION_STRATEGY);
+		else {
+			MessageBox(
+			        m_hWnd,
+			        "Blender requires a graphics driver with at least OpenGL 3.3 support.\n\n"
+			        "The program will now close.",
+			        "Blender - Unsupported Graphics Driver!",
+			        MB_OK | MB_ICONERROR);
+			exit(0);
+			return NULL;
+		}
 
 #elif defined(WITH_GL_PROFILE_COMPAT)
 		// ask for 2.1 context, driver gives any GL version >= 2.1 (hopefully the latest compatibility profile)
@@ -677,10 +679,12 @@ GHOST_Context *GHOST_WindowWin32::newDrawingContext(GHOST_TDrawingContextType ty
 #  error // must specify either core or compat at build time
 #endif
 
-		if (context->initializeDrawingContext())
+		if (context->initializeDrawingContext()) {
 			return context;
-		else
+		}
+		else {
 			delete context;
+		}
 	}
 
 	return NULL;
@@ -865,19 +869,14 @@ void GHOST_WindowWin32::processWin32TabletEvent(WPARAM wParam, LPARAM lParam)
 		if (fpWTPacket) {
 			if (fpWTPacket((HCTX)lParam, wParam, &pkt)) {
 				if (m_tabletData) {
-					switch (pkt.pkCursor) {
-						case 0: /* first device */
-						case 3: /* second device */
+					switch (pkt.pkCursor % 3) { /* % 3 for multiple devices ("DualTrack") */
+						case 0:
 							m_tabletData->Active = GHOST_kTabletModeNone; /* puck - not yet supported */
 							break;
 						case 1:
-						case 4:
-						case 7:
 							m_tabletData->Active = GHOST_kTabletModeStylus; /* stylus */
 							break;
 						case 2:
-						case 5:
-						case 8:
 							m_tabletData->Active = GHOST_kTabletModeEraser; /* eraser */
 							break;
 					}

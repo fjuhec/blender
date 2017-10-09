@@ -58,6 +58,7 @@
 #include "GPU_draw.h"
 #include "GPU_extensions.h"
 #include "GPU_immediate.h"
+#include "GPU_viewport.h"
 
 #include "RE_engine.h"
 
@@ -136,6 +137,7 @@ static void wm_region_test_render_do_draw(const Scene *scene, ScrArea *sa, ARegi
 	if (sa->spacetype == SPACE_VIEW3D) {
 		RegionView3D *rv3d = ar->regiondata;
 		RenderEngine *engine = (rv3d) ? rv3d->render_engine : NULL;
+		GPUViewport *viewport = (rv3d) ? rv3d->viewport : NULL;
 
 		if (engine && (engine->flag & RE_ENGINE_DO_DRAW)) {
 			View3D *v3d = sa->spacedata.first;
@@ -148,6 +150,9 @@ static void wm_region_test_render_do_draw(const Scene *scene, ScrArea *sa, ARegi
 				ED_region_tag_redraw(ar);
 
 			engine->flag &= ~RE_ENGINE_DO_DRAW;
+		}
+		else if (viewport && GPU_viewport_do_update(viewport)) {
+			ED_region_tag_redraw(ar);
 		}
 	}
 }
@@ -869,25 +874,13 @@ static bool wm_draw_update_test_window(wmWindow *win)
 
 static int wm_automatic_draw_method(wmWindow *win)
 {
-	/* Ideally all cards would work well with triple buffer, since if it works
-	 * well gives the least redraws and is considerably faster at partial redraw
-	 * for sculpting or drawing overlapping menus. For typically lower end cards
-	 * copy to texture is slow though and so we use overlap instead there. */
-
+	/* We assume all supported GPUs now support triple buffer well. */
 	if (win->drawmethod == USER_DRAW_AUTOMATIC) {
-		/* Windows software driver darkens color on each redraw */
-		if (GPU_type_matches(GPU_DEVICE_SOFTWARE, GPU_OS_WIN, GPU_DRIVER_SOFTWARE))
-			return USER_DRAW_OVERLAP_FLIP;
-		else if (GPU_type_matches(GPU_DEVICE_SOFTWARE, GPU_OS_UNIX, GPU_DRIVER_SOFTWARE))
-			return USER_DRAW_OVERLAP;
-		/* drawing lower color depth again degrades colors each time */
-		else if (GPU_color_depth() < 24)
-			return USER_DRAW_OVERLAP;
-		else
-			return USER_DRAW_TRIPLE;
+		return USER_DRAW_TRIPLE;
 	}
-	else
+	else {
 		return win->drawmethod;
+	}
 }
 
 bool WM_is_draw_triple(wmWindow *win)

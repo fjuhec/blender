@@ -230,6 +230,7 @@ static void find_iobject(const IObject &object, IObject &ret,
 }
 
 struct ExportJobData {
+	EvaluationContext eval_ctx;
 	Scene *scene;
 	Main *bmain;
 
@@ -262,7 +263,7 @@ static void export_startjob(void *customdata, short *stop, short *do_update, flo
 
 	try {
 		Scene *scene = data->scene;
-		AbcExporter exporter(scene, data->filename, data->settings);
+		AbcExporter exporter(&data->eval_ctx, scene, data->filename, data->settings);
 
 		const int orig_frame = CFRA;
 
@@ -310,6 +311,9 @@ bool ABC_export(
         bool as_background_job)
 {
 	ExportJobData *job = static_cast<ExportJobData *>(MEM_mallocN(sizeof(ExportJobData), "ExportJobData"));
+
+	CTX_data_eval_ctx(C, &job->eval_ctx);
+
 	job->scene = scene;
 	job->bmain = CTX_data_main(C);
 	job->export_ok = false;
@@ -762,7 +766,7 @@ static void import_startjob(void *user_data, short *stop, short *do_update, floa
 		Scene *scene = data->scene;
 
 		if (data->settings.is_sequence) {
-			SFRA = data->settings.offset;
+			SFRA = data->settings.sequence_offset;
 			EFRA = SFRA + (data->settings.sequence_len - 1);
 			CFRA = SFRA;
 		}
@@ -779,7 +783,7 @@ static void import_startjob(void *user_data, short *stop, short *do_update, floa
 		const AbcObjectReader *parent_reader = reader->parent_reader;
 		Object *ob = reader->object();
 
-		if (parent_reader == NULL) {
+		if (parent_reader == NULL || !reader->inherits_xform()) {
 			ob->parent = NULL;
 		}
 		else {
@@ -902,7 +906,7 @@ bool ABC_import(bContext *C, const char *filepath, float scale, bool is_sequence
 	job->settings.is_sequence = is_sequence;
 	job->settings.set_frame_range = set_frame_range;
 	job->settings.sequence_len = sequence_len;
-	job->settings.offset = offset;
+	job->settings.sequence_offset = offset;
 	job->settings.validate_meshes = validate_meshes;
 	job->error_code = ABC_NO_ERROR;
 	job->was_cancelled = false;
@@ -1022,6 +1026,10 @@ CacheReader *CacheReader_open_alembic_object(AbcArchiveHandle *handle, CacheRead
 
 	ImportSettings settings;
 	AbcObjectReader *abc_reader = create_reader(iobject, settings);
+	if (abc_reader == NULL) {
+		/* This object is not supported */
+		return NULL;
+	}
 	abc_reader->object(object);
 	abc_reader->incref();
 

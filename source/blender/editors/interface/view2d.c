@@ -1565,7 +1565,7 @@ void UI_view2d_multi_grid_draw(View2D *v2d, int colorid, float step, int level_s
 	}
 
 	/* X and Y axis */
-	UI_GetThemeColorShade3ubv(colorid, -18 + ((totlevels - 1) * -6) , grid_line_color);
+	UI_GetThemeColorShade3ubv(colorid, -18 + ((totlevels - 1) * -6), grid_line_color);
 
 	immSkipAttrib(color);
 	immVertex2f(pos, 0.0f, v2d->cur.ymin);
@@ -2258,6 +2258,14 @@ void UI_view2d_view_to_region_rcti(View2D *v2d, const rctf *rect_src, rcti *rect
 	rect_tmp.ymax = v2d->mask.ymin + (rect_tmp.ymax * mask_size[1]);
 
 	clamp_rctf_to_rcti(rect_dst, &rect_tmp);
+}
+
+void UI_view2d_view_to_region_m4(View2D *v2d, float matrix[4][4])
+{
+	rctf mask;
+	unit_m4(matrix);
+	BLI_rctf_rcti_copy(&mask, &v2d->mask);
+	BLI_rctf_transform_calc_m4_pivot_min(&v2d->cur, &mask, matrix);
 }
 
 bool UI_view2d_view_to_region_rcti_clip(View2D *v2d, const rctf *rect_src, rcti *rect_dst)

@@ -320,7 +320,7 @@ static int bpy_prop_boolean_get_cb(struct PointerRNA *ptr, struct PropertyRNA *p
 		value = false;
 	}
 	else {
-		value = PyLong_AsLong(ret);
+		value = PyC_Long_AsI32(ret);
 
 		if (value == -1 && PyErr_Occurred()) {
 			printf_func_error(py_func);
@@ -530,12 +530,8 @@ static void bpy_prop_boolean_array_set_cb(struct PointerRNA *ptr, struct Propert
 	self = pyrna_struct_as_instance(ptr);
 	PyTuple_SET_ITEM(args, 0, self);
 
-	py_values = PyC_FromArray(values, len, &PyBool_Type, false, "BoolVectorProperty set");
-	if (!py_values) {
-		printf_func_error(py_func);
-	}
-	else
-		PyTuple_SET_ITEM(args, 1, py_values);
+	py_values = PyC_Tuple_PackArray_I32FromBool(values, len);
+	PyTuple_SET_ITEM(args, 1, py_values);
 
 	ret = PyObject_CallObject(py_func, args);
 
@@ -599,7 +595,7 @@ static int bpy_prop_int_get_cb(struct PointerRNA *ptr, struct PropertyRNA *prop)
 		value = 0.0f;
 	}
 	else {
-		value = PyLong_AsLong(ret);
+		value = PyC_Long_AsI32(ret);
 
 		if (value == -1 && PyErr_Occurred()) {
 			printf_func_error(py_func);
@@ -764,12 +760,8 @@ static void bpy_prop_int_array_set_cb(struct PointerRNA *ptr, struct PropertyRNA
 	self = pyrna_struct_as_instance(ptr);
 	PyTuple_SET_ITEM(args, 0, self);
 
-	py_values = PyC_FromArray(values, len, &PyLong_Type, false, "IntVectorProperty set");
-	if (!py_values) {
-		printf_func_error(py_func);
-	}
-	else
-		PyTuple_SET_ITEM(args, 1, py_values);
+	py_values = PyC_Tuple_PackArray_I32(values, len);
+	PyTuple_SET_ITEM(args, 1, py_values);
 
 	ret = PyObject_CallObject(py_func, args);
 
@@ -998,12 +990,8 @@ static void bpy_prop_float_array_set_cb(struct PointerRNA *ptr, struct PropertyR
 	self = pyrna_struct_as_instance(ptr);
 	PyTuple_SET_ITEM(args, 0, self);
 
-	py_values = PyC_FromArray(values, len, &PyFloat_Type, false, "FloatVectorProperty set");
-	if (!py_values) {
-		printf_func_error(py_func);
-	}
-	else
-		PyTuple_SET_ITEM(args, 1, py_values);
+	py_values = PyC_Tuple_PackArray_F32(values, len);
+	PyTuple_SET_ITEM(args, 1, py_values);
 
 	ret = PyObject_CallObject(py_func, args);
 
@@ -1249,7 +1237,7 @@ static int bpy_prop_enum_get_cb(struct PointerRNA *ptr, struct PropertyRNA *prop
 		value = RNA_property_enum_get_default(ptr, prop);
 	}
 	else {
-		value = PyLong_AsLong(ret);
+		value = PyC_Long_AsI32(ret);
 
 		if (value == -1 && PyErr_Occurred()) {
 			printf_func_error(py_func);
@@ -2007,8 +1995,6 @@ static PyObject *BPy_BoolProperty(PyObject *self, PyObject *args, PyObject *kw)
 	BPY_PROPDEF_HEAD(BoolProperty);
 
 	if (srna) {
-		static const char *kwlist[] = {"attr", "name", "description", "default",
-		                               "options", "subtype", "update", "get", "set", NULL};
 		const char *id = NULL, *name = NULL, *description = "";
 		int id_len;
 		bool def = false;
@@ -2021,12 +2007,17 @@ static PyObject *BPy_BoolProperty(PyObject *self, PyObject *args, PyObject *kw)
 		PyObject *get_cb = NULL;
 		PyObject *set_cb = NULL;
 
-		if (!PyArg_ParseTupleAndKeywords(args, kw,
-		                                 "s#|ssO&O!sOOO:BoolProperty",
-		                                 (char **)kwlist, &id, &id_len,
-		                                 &name, &description, PyC_ParseBool, &def,
-		                                 &PySet_Type, &pyopts, &pysubtype,
-		                                 &update_cb, &get_cb, &set_cb))
+		static const char *_keywords[] = {
+			"attr", "name", "description", "default",
+			"options", "subtype", "update", "get", "set", NULL,
+		};
+		static _PyArg_Parser _parser = {"s#|ssO&O!sOOO:BoolProperty", _keywords, 0};
+		if (!_PyArg_ParseTupleAndKeywordsFast(
+		        args, kw, &_parser,
+		        &id, &id_len,
+		        &name, &description, PyC_ParseBool, &def,
+		        &PySet_Type, &pyopts, &pysubtype,
+		        &update_cb, &get_cb, &set_cb))
 		{
 			return NULL;
 		}
@@ -2089,8 +2080,6 @@ static PyObject *BPy_BoolVectorProperty(PyObject *self, PyObject *args, PyObject
 	BPY_PROPDEF_HEAD(BoolVectorProperty);
 
 	if (srna) {
-		static const char *kwlist[] = {"attr", "name", "description", "default",
-		                               "options", "subtype", "size", "update", "get", "set", NULL};
 		const char *id = NULL, *name = NULL, *description = "";
 		int id_len;
 		int def[PYRNA_STACK_ARRAY] = {0};
@@ -2105,12 +2094,17 @@ static PyObject *BPy_BoolVectorProperty(PyObject *self, PyObject *args, PyObject
 		PyObject *get_cb = NULL;
 		PyObject *set_cb = NULL;
 
-		if (!PyArg_ParseTupleAndKeywords(args, kw,
-		                                 "s#|ssOO!siOOO:BoolVectorProperty",
-		                                 (char **)kwlist, &id, &id_len,
-		                                 &name, &description, &pydef,
-		                                 &PySet_Type, &pyopts, &pysubtype, &size,
-		                                 &update_cb, &get_cb, &set_cb))
+		static const char *_keywords[] = {
+			"attr", "name", "description", "default",
+			"options", "subtype", "size", "update", "get", "set", NULL,
+		};
+		static _PyArg_Parser _parser = {"s#|ssOO!siOOO:BoolVectorProperty", _keywords, 0};
+		if (!_PyArg_ParseTupleAndKeywordsFast(
+		        args, kw, &_parser,
+		        &id, &id_len,
+		        &name, &description, &pydef,
+		        &PySet_Type, &pyopts, &pysubtype, &size,
+		        &update_cb, &get_cb, &set_cb))
 		{
 			return NULL;
 		}
@@ -2193,9 +2187,6 @@ static PyObject *BPy_IntProperty(PyObject *self, PyObject *args, PyObject *kw)
 	BPY_PROPDEF_HEAD(IntProperty);
 
 	if (srna) {
-		static const char *kwlist[] = {"attr", "name", "description", "default",
-		                               "min", "max", "soft_min", "soft_max",
-		                               "step", "options", "subtype", "update", "get", "set", NULL};
 		const char *id = NULL, *name = NULL, *description = "";
 		int id_len;
 		int min = INT_MIN, max = INT_MAX, soft_min = INT_MIN, soft_max = INT_MAX, step = 1, def = 0;
@@ -2208,13 +2199,19 @@ static PyObject *BPy_IntProperty(PyObject *self, PyObject *args, PyObject *kw)
 		PyObject *get_cb = NULL;
 		PyObject *set_cb = NULL;
 
-		if (!PyArg_ParseTupleAndKeywords(args, kw,
-		                                 "s#|ssiiiiiiO!sOOO:IntProperty",
-		                                 (char **)kwlist, &id, &id_len,
-		                                 &name, &description, &def,
-		                                 &min, &max, &soft_min, &soft_max,
-		                                 &step, &PySet_Type, &pyopts, &pysubtype,
-		                                 &update_cb, &get_cb, &set_cb))
+		static const char *_keywords[] = {
+			"attr", "name", "description", "default",
+			"min", "max", "soft_min", "soft_max",
+			"step", "options", "subtype", "update", "get", "set", NULL,
+		};
+		static _PyArg_Parser _parser = {"s#|ssiiiiiiO!sOOO:IntProperty", _keywords, 0};
+		if (!_PyArg_ParseTupleAndKeywordsFast(
+		        args, kw, &_parser,
+		        &id, &id_len,
+		        &name, &description, &def,
+		        &min, &max, &soft_min, &soft_max,
+		        &step, &PySet_Type, &pyopts, &pysubtype,
+		        &update_cb, &get_cb, &set_cb))
 		{
 			return NULL;
 		}
@@ -2290,9 +2287,6 @@ static PyObject *BPy_IntVectorProperty(PyObject *self, PyObject *args, PyObject 
 	BPY_PROPDEF_HEAD(IntVectorProperty);
 
 	if (srna) {
-		static const char *kwlist[] = {"attr", "name", "description", "default",
-		                               "min", "max", "soft_min", "soft_max",
-		                               "step", "options", "subtype", "size", "update", "get", "set", NULL};
 		const char *id = NULL, *name = NULL, *description = "";
 		int id_len;
 		int min = INT_MIN, max = INT_MAX, soft_min = INT_MIN, soft_max = INT_MAX, step = 1;
@@ -2308,14 +2302,20 @@ static PyObject *BPy_IntVectorProperty(PyObject *self, PyObject *args, PyObject 
 		PyObject *get_cb = NULL;
 		PyObject *set_cb = NULL;
 
-		if (!PyArg_ParseTupleAndKeywords(args, kw,
-		                                 "s#|ssOiiiiiO!siOOO:IntVectorProperty",
-		                                 (char **)kwlist, &id, &id_len,
-		                                 &name, &description, &pydef,
-		                                 &min, &max, &soft_min, &soft_max,
-		                                 &step, &PySet_Type, &pyopts,
-		                                 &pysubtype, &size,
-		                                 &update_cb, &get_cb, &set_cb))
+		static const char *_keywords[] = {
+			"attr", "name", "description", "default",
+			"min", "max", "soft_min", "soft_max",
+			"step", "options", "subtype", "size", "update", "get", "set", NULL,
+		};
+		static _PyArg_Parser _parser = {"s#|ssOiiiiiO!siOOO:IntVectorProperty", _keywords, 0};
+		if (!_PyArg_ParseTupleAndKeywordsFast(
+		        args, kw, &_parser,
+		        &id, &id_len,
+		        &name, &description, &pydef,
+		        &min, &max, &soft_min, &soft_max,
+		        &step, &PySet_Type, &pyopts,
+		        &pysubtype, &size,
+		        &update_cb, &get_cb, &set_cb))
 		{
 			return NULL;
 		}
@@ -2403,10 +2403,6 @@ static PyObject *BPy_FloatProperty(PyObject *self, PyObject *args, PyObject *kw)
 	BPY_PROPDEF_HEAD(FloatProperty);
 
 	if (srna) {
-		static const char *kwlist[] = {"attr", "name", "description", "default",
-		                               "min", "max", "soft_min", "soft_max",
-		                               "step", "precision", "options", "subtype",
-		                               "unit", "update", "get", "set", NULL};
 		const char *id = NULL, *name = NULL, *description = "";
 		int id_len;
 		float min = -FLT_MAX, max = FLT_MAX, soft_min = -FLT_MAX, soft_max = FLT_MAX, step = 3, def = 0.0f;
@@ -2422,14 +2418,21 @@ static PyObject *BPy_FloatProperty(PyObject *self, PyObject *args, PyObject *kw)
 		PyObject *get_cb = NULL;
 		PyObject *set_cb = NULL;
 
-		if (!PyArg_ParseTupleAndKeywords(args, kw,
-		                                 "s#|ssffffffiO!ssOOO:FloatProperty",
-		                                 (char **)kwlist, &id, &id_len,
-		                                 &name, &description, &def,
-		                                 &min, &max, &soft_min, &soft_max,
-		                                 &step, &precision, &PySet_Type,
-		                                 &pyopts, &pysubtype, &pyunit,
-		                                 &update_cb, &get_cb, &set_cb))
+		static const char *_keywords[] = {
+			"attr", "name", "description", "default",
+			"min", "max", "soft_min", "soft_max",
+			"step", "precision", "options", "subtype",
+			"unit", "update", "get", "set", NULL,
+		};
+		static _PyArg_Parser _parser = {"s#|ssffffffiO!ssOOO:FloatProperty", _keywords, 0};
+		if (!_PyArg_ParseTupleAndKeywordsFast(
+		        args, kw, &_parser,
+		        &id, &id_len,
+		        &name, &description, &def,
+		        &min, &max, &soft_min, &soft_max,
+		        &step, &precision, &PySet_Type,
+		        &pyopts, &pysubtype, &pyunit,
+		        &update_cb, &get_cb, &set_cb))
 		{
 			return NULL;
 		}
@@ -2514,10 +2517,6 @@ static PyObject *BPy_FloatVectorProperty(PyObject *self, PyObject *args, PyObjec
 	BPY_PROPDEF_HEAD(FloatVectorProperty);
 
 	if (srna) {
-		static const char *kwlist[] = {"attr", "name", "description", "default",
-		                               "min", "max", "soft_min", "soft_max",
-		                               "step", "precision", "options", "subtype",
-		                               "unit", "size", "update", "get", "set", NULL};
 		const char *id = NULL, *name = NULL, *description = "";
 		int id_len;
 		float min = -FLT_MAX, max = FLT_MAX, soft_min = -FLT_MAX, soft_max = FLT_MAX, step = 3;
@@ -2535,14 +2534,21 @@ static PyObject *BPy_FloatVectorProperty(PyObject *self, PyObject *args, PyObjec
 		PyObject *get_cb = NULL;
 		PyObject *set_cb = NULL;
 
-		if (!PyArg_ParseTupleAndKeywords(args, kw,
-		                                 "s#|ssOfffffiO!ssiOOO:FloatVectorProperty",
-		                                 (char **)kwlist, &id, &id_len,
-		                                 &name, &description, &pydef,
-		                                 &min, &max, &soft_min, &soft_max,
-		                                 &step, &precision, &PySet_Type,
-		                                 &pyopts, &pysubtype, &pyunit, &size,
-		                                 &update_cb, &get_cb, &set_cb))
+		static const char *_keywords[] = {
+			"attr", "name", "description", "default",
+			"min", "max", "soft_min", "soft_max",
+			"step", "precision", "options", "subtype",
+			"unit", "size", "update", "get", "set", NULL,
+		};
+		static _PyArg_Parser _parser = {"s#|ssOfffffiO!ssiOOO:FloatVectorProperty", _keywords, 0};
+		if (!_PyArg_ParseTupleAndKeywordsFast(
+		        args, kw, &_parser,
+		        &id, &id_len,
+		        &name, &description, &pydef,
+		        &min, &max, &soft_min, &soft_max,
+		        &step, &precision, &PySet_Type,
+		        &pyopts, &pysubtype, &pyunit, &size,
+		        &update_cb, &get_cb, &set_cb))
 		{
 			return NULL;
 		}
@@ -2623,8 +2629,6 @@ static PyObject *BPy_StringProperty(PyObject *self, PyObject *args, PyObject *kw
 	BPY_PROPDEF_HEAD(StringProperty);
 
 	if (srna) {
-		static const char *kwlist[] = {"attr", "name", "description", "default",
-		                               "maxlen", "options", "subtype", "update", "get", "set", NULL};
 		const char *id = NULL, *name = NULL, *description = "", *def = "";
 		int id_len;
 		int maxlen = 0;
@@ -2637,12 +2641,17 @@ static PyObject *BPy_StringProperty(PyObject *self, PyObject *args, PyObject *kw
 		PyObject *get_cb = NULL;
 		PyObject *set_cb = NULL;
 
-		if (!PyArg_ParseTupleAndKeywords(args, kw,
-		                                 "s#|sssiO!sOOO:StringProperty",
-		                                 (char **)kwlist, &id, &id_len,
-		                                 &name, &description, &def,
-		                                 &maxlen, &PySet_Type, &pyopts, &pysubtype,
-		                                 &update_cb, &get_cb, &set_cb))
+		static const char *_keywords[] = {
+			"attr", "name", "description", "default",
+			"maxlen", "options", "subtype", "update", "get", "set", NULL,
+		};
+		static _PyArg_Parser _parser = {"s#|sssiO!sOOO:StringProperty", _keywords, 0};
+		if (!_PyArg_ParseTupleAndKeywordsFast(
+		        args, kw, &_parser,
+		        &id, &id_len,
+		        &name, &description, &def,
+		        &maxlen, &PySet_Type, &pyopts, &pysubtype,
+		        &update_cb, &get_cb, &set_cb))
 		{
 			return NULL;
 		}
@@ -2697,7 +2706,8 @@ PyDoc_STRVAR(BPy_EnumProperty_doc,
 "      :icon: An icon string identifier or integer icon value\n"
 "         (e.g. returned by :class:`bpy.types.UILayout.icon`)\n"
 "      :number: Unique value used as the identifier for this item (stored in file data).\n"
-"         Use when the identifier may need to change.\n"
+"         Use when the identifier may need to change. If the *ENUM_FLAG* option is used,\n"
+"         the values are bitmasks and should be powers of two.\n"
 "\n"
 "      When an item only contains 4 items they define ``(identifier, name, description, number)``.\n"
 "\n"
@@ -2731,8 +2741,6 @@ static PyObject *BPy_EnumProperty(PyObject *self, PyObject *args, PyObject *kw)
 	BPY_PROPDEF_HEAD(EnumProperty);
 	
 	if (srna) {
-		static const char *kwlist[] = {"attr", "items", "name", "description", "default",
-		                               "options", "update", "get", "set", NULL};
 		const char *id = NULL, *name = NULL, *description = "";
 		PyObject *def = NULL;
 		int id_len;
@@ -2747,12 +2755,17 @@ static PyObject *BPy_EnumProperty(PyObject *self, PyObject *args, PyObject *kw)
 		PyObject *get_cb = NULL;
 		PyObject *set_cb = NULL;
 
-		if (!PyArg_ParseTupleAndKeywords(args, kw,
-		                                 "s#O|ssOO!OOO:EnumProperty",
-		                                 (char **)kwlist, &id, &id_len,
-		                                 &items, &name, &description,
-		                                 &def, &PySet_Type, &pyopts,
-		                                 &update_cb, &get_cb, &set_cb))
+		static const char *_keywords[] = {
+			"attr", "items", "name", "description", "default",
+			"options", "update", "get", "set", NULL,
+		};
+		static _PyArg_Parser _parser = {"s#O|ssOO!OOO:EnumProperty", _keywords, 0};
+		if (!_PyArg_ParseTupleAndKeywordsFast(
+		        args, kw, &_parser,
+		        &id, &id_len,
+		        &items, &name, &description,
+		        &def, &PySet_Type, &pyopts,
+		        &update_cb, &get_cb, &set_cb))
 		{
 			return NULL;
 		}
@@ -2880,7 +2893,6 @@ PyObject *BPy_PointerProperty(PyObject *self, PyObject *args, PyObject *kw)
 	BPY_PROPDEF_HEAD(PointerProperty);
 
 	if (srna) {
-		static const char *kwlist[] = {"attr", "type", "name", "description", "options", "poll", "update", NULL};
 		const char *id = NULL, *name = NULL, *description = "";
 		int id_len;
 		PropertyRNA *prop;
@@ -2890,12 +2902,16 @@ PyObject *BPy_PointerProperty(PyObject *self, PyObject *args, PyObject *kw)
 		int opts = 0;
 		PyObject *update_cb = NULL, *poll_cb = NULL;
 
-		if (!PyArg_ParseTupleAndKeywords(args, kw,
-		                                 "s#O|ssO!OOO:PointerProperty",
-		                                 (char **)kwlist, &id, &id_len,
-		                                 &type, &name, &description,
-		                                 &PySet_Type, &pyopts,
-		                                 &poll_cb, &update_cb))
+		static const char *_keywords[] = {
+			"attr", "type", "name", "description", "options", "poll", "update", NULL,
+		};
+		static _PyArg_Parser _parser = {"s#O|ssO!OO:PointerProperty", _keywords, 0};
+		if (!_PyArg_ParseTupleAndKeywordsFast(
+		        args, kw, &_parser,
+		        &id, &id_len,
+		        &type, &name, &description,
+		        &PySet_Type, &pyopts,
+		        &poll_cb, &update_cb))
 		{
 			return NULL;
 		}
@@ -2954,20 +2970,23 @@ PyObject *BPy_CollectionProperty(PyObject *self, PyObject *args, PyObject *kw)
 	BPY_PROPDEF_HEAD(CollectionProperty);
 
 	if (srna) {
-		static const char *kwlist[] = {"attr", "type", "name", "description", "options", NULL};
-		const char *id = NULL, *name = NULL, *description = "";
 		int id_len;
+		const char *id = NULL, *name = NULL, *description = "";
 		PropertyRNA *prop;
 		StructRNA *ptype;
 		PyObject *type = Py_None;
 		PyObject *pyopts = NULL;
 		int opts = 0;
 
-		if (!PyArg_ParseTupleAndKeywords(args, kw,
-		                                 "s#O|ssO!:CollectionProperty",
-		                                 (char **)kwlist, &id, &id_len,
-		                                 &type, &name, &description,
-		                                 &PySet_Type, &pyopts))
+		static const char *_keywords[] = {
+			"attr", "type", "name", "description", "options", NULL,
+		};
+		static _PyArg_Parser _parser = {"s#O|ssO!:CollectionProperty", _keywords, 0};
+		if (!_PyArg_ParseTupleAndKeywordsFast(
+		        args, kw, &_parser,
+		        &id, &id_len,
+		        &type, &name, &description,
+		        &PySet_Type, &pyopts))
 		{
 			return NULL;
 		}
@@ -3039,13 +3058,15 @@ static PyObject *BPy_RemoveProperty(PyObject *self, PyObject *args, PyObject *kw
 		return NULL;
 	}
 	else {
-		static const char *kwlist[] = {"attr", NULL};
-		
 		const char *id = NULL;
 
-		if (!PyArg_ParseTupleAndKeywords(args, kw,
-		                                 "s:RemoveProperty",
-		                                 (char **)kwlist, &id))
+		static const char *_keywords[] = {
+			"attr", NULL,
+		};
+		static _PyArg_Parser _parser = {"s:RemoveProperty", _keywords, 0};
+		if (!_PyArg_ParseTupleAndKeywordsFast(
+		        args, kw, &_parser,
+		        &id))
 		{
 			return NULL;
 		}

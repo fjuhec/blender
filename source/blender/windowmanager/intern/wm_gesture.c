@@ -71,6 +71,7 @@ wmGesture *WM_gesture_new(bContext *C, const wmEvent *event, int type)
 	gesture->type = type;
 	gesture->event_type = event->type;
 	gesture->swinid = ar->swinid;    /* means only in area-region context! */
+	gesture->userdata_free = true;   /* Free if userdata is set. */
 	
 	wm_subwindow_origin_get(window, gesture->swinid, &sx, &sy);
 	
@@ -114,7 +115,7 @@ void WM_gesture_end(bContext *C, wmGesture *gesture)
 		win->tweak = NULL;
 	BLI_remlink(&win->gesture, gesture);
 	MEM_freeN(gesture->customdata);
-	if (gesture->userdata) {
+	if (gesture->userdata && gesture->userdata_free) {
 		MEM_freeN(gesture->userdata);
 	}
 	MEM_freeN(gesture);
@@ -137,7 +138,7 @@ int wm_gesture_evaluate(wmGesture *gesture)
 		int dx = BLI_rcti_size_x(rect);
 		int dy = BLI_rcti_size_y(rect);
 		if (abs(dx) + abs(dy) > U.tweak_threshold) {
-			int theta = iroundf(4.0f * atan2f((float)dy, (float)dx) / (float)M_PI);
+			int theta = round_fl_to_int(4.0f * atan2f((float)dy, (float)dx) / (float)M_PI);
 			int val = EVT_GESTURE_W;
 
 			if (theta == 0) val = EVT_GESTURE_E;
@@ -174,7 +175,7 @@ static void wm_gesture_draw_line(wmGesture *gt)
 
 	uint shdr_pos = GWN_vertformat_attr_add(immVertexFormat(), "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
 
-	immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_COLOR);
+	immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_UNIFORM_COLOR);
 
 	float viewport_size[4];
 	glGetFloatv(GL_VIEWPORT, viewport_size);
@@ -214,7 +215,7 @@ static void wm_gesture_draw_rect(wmGesture *gt)
 
 	shdr_pos = GWN_vertformat_attr_add(immVertexFormat(), "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
 
-	immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_COLOR);
+	immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_UNIFORM_COLOR);
 
 	float viewport_size[4];
 	glGetFloatv(GL_VIEWPORT, viewport_size);
@@ -224,7 +225,7 @@ static void wm_gesture_draw_rect(wmGesture *gt)
 	immUniformArray4fv("colors", (float *)(float[][4]){{0.4f, 0.4f, 0.4f, 1.0f}, {1.0f, 1.0f, 1.0f, 1.0f}}, 2);
 	immUniform1f("dash_width", 8.0f);
 
-	imm_draw_line_box(shdr_pos, (float)rect->xmin, (float)rect->ymin, (float)rect->xmax, (float)rect->ymax);
+	imm_draw_box_wire_2d(shdr_pos, (float)rect->xmin, (float)rect->ymin, (float)rect->xmax, (float)rect->ymax);
 
 	immUnbindProgram();
 
@@ -242,13 +243,13 @@ static void wm_gesture_draw_circle(wmGesture *gt)
 	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 
 	immUniformColor4f(1.0f, 1.0f, 1.0f, 0.05f);
-	imm_draw_circle_fill(shdr_pos, (float)rect->xmin, (float)rect->ymin, (float)rect->xmax, 40);
+	imm_draw_circle_fill_2d(shdr_pos, (float)rect->xmin, (float)rect->ymin, (float)rect->xmax, 40);
 
 	immUnbindProgram();
 
 	glDisable(GL_BLEND);
 
-	immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_COLOR);
+	immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_UNIFORM_COLOR);
 
 	float viewport_size[4];
 	glGetFloatv(GL_VIEWPORT, viewport_size);
@@ -258,7 +259,7 @@ static void wm_gesture_draw_circle(wmGesture *gt)
 	immUniformArray4fv("colors", (float *)(float[][4]){{0.4f, 0.4f, 0.4f, 1.0f}, {1.0f, 1.0f, 1.0f, 1.0f}}, 2);
 	immUniform1f("dash_width", 4.0f);
 
-	imm_draw_circle_wire(shdr_pos, (float)rect->xmin, (float)rect->ymin, (float)rect->xmax, 40);
+	imm_draw_circle_wire_2d(shdr_pos, (float)rect->xmin, (float)rect->ymin, (float)rect->xmax, 40);
 
 	immUnbindProgram();
 }
@@ -355,7 +356,7 @@ static void wm_gesture_draw_lasso(wmWindow *win, wmGesture *gt, bool filled)
 
 	const uint shdr_pos = GWN_vertformat_attr_add(immVertexFormat(), "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
 
-	immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_COLOR);
+	immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_UNIFORM_COLOR);
 
 	float viewport_size[4];
 	glGetFloatv(GL_VIEWPORT, viewport_size);
@@ -386,7 +387,7 @@ static void wm_gesture_draw_cross(wmWindow *win, wmGesture *gt)
 
 	const uint shdr_pos = GWN_vertformat_attr_add(immVertexFormat(), "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
 
-	immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_COLOR);
+	immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_UNIFORM_COLOR);
 
 	float viewport_size[4];
 	glGetFloatv(GL_VIEWPORT, viewport_size);

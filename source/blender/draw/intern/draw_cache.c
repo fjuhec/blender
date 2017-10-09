@@ -29,6 +29,8 @@
 #include "DNA_curve_types.h"
 #include "DNA_object_types.h"
 #include "DNA_particle_types.h"
+#include "DNA_modifier_types.h"
+#include "DNA_lattice_types.h"
 
 #include "BLI_utildefines.h"
 #include "BLI_math.h"
@@ -38,9 +40,11 @@
 #include "draw_cache.h"
 #include "draw_cache_impl.h"
 
+/* Batch's only (free'd as an array) */
 static struct DRWShapeCache {
 	Gwn_Batch *drw_single_vertice;
 	Gwn_Batch *drw_fullscreen_quad;
+	Gwn_Batch *drw_quad;
 	Gwn_Batch *drw_screenspace_circle;
 	Gwn_Batch *drw_plain_axes;
 	Gwn_Batch *drw_single_arrow;
@@ -67,7 +71,9 @@ static struct DRWShapeCache {
 	Gwn_Batch *drw_lamp_spot;
 	Gwn_Batch *drw_lamp_spot_square;
 	Gwn_Batch *drw_speaker;
-	Gwn_Batch *drw_lightprobe;
+	Gwn_Batch *drw_lightprobe_cube;
+	Gwn_Batch *drw_lightprobe_planar;
+	Gwn_Batch *drw_lightprobe_grid;
 	Gwn_Batch *drw_bone_octahedral;
 	Gwn_Batch *drw_bone_octahedral_wire;
 	Gwn_Batch *drw_bone_box;
@@ -90,52 +96,12 @@ static struct DRWShapeCache {
 
 void DRW_shape_cache_free(void)
 {
-	BATCH_DISCARD_ALL_SAFE(SHC.drw_single_vertice);
-	BATCH_DISCARD_ALL_SAFE(SHC.drw_fullscreen_quad);
-	BATCH_DISCARD_ALL_SAFE(SHC.drw_plain_axes);
-	BATCH_DISCARD_ALL_SAFE(SHC.drw_single_arrow);
-	BATCH_DISCARD_ALL_SAFE(SHC.drw_cube);
-	BATCH_DISCARD_ALL_SAFE(SHC.drw_circle);
-	BATCH_DISCARD_ALL_SAFE(SHC.drw_square);
-	BATCH_DISCARD_ALL_SAFE(SHC.drw_line);
-	BATCH_DISCARD_ALL_SAFE(SHC.drw_line_endpoints);
-	BATCH_DISCARD_ALL_SAFE(SHC.drw_empty_sphere);
-	BATCH_DISCARD_ALL_SAFE(SHC.drw_empty_cone);
-	BATCH_DISCARD_ALL_SAFE(SHC.drw_arrows);
-	BATCH_DISCARD_ALL_SAFE(SHC.drw_axis_names);
-	BATCH_DISCARD_ALL_SAFE(SHC.drw_image_plane);
-	BATCH_DISCARD_ALL_SAFE(SHC.drw_image_plane_wire);
-	BATCH_DISCARD_ALL_SAFE(SHC.drw_field_wind);
-	BATCH_DISCARD_ALL_SAFE(SHC.drw_field_force);
-	BATCH_DISCARD_ALL_SAFE(SHC.drw_field_vortex);
-	BATCH_DISCARD_ALL_SAFE(SHC.drw_field_tube_limit);
-	BATCH_DISCARD_ALL_SAFE(SHC.drw_field_cone_limit);
-	BATCH_DISCARD_ALL_SAFE(SHC.drw_lamp);
-	BATCH_DISCARD_ALL_SAFE(SHC.drw_lamp_sunrays);
-	BATCH_DISCARD_ALL_SAFE(SHC.drw_lamp_area);
-	BATCH_DISCARD_ALL_SAFE(SHC.drw_lamp_hemi);
-	BATCH_DISCARD_ALL_SAFE(SHC.drw_lamp_spot);
-	BATCH_DISCARD_ALL_SAFE(SHC.drw_lamp_spot_square);
-	BATCH_DISCARD_ALL_SAFE(SHC.drw_speaker);
-	BATCH_DISCARD_ALL_SAFE(SHC.drw_lightprobe);
-	BATCH_DISCARD_ALL_SAFE(SHC.drw_bone_octahedral);
-	BATCH_DISCARD_ALL_SAFE(SHC.drw_bone_octahedral_wire);
-	BATCH_DISCARD_ALL_SAFE(SHC.drw_bone_box);
-	BATCH_DISCARD_ALL_SAFE(SHC.drw_bone_box_wire);
-	BATCH_DISCARD_ALL_SAFE(SHC.drw_bone_wire_wire);
-	BATCH_DISCARD_ALL_SAFE(SHC.drw_bone_envelope);
-	BATCH_DISCARD_ALL_SAFE(SHC.drw_bone_envelope_distance);
-	BATCH_DISCARD_ALL_SAFE(SHC.drw_bone_envelope_wire);
-	BATCH_DISCARD_ALL_SAFE(SHC.drw_bone_envelope_head_wire);
-	BATCH_DISCARD_ALL_SAFE(SHC.drw_bone_point);
-	BATCH_DISCARD_ALL_SAFE(SHC.drw_bone_point_wire);
-	BATCH_DISCARD_ALL_SAFE(SHC.drw_bone_arrows);
-	BATCH_DISCARD_ALL_SAFE(SHC.drw_camera);
-	BATCH_DISCARD_ALL_SAFE(SHC.drw_camera_tria);
-	BATCH_DISCARD_ALL_SAFE(SHC.drw_camera_focus);
-	BATCH_DISCARD_ALL_SAFE(SHC.drw_particle_cross);
-	BATCH_DISCARD_ALL_SAFE(SHC.drw_particle_circle);
-	BATCH_DISCARD_ALL_SAFE(SHC.drw_particle_axis);
+	uint i = sizeof(SHC) / sizeof(Gwn_Batch *);
+	Gwn_Batch **batch = (Gwn_Batch **)&SHC;
+	while (i--) {
+		GWN_BATCH_DISCARD_SAFE(*batch);
+		batch++;
+	}
 }
 
 
@@ -264,6 +230,7 @@ static Gwn_VertBuf *sphere_wire_vbo(const float rad)
 }
 
 /* Quads */
+/* Use this one for rendering fullscreen passes. For 3D objects use DRW_cache_quad_get(). */
 Gwn_Batch *DRW_cache_fullscreen_quad_get(void)
 {
 	if (!SHC.drw_fullscreen_quad) {
@@ -283,20 +250,49 @@ Gwn_Batch *DRW_cache_fullscreen_quad_get(void)
 		Gwn_VertBuf *vbo = GWN_vertbuf_create_with_format(&format);
 		GWN_vertbuf_data_alloc(vbo, 3);
 
-		for (int i = 0; i < 3; ++i)	{
+		for (int i = 0; i < 3; ++i) {
 			GWN_vertbuf_attr_set(vbo, attr_id.pos, i, pos[i]);
 			GWN_vertbuf_attr_set(vbo, attr_id.uvs, i, uvs[i]);
 		}
 
-		SHC.drw_fullscreen_quad = GWN_batch_create(GWN_PRIM_TRIS, vbo, NULL);
+		SHC.drw_fullscreen_quad = GWN_batch_create_ex(GWN_PRIM_TRIS, vbo, NULL, GWN_BATCH_OWNS_VBO);
 	}
 	return SHC.drw_fullscreen_quad;
+}
+
+/* Just a regular quad with 4 vertices. */
+Gwn_Batch *DRW_cache_quad_get(void)
+{
+	if (!SHC.drw_quad) {
+		/* Use a triangle instead of a real quad */
+		float pos[4][2] = {{-1.0f, -1.0f}, { 1.0f, -1.0f}, {1.0f,  1.0f}, {-1.0f,  1.0f}};
+		float uvs[4][2] = {{ 0.0f,  0.0f}, { 1.0f,  0.0f}, {1.0f,  1.0f}, { 0.0f,  1.0f}};
+
+		/* Position Only 2D format */
+		static Gwn_VertFormat format = { 0 };
+		static struct { uint pos, uvs; } attr_id;
+		if (format.attrib_ct == 0) {
+			attr_id.pos = GWN_vertformat_attr_add(&format, "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
+			attr_id.uvs = GWN_vertformat_attr_add(&format, "uvs", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
+		}
+
+		Gwn_VertBuf *vbo = GWN_vertbuf_create_with_format(&format);
+		GWN_vertbuf_data_alloc(vbo, 4);
+
+		for (int i = 0; i < 4; ++i) {
+			GWN_vertbuf_attr_set(vbo, attr_id.pos, i, pos[i]);
+			GWN_vertbuf_attr_set(vbo, attr_id.uvs, i, uvs[i]);
+		}
+
+		SHC.drw_quad = GWN_batch_create_ex(GWN_PRIM_TRI_FAN, vbo, NULL, GWN_BATCH_OWNS_VBO);
+	}
+	return SHC.drw_quad;
 }
 
 /* Sphere */
 Gwn_Batch *DRW_cache_sphere_get(void)
 {
-	return Batch_get_sphere(2);
+	return GPU_batch_preset_sphere(2);
 }
 
 /** \} */
@@ -336,7 +332,7 @@ Gwn_Batch *DRW_cache_cube_get(void)
 			GWN_vertbuf_attr_set(vbo, attr_id.pos, i, verts[indices[i]]);
 		}
 
-		SHC.drw_cube = GWN_batch_create(GWN_PRIM_LINES, vbo, NULL);
+		SHC.drw_cube = GWN_batch_create_ex(GWN_PRIM_LINES, vbo, NULL, GWN_BATCH_OWNS_VBO);
 	}
 	return SHC.drw_cube;
 }
@@ -369,7 +365,7 @@ Gwn_Batch *DRW_cache_circle_get(void)
 			GWN_vertbuf_attr_set(vbo, attr_id.pos, a * 2 + 1, v);
 		}
 
-		SHC.drw_circle = GWN_batch_create(GWN_PRIM_LINES, vbo, NULL);
+		SHC.drw_circle = GWN_batch_create_ex(GWN_PRIM_LINES, vbo, NULL, GWN_BATCH_OWNS_VBO);
 	}
 	return SHC.drw_circle;
 #undef CIRCLE_RESOL
@@ -395,10 +391,10 @@ Gwn_Batch *DRW_cache_square_get(void)
 
 		for (int i = 0; i < 4; i++) {
 			GWN_vertbuf_attr_set(vbo, attr_id.pos, i * 2,     p[i % 4]);
-			GWN_vertbuf_attr_set(vbo, attr_id.pos, i * 2 + 1, p[(i+1) % 4]);
+			GWN_vertbuf_attr_set(vbo, attr_id.pos, i * 2 + 1, p[(i + 1) % 4]);
 		}
 
-		SHC.drw_square = GWN_batch_create(GWN_PRIM_LINES, vbo, NULL);
+		SHC.drw_square = GWN_batch_create_ex(GWN_PRIM_LINES, vbo, NULL, GWN_BATCH_OWNS_VBO);
 	}
 	return SHC.drw_square;
 }
@@ -423,7 +419,7 @@ Gwn_Batch *DRW_cache_single_line_get(void)
 		GWN_vertbuf_attr_set(vbo, attr_id.pos, 0, v1);
 		GWN_vertbuf_attr_set(vbo, attr_id.pos, 1, v2);
 
-		SHC.drw_line = GWN_batch_create(GWN_PRIM_LINES, vbo, NULL);
+		SHC.drw_line = GWN_batch_create_ex(GWN_PRIM_LINES, vbo, NULL, GWN_BATCH_OWNS_VBO);
 	}
 	return SHC.drw_line;
 }
@@ -448,7 +444,7 @@ Gwn_Batch *DRW_cache_single_line_endpoints_get(void)
 		GWN_vertbuf_attr_set(vbo, attr_id.pos, 0, v1);
 		GWN_vertbuf_attr_set(vbo, attr_id.pos, 1, v2);
 
-		SHC.drw_line_endpoints = GWN_batch_create(GWN_PRIM_POINTS, vbo, NULL);
+		SHC.drw_line_endpoints = GWN_batch_create_ex(GWN_PRIM_POINTS, vbo, NULL, GWN_BATCH_OWNS_VBO);
 	}
 	return SHC.drw_line_endpoints;
 }
@@ -475,7 +471,7 @@ Gwn_Batch *DRW_cache_screenspace_circle_get(void)
 			GWN_vertbuf_attr_set(vbo, attr_id.pos, a, v);
 		}
 
-		SHC.drw_screenspace_circle = GWN_batch_create(GWN_PRIM_LINE_STRIP, vbo, NULL);
+		SHC.drw_screenspace_circle = GWN_batch_create_ex(GWN_PRIM_LINE_STRIP, vbo, NULL, GWN_BATCH_OWNS_VBO);
 	}
 	return SHC.drw_screenspace_circle;
 #undef CIRCLE_RESOL
@@ -516,11 +512,12 @@ Gwn_Batch *DRW_cache_object_surface_get(Object *ob)
 	}
 }
 
-Gwn_Batch **DRW_cache_object_surface_material_get(struct Object *ob)
+Gwn_Batch **DRW_cache_object_surface_material_get(
+        struct Object *ob, struct GPUMaterial **gpumat_array, uint gpumat_array_len)
 {
 	switch (ob->type) {
 		case OB_MESH:
-			return DRW_cache_mesh_surface_shaded_get(ob);
+			return DRW_cache_mesh_surface_shaded_get(ob, gpumat_array, gpumat_array_len);
 		default:
 			return NULL;
 	}
@@ -562,7 +559,7 @@ Gwn_Batch *DRW_cache_plain_axes_get(void)
 			v1[axis] = v2[axis] = 0.0f;
 		}
 
-		SHC.drw_plain_axes = GWN_batch_create(GWN_PRIM_LINES, vbo, NULL);
+		SHC.drw_plain_axes = GWN_batch_create_ex(GWN_PRIM_LINES, vbo, NULL, GWN_BATCH_OWNS_VBO);
 	}
 	return SHC.drw_plain_axes;
 }
@@ -602,7 +599,7 @@ Gwn_Batch *DRW_cache_single_arrow_get(void)
 			GWN_vertbuf_attr_set(vbo, attr_id.pos, sides * 3 + 2, v3);
 		}
 
-		SHC.drw_single_arrow = GWN_batch_create(GWN_PRIM_TRIS, vbo, NULL);
+		SHC.drw_single_arrow = GWN_batch_create_ex(GWN_PRIM_TRIS, vbo, NULL, GWN_BATCH_OWNS_VBO);
 	}
 	return SHC.drw_single_arrow;
 }
@@ -611,7 +608,7 @@ Gwn_Batch *DRW_cache_empty_sphere_get(void)
 {
 	if (!SHC.drw_empty_sphere) {
 		Gwn_VertBuf *vbo = sphere_wire_vbo(1.0f);
-		SHC.drw_empty_sphere = GWN_batch_create(GWN_PRIM_LINES, vbo, NULL);
+		SHC.drw_empty_sphere = GWN_batch_create_ex(GWN_PRIM_LINES, vbo, NULL, GWN_BATCH_OWNS_VBO);
 	}
 	return SHC.drw_empty_sphere;
 }
@@ -658,7 +655,7 @@ Gwn_Batch *DRW_cache_empty_cone_get(void)
 			GWN_vertbuf_attr_set(vbo, attr_id.pos, i * 4 + 3, v);
 		}
 
-		SHC.drw_empty_cone = GWN_batch_create(GWN_PRIM_LINES, vbo, NULL);
+		SHC.drw_empty_cone = GWN_batch_create_ex(GWN_PRIM_LINES, vbo, NULL, GWN_BATCH_OWNS_VBO);
 	}
 	return SHC.drw_empty_cone;
 #undef NSEGMENTS
@@ -669,7 +666,7 @@ Gwn_Batch *DRW_cache_arrows_get(void)
 	if (!SHC.drw_arrows) {
 		Gwn_VertBuf *vbo = fill_arrows_vbo(1.0f);
 
-		SHC.drw_arrows = GWN_batch_create(GWN_PRIM_LINES, vbo, NULL);
+		SHC.drw_arrows = GWN_batch_create_ex(GWN_PRIM_LINES, vbo, NULL, GWN_BATCH_OWNS_VBO);
 	}
 	return SHC.drw_arrows;
 }
@@ -730,7 +727,7 @@ Gwn_Batch *DRW_cache_axis_names_get(void)
 		GWN_vertbuf_attr_set(vbo, attr_id.pos, 12, v1);
 		GWN_vertbuf_attr_set(vbo, attr_id.pos, 13, v2);
 
-		SHC.drw_axis_names = GWN_batch_create(GWN_PRIM_LINES, vbo, NULL);
+		SHC.drw_axis_names = GWN_batch_create_ex(GWN_PRIM_LINES, vbo, NULL, GWN_BATCH_OWNS_VBO);
 	}
 	return SHC.drw_axis_names;
 }
@@ -751,7 +748,7 @@ Gwn_Batch *DRW_cache_image_plane_get(void)
 			GWN_vertbuf_attr_set(vbo, attr_id.pos, j, quad[j]);
 			GWN_vertbuf_attr_set(vbo, attr_id.texCoords, j, quad[j]);
 		}
-		SHC.drw_image_plane = GWN_batch_create(GWN_PRIM_TRI_FAN, vbo, NULL);
+		SHC.drw_image_plane = GWN_batch_create_ex(GWN_PRIM_TRI_FAN, vbo, NULL, GWN_BATCH_OWNS_VBO);
 	}
 	return SHC.drw_image_plane;
 }
@@ -770,7 +767,7 @@ Gwn_Batch *DRW_cache_image_plane_wire_get(void)
 		for (uint j = 0; j < 4; j++) {
 			GWN_vertbuf_attr_set(vbo, attr_id.pos, j, quad[j]);
 		}
-		SHC.drw_image_plane_wire = GWN_batch_create(GWN_PRIM_LINE_LOOP, vbo, NULL);
+		SHC.drw_image_plane_wire = GWN_batch_create_ex(GWN_PRIM_LINE_LOOP, vbo, NULL, GWN_BATCH_OWNS_VBO);
 	}
 	return SHC.drw_image_plane_wire;
 }
@@ -807,7 +804,7 @@ Gwn_Batch *DRW_cache_field_wind_get(void)
 			}
 		}
 
-		SHC.drw_field_wind = GWN_batch_create(GWN_PRIM_LINES, vbo, NULL);
+		SHC.drw_field_wind = GWN_batch_create_ex(GWN_PRIM_LINES, vbo, NULL, GWN_BATCH_OWNS_VBO);
 	}
 	return SHC.drw_field_wind;
 #undef CIRCLE_RESOL
@@ -844,7 +841,7 @@ Gwn_Batch *DRW_cache_field_force_get(void)
 			}
 		}
 
-		SHC.drw_field_force = GWN_batch_create(GWN_PRIM_LINES, vbo, NULL);
+		SHC.drw_field_force = GWN_batch_create_ex(GWN_PRIM_LINES, vbo, NULL, GWN_BATCH_OWNS_VBO);
 	}
 	return SHC.drw_field_force;
 #undef CIRCLE_RESOL
@@ -881,7 +878,7 @@ Gwn_Batch *DRW_cache_field_vortex_get(void)
 			GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, v);
 		}
 
-		SHC.drw_field_vortex = GWN_batch_create(GWN_PRIM_LINE_STRIP, vbo, NULL);
+		SHC.drw_field_vortex = GWN_batch_create_ex(GWN_PRIM_LINE_STRIP, vbo, NULL, GWN_BATCH_OWNS_VBO);
 	}
 	return SHC.drw_field_vortex;
 #undef SPIRAL_RESOL
@@ -930,7 +927,7 @@ Gwn_Batch *DRW_cache_field_tube_limit_get(void)
 			}
 		}
 
-		SHC.drw_field_tube_limit = GWN_batch_create(GWN_PRIM_LINES, vbo, NULL);
+		SHC.drw_field_tube_limit = GWN_batch_create_ex(GWN_PRIM_LINES, vbo, NULL, GWN_BATCH_OWNS_VBO);
 	}
 	return SHC.drw_field_tube_limit;
 #undef CIRCLE_RESOL
@@ -979,7 +976,7 @@ Gwn_Batch *DRW_cache_field_cone_limit_get(void)
 			}
 		}
 
-		SHC.drw_field_cone_limit = GWN_batch_create(GWN_PRIM_LINES, vbo, NULL);
+		SHC.drw_field_cone_limit = GWN_batch_create_ex(GWN_PRIM_LINES, vbo, NULL, GWN_BATCH_OWNS_VBO);
 	}
 	return SHC.drw_field_cone_limit;
 #undef CIRCLE_RESOL
@@ -1018,7 +1015,7 @@ Gwn_Batch *DRW_cache_lamp_get(void)
 			GWN_vertbuf_attr_set(vbo, attr_id.pos, a * 2 + 1, v);
 		}
 
-		SHC.drw_lamp = GWN_batch_create(GWN_PRIM_LINES, vbo, NULL);
+		SHC.drw_lamp = GWN_batch_create_ex(GWN_PRIM_LINES, vbo, NULL, GWN_BATCH_OWNS_VBO);
 	}
 	return SHC.drw_lamp;
 #undef NSEGMENTS
@@ -1050,7 +1047,7 @@ Gwn_Batch *DRW_cache_lamp_sunrays_get(void)
 			GWN_vertbuf_attr_set(vbo, attr_id.pos, a * 2 + 1, v2);
 		}
 
-		SHC.drw_lamp_sunrays = GWN_batch_create(GWN_PRIM_LINES, vbo, NULL);
+		SHC.drw_lamp_sunrays = GWN_batch_create_ex(GWN_PRIM_LINES, vbo, NULL, GWN_BATCH_OWNS_VBO);
 	}
 	return SHC.drw_lamp_sunrays;
 }
@@ -1084,7 +1081,7 @@ Gwn_Batch *DRW_cache_lamp_area_get(void)
 		v1[1] = 0.5f;
 		GWN_vertbuf_attr_set(vbo, attr_id.pos, 7, v1);
 
-		SHC.drw_lamp_area = GWN_batch_create(GWN_PRIM_LINES, vbo, NULL);
+		SHC.drw_lamp_area = GWN_batch_create_ex(GWN_PRIM_LINES, vbo, NULL, GWN_BATCH_OWNS_VBO);
 	}
 	return SHC.drw_lamp_area;
 }
@@ -1146,7 +1143,7 @@ Gwn_Batch *DRW_cache_lamp_hemi_get(void)
 		}
 
 
-		SHC.drw_lamp_hemi = GWN_batch_create(GWN_PRIM_LINES, vbo, NULL);
+		SHC.drw_lamp_hemi = GWN_batch_create_ex(GWN_PRIM_LINES, vbo, NULL, GWN_BATCH_OWNS_VBO);
 	}
 	return SHC.drw_lamp_hemi;
 #undef CIRCLE_RESOL
@@ -1199,8 +1196,8 @@ Gwn_Batch *DRW_cache_lamp_spot_get(void)
 
 			GWN_vertbuf_attr_set(vbo, attr_id.n1, i * 4,     n[(i) % NSEGMENTS]);
 			GWN_vertbuf_attr_set(vbo, attr_id.n1, i * 4 + 1, n[(i) % NSEGMENTS]);
-			GWN_vertbuf_attr_set(vbo, attr_id.n2, i * 4,     n[(i+1) % NSEGMENTS]);
-			GWN_vertbuf_attr_set(vbo, attr_id.n2, i * 4 + 1, n[(i+1) % NSEGMENTS]);
+			GWN_vertbuf_attr_set(vbo, attr_id.n2, i * 4,     n[(i + 1) % NSEGMENTS]);
+			GWN_vertbuf_attr_set(vbo, attr_id.n2, i * 4 + 1, n[(i + 1) % NSEGMENTS]);
 
 			/* end ring */
 			v[0] = cv[0], v[1] = cv[1], v[2] = -1.0f;
@@ -1216,7 +1213,7 @@ Gwn_Batch *DRW_cache_lamp_spot_get(void)
 			GWN_vertbuf_attr_set(vbo, attr_id.n2, i * 4 + 3, neg[(i) % NSEGMENTS]);
 		}
 
-		SHC.drw_lamp_spot = GWN_batch_create(GWN_PRIM_LINES, vbo, NULL);
+		SHC.drw_lamp_spot = GWN_batch_create_ex(GWN_PRIM_LINES, vbo, NULL, GWN_BATCH_OWNS_VBO);
 	}
 	return SHC.drw_lamp_spot;
 #undef NSEGMENTS
@@ -1248,11 +1245,11 @@ Gwn_Batch *DRW_cache_lamp_spot_square_get(void)
 			GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, p[0]);
 			GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, p[i]);
 
-			GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, p[(i % 4)+1]);
-			GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, p[((i+1) % 4)+1]);
+			GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, p[(i % 4) + 1]);
+			GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, p[((i + 1) % 4) + 1]);
 		}
 
-		SHC.drw_lamp_spot_square = GWN_batch_create(GWN_PRIM_LINES, vbo, NULL);
+		SHC.drw_lamp_spot_square = GWN_batch_create_ex(GWN_PRIM_LINES, vbo, NULL, GWN_BATCH_OWNS_VBO);
 	}
 	return SHC.drw_lamp_spot_square;
 }
@@ -1316,7 +1313,7 @@ Gwn_Batch *DRW_cache_speaker_get(void)
 			}
 		}
 
-		SHC.drw_speaker = GWN_batch_create(GWN_PRIM_LINES, vbo, NULL);
+		SHC.drw_speaker = GWN_batch_create_ex(GWN_PRIM_LINES, vbo, NULL, GWN_BATCH_OWNS_VBO);
 	}
 	return SHC.drw_speaker;
 }
@@ -1328,13 +1325,21 @@ Gwn_Batch *DRW_cache_speaker_get(void)
 /** \name Probe
  * \{ */
 
-Gwn_Batch *DRW_cache_lightprobe_get(void)
+Gwn_Batch *DRW_cache_lightprobe_cube_get(void)
 {
-#define CIRCLE_RESOL 16
-	if (!SHC.drw_lightprobe) {
+	if (!SHC.drw_lightprobe_cube) {
 		int v_idx = 0;
-		float v[3] = {0.0f, 1.0f, 0.0f};
-		/* TODO something nicer than just a circle */
+		const float sin_pi_3 = 0.86602540378f;
+		const float cos_pi_3 = 0.5f;
+		float v[7][3] = {
+			{0.0f, 1.0f, 0.0f},
+			{sin_pi_3, cos_pi_3, 0.0f},
+			{sin_pi_3, -cos_pi_3, 0.0f},
+			{0.0f, -1.0f, 0.0f},
+			{-sin_pi_3, -cos_pi_3, 0.0f},
+			{-sin_pi_3, cos_pi_3, 0.0f},
+			{0.0f, 0.0f, 0.0f},
+		};
 
 		/* Position Only 3D format */
 		static Gwn_VertFormat format = { 0 };
@@ -1344,35 +1349,114 @@ Gwn_Batch *DRW_cache_lightprobe_get(void)
 		}
 
 		Gwn_VertBuf *vbo = GWN_vertbuf_create_with_format(&format);
-		GWN_vertbuf_data_alloc(vbo, CIRCLE_RESOL * 2 + 8);
+		GWN_vertbuf_data_alloc(vbo, (6 + 3) * 2);
 
-		GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, v);
-		for (int a = 1; a < CIRCLE_RESOL; a++) {
-			v[0] = sinf((2.0f * M_PI * a) / ((float)CIRCLE_RESOL));
-			v[1] = cosf((2.0f * M_PI * a) / ((float)CIRCLE_RESOL));
-			GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, v);
-
-			if ((a % 2 == 0) && (a % 4 != 0)) {
-				v[0] *= 0.5f;
-				v[1] *= 0.5f;
-				GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, v);
-				v[0] *= 3.0f;
-				v[1] *= 3.0f;
-				GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, v);
-				v[0] /= 1.5f;
-				v[1] /= 1.5f;
-			}
-
-			GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, v);
+		for (int i = 0; i < 6; ++i) {
+			GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, v[i]);
+			GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, v[(i + 1) % 6]);
 		}
-		v[0] = 0.0f;
-		v[1] = 1.0f;
-		GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, v);
 
-		SHC.drw_lightprobe = GWN_batch_create(GWN_PRIM_LINES, vbo, NULL);
+		GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, v[1]);
+		GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, v[6]);
+
+		GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, v[5]);
+		GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, v[6]);
+
+		GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, v[3]);
+		GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, v[6]);
+
+		SHC.drw_lightprobe_cube = GWN_batch_create_ex(GWN_PRIM_LINES, vbo, NULL, GWN_BATCH_OWNS_VBO);
 	}
-	return SHC.drw_lightprobe;
-#undef CIRCLE_RESOL
+	return SHC.drw_lightprobe_cube;
+}
+
+Gwn_Batch *DRW_cache_lightprobe_grid_get(void)
+{
+	if (!SHC.drw_lightprobe_grid) {
+		int v_idx = 0;
+		const float sin_pi_3 = 0.86602540378f;
+		const float cos_pi_3 = 0.5f;
+		const float v[7][3] = {
+			{0.0f, 1.0f, 0.0f},
+			{sin_pi_3, cos_pi_3, 0.0f},
+			{sin_pi_3, -cos_pi_3, 0.0f},
+			{0.0f, -1.0f, 0.0f},
+			{-sin_pi_3, -cos_pi_3, 0.0f},
+			{-sin_pi_3, cos_pi_3, 0.0f},
+			{0.0f, 0.0f, 0.0f},
+		};
+
+		/* Position Only 3D format */
+		static Gwn_VertFormat format = { 0 };
+		static struct { uint pos; } attr_id;
+		if (format.attrib_ct == 0) {
+			attr_id.pos = GWN_vertformat_attr_add(&format, "pos", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
+		}
+
+		Gwn_VertBuf *vbo = GWN_vertbuf_create_with_format(&format);
+		GWN_vertbuf_data_alloc(vbo, (6 * 2 + 3) * 2);
+
+		for (int i = 0; i < 6; ++i) {
+			float tmp_v1[3], tmp_v2[3], tmp_tr[3];
+			copy_v3_v3(tmp_v1, v[i]);
+			copy_v3_v3(tmp_v2, v[(i + 1) % 6]);
+			GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, tmp_v1);
+			GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, tmp_v2);
+
+			/* Internal wires. */
+			for (int j = 1; j < 2; ++j) {
+				mul_v3_v3fl(tmp_tr, v[(i / 2) * 2 + 1], -0.5f * j);
+				add_v3_v3v3(tmp_v1, v[i], tmp_tr);
+				add_v3_v3v3(tmp_v2, v[(i + 1) % 6], tmp_tr);
+				GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, tmp_v1);
+				GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, tmp_v2);
+			}
+		}
+
+		GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, v[1]);
+		GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, v[6]);
+
+		GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, v[5]);
+		GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, v[6]);
+
+		GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, v[3]);
+		GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, v[6]);
+
+		SHC.drw_lightprobe_grid = GWN_batch_create_ex(GWN_PRIM_LINES, vbo, NULL, GWN_BATCH_OWNS_VBO);
+	}
+	return SHC.drw_lightprobe_grid;
+}
+
+Gwn_Batch *DRW_cache_lightprobe_planar_get(void)
+{
+	if (!SHC.drw_lightprobe_planar) {
+		int v_idx = 0;
+		const float sin_pi_3 = 0.86602540378f;
+		float v[4][3] = {
+			{0.0f, 0.5f, 0.0f},
+			{sin_pi_3, 0.0f, 0.0f},
+			{0.0f, -0.5f, 0.0f},
+			{-sin_pi_3, 0.0f, 0.0f},
+		};
+
+		/* Position Only 3D format */
+		static Gwn_VertFormat format = { 0 };
+		static struct { uint pos; } attr_id;
+		if (format.attrib_ct == 0) {
+			attr_id.pos = GWN_vertformat_attr_add(&format, "pos", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
+		}
+
+		Gwn_VertBuf *vbo = GWN_vertbuf_create_with_format(&format);
+		GWN_vertbuf_data_alloc(vbo, 4 * 2);
+
+		for (int i = 0; i < 4; ++i) {
+			GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, v[i]);
+			GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, v[(i + 1) % 4]);
+		}
+
+		SHC.drw_lightprobe_planar = GWN_batch_create_ex(GWN_PRIM_LINES, vbo, NULL, GWN_BATCH_OWNS_VBO);
+	}
+	return SHC.drw_lightprobe_planar;
 }
 
 /** \} */
@@ -1454,7 +1538,7 @@ Gwn_Batch *DRW_cache_bone_octahedral_get(void)
 			GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, bone_octahedral_verts[bone_octahedral_solid_tris[i][2]]);
 		}
 
-		SHC.drw_bone_octahedral = GWN_batch_create(GWN_PRIM_TRIS, vbo, NULL);
+		SHC.drw_bone_octahedral = GWN_batch_create_ex(GWN_PRIM_TRIS, vbo, NULL, GWN_BATCH_OWNS_VBO);
 	}
 	return SHC.drw_bone_octahedral;
 }
@@ -1484,7 +1568,7 @@ Gwn_Batch *DRW_cache_bone_octahedral_wire_outline_get(void)
 			add_fancy_edge(vbo, attr_id.pos, attr_id.n1, attr_id.n2, &v_idx, co1, co2, n1, n2);
 		}
 
-		SHC.drw_bone_octahedral_wire = GWN_batch_create(GWN_PRIM_LINES, vbo, NULL);
+		SHC.drw_bone_octahedral_wire = GWN_batch_create_ex(GWN_PRIM_LINES, vbo, NULL, GWN_BATCH_OWNS_VBO);
 	}
 	return SHC.drw_bone_octahedral_wire;
 }
@@ -1539,7 +1623,7 @@ static const unsigned int bone_box_solid_tris[12][3] = {
 /* aligned with bone_octahedral_solid_tris */
 static const float bone_box_solid_normals[12][3] = {
 	{ 0.0f, -1.0f,  0.0f},
-    { 0.0f, -1.0f,  0.0f},
+	{ 0.0f, -1.0f,  0.0f},
 
 	{ 1.0f,  0.0f,  0.0f},
 	{ 1.0f,  0.0f,  0.0f},
@@ -1580,7 +1664,7 @@ Gwn_Batch *DRW_cache_bone_box_get(void)
 			}
 		}
 
-		SHC.drw_bone_box = GWN_batch_create(GWN_PRIM_TRIS, vbo, NULL);
+		SHC.drw_bone_box = GWN_batch_create_ex(GWN_PRIM_TRIS, vbo, NULL, GWN_BATCH_OWNS_VBO);
 	}
 	return SHC.drw_bone_box;
 }
@@ -1610,7 +1694,7 @@ Gwn_Batch *DRW_cache_bone_box_wire_outline_get(void)
 			add_fancy_edge(vbo, attr_id.pos, attr_id.n1, attr_id.n2, &v_idx, co1, co2, n1, n2);
 		}
 
-		SHC.drw_bone_box_wire = GWN_batch_create(GWN_PRIM_LINES, vbo, NULL);
+		SHC.drw_bone_box_wire = GWN_batch_create_ex(GWN_PRIM_LINES, vbo, NULL, GWN_BATCH_OWNS_VBO);
 	}
 	return SHC.drw_bone_box_wire;
 }
@@ -1638,7 +1722,7 @@ Gwn_Batch *DRW_cache_bone_wire_wire_outline_get(void)
 		const float n[3] = {1.0f, 0.0f, 0.0f};
 		add_fancy_edge(vbo, attr_id.pos, attr_id.n1, attr_id.n2, &v_idx, co1, co2, n, n);
 
-		SHC.drw_bone_wire_wire = GWN_batch_create(GWN_PRIM_LINES, vbo, NULL);
+		SHC.drw_bone_wire_wire = GWN_batch_create_ex(GWN_PRIM_LINES, vbo, NULL, GWN_BATCH_OWNS_VBO);
 	}
 	return SHC.drw_bone_wire_wire;
 }
@@ -1698,10 +1782,10 @@ Gwn_Batch *DRW_cache_bone_envelope_solid_get(void)
 			float co1[3], co2[3], co3[3], co4[3];
 
 			for (int j = 0; j < lat_res; j++, lat += lat_inc) {
-				benv_lat_lon_to_co(lat          , lon          , co1);
-				benv_lat_lon_to_co(lat          , lon + lon_inc, co2);
+				benv_lat_lon_to_co(lat,           lon,           co1);
+				benv_lat_lon_to_co(lat,           lon + lon_inc, co2);
 				benv_lat_lon_to_co(lat + lat_inc, lon + lon_inc, co3);
-				benv_lat_lon_to_co(lat + lat_inc, lon          , co4);
+				benv_lat_lon_to_co(lat + lat_inc, lon,           co4);
 
 				if (j != 0) {  /* At pole, n1 and n2 are identical. */
 					benv_add_tri(vbo, attr_id.pos, &v_idx, co1, co2, co3);
@@ -1730,7 +1814,7 @@ Gwn_Batch *DRW_cache_bone_envelope_solid_get(void)
 			}
 		}
 
-		SHC.drw_bone_envelope = GWN_batch_create(GWN_PRIM_TRIS, vbo, NULL);
+		SHC.drw_bone_envelope = GWN_batch_create_ex(GWN_PRIM_TRIS, vbo, NULL, GWN_BATCH_OWNS_VBO);
 	}
 	return SHC.drw_bone_envelope;
 }
@@ -1769,7 +1853,7 @@ Gwn_Batch *DRW_cache_bone_envelope_distance_outline_get(void)
 			}
 		}
 
-		SHC.drw_bone_envelope_distance = GWN_batch_create(GWN_PRIM_TRI_STRIP, vbo, NULL);
+		SHC.drw_bone_envelope_distance = GWN_batch_create_ex(GWN_PRIM_TRI_STRIP, vbo, NULL, GWN_BATCH_OWNS_VBO);
 	}
 	return SHC.drw_bone_envelope_distance;
 #undef CIRCLE_RESOL
@@ -1800,7 +1884,7 @@ Gwn_Batch *DRW_cache_bone_envelope_wire_outline_get(void)
 		GWN_vertbuf_attr_set(vbo, pos_id, v_idx++, (const float[4]){-1.0f, 0.0f,       0.0f, 0.0f});
 		GWN_vertbuf_attr_set(vbo, pos_id, v_idx++, (const float[4]){-1.0f, 0.0f,       1.0f, 0.0f});
 
-		SHC.drw_bone_envelope_wire = GWN_batch_create(GWN_PRIM_LINES, vbo, NULL);
+		SHC.drw_bone_envelope_wire = GWN_batch_create_ex(GWN_PRIM_LINES, vbo, NULL, GWN_BATCH_OWNS_VBO);
 	}
 	return SHC.drw_bone_envelope_wire;
 }
@@ -1834,7 +1918,7 @@ Gwn_Batch *DRW_cache_bone_envelope_head_wire_outline_get(void)
 			GWN_vertbuf_attr_set(vbo, pos_id, v_idx++, (const float[4]){     x,      y,      0.0f, 0.0f});
 		}
 
-		SHC.drw_bone_envelope_head_wire = GWN_batch_create(GWN_PRIM_LINE_LOOP, vbo, NULL);
+		SHC.drw_bone_envelope_head_wire = GWN_batch_create_ex(GWN_PRIM_LINE_LOOP, vbo, NULL, GWN_BATCH_OWNS_VBO);
 	}
 	return SHC.drw_bone_envelope_head_wire;
 #undef CIRCLE_RESOL
@@ -1880,7 +1964,7 @@ Gwn_Batch *DRW_cache_bone_point_get(void)
 			}
 		}
 
-		SHC.drw_bone_point = GWN_batch_create(GWN_PRIM_TRIS, vbo, NULL);
+		SHC.drw_bone_point = GWN_batch_create_ex(GWN_PRIM_TRIS, vbo, NULL, GWN_BATCH_OWNS_VBO);
 	}
 	return SHC.drw_bone_point;
 }
@@ -1889,7 +1973,7 @@ Gwn_Batch *DRW_cache_bone_point_wire_outline_get(void)
 {
 	if (!SHC.drw_bone_point_wire) {
 		Gwn_VertBuf *vbo = sphere_wire_vbo(0.05f);
-		SHC.drw_bone_point_wire = GWN_batch_create(GWN_PRIM_LINES, vbo, NULL);
+		SHC.drw_bone_point_wire = GWN_batch_create_ex(GWN_PRIM_LINES, vbo, NULL, GWN_BATCH_OWNS_VBO);
 	}
 	return SHC.drw_bone_point_wire;
 }
@@ -1898,7 +1982,7 @@ Gwn_Batch *DRW_cache_bone_arrows_get(void)
 {
 	if (!SHC.drw_bone_arrows) {
 		Gwn_VertBuf *vbo = fill_arrows_vbo(0.25f);
-		SHC.drw_bone_arrows = GWN_batch_create(GWN_PRIM_LINES, vbo, NULL);
+		SHC.drw_bone_arrows = GWN_batch_create_ex(GWN_PRIM_LINES, vbo, NULL, GWN_BATCH_OWNS_VBO);
 	}
 	return SHC.drw_bone_arrows;
 }
@@ -1971,7 +2055,7 @@ Gwn_Batch *DRW_cache_camera_get(void)
 		GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, &v7);
 		GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, &v5);
 
-		SHC.drw_camera = GWN_batch_create(GWN_PRIM_LINES, vbo, NULL);
+		SHC.drw_camera = GWN_batch_create_ex(GWN_PRIM_LINES, vbo, NULL, GWN_BATCH_OWNS_VBO);
 	}
 	return SHC.drw_camera;
 }
@@ -2002,7 +2086,7 @@ Gwn_Batch *DRW_cache_camera_tria_get(void)
 		GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, &v6);
 		GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, &v7);
 
-		SHC.drw_camera_tria = GWN_batch_create(GWN_PRIM_TRIS, vbo, NULL);
+		SHC.drw_camera_tria = GWN_batch_create_ex(GWN_PRIM_TRIS, vbo, NULL, GWN_BATCH_OWNS_VBO);
 	}
 	return SHC.drw_camera_tria;
 }
@@ -2032,7 +2116,7 @@ Gwn_Batch *DRW_cache_single_vert_get(void)
 
 		GWN_vertbuf_attr_set(vbo, attr_id.pos, 0, v1);
 
-		SHC.drw_single_vertice = GWN_batch_create(GWN_PRIM_POINTS, vbo, NULL);
+		SHC.drw_single_vertice = GWN_batch_create_ex(GWN_PRIM_POINTS, vbo, NULL, GWN_BATCH_OWNS_VBO);
 	}
 	return SHC.drw_single_vertice;
 }
@@ -2119,12 +2203,13 @@ Gwn_Batch *DRW_cache_mesh_surface_vert_colors_get(Object *ob)
 }
 
 /* Return list of batches */
-Gwn_Batch **DRW_cache_mesh_surface_shaded_get(Object *ob)
+Gwn_Batch **DRW_cache_mesh_surface_shaded_get(
+        Object *ob, struct GPUMaterial **gpumat_array, uint gpumat_array_len)
 {
 	BLI_assert(ob->type == OB_MESH);
 
 	Mesh *me = ob->data;
-	return DRW_mesh_batch_cache_get_surface_shaded(me);
+	return DRW_mesh_batch_cache_get_surface_shaded(me, gpumat_array, gpumat_array_len);
 }
 
 /* Return list of batches */
@@ -2190,6 +2275,14 @@ Gwn_Batch *DRW_cache_mesh_verts_weight_overlay_get(Object *ob)
 
 	Mesh *me = ob->data;
 	return DRW_mesh_batch_cache_get_weight_overlay_verts(me);
+}
+
+void DRW_cache_mesh_sculpt_coords_ensure(Object *ob)
+{
+	BLI_assert(ob->type == OB_MESH);
+
+	Mesh *me = ob->data;
+	DRW_mesh_cache_sculpt_coords_ensure(me);
 }
 
 /** \} */
@@ -2308,12 +2401,18 @@ Gwn_Batch *DRW_cache_lattice_verts_get(Object *ob)
 	return DRW_lattice_batch_cache_get_all_verts(lt);
 }
 
-Gwn_Batch *DRW_cache_lattice_wire_get(Object *ob)
+Gwn_Batch *DRW_cache_lattice_wire_get(Object *ob, bool use_weight)
 {
 	BLI_assert(ob->type == OB_LATTICE);
 
-	struct Lattice *lt = ob->data;
-	return DRW_lattice_batch_cache_get_all_edges(lt);
+	Lattice *lt = ob->data;
+	int actdef = -1;
+
+	if (use_weight && ob->defbase.first && lt->editlatt->latt->dvert) {
+		actdef = ob->actdef - 1;
+	}
+
+	return DRW_lattice_batch_cache_get_all_edges(lt, use_weight, actdef);
 }
 
 Gwn_Batch *DRW_cache_lattice_vert_overlay_get(Object *ob)
@@ -2331,9 +2430,9 @@ Gwn_Batch *DRW_cache_lattice_vert_overlay_get(Object *ob)
 /** \name Particles
  * \{ */
 
-Gwn_Batch *DRW_cache_particles_get_hair(ParticleSystem *psys)
+Gwn_Batch *DRW_cache_particles_get_hair(ParticleSystem *psys, ModifierData *md)
 {
-	return DRW_particles_batch_cache_get_hair(psys);
+	return DRW_particles_batch_cache_get_hair(psys, md);
 }
 
 Gwn_Batch *DRW_cache_particles_get_dots(ParticleSystem *psys)
@@ -2387,7 +2486,7 @@ Gwn_Batch *DRW_cache_particles_get_prim(int type)
 				GWN_vertbuf_attr_set(vbo, pos_id, 5, co);
 				GWN_vertbuf_attr_set(vbo, axis_id, 5, &axis);
 
-				SHC.drw_particle_cross = GWN_batch_create(GWN_PRIM_LINES, vbo, NULL);
+				SHC.drw_particle_cross = GWN_batch_create_ex(GWN_PRIM_LINES, vbo, NULL, GWN_BATCH_OWNS_VBO);
 			}
 
 			return SHC.drw_particle_cross;
@@ -2434,7 +2533,7 @@ Gwn_Batch *DRW_cache_particles_get_prim(int type)
 				GWN_vertbuf_attr_set(vbo, pos_id, 5, co);
 				GWN_vertbuf_attr_set(vbo, axis_id, 5, &axis);
 
-				SHC.drw_particle_axis = GWN_batch_create(GWN_PRIM_LINES, vbo, NULL);
+				SHC.drw_particle_axis = GWN_batch_create_ex(GWN_PRIM_LINES, vbo, NULL, GWN_BATCH_OWNS_VBO);
 			}
 
 			return SHC.drw_particle_axis;
@@ -2463,7 +2562,7 @@ Gwn_Batch *DRW_cache_particles_get_prim(int type)
 					GWN_vertbuf_attr_set(vbo, axis_id, a, &axis);
 				}
 
-				SHC.drw_particle_circle = GWN_batch_create(GWN_PRIM_LINE_LOOP, vbo, NULL);
+				SHC.drw_particle_circle = GWN_batch_create_ex(GWN_PRIM_LINE_LOOP, vbo, NULL, GWN_BATCH_OWNS_VBO);
 			}
 
 			return SHC.drw_particle_circle;

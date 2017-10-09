@@ -27,9 +27,11 @@
 #define __DRAW_CACHE_IMPL_H__
 
 struct Gwn_Batch;
+struct GPUMaterial;
 struct ListBase;
 struct CurveCache;
 struct ParticleSystem;
+struct ModifierData;
 
 struct Curve;
 struct Lattice;
@@ -65,13 +67,14 @@ struct Gwn_Batch *DRW_curve_batch_cache_get_overlay_select(struct Curve *cu);
 struct Gwn_Batch *BLI_displist_batch_calc_surface(struct ListBase *lb);
 
 /* Lattice */
-struct Gwn_Batch *DRW_lattice_batch_cache_get_all_edges(struct Lattice *lt);
+struct Gwn_Batch *DRW_lattice_batch_cache_get_all_edges(struct Lattice *lt, bool use_weight, const int actdef);
 struct Gwn_Batch *DRW_lattice_batch_cache_get_all_verts(struct Lattice *lt);
 struct Gwn_Batch *DRW_lattice_batch_cache_get_overlay_verts(struct Lattice *lt);
 
 /* Mesh */
 
-struct Gwn_Batch **DRW_mesh_batch_cache_get_surface_shaded(struct Mesh *me);
+struct Gwn_Batch **DRW_mesh_batch_cache_get_surface_shaded(
+        struct Mesh *me, struct GPUMaterial **gpumat_array, uint gpumat_array_len);
 struct Gwn_Batch **DRW_mesh_batch_cache_get_surface_texpaint(struct Mesh *me);
 struct Gwn_Batch *DRW_mesh_batch_cache_get_surface_texpaint_single(struct Mesh *me);
 struct Gwn_Batch *DRW_mesh_batch_cache_get_weight_overlay_edges(struct Mesh *me, bool use_wire, bool use_sel);
@@ -82,7 +85,8 @@ struct Gwn_Batch *DRW_mesh_batch_cache_get_all_triangles(struct Mesh *me);
 struct Gwn_Batch *DRW_mesh_batch_cache_get_triangles_with_normals(struct Mesh *me);
 struct Gwn_Batch *DRW_mesh_batch_cache_get_triangles_with_normals_and_weights(struct Mesh *me, int defgroup);
 struct Gwn_Batch *DRW_mesh_batch_cache_get_triangles_with_normals_and_vert_colors(struct Mesh *me);
-struct Gwn_Batch *DRW_mesh_batch_cache_get_triangles_with_select_id(struct Mesh *me, bool use_hide);
+struct Gwn_Batch *DRW_mesh_batch_cache_get_triangles_with_select_id(struct Mesh *me, bool use_hide, uint select_id_offset);
+struct Gwn_Batch *DRW_mesh_batch_cache_get_triangles_with_select_mask(struct Mesh *me, bool use_hide);
 struct Gwn_Batch *DRW_mesh_batch_cache_get_points_with_normals(struct Mesh *me);
 struct Gwn_Batch *DRW_mesh_batch_cache_get_all_verts(struct Mesh *me);
 struct Gwn_Batch *DRW_mesh_batch_cache_get_fancy_edges(struct Mesh *me);
@@ -92,9 +96,15 @@ struct Gwn_Batch *DRW_mesh_batch_cache_get_overlay_loose_edges(struct Mesh *me);
 struct Gwn_Batch *DRW_mesh_batch_cache_get_overlay_loose_edges_nor(struct Mesh *me);
 struct Gwn_Batch *DRW_mesh_batch_cache_get_overlay_loose_verts(struct Mesh *me);
 struct Gwn_Batch *DRW_mesh_batch_cache_get_overlay_facedots(struct Mesh *me);
+/* edit-mesh selection (use generic function for faces) */
+struct Gwn_Batch *DRW_mesh_batch_cache_get_facedots_with_select_id(struct Mesh *me, uint select_id_offset);
+struct Gwn_Batch *DRW_mesh_batch_cache_get_edges_with_select_id(struct Mesh *me, uint select_id_offset);
+struct Gwn_Batch *DRW_mesh_batch_cache_get_verts_with_select_id(struct Mesh *me, uint select_id_offset);
+
+void DRW_mesh_cache_sculpt_coords_ensure(struct Mesh *me);
 
 /* Particles */
-struct Gwn_Batch *DRW_particles_batch_cache_get_hair(struct ParticleSystem *psys);
+struct Gwn_Batch *DRW_particles_batch_cache_get_hair(struct ParticleSystem *psys, struct ModifierData *md);
 struct Gwn_Batch *DRW_particles_batch_cache_get_dots(struct ParticleSystem *psys);
 
 #endif /* __DRAW_CACHE_IMPL_H__ */

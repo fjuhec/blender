@@ -234,7 +234,8 @@ typedef struct View3D {
 	struct GPUFXSettings fx_settings;
 
 	void *properties_storage;		/* Nkey panel stores stuff here (runtime only!) */
-	struct Material *defmaterial;	/* used by matcap now */
+	/* Allocated per view, not library data (used by matcap). */
+	struct Material *defmaterial;
 
 	/* XXX deprecated? */
 	struct bGPdata *gpd  DNA_DEPRECATED;		/* Grease-Pencil Data (annotation layers) */
@@ -324,7 +325,7 @@ typedef struct View3D {
 #define V3D_SOLID_MATCAP		(1 << 12)	/* user flag */
 #define V3D_SHOW_SOLID_MATCAP	(1 << 13)	/* runtime flag */
 #define V3D_OCCLUDE_WIRE		(1 << 14)
-#define V3D_SHADELESS_TEX		(1 << 15)
+#define V3D_SHOW_MODE_SHADE_OVERRIDE	(1 << 15)
 
 
 /* View3d->flag3 (short) */

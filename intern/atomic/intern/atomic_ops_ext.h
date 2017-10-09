@@ -111,6 +111,17 @@ ATOMIC_INLINE size_t atomic_cas_z(size_t *v, size_t old, size_t _new)
 #endif
 }
 
+ATOMIC_INLINE size_t atomic_fetch_and_update_max_z(size_t *p, size_t x)
+{
+	size_t prev_value;
+	while((prev_value = *p) < x) {
+		if(atomic_cas_z(p, prev_value, x) == prev_value) {
+			break;
+		}
+	}
+	return prev_value;
+}
+
 /******************************************************************************/
 /* unsigned operations. */
 ATOMIC_INLINE unsigned int atomic_add_and_fetch_u(unsigned int *p, unsigned int x)
@@ -165,6 +176,18 @@ ATOMIC_INLINE unsigned int atomic_cas_u(unsigned int *v, unsigned int old, unsig
 	return (unsigned int)atomic_cas_uint64((uint64_t *)v, (uint64_t)old, (uint64_t)_new);
 #elif (LG_SIZEOF_INT == 4)
 	return (unsigned int)atomic_cas_uint32((uint32_t *)v, (uint32_t)old, (uint32_t)_new);
+#endif
+}
+
+/******************************************************************************/
+/* Pointer operations. */
+
+ATOMIC_INLINE void *atomic_cas_ptr(void **v, void *old, void *_new)
+{
+#if (LG_SIZEOF_PTR == 8)
+	return (void *)atomic_cas_uint64((uint64_t *)v, *(uint64_t *)&old, *(uint64_t *)&_new);
+#elif (LG_SIZEOF_PTR == 4)
+	return (void *)atomic_cas_uint32((uint32_t *)v, *(uint32_t *)&old, *(uint32_t *)&_new);
 #endif
 }
 

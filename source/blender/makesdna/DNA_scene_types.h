@@ -96,42 +96,6 @@ typedef struct AviCodecData {
 	char			avicodecname[128];
 } AviCodecData;
 
-typedef struct QuicktimeCodecData {
-	/*Old quicktime implementation compatibility fields, read only in 2.5 - deprecated*/
-	void			*cdParms;   /* codec/compressor options */
-	void			*pad;	    /* padding */
-
-	unsigned int	cdSize;		    /* size of cdParms buffer */
-	unsigned int	pad2;		    /* padding */
-
-	char			qtcodecname[128];
-} QuicktimeCodecData;
-	
-typedef struct QuicktimeCodecSettings {
-	/* Codec settings detailed for 2.5 implementation*/
-	int codecType; /* Types defined in quicktime_export.h */
-	int	codecSpatialQuality; /* in 0-100 scale, to be translated in 0-1024 for qt use */
-
-	/* Settings not available in current QTKit API */
-	int	codec;
-	int	codecFlags;
-	int	colorDepth;
-	int	codecTemporalQuality; /* in 0-100 scale, to be translated in 0-1024 for qt use */
-	int	minSpatialQuality; /* in 0-100 scale, to be translated in 0-1024 for qt use */
-	int	minTemporalQuality; /* in 0-100 scale, to be translated in 0-1024 for qt use */
-	int	keyFrameRate;
-	int	bitRate;	/* bitrate in bps */
-	
-	/* Audio Codec settings */
-	int audiocodecType;
-	int audioSampleRate;
-	short audioBitDepth;
-	short audioChannels;
-	int audioCodecFlags;
-	int audioBitRate;
-	int pad1;
-} QuicktimeCodecSettings;
-
 typedef enum FFMpegPreset {
 	FFM_PRESET_NONE,
 	FFM_PRESET_ULTRAFAST,
@@ -453,7 +417,7 @@ typedef struct ImageFormatData {
 #define R_IMF_IMTYPE_AVIJPEG        16
 #define R_IMF_IMTYPE_PNG            17
 /* #define R_IMF_IMTYPE_AVICODEC    18 */ /* avicodec is nomore */
-#define R_IMF_IMTYPE_QUICKTIME      19
+/* #define R_IMF_IMTYPE_QUICKTIME   19 */ /* quicktime is nomore */
 #define R_IMF_IMTYPE_BMP            20
 #define R_IMF_IMTYPE_RADHDR         21
 #define R_IMF_IMTYPE_TIFF           22
@@ -588,8 +552,6 @@ typedef struct RenderData {
 	struct ImageFormatData im_format;
 	
 	struct AviCodecData *avicodecdata;
-	struct QuicktimeCodecData *qtcodecdata;
-	struct QuicktimeCodecSettings qtcodecsettings;
 	struct FFMpegCodecData ffcodecdata;
 
 	int cfra, sfra, efra;	/* frames as in 'images' */
@@ -754,7 +716,7 @@ typedef struct RenderData {
 
 	/* sequencer options */
 	char seq_prev_type;
-	char seq_rend_type;
+	char seq_rend_type;  /* UNUSED! */
 	char seq_flag; /* flag use for sequence render/draw */
 	char pad5[5];
 
@@ -793,13 +755,12 @@ typedef struct RenderData {
 	struct BakeData bake;
 
 	int preview_start_resolution;
+	short preview_pixel_size;
 
 	/* Type of the debug pass to use.
 	 * Only used when built with debug passes support.
 	 */
 	short debug_pass_type;
-
-	short pad;
 
 	/* MultiView */
 	ListBase views;  /* SceneRenderView */
@@ -1160,23 +1121,15 @@ typedef struct UvSculpt {
 /* Vertex Paint */
 typedef struct VPaint {
 	Paint paint;
-
-	short flag, pad;
-	int tot;							/* allocation size of prev buffers */
-	unsigned int *vpaint_prev;			/* previous mesh colors */
-	struct MDeformVert *wpaint_prev;	/* previous vertex weights */
-	
-	void *paintcursor;					/* wm handle */
+	char flag;
+	char pad[3];
+	int radial_symm[3]; /* For mirrored painting */
 } VPaint;
 
 /* VPaint.flag */
 enum {
-	// VP_COLINDEX  = (1 << 0),  /* only paint onto active material*/  /* deprecated since before 2.49 */
-	// VP_AREA      = (1 << 1),  /* deprecated since 2.70 */
-	VP_NORMALS      = (1 << 3),
-	VP_SPRAY        = (1 << 4),
-	// VP_MIRROR_X  = (1 << 5),  /* deprecated in 2.5x use (me->editflag & ME_EDIT_MIRROR_X) */
-	VP_ONLYVGROUP   = (1 << 7)   /* weight paint only */
+	/* weight paint only */
+	VP_FLAG_VGROUP_RESTRICT     = (1 << 7)
 };
 
 /* ------------------------------------------- */
@@ -1661,8 +1614,7 @@ typedef struct Scene {
 	struct Object *obedit;		/* name replaces old G.obedit */
 	
 	float cursor[3];			/* 3d cursor location */
-	float twcent[3];			/* center for transform widget */
-	float twmin[3], twmax[3];	/* boundbox of selection for transform widget */
+	char _pad[4];
 	
 	unsigned int lay;			/* bitflags for layer visibility */
 	int layact;		/* active layer */
@@ -1697,7 +1649,7 @@ typedef struct Scene {
 	void *fps_info;					/* (runtime) info/cache used for presenting playback framerate info to the user */
 	
 	/* none of the dependency graph  vars is mean to be saved */
-	struct Depsgraph *depsgraph;
+	struct Depsgraph *depsgraph_legacy;
 	void *pad1;
 	struct  DagForest *theDag;
 	short dagflags;
@@ -1720,11 +1672,13 @@ typedef struct Scene {
 	/* Physics simulation settings */
 	struct PhysicsSettings physics_settings;
 
-	/* Movie Tracking */
-	struct MovieClip *clip;			/* active movie clip */
+	void *pad6;
 
 	uint64_t customdata_mask;	/* XXX. runtime flag for drawing, actually belongs in the window, only used by BKE_object_handle_update() */
 	uint64_t customdata_mask_modal; /* XXX. same as above but for temp operator use (gl renders) */
+
+	/* Movie Tracking */
+	struct MovieClip *clip;			/* active movie clip */
 
 	/* Color Management */
 	ColorManagedViewSettings view_settings;
@@ -1753,8 +1707,7 @@ typedef struct Scene {
 	/* use preview range */
 #define SCER_PRV_RANGE	(1<<0)
 #define SCER_LOCK_FRAME_SELECTION	(1<<1)
-	/* timeline/keyframe jumping - only selected items (on by default) */
-#define SCE_KEYS_NO_SELONLY	(1<<2)
+	/* show/use subframes (for checking motion blur) */
 #define SCER_SHOW_SUBFRAME	(1<<3)
 
 /* mode (int now) */
@@ -1794,7 +1747,7 @@ typedef struct Scene {
 #define R_USE_WS_SHADING	0x8000000 /* use world space interpretation of lighting data */
 
 /* seq_flag */
-#define R_SEQ_GL_PREV 1
+// #define R_SEQ_GL_PREV 1  // UNUSED, we just use setting from seq_prev_type now.
 // #define R_SEQ_GL_REND 2  // UNUSED, opengl render has its own operator now.
 #define R_SEQ_SOLID_TEX 4
 
@@ -1941,16 +1894,18 @@ extern const char *RE_engine_id_CYCLES;
 /* **************** SCENE ********************* */
 
 /* note that much higher maxframes give imprecise sub-frames, see: T46859 */
+/* Current precision is 16 for the sub-frames closer to MAXFRAME. */
+
 /* for general use */
-#define MAXFRAME	500000
-#define MAXFRAMEF	500000.0f
+#define MAXFRAME	1048574
+#define MAXFRAMEF	1048574.0f
 
 #define MINFRAME	0
 #define MINFRAMEF	0.0f
 
 /* (minimum frame number for current-frame) */
-#define MINAFRAME	-500000
-#define MINAFRAMEF	-500000.0f
+#define MINAFRAME	-1048574
+#define MINAFRAMEF	-1048574.0f
 
 /* depricate this! */
 #define TESTBASE(v3d, base)  (                                                \
@@ -1982,10 +1937,10 @@ extern const char *RE_engine_id_CYCLES;
 #define BASACT			(scene->basact)
 #define OBACT			(BASACT ? BASACT->object: NULL)
 
-#define FIRSTBASE_NEW	(sl)->object_bases.first
-#define LASTBASE_NEW	(sl)->object_bases.last
-#define BASACT_NEW		((sl)->basact)
-#define OBACT_NEW		(BASACT_NEW ? BASACT_NEW->object: NULL)
+#define FIRSTBASE_NEW(_sl)  ((_sl)->object_bases.first)
+#define LASTBASE_NEW(_sl)   ((_sl)->object_bases.last)
+#define BASACT_NEW(_sl)     ((_sl)->basact)
+#define OBACT_NEW(_sl)      (BASACT_NEW(_sl) ? BASACT_NEW(_sl)->object: NULL)
 
 #define V3D_CAMERA_LOCAL(v3d) ((!(v3d)->scenelock && (v3d)->camera) ? (v3d)->camera : NULL)
 #define V3D_CAMERA_SCENE(scene, v3d) ((!(v3d)->scenelock && (v3d)->camera) ? (v3d)->camera : (scene)->camera)
@@ -2091,6 +2046,7 @@ typedef enum eVGroupSelect {
 #define SCE_DS_COLLAPSED		(1<<1)
 #define SCE_NLA_EDIT_ON			(1<<2)
 #define SCE_FRAME_DROP			(1<<3)
+#define SCE_KEYS_NO_SELONLY	    (1<<4)
 
 
 	/* return flag BKE_scene_base_iter_next functions */

@@ -257,12 +257,13 @@ void DEG_graph_tag_relations_update(Depsgraph *graph)
 /* Tag all relations for update. */
 void DEG_relations_tag_update(Main *bmain)
 {
+	DEG_DEBUG_PRINTF("%s: Tagging relations for update.\n", __func__);
 	for (Scene *scene = (Scene *)bmain->scene.first;
 	     scene != NULL;
 	     scene = (Scene *)scene->id.next)
 	{
-		if (scene->depsgraph != NULL) {
-			DEG_graph_tag_relations_update(scene->depsgraph);
+		if (scene->depsgraph_legacy != NULL) {
+			DEG_graph_tag_relations_update(scene->depsgraph_legacy);
 		}
 	}
 }
@@ -272,23 +273,18 @@ void DEG_relations_tag_update(Main *bmain)
  */
 void DEG_scene_relations_update(Main *bmain, Scene *scene)
 {
-	if (scene->depsgraph == NULL) {
+	if (scene->depsgraph_legacy == NULL) {
 		/* Rebuild graph from scratch and exit. */
-		scene->depsgraph = DEG_graph_new();
-		DEG_graph_build_from_scene(scene->depsgraph, bmain, scene);
+		scene->depsgraph_legacy = DEG_graph_new();
+		DEG_graph_build_from_scene(scene->depsgraph_legacy, bmain, scene);
 		return;
 	}
 
-	DEG::Depsgraph *graph = reinterpret_cast<DEG::Depsgraph *>(scene->depsgraph);
+	DEG::Depsgraph *graph = reinterpret_cast<DEG::Depsgraph *>(scene->depsgraph_legacy);
 	if (!graph->need_update) {
 		/* Graph is up to date, nothing to do. */
 		return;
 	}
-
-	/* Clear all previous nodes and operations. */
-	graph->clear_all_nodes();
-	graph->operations.clear();
-	BLI_gset_clear(graph->entry_tags, NULL);
 
 	/* Build new nodes and relations. */
 	DEG_graph_build_from_scene(reinterpret_cast< ::Depsgraph * >(graph),
@@ -301,17 +297,17 @@ void DEG_scene_relations_update(Main *bmain, Scene *scene)
 /* Rebuild dependency graph only for a given scene. */
 void DEG_scene_relations_rebuild(Main *bmain, Scene *scene)
 {
-	if (scene->depsgraph != NULL) {
-		DEG_graph_tag_relations_update(scene->depsgraph);
+	if (scene->depsgraph_legacy != NULL) {
+		DEG_graph_tag_relations_update(scene->depsgraph_legacy);
 	}
 	DEG_scene_relations_update(bmain, scene);
 }
 
 void DEG_scene_graph_free(Scene *scene)
 {
-	if (scene->depsgraph) {
-		DEG_graph_free(scene->depsgraph);
-		scene->depsgraph = NULL;
+	if (scene->depsgraph_legacy) {
+		DEG_graph_free(scene->depsgraph_legacy);
+		scene->depsgraph_legacy = NULL;
 	}
 }
 
@@ -348,7 +344,7 @@ void DEG_add_forcefield_relations(DepsNodeHandle *handle,
                                   int skip_forcefield,
                                   const char *name)
 {
-	ListBase *effectors = pdInitEffectors(scene, ob, NULL, effector_weights, false);
+	ListBase *effectors = pdInitEffectors(NULL, scene, ob, NULL, effector_weights, false);
 
 	if (effectors) {
 		for (EffectorCache *eff = (EffectorCache*)effectors->first; eff; eff = eff->next) {

@@ -57,6 +57,7 @@
 
 #include "ED_armature.h"
 #include "ED_gpencil.h"
+#include "ED_anim_api.h"
 
 #include "WM_api.h"
 #include "UI_interface.h"
@@ -78,7 +79,7 @@ const char *screen_context_dir[] = {
 	"visible_gpencil_layers", "editable_gpencil_layers", "editable_gpencil_strokes",
 	"active_gpencil_layer", "active_gpencil_frame", "active_gpencil_palette", 
 	"active_gpencil_palettecolor", "active_gpencil_brush",
-	"active_operator",
+	"active_operator", "selected_editable_fcurves",
 	NULL};
 
 int ed_screen_context(const bContext *C, const char *member, bContextDataResult *result)
@@ -87,9 +88,8 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 	bScreen *sc = CTX_wm_screen(C);
 	ScrArea *sa = CTX_wm_area(C);
 	Scene *scene = WM_window_get_active_scene(win);
-	/* can't call BKE_scene_layer_context_active here, it uses G.main->wm which might be NULL on file read. */
 	WorkSpace *workspace = BKE_workspace_active_get(win->workspace_hook);
-	SceneLayer *sl = BKE_workspace_render_layer_get(workspace);
+	SceneLayer *sl = BKE_scene_layer_from_workspace_get(workspace);
 	Object *obedit = scene->obedit;
 	Object *obact = sl->basact ? sl->basact->object : NULL;
 
@@ -607,6 +607,29 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 
 		if (op && op->ptr) {
 			CTX_data_pointer_set(result, NULL, &RNA_Operator, op);
+			return 1;
+		}
+	}
+	else if (CTX_data_equals(member, "selected_editable_fcurves")) {
+		bAnimContext ac;
+
+		if (ANIM_animdata_get_context(C, &ac) && ELEM(ac.spacetype, SPACE_ACTION, SPACE_IPO)) {
+			bAnimListElem *ale;
+			ListBase anim_data = {NULL, NULL};
+
+			int filter = (ANIMFILTER_DATA_VISIBLE | ANIMFILTER_FOREDIT | ANIMFILTER_NODUPLIS | ANIMFILTER_SEL) |
+			             (ac.spacetype == SPACE_IPO ? ANIMFILTER_CURVE_VISIBLE : ANIMFILTER_LIST_VISIBLE);
+
+			ANIM_animdata_filter(&ac, &anim_data, filter, ac.data, ac.datatype);
+
+			for (ale = anim_data.first; ale; ale = ale->next) {
+				if (ale->type == ANIMTYPE_FCURVE)
+					CTX_data_list_add(result, ale->id, &RNA_FCurve, ale->data);
+			}
+
+			ANIM_animdata_freelist(&anim_data);
+
+			CTX_data_type_set(result, CTX_DATA_TYPE_COLLECTION);
 			return 1;
 		}
 	}

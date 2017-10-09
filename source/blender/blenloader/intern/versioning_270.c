@@ -60,6 +60,7 @@
 #include "DNA_genfile.h"
 
 #include "BKE_animsys.h"
+#include "BKE_brush.h"
 #include "BKE_colortools.h"
 #include "BKE_library.h"
 #include "BKE_main.h"
@@ -1236,12 +1237,19 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 
 			SEQ_BEGIN (scene->ed, seq)
 			{
-				if (seq->type == SEQ_TYPE_TEXT) {
-					TextVars *data = seq->effectdata;
-					if (data->color[3] == 0.0f) {
-						copy_v4_fl(data->color, 1.0f);
-						data->shadow_color[3] = 1.0f;
-					}
+				if (seq->type != SEQ_TYPE_TEXT) {
+					continue;
+				}
+
+				if (seq->effectdata == NULL) {
+					struct SeqEffectHandle effect_handle = BKE_sequence_get_effect(seq);
+					effect_handle.init(seq);
+				}
+
+				TextVars *data = seq->effectdata;
+				if (data->color[3] == 0.0f) {
+					copy_v4_fl(data->color, 1.0f);
+					data->shadow_color[3] = 1.0f;
 				}
 			}
 			SEQ_END
@@ -1652,7 +1660,7 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 		} FOREACH_NODETREE_END
 	}
 
-	{
+	if (!MAIN_VERSION_ATLEAST(main, 279, 0)) {
 		for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
 			if (scene->r.im_format.exr_codec == R_IMF_EXR_CODEC_DWAB) {
 				scene->r.im_format.exr_codec = R_IMF_EXR_CODEC_DWAA;
@@ -1685,12 +1693,44 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 			}
 		}
 	}
+
+	{
+		/* Fix for invalid state of screen due to bug in older versions. */
+		for (bScreen *sc = main->screen.first; sc; sc = sc->id.next) {
+			for (ScrArea *sa = sc->areabase.first; sa; sa = sa->next) {
+				if (sa->full && sc->state == SCREENNORMAL) {
+					sa->full = NULL;
+				}
+			}
+		}
+
+		if (!DNA_struct_elem_find(fd->filesdna, "Brush", "float", "falloff_angle")) {
+			for (Brush *br = main->brush.first; br; br = br->id.next) {
+				br->falloff_angle = DEG2RADF(80);
+				br->flag &= ~(
+				        BRUSH_FLAG_DEPRECATED_1 | BRUSH_FLAG_DEPRECATED_2 |
+				        BRUSH_FLAG_DEPRECATED_3 | BRUSH_FLAG_DEPRECATED_4 |
+				        BRUSH_FRONTFACE_FALLOFF);
+			}
+
+			for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
+				ToolSettings *ts = scene->toolsettings;
+				for (int i = 0; i < 2; i++) {
+					VPaint *vp = i ? ts->vpaint : ts->wpaint;
+					if (vp != NULL) {
+						/* remove all other flags */
+						vp->flag &= (VP_FLAG_VGROUP_RESTRICT);
+					}
+				}
+			}
+		}
+	}
 }
 
 void do_versions_after_linking_270(Main *main)
 {
 	/* To be added to next subversion bump! */
-	{
+	if (!MAIN_VERSION_ATLEAST(main, 279, 0)) {
 		FOREACH_NODETREE(main, ntree, id) {
 			if (ntree->type == NTREE_COMPOSIT) {
 				ntreeSetTypes(NULL, ntree);

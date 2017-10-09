@@ -212,6 +212,8 @@ enum {
 	UI_BUT_ALIGN_STITCH_TOP  = (1 << 18),
 	UI_BUT_ALIGN_STITCH_LEFT = (1 << 19),
 	UI_BUT_ALIGN_ALL         = (UI_BUT_ALIGN | UI_BUT_ALIGN_STITCH_TOP | UI_BUT_ALIGN_STITCH_LEFT),
+
+	UI_BUT_BOX_ITEM          = (1 << 20), /* This but is "inside" a box item (currently used to change theme colors). */
 };
 
 /* scale fixed button widths by this to account for DPI */
@@ -956,7 +958,11 @@ void uiTemplateHeader3D(uiLayout *layout, struct bContext *C);
 void uiTemplateEditModeSelection(uiLayout *layout, struct bContext *C);
 void uiTemplateReportsBanner(uiLayout *layout, struct bContext *C);
 void uiTemplateKeymapItemProperties(uiLayout *layout, struct PointerRNA *ptr);
-void uiTemplateOverrideProperty(uiLayout *layout, struct PointerRNA *collection_props_ptr, struct PointerRNA *scene_props_ptr, const char *name, const char *custom_template);
+void uiTemplateOverrideProperty(
+        uiLayout *layout, struct PointerRNA *collection_props_ptr, struct PointerRNA *scene_props_ptr,
+        const char *propname,
+        const char *name, const char *text_ctxt, int translate, int icon,
+        const char *custom_template);
 void uiTemplateComponentMenu(uiLayout *layout, struct PointerRNA *ptr, const char *propname, const char *name);
 void uiTemplateNodeSocket(uiLayout *layout, struct bContext *C, float *color);
 void uiTemplateCacheFile(uiLayout *layout, struct bContext *C, struct PointerRNA *ptr, const char *propname);
@@ -1007,7 +1013,7 @@ void uiItemsFullEnumO(
         struct IDProperty *properties, int context, int flag);
 void uiItemsFullEnumO_items(
         uiLayout *layout, struct wmOperatorType *ot, PointerRNA ptr, PropertyRNA *prop,
-        IDProperty *properties, int context, int flag,
+        struct IDProperty *properties, int context, int flag,
         const EnumPropertyItem *item_array, int totitem);
 
 void uiItemL(uiLayout *layout, const char *name, int icon); /* label */
@@ -1097,7 +1103,7 @@ void UI_butstore_unregister(uiButStore *bs_handle, uiBut **but_p);
 
 
 /* Float precision helpers */
-#define UI_PRECISION_FLOAT_MAX 7
+#define UI_PRECISION_FLOAT_MAX 6
 /* For float buttons the 'step' (or a1), is scaled */
 #define UI_PRECISION_FLOAT_SCALE 0.01f
 

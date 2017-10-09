@@ -92,7 +92,9 @@ static void EDIT_ARMATURE_cache_init(void *vedata)
 
 	{
 		/* Non Meshes Pass (Camera, empties, lamps ...) */
-		DRWState state = DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS | DRW_STATE_BLEND | DRW_STATE_WIRE;
+		DRWState state =
+		        DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS |
+		        DRW_STATE_BLEND | DRW_STATE_WIRE;
 		psl->relationship = DRW_pass_create("Bone Relationship Pass", state);
 
 		/* Relationship Lines */
@@ -118,11 +120,16 @@ static void EDIT_ARMATURE_cache_populate(void *vedata, Object *ob)
 static void EDIT_ARMATURE_draw_scene(void *vedata)
 {
 	EDIT_ARMATURE_PassList *psl = ((EDIT_ARMATURE_Data *)vedata)->psl;
+	DefaultFramebufferList *dfbl = DRW_viewport_framebuffer_list_get();
+
+	MULTISAMPLE_SYNC_ENABLE(dfbl)
 
 	DRW_draw_pass(psl->bone_envelope);
 	DRW_draw_pass(psl->bone_solid);
 	DRW_draw_pass(psl->bone_wire);
 	DRW_draw_pass(psl->relationship);
+
+	MULTISAMPLE_SYNC_DISABLE(dfbl)
 }
 
 #if 0
@@ -145,5 +152,6 @@ DrawEngineType draw_engine_edit_armature_type = {
 	&EDIT_ARMATURE_cache_populate,
 	NULL,
 	NULL,
-	&EDIT_ARMATURE_draw_scene
+	&EDIT_ARMATURE_draw_scene,
+	NULL,
 };

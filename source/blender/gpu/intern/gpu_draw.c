@@ -446,8 +446,6 @@ static void gpu_verify_high_bit_srgb_buffer_slice(float *srgb_frect,
 	                            ibuf->x, height,
 	                            ibuf->x, ibuf->x);
 	IMB_buffer_float_unpremultiply(current_srgb_frect, ibuf->x, height);
-	/* Clamp buffer colors to 1.0 to avoid artifacts due to glu for hdr images. */
-	IMB_buffer_float_clamp(current_srgb_frect, ibuf->x, height);
 }
 
 static void verify_thread_do(void *data_v,
@@ -581,10 +579,10 @@ int GPU_verify_image(
 				if (do_color_management) {
 					srgb_frect = MEM_mallocN(ibuf->x * ibuf->y * sizeof(float) * 4, "floar_buf_col_cor");
 					gpu_verify_high_bit_srgb_buffer(srgb_frect, ibuf);
-					frect = srgb_frect + texwinsy * ibuf->x + texwinsx;
+					frect = srgb_frect + (4 * (texwinsy * ibuf->x + texwinsx));
 				}
 				else {
-					frect = ibuf->rect_float + texwinsy * ibuf->x + texwinsx;
+					frect = ibuf->rect_float + (ibuf->channels * (texwinsy * ibuf->x + texwinsx));
 				}
 			}
 			else {
@@ -1282,7 +1280,7 @@ void GPU_create_smoke(SmokeModifierData *smd, int highres)
 			}
 			sds->tex_flame = (smoke_turbulence_has_fuel(sds->wt)) ?
 			                  GPU_texture_create_3D_custom(sds->res_wt[0], sds->res_wt[1], sds->res_wt[2], 1,
-			                                               GPU_R8, smoke_turbulence_get_flame(sds->wt), NULL):
+			                                               GPU_R8, smoke_turbulence_get_flame(sds->wt), NULL) :
 			                  NULL;
 		}
 
@@ -2025,7 +2023,7 @@ int GPU_scene_object_lights(SceneLayer *sl, float viewmat[4][4], int ortho)
 
 	int count = 0;
 
-	for (Base *base = FIRSTBASE_NEW; base; base = base->next) {
+	for (Base *base = FIRSTBASE_NEW(sl); base; base = base->next) {
 		if (base->object->type != OB_LAMP)
 			continue;
 
@@ -2427,7 +2425,8 @@ void gpuPushAttrib(eGPUAttribMask mask)
 	AttribStack.top++;
 }
 
-static void restore_mask(GLenum cap, const bool value) {
+static void restore_mask(GLenum cap, const bool value)
+{
 	if (value) {
 		glEnable(cap);
 	}

@@ -53,9 +53,9 @@ extern "C" {
 #  include "intern/eval/deg_eval_copy_on_write.h"
 #endif
 
-bool DEG_id_type_tagged(Main *bmain, short idtype)
+bool DEG_id_type_tagged(Main *bmain, short id_type)
 {
-	return bmain->id_tag_update[BKE_idcode_to_index(idtype)] != 0;
+	return bmain->id_tag_update[BKE_idcode_to_index(id_type)] != 0;
 }
 
 short DEG_get_eval_flags_for_id(Depsgraph *graph, ID *id)
@@ -81,32 +81,39 @@ short DEG_get_eval_flags_for_id(Depsgraph *graph, ID *id)
 	return id_node->eval_flags;
 }
 
-Scene *DEG_get_scene(Depsgraph *graph)
+Scene *DEG_get_evaluated_scene(Depsgraph *graph)
 {
 	DEG::Depsgraph *deg_graph = reinterpret_cast<DEG::Depsgraph *>(graph);
 	Scene *scene_orig = deg_graph->scene;
 	return reinterpret_cast<Scene *>(deg_graph->get_cow_id(&scene_orig->id));
 }
 
-SceneLayer *DEG_get_scene_layer(Depsgraph *graph)
+SceneLayer *DEG_get_evaluated_scene_layer(Depsgraph *graph)
 {
-	Scene *scene = DEG_get_scene(graph);
-	if (scene) {
-		return BKE_scene_layer_render_active(scene);
+	Scene *scene = DEG_get_evaluated_scene(graph);
+	if (scene != NULL) {
+		return BKE_scene_layer_context_active_PLACEHOLDER(scene);
 	}
 	return NULL;
 }
 
-Object *DEG_get_object(Depsgraph *depsgraph, Object *ob)
+Object *DEG_get_evaluated_object(Depsgraph *depsgraph, Object *object)
 {
-	DEG::Depsgraph *deg_graph = reinterpret_cast<DEG::Depsgraph *>(depsgraph);
-	return (Object *)deg_graph->get_cow_id(&ob->id);
+	return (Object *)DEG_get_evaluated_id(depsgraph, &object->id);
 }
 
 ID *DEG_get_evaluated_id(struct Depsgraph *depsgraph, ID *id)
 {
-	DEG::Depsgraph *deg_graph = reinterpret_cast<DEG::Depsgraph *>(depsgraph);
-	return deg_graph->get_cow_id(id);
+	/* TODO(sergey): This is a duplicate of Depsgraph::get_cow_id(),
+	 * but here we never do assert, since we don't know nature of the
+	 * incoming ID datablock.
+	 */
+	DEG::Depsgraph *deg_graph = (DEG::Depsgraph *)depsgraph;
+	DEG::IDDepsNode *id_node = deg_graph->find_id_node(id);
+	if (id_node == NULL) {
+		return id;
+	}
+	return id_node->id_cow;
 }
 
 /* ************************ DAG ITERATORS ********************* */
@@ -116,12 +123,12 @@ ID *DEG_get_evaluated_id(struct Depsgraph *depsgraph, ID *id)
 void DEG_objects_iterator_begin(BLI_Iterator *iter, DEGObjectsIteratorData *data)
 {
 	Depsgraph *graph = data->graph;
-	SceneLayer *scene_layer = DEG_get_scene_layer(graph);
+	SceneLayer *scene_layer = DEG_get_evaluated_scene_layer(graph);
 
 	iter->data = data;
 	iter->valid = true;
 
-	data->scene = DEG_get_scene(graph);
+	data->scene = DEG_get_evaluated_scene(graph);
 	DEG_evaluation_context_init(&data->eval_ctx, DAG_EVAL_RENDER);
 
 	/* TODO(sergey): It's really confusing to store pointer to a local data. */
@@ -204,33 +211,29 @@ void DEG_objects_iterator_next(BLI_Iterator *iter)
 	}
 
 	base = data->base->next;
-	while (base != NULL) {
-		if ((base->flag & BASE_VISIBLED) != 0) {
-			// Object *ob = DEG_get_object(data->graph, base->object);
-			Object *ob = base->object;
-			iter->current = ob;
-			data->base = base;
+	if (base != NULL) {
+		// Object *ob = DEG_get_evaluated_object(data->graph, base->object);
+		Object *ob = base->object;
+		iter->current = ob;
+		data->base = base;
 
-			BLI_assert(DEG::deg_validate_copy_on_write_datablock(&ob->id));
+		BLI_assert(DEG::deg_validate_copy_on_write_datablock(&ob->id));
 
-			/* Make sure we have the base collection settings is already populated.
-			 * This will fail when BKE_layer_eval_layer_collection_pre hasn't run yet
-			 * Which usually means a missing call to DAG_id_tag_update(). */
-			BLI_assert(!BLI_listbase_is_empty(&base->collection_properties->data.group));
+		/* Make sure we have the base collection settings is already populated.
+		 * This will fail when BKE_layer_eval_layer_collection_pre hasn't run yet
+		 * Which usually means a missing call to DEG_id_tag_update(). */
+		BLI_assert(!BLI_listbase_is_empty(&base->collection_properties->data.group));
 
-			/* Flushing depsgraph data. */
-			deg_flush_base_flags_and_settings(ob,
-			                                  base,
-			                                  data->base_flag);
+		/* Flushing depsgraph data. */
+		deg_flush_base_flags_and_settings(
+		        ob, base, data->base_flag);
 
-			if ((data->flag & DEG_OBJECT_ITER_FLAG_DUPLI) && (ob->transflag & OB_DUPLI)) {
-				data->dupli_parent = ob;
-				data->dupli_list = object_duplilist(&data->eval_ctx, data->scene, ob);
-				data->dupli_object_next = (DupliObject *)data->dupli_list->first;
-			}
-			return;
+		if ((data->flag & DEG_OBJECT_ITER_FLAG_DUPLI) && (ob->transflag & OB_DUPLI)) {
+			data->dupli_parent = ob;
+			data->dupli_list = object_duplilist(&data->eval_ctx, data->scene, ob);
+			data->dupli_object_next = (DupliObject *)data->dupli_list->first;
 		}
-		base = base->next;
+		return;
 	}
 
 	/* Look for an object in the next set. */
@@ -240,7 +243,7 @@ void DEG_objects_iterator_next(BLI_Iterator *iter)
 		data->base_flag = ~(BASE_SELECTED | BASE_SELECTABLED);
 
 		/* For the sets we use the layer used for rendering. */
-		scene_layer = BKE_scene_layer_render_active(data->scene);
+		scene_layer = BKE_scene_layer_from_scene_get(data->scene);
 
 		/* TODO(sergey): It's really confusing to store pointer to a local data. */
 		Base base = {(Base *)scene_layer->object_bases.first, NULL};

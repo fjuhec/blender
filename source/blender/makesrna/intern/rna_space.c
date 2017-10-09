@@ -852,7 +852,7 @@ static int rna_SpaceImageEditor_show_maskedit_get(PointerRNA *ptr)
 	SpaceImage *sima = (SpaceImage *)(ptr->data);
 	bScreen *sc = (bScreen *)ptr->id.data;
 	Scene *scene = ED_screen_scene_find(sc, G.main->wm.first);
-	SceneLayer *sl = BKE_scene_layer_context_active(scene);
+	SceneLayer *sl = BKE_scene_layer_context_active_PLACEHOLDER(scene);
 
 	return ED_space_image_check_show_maskedit(sl, sima);
 }
@@ -1084,6 +1084,8 @@ static void rna_SpaceProperties_pin_id_update(Main *UNUSED(bmain), Scene *UNUSED
 		case ID_LA:
 			WM_main_add_notifier(NC_LAMP, NULL);
 			break;
+		default:
+			break;
 	}
 }
 
@@ -1304,11 +1306,12 @@ static void rna_SpaceDopeSheetEditor_action_set(PointerRNA *ptr, PointerRNA valu
 	}
 }
 
-static void rna_SpaceDopeSheetEditor_action_update(Main *bmain, bContext *C, Scene *UNUSED(scene), PointerRNA *ptr)
+static void rna_SpaceDopeSheetEditor_action_update(bContext *C, PointerRNA *ptr)
 {
 	SpaceAction *saction = (SpaceAction *)(ptr->data);
 	SceneLayer *sl = CTX_data_scene_layer(C);
-	Object *obact = OBACT_NEW;
+	Main *bmain = CTX_data_main(C);
+	Object *obact = OBACT_NEW(sl);
 
 	/* we must set this action to be the one used by active object (if not pinned) */
 	if (obact /* && saction->pin == 0*/) {
@@ -1384,7 +1387,7 @@ static void rna_SpaceDopeSheetEditor_mode_update(bContext *C, PointerRNA *ptr)
 {
 	SpaceAction *saction = (SpaceAction *)(ptr->data);
 	SceneLayer *sl = CTX_data_scene_layer(C);
-	Object *obact = OBACT_NEW;
+	Object *obact = OBACT_NEW(sl);
 
 	/* special exceptions for ShapeKey Editor mode */
 	if (saction->mode == SACTCONT_SHAPEKEY) {
@@ -2621,9 +2624,9 @@ static void rna_def_space_view3d(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Backface Culling", "Use back face culling to hide the back side of faces");
 	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, NULL);
 
-	prop = RNA_def_property(srna, "show_textured_shadeless", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag2", V3D_SHADELESS_TEX);
-	RNA_def_property_ui_text(prop, "Shadeless", "Show shadeless texture without lighting in textured draw mode");
+	prop = RNA_def_property(srna, "show_mode_shade_override", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag2", V3D_SHOW_MODE_SHADE_OVERRIDE);
+	RNA_def_property_ui_text(prop, "Full Shading", "Use full shading for mode drawing (to view final result)");
 	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, NULL);
 
 	prop = RNA_def_property(srna, "show_occlude_wire", PROP_BOOLEAN, PROP_NONE);
@@ -2884,6 +2887,16 @@ static void rna_def_space_view3d(BlenderRNA *brna)
 	RNA_def_property_boolean_sdna(prop, NULL, "is_persp", 1);
 	RNA_def_property_ui_text(prop, "Is Perspective", "");
 	RNA_def_property_flag(prop, PROP_EDITABLE);
+
+	/* This isn't directly accessible from the UI, only an operator. */
+	prop = RNA_def_property(srna, "use_clip_planes", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "rflag", RV3D_CLIPPING);
+	RNA_def_property_ui_text(prop, "Use Clip Planes", "");
+
+	prop = RNA_def_property(srna, "clip_planes", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_sdna(prop, NULL, "clip");
+	RNA_def_property_multi_array(prop, 2, (int[]){6, 4});
+	RNA_def_property_ui_text(prop, "Clip Planes", "");
 
 	prop = RNA_def_property(srna, "view_location", PROP_FLOAT, PROP_TRANSLATION);
 #if 0
@@ -4654,7 +4667,7 @@ static void rna_def_space_clip(BlenderRNA *brna)
 	/* path length */
 	prop = RNA_def_property(srna, "path_length", PROP_INT, PROP_NONE);
 	RNA_def_property_int_sdna(prop, NULL, "path_length");
-	RNA_def_property_range(prop, 0, 50);
+	RNA_def_property_range(prop, 0, INT_MAX);
 	RNA_def_property_ui_text(prop, "Path Length", "Length of displaying path, in frames");
 	RNA_def_property_update(prop, NC_SPACE | ND_SPACE_CLIP, NULL);
 

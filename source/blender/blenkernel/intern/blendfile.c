@@ -117,6 +117,7 @@ static void setup_app_data(
         const char *filepath, ReportList *reports)
 {
 	Scene *curscene = NULL;
+	const bool is_startup = (bfd->filename[0] == '\0');
 	const bool recover = (G.fileflags & G_FILE_RECOVER) != 0;
 	enum {
 		LOAD_UI = 1,
@@ -132,7 +133,7 @@ static void setup_app_data(
 	else if (BLI_listbase_is_empty(&bfd->main->screen)) {
 		mode = LOAD_UNDO;
 	}
-	else if (G.fileflags & G_FILE_NO_UI) {
+	else if ((G.fileflags & G_FILE_NO_UI) && (is_startup == false)) {
 		mode = LOAD_UI_OFF;
 	}
 	else {
@@ -193,7 +194,7 @@ static void setup_app_data(
 		}
 		if (cur_render_layer == NULL) {
 			/* fallback to scene layer */
-			cur_render_layer = BKE_scene_layer_render_active(curscene);
+			cur_render_layer = BKE_scene_layer_from_scene_get(curscene);
 		}
 
 		if (track_undo_scene) {
@@ -217,6 +218,13 @@ static void setup_app_data(
 				curscene = bfd->curscene;
 				BKE_screen_view3d_scene_sync(curscreen, curscene);
 			}
+		}
+
+		/* We need to tag this here because events may be handled immediately after.
+		 * only the current screen is important because we wont have to handle
+		 * events from multiple screens at once.*/
+		{
+			BKE_screen_manipulator_tag_refresh(curscreen);
 		}
 	}
 
@@ -257,7 +265,9 @@ static void setup_app_data(
 		CTX_data_scene_set(C, curscene);
 	}
 	else {
-		G.fileflags = bfd->fileflags;
+		/* Keep state from preferences. */
+		const int fileflags_skip = G_FILE_FLAGS_RUNTIME;
+		G.fileflags = (G.fileflags & fileflags_skip) | (bfd->fileflags & ~fileflags_skip);
 		CTX_wm_manager_set(C, G.main->wm.first);
 		CTX_wm_screen_set(C, bfd->curscreen);
 		CTX_data_scene_set(C, bfd->curscene);
@@ -333,20 +343,19 @@ static void setup_app_data(
 		}
 	}
 
-	if (mode == LOAD_UI_OFF && BLI_listbase_is_empty(&G.main->wm)) {
-		/* XXX prevent crash in pdInitEffectors called through DEG_scene_relations_rebuild (see T51794).
-		 * Can be removed once BKE_scene_layer_context_active_ex gets workspace passed. */
-		BLI_addhead(&G.main->wm, CTX_wm_manager(C));
-		BKE_scene_set_background(G.main, curscene);
-		BLI_listbase_clear(&G.main->wm);
-	}
-	else {
-		BKE_scene_set_background(G.main, curscene);
+	/* Setting scene might require having a dependency graph, with copy on write
+	 * we need to make sure we ensure scene has correct color management before
+	 * constructing dependency graph.
+	 */
+	if (mode != LOAD_UNDO) {
+		IMB_colormanagement_check_file_config(G.main);
 	}
 
+	BKE_scene_set_background(G.main, curscene);
+
 	if (mode != LOAD_UNDO) {
+		/* TODO(sergey): Can this be also move above? */
 		RE_FreeAllPersistentData();
-		IMB_colormanagement_check_file_config(G.main);
 	}
 
 	MEM_freeN(bfd);

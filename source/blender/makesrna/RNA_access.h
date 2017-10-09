@@ -132,6 +132,7 @@ extern StructRNA RNA_CompositorNodeCombRGBA;
 extern StructRNA RNA_CompositorNodeCombYCCA;
 extern StructRNA RNA_CompositorNodeCombYUVA;
 extern StructRNA RNA_CompositorNodeComposite;
+extern StructRNA RNA_CompositorNodeCornerPin;
 extern StructRNA RNA_CompositorNodeCrop;
 extern StructRNA RNA_CompositorNodeCurveRGB;
 extern StructRNA RNA_CompositorNodeCurveVec;
@@ -175,6 +176,7 @@ extern StructRNA RNA_CompositorNodeSepYCCA;
 extern StructRNA RNA_CompositorNodeSepYUVA;
 extern StructRNA RNA_CompositorNodeSetAlpha;
 extern StructRNA RNA_CompositorNodeSplitViewer;
+extern StructRNA RNA_CompositorNodeSunBeams;
 extern StructRNA RNA_CompositorNodeSwitchView;
 extern StructRNA RNA_CompositorNodeTexture;
 extern StructRNA RNA_CompositorNodeTime;
@@ -497,7 +499,6 @@ extern StructRNA RNA_PropertyGroupItem;
 extern StructRNA RNA_PropertySensor;
 extern StructRNA RNA_PythonConstraint;
 extern StructRNA RNA_PythonController;
-extern StructRNA RNA_QuickTimeSettings;
 extern StructRNA RNA_RadarSensor;
 extern StructRNA RNA_RandomSensor;
 extern StructRNA RNA_RaySensor;
@@ -796,6 +797,9 @@ FunctionRNA *RNA_struct_find_function(StructRNA *srna, const char *identifier);
 const struct ListBase *RNA_struct_type_functions(StructRNA *srna);
 
 char *RNA_struct_name_get_alloc(PointerRNA *ptr, char *fixedbuf, int fixedlen, int *r_len);
+
+bool RNA_struct_available_or_report(struct ReportList *reports, const char *identifier);
+bool RNA_struct_bl_idname_ok_or_report(struct ReportList *reports, const char *identifier, const char *sep);
 
 /* Properties
  *
@@ -1197,6 +1201,10 @@ int RNA_function_call_direct_va(struct bContext *C, struct ReportList *reports, 
 int RNA_function_call_direct_va_lookup(struct bContext *C, struct ReportList *reports, PointerRNA *ptr,
                                        const char *identifier, const char *format, va_list args);
 
+const char *RNA_translate_ui_text(const char *text, const char *text_ctxt,
+                                  struct StructRNA *type, struct PropertyRNA *prop,
+                                  int translate);
+
 /* ID */
 
 short RNA_type_to_ID_code(const StructRNA *type);
@@ -1211,7 +1219,7 @@ StructRNA *ID_code_to_RNA_type(short idcode);
 } (void)0
 
 /* macro which inserts the function name */
-#if defined __GNUC__ || defined __sun
+#if defined __GNUC__
 #  define RNA_warning(format, args ...) _RNA_warning("%s: " format "\n", __func__, ##args)
 #else
 #  define RNA_warning(format, ...) _RNA_warning("%s: " format "\n", __FUNCTION__, __VA_ARGS__)

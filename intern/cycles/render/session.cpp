@@ -46,7 +46,7 @@ Session::Session(const SessionParams& params_)
 : params(params_),
   tile_manager(params.progressive, params.samples, params.tile_size, params.start_resolution,
        params.background == false || params.progressive_refine, params.background, params.tile_order,
-       max(params.device.multi_devices.size(), 1)),
+       max(params.device.multi_devices.size(), 1), params.pixel_size),
   stats()
 {
 	device_use_gl = ((params.device.type != DEVICE_CPU) && !params.background);
@@ -384,7 +384,6 @@ bool Session::acquire_tile(Device *tile_device, RenderTile& rtile)
 		tile_manager.state.buffer.get_offset_stride(rtile.offset, rtile.stride);
 
 		rtile.buffer = buffers->buffer.device_pointer;
-		rtile.rng_state = buffers->rng_state.device_pointer;
 		rtile.buffers = buffers;
 		tile->buffers = buffers;
 
@@ -442,7 +441,6 @@ bool Session::acquire_tile(Device *tile_device, RenderTile& rtile)
 	tile->buffers->params.get_offset_stride(rtile.offset, rtile.stride);
 
 	rtile.buffer = tile->buffers->buffer.device_pointer;
-	rtile.rng_state = tile->buffers->rng_state.device_pointer;
 	rtile.buffers = tile->buffers;
 	rtile.sample = 0;
 
@@ -721,7 +719,6 @@ DeviceRequestedFeatures Session::get_requested_device_features()
 	BakeManager *bake_manager = scene->bake_manager;
 	requested_features.use_baking = bake_manager->get_baking();
 	requested_features.use_integrator_branched = (scene->integrator->method == Integrator::BRANCHED_PATH);
-	requested_features.use_transparent &= scene->integrator->transparent_shadows;
 	requested_features.use_denoising = params.use_denoising;
 
 	return requested_features;
@@ -931,7 +928,7 @@ void Session::update_status_time(bool show_pause, bool show_done)
 		const bool rendering_finished = (tile == num_tiles);
 		const bool is_last_tile = (tile + 1) == num_tiles;
 
-		substatus = string_printf("Path Tracing Tile %d/%d", tile, num_tiles);
+		substatus = string_printf("Rendered %d/%d Tiles", tile, num_tiles);
 
 		if(!rendering_finished && (device->show_samples() || (is_cpu && is_last_tile))) {
 			/* Some devices automatically support showing the sample number:
@@ -961,6 +958,7 @@ void Session::update_status_time(bool show_pause, bool show_done)
 	}
 	else if(show_done) {
 		status = "Done";
+		progress.set_end_time(); /* Save end time so that further calls to get_time are accurate. */
 	}
 	else {
 		status = substatus;
@@ -972,7 +970,12 @@ void Session::update_status_time(bool show_pause, bool show_done)
 
 void Session::render()
 {
-	/* add path trace task */
+	/* Clear buffers. */
+	if(buffers && tile_manager.state.sample == 0) {
+		buffers->zero(device);
+	}
+
+	/* Add path trace task. */
 	DeviceTask task(DeviceTask::RENDER);
 	
 	task.acquire_tile = function_bind(&Session::acquire_tile, this, _1, _2);

@@ -97,16 +97,27 @@ static EnumPropertyItem parent_type_items[] = {
 	{0, NULL, 0, NULL, NULL}
 };
 
-#ifndef RNA_RUNTIME
+#define DUPLI_ITEMS_SHARED \
+	{0, "NONE", 0, "None", ""}, \
+	{OB_DUPLIFRAMES, "FRAMES", 0, "Frames", "Make copy of object for every frame"}, \
+	{OB_DUPLIVERTS, "VERTS", 0, "Verts", "Duplicate child objects on all vertices"}, \
+	{OB_DUPLIFACES, "FACES", 0, "Faces", "Duplicate child objects on all faces"}
+
+#define DUPLI_ITEM_GROUP \
+	{OB_DUPLIGROUP, "GROUP", 0, "Group", "Enable group instancing"}
 static EnumPropertyItem dupli_items[] = {
-	{0, "NONE", 0, "None", ""},
-	{OB_DUPLIFRAMES, "FRAMES", 0, "Frames", "Make copy of object for every frame"},
-	{OB_DUPLIVERTS, "VERTS", 0, "Verts", "Duplicate child objects on all vertices"},
-	{OB_DUPLIFACES, "FACES", 0, "Faces", "Duplicate child objects on all faces"},
-	{OB_DUPLIGROUP, "GROUP", 0, "Group", "Enable group instancing"},
+	DUPLI_ITEMS_SHARED,
+	DUPLI_ITEM_GROUP,
+	{0, NULL, 0, NULL, NULL}
+};
+#ifdef RNA_RUNTIME
+static EnumPropertyItem dupli_items_nogroup[] = {
+	DUPLI_ITEMS_SHARED,
 	{0, NULL, 0, NULL, NULL}
 };
 #endif
+#undef DUPLI_ITEMS_SHARED
+#undef DUPLI_ITEM_GROUP
 
 static EnumPropertyItem collision_bounds_items[] = {
 	{OB_BOUND_BOX, "BOX", ICON_MESH_CUBE, "Box", ""},
@@ -515,6 +526,23 @@ static void rna_Object_parent_bone_set(PointerRNA *ptr, const char *value)
 	ED_object_parent(ob, ob->parent, ob->partype, value);
 }
 
+static EnumPropertyItem *rna_Object_dupli_type_itemf(
+        bContext *UNUSED(C), PointerRNA *ptr,
+        PropertyRNA *UNUSED(prop), bool *UNUSED(r_free))
+{
+	Object *ob = (Object *)ptr->data;
+	EnumPropertyItem *item;
+
+	if (ob->type == OB_EMPTY) {
+		item = dupli_items;
+	}
+	else {
+		item = dupli_items_nogroup;
+	}
+
+	return item;
+}
+
 static void rna_Object_dup_group_set(PointerRNA *ptr, PointerRNA value)
 {
 	Object *ob = (Object *)ptr->data;
@@ -524,9 +552,15 @@ static void rna_Object_dup_group_set(PointerRNA *ptr, PointerRNA value)
 	 * thus causing a cycle/infinite-recursion leading to crashes on load [#25298]
 	 */
 	if (BKE_group_object_exists(grp, ob) == 0) {
-		id_us_min(&ob->dup_group->id);
-		ob->dup_group = grp;
-		id_us_plus(&ob->dup_group->id);
+		if (ob->type == OB_EMPTY) {
+			id_us_min(&ob->dup_group->id);
+			ob->dup_group = grp;
+			id_us_plus(&ob->dup_group->id);
+		}
+		else {
+			BKE_report(NULL, RPT_ERROR,
+			           "Only empty objects support group instances");
+		}
 	}
 	else {
 		BKE_report(NULL, RPT_ERROR,
@@ -824,9 +858,14 @@ static void rna_Object_active_particle_system_index_set(PointerRNA *ptr, int val
 
 static void rna_Object_particle_update(Main *UNUSED(bmain), Scene *scene, PointerRNA *ptr)
 {
+	/* TODO: Disabled for now, because bContext is not available. */
+#if 0
 	Object *ob = (Object *)ptr->id.data;
-
-	PE_current_changed(scene, ob);
+	PE_current_changed(NULL, scene, ob);
+#else
+	(void) scene;
+	(void) ptr;
+#endif
 }
 
 /* rotation - axis-angle */
@@ -1739,6 +1778,11 @@ static void rna_def_face_map(BlenderRNA *brna)
 	/* update data because modifiers may use [#24761] */
 	RNA_def_property_update(prop, NC_GEOM | ND_DATA | NA_RENAME, "rna_Object_internal_update_data");
 	
+	prop = RNA_def_property(srna, "select", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", SELECT);
+	RNA_def_property_ui_text(prop, "Select", "Face-map selection state (for tools to use)");
+	/* important not to use a notifier here, creates a feedback loop! */
+
 	prop = RNA_def_property(srna, "index", PROP_INT, PROP_UNSIGNED);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 	RNA_def_property_int_funcs(prop, "rna_FaceMap_index_get", NULL, NULL);
@@ -2613,7 +2657,7 @@ static void rna_def_object(BlenderRNA *brna)
 	/* only for the transform-panel and conflicts with animating scale */
 	RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
 	RNA_def_property_float_funcs(prop, "rna_Object_dimensions_get", "rna_Object_dimensions_set", NULL);
-	RNA_def_property_ui_range(prop, 0.0f, FLT_MAX, 1, 3);
+	RNA_def_property_ui_range(prop, 0.0f, FLT_MAX, 1, RNA_TRANSLATION_PREC_DEFAULT);
 	RNA_def_property_ui_text(prop, "Dimensions", "Absolute bounding box dimensions of the object");
 	RNA_def_property_update(prop, NC_OBJECT | ND_TRANSFORM, "rna_Object_internal_update");
 	
@@ -2853,6 +2897,12 @@ static void rna_def_object(BlenderRNA *brna)
 	RNA_def_property_ui_icon(prop, ICON_RESTRICT_RENDER_OFF, 1);
 	RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_Object_hide_update");
 
+	/* Keep it in sync with BKE_object_is_visible. */
+	prop = RNA_def_property(srna, "is_visible", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "base_flag", BASE_VISIBLED);
+	RNA_def_property_ui_text(prop, "Visible", "Visible to camera rays, set only on objects evaluated by depsgraph");
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+
 	prop = RNA_def_property(srna, "collection_properties", PROP_COLLECTION, PROP_NONE);
 	RNA_def_property_collection_sdna(prop, NULL, "base_collection_properties->data.group", NULL);
 	RNA_def_property_struct_type(prop, "LayerCollectionSettings");
@@ -2893,6 +2943,7 @@ static void rna_def_object(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "dupli_type", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_bitflag_sdna(prop, NULL, "transflag");
 	RNA_def_property_enum_items(prop, dupli_items);
+	RNA_def_property_enum_funcs(prop, NULL, NULL, "rna_Object_dupli_type_itemf");
 	RNA_def_property_ui_text(prop, "Dupli Type", "If not None, object duplication method to use");
 	RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_Object_dependency_update");
 

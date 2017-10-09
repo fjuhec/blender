@@ -649,7 +649,7 @@ static Main *blo_find_main(FileData *fd, const char *filepath, const char *relab
 	
 	/* Add library datablock itself to 'main' Main, since libraries are **never** linked data.
 	 * Fixes bug where you could end with all ID_LI datablocks having the same name... */
-	lib = BKE_libblock_alloc(mainlist->first, ID_LI, "Lib");
+	lib = BKE_libblock_alloc(mainlist->first, ID_LI, "Lib", 0);
 	lib->id.us = ID_FAKE_USERS(lib);  /* Important, consistency with main ID reading code from read_libblock(). */
 	BLI_strncpy(lib->name, filepath, sizeof(lib->name));
 	BLI_strncpy(lib->filepath, name1, sizeof(lib->filepath));
@@ -2221,6 +2221,7 @@ static void direct_link_id(FileData *fd, ID *id)
 		/* this case means the data was written incorrectly, it should not happen */
 		IDP_DirectLinkGroup_OrFree(&id->properties, (fd->flags & FD_FLAGS_SWITCH_ENDIAN), fd);
 	}
+	id->py_instance = NULL;
 }
 
 /* ************ READ CurveMapping *************** */
@@ -4793,7 +4794,15 @@ static void lib_link_object(FileData *fd, Main *main)
 			ob->parent = newlibadr(fd, ob->id.lib, ob->parent);
 			ob->track = newlibadr(fd, ob->id.lib, ob->track);
 			ob->poselib = newlibadr_us(fd, ob->id.lib, ob->poselib);
-			ob->dup_group = newlibadr_us(fd, ob->id.lib, ob->dup_group);
+
+			/* 2.8x drops support for non-empty dupli instances. */
+			if (ob->type == OB_EMPTY) {
+				ob->dup_group = newlibadr_us(fd, ob->id.lib, ob->dup_group);
+			}
+			else {
+				ob->dup_group = NULL;
+				ob->transflag &= ~OB_DUPLIGROUP;
+			}
 			
 			ob->proxy = newlibadr_us(fd, ob->id.lib, ob->proxy);
 			if (ob->proxy) {
@@ -6085,7 +6094,7 @@ static void direct_link_scene(FileData *fd, Scene *sce, Main *bmain)
 	SceneRenderLayer *srl;
 	
 	sce->theDag = NULL;
-	sce->depsgraph = NULL;
+	sce->depsgraph_legacy = NULL;
 	sce->obedit = NULL;
 	sce->fps_info = NULL;
 	sce->customdata_mask_modal = 0;
@@ -6121,16 +6130,6 @@ static void direct_link_scene(FileData *fd, Scene *sce, Main *bmain)
 		sce->toolsettings->particle.scene_layer = NULL;
 		sce->toolsettings->particle.object = NULL;
 		sce->toolsettings->gp_sculpt.paintcursor = NULL;
-
-		/* in rare cases this is needed, see [#33806] */
-		if (sce->toolsettings->vpaint) {
-			sce->toolsettings->vpaint->vpaint_prev = NULL;
-			sce->toolsettings->vpaint->tot = 0;
-		}
-		if (sce->toolsettings->wpaint) {
-			sce->toolsettings->wpaint->wpaint_prev = NULL;
-			sce->toolsettings->wpaint->tot = 0;
-		}
 		
 		/* relink grease pencil drawing brushes */
 		link_list(fd, &sce->toolsettings->gp_brushes);
@@ -6279,11 +6278,6 @@ static void direct_link_scene(FileData *fd, Scene *sce, Main *bmain)
 	if (sce->r.avicodecdata) {
 		sce->r.avicodecdata->lpFormat = newdataadr(fd, sce->r.avicodecdata->lpFormat);
 		sce->r.avicodecdata->lpParms = newdataadr(fd, sce->r.avicodecdata->lpParms);
-	}
-	
-	sce->r.qtcodecdata = newdataadr(fd, sce->r.qtcodecdata);
-	if (sce->r.qtcodecdata) {
-		sce->r.qtcodecdata->cdParms = newdataadr(fd, sce->r.qtcodecdata->cdParms);
 	}
 	if (sce->r.ffcodecdata.properties) {
 		sce->r.ffcodecdata.properties = newdataadr(fd, sce->r.ffcodecdata.properties);
@@ -10116,6 +10110,7 @@ void BLO_expand_main(void *fdhandle, Main *mainvar)
 						break;
 					case ID_WS:
 						expand_workspace(fd, mainvar, (WorkSpace *)id);
+					default:
 						break;
 					}
 					

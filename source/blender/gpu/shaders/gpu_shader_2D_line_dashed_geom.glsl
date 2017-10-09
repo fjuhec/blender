@@ -1,5 +1,10 @@
 
-// Draw dashed lines, perforated in screen space.
+/*
+ * Geometry Shader for dashed lines, with uniform multi-color(s), or any single-color, and unary thickness.
+ *
+ * Dashed is performed in screen space.
+ */
+
 
 /* Make to be used with dynamic batching so no Model Matrix needed */
 uniform mat4 ModelViewProjectionMatrix;
@@ -11,8 +16,11 @@ uniform int num_colors;  /* Enabled if > 0, 1 for solid line. */
 
 layout(lines) in;
 
+in vec4 color_vert[];
+
 layout(line_strip, max_vertices = 2) out;
 noperspective out float distance_along_line;
+noperspective out vec4 color_geom;
 
 void main()
 {
@@ -20,12 +28,14 @@ void main()
 	vec4 v2 = gl_in[1].gl_Position;
 
 	gl_Position = v1;
+	color_geom = color_vert[0];
 	distance_along_line = 0.0f;
 	EmitVertex();
 
 	gl_Position = v2;
+	color_geom = color_vert[1];
 	if ((num_colors == 1) || (dash_factor >= 1.0f)) {
-		/* Solid line, optimise out distance computation! */
+		/* Solid line, optimize out distance computation! */
 		distance_along_line = 0.0f;
 	}
 	else {

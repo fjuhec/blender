@@ -42,7 +42,6 @@
 
 #include "BLI_iterator.h"
 #include "BKE_report.h"
-#include "DNA_object_types.h"
 
 #include "DEG_depsgraph_build.h"
 #include "DEG_depsgraph_debug.h"
@@ -131,9 +130,14 @@ static void rna_Depsgraph_debug_graphviz(Depsgraph *graph, const char *filename)
 	fclose(f);
 }
 
-static void rna_Depsgraph_debug_rebuild(Depsgraph *UNUSED(graph), Main *bmain)
+static void rna_Depsgraph_debug_rebuild(Depsgraph *UNUSED(graph), bContext *C)
 {
+	Main *bmain = CTX_data_main(C);
+	EvaluationContext eval_ctx;
 	Scene *sce;
+
+	CTX_data_eval_ctx(C, &eval_ctx);
+
 	DEG_relations_tag_update(bmain);
 	for (sce = bmain->scene.first; sce; sce = sce->id.next) {
 		DEG_scene_relations_rebuild(bmain, sce);
@@ -261,7 +265,7 @@ static void rna_def_depsgraph_iter(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "persistent_id", PROP_INT, PROP_NONE);
 	RNA_def_property_ui_text(prop, "Persistent ID",
 	                         "Persistent identifier for inter-frame matching of objects with motion blur");
-	RNA_def_property_array(prop, 2*MAX_DUPLI_RECUR);
+	RNA_def_property_array(prop, 2 * MAX_DUPLI_RECUR);
 	RNA_def_property_clear_flag(prop, PROP_ANIMATABLE | PROP_EDITABLE);
 	RNA_def_property_int_funcs(prop, "rna_DepsgraphIter_persistent_id_get", NULL, NULL);
 
@@ -307,7 +311,7 @@ static void rna_def_depsgraph(BlenderRNA *brna)
 	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 
 	func = RNA_def_function(srna, "debug_rebuild", "rna_Depsgraph_debug_rebuild");
-	RNA_def_function_flag(func, FUNC_USE_MAIN);
+	RNA_def_function_flag(func, FUNC_USE_CONTEXT);
 
 	func = RNA_def_function(srna, "debug_stats", "rna_Depsgraph_debug_stats");
 	RNA_def_function_ui_description(func, "Report the number of elements in the Dependency Graph");

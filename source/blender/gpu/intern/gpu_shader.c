@@ -30,8 +30,12 @@
 #include "BLI_utildefines.h"
 #include "BLI_math_base.h"
 #include "BLI_math_vector.h"
+#include "BLI_path_util.h"
 
+#include "BKE_appdir.h"
 #include "BKE_global.h"
+
+#include "DNA_space_types.h"
 
 #include "GPU_compositing.h"
 #include "GPU_extensions.h"
@@ -113,11 +117,11 @@ extern char datatoc_gpu_shader_2D_point_uniform_size_aa_vert_glsl[];
 extern char datatoc_gpu_shader_2D_point_uniform_size_outline_aa_vert_glsl[];
 extern char datatoc_gpu_shader_2D_point_uniform_size_varying_color_outline_aa_vert_glsl[];
 
-extern char datatoc_gpu_shader_2D_line_dashed_vert_glsl[];
+extern char datatoc_gpu_shader_2D_line_dashed_uniform_color_vert_glsl[];
 extern char datatoc_gpu_shader_2D_line_dashed_frag_glsl[];
 extern char datatoc_gpu_shader_2D_line_dashed_geom_glsl[];
-extern char datatoc_gpu_shader_3D_line_dashed_legacy_vert_glsl[];
-extern char datatoc_gpu_shader_3D_line_dashed_vert_glsl[];
+extern char datatoc_gpu_shader_3D_line_dashed_uniform_color_legacy_vert_glsl[];
+extern char datatoc_gpu_shader_3D_line_dashed_uniform_color_vert_glsl[];
 
 extern char datatoc_gpu_shader_edges_front_back_persp_vert_glsl[];
 extern char datatoc_gpu_shader_edges_front_back_persp_geom_glsl[];
@@ -267,6 +271,53 @@ GPUShader *GPU_shader_create(const char *vertexcode,
 	                            GPU_SHADER_FLAGS_NONE);
 }
 
+#define DEBUG_SHADER_NONE ""
+#define DEBUG_SHADER_VERTEX "vert"
+#define DEBUG_SHADER_FRAGMENT "frag"
+#define DEBUG_SHADER_GEOMETRY "geom"
+
+/**
+ * Dump GLSL shaders to disk
+ *
+ * This is used for profiling shader performance externally and debug if shader code is correct.
+ * If called with no code, it simply bumps the shader index, so different shaders for the same
+ * program share the same index.
+ */
+static void gpu_dump_shaders(const char **code, const int num_shaders, const char *extension)
+{
+	if ((G.debug & G_DEBUG_GPU_SHADERS) == 0) {
+		return;
+	}
+
+	/* We use the same shader index for shaders in the same program.
+	 * So we call this function once before calling for the invidual shaders. */
+	static int shader_index = 0;
+	if (code == NULL) {
+		shader_index++;
+		BLI_assert(STREQ(DEBUG_SHADER_NONE, extension));
+		return;
+	}
+
+	/* Determine the full path of the new shader. */
+	char shader_path[FILE_MAX];
+
+	char file_name[512] = {'\0'};
+	sprintf(file_name, "%04d.%s", shader_index, extension);
+
+	BLI_join_dirfile(shader_path, sizeof(shader_path), BKE_tempdir_session(), file_name);
+
+	/* Write shader to disk. */
+	FILE *f = fopen(shader_path, "w");
+	if (f == NULL) {
+		printf("Error writing to file: %s\n", shader_path);
+	}
+	for (int j = 0; j < num_shaders; j++) {
+		fprintf(f, "%s", code[j]);
+	}
+	fclose(f);
+	printf("Shader file written to disk: %s\n", shader_path);
+}
+
 GPUShader *GPU_shader_create_ex(const char *vertexcode,
                                 const char *fragcode,
                                 const char *geocode,
@@ -288,6 +339,7 @@ GPUShader *GPU_shader_create_ex(const char *vertexcode,
 	char standard_extensions[MAX_EXT_DEFINE_LENGTH] = "";
 
 	shader = MEM_callocN(sizeof(GPUShader), "GPUShader");
+	gpu_dump_shaders(NULL, 0, DEBUG_SHADER_NONE);
 
 	if (vertexcode)
 		shader->vertex = glCreateShader(GL_VERTEX_SHADER);
@@ -324,6 +376,8 @@ GPUShader *GPU_shader_create_ex(const char *vertexcode,
 
 		if (defines) source[num_source++] = defines;
 		source[num_source++] = vertexcode;
+
+		gpu_dump_shaders(source, num_source, DEBUG_SHADER_VERTEX);
 
 		glAttachShader(shader->program, shader->vertex);
 		glShaderSource(shader->vertex, num_source, source, NULL);
@@ -364,6 +418,8 @@ GPUShader *GPU_shader_create_ex(const char *vertexcode,
 		if (libcode) source[num_source++] = libcode;
 		source[num_source++] = fragcode;
 
+		gpu_dump_shaders(source, num_source, DEBUG_SHADER_FRAGMENT);
+
 		glAttachShader(shader->program, shader->fragment);
 		glShaderSource(shader->fragment, num_source, source, NULL);
 
@@ -389,6 +445,8 @@ GPUShader *GPU_shader_create_ex(const char *vertexcode,
 
 		if (defines) source[num_source++] = defines;
 		source[num_source++] = geocode;
+
+		gpu_dump_shaders(source, num_source, DEBUG_SHADER_GEOMETRY);
 
 		glAttachShader(shader->program, shader->geometry);
 		glShaderSource(shader->geometry, num_source, source, NULL);
@@ -452,6 +510,11 @@ GPUShader *GPU_shader_create_ex(const char *vertexcode,
 	return shader;
 }
 
+#undef DEBUG_SHADER_GEOMETRY
+#undef DEBUG_SHADER_FRAGMENT
+#undef DEBUG_SHADER_VERTEX
+#undef DEBUG_SHADER_NONE
+
 void GPU_shader_bind(GPUShader *shader)
 {
 	BLI_assert(shader && shader->program);
@@ -494,11 +557,19 @@ int GPU_shader_get_uniform(GPUShader *shader, const char *name)
 	return uniform ? uniform->location : -1;
 }
 
+int GPU_shader_get_builtin_uniform(GPUShader *shader, int builtin)
+{
+	BLI_assert(shader && shader->program);
+	const Gwn_ShaderInput *uniform = GWN_shaderinterface_uniform_builtin(shader->interface, builtin);
+	return uniform ? uniform->location : -1;
+}
+
 int GPU_shader_get_uniform_block(GPUShader *shader, const char *name)
 {
 	BLI_assert(shader && shader->program);
 
-	return glGetUniformBlockIndex(shader->program, name);
+	const Gwn_ShaderInput *ubo = GWN_shaderinterface_ubo(shader->interface, name);
+	return ubo ? ubo->location : -1;
 }
 
 void *GPU_fx_shader_get_interface(GPUShader *shader)
@@ -663,6 +734,7 @@ GPUShader *GPU_shader_get_builtin_shader(GPUBuiltinShader shader)
 		[GPU_SHADER_2D_IMAGE_SHUFFLE_COLOR] = { datatoc_gpu_shader_2D_image_vert_glsl,
 		                                        datatoc_gpu_shader_image_shuffle_color_frag_glsl },
 		[GPU_SHADER_3D_UNIFORM_COLOR] = { datatoc_gpu_shader_3D_vert_glsl, datatoc_gpu_shader_uniform_color_frag_glsl },
+		[GPU_SHADER_3D_UNIFORM_COLOR_U32] = { datatoc_gpu_shader_3D_vert_glsl, datatoc_gpu_shader_uniform_color_frag_glsl },
 		[GPU_SHADER_3D_FLAT_COLOR] = { datatoc_gpu_shader_3D_flat_color_vert_glsl,
 		                               datatoc_gpu_shader_flat_color_frag_glsl },
 		[GPU_SHADER_3D_FLAT_COLOR_U32] = { datatoc_gpu_shader_3D_flat_color_vert_glsl,
@@ -678,12 +750,12 @@ GPUShader *GPU_shader_get_builtin_shader(GPUBuiltinShader shader)
 		                               datatoc_gpu_shader_uniform_color_frag_glsl,
 		                               datatoc_gpu_shader_3D_groundline_geom_glsl },
 
-		[GPU_SHADER_2D_LINE_DASHED_COLOR] = { datatoc_gpu_shader_2D_line_dashed_vert_glsl,
-		                                      datatoc_gpu_shader_2D_line_dashed_frag_glsl,
-		                                      datatoc_gpu_shader_2D_line_dashed_geom_glsl },
-		[GPU_SHADER_3D_LINE_DASHED_COLOR] = { datatoc_gpu_shader_3D_line_dashed_vert_glsl,
-		                                      datatoc_gpu_shader_2D_line_dashed_frag_glsl,
-		                                      datatoc_gpu_shader_2D_line_dashed_geom_glsl },
+		[GPU_SHADER_2D_LINE_DASHED_UNIFORM_COLOR] = { datatoc_gpu_shader_2D_line_dashed_uniform_color_vert_glsl,
+		                                              datatoc_gpu_shader_2D_line_dashed_frag_glsl,
+		                                              datatoc_gpu_shader_2D_line_dashed_geom_glsl },
+		[GPU_SHADER_3D_LINE_DASHED_UNIFORM_COLOR] = { datatoc_gpu_shader_3D_line_dashed_uniform_color_vert_glsl,
+		                                              datatoc_gpu_shader_2D_line_dashed_frag_glsl,
+		                                              datatoc_gpu_shader_2D_line_dashed_geom_glsl },
 
 		[GPU_SHADER_3D_OBJECTSPACE_SIMPLE_LIGHTING_VARIYING_COLOR] =
 		    { datatoc_gpu_shader_instance_objectspace_variying_color_vert_glsl,
@@ -744,7 +816,7 @@ GPUShader *GPU_shader_get_builtin_shader(GPUBuiltinShader shader)
 		                                               datatoc_gpu_shader_instance_edges_variying_color_geom_glsl},
 
 		[GPU_SHADER_3D_INSTANCE_BONE_ENVELOPE_SOLID] = { datatoc_gpu_shader_instance_bone_envelope_solid_vert_glsl,
-		                                           datatoc_gpu_shader_simple_lighting_frag_glsl },
+		                                                 datatoc_gpu_shader_simple_lighting_frag_glsl },
 		[GPU_SHADER_3D_INSTANCE_BONE_ENVELOPE_WIRE] = { datatoc_gpu_shader_instance_bone_envelope_wire_vert_glsl,
 		                                                datatoc_gpu_shader_flat_color_frag_glsl },
 	};
@@ -767,6 +839,7 @@ GPUShader *GPU_shader_get_builtin_shader(GPUBuiltinShader shader)
 				defines = "#define USE_INSTANCE_COLOR;\n";
 				break;
 			case GPU_SHADER_3D_FLAT_COLOR_U32:
+			case GPU_SHADER_3D_UNIFORM_COLOR_U32:
 				defines = "#define USE_COLOR_U32;\n";
 				break;
 			case GPU_SHADER_SIMPLE_LIGHTING_FLAT_COLOR:
@@ -786,10 +859,10 @@ GPUShader *GPU_shader_get_builtin_shader(GPUBuiltinShader shader)
 			stages = &legacy_fancy_edges;
 		}
 
-		if (shader == GPU_SHADER_3D_LINE_DASHED_COLOR && !GLEW_VERSION_3_2) {
+		if (shader == GPU_SHADER_3D_LINE_DASHED_UNIFORM_COLOR && !GLEW_VERSION_3_2) {
 			/* Dashed need geometry shader, which are not supported by legacy OpenGL, fallback to solid lines. */
 			/* TODO: remove after switch to core profile (maybe) */
-			static const GPUShaderStages legacy_dashed_lines = { datatoc_gpu_shader_3D_line_dashed_legacy_vert_glsl,
+			static const GPUShaderStages legacy_dashed_lines = { datatoc_gpu_shader_3D_line_dashed_uniform_color_legacy_vert_glsl,
 			                                                     datatoc_gpu_shader_2D_line_dashed_frag_glsl };
 			stages = &legacy_dashed_lines;
 		}

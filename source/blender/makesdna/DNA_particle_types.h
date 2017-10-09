@@ -260,8 +260,9 @@ typedef struct ParticleSettings {
 
 	/* modified dm support */
 	short use_modifier_stack;
-	short pad5[3];
 
+	short pad5;
+	int recalc;
 } ParticleSettings;
 
 typedef struct ParticleSystem {
@@ -324,7 +325,7 @@ typedef struct ParticleSystem {
 	struct ParticleDrawData *pdd;
 
 	float dt_frac;							/* current time step, as a fraction of a frame */
-	float _pad;								/* spare capacity */
+	float lattice_strength;					/* influence of the lattice modifier */
 
 	void *batch_cache;
 } ParticleSystem;

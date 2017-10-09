@@ -41,6 +41,8 @@
  * is likely to be a little slow.
  */
 
+#include "atomic_ops.h"
+
 #include "BLI_math.h"
 #include "BLI_jitter.h"
 #include "BLI_bitmap.h"
@@ -279,8 +281,9 @@ static void emDM_recalcLoopTri(DerivedMesh *dm)
 	int i;
 
 	DM_ensure_looptri_data(dm);
-	mlooptri = dm->looptris.array;
+	mlooptri = dm->looptris.array_wip;
 
+	BLI_assert(tottri == 0 || mlooptri != NULL);
 	BLI_assert(poly_to_tri_count(dm->numPolyData, dm->numLoopData) == dm->looptris.num);
 	BLI_assert(tottri == dm->looptris.num);
 
@@ -297,18 +300,10 @@ static void emDM_recalcLoopTri(DerivedMesh *dm)
 		        BM_elem_index_get(ltri[2]));
 		lt->poly = BM_elem_index_get(ltri[0]->f);
 	}
-}
 
-static const MLoopTri *emDM_getLoopTriArray(DerivedMesh *dm)
-{
-	if (dm->looptris.array) {
-		BLI_assert(poly_to_tri_count(dm->numPolyData, dm->numLoopData) == dm->looptris.num);
-	}
-	else {
-		dm->recalcLoopTri(dm);
-	}
-
-	return dm->looptris.array;
+	BLI_assert(dm->looptris.array == NULL);
+	atomic_cas_ptr((void **)&dm->looptris.array, dm->looptris.array, dm->looptris.array_wip);
+	dm->looptris.array_wip = NULL;
 }
 
 static void emDM_foreachMappedVert(
@@ -1639,8 +1634,6 @@ DerivedMesh *getEditDerivedBMesh(
 	bmdm->dm.getNumLoops = emDM_getNumLoops;
 	bmdm->dm.getNumPolys = emDM_getNumPolys;
 
-	bmdm->dm.getLoopTriArray = emDM_getLoopTriArray;
-
 	bmdm->dm.getVert = emDM_getVert;
 	bmdm->dm.getVertCo = emDM_getVertCo;
 	bmdm->dm.getVertNo = emDM_getVertNo;
@@ -2018,7 +2011,7 @@ static void statvis_calc_distort(
 					              vertexCos[BM_elem_index_get(l_iter->next->v)]);
 				}
 				else {
-					BM_loop_calc_face_normal(l_iter, no_corner);
+					BM_loop_calc_face_normal_safe(l_iter, no_corner);
 				}
 				/* simple way to detect (what is most likely) concave */
 				if (dot_v3v3(f_no, no_corner) < 0.0f) {
@@ -2183,14 +2176,14 @@ static void cage_mapped_verts_callback(
 	}
 }
 
-float (*BKE_editmesh_vertexCos_get(BMEditMesh *em, Scene *scene, int *r_numVerts))[3]
+float (*BKE_editmesh_vertexCos_get(const struct EvaluationContext *eval_ctx, BMEditMesh *em, Scene *scene, int *r_numVerts))[3]
 {
 	DerivedMesh *cage, *final;
 	BLI_bitmap *visit_bitmap;
 	struct CageUserData data;
 	float (*cos_cage)[3];
 
-	cage = editbmesh_get_derived_cage_and_final(scene, em->ob, em, CD_MASK_BAREMESH, &final);
+	cage = editbmesh_get_derived_cage_and_final(eval_ctx, scene, em->ob, em, CD_MASK_BAREMESH, &final);
 	cos_cage = MEM_callocN(sizeof(*cos_cage) * em->bm->totvert, "bmbvh cos_cage");
 
 	/* when initializing cage verts, we only want the first cage coordinate for each vertex,
