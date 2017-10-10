@@ -49,6 +49,23 @@ struct GPENCIL_StorageList;
 #define GP_SIMPLIFY_MODIF(ts, playing) ((GP_SIMPLIFY_ONPLAY(playing) && (GP_SIMPLIFY(ts)) && (ts->gpencil_simplify & GP_TOOL_FLAG_SIMPLIFY_VIEW_MODIF))) 
 #define GP_SIMPLIFY_VFX(ts, playing) ((GP_SIMPLIFY_ONPLAY(playing) && (GP_SIMPLIFY(ts)) && (ts->gpencil_simplify & GP_TOOL_FLAG_SIMPLIFY_VIEW_VFX)))
 
+ /* anti aliasing macros using MSAA */
+#define MULTISAMPLE_GP_SYNC_ENABLE(dfbl, fbl) { \
+	if (dfbl->multisample_fb != NULL) { \
+		DRW_framebuffer_blit(fbl->temp_color_fb, dfbl->multisample_fb, false); \
+		DRW_framebuffer_blit(fbl->temp_color_fb, dfbl->multisample_fb, true); \
+		DRW_framebuffer_bind(dfbl->multisample_fb); \
+	} \
+}
+
+#define MULTISAMPLE_GP_SYNC_DISABLE(dfbl, fbl) { \
+	if (dfbl->multisample_fb != NULL) { \
+		DRW_framebuffer_blit(dfbl->multisample_fb, fbl->temp_color_fb, false); \
+		DRW_framebuffer_blit(dfbl->multisample_fb, fbl->temp_color_fb, true); \
+		DRW_framebuffer_bind(fbl->temp_color_fb); \
+	} \
+}
+
  /* *********** OBJECTS CACHE *********** */
 typedef struct GPencilVFXSwirl {
 	float center[2];

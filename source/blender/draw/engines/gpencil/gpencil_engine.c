@@ -635,21 +635,13 @@ static void GPENCIL_draw_scene(void *vedata)
 				}
 
 				if (end_grp >= init_grp) {
-					if (dfbl->multisample_fb != NULL) {
-						DRW_framebuffer_blit(fbl->temp_color_fb, dfbl->multisample_fb, false);
-						DRW_framebuffer_blit(fbl->temp_color_fb, dfbl->multisample_fb, true);
-						DRW_framebuffer_bind(dfbl->multisample_fb);
-					}
+					MULTISAMPLE_GP_SYNC_ENABLE(dfbl, fbl);
 
 					DRW_draw_pass_subset(psl->stroke_pass,
 						stl->shgroups[init_grp].shgrps_fill != NULL ? stl->shgroups[init_grp].shgrps_fill : stl->shgroups[init_grp].shgrps_stroke,
 						stl->shgroups[end_grp].shgrps_stroke);
 
-					if (dfbl->multisample_fb != NULL) {
-						DRW_framebuffer_blit(dfbl->multisample_fb, fbl->temp_color_fb, false);
-						DRW_framebuffer_blit(dfbl->multisample_fb, fbl->temp_color_fb, true);
-						DRW_framebuffer_bind(fbl->temp_color_fb);
-					}
+					MULTISAMPLE_GP_SYNC_DISABLE(dfbl, fbl);
 				}
 				/* Current buffer drawing */
 				if (ob->gpd->sbuffer_size > 0) {
