@@ -358,7 +358,7 @@ static void GPENCIL_cache_init(void *vedata)
 
 		/* Painting session pass (used only to speedup while the user is drawing ) */
 		struct Gwn_Batch *paintquad = DRW_cache_fullscreen_quad_get();
-		psl->painting_pass = DRW_pass_create("GPencil Painting Session Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
+		psl->painting_pass = DRW_pass_create("GPencil Painting Session Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
 		DRWShadingGroup *painting_shgrp = DRW_shgroup_create(e_data.gpencil_painting_sh, psl->painting_pass);
 		DRW_shgroup_call_add(painting_shgrp, paintquad, NULL);
 		DRW_shgroup_uniform_buffer(painting_shgrp, "strokeColor", &e_data.painting_color_tx);
@@ -587,11 +587,26 @@ static void GPENCIL_draw_scene(void *vedata)
 
 	/* if we have a painting session, we use fast viewport drawing method */
 	if (stl->g_data->session_flag & GP_DRW_PAINT_PAINTING) {
-		DRW_framebuffer_bind(dfbl->default_fb);
+		DRW_framebuffer_texture_attach(fbl->temp_color_fb, e_data.temp_fbcolor_depth_tx, 0, 0);
+		DRW_framebuffer_texture_attach(fbl->temp_color_fb, e_data.temp_fbcolor_color_tx, 0, 0);
+
+		/* It must pass through the temp framebuffer to get same alpha values in blend */
+		DRW_framebuffer_bind(fbl->temp_color_fb);
+		DRW_framebuffer_clear(true, true, false, clearcol, 1.0f);
 		DRW_draw_pass(psl->painting_pass);
-		MULTISAMPLE_SYNC_ENABLE(dfbl);
+
+		MULTISAMPLE_GP_SYNC_ENABLE(dfbl, fbl);
+
 		DRW_draw_pass(psl->drawing_pass);
-		MULTISAMPLE_SYNC_DISABLE(dfbl);
+
+		MULTISAMPLE_GP_SYNC_DISABLE(dfbl, fbl);
+
+		/* send to default framebuffer */
+		DRW_framebuffer_bind(dfbl->default_fb);
+		DRW_draw_pass(psl->mix_pass);
+
+		DRW_framebuffer_texture_detach(e_data.temp_fbcolor_depth_tx);
+		DRW_framebuffer_texture_detach(e_data.temp_fbcolor_color_tx);
 		/* free memory */
 		gpencil_free_obj_list(stl);
 		return;
