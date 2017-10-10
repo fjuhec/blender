@@ -506,6 +506,7 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 				/* sculpt brushes */
 				GP_BrushEdit_Settings *gset = &scene->toolsettings->gp_sculpt;
 				if (gset) {
+					gset->alpha = 1.0f;
 					gset->weighttype = GP_EDITBRUSH_TYPE_WEIGHT;
 				}
 			}
