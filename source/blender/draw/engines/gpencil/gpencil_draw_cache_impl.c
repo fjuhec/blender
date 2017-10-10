@@ -131,7 +131,7 @@ static bool gpencil_batch_cache_valid(Object *ob, bGPdata *gpd, int cfra)
 		return false;
 	}
 
-	cache->is_editmode = (bool)(GPENCIL_ANY_EDIT_MODE(gpd));
+	cache->is_editmode = GPENCIL_ANY_EDIT_MODE(gpd);
 
 	if (cfra != cache->cache_frame) {
 		return false;
@@ -194,7 +194,7 @@ static void gpencil_batch_cache_init(Object *ob, int cfra)
 	cache->batch_edit = MEM_callocN(sizeof(struct Gwn_Batch) * cache->cache_size, "Gpencil_Batch_Edit");
 	cache->batch_edlin = MEM_callocN(sizeof(struct Gwn_Batch) * cache->cache_size, "Gpencil_Batch_Edlin");
 
-	cache->is_editmode = (bool)(GPENCIL_ANY_EDIT_MODE(gpd));
+	cache->is_editmode = GPENCIL_ANY_EDIT_MODE(gpd);
 	gpd->flag &= ~GP_DATA_CACHE_IS_DIRTY;
 
 	cache->cache_idx = 0;

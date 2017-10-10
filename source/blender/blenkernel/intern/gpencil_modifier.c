@@ -969,7 +969,7 @@ void BKE_gpencil_stroke_modifiers(Object *ob, bGPDlayer *gpl, bGPDframe *UNUSED(
 {
 	ModifierData *md;
 	bGPdata *gpd = ob->gpd;
-	bool is_edit = (bool)(GPENCIL_ANY_EDIT_MODE(gpd));
+	bool is_edit = GPENCIL_ANY_EDIT_MODE(gpd);
 
 	int id = 0;
 	for (md = ob->modifiers.first; md; md = md->next) {
@@ -1024,7 +1024,7 @@ void BKE_gpencil_geometry_modifiers(Object *ob, bGPDlayer *gpl, bGPDframe *gpf)
 {
 	ModifierData *md;
 	bGPdata *gpd = ob->gpd;
-	bool is_edit = (bool)(GPENCIL_ANY_EDIT_MODE(gpd));
+	bool is_edit = GPENCIL_ANY_EDIT_MODE(gpd);
 
 	int id = 0;
 	for (md = ob->modifiers.first; md; md = md->next) {

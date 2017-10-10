@@ -51,7 +51,7 @@ static ModifierData *modifier_available(Object *ob, ModifierType type)
 		return NULL;
 	}
 
-	bool is_edit = (bool)(GPENCIL_ANY_EDIT_MODE(gpd));
+	bool is_edit = GPENCIL_ANY_EDIT_MODE(gpd);
 	if (((md->mode & eModifierMode_Editmode) == 0) && (is_edit)) {
 		return NULL;
 	}
@@ -76,7 +76,7 @@ static bool modifier_is_active(Object *ob, ModifierData *md)
 		return false;
 	}
 
-	bool is_edit = (bool)(GPENCIL_ANY_EDIT_MODE(gpd));
+	bool is_edit = GPENCIL_ANY_EDIT_MODE(gpd);
 	if (((md->mode & eModifierMode_Editmode) == 0) && (is_edit)) {
 		return false;
 	}
