@@ -607,6 +607,10 @@ static void GPENCIL_draw_scene(void *vedata)
 
 		DRW_framebuffer_texture_detach(e_data.temp_fbcolor_depth_tx);
 		DRW_framebuffer_texture_detach(e_data.temp_fbcolor_color_tx);
+
+		/* attach again default framebuffer after detach textures */
+		DRW_framebuffer_bind(dfbl->default_fb);
+
 		/* free memory */
 		gpencil_free_obj_list(stl);
 		return;
