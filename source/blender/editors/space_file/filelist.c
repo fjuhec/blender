@@ -1533,6 +1533,9 @@ void filelist_assetengine_set(struct FileList *filelist, struct AssetEngineType 
 
 AssetEngine *ED_filelist_assetengine_get(SpaceFile *sfile)
 {
+	if (sfile->files == NULL) {  /* Can happen at file opening if a filebrowser editor is opened in file. */
+		return NULL;
+	}
 	return sfile->files->ae;
 }
 
