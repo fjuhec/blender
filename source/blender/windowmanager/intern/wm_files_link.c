@@ -492,27 +492,27 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
 
 		RNA_BEGIN (op->ptr, itemptr, "files")
 		{
+			WMLinkAppendDataItem *item;
+
 			RNA_string_get(&itemptr, "name", relname);
 
 			BLI_join_dirfile(path, sizeof(path), root, relname);
 
+			if (aet) {
+				RNA_int_get_array(&itemptr, "repository_uuid", uuid.uuid_repository);
+				RNA_int_get_array(&itemptr, "asset_uuid", uuid.uuid_asset);
+				RNA_int_get_array(&itemptr, "variant_uuid", uuid.uuid_variant);
+				RNA_int_get_array(&itemptr, "revision_uuid", uuid.uuid_revision);
+				RNA_int_get_array(&itemptr, "view_uuid", uuid.uuid_view);
+			}
+
 			if (BLO_library_path_explode(path, libname, &group, &name)) {
-				WMLinkAppendDataItem *item;
 				if (!group || !name) {
 					printf("skipping %s\n", path);
 					continue;
 				}
 
 				lib_idx = GET_INT_FROM_POINTER(BLI_ghash_lookup(libraries, libname));
-
-				if (aet) {
-					RNA_int_get_array(&itemptr, "repository_uuid", uuid.uuid_repository);
-					RNA_int_get_array(&itemptr, "asset_uuid", uuid.uuid_asset);
-					RNA_int_get_array(&itemptr, "variant_uuid", uuid.uuid_variant);
-					RNA_int_get_array(&itemptr, "revision_uuid", uuid.uuid_revision);
-					RNA_int_get_array(&itemptr, "view_uuid", uuid.uuid_view);
-				}
-
 				item = wm_link_append_data_item_add(lapp_data, name, BKE_idcode_from_name(group), &uuid, NULL);
 				BLI_BITMAP_ENABLE(item->libraries, lib_idx);
 			}
@@ -520,15 +520,7 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
 				const int idcode = path_to_idcode(path);
 
 				if (idcode != 0) {
-					WMLinkAppendDataItem *item;
 					lib_idx = GET_INT_FROM_POINTER(BLI_ghash_lookup(libraries, ""));
-
-					RNA_int_get_array(&itemptr, "repository_uuid", uuid.uuid_repository);
-					RNA_int_get_array(&itemptr, "asset_uuid", uuid.uuid_asset);
-					RNA_int_get_array(&itemptr, "variant_uuid", uuid.uuid_variant);
-					RNA_int_get_array(&itemptr, "revision_uuid", uuid.uuid_revision);
-					RNA_int_get_array(&itemptr, "view_uuid", uuid.uuid_view);
-
 					item = wm_link_append_data_item_add(lapp_data, path, idcode, &uuid, NULL);
 					BLI_BITMAP_ENABLE(item->libraries, lib_idx);
 				}
@@ -538,12 +530,31 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
 
 		BLI_ghash_free(libraries, MEM_freeN, NULL);
 	}
-	else if (group && name) {
+	else if ((group || aet) && path[0]) {
 		WMLinkAppendDataItem *item;
 
-		wm_link_append_data_library_add(lapp_data, libname);
-		item = wm_link_append_data_item_add(lapp_data, name, BKE_idcode_from_name(group), &uuid, NULL);
-		BLI_BITMAP_ENABLE(item->libraries, 0);
+		if (aet) {
+			RNA_int_get_array(op->ptr, "repository_uuid", uuid.uuid_repository);
+			RNA_int_get_array(op->ptr, "asset_uuid", uuid.uuid_asset);
+			RNA_int_get_array(op->ptr, "variant_uuid", uuid.uuid_variant);
+			RNA_int_get_array(op->ptr, "revision_uuid", uuid.uuid_revision);
+			RNA_int_get_array(op->ptr, "view_uuid", uuid.uuid_view);
+		}
+
+		if (group) {
+			wm_link_append_data_library_add(lapp_data, libname);
+			item = wm_link_append_data_item_add(lapp_data, name, BKE_idcode_from_name(group), &uuid, NULL);
+			BLI_BITMAP_ENABLE(item->libraries, 0);
+		}
+		else if (aet) {  /* Non-blend paths are only valid in asset engine context (virtual libraries). */
+			const int idcode = path_to_idcode(path);
+
+			if (idcode != 0) {
+				wm_link_append_data_library_add(lapp_data, "");
+				item = wm_link_append_data_item_add(lapp_data, path, idcode, &uuid, NULL);
+				BLI_BITMAP_ENABLE(item->libraries, 0);
+			}
+		}
 	}
 
 	/* XXX We'd need re-entrant locking on Main for this to work... */

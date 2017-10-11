@@ -93,6 +93,20 @@ typedef struct uiLayout uiLayout;
 /* use for clamping popups within the screen */
 #define UI_SCREEN_MARGIN 10
 
+/* Needed to handle library data linking/appending drag and drop. */
+typedef struct uiDragLibraryHandle {
+	char ae_idname[64];  /* BKE_ST_MAXNAME */
+	struct {
+		/* WARNING! keep in sync with AssetUUID from DNA_ID.h. */
+		int uuid_repository[4];
+		int uuid_asset[4];
+		int uuid_variant[4];
+		int uuid_revision[4];
+		int uuid_view[4];
+	} uuid;
+	char path[1090];  /* FILE_MAX + MAX_ID_NAME */
+} uiDragLibraryHandle;
+
 /* uiBlock->dt and uiBut->dt */
 enum {
 	UI_EMBOSS               = 0,  /* use widget style for drawing */
@@ -493,11 +507,11 @@ int     UI_but_return_value_get(uiBut *but);
 
 void    UI_but_drag_set_id(uiBut *but, struct ID *id);
 void    UI_but_drag_set_rna(uiBut *but, struct PointerRNA *ptr);
-void    UI_but_drag_set_path(uiBut *but, const char *path, const bool use_free, const bool is_libpath);
+void    UI_but_drag_set_path(uiBut *but, const char *path, const bool use_free);
 void    UI_but_drag_set_name(uiBut *but, const char *name);
 void    UI_but_drag_set_value(uiBut *but);
-void    UI_but_drag_set_image(
-        uiBut *but, const char *path, int icon, struct ImBuf *ima, float scale, const bool use_free, const bool is_libpath);
+void    UI_but_drag_set_image(uiBut *but, const char *path, int icon, struct ImBuf *ima, float scale, const bool use_free);
+void    UI_but_drag_set_library(uiBut *but, const int icon, struct ImBuf *ima, const float scale, const uiDragLibraryHandle *drag_data, const bool use_free);
 
 bool    UI_but_active_drop_name(struct bContext *C);
 bool    UI_but_active_drop_color(struct bContext *C);

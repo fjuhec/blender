@@ -71,6 +71,7 @@
 
 #include "RNA_access.h"
 
+#include "UI_interface.h"
 #include "UI_resources.h"
 
 #ifdef WITH_PYTHON
@@ -590,10 +591,11 @@ static void view3d_main_region_exit(wmWindowManager *wm, ARegion *ar)
 static int view3d_path_link_drop_poll(bContext *UNUSED(C), wmDrag *drag, const wmEvent *event)
 {
 	if (event->shift == false) {
-		if (drag->type == WM_DRAG_LIBPATH) {
+		if (drag->type == WM_DRAG_LIBRARY) {
+			uiDragLibraryHandle *drag_data = drag->poin;
 			char libname[FILE_MAX];
 			char *group, *name;
-			if (!BLO_library_path_explode(drag->path, libname, &group, &name) /* later... && (!aet || !path_to_idcode(path))*/ ) {
+			if (!BLO_library_path_explode(drag_data->path, libname, &group, &name) /* later... && (!aet || !path_to_idcode(path))*/ ) {
 				return 0;
 			}
 			switch (BKE_idcode_from_name(group)) {
@@ -685,9 +687,15 @@ static int view3d_ima_mesh_drop_poll(bContext *C, wmDrag *drag, const wmEvent *e
 
 static void view3d_path_link_drop_copy(wmDrag *drag, wmDropBox *drop)
 {
-	RNA_string_set(drop->ptr, "asset_engine", drag->ae_idname);
+	uiDragLibraryHandle *drag_data = drag->poin;
+	RNA_string_set(drop->ptr, "asset_engine", drag_data->ae_idname);
 	RNA_string_set(drop->ptr, "directory", "");
-	RNA_string_set(drop->ptr, "filename", drag->path);
+	RNA_string_set(drop->ptr, "filename", drag_data->path);
+	RNA_int_set_array(drop->ptr, "repository_uuid", drag_data->uuid.uuid_repository);
+	RNA_int_set_array(drop->ptr, "asset_uuid", drag_data->uuid.uuid_asset);
+	RNA_int_set_array(drop->ptr, "variant_uuid", drag_data->uuid.uuid_variant);
+	RNA_int_set_array(drop->ptr, "revision_uuid", drag_data->uuid.uuid_revision);
+	RNA_int_set_array(drop->ptr, "view_uuid", drag_data->uuid.uuid_view);
 }
 
 static void view3d_ob_drop_copy(wmDrag *drag, wmDropBox *drop)

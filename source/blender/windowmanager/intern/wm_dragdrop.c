@@ -153,14 +153,13 @@ wmDrag *WM_event_start_drag(struct bContext *C, int icon, int type, void *poin, 
 	drag->flags = flags;
 	drag->icon = icon;
 	drag->type = type;
-	if (ELEM(type, WM_DRAG_PATH, WM_DRAG_LIBPATH)) {
+	if (type == WM_DRAG_PATH) {
 		BLI_strncpy(drag->path, poin, FILE_MAX);
-		if (type == WM_DRAG_LIBPATH) {
-			SpaceFile *sfile = CTX_wm_space_file(C);
-			if (sfile) {
-				BLI_strncpy(drag->ae_idname, sfile->asset_engine, BKE_ST_MAXNAME);
-			}
-		}
+	}
+	else if (type == WM_DRAG_LIBRARY) {
+		drag->poin = MEM_dupallocN(poin);
+		drag->flags |= WM_DRAG_FREE_DATA;
+		BLI_strncpy(drag->path, ((uiDragLibraryHandle *)poin)->path, sizeof(drag->path));
 	}
 	else {
 		drag->poin = poin;
