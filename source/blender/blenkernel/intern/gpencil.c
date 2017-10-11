@@ -335,13 +335,13 @@ void BKE_gpencil_free(bGPdata *gpd, bool free_all)
 	}
 	BKE_gpencil_free_layers(&gpd->layers);
 
+	/* free palette slots */
+	BKE_gpencil_free_paletteslots(gpd);
+
 	/* free all data */
 	if (free_all) {
 		/* clear cache */
 		BKE_gpencil_batch_cache_free(gpd);
-		
-		/* free palette slots */
-		BKE_gpencil_free_paletteslots(gpd);
 		
 		/* free palettes (deprecated) */
 		BKE_gpencil_free_palettes(&gpd->palettes);
