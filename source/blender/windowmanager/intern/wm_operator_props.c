@@ -77,19 +77,19 @@ void WM_operator_properties_filesel(
 		                      "Identifier of relevant asset engine (if any)");
 		RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
 		if (flag & (WM_FILESEL_FILEPATH | WM_FILESEL_FILENAME)) {
-			prop = RNA_def_int_vector(ot->srna, "repository_uuid", 4, NULL, INT_MIN, INT_MAX,
+			prop = RNA_def_int_vector(ot->srna, "uuid_repository", 4, NULL, INT_MIN, INT_MAX,
 			                          "Repository UUID", "Identifier of this item's repository in current asset engine", INT_MIN, INT_MAX);
 			RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
-			prop = RNA_def_int_vector(ot->srna, "asset_uuid", 4, NULL, INT_MIN, INT_MAX,
+			prop = RNA_def_int_vector(ot->srna, "uuid_asset", 4, NULL, INT_MIN, INT_MAX,
 			                          "Asset UUID", "Identifier of this item in current asset engine", INT_MIN, INT_MAX);
 			RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
-			prop = RNA_def_int_vector(ot->srna, "variant_uuid", 4, NULL, INT_MIN, INT_MAX,
+			prop = RNA_def_int_vector(ot->srna, "uuid_variant", 4, NULL, INT_MIN, INT_MAX,
 			                          "Variant UUID", "Identifier of this item's variant in current asset engine", INT_MIN, INT_MAX);
 			RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
-			prop = RNA_def_int_vector(ot->srna, "revision_uuid", 4, NULL, INT_MIN, INT_MAX,
+			prop = RNA_def_int_vector(ot->srna, "uuid_revision", 4, NULL, INT_MIN, INT_MAX,
 			                          "Revision UUID", "Identifier of this item's revision in current asset engine", INT_MIN, INT_MAX);
 			RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
-			prop = RNA_def_int_vector(ot->srna, "view_uuid", 4, NULL, INT_MIN, INT_MAX,
+			prop = RNA_def_int_vector(ot->srna, "uuid_view", 4, NULL, INT_MIN, INT_MAX,
 			                          "View UUID", "Identifier of this item's view in current asset engine", INT_MIN, INT_MAX);
 			RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
 		}

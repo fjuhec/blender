@@ -1240,19 +1240,19 @@ void file_sfile_to_operator_ex(
 			RNA_property_string_set(op->ptr, prop, filepath);
 		}
 		if (ae && uuids) {
-			if ((prop = RNA_struct_find_property(op->ptr, "repository_uuid"))) {
+			if ((prop = RNA_struct_find_property(op->ptr, "uuid_repository"))) {
 				RNA_property_int_set_array(op->ptr, prop, uuids->uuids[0].uuid_repository);
 			}
-			if ((prop = RNA_struct_find_property(op->ptr, "asset_uuid"))) {
+			if ((prop = RNA_struct_find_property(op->ptr, "uuid_asset"))) {
 				RNA_property_int_set_array(op->ptr, prop, uuids->uuids[0].uuid_asset);
 			}
-			if ((prop = RNA_struct_find_property(op->ptr, "variant_uuid"))) {
+			if ((prop = RNA_struct_find_property(op->ptr, "uuid_variant"))) {
 				RNA_property_int_set_array(op->ptr, prop, uuids->uuids[0].uuid_variant);
 			}
-			if ((prop = RNA_struct_find_property(op->ptr, "revision_uuid"))) {
+			if ((prop = RNA_struct_find_property(op->ptr, "uuid_revision"))) {
 				RNA_property_int_set_array(op->ptr, prop, uuids->uuids[0].uuid_revision);
 			}
-			if ((prop = RNA_struct_find_property(op->ptr, "view_uuid"))) {
+			if ((prop = RNA_struct_find_property(op->ptr, "uuid_view"))) {
 				RNA_property_int_set_array(op->ptr, prop, uuids->uuids[0].uuid_view);
 			}
 		}
@@ -1273,11 +1273,11 @@ void file_sfile_to_operator_ex(
 						RNA_string_set(&itemptr, "name", entry->relpath);
 						if (ae) {
 							BLI_assert(i < uuids->nbr_uuids);
-							RNA_int_set_array(&itemptr, "repository_uuid", uuids->uuids[i].uuid_repository);
-							RNA_int_set_array(&itemptr, "asset_uuid", uuids->uuids[i].uuid_asset);
-							RNA_int_set_array(&itemptr, "variant_uuid", uuids->uuids[i].uuid_variant);
-							RNA_int_set_array(&itemptr, "revision_uuid", uuids->uuids[i].uuid_revision);
-							RNA_int_set_array(&itemptr, "view_uuid", uuids->uuids[i].uuid_view);
+							RNA_int_set_array(&itemptr, "uuid_repository", uuids->uuids[i].uuid_repository);
+							RNA_int_set_array(&itemptr, "uuid_asset", uuids->uuids[i].uuid_asset);
+							RNA_int_set_array(&itemptr, "uuid_variant", uuids->uuids[i].uuid_variant);
+							RNA_int_set_array(&itemptr, "uuid_revision", uuids->uuids[i].uuid_revision);
+							RNA_int_set_array(&itemptr, "uuid_view", uuids->uuids[i].uuid_view);
 						}
 					}
 				}
