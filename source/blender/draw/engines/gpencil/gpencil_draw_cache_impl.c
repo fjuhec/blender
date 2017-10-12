@@ -385,7 +385,7 @@ DRWShadingGroup *DRW_gpencil_shgroup_stroke_create(GPENCIL_e_data *e_data, GPENC
 		}
 	}
 
-	if (gpd) {
+	if ((gpd) && (id > -1)) {
 		DRW_shgroup_uniform_int(grp, "xraymode", (const int *) &gpd->xray_mode, 1);
 	}
 	else {
