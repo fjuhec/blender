@@ -608,6 +608,9 @@ static void gpencil_add_editpoints_shgroup(GPENCIL_StorageList *stl, GpencilBatc
 	{
 		const DRWContextState *draw_ctx = DRW_context_state_get();
 		Object *obact = draw_ctx->obact;
+		if (obact->type != OB_GPENCIL) {
+			return;
+		}
 		bool is_weight_paint = (gpd) && (gpd->flag & GP_DATA_STROKE_WEIGHTMODE);
 
 		/* line of the original stroke */
