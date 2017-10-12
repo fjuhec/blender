@@ -46,6 +46,7 @@ extern char datatoc_gpencil_stroke_vert_glsl[];
 extern char datatoc_gpencil_stroke_geom_glsl[];
 extern char datatoc_gpencil_stroke_frag_glsl[];
 extern char datatoc_gpencil_zdepth_mix_frag_glsl[];
+extern char datatoc_gpencil_front_depth_mix_frag_glsl[];
 extern char datatoc_gpencil_point_vert_glsl[];
 extern char datatoc_gpencil_point_geom_glsl[];
 extern char datatoc_gpencil_point_frag_glsl[];
@@ -168,6 +169,7 @@ static void GPENCIL_engine_free(void)
 	DRW_SHADER_FREE_SAFE(e_data.gpencil_vfx_pixel_sh);
 	DRW_SHADER_FREE_SAFE(e_data.gpencil_vfx_swirl_sh);
 	DRW_SHADER_FREE_SAFE(e_data.gpencil_painting_sh);
+	DRW_SHADER_FREE_SAFE(e_data.gpencil_front_depth_sh);
 
 	DRW_TEXTURE_FREE_SAFE(e_data.gpencil_blank_texture);
 }
@@ -229,6 +231,9 @@ static void GPENCIL_cache_init(void *vedata)
 	}
 	if (!e_data.gpencil_painting_sh) {
 		e_data.gpencil_painting_sh = DRW_shader_create_fullscreen(datatoc_gpencil_painting_frag_glsl, NULL);
+	}
+	if (!e_data.gpencil_front_depth_sh) {
+		e_data.gpencil_front_depth_sh = DRW_shader_create_fullscreen(datatoc_gpencil_front_depth_mix_frag_glsl, NULL);
 	}
 
 	{
@@ -358,11 +363,18 @@ static void GPENCIL_cache_init(void *vedata)
 
 		/* Painting session pass (used only to speedup while the user is drawing ) */
 		struct Gwn_Batch *paintquad = DRW_cache_fullscreen_quad_get();
-		psl->painting_pass = DRW_pass_create("GPencil Painting Session Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
+		psl->painting_pass = DRW_pass_create("GPencil Painting Session Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
 		DRWShadingGroup *painting_shgrp = DRW_shgroup_create(e_data.gpencil_painting_sh, psl->painting_pass);
 		DRW_shgroup_call_add(painting_shgrp, paintquad, NULL);
 		DRW_shgroup_uniform_buffer(painting_shgrp, "strokeColor", &e_data.painting_color_tx);
 		DRW_shgroup_uniform_buffer(painting_shgrp, "strokeDepth", &e_data.painting_depth_tx);
+
+		/* pass for current stroke drawing in front of all */
+		struct Gwn_Batch *frontquad = DRW_cache_fullscreen_quad_get();
+		psl->mix_pass_front = DRW_pass_create("GPencil Mix Front Depth Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
+		DRWShadingGroup *mix_front_shgrp = DRW_shgroup_create(e_data.gpencil_front_depth_sh, psl->mix_pass_front);
+		DRW_shgroup_call_add(mix_front_shgrp, frontquad, NULL);
+		DRW_shgroup_uniform_buffer(mix_front_shgrp, "strokeColor", &e_data.temp_fbcolor_color_tx);
 	}
 }
 
@@ -587,14 +599,15 @@ static void GPENCIL_draw_scene(void *vedata)
 
 	/* if we have a painting session, we use fast viewport drawing method */
 	if (stl->g_data->session_flag & GP_DRW_PAINT_PAINTING) {
+		DRW_framebuffer_bind(dfbl->default_fb);
+		DRW_draw_pass(psl->painting_pass);
+
+		/* Current stroke must pass through the temp framebuffer to get same alpha values in blend */
 		DRW_framebuffer_texture_attach(fbl->temp_color_fb, e_data.temp_fbcolor_depth_tx, 0, 0);
 		DRW_framebuffer_texture_attach(fbl->temp_color_fb, e_data.temp_fbcolor_color_tx, 0, 0);
 
-		/* It must pass through the temp framebuffer to get same alpha values in blend */
 		DRW_framebuffer_bind(fbl->temp_color_fb);
 		DRW_framebuffer_clear(true, true, false, clearcol, 1.0f);
-		DRW_draw_pass(psl->painting_pass);
-
 		MULTISAMPLE_GP_SYNC_ENABLE(dfbl, fbl);
 
 		DRW_draw_pass(psl->drawing_pass);
@@ -603,7 +616,7 @@ static void GPENCIL_draw_scene(void *vedata)
 
 		/* send to default framebuffer */
 		DRW_framebuffer_bind(dfbl->default_fb);
-		DRW_draw_pass(psl->mix_pass);
+		DRW_draw_pass(psl->mix_pass_front);
 
 		DRW_framebuffer_texture_detach(e_data.temp_fbcolor_depth_tx);
 		DRW_framebuffer_texture_detach(e_data.temp_fbcolor_color_tx);
