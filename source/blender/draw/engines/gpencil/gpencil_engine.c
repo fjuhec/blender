@@ -279,7 +279,7 @@ static void GPENCIL_cache_init(void *vedata)
 		}
 
 		ob = draw_ctx->obact;
-		if (ob) {
+		if ((ob) && (ob->type == OB_GPENCIL)) {
 			gpd = ob->gpd;
 		}
 		bGPDpaletteref *palslot = BKE_gpencil_paletteslot_get_active(gpd);
