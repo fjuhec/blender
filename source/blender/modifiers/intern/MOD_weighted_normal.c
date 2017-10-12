@@ -162,7 +162,7 @@ static void loop_split_worker(WeightedNormalModifierData *wnmd, pair *mode_pair,
 {
 	if (e2l_prev) {
 		int *e2lfan_curr = e2l_prev;
-		MLoop *mlfan_curr = ml_prev;
+		const MLoop *mlfan_curr = ml_prev;
 		int mlfan_curr_index = ml_prev_index;
 		int mlfan_vert_index = ml_curr_index;
 		int mpfan_curr_index = mp_index;
@@ -202,7 +202,7 @@ static void loop_split_worker(WeightedNormalModifierData *wnmd, pair *mode_pair,
 	}
 }
 
-static void apply_weights_vertex_normal(WeightedNormalModifierData *wnmd, Object *ob, DerivedMesh *dm,
+static void apply_weights_vertex_normal(WeightedNormalModifierData *wnmd, Object *UNUSED(ob), DerivedMesh *UNUSED(dm),
 	short(*clnors)[2], MVert *mvert, const int numVerts, MEdge *medge,
 	const int numEdges, MLoop *mloop, const int numLoops, MPoly *mpoly,
 	const int numPoly, float(*polynors)[3], MDeformVert *dvert, int defgrp_index,
