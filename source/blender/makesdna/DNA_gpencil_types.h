@@ -392,8 +392,9 @@ typedef struct bGPdata {
 	short sflag;                /* settings for palette color */
 	short bstroke_style;        /* buffer style for drawing strokes (used to select shader type) */
 	short bfill_style;          /* buffer style for filling areas (used to select shader type) */
-	char pad3[2];
-	 
+
+	short xray_mode;            /* xray mode for strokes */
+
 	/* Palettes */
 	ListBase palettes;          /* list of bGPDpalette's   - Deprecated (2.78 - 2.79 only) */
 	
@@ -401,10 +402,9 @@ typedef struct bGPdata {
 	struct GHash *batch_cache_data;
 	
 	char last_palette_name[66]; /* name of the last palette used */
-	char pad[4];
+	char pad[6];
 	
 	/* 3D Viewport/Appearance Settings */
-	short xray_mode;            /* xray mode for strokes (eGP_DepthOrdering) */
 	int pixfactor;              /* factor to define pixel size conversion */
 	float line_color[4];        /* color for edit line */
 
@@ -417,10 +417,10 @@ typedef struct bGPdata {
 
 	float gcolor_prev[3];	    /* optional color for ghosts before the active frame */
 	float gcolor_next[3];	    /* optional color for ghosts after the active frame */
-	
+
 	/* Palette Slots */
 	int active_palette_slot;    /* index of active palette slot */
-	
+
 	ListBase palette_slots;     /* list of bGPDpaletteref's - (2.8+) */
 } bGPdata;
 
