@@ -2395,7 +2395,6 @@ bool initTransform(bContext *C, TransInfo *t, wmOperator *op, const wmEvent *eve
 
 	if ((prop = RNA_struct_find_property(op->ptr, "preserve_clnor"))) {
 		if (t->obedit && t->obedit->type == OB_MESH && (((Mesh *)(t->obedit->data))->flag & ME_AUTOSMOOTH)) {
-
 			BMEditMesh *em = BKE_editmesh_from_object(t->obedit);
 			RNA_def_property_clear_flag(prop, PROP_HIDDEN);
 			bool all_select = false;
@@ -3792,7 +3791,7 @@ static void headerRotation(TransInfo *t, char str[UI_MAX_DRAW_STR], float final)
 	}
 	else {
 		ofs += BLI_snprintf(str + ofs, UI_MAX_DRAW_STR - ofs, IFACE_("Rot: %.2f%s %s"),
-			RAD2DEGF(final), t->con.text, t->proptext);
+		                    RAD2DEGF(final), t->con.text, t->proptext);
 	}
 
 	if (t->flag & T_PROP_EDIT_ALL) {
@@ -4095,7 +4094,6 @@ static void applyRotation(TransInfo *t, const int UNUSED(mval[2]))
 	
 	ED_area_headerprint(t->sa, str);
 }
-
 /** \} */
 
 
@@ -4211,7 +4209,6 @@ static void applyTrackball(TransInfo *t, const int UNUSED(mval[2]))
 
 	ED_area_headerprint(t->sa, str);
 }
-
 /** \} */
 
 
@@ -4249,7 +4246,7 @@ void freeCustomNormalArray(TransInfo *t, TransCustomData *custom_data)
 		BMEditMesh *em = BKE_editmesh_from_object(t->obedit);
 		BMesh *bm = em->bm;
 
-		for (int i = 0; i < ld->totloop; i++, tld++){		/* Restore custom loop normal on cancel */
+		for (int i = 0; i < ld->totloop; i++, tld++) {  /* Restore custom loop normal on cancel */
 			BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[tld->loop_index], tld->niloc, tld->clnors_data);
 		}
 	}
@@ -4327,7 +4324,6 @@ static void applyNormalRotation(TransInfo *t, const int UNUSED(mval[2]))
 	axis_angle_normalized_to_mat3(mat, axis, angle);
 
 	for (int i = 0; i < ld->totloop; i++, tld++) {
-
 		float center[3];
 		float vec[3], totmat[3][3], smat[3][3];
 		zero_v3(center);

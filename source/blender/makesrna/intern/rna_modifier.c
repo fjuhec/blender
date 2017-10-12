@@ -4810,7 +4810,7 @@ static void rna_def_modifier_weightednormal(BlenderRNA *brna)
 		{MOD_WEIGHTEDNORMAL_MODE_ANGLE, "CORNER_ANGLE", 0, "Corner Angle", "Generate corner angle weighted normals"},
 		{MOD_WEIGHTEDNORMAL_MODE_FACE_ANGLE, "FACE_AREA_WITH_ANGLE", 0, "Face Area with Angle",
 			"Generated normals weighted by both Face Area and Angle" },
-		{ 0, NULL, 0, NULL, NULL }
+		{0, NULL, 0, NULL, NULL}
 	};
 
 	srna = RNA_def_struct(brna, "WeightedNormalModifier", "Modifier");

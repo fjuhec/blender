@@ -537,6 +537,7 @@ typedef struct TransInfo {
 #define T_OVERRIDE_CENTER	(1 << 25)
 
 #define T_CLNOR_REBUILD		(1 << 26)
+
 /* TransInfo->modifiers */
 #define	MOD_CONSTRAINT_SELECT	0x01
 #define	MOD_PRECISION			0x02

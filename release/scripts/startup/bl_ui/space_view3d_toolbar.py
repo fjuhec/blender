@@ -458,14 +458,14 @@ class VIEW3D_PT_tools_normal(View3DPanel, Panel):
 
 		col = layout.column(align=True)
 		col.operator("mesh.set_normals_from_faces", text="Set From Faces")
-		col.operator("transform.rotate_normal", text = "Rotate Normal")
+		col.operator("transform.rotate_normal", text="Rotate Normal")
 		col.operator("mesh.point_normals")
 
 		col = layout.column(align=True)
 		col.label(text="Split/Merge: ")
 
-		col.operator("mesh.merge_loop_normals", text = "Merge Normals")
-		col.operator("mesh.split_loop_normals", text = "Split Normals")
+		col.operator("mesh.merge_loop_normals", text="Merge Normals")
+		col.operator("mesh.split_loop_normals", text="Split Normals")
 		
 		col = layout.column(align=True)
 		col.label(text="Average by: ")
@@ -475,14 +475,14 @@ class VIEW3D_PT_tools_normal(View3DPanel, Panel):
 		col = layout.column(align=True)
 		col.label(text="Normal Vector: ")
 		col.operator("mesh.custom_normal_tools", text="Reset").mode = "Reset"
-		col.prop(toolsettings, "normal_vector", text = '')
+		col.prop(toolsettings, "normal_vector", text="")
 
 		row = col.row(align=True)
 		row.operator("mesh.custom_normal_tools", text="Copy").mode = "Copy"
 		row.operator("mesh.custom_normal_tools", text="Paste").mode = "Paste"
 
 		row = col.row(align=True)
-		row.operator("mesh.custom_normal_tools", text = "Multiply").mode = "Multiply"
+		row.operator("mesh.custom_normal_tools", text="Multiply").mode = "Multiply"
 		row.operator("mesh.custom_normal_tools", text="Add").mode = "Add"
 
 		col = layout.column(align=True)
@@ -493,8 +493,8 @@ class VIEW3D_PT_tools_normal(View3DPanel, Panel):
 		row = col.row(align=True)
 		
 		row.prop(toolsettings, "face_strength", text="")
-		row.operator("mesh.mod_weighted_strength", text="", icon = "FACESEL").set=False
-		row.operator("mesh.mod_weighted_strength", text="", icon = "ZOOMIN").set=True	
+		row.operator("mesh.mod_weighted_strength", text="", icon = "FACESEL").set = False
+		row.operator("mesh.mod_weighted_strength", text="", icon = "ZOOMIN").set = True	
 
 
 class VIEW3D_PT_tools_uvs(View3DPanel, Panel):

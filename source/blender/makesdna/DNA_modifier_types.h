@@ -1627,7 +1627,7 @@ enum {
 typedef struct WeightedNormalModifierData {
 	ModifierData modifier;
 
-	char defgrp_name[64];
+	char defgrp_name[64];  /* MAX_VGROUP_NAME */
 	char mode, flag;
 	short weight;
 	float thresh;

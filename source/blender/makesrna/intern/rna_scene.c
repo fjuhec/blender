@@ -2490,10 +2490,10 @@ static void rna_def_tool_settings(BlenderRNA  *brna)
 	};
 
 	static EnumPropertyItem mod_weighted_strength[] = {
-		{ FACE_STRENGTH_WEAK, "Weak", 0, "Weak", "Set face strength to weak" },
-		{ FACE_STRENGTH_MEDIUM, "Medium", 0, "Medium", "Set face strength to medium" },
-		{ FACE_STRENGTH_STRONG, "Strong", 0, "Strong", "Set face strength to Strong" },
-		{ 0, NULL, 0, NULL, NULL },
+		{FACE_STRENGTH_WEAK, "Weak", 0, "Weak", ""},
+		{FACE_STRENGTH_MEDIUM, "Medium", 0, "Medium", ""},
+		{FACE_STRENGTH_STRONG, "Strong", 0, "Strong", ""},
+		{0, NULL, 0, NULL, NULL},
 	};
 
 	static EnumPropertyItem draw_groupuser_items[] = {
@@ -2885,12 +2885,10 @@ static void rna_def_tool_settings(BlenderRNA  *brna)
 	RNA_def_property_ui_text(prop, "Live Unwrap", "Changing edges seam re-calculates UV unwrap");
 
 	prop = RNA_def_property(srna, "normal_vector", PROP_FLOAT, PROP_NONE);
-	RNA_def_property_float_sdna(prop, NULL, "normal_vector");
 	RNA_def_property_ui_text(prop, "Normal Vector", "Normal Vector used to copy, add or multiply");
 	RNA_def_property_ui_range(prop, -10000.0, 10000.0, 1, 3);
 
-	prop = RNA_def_property(srna, "face_strength", PROP_ENUM, PROP_NONE);		//Face Strength for Weighted Normal Modifier
-	RNA_def_property_enum_sdna(prop, NULL, "face_strength");
+	prop = RNA_def_property(srna, "face_strength", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_items(prop, mod_weighted_strength);
 	RNA_def_property_ui_text(prop, "Face Strength", "Set strength of face to specified value");
 
