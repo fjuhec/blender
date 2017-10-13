@@ -3518,10 +3518,16 @@ void uiLayoutOperatorButs(
         const char label_align, const short flag)
 {
 	const char *op_title = RNA_struct_ui_name(op->type->srna);
+	bool can_repeat;
 
 	if (!op->properties) {
 		IDPropertyTemplate val = {0};
 		op->properties = IDP_New(IDP_GROUP, &val, "wmOperatorProperties");
+	}
+
+	can_repeat = WM_operator_repeat_check(C, op);
+	if (!can_repeat && (flag & UI_LAYOUT_OP_HIDE_UNSUPPORTED)) {
+		return;
 	}
 
 	if ((flag & UI_LAYOUT_OP_SHOW_REDO_BUT) == UI_LAYOUT_OP_SHOW_REDO_BUT) {
