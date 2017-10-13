@@ -6008,15 +6008,7 @@ static void apply_point_normals(bContext *C, wmOperator *op, const wmEvent *UNUS
 
 	const bool point_away = RNA_boolean_get(op->ptr, "point_away");
 	const bool spherize = RNA_boolean_get(op->ptr, "spherize");
-	float zero[3] = { 0 };
-
-	PropertyRNA *prop = RNA_struct_find_property(op->ptr, "strength");
-	if (spherize) {
-		RNA_def_property_clear_flag(prop, PROP_HIDDEN);
-	}
-	else {
-		RNA_def_property_flag(prop, PROP_HIDDEN);
-	}
+	float zero[3] = { 0.0f };
 
 	for (int i = 0; i < ld->totloop; i++, tld++) {
 		if (spherize) {
@@ -6341,6 +6333,32 @@ static int edbm_point_normals_exec(bContext *C, wmOperator *op)
 	return OPERATOR_FINISHED;
 }
 
+static bool point_normals_draw_check_prop(PointerRNA *ptr, PropertyRNA *prop)
+{
+	const char *prop_id = RNA_property_identifier(prop);
+	const bool spherize = RNA_boolean_get(ptr, "spherize");
+
+	/* Only show strength option if spherize is enabled. */
+	if (STREQ(prop_id, "strength")) {
+		return spherize;
+	}
+
+	/* Else, show it! */
+	return true;
+}
+
+static void edbm_point_normals_ui(bContext *C, wmOperator *op)
+{
+	uiLayout *layout = op->layout;
+	wmWindowManager *wm = CTX_wm_manager(C);
+	PointerRNA ptr;
+
+	RNA_pointer_create(&wm->id, op->type->srna, op->properties, &ptr);
+
+	/* Main auto-draw call */
+	uiDefAutoButsRNA(layout, &ptr, point_normals_draw_check_prop, '\0');
+}
+
 void MESH_OT_point_normals(struct wmOperatorType *ot)
 {
 	PropertyRNA *prop;
@@ -6355,6 +6373,7 @@ void MESH_OT_point_normals(struct wmOperatorType *ot)
 	ot->invoke = edbm_point_normals_invoke;
 	ot->modal = edbm_point_normals_modal;
 	ot->poll = ED_operator_editmesh_auto_smooth;
+	ot->ui = edbm_point_normals_ui;
 
 	/* flags */
 	ot->flag = OPTYPE_BLOCKING | OPTYPE_REGISTER | OPTYPE_UNDO;
@@ -6632,19 +6651,6 @@ static int edbm_average_loop_normals_exec(bContext *C, wmOperator *op)
 	float threshold = RNA_float_get(op->ptr, "threshold");
 	float weight = absweight / 50.0f;
 
-	if (average_type == LOOP_AVERAGE) {
-		PropertyRNA *prop = RNA_struct_find_property(op->ptr, "weight");
-		RNA_def_property_flag(prop, PROP_HIDDEN);
-		prop = RNA_struct_find_property(op->ptr, "threshold");
-		RNA_def_property_flag(prop, PROP_HIDDEN);
-	}
-	else {
-		PropertyRNA *prop = RNA_struct_find_property(op->ptr, "weight");
-		RNA_def_property_clear_flag(prop, PROP_HIDDEN);
-		prop = RNA_struct_find_property(op->ptr, "threshold");
-		RNA_def_property_clear_flag(prop, PROP_HIDDEN);
-	}
-
 	if (absweight == 100) {
 		weight = (float)SHRT_MAX;
 	}
@@ -6749,6 +6755,35 @@ static int edbm_average_loop_normals_exec(bContext *C, wmOperator *op)
 	return OPERATOR_FINISHED;
 }
 
+static bool average_loop_normals_draw_check_prop(PointerRNA *ptr, PropertyRNA *prop)
+{
+	const char *prop_id = RNA_property_identifier(prop);
+	const int average_type = RNA_enum_get(ptr, "average_type");
+
+	/* Only show weight/threshold options in loop average type. */
+	if (STREQ(prop_id, "weight")) {
+		return (average_type == LOOP_AVERAGE);
+	}
+	else if (STREQ(prop_id, "threshold")) {
+		return (average_type == LOOP_AVERAGE);
+	}
+
+	/* Else, show it! */
+	return true;
+}
+
+static void edbm_average_loop_normals_ui(bContext *C, wmOperator *op)
+{
+	uiLayout *layout = op->layout;
+	wmWindowManager *wm = CTX_wm_manager(C);
+	PointerRNA ptr;
+
+	RNA_pointer_create(&wm->id, op->type->srna, op->properties, &ptr);
+
+	/* Main auto-draw call */
+	uiDefAutoButsRNA(layout, &ptr, average_loop_normals_draw_check_prop, '\0');
+}
+
 void MESH_OT_average_loop_normals(struct wmOperatorType *ot)
 {
 	/* identifiers */
@@ -6759,6 +6794,7 @@ void MESH_OT_average_loop_normals(struct wmOperatorType *ot)
 	/* api callbacks */
 	ot->exec = edbm_average_loop_normals_exec;
 	ot->poll = ED_operator_editmesh_auto_smooth;
+	ot->ui = edbm_average_loop_normals_ui;
 
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
@@ -6797,7 +6833,7 @@ static int edbm_custom_normal_tools_exec(bContext *C, wmOperator *op)
 	BMEditMesh *em = BKE_editmesh_from_object(obedit);
 	BMesh *bm = em->bm;
 
-	int mode = RNA_enum_get(op->ptr, "mode");
+	const int mode = RNA_enum_get(op->ptr, "mode");
 	const bool absolute = RNA_boolean_get(op->ptr, "absolute");
 
 	BM_lnorspace_update(bm);
@@ -6805,17 +6841,6 @@ static int edbm_custom_normal_tools_exec(bContext *C, wmOperator *op)
 	TransDataLoopNormal *tld = ld->normal;
 
 	float *normal_vector = scene->toolsettings->normal_vector;
-
-	PropertyRNA *prop = RNA_struct_find_property(op->ptr, "absolute");
-	if (mode == PASTE) {
-		if (!absolute) {
-			normalize_v3(normal_vector);
-		}
-		RNA_def_property_clear_flag(prop, PROP_HIDDEN);
-	}
-	else {
-		RNA_def_property_flag(prop, PROP_HIDDEN);
-	}
 
 	switch (mode) {
 		case COPY: 
@@ -6851,6 +6876,9 @@ static int edbm_custom_normal_tools_exec(bContext *C, wmOperator *op)
 			break;
 
 		case PASTE:
+			if (!absolute) {
+				normalize_v3(normal_vector);
+			}
 			for (int i = 0; i < ld->totloop; i++, tld++) {
 				if (absolute) {
 					float abs_normal[3];
@@ -6903,6 +6931,32 @@ static int edbm_custom_normal_tools_exec(bContext *C, wmOperator *op)
 	return OPERATOR_FINISHED;
 }
 
+static bool custom_normal_tools_draw_check_prop(PointerRNA *ptr, PropertyRNA *prop)
+{
+	const char *prop_id = RNA_property_identifier(prop);
+	const int mode = RNA_enum_get(ptr, "mode");
+
+	/* Only show absolute option in paste mode. */
+	if (STREQ(prop_id, "absolute")) {
+		return (mode == PASTE);
+	}
+
+	/* Else, show it! */
+	return true;
+}
+
+static void edbm_custom_normal_tools_ui(bContext *C, wmOperator *op)
+{
+	uiLayout *layout = op->layout;
+	wmWindowManager *wm = CTX_wm_manager(C);
+	PointerRNA ptr;
+
+	RNA_pointer_create(&wm->id, op->type->srna, op->properties, &ptr);
+
+	/* Main auto-draw call */
+	uiDefAutoButsRNA(layout, &ptr, custom_normal_tools_draw_check_prop, '\0');
+}
+
 void MESH_OT_custom_normal_tools(struct wmOperatorType *ot)
 {
 	/* identifiers */
@@ -6913,6 +6967,7 @@ void MESH_OT_custom_normal_tools(struct wmOperatorType *ot)
 	/* api callbacks */
 	ot->exec = edbm_custom_normal_tools_exec;
 	ot->poll = ED_operator_editmesh_auto_smooth;
+	ot->ui = edbm_custom_normal_tools_ui;
 
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;

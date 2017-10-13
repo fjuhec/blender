@@ -2396,19 +2396,20 @@ bool initTransform(bContext *C, TransInfo *t, wmOperator *op, const wmEvent *eve
 	if ((prop = RNA_struct_find_property(op->ptr, "preserve_clnor"))) {
 		if (t->obedit && t->obedit->type == OB_MESH && (((Mesh *)(t->obedit->data))->flag & ME_AUTOSMOOTH)) {
 			BMEditMesh *em = BKE_editmesh_from_object(t->obedit);
-			RNA_def_property_clear_flag(prop, PROP_HIDDEN);
 			bool all_select = false;
 
+			/* Currently only used for 3 most frequent transform ops, can include more ops. */
 			if (ELEM(t->mode, TFM_TRANSLATION, TFM_ROTATION, TFM_RESIZE)) {
-				if (em->bm->totvertsel == em->bm->totvert) {	//Currently only used for 3 most frequent transform ops, can include more ops		
-					all_select = true;							//No need to invalidate if whole mesh is selected
+				if (em->bm->totvertsel == em->bm->totvert) {
+					/* No need to invalidate if whole mesh is selected. */
+					all_select = true;
 				}
 			}
 			if (t->flag & T_MODAL) {
-				RNA_boolean_set(op->ptr, "preserve_clnor", false);
+				RNA_property_boolean_set(op->ptr, prop, false);
 			}
 			if (!all_select) {
-				const bool preserve_clnor = RNA_boolean_get(op->ptr, "preserve_clnor");
+				const bool preserve_clnor = RNA_property_boolean_get(op->ptr, prop);
 				if (preserve_clnor) {
 					BM_lnorspace_update(em->bm);
 					t->flag |= T_CLNOR_REBUILD;

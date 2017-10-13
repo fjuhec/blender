@@ -498,6 +498,35 @@ static int transform_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 	}
 }
 
+static bool transform_draw_check_prop(PointerRNA *ptr, PropertyRNA *prop)
+{
+	const char *prop_id = RNA_property_identifier(prop);
+
+	/* Only show preserve_clnor option if requested (kinda hackish, we need to take that decision based on context... */
+	if (STREQ(prop_id, "preserve_clnor")) {
+		return RNA_boolean_get(ptr, "show_preserve_clnor");;
+	}
+
+	/* Else, show it! */
+	return true;
+}
+
+static void transform_ui(bContext *C, wmOperator *op)
+{
+	uiLayout *layout = op->layout;
+	wmWindowManager *wm = CTX_wm_manager(C);
+	PointerRNA ptr;
+	Object *obedit = CTX_data_edit_object(C);
+
+	RNA_boolean_set(op->ptr, "show_preserve_clnor",
+	                (obedit && obedit->type == OB_MESH && (((Mesh *)(obedit->data))->flag & ME_AUTOSMOOTH)));
+
+	RNA_pointer_create(&wm->id, op->type->srna, op->properties, &ptr);
+
+	/* Main auto-draw call */
+	uiDefAutoButsRNA(layout, &ptr, transform_draw_check_prop, '\0');
+}
+
 void Transform_Properties(struct wmOperatorType *ot, int flags)
 {
 	PropertyRNA *prop;
@@ -586,8 +615,9 @@ void Transform_Properties(struct wmOperatorType *ot, int flags)
 	}
 
 	if (flags & P_CLNOR_INVALIDATE) {
-		prop = RNA_def_boolean(ot->srna, "preserve_clnor", 0, "Keep custom normal", "Keep custom normal during transform");
-		RNA_def_property_flag(prop, PROP_HIDDEN);
+		RNA_def_boolean(ot->srna, "preserve_clnor", false, "Preserve Normals", "Keep custom normals during transform");
+		prop = RNA_def_boolean(ot->srna, "show_preserve_clnor", false, "Show Preserve Normals", "");
+		RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
 	}
 }
 
@@ -605,6 +635,7 @@ static void TRANSFORM_OT_translate(struct wmOperatorType *ot)
 	ot->modal  = transform_modal;
 	ot->cancel = transform_cancel;
 	ot->poll   = ED_operator_screenactive;
+	ot->ui     = transform_ui;
 
 	RNA_def_float_vector_xyz(ot->srna, "value", 3, NULL, -FLT_MAX, FLT_MAX, "Vector", "", -FLT_MAX, FLT_MAX);
 
@@ -625,6 +656,7 @@ static void TRANSFORM_OT_resize(struct wmOperatorType *ot)
 	ot->modal  = transform_modal;
 	ot->cancel = transform_cancel;
 	ot->poll   = ED_operator_screenactive;
+	ot->ui     = transform_ui;
 
 	RNA_def_float_vector(ot->srna, "value", 3, VecOne, -FLT_MAX, FLT_MAX, "Vector", "", -FLT_MAX, FLT_MAX);
 
@@ -655,6 +687,7 @@ static void TRANSFORM_OT_skin_resize(struct wmOperatorType *ot)
 	ot->modal  = transform_modal;
 	ot->cancel = transform_cancel;
 	ot->poll   = skin_resize_poll;
+	ot->ui     = transform_ui;
 
 	RNA_def_float_vector(ot->srna, "value", 3, VecOne, -FLT_MAX, FLT_MAX, "Vector", "", -FLT_MAX, FLT_MAX);
 
@@ -675,6 +708,7 @@ static void TRANSFORM_OT_trackball(struct wmOperatorType *ot)
 	ot->modal  = transform_modal;
 	ot->cancel = transform_cancel;
 	ot->poll   = ED_operator_screenactive;
+	ot->ui     = transform_ui;
 
 	/* Maybe we could use float_vector_xyz here too? */
 	RNA_def_float_rotation(ot->srna, "value", 2, NULL, -FLT_MAX, FLT_MAX, "Angle", "", -FLT_MAX, FLT_MAX);
@@ -695,6 +729,7 @@ static void TRANSFORM_OT_rotate(struct wmOperatorType *ot)
 	ot->modal  = transform_modal;
 	ot->cancel = transform_cancel;
 	ot->poll   = ED_operator_screenactive;
+	ot->ui     = transform_ui;
 
 	RNA_def_float_rotation(ot->srna, "value", 0, NULL, -FLT_MAX, FLT_MAX, "Angle", "", -M_PI * 2, M_PI * 2);
 
@@ -718,6 +753,7 @@ static void TRANSFORM_OT_tilt(struct wmOperatorType *ot)
 	ot->modal  = transform_modal;
 	ot->cancel = transform_cancel;
 	ot->poll   = ED_operator_editcurve_3d;
+	ot->ui     = transform_ui;
 
 	RNA_def_float_rotation(ot->srna, "value", 0, NULL, -FLT_MAX, FLT_MAX, "Angle", "", -M_PI * 2, M_PI * 2);
 
@@ -738,6 +774,7 @@ static void TRANSFORM_OT_bend(struct wmOperatorType *ot)
 	ot->modal  = transform_modal;
 	ot->cancel = transform_cancel;
 	ot->poll   = ED_operator_region_view3d_active;
+	ot->ui     = transform_ui;
 
 	RNA_def_float_rotation(ot->srna, "value", 1, NULL, -FLT_MAX, FLT_MAX, "Angle", "", -M_PI * 2, M_PI * 2);
 
@@ -757,6 +794,7 @@ static void TRANSFORM_OT_shear(struct wmOperatorType *ot)
 	ot->modal  = transform_modal;
 	ot->cancel = transform_cancel;
 	ot->poll   = ED_operator_screenactive;
+	ot->ui     = transform_ui;
 
 	RNA_def_float(ot->srna, "value", 0, -FLT_MAX, FLT_MAX, "Offset", "", -FLT_MAX, FLT_MAX);
 
@@ -778,6 +816,7 @@ static void TRANSFORM_OT_push_pull(struct wmOperatorType *ot)
 	ot->modal  = transform_modal;
 	ot->cancel = transform_cancel;
 	ot->poll   = ED_operator_screenactive;
+	ot->ui     = transform_ui;
 
 	RNA_def_float(ot->srna, "value", 0, -FLT_MAX, FLT_MAX, "Distance", "", -FLT_MAX, FLT_MAX);
 
@@ -797,6 +836,7 @@ static void TRANSFORM_OT_shrink_fatten(struct wmOperatorType *ot)
 	ot->modal  = transform_modal;
 	ot->cancel = transform_cancel;
 	ot->poll   = ED_operator_editmesh;
+	ot->ui     = transform_ui;
 
 	RNA_def_float(ot->srna, "value", 0, -FLT_MAX, FLT_MAX, "Offset", "", -FLT_MAX, FLT_MAX);
 
@@ -820,6 +860,7 @@ static void TRANSFORM_OT_tosphere(struct wmOperatorType *ot)
 	ot->modal  = transform_modal;
 	ot->cancel = transform_cancel;
 	ot->poll   = ED_operator_screenactive;
+	ot->ui     = transform_ui;
 
 	RNA_def_float_factor(ot->srna, "value", 0, 0, 1, "Factor", "", 0, 1);
 
@@ -839,6 +880,7 @@ static void TRANSFORM_OT_mirror(struct wmOperatorType *ot)
 	ot->modal  = transform_modal;
 	ot->cancel = transform_cancel;
 	ot->poll   = ED_operator_screenactive;
+	ot->ui     = transform_ui;
 
 	Transform_Properties(ot, P_CONSTRAINT | P_PROPORTIONAL | P_GPENCIL_EDIT | P_CENTER | P_CLNOR_INVALIDATE);}
 
@@ -858,6 +900,7 @@ static void TRANSFORM_OT_edge_slide(struct wmOperatorType *ot)
 	ot->modal  = transform_modal;
 	ot->cancel = transform_cancel;
 	ot->poll   = ED_operator_editmesh_region_view3d;
+	ot->ui     = transform_ui;
 
 	RNA_def_float_factor(ot->srna, "value", 0, -10.0f, 10.0f, "Factor", "", -1.0f, 1.0f);
 
@@ -887,6 +930,7 @@ static void TRANSFORM_OT_vert_slide(struct wmOperatorType *ot)
 	ot->modal  = transform_modal;
 	ot->cancel = transform_cancel;
 	ot->poll   = ED_operator_editmesh_region_view3d;
+	ot->ui     = transform_ui;
 
 	RNA_def_float_factor(ot->srna, "value", 0, -10.0f, 10.0f, "Factor", "", -1.0f, 1.0f);
 	RNA_def_boolean(ot->srna, "use_even", false, "Even",
@@ -913,6 +957,7 @@ static void TRANSFORM_OT_edge_crease(struct wmOperatorType *ot)
 	ot->modal  = transform_modal;
 	ot->cancel = transform_cancel;
 	ot->poll   = ED_operator_editmesh;
+	ot->ui     = transform_ui;
 
 	RNA_def_float_factor(ot->srna, "value", 0, -1.0f, 1.0f, "Factor", "", -1.0f, 1.0f);
 
@@ -954,6 +999,7 @@ static void TRANSFORM_OT_edge_bevelweight(struct wmOperatorType *ot)
 	ot->modal  = transform_modal;
 	ot->cancel = transform_cancel;
 	ot->poll   = ED_operator_editmesh;
+	ot->ui     = transform_ui;
 
 	RNA_def_float_factor(ot->srna, "value", 0, -1.0f, 1.0f, "Factor", "", -1.0f, 1.0f);
 
@@ -974,6 +1020,7 @@ static void TRANSFORM_OT_seq_slide(struct wmOperatorType *ot)
 	ot->modal  = transform_modal;
 	ot->cancel = transform_cancel;
 	ot->poll   = ED_operator_sequencer_active;
+	ot->ui     = transform_ui;
 
 	RNA_def_float_vector_xyz(ot->srna, "value", 2, NULL, -FLT_MAX, FLT_MAX, "Vector", "", -FLT_MAX, FLT_MAX);
 
@@ -994,6 +1041,7 @@ static void TRANSFORM_OT_rotate_normal(struct wmOperatorType *ot)
 	ot->modal = transform_modal;
 	ot->cancel = transform_cancel;
 	ot->poll = ED_operator_editmesh_auto_smooth;
+	ot->ui     = transform_ui;
 
 	RNA_def_float_rotation(ot->srna, "value", 0, NULL, -FLT_MAX, FLT_MAX, "Angle", "", -M_PI * 2, M_PI * 2);
 
@@ -1016,6 +1064,7 @@ static void TRANSFORM_OT_transform(struct wmOperatorType *ot)
 	ot->modal  = transform_modal;
 	ot->cancel = transform_cancel;
 	ot->poll   = ED_operator_screenactive;
+	ot->ui     = transform_ui;
 
 	prop = RNA_def_enum(ot->srna, "mode", rna_enum_transform_mode_types, TFM_TRANSLATION, "Mode", "");
 	RNA_def_property_flag(prop, PROP_HIDDEN);
