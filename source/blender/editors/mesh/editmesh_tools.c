@@ -6621,16 +6621,16 @@ void MESH_OT_split_loop_normals(struct wmOperatorType *ot)
 /********************** Average Loop Normals **********************/
 
 enum {
-	LOOP_AVERAGE = 1,
-	FACE_AREA_AVERAGE = 2,
-	ANGLE_AVERAGE = 3,
+	EDBM_CLNOR_AVERAGE_LOOP = 1,
+	EDBM_CLNOR_AVERAGE_FACE_AREA = 2,
+	EDBM_CLNOR_AVERAGE_ANGLE = 3,
 };
 
 static EnumPropertyItem average_method_items[] = {
-	{ LOOP_AVERAGE, "Custom Normal", 0, "Custom Normal", "Take Average of vert Normals" },
-	{ FACE_AREA_AVERAGE, "Face Area", 0, "Face Area", "Set all vert normals by Face Area"},
-	{ ANGLE_AVERAGE, "Corner Angle", 0, "Corner Angle", "Set all vert normals by Corner Angle" },
-	{ 0, NULL, 0, NULL, NULL }
+	{EDBM_CLNOR_AVERAGE_LOOP, "Custom Normal", 0, "Custom Normal", "Take Average of vert Normals"},
+	{EDBM_CLNOR_AVERAGE_FACE_AREA, "Face Area", 0, "Face Area", "Set all vert normals by Face Area"},
+	{EDBM_CLNOR_AVERAGE_ANGLE, "Corner Angle", 0, "Corner Angle", "Set all vert normals by Corner Angle"},
+	{0, NULL, 0, NULL, NULL}
 };
 
 static int edbm_average_loop_normals_exec(bContext *C, wmOperator *op)
@@ -6695,10 +6695,10 @@ static int edbm_average_loop_normals_exec(bContext *C, wmOperator *op)
 						}
 
 						float val = 1.0f;
-						if (average_type == FACE_AREA_AVERAGE) {
+						if (average_type == EDBM_CLNOR_AVERAGE_FACE_AREA) {
 							val = 1.0f / BM_face_calc_area(lfan_pivot->f);
 						}
-						else if (average_type == ANGLE_AVERAGE) {
+						else if (average_type == EDBM_CLNOR_AVERAGE_ANGLE) {
 							val = 1.0f / BM_loop_calc_face_angle(lfan_pivot);
 						}
 
@@ -6725,7 +6725,7 @@ static int edbm_average_loop_normals_exec(bContext *C, wmOperator *op)
 
 						float n_weight = pow(weight, count);
 
-						if (average_type == LOOP_AVERAGE) {
+						if (average_type == EDBM_CLNOR_AVERAGE_LOOP) {
 							int l_index = BM_elem_index_get(l);
 							short *clnors = BM_ELEM_CD_GET_VOID_P(l, cd_clnors_offset);
 							BKE_lnor_space_custom_data_to_normal(bm->lnor_spacearr->lspacearr[l_index], clnors, wnor);
@@ -6762,10 +6762,10 @@ static bool average_loop_normals_draw_check_prop(PointerRNA *ptr, PropertyRNA *p
 
 	/* Only show weight/threshold options in loop average type. */
 	if (STREQ(prop_id, "weight")) {
-		return (average_type == LOOP_AVERAGE);
+		return (average_type == EDBM_CLNOR_AVERAGE_LOOP);
 	}
 	else if (STREQ(prop_id, "threshold")) {
-		return (average_type == LOOP_AVERAGE);
+		return (average_type == EDBM_CLNOR_AVERAGE_LOOP);
 	}
 
 	/* Else, show it! */
@@ -6799,7 +6799,7 @@ void MESH_OT_average_loop_normals(struct wmOperatorType *ot)
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
-	ot->prop = RNA_def_enum(ot->srna, "average_type", average_method_items, LOOP_AVERAGE, "Type", "Averaging method");
+	ot->prop = RNA_def_enum(ot->srna, "average_type", average_method_items, EDBM_CLNOR_AVERAGE_LOOP, "Type", "Averaging method");
 	RNA_def_property_flag(ot->prop, PROP_HIDDEN);
 
 	RNA_def_int(ot->srna, "weight", 50, 1, 100, "Weight", "Weight applied per face", 1, 100);
@@ -6810,20 +6810,20 @@ void MESH_OT_average_loop_normals(struct wmOperatorType *ot)
 /********************** Custom Normal Interface Tools **********************/
 
 enum {
-	COPY = 1,
-	PASTE = 2,
-	MULTIPLY = 3,
-	ADD = 4,
-	RESET = 5,
+	EDBM_CLNOR_TOOLS_COPY = 1,
+	EDBM_CLNOR_TOOLS_PASTE = 2,
+	EDBM_CLNOR_TOOLS_MULTIPLY = 3,
+	EDBM_CLNOR_TOOLS_ADD = 4,
+	EDBM_CLNOR_TOOLS_RESET = 5,
 };
 
 static EnumPropertyItem normal_vector_tool_items[] = {
-	{ COPY, "Copy", 0, "Copy Normal", "Copy normal to buffer" },
-	{ PASTE, "Paste", 0, "Paste Normal", "Paste normal from buffer" },
-	{ ADD, "Add", 0, "Add Normal", "Add normal vector with selection" },
-	{ MULTIPLY, "Multiply", 0, "Multiply Normal", "Multiply normal vector with selection" },
-	{ RESET, "Reset", 0, "Reset Normal", "Reset buffer and/or normal of selected element" },
-	{ 0, NULL, 0, NULL, NULL }
+	{EDBM_CLNOR_TOOLS_COPY, "Copy", 0, "Copy Normal", "Copy normal to buffer"},
+	{EDBM_CLNOR_TOOLS_PASTE, "Paste", 0, "Paste Normal", "Paste normal from buffer"},
+	{EDBM_CLNOR_TOOLS_ADD, "Add", 0, "Add Normal", "Add normal vector with selection"},
+	{EDBM_CLNOR_TOOLS_MULTIPLY, "Multiply", 0, "Multiply Normal", "Multiply normal vector with selection"},
+	{EDBM_CLNOR_TOOLS_RESET, "Reset", 0, "Reset Normal", "Reset buffer and/or normal of selected element"},
+	{0, NULL, 0, NULL, NULL}
 };
 
 static int edbm_custom_normal_tools_exec(bContext *C, wmOperator *op)
@@ -6843,7 +6843,7 @@ static int edbm_custom_normal_tools_exec(bContext *C, wmOperator *op)
 	float *normal_vector = scene->toolsettings->normal_vector;
 
 	switch (mode) {
-		case COPY: 
+		case EDBM_CLNOR_TOOLS_COPY:
 			if (bm->totfacesel != 1 && ld->totloop != 1 && bm->totvertsel != 1) {
 				BKE_report(op->reports, RPT_ERROR, "Can only copy Split normal, Averaged vertex normal or Face normal");
 				MEM_freeN(ld->normal);
@@ -6875,7 +6875,7 @@ static int edbm_custom_normal_tools_exec(bContext *C, wmOperator *op)
 			}
 			break;
 
-		case PASTE:
+		case EDBM_CLNOR_TOOLS_PASTE:
 			if (!absolute) {
 				normalize_v3(normal_vector);
 			}
@@ -6895,7 +6895,7 @@ static int edbm_custom_normal_tools_exec(bContext *C, wmOperator *op)
 			}
 			break;
 
-		case MULTIPLY:
+		case EDBM_CLNOR_TOOLS_MULTIPLY:
 			for (int i = 0; i < ld->totloop; i++, tld++) {
 				mul_v3_v3(tld->nloc, normal_vector);
 				normalize_v3(tld->nloc);
@@ -6903,7 +6903,7 @@ static int edbm_custom_normal_tools_exec(bContext *C, wmOperator *op)
 			}
 			break;
 
-		case ADD:
+		case EDBM_CLNOR_TOOLS_ADD:
 			for (int i = 0; i < ld->totloop; i++, tld++) {
 				add_v3_v3(tld->nloc, normal_vector);
 				normalize_v3(tld->nloc);
@@ -6911,7 +6911,7 @@ static int edbm_custom_normal_tools_exec(bContext *C, wmOperator *op)
 			}
 			break;
 
-		case RESET:
+		case EDBM_CLNOR_TOOLS_RESET:
 			zero_v3(normal_vector);
 			for (int i = 0; i < ld->totloop; i++, tld++) {
 				zero_v3(tld->nloc);
@@ -6938,7 +6938,7 @@ static bool custom_normal_tools_draw_check_prop(PointerRNA *ptr, PropertyRNA *pr
 
 	/* Only show absolute option in paste mode. */
 	if (STREQ(prop_id, "absolute")) {
-		return (mode == PASTE);
+		return (mode == EDBM_CLNOR_TOOLS_PASTE);
 	}
 
 	/* Else, show it! */
@@ -6972,7 +6972,8 @@ void MESH_OT_custom_normal_tools(struct wmOperatorType *ot)
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
-	ot->prop = RNA_def_enum(ot->srna, "mode", normal_vector_tool_items, COPY, "Mode", "Mode of tools taking input from Interface");
+	ot->prop = RNA_def_enum(ot->srna, "mode", normal_vector_tool_items, EDBM_CLNOR_TOOLS_COPY,
+	                        "Mode", "Mode of tools taking input from Interface");
 	RNA_def_property_flag(ot->prop, PROP_HIDDEN);
 
 	RNA_def_boolean(ot->srna, "absolute", 0, "Absolute Coordinates", "Copy Absolute coordinates or Normal vector");
