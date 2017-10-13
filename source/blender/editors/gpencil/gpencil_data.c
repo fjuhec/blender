@@ -802,38 +802,38 @@ static int gp_stroke_arrange_exec(bContext *C, wmOperator *op)
 		if (!gpf_lock) {
 			switch (direction) {
 				/* Bring to Front */
-			case GP_STROKE_MOVE_TOP:
-				for (LinkData *link = selected.first; link; link = link->next) {
-					gps = link->data;
-					BLI_remlink(&gpf->strokes, gps);
-					BLI_addtail(&gpf->strokes, gps);
-				}
-				break;
-				/* Bring Forward */
-			case GP_STROKE_MOVE_UP:
-				for (LinkData *link = selected.last; link; link = link->prev) {
-					gps = link->data;
-					BLI_listbase_link_move(&gpf->strokes, gps, 1);
-				}
-				break;
-				/* Send Backward */
-			case GP_STROKE_MOVE_DOWN:
-				for (LinkData *link = selected.first; link; link = link->next) {
-					gps = link->data;
-					BLI_listbase_link_move(&gpf->strokes, gps, -1);
-				}
-				break;
-				/* Send to Back */
-			case GP_STROKE_MOVE_BOTTOM:
-				for (LinkData *link = selected.last; link; link = link->prev) {
-					gps = link->data;
-					BLI_remlink(&gpf->strokes, gps);
-					BLI_addhead(&gpf->strokes, gps);
-				}
-				break;
-			default:
-				BLI_assert(0);
-				break;
+				case GP_STROKE_MOVE_TOP:
+					for (LinkData *link = selected.first; link; link = link->next) {
+						gps = link->data;
+						BLI_remlink(&gpf->strokes, gps);
+						BLI_addtail(&gpf->strokes, gps);
+					}
+					break;
+					/* Bring Forward */
+				case GP_STROKE_MOVE_UP:
+					for (LinkData *link = selected.last; link; link = link->prev) {
+						gps = link->data;
+						BLI_listbase_link_move(&gpf->strokes, gps, 1);
+					}
+					break;
+					/* Send Backward */
+				case GP_STROKE_MOVE_DOWN:
+					for (LinkData *link = selected.first; link; link = link->next) {
+						gps = link->data;
+						BLI_listbase_link_move(&gpf->strokes, gps, -1);
+					}
+					break;
+					/* Send to Back */
+				case GP_STROKE_MOVE_BOTTOM:
+					for (LinkData *link = selected.last; link; link = link->prev) {
+						gps = link->data;
+						BLI_remlink(&gpf->strokes, gps);
+						BLI_addhead(&gpf->strokes, gps);
+					}
+					break;
+				default:
+					BLI_assert(0);
+					break;
 			}
 		}
 		BLI_freelistN(&selected);

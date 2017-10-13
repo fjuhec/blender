@@ -2755,18 +2755,18 @@ static void *acf_dspalette_setting_ptr(bAnimListElem *ale, eAnimChannel_Settings
 	*type = 0;
 
 	switch (setting) {
-	case ACHANNEL_SETTING_EXPAND: /* expanded */
-		return GET_ACF_FLAG_PTR(palette->flag, type);
+		case ACHANNEL_SETTING_EXPAND: /* expanded */
+			return GET_ACF_FLAG_PTR(palette->flag, type);
 
-	case ACHANNEL_SETTING_SELECT: /* selected */
-	case ACHANNEL_SETTING_MUTE: /* muted (for NLA only) */
-	case ACHANNEL_SETTING_VISIBLE: /* visible (for Graph Editor only) */
-		if (palette->adt)
-			return GET_ACF_FLAG_PTR(palette->adt->flag, type);
-		return NULL;
+		case ACHANNEL_SETTING_SELECT: /* selected */
+		case ACHANNEL_SETTING_MUTE: /* muted (for NLA only) */
+		case ACHANNEL_SETTING_VISIBLE: /* visible (for Graph Editor only) */
+			if (palette->adt)
+				return GET_ACF_FLAG_PTR(palette->adt->flag, type);
+			return NULL;
 
-	default: /* unsupported */
-		return NULL;
+		default: /* unsupported */
+			return NULL;
 	}
 }
 

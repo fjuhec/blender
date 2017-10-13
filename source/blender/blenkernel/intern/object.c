@@ -274,7 +274,7 @@ bool BKE_object_support_modifier_type_check(Object *ob, int modifier_type)
 	}
 
 	if (!((mti->flags & eModifierTypeFlag_AcceptsCVs) ||
-		(ob->type == OB_MESH && (mti->flags & eModifierTypeFlag_AcceptsMesh))))
+	      (ob->type == OB_MESH && (mti->flags & eModifierTypeFlag_AcceptsMesh))))
 	{
 		return false;
 	}

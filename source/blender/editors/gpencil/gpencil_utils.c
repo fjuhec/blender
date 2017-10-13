@@ -1196,7 +1196,7 @@ void ED_gpencil_add_to_cache(tGPencilSort *cache, RegionView3D *rv3d, Base *base
 	cache[*gp_cache_used].zdepth = zdepth;
 
 	/* increase slots used in cache */
-	++*gp_cache_used;
+	(*gp_cache_used)++;
 }
 
 /* reproject the points of the stroke to a plane locked to axis to avoid stroke offset */
@@ -1308,8 +1308,7 @@ void ED_gp_get_drawing_reference(ToolSettings *ts, View3D *v3d, Scene *scene, Ob
 			}
 		}
 	}
-	else
-	{
+	else {
 		/* use 3D-cursor */
 		copy_v3_v3(vec, fp);
 	}

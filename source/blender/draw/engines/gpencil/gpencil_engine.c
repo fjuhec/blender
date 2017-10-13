@@ -69,64 +69,66 @@ static void GPENCIL_engine_init(void *vedata)
 	if (DRW_state_is_fbo()) {
 		const float *viewport_size = DRW_viewport_size_get();
 
-		DRWFboTexture tex_color[2] = { {
-				&e_data.temp_fbcolor_depth_tx, DRW_TEX_DEPTH_24, DRW_TEX_TEMP },
-				{ &e_data.temp_fbcolor_color_tx, DRW_TEX_RGBA_16, DRW_TEX_TEMP }
+		DRWFboTexture tex_color[2] = {
+			{&e_data.temp_fbcolor_depth_tx, DRW_TEX_DEPTH_24, DRW_TEX_TEMP},
+			{&e_data.temp_fbcolor_color_tx, DRW_TEX_RGBA_16, DRW_TEX_TEMP}
 		};
 		/* init temp framebuffer */
 		DRW_framebuffer_init(
-			&fbl->temp_color_fb, &draw_engine_gpencil_type,
-			(int)viewport_size[0], (int)viewport_size[1],
-			tex_color, ARRAY_SIZE(tex_color));
+		        &fbl->temp_color_fb, &draw_engine_gpencil_type,
+		        (int)viewport_size[0], (int)viewport_size[1],
+		        tex_color, ARRAY_SIZE(tex_color));
 
 		/* vfx */
-		DRWFboTexture vfx_color_a[2] = { {
-				&e_data.vfx_fbcolor_depth_tx_a, DRW_TEX_DEPTH_24, DRW_TEX_TEMP },
-				{ &e_data.vfx_fbcolor_color_tx_a, DRW_TEX_RGBA_16, DRW_TEX_TEMP }
+		DRWFboTexture vfx_color_a[2] = {
+			{&e_data.vfx_fbcolor_depth_tx_a, DRW_TEX_DEPTH_24, DRW_TEX_TEMP},
+			{&e_data.vfx_fbcolor_color_tx_a, DRW_TEX_RGBA_16, DRW_TEX_TEMP}
 		};
 		DRW_framebuffer_init(
-			&fbl->vfx_color_fb_a, &draw_engine_gpencil_type,
-			(int)viewport_size[0], (int)viewport_size[1],
-			vfx_color_a, ARRAY_SIZE(vfx_color_a));
+		        &fbl->vfx_color_fb_a, &draw_engine_gpencil_type,
+		        (int)viewport_size[0], (int)viewport_size[1],
+		        vfx_color_a, ARRAY_SIZE(vfx_color_a));
 
-		DRWFboTexture vfx_color_b[2] = { {
-				&e_data.vfx_fbcolor_depth_tx_b, DRW_TEX_DEPTH_24, DRW_TEX_TEMP },
-				{ &e_data.vfx_fbcolor_color_tx_b, DRW_TEX_RGBA_16, DRW_TEX_TEMP }
+		DRWFboTexture vfx_color_b[2] = {
+			{&e_data.vfx_fbcolor_depth_tx_b, DRW_TEX_DEPTH_24, DRW_TEX_TEMP},
+			{&e_data.vfx_fbcolor_color_tx_b, DRW_TEX_RGBA_16, DRW_TEX_TEMP}
 		};
 		DRW_framebuffer_init(
-			&fbl->vfx_color_fb_b, &draw_engine_gpencil_type,
-			(int)viewport_size[0], (int)viewport_size[1],
-			vfx_color_b, ARRAY_SIZE(vfx_color_b));
+		        &fbl->vfx_color_fb_b, &draw_engine_gpencil_type,
+		        (int)viewport_size[0], (int)viewport_size[1],
+		        vfx_color_b, ARRAY_SIZE(vfx_color_b));
 
 		/* painting framebuffer to speed up drawing process */
-		DRWFboTexture tex_painting[2] = { {
-				&e_data.painting_depth_tx, DRW_TEX_DEPTH_24, DRW_TEX_TEMP },
-				{ &e_data.painting_color_tx, DRW_TEX_RGBA_16, DRW_TEX_TEMP }
+		DRWFboTexture tex_painting[2] = {
+			{&e_data.painting_depth_tx, DRW_TEX_DEPTH_24, DRW_TEX_TEMP},
+			{&e_data.painting_color_tx, DRW_TEX_RGBA_16, DRW_TEX_TEMP}
 		};
 		DRW_framebuffer_init(
-			&fbl->painting_fb, &draw_engine_gpencil_type,
-			(int)viewport_size[0], (int)viewport_size[1],
-			tex_painting, ARRAY_SIZE(tex_painting));
+		        &fbl->painting_fb, &draw_engine_gpencil_type,
+		        (int)viewport_size[0], (int)viewport_size[1],
+		        tex_painting, ARRAY_SIZE(tex_painting));
 	}
 	/* normal fill shader */
 	if (!e_data.gpencil_fill_sh) {
-		e_data.gpencil_fill_sh = DRW_shader_create(datatoc_gpencil_fill_vert_glsl, NULL,
-			datatoc_gpencil_fill_frag_glsl,
-			NULL);
+		e_data.gpencil_fill_sh = DRW_shader_create(
+		        datatoc_gpencil_fill_vert_glsl, NULL,
+		        datatoc_gpencil_fill_frag_glsl, NULL);
 	}
 
 	/* normal stroke shader using geometry to display lines */
 	if (!e_data.gpencil_stroke_sh) {
-		e_data.gpencil_stroke_sh = DRW_shader_create(datatoc_gpencil_stroke_vert_glsl,
-			datatoc_gpencil_stroke_geom_glsl,
-			datatoc_gpencil_stroke_frag_glsl,
-			NULL);
+		e_data.gpencil_stroke_sh = DRW_shader_create(
+		        datatoc_gpencil_stroke_vert_glsl,
+		        datatoc_gpencil_stroke_geom_glsl,
+		        datatoc_gpencil_stroke_frag_glsl,
+		        NULL);
 	}
 	if (!e_data.gpencil_point_sh) {
-		e_data.gpencil_point_sh = DRW_shader_create(datatoc_gpencil_point_vert_glsl,
-			datatoc_gpencil_point_geom_glsl,
-			datatoc_gpencil_point_frag_glsl,
-			NULL);
+		e_data.gpencil_point_sh = DRW_shader_create(
+		        datatoc_gpencil_point_vert_glsl,
+		        datatoc_gpencil_point_geom_glsl,
+		        datatoc_gpencil_point_frag_glsl,
+		        NULL);
 	}
 
 	/* used for edit points or strokes with one point only */
@@ -262,9 +264,9 @@ static void GPENCIL_cache_init(void *vedata)
 			}
 		}
 		/* detect if painting session */
-		if ((obact) && (obact->gpd) && (obact->gpd->flag & GP_DATA_STROKE_PAINTMODE) 
-			&& (stl->storage->playing == 0) && 
-			((ts->gpencil_simplify & GP_TOOL_FLAG_DISABLE_FAST_DRAWING) == 0))
+		if ((obact) && (obact->gpd) && (obact->gpd->flag & GP_DATA_STROKE_PAINTMODE) &&
+		    (stl->storage->playing == 0) &&
+		    ((ts->gpencil_simplify & GP_TOOL_FLAG_DISABLE_FAST_DRAWING) == 0))
 		{
 			if (((obact->gpd->sbuffer_sflag & GP_STROKE_ERASER) == 0) && (obact->gpd->sbuffer_size > 0)) {
 				stl->g_data->session_flag = GP_DRW_PAINT_PAINTING;

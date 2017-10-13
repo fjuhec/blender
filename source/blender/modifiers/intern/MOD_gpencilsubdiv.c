@@ -82,7 +82,7 @@ ModifierTypeInfo modifierType_GpencilSubdiv = {
 	/* name */              "Subdivision",
 	/* structName */        "GpencilSubdivModifierData",
 	/* structSize */        sizeof(GpencilSubdivModifierData),
-	/* type */             	eModifierTypeType_Gpencil,
+	/* type */              eModifierTypeType_Gpencil,
 	/* flags */             eModifierTypeFlag_GpencilMod | eModifierTypeFlag_SupportsEditmode,
 
 	/* copyData */          copyData,

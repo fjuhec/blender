@@ -83,7 +83,7 @@ ModifierTypeInfo modifierType_GpencilOpacity = {
 	/* name */              "Opacity",
 	/* structName */        "GpencilOpacityModifierData",
 	/* structSize */        sizeof(GpencilOpacityModifierData),
-	/* type */             	eModifierTypeType_Gpencil,
+	/* type */              eModifierTypeType_Gpencil,
 	/* flags */             eModifierTypeFlag_GpencilMod | eModifierTypeFlag_SupportsEditmode,
 
 	/* copyData */          copyData,

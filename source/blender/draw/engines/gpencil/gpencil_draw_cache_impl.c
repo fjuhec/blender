@@ -108,7 +108,7 @@ void gpencil_object_cache_add(tGPencilObjectCache *cache, Object *ob, int *gp_ca
 	cache[*gp_cache_used].zdepth = zdepth;
 
 	/* increase slots used in cache */
-	++*gp_cache_used;
+	(*gp_cache_used)++;
 }
 
 static GpencilBatchCache *gpencil_batch_get_element(Object *ob)
@@ -164,8 +164,7 @@ static void gpencil_batch_cache_check_free_slots(Object *ob, bGPdata *UNUSED(gpd
 	GpencilBatchCache *cache = gpencil_batch_get_element(ob);
 
 	/* the memory is reallocated by chunks, not for one slot only to improve speed */
-	if (cache->cache_idx >= cache->cache_size)
-	{
+	if (cache->cache_idx >= cache->cache_size) {
 		cache->cache_size += GPENCIL_MIN_BATCH_SLOTS_CHUNK;
 		gpencil_batch_cache_resize(cache, cache->cache_size);
 	}
@@ -601,11 +600,13 @@ static void gpencil_add_stroke_shgroup(GpencilBatchCache *cache, DRWShadingGroup
 	}
 	DRW_shgroup_call_add(strokegrp, cache->batch_stroke[cache->cache_idx], gpf->viewmatrix);
 }
+
 /* add edit points shading group to pass */
-static void gpencil_add_editpoints_shgroup(GPENCIL_StorageList *stl, GpencilBatchCache *cache, ToolSettings *ts,
-	Object *ob, bGPdata *gpd, bGPDlayer *gpl, bGPDframe *gpf, bGPDstroke *gps) {
-	if (((gpl->flag & GP_LAYER_LOCKED) == 0) && (GPENCIL_ANY_EDIT_MODE(gpd)))
-	{
+static void gpencil_add_editpoints_shgroup(
+        GPENCIL_StorageList *stl, GpencilBatchCache *cache, ToolSettings *ts,
+        Object *ob, bGPdata *gpd, bGPDlayer *gpl, bGPDframe *gpf, bGPDstroke *gps)
+{
+	if (((gpl->flag & GP_LAYER_LOCKED) == 0) && (GPENCIL_ANY_EDIT_MODE(gpd))) {
 		const DRWContextState *draw_ctx = DRW_context_state_get();
 		Object *obact = draw_ctx->obact;
 		if (obact->type != OB_GPENCIL) {
@@ -731,7 +732,7 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 		/* if the fill has any value, it's considered a fill and is not drawn if simplify fill is enabled */
 		if ((GP_SIMPLIFY_FILL(ts, playing)) && (ts->gpencil_simplify & GP_TOOL_FLAG_SIMPLIFY_REMOVE_LINE)) {
 			if ((gps->palcolor->fill[3] > GPENCIL_ALPHA_OPACITY_THRESH) || 
-				(gps->palcolor->fill_style > FILL_STYLE_SOLID)) 
+			    (gps->palcolor->fill_style > FILL_STYLE_SOLID))
 			{
 				continue;
 			}
@@ -805,8 +806,7 @@ void DRW_gpencil_populate_buffer_strokes(void *vedata, ToolSettings *ts, Object 
 	/* Check if may need to draw the active stroke cache, only if this layer is the active layer
 	* that is being edited. (Stroke buffer is currently stored in gp-data)
 	*/
-	if (ED_gpencil_session_active() && (gpd->sbuffer_size > 0))
-	{
+	if (ED_gpencil_session_active() && (gpd->sbuffer_size > 0)) {
 		if ((gpd->sbuffer_sflag & GP_STROKE_ERASER) == 0) {
 			/* It should also be noted that sbuffer contains temporary point types
 			* i.e. tGPspoints NOT bGPDspoints
@@ -974,7 +974,7 @@ static void gpencil_draw_onionskins(
 		}
 		/* absolute range */
 		if (mode == GP_ONION_MODE_ABSOLUTE) {
-			if ((gf->framenum - gpf->framenum) >step) {
+			if ((gf->framenum - gpf->framenum) > step) {
 				break;
 			}
 		}
@@ -1118,9 +1118,9 @@ void DRW_gpencil_populate_datablock(GPENCIL_e_data *e_data, void *vedata, Scene 
 		}
 
 		/* draw onion skins */
-		if ((gpd->flag & GP_DATA_SHOW_ONIONSKINS) && (!no_onion) && 
-			(gpl->onion_flag & GP_LAYER_ONIONSKIN) &&
-			((!playing) || (gpd->onion_flag & GP_ONION_GHOST_ALWAYS)))
+		if ((gpd->flag & GP_DATA_SHOW_ONIONSKINS) && (!no_onion) &&
+		    (gpl->onion_flag & GP_LAYER_ONIONSKIN) &&
+		    ((!playing) || (gpd->onion_flag & GP_ONION_GHOST_ALWAYS)))
 		{
 			gpencil_draw_onionskins(cache, e_data, vedata, ob, gpd, gpl, gpf);
 		}
@@ -1213,7 +1213,8 @@ void gpencil_array_modifiers(GPENCIL_StorageList *stl, Object *ob)
 
 	for (md = ob->modifiers.first; md; md = md->next) {
 		if (((md->mode & eModifierMode_Realtime) && ((G.f & G_RENDER_OGL) == 0)) ||
-			((md->mode & eModifierMode_Render) && (G.f & G_RENDER_OGL))) {
+		    ((md->mode & eModifierMode_Render) && (G.f & G_RENDER_OGL)))
+		{
 			if (md->type == eModifierType_GpencilArray) {
 				mmd = (GpencilArrayModifierData *)md;
 				/* reset random */

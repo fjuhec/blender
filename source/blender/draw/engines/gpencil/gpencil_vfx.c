@@ -56,7 +56,7 @@ static ModifierData *modifier_available(Object *ob, ModifierType type)
 		return NULL;
 	}
 	if (((md->mode & eModifierMode_Realtime) && ((G.f & G_RENDER_OGL) == 0)) ||
-		((md->mode & eModifierMode_Render) && (G.f & G_RENDER_OGL)))
+	    ((md->mode & eModifierMode_Render) && (G.f & G_RENDER_OGL)))
 	{
 		return md;
 	}
@@ -82,7 +82,7 @@ static bool modifier_is_active(Object *ob, ModifierData *md)
 	}
 
 	if (((md->mode & eModifierMode_Realtime) && ((G.f & G_RENDER_OGL) == 0)) ||
-		((md->mode & eModifierMode_Render) && (G.f & G_RENDER_OGL)))
+	    ((md->mode & eModifierMode_Render) && (G.f & G_RENDER_OGL)))
 	{
 		return true;
 	}

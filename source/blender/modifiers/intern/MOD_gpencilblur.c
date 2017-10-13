@@ -52,9 +52,9 @@ ModifierTypeInfo modifierType_GpencilBlur = {
 	/* name */              "Gaussian Blur",
 	/* structName */        "GpencilBlurModifierData",
 	/* structSize */        sizeof(GpencilBlurModifierData),
-	/* type */             	eModifierTypeType_Gpencil,
-	/* flags */             eModifierTypeFlag_GpencilMod | eModifierTypeFlag_SupportsEditmode 
-							| eModifierTypeFlag_GpencilVFX | eModifierTypeFlag_Single,
+	/* type */              eModifierTypeType_Gpencil,
+	/* flags */             eModifierTypeFlag_GpencilMod | eModifierTypeFlag_SupportsEditmode |
+	                        eModifierTypeFlag_GpencilVFX | eModifierTypeFlag_Single,
 
 	/* copyData */          NULL,
 	/* deformVerts */       NULL,

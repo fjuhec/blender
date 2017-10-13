@@ -281,8 +281,8 @@ static void BKE_gpencil_clear_derived(bGPDlayer *gpl)
 		return;
 	}
 	
-  	GHASH_ITER(gh_iter, gpl->derived_data) {
-  		bGPDframe *gpf = (bGPDframe *)BLI_ghashIterator_getValue(&gh_iter);
+	GHASH_ITER(gh_iter, gpl->derived_data) {
+		bGPDframe *gpf = (bGPDframe *)BLI_ghashIterator_getValue(&gh_iter);
 		if (gpf) {
 			BKE_gpencil_free_layer_temp_data(gpl, gpf);
 		}
@@ -1555,7 +1555,7 @@ bGPDpaletteref *BKE_gpencil_paletteslot_add(bGPdata *gpd, Palette *palette)
 /* Wrapper for BKE_gpencil_paletteslot_add() to add a new Palette + slot, 
  * and set all the usercounts correctly
  */
-bGPDpaletteref *BKE_gpencil_paletteslot_addnew(Main *bmain, bGPdata *gpd, char name[MAX_ID_NAME - 2])
+bGPDpaletteref *BKE_gpencil_paletteslot_addnew(Main *bmain, bGPdata *gpd, const char name[])
 {
 	/* create the palette first */
 	Palette *palette = BKE_palette_add(bmain, name);
@@ -2092,7 +2092,7 @@ static void gpencil_minmax(bGPdata *gpd, float min[3], float max[3])
 	INIT_MINMAX(min, max);
 
 	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
-		gpf= gpl->actframe;
+		gpf = gpl->actframe;
 		if (!gpf) {
 			continue;
 		}

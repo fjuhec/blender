@@ -79,7 +79,6 @@
 #include "GPU_immediate.h"
 #include "GPU_immediate_util.h"
 
-#include "ED_gpencil.h"
 #include "gpencil_intern.h"
 
 /* ************************************************ */
@@ -1475,76 +1474,76 @@ static bool gpsculpt_brush_apply_standard(bContext *C, tGP_BrushEditData *gso)
 					}
 
 					switch (gso->brush_type) {
-					case GP_EDITBRUSH_TYPE_SMOOTH: /* Smooth strokes */
-					{
-						changed |= gpsculpt_brush_do_stroke(gso, gps, diff_mat, gp_brush_smooth_apply);
-						break;
-					}
+						case GP_EDITBRUSH_TYPE_SMOOTH: /* Smooth strokes */
+						{
+							changed |= gpsculpt_brush_do_stroke(gso, gps, diff_mat, gp_brush_smooth_apply);
+							break;
+						}
 
-					case GP_EDITBRUSH_TYPE_THICKNESS: /* Adjust stroke thickness */
-					{
-						changed |= gpsculpt_brush_do_stroke(gso, gps, diff_mat, gp_brush_thickness_apply);
-						break;
-					}
+						case GP_EDITBRUSH_TYPE_THICKNESS: /* Adjust stroke thickness */
+						{
+							changed |= gpsculpt_brush_do_stroke(gso, gps, diff_mat, gp_brush_thickness_apply);
+							break;
+						}
 
-					case GP_EDITBRUSH_TYPE_STRENGTH: /* Adjust stroke color strength */
-					{
-						changed |= gpsculpt_brush_do_stroke(gso, gps, diff_mat, gp_brush_strength_apply);
-						break;
-					}
+						case GP_EDITBRUSH_TYPE_STRENGTH: /* Adjust stroke color strength */
+						{
+							changed |= gpsculpt_brush_do_stroke(gso, gps, diff_mat, gp_brush_strength_apply);
+							break;
+						}
 
-					case GP_EDITBRUSH_TYPE_GRAB: /* Grab points */
-					{
-						if (gso->first) {
-							/* First time this brush stroke is being applied:
+						case GP_EDITBRUSH_TYPE_GRAB: /* Grab points */
+						{
+							if (gso->first) {
+								/* First time this brush stroke is being applied:
 							 * 1) Prepare data buffers (init/clear) for this stroke
 							 * 2) Use the points now under the cursor
 							 */
-							gp_brush_grab_stroke_init(gso, gps);
-							changed |= gpsculpt_brush_do_stroke(gso, gps, diff_mat, gp_brush_grab_store_points);
+								gp_brush_grab_stroke_init(gso, gps);
+								changed |= gpsculpt_brush_do_stroke(gso, gps, diff_mat, gp_brush_grab_store_points);
+							}
+							else {
+								/* Apply effect to the stored points */
+								gp_brush_grab_apply_cached(gso, gps, diff_mat);
+								changed |= true;
+							}
+							break;
 						}
-						else {
-							/* Apply effect to the stored points */
-							gp_brush_grab_apply_cached(gso, gps, diff_mat);
-							changed |= true;
+
+						case GP_EDITBRUSH_TYPE_PUSH: /* Push points */
+						{
+							changed |= gpsculpt_brush_do_stroke(gso, gps, diff_mat, gp_brush_push_apply);
+							break;
 						}
-						break;
-					}
 
-					case GP_EDITBRUSH_TYPE_PUSH: /* Push points */
-					{
-						changed |= gpsculpt_brush_do_stroke(gso, gps, diff_mat, gp_brush_push_apply);
-						break;
-					}
+						case GP_EDITBRUSH_TYPE_PINCH: /* Pinch points */
+						{
+							changed |= gpsculpt_brush_do_stroke(gso, gps, diff_mat, gp_brush_pinch_apply);
+							break;
+						}
 
-					case GP_EDITBRUSH_TYPE_PINCH: /* Pinch points */
-					{
-						changed |= gpsculpt_brush_do_stroke(gso, gps, diff_mat, gp_brush_pinch_apply);
-						break;
-					}
+						case GP_EDITBRUSH_TYPE_TWIST: /* Twist points around midpoint */
+						{
+							changed |= gpsculpt_brush_do_stroke(gso, gps, diff_mat, gp_brush_twist_apply);
+							break;
+						}
 
-					case GP_EDITBRUSH_TYPE_TWIST: /* Twist points around midpoint */
-					{
-						changed |= gpsculpt_brush_do_stroke(gso, gps, diff_mat, gp_brush_twist_apply);
-						break;
-					}
+						case GP_EDITBRUSH_TYPE_RANDOMIZE: /* Apply jitter */
+						{
+							changed |= gpsculpt_brush_do_stroke(gso, gps, diff_mat, gp_brush_randomize_apply);
+							break;
+						}
 
-					case GP_EDITBRUSH_TYPE_RANDOMIZE: /* Apply jitter */
-					{
-						changed |= gpsculpt_brush_do_stroke(gso, gps, diff_mat, gp_brush_randomize_apply);
-						break;
-					}
-
-					case GP_EDITBRUSH_TYPE_WEIGHT: /* Adjust vertex group weight */
-					{
-						changed |= gpsculpt_brush_do_stroke(gso, gps, diff_mat, gp_brush_weight_apply);
-						break;
-					}
+						case GP_EDITBRUSH_TYPE_WEIGHT: /* Adjust vertex group weight */
+						{
+							changed |= gpsculpt_brush_do_stroke(gso, gps, diff_mat, gp_brush_weight_apply);
+							break;
+						}
 
 
-					default:
-						printf("ERROR: Unknown type of GPencil Sculpt brush - %u\n", gso->brush_type);
-						break;
+						default:
+							printf("ERROR: Unknown type of GPencil Sculpt brush - %u\n", gso->brush_type);
+							break;
 					}
 					/* Triangulation must be calculated if changed */
 					if (changed) {

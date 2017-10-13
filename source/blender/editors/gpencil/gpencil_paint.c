@@ -2563,8 +2563,9 @@ static int gpencil_draw_modal(bContext *C, wmOperator *op, const wmEvent *event)
 	 * NOTE: cannot do RIGHTMOUSE (as is standard for canceling) as that would break polyline [#32647]
 	 */
 	/* if polyline and release shift must cancel */
-	if ((ELEM(event->type, RETKEY, PADENTER, ESCKEY, SPACEKEY, EKEY)) || 
-		((p->paintmode == GP_PAINTMODE_DRAW_POLY) && (event->shift == 0))) {
+	if ((ELEM(event->type, RETKEY, PADENTER, ESCKEY, SPACEKEY, EKEY)) ||
+	    ((p->paintmode == GP_PAINTMODE_DRAW_POLY) && (event->shift == 0)))
+	{
 		/* exit() ends the current stroke before cleaning up */
 		/* printf("\t\tGP - end of paint op + end of stroke\n"); */
 		/* if drawing polygon and enable on back, must move stroke */

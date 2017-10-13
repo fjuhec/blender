@@ -168,7 +168,7 @@ ModifierTypeInfo modifierType_GpencilArray = {
 	/* name */              "Array",
 	/* structName */        "GpencilArrayModifierData",
 	/* structSize */        sizeof(GpencilArrayModifierData),
-	/* type */             	eModifierTypeType_Gpencil,
+	/* type */              eModifierTypeType_Gpencil,
 	/* flags */             eModifierTypeFlag_GpencilMod,
 
 	/* copyData */          copyData,

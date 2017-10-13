@@ -87,7 +87,7 @@ ModifierTypeInfo modifierType_GpencilDupli = {
 	/* name */              "Duplication",
 	/* structName */        "GpencilDupliModifierData",
 	/* structSize */        sizeof(GpencilDupliModifierData),
-	/* type */             	eModifierTypeType_Gpencil,
+	/* type */              eModifierTypeType_Gpencil,
 	/* flags */             eModifierTypeFlag_GpencilMod | eModifierTypeFlag_SupportsEditmode,
 
 	/* copyData */          copyData,

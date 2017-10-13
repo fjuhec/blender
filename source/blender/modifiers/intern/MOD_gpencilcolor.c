@@ -131,7 +131,7 @@ ModifierTypeInfo modifierType_GpencilColor = {
 	/* name */              "Hue/Saturation",
 	/* structName */        "GpencilColorModifierData",
 	/* structSize */        sizeof(GpencilColorModifierData),
-	/* type */             	eModifierTypeType_Gpencil,
+	/* type */              eModifierTypeType_Gpencil,
 	/* flags */             eModifierTypeFlag_GpencilMod | eModifierTypeFlag_SupportsEditmode,
 
 	/* copyData */          copyData,

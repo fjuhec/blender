@@ -91,7 +91,7 @@ ModifierTypeInfo modifierType_GpencilNoise = {
 	/* name */              "Noise",
 	/* structName */        "GpencilNoiseModifierData",
 	/* structSize */        sizeof(GpencilNoiseModifierData),
-	/* type */             	eModifierTypeType_Gpencil,
+	/* type */              eModifierTypeType_Gpencil,
 	/* flags */             eModifierTypeFlag_GpencilMod | eModifierTypeFlag_SupportsEditmode,
 
 	/* copyData */          copyData,

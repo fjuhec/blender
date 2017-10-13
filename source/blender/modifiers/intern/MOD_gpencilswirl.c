@@ -55,9 +55,9 @@ ModifierTypeInfo modifierType_GpencilSwirl = {
 	/* name */              "Swirl",
 	/* structName */        "GpencilSwirlModifierData",
 	/* structSize */        sizeof(GpencilSwirlModifierData),
-	/* type */             	eModifierTypeType_Gpencil,
-	/* flags */             eModifierTypeFlag_GpencilMod | eModifierTypeFlag_SupportsEditmode 
-							| eModifierTypeFlag_GpencilVFX | eModifierTypeFlag_Single,
+	/* type */              eModifierTypeType_Gpencil,
+	/* flags */             eModifierTypeFlag_GpencilMod | eModifierTypeFlag_SupportsEditmode |
+	                        eModifierTypeFlag_GpencilVFX | eModifierTypeFlag_Single,
 
 	/* copyData */          NULL,
 	/* deformVerts */       NULL,

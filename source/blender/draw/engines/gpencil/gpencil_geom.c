@@ -23,7 +23,7 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/gpencil/gpencil_geom.c
+/** \file draw/engines/gpencil/gpencil_geom.c
  *  \ingroup edgpencil
  */
 
@@ -51,10 +51,11 @@
 #include "gpencil_engine.h"
 
 /* set stroke point to vbo */
-static void gpencil_set_stroke_point(Gwn_VertBuf *vbo, float matrix[4][4], const bGPDspoint *pt, int idx,
-						    unsigned int pos_id, unsigned int color_id,
-							unsigned int thickness_id, short thickness,
-	                        const float ink[4])
+static void gpencil_set_stroke_point(
+        Gwn_VertBuf *vbo, float matrix[4][4], const bGPDspoint *pt, int idx,
+        unsigned int pos_id, unsigned int color_id,
+        unsigned int thickness_id, short thickness,
+        const float ink[4])
 {
 	float viewfpt[3];
 	
@@ -390,8 +391,8 @@ bool gpencil_can_draw_stroke(const bGPDstroke *gps, const bool onion)
 	/* check if the color is visible */
 	PaletteColor *palcolor = gps->palcolor;
 	if ((gps->palette == NULL) || (palcolor == NULL) ||
-		(palcolor->flag & PC_COLOR_HIDE) ||
-		(onion && (palcolor->flag & PC_COLOR_ONIONSKIN)))
+	    (palcolor->flag & PC_COLOR_HIDE) ||
+	    (onion && (palcolor->flag & PC_COLOR_ONIONSKIN)))
 	{
 		return false;
 	}
@@ -401,15 +402,15 @@ bool gpencil_can_draw_stroke(const bGPDstroke *gps, const bool onion)
 }
 
 /* calc bounding box in 2d using flat projection data */
-static void gpencil_calc_2d_bounding_box(const float(*points2d)[2], int totpoints, float minv[2], float maxv[2], bool expand)
+static void gpencil_calc_2d_bounding_box(
+        const float(*points2d)[2], int totpoints, float minv[2], float maxv[2], bool expand)
 {
 	minv[0] = points2d[0][0];
 	minv[1] = points2d[0][1];
 	maxv[0] = points2d[0][0];
 	maxv[1] = points2d[0][1];
 
-	for (int i = 1; i < totpoints; i++)
-	{
+	for (int i = 1; i < totpoints; i++) {
 		/* min */
 		if (points2d[i][0] < minv[0]) {
 			minv[0] = points2d[i][0];
@@ -442,8 +443,7 @@ static void gpencil_calc_stroke_uv(const float(*points2d)[2], int totpoints, flo
 	float d[2];
 	d[0] = maxv[0] - minv[0];
 	d[1] = maxv[1] - minv[1];
-	for (int i = 0; i < totpoints; i++)
-	{
+	for (int i = 0; i < totpoints; i++) {
 		r_uv[i][0] = (points2d[i][0] - minv[0]) / d[0];
 		r_uv[i][1] = (points2d[i][1] - minv[1]) / d[1];
 	}

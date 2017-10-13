@@ -33,7 +33,6 @@
 #include "rna_internal.h"
 
 #include "WM_types.h"
-#include "ED_gpencil.h"
 
 #include "BLT_translation.h"
 

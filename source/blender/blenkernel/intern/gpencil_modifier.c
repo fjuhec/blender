@@ -50,7 +50,8 @@
 #include "BKE_modifier.h"
 #include "BKE_colortools.h"
 
-#define GPENCIL_ANY_EDIT_MODE(gpd) ((gpd) && (gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE))) 
+#define GPENCIL_ANY_EDIT_MODE(gpd) \
+	((gpd) && ((gpd)->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE)))
 
 /* used to save temp strokes */
 typedef struct tGPencilStrokeCache {
@@ -66,14 +67,15 @@ typedef struct tbGPDspoint {
 /* fill an array with random numbers */
 void BKE_gpencil_fill_random_array(float *ar, int count)
 {
-	for (int i = 0; i < count; ++i) {
+	for (int i = 0; i < count; i++) {
 		ar[i] = BLI_frand();
 	}
 }
 
 /* verify if valid layer and pass index */
-static bool is_stroke_affected_by_modifier(char *mlayername, int mpassindex, int minpoints,
-	bGPDlayer *gpl, bGPDstroke *gps, bool inv1, bool inv2)
+static bool is_stroke_affected_by_modifier(
+        char *mlayername, int mpassindex, int minpoints,
+        bGPDlayer *gpl, bGPDstroke *gps, bool inv1, bool inv2)
 {
 	/* omit if filter by layer */
 	if (mlayername[0] != '\0') {
@@ -181,7 +183,8 @@ void BKE_gpencil_stroke_normal(const bGPDstroke *gps, float r_normal[3])
 }
 
 /* calculate a noise base on stroke direction */
-void BKE_gpencil_noise_modifier(int UNUSED(id), GpencilNoiseModifierData *mmd, Object *ob, bGPDlayer *gpl, bGPDstroke *gps)
+void BKE_gpencil_noise_modifier(
+        int UNUSED(id), GpencilNoiseModifierData *mmd, Object *ob, bGPDlayer *gpl, bGPDstroke *gps)
 {
 	bGPDspoint *pt0, *pt1;
 	float shift, vran, vdir;
@@ -193,8 +196,10 @@ void BKE_gpencil_noise_modifier(int UNUSED(id), GpencilNoiseModifierData *mmd, O
 	int vindex = get_vertex_group_index(ob, mmd->vgname);
 	float weight = 1.0f;
 
-	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 3, gpl, gps, 
-		(bool) mmd->flag & GP_NOISE_INVERSE_LAYER, (bool)mmd->flag & GP_NOISE_INVERSE_PASS)) {
+	if (!is_stroke_affected_by_modifier(
+	        mmd->layername, mmd->passindex, 3, gpl, gps,
+	        (bool) mmd->flag & GP_NOISE_INVERSE_LAYER, (bool)mmd->flag & GP_NOISE_INVERSE_PASS))
+	{
 		return;
 	}
 
@@ -208,8 +213,7 @@ void BKE_gpencil_noise_modifier(int UNUSED(id), GpencilNoiseModifierData *mmd, O
 
 	/* move points */
 	for (int i = 0; i < gps->totpoints; i++) {
-		if (((i == 0) || (i == gps->totpoints - 1)) && ((mmd->flag & GP_NOISE_MOVE_EXTREME) == 0))
-		{
+		if (((i == 0) || (i == gps->totpoints - 1)) && ((mmd->flag & GP_NOISE_MOVE_EXTREME) == 0)) {
 			continue;
 		}
 
@@ -239,7 +243,7 @@ void BKE_gpencil_noise_modifier(int UNUSED(id), GpencilNoiseModifierData *mmd, O
 			sc_diff = abs(mmd->scene_frame - sc_frame);
 			/* only recalc if the gp frame change or the number of scene frames is bigger than step */
 			if ((!gpl->actframe) || (mmd->gp_frame != gpl->actframe->framenum) || 
-				(sc_diff >= mmd->step)) 
+			    (sc_diff >= mmd->step))
 			{
 				vran = mmd->vrand1 = BLI_frand();
 				vdir = mmd->vrand2 = BLI_frand();
@@ -306,14 +310,17 @@ void BKE_gpencil_noise_modifier(int UNUSED(id), GpencilNoiseModifierData *mmd, O
 }
 
 /* subdivide stroke to get more control points */
-void BKE_gpencil_subdiv_modifier(int UNUSED(id), GpencilSubdivModifierData *mmd, Object *UNUSED(ob), bGPDlayer *gpl, bGPDstroke *gps)
+void BKE_gpencil_subdiv_modifier(
+        int UNUSED(id), GpencilSubdivModifierData *mmd, Object *UNUSED(ob), bGPDlayer *gpl, bGPDstroke *gps)
 {
 	bGPDspoint *temp_points;
 	int totnewpoints, oldtotpoints;
 	int i2;
 
-	if (!is_stroke_affected_by_modifier(mmd->layername,mmd->passindex, 3, gpl, gps,
-		(bool)mmd->flag & GP_SUBDIV_INVERSE_LAYER, (bool)mmd->flag & GP_SUBDIV_INVERSE_PASS)) {
+	if (!is_stroke_affected_by_modifier(
+	        mmd->layername, mmd->passindex, 3, gpl, gps,
+	        (bool)mmd->flag & GP_SUBDIV_INVERSE_LAYER, (bool)mmd->flag & GP_SUBDIV_INVERSE_PASS))
+	{
 		return;
 	}
 
@@ -385,19 +392,22 @@ void BKE_gpencil_subdiv_modifier(int UNUSED(id), GpencilSubdivModifierData *mmd,
 }
 
 /* change stroke thickness */
-void BKE_gpencil_thick_modifier(int UNUSED(id), GpencilThickModifierData *mmd, Object *ob, bGPDlayer *gpl, bGPDstroke *gps)
+void BKE_gpencil_thick_modifier(
+        int UNUSED(id), GpencilThickModifierData *mmd, Object *ob, bGPDlayer *gpl, bGPDstroke *gps)
 {
 	bGPDspoint *pt;
 	int vindex = get_vertex_group_index(ob, mmd->vgname);
 	float weight = 1.0f;
 	float curvef = 1.0;
 
-	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 3, gpl, gps,
-		(bool)mmd->flag & GP_THICK_INVERSE_LAYER, (bool)mmd->flag & GP_THICK_INVERSE_PASS)) {
+	if (!is_stroke_affected_by_modifier(
+	        mmd->layername, mmd->passindex, 3, gpl, gps,
+	        (bool)mmd->flag & GP_THICK_INVERSE_LAYER, (bool)mmd->flag & GP_THICK_INVERSE_PASS))
+	{
 		return;
 	}
 
-	for (int i = 0; i < gps->totpoints; ++i) {
+	for (int i = 0; i < gps->totpoints; i++) {
 		curvef = 1.0;
 		pt = &gps->points[i];
 		/* verify vertex group */
@@ -419,12 +429,15 @@ void BKE_gpencil_thick_modifier(int UNUSED(id), GpencilThickModifierData *mmd, O
 }
 
 /* tint strokes */
-void BKE_gpencil_tint_modifier(int UNUSED(id), GpencilTintModifierData *mmd, Object *UNUSED(ob), bGPDlayer *gpl, bGPDstroke *gps)
+void BKE_gpencil_tint_modifier(
+        int UNUSED(id), GpencilTintModifierData *mmd, Object *UNUSED(ob), bGPDlayer *gpl, bGPDstroke *gps)
 {
 	bGPDspoint *pt;
 
-	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 1, gpl, gps,
-		(bool)mmd->flag & GP_TINT_INVERSE_LAYER, (bool)mmd->flag & GP_TINT_INVERSE_PASS)) {
+	if (!is_stroke_affected_by_modifier(
+	        mmd->layername, mmd->passindex, 1, gpl, gps,
+	        (bool)mmd->flag & GP_TINT_INVERSE_LAYER, (bool)mmd->flag & GP_TINT_INVERSE_PASS))
+	{
 		return;
 	}
 
@@ -444,7 +457,7 @@ void BKE_gpencil_tint_modifier(int UNUSED(id), GpencilTintModifierData *mmd, Obj
 	
 	/* if factor > 1.0, affect the strength of the stroke */
 	if (mmd->factor > 1.0f) {
-		for (int i = 0; i < gps->totpoints; ++i) {
+		for (int i = 0; i < gps->totpoints; i++) {
 			pt = &gps->points[i];
 			pt->strength += mmd->factor - 1.0f;
 			CLAMP(pt->strength, 0.0f, 1.0f);
@@ -454,12 +467,15 @@ void BKE_gpencil_tint_modifier(int UNUSED(id), GpencilTintModifierData *mmd, Obj
 }
 
 /* color correction strokes */
-void BKE_gpencil_color_modifier(int UNUSED(id), GpencilColorModifierData *mmd, Object *UNUSED(ob), bGPDlayer *gpl, bGPDstroke *gps)
+void BKE_gpencil_color_modifier(
+        int UNUSED(id), GpencilColorModifierData *mmd, Object *UNUSED(ob), bGPDlayer *gpl, bGPDstroke *gps)
 {
 	PaletteColor *palcolor;
 	float hsv[3], factor[3];
-	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 1, gpl, gps,
-		(bool)mmd->flag & GP_COLOR_INVERSE_LAYER, (bool)mmd->flag & GP_COLOR_INVERSE_PASS)) {
+	if (!is_stroke_affected_by_modifier(
+	        mmd->layername, mmd->passindex, 1, gpl, gps,
+	        (bool)mmd->flag & GP_COLOR_INVERSE_LAYER, (bool)mmd->flag & GP_COLOR_INVERSE_PASS))
+	{
 		return;
 	}
 
@@ -480,14 +496,17 @@ void BKE_gpencil_color_modifier(int UNUSED(id), GpencilColorModifierData *mmd, O
 }
 
 /* opacity strokes */
-void BKE_gpencil_opacity_modifier(int UNUSED(id), GpencilOpacityModifierData *mmd, Object *ob, bGPDlayer *gpl, bGPDstroke *gps)
+void BKE_gpencil_opacity_modifier(
+        int UNUSED(id), GpencilOpacityModifierData *mmd, Object *ob, bGPDlayer *gpl, bGPDstroke *gps)
 {
 	bGPDspoint *pt;
 	int vindex = get_vertex_group_index(ob, mmd->vgname);
 	float weight = 1.0f;
 
-	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 3, gpl, gps,
-		(bool)mmd->flag & GP_OPACITY_INVERSE_LAYER, (bool)mmd->flag & GP_OPACITY_INVERSE_PASS)) {
+	if (!is_stroke_affected_by_modifier(
+	        mmd->layername, mmd->passindex, 3, gpl, gps,
+	        (bool)mmd->flag & GP_OPACITY_INVERSE_LAYER, (bool)mmd->flag & GP_OPACITY_INVERSE_PASS))
+	{
 		return;
 	}
 
@@ -508,7 +527,7 @@ void BKE_gpencil_opacity_modifier(int UNUSED(id), GpencilOpacityModifierData *mm
 
 	/* if opacity > 1.0, affect the strength of the stroke */
 	if (mmd->factor > 1.0f) {
-		for (int i = 0; i < gps->totpoints; ++i) {
+		for (int i = 0; i < gps->totpoints; i++) {
 			pt = &gps->points[i];
 			/* verify vertex group */
 			weight = is_point_affected_by_modifier(pt, (int)(!(mmd->flag & GP_OPACITY_INVERSE_VGROUP) == 0), vindex);
@@ -535,7 +554,8 @@ static int gpencil_stroke_cache_compare(const void *a1, const void *a2)
 }
 
 /* dupli modifier */
-void BKE_gpencil_dupli_modifier(int id, GpencilDupliModifierData *mmd, Object *UNUSED(ob), bGPDlayer *gpl, bGPDframe *gpf)
+void BKE_gpencil_dupli_modifier(
+        int id, GpencilDupliModifierData *mmd, Object *UNUSED(ob), bGPDlayer *gpl, bGPDframe *gpf)
 {
 	bGPDspoint *pt;
 	bGPDstroke *gps_dst;
@@ -559,13 +579,15 @@ void BKE_gpencil_dupli_modifier(int id, GpencilDupliModifierData *mmd, Object *U
 	int stroke = 0;
 	int idx = 0;
 	for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
-		++stroke;
-		if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 1, gpl, gps,
-			(bool)mmd->flag & GP_DUPLI_INVERSE_LAYER, (bool)mmd->flag & GP_DUPLI_INVERSE_PASS)) {
+		stroke++;
+		if (!is_stroke_affected_by_modifier(
+		        mmd->layername, mmd->passindex, 1, gpl, gps,
+		        (bool)mmd->flag & GP_DUPLI_INVERSE_LAYER, (bool)mmd->flag & GP_DUPLI_INVERSE_PASS))
+		{
 			continue;
 		}
 
-		for (int e = 0; e < mmd->count; ++e) {
+		for (int e = 0; e < mmd->count; e++) {
 			/* duplicate stroke */
 			gps_dst = MEM_dupallocN(gps);
 			if (id > -1) {
@@ -601,7 +623,7 @@ void BKE_gpencil_dupli_modifier(int id, GpencilDupliModifierData *mmd, Object *U
 				copy_v3_v3(scale, mmd->scale);
 			}
 			/* move random index */
-			++mmd->rnd[0];
+			mmd->rnd[0]++;
 			if (mmd->rnd[0] > 19) {
 				mmd->rnd[0] = 1;
 			}
@@ -609,19 +631,18 @@ void BKE_gpencil_dupli_modifier(int id, GpencilDupliModifierData *mmd, Object *U
 			loc_eul_size_to_mat4(mat, offset, rot, scale);
 
 			/* move points */
-			for (int i = 0; i < gps->totpoints; ++i) {
+			for (int i = 0; i < gps->totpoints; i++) {
 				pt = &gps_dst->points[i];
 				mul_m4_v3(mat, &pt->x);
 			}
-			++idx;
+			idx++;
 		}
 	}
 	/* sort by idx */
 	qsort(stroke_cache, idx, sizeof(tGPencilStrokeCache), gpencil_stroke_cache_compare);
 	
 	/* add to listbase */
-	for (int i = 0; i < idx; ++i)
-	{
+	for (int i = 0; i < idx; i++) {
 		BLI_addtail(&gpf->strokes, stroke_cache[i].gps);
 	}
 
@@ -630,7 +651,8 @@ void BKE_gpencil_dupli_modifier(int id, GpencilDupliModifierData *mmd, Object *U
 }
 
 /* array modifier */
-void BKE_gpencil_array_modifier(int UNUSED(id), GpencilArrayModifierData *mmd, Object *UNUSED(ob), int elem_idx[3], float r_mat[4][4])
+void BKE_gpencil_array_modifier(
+        int UNUSED(id), GpencilArrayModifierData *mmd, Object *UNUSED(ob), int elem_idx[3], float r_mat[4][4])
 {
 	float offset[3], rot[3], scale[3];
 	float factor;
@@ -660,7 +682,7 @@ void BKE_gpencil_array_modifier(int UNUSED(id), GpencilArrayModifierData *mmd, O
 		copy_v3_v3(scale, mmd->scale);
 	}
 	/* move random index */
-	++mmd->rnd[0];
+	mmd->rnd[0]++;
 	if (mmd->rnd[0] > 19) {
 		mmd->rnd[0] = 1;
 	}
@@ -727,14 +749,17 @@ void BKE_gpencil_lattice_clear(Object *ob)
 }
 
 /* apply lattice to stroke */
-void BKE_gpencil_lattice_modifier(int UNUSED(id), GpencilLatticeModifierData *mmd, Object *ob, bGPDlayer *gpl, bGPDstroke *gps)
+void BKE_gpencil_lattice_modifier(
+        int UNUSED(id), GpencilLatticeModifierData *mmd, Object *ob, bGPDlayer *gpl, bGPDstroke *gps)
 {
 	bGPDspoint *pt;
 	int vindex = get_vertex_group_index(ob, mmd->vgname);
 	float weight = 1.0f;
 
-	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 3, gpl, gps,
-		(bool)mmd->flag & GP_LATTICE_INVERSE_LAYER, (bool)mmd->flag & GP_LATTICE_INVERSE_PASS)) {
+	if (!is_stroke_affected_by_modifier(
+	        mmd->layername, mmd->passindex, 3, gpl, gps,
+	        (bool)mmd->flag & GP_LATTICE_INVERSE_LAYER, (bool)mmd->flag & GP_LATTICE_INVERSE_PASS))
+	{
 		return;
 	}
 
@@ -870,7 +895,7 @@ static void gpencil_rdp_stroke(bGPDstroke *gps, tbGPDspoint *points2d, float eps
 			if (max_i != 0) {
 				work = 1;
 				marked[max_i] = 1;
-				++totmarked;
+				totmarked++;
 			}
 
 			ls = le;
@@ -886,12 +911,12 @@ static void gpencil_rdp_stroke(bGPDstroke *gps, tbGPDspoint *points2d, float eps
 	gps->tot_triangles = 0;
 
 	int x = 0;
-	for (int i = 0; i < totpoints; ++i) {
+	for (int i = 0; i < totpoints; i++) {
 		bGPDspoint *old_pt = &old_points[i];
 		bGPDspoint *pt = &gps->points[x];
 		if ((marked[i]) || (i == 0) || (i == totpoints - 1)) {
 			memcpy(pt, old_pt, sizeof(bGPDspoint));
-			++x;
+			x++;
 		}
 		else {
 			BKE_gpencil_free_point_weights(old_pt);
@@ -921,8 +946,10 @@ void BKE_gpencil_simplify_stroke(bGPDlayer *UNUSED(gpl), bGPDstroke *gps, float 
 /* simplify stroke using Ramer-Douglas-Peucker algorithm */
 void BKE_gpencil_simplify_modifier(int UNUSED(id), GpencilSimplifyModifierData *mmd, Object *UNUSED(ob), bGPDlayer *gpl, bGPDstroke *gps)
 {
-	if (!is_stroke_affected_by_modifier(mmd->layername, mmd->passindex, 4, gpl, gps,
-		(bool)mmd->flag & GP_SIMPLIFY_INVERSE_LAYER, (bool)mmd->flag & GP_SIMPLIFY_INVERSE_PASS)) {
+	if (!is_stroke_affected_by_modifier(
+	        mmd->layername, mmd->passindex, 4, gpl, gps,
+	        (bool)mmd->flag & GP_SIMPLIFY_INVERSE_LAYER, (bool)mmd->flag & GP_SIMPLIFY_INVERSE_PASS))
+	{
 		return;
 	}
 
@@ -944,10 +971,10 @@ void BKE_gpencil_reset_modifiers(Object *ob)
 
 	for (md = ob->modifiers.first; md; md = md->next) {
 		switch (md->type) {
-		case eModifierType_GpencilDupli:
-			arr = (GpencilDupliModifierData *) md;
-			arr->rnd[0] = 1;
-			break;
+			case eModifierType_GpencilDupli:
+				arr = (GpencilDupliModifierData *) md;
+				arr->rnd[0] = 1;
+				break;
 		}
 	}
 }
@@ -974,7 +1001,8 @@ void BKE_gpencil_stroke_modifiers(Object *ob, bGPDlayer *gpl, bGPDframe *UNUSED(
 	int id = 0;
 	for (md = ob->modifiers.first; md; md = md->next) {
 		if (((md->mode & eModifierMode_Realtime) && ((G.f & G_RENDER_OGL) == 0)) ||
-			((md->mode & eModifierMode_Render) && (G.f & G_RENDER_OGL))) {
+		    ((md->mode & eModifierMode_Render) && (G.f & G_RENDER_OGL)))
+		{
 
 			if (((md->mode & eModifierMode_Editmode) == 0) && (is_edit)) {
 				continue;
@@ -982,40 +1010,40 @@ void BKE_gpencil_stroke_modifiers(Object *ob, bGPDlayer *gpl, bGPDframe *UNUSED(
 
 			switch (md->type) {
 				// Noise Modifier
-			case eModifierType_GpencilNoise:
-				BKE_gpencil_noise_modifier(id, (GpencilNoiseModifierData *)md, ob, gpl, gps);
-				break;
-				// Subdiv Modifier
-			case eModifierType_GpencilSubdiv:
-				BKE_gpencil_subdiv_modifier(id, (GpencilSubdivModifierData *)md, ob, gpl, gps);
-				break;
-				// Simplify Modifier
-			case eModifierType_GpencilSimplify:
-				BKE_gpencil_simplify_modifier(id, (GpencilSimplifyModifierData *)md, ob, gpl, gps);
-				break;
-				// Thickness
-			case eModifierType_GpencilThick:
-				BKE_gpencil_thick_modifier(id, (GpencilThickModifierData *)md, ob, gpl, gps);
-				break;
-				// Tint
-			case eModifierType_GpencilTint:
-				BKE_gpencil_tint_modifier(id, (GpencilTintModifierData *)md, ob, gpl, gps);
-				break;
-				// Opacity
-			case eModifierType_GpencilOpacity:
-				BKE_gpencil_opacity_modifier(id, (GpencilOpacityModifierData *)md, ob, gpl, gps);
-				break;
-				// Color Correction
-			case eModifierType_GpencilColor:
-				BKE_gpencil_color_modifier(id, (GpencilColorModifierData *)md, ob, gpl, gps);
-				break;
-				// Lattice
-			case eModifierType_GpencilLattice:
-				BKE_gpencil_lattice_modifier(id, (GpencilLatticeModifierData *)md, ob, gpl, gps);
-				break;
+				case eModifierType_GpencilNoise:
+					BKE_gpencil_noise_modifier(id, (GpencilNoiseModifierData *)md, ob, gpl, gps);
+					break;
+					// Subdiv Modifier
+				case eModifierType_GpencilSubdiv:
+					BKE_gpencil_subdiv_modifier(id, (GpencilSubdivModifierData *)md, ob, gpl, gps);
+					break;
+					// Simplify Modifier
+				case eModifierType_GpencilSimplify:
+					BKE_gpencil_simplify_modifier(id, (GpencilSimplifyModifierData *)md, ob, gpl, gps);
+					break;
+					// Thickness
+				case eModifierType_GpencilThick:
+					BKE_gpencil_thick_modifier(id, (GpencilThickModifierData *)md, ob, gpl, gps);
+					break;
+					// Tint
+				case eModifierType_GpencilTint:
+					BKE_gpencil_tint_modifier(id, (GpencilTintModifierData *)md, ob, gpl, gps);
+					break;
+					// Opacity
+				case eModifierType_GpencilOpacity:
+					BKE_gpencil_opacity_modifier(id, (GpencilOpacityModifierData *)md, ob, gpl, gps);
+					break;
+					// Color Correction
+				case eModifierType_GpencilColor:
+					BKE_gpencil_color_modifier(id, (GpencilColorModifierData *)md, ob, gpl, gps);
+					break;
+					// Lattice
+				case eModifierType_GpencilLattice:
+					BKE_gpencil_lattice_modifier(id, (GpencilLatticeModifierData *)md, ob, gpl, gps);
+					break;
 			}
 		}
-		++id;
+		id++;
 	}
 }
 
@@ -1029,19 +1057,19 @@ void BKE_gpencil_geometry_modifiers(Object *ob, bGPDlayer *gpl, bGPDframe *gpf)
 	int id = 0;
 	for (md = ob->modifiers.first; md; md = md->next) {
 		if (((md->mode & eModifierMode_Realtime) && ((G.f & G_RENDER_OGL) == 0)) ||
-			((md->mode & eModifierMode_Render) && (G.f & G_RENDER_OGL))) {
-
+		    ((md->mode & eModifierMode_Render) && (G.f & G_RENDER_OGL)))
+		{
 			if (((md->mode & eModifierMode_Editmode) == 0) && (is_edit)) {
 				continue;
 			}
 
 			switch (md->type) {
 				// Array
-			case eModifierType_GpencilDupli:
-				BKE_gpencil_dupli_modifier(id, (GpencilDupliModifierData *)md, ob, gpl, gpf);
-				break;
+				case eModifierType_GpencilDupli:
+					BKE_gpencil_dupli_modifier(id, (GpencilDupliModifierData *)md, ob, gpl, gpf);
+					break;
 			}
 		}
-		++id;
+		id++;
 	}
 }

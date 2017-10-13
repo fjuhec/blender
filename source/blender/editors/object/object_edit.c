@@ -1413,9 +1413,9 @@ static EnumPropertyItem *object_mode_set_itemsf(bContext *C, PointerRNA *UNUSED(
 			    (input->value == OB_MODE_POSE && (ob->type == OB_ARMATURE)) ||
 			    (input->value == OB_MODE_PARTICLE_EDIT && use_mode_particle_edit) ||
 			    (ELEM(input->value, OB_MODE_SCULPT, OB_MODE_VERTEX_PAINT,
-			           OB_MODE_WEIGHT_PAINT, OB_MODE_TEXTURE_PAINT) && (ob->type == OB_MESH)) ||
-				(ELEM(input->value, OB_MODE_GPENCIL_EDIT, OB_MODE_GPENCIL_PAINT, 
-					  OB_MODE_GPENCIL_SCULPT, OB_MODE_GPENCIL_WEIGHT) && (ob->type == OB_GPENCIL)) ||
+			          OB_MODE_WEIGHT_PAINT, OB_MODE_TEXTURE_PAINT) && (ob->type == OB_MESH)) ||
+			    (ELEM(input->value, OB_MODE_GPENCIL_EDIT, OB_MODE_GPENCIL_PAINT,
+			          OB_MODE_GPENCIL_SCULPT, OB_MODE_GPENCIL_WEIGHT) && (ob->type == OB_GPENCIL)) ||
 			    (input->value == OB_MODE_OBJECT))
 			{
 				RNA_enum_item_add(&item, &totitem, input);
@@ -1495,7 +1495,8 @@ static bool object_mode_compat_test(Object *ob, ObjectMode mode)
 					return true;
 				break;
 			case OB_GPENCIL:
-				if (mode & (OB_MODE_GPENCIL_EDIT | OB_MODE_GPENCIL_PAINT | OB_MODE_GPENCIL_SCULPT | OB_MODE_GPENCIL_WEIGHT))
+				if (mode & (OB_MODE_GPENCIL_EDIT | OB_MODE_GPENCIL_PAINT |
+				            OB_MODE_GPENCIL_SCULPT | OB_MODE_GPENCIL_WEIGHT))
 				{
 					return true;
 				}
@@ -1560,8 +1561,7 @@ static int object_mode_set_exec(bContext *C, wmOperator *op)
 
 	/* if type is OB_GPENCIL, select mode for grease pencil strokes */	
 	if ((ob) && (ob->type == OB_GPENCIL)) {
-		if ((ob->gpd) && (ob->gpd == gpd))
-		{
+		if ((ob->gpd) && (ob->gpd == gpd)) {
 			if (ELEM(mode, OB_MODE_OBJECT, OB_MODE_EDIT, OB_MODE_POSE)) {
 				ob->restore_mode = OB_MODE_OBJECT;
 				if (ELEM(ob->mode, OB_MODE_OBJECT, OB_MODE_EDIT, OB_MODE_GPENCIL_EDIT)) {

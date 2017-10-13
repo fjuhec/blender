@@ -81,7 +81,7 @@ ModifierTypeInfo modifierType_GpencilSimplify = {
 	/* name */              "Simplify",
 	/* structName */        "GpencilSimplifyModifierData",
 	/* structSize */        sizeof(GpencilSimplifyModifierData),
-	/* type */             	eModifierTypeType_Gpencil,
+	/* type */              eModifierTypeType_Gpencil,
 	/* flags */             eModifierTypeFlag_GpencilMod | eModifierTypeFlag_SupportsEditmode,
 
 	/* copyData */          copyData,

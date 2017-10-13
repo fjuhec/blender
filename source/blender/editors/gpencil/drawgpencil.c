@@ -411,8 +411,7 @@ static void gp_calc_2d_bounding_box(const float(*points2d)[2], int totpoints, fl
 	maxv[0] = points2d[0][0];
 	maxv[1] = points2d[0][1];
 
-	for (int i = 1; i < totpoints; i++)
-	{
+	for (int i = 1; i < totpoints; i++) {
 		/* min */
 		if (points2d[i][0] < minv[0]) {
 			minv[0] = points2d[i][0];
@@ -445,8 +444,7 @@ static void gp_calc_stroke_text_coordinates(const float(*points2d)[2], int totpo
 	float d[2];
 	d[0] = maxv[0] - minv[0];
 	d[1] = maxv[1] - minv[1];
-	for (int i = 0; i < totpoints; i++)
-	{
+	for (int i = 0; i < totpoints; i++) {
 		r_uv[i][0] = (points2d[i][0] - minv[0]) / d[0];
 		r_uv[i][1] = (points2d[i][1] - minv[1]) / d[1];
 	}
@@ -719,9 +717,10 @@ static void gp_draw_stroke_point(
 }
 
 /* draw a given stroke in 3d (i.e. in 3d-space) */
-static void gp_draw_stroke_3d(const bGPDspoint *points, int totpoints, short thickness, bool UNUSED(debug),
-                              short UNUSED(sflag), const float diff_mat[4][4], const float ink[4], bool cyclic,
-	                          int winx, int winy, int offsx, int offsy)
+static void gp_draw_stroke_3d(
+        const bGPDspoint *points, int totpoints, short thickness, bool UNUSED(debug),
+        short UNUSED(sflag), const float diff_mat[4][4], const float ink[4], bool cyclic,
+        int winx, int winy, int offsx, int offsy)
 {
 	float viewport[2] = { winx, winy };
 	float offset[2] = { offsx, offsy };
@@ -757,7 +756,7 @@ static void gp_draw_stroke_3d(const bGPDspoint *points, int totpoints, short thi
 		}
 		/* set point */
 		gp_set_point_varying_color(pt, ink, color);
-		immAttrib1f(thickattrib, max_ff(curpressure * thickness , 1.0f));
+		immAttrib1f(thickattrib, max_ff(curpressure * thickness, 1.0f));
 		mul_v3_m4v3(fpt, diff_mat, &pt->x);
 		immVertex3fv(pos, fpt);
 
@@ -1105,7 +1104,7 @@ static void gp_draw_strokes(
 				else {
 					gp_draw_stroke_3d(gps->points, gps->totpoints, sthickness, debug, gps->flag,
 					                  diff_mat, ink, gps->flag & GP_STROKE_CYCLIC, 
-									  winx , winy, offsx, offsy);
+					                  winx, winy, offsx, offsy);
 				}
 			}
 			if (no_xray) {

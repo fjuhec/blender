@@ -93,24 +93,22 @@ static void gpencil_verify_brush_type(bContext *C, int newmode)
 	ToolSettings *ts = CTX_data_tool_settings(C);
 	GP_BrushEdit_Settings *gset = &ts->gp_sculpt;
 
-	switch (newmode)
-	{
-	case OB_MODE_GPENCIL_SCULPT:
-		gset->flag &= ~GP_BRUSHEDIT_FLAG_WEIGHT_MODE;
-		if ((gset->brushtype < 0) || (gset->brushtype >= GP_EDITBRUSH_TYPE_WEIGHT)) {
-			gset->brushtype = 0;
-		}
-		break;
-	case OB_MODE_GPENCIL_WEIGHT:
-		gset->flag |= GP_BRUSHEDIT_FLAG_WEIGHT_MODE;
-		if ((gset->weighttype < GP_EDITBRUSH_TYPE_WEIGHT) || (gset->weighttype >= TOT_GP_EDITBRUSH_TYPES)) {
-			gset->weighttype = GP_EDITBRUSH_TYPE_WEIGHT;
-		}
-		break;
-	default:
-		break;
+	switch (newmode) {
+		case OB_MODE_GPENCIL_SCULPT:
+			gset->flag &= ~GP_BRUSHEDIT_FLAG_WEIGHT_MODE;
+			if ((gset->brushtype < 0) || (gset->brushtype >= GP_EDITBRUSH_TYPE_WEIGHT)) {
+				gset->brushtype = 0;
+			}
+			break;
+		case OB_MODE_GPENCIL_WEIGHT:
+			gset->flag |= GP_BRUSHEDIT_FLAG_WEIGHT_MODE;
+			if ((gset->weighttype < GP_EDITBRUSH_TYPE_WEIGHT) || (gset->weighttype >= TOT_GP_EDITBRUSH_TYPES)) {
+				gset->weighttype = GP_EDITBRUSH_TYPE_WEIGHT;
+			}
+			break;
+		default:
+			break;
 	}
-
 }
 
 
@@ -121,44 +119,43 @@ static void gpencil_setup_modes(bContext *C, bGPdata *gpd, int newmode)
 		return;
 	}
 
-	switch (newmode)
-	{
-	case OB_MODE_GPENCIL_EDIT:
-		gpd->flag |= GP_DATA_STROKE_EDITMODE;
-		gpd->flag &= ~GP_DATA_STROKE_PAINTMODE;
-		gpd->flag &= ~GP_DATA_STROKE_SCULPTMODE;
-		gpd->flag &= ~GP_DATA_STROKE_WEIGHTMODE;
-		ED_gpencil_toggle_brush_cursor(C, false);
-		break;
-	case OB_MODE_GPENCIL_PAINT:
-		gpd->flag &= ~GP_DATA_STROKE_EDITMODE;
-		gpd->flag |= GP_DATA_STROKE_PAINTMODE;
-		gpd->flag &= ~GP_DATA_STROKE_SCULPTMODE;
-		gpd->flag &= ~GP_DATA_STROKE_WEIGHTMODE;
-		ED_gpencil_toggle_brush_cursor(C, true);
-		break;
-	case OB_MODE_GPENCIL_SCULPT:
-		gpd->flag &= ~GP_DATA_STROKE_EDITMODE;
-		gpd->flag &= ~GP_DATA_STROKE_PAINTMODE;
-		gpd->flag |= GP_DATA_STROKE_SCULPTMODE;
-		gpd->flag &= ~GP_DATA_STROKE_WEIGHTMODE;
-		gpencil_verify_brush_type(C, OB_MODE_GPENCIL_SCULPT);
-		ED_gpencil_toggle_brush_cursor(C, true);
-		break;
-	case OB_MODE_GPENCIL_WEIGHT:
-		gpd->flag &= ~GP_DATA_STROKE_EDITMODE;
-		gpd->flag &= ~GP_DATA_STROKE_PAINTMODE;
-		gpd->flag &= ~GP_DATA_STROKE_SCULPTMODE;
-		gpd->flag |= GP_DATA_STROKE_WEIGHTMODE;
-		gpencil_verify_brush_type(C, OB_MODE_GPENCIL_WEIGHT);
-		ED_gpencil_toggle_brush_cursor(C, true);
-		break;
-	default:
-		gpd->flag &= ~GP_DATA_STROKE_EDITMODE;
-		gpd->flag &= ~GP_DATA_STROKE_PAINTMODE;
-		gpd->flag &= ~GP_DATA_STROKE_SCULPTMODE;
-		ED_gpencil_toggle_brush_cursor(C, false);
-		break;
+	switch (newmode) {
+		case OB_MODE_GPENCIL_EDIT:
+			gpd->flag |= GP_DATA_STROKE_EDITMODE;
+			gpd->flag &= ~GP_DATA_STROKE_PAINTMODE;
+			gpd->flag &= ~GP_DATA_STROKE_SCULPTMODE;
+			gpd->flag &= ~GP_DATA_STROKE_WEIGHTMODE;
+			ED_gpencil_toggle_brush_cursor(C, false);
+			break;
+		case OB_MODE_GPENCIL_PAINT:
+			gpd->flag &= ~GP_DATA_STROKE_EDITMODE;
+			gpd->flag |= GP_DATA_STROKE_PAINTMODE;
+			gpd->flag &= ~GP_DATA_STROKE_SCULPTMODE;
+			gpd->flag &= ~GP_DATA_STROKE_WEIGHTMODE;
+			ED_gpencil_toggle_brush_cursor(C, true);
+			break;
+		case OB_MODE_GPENCIL_SCULPT:
+			gpd->flag &= ~GP_DATA_STROKE_EDITMODE;
+			gpd->flag &= ~GP_DATA_STROKE_PAINTMODE;
+			gpd->flag |= GP_DATA_STROKE_SCULPTMODE;
+			gpd->flag &= ~GP_DATA_STROKE_WEIGHTMODE;
+			gpencil_verify_brush_type(C, OB_MODE_GPENCIL_SCULPT);
+			ED_gpencil_toggle_brush_cursor(C, true);
+			break;
+		case OB_MODE_GPENCIL_WEIGHT:
+			gpd->flag &= ~GP_DATA_STROKE_EDITMODE;
+			gpd->flag &= ~GP_DATA_STROKE_PAINTMODE;
+			gpd->flag &= ~GP_DATA_STROKE_SCULPTMODE;
+			gpd->flag |= GP_DATA_STROKE_WEIGHTMODE;
+			gpencil_verify_brush_type(C, OB_MODE_GPENCIL_WEIGHT);
+			ED_gpencil_toggle_brush_cursor(C, true);
+			break;
+		default:
+			gpd->flag &= ~GP_DATA_STROKE_EDITMODE;
+			gpd->flag &= ~GP_DATA_STROKE_PAINTMODE;
+			gpd->flag &= ~GP_DATA_STROKE_SCULPTMODE;
+			ED_gpencil_toggle_brush_cursor(C, false);
+			break;
 	}
 }
 
@@ -1936,7 +1933,7 @@ static int gp_snap_to_grid(bContext *C, wmOperator *UNUSED(op))
 			float diff_mat[4][4];
 			
 			/* calculate difference matrix object */
-			ED_gpencil_parent_location(obact, gpd,gpl, diff_mat);
+			ED_gpencil_parent_location(obact, gpd, gpl, diff_mat);
 			
 			for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
 				bGPDspoint *pt;

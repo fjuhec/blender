@@ -54,9 +54,9 @@ ModifierTypeInfo modifierType_GpencilPixel = {
 	/* name */              "Pixelate",
 	/* structName */        "GpencilPixelModifierData",
 	/* structSize */        sizeof(GpencilPixelModifierData),
-	/* type */             	eModifierTypeType_Gpencil,
-	/* flags */             eModifierTypeFlag_GpencilMod | eModifierTypeFlag_SupportsEditmode 
-							| eModifierTypeFlag_GpencilVFX | eModifierTypeFlag_Single,
+	/* type */              eModifierTypeType_Gpencil,
+	/* flags */             eModifierTypeFlag_GpencilMod | eModifierTypeFlag_SupportsEditmode |
+	                        eModifierTypeFlag_GpencilVFX | eModifierTypeFlag_Single,
 
 	/* copyData */          NULL,
 	/* deformVerts */       NULL,

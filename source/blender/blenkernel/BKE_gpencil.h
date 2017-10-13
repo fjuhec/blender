@@ -159,7 +159,7 @@ void BKE_gpencil_paletteslot_set_active_palette(struct bGPdata *gpd, const struc
 void BKE_gpencil_paletteslot_set_palette(struct bGPdata *gpd, struct bGPDpaletteref *palslot, struct Palette *palette);
 
 struct bGPDpaletteref *BKE_gpencil_paletteslot_add(struct bGPdata *gpd, struct Palette *palette);
-struct bGPDpaletteref *BKE_gpencil_paletteslot_addnew(struct Main *bmain, struct bGPdata *gpd, char name[MAX_ID_NAME - 2]);
+struct bGPDpaletteref *BKE_gpencil_paletteslot_addnew(struct Main *bmain, struct bGPdata *gpd, const char name[]);
 struct bGPDpaletteref *BKE_gpencil_paletteslot_validate(struct Main *bmain, struct bGPdata *gpd);
 
 /* Palettes - Deprecated (2.78-2.79) */

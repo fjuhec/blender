@@ -131,7 +131,7 @@ ModifierTypeInfo modifierType_GpencilTint = {
 	/* name */              "Tint",
 	/* structName */        "GpencilTintModifierData",
 	/* structSize */        sizeof(GpencilTintModifierData),
-	/* type */             	eModifierTypeType_Gpencil,
+	/* type */              eModifierTypeType_Gpencil,
 	/* flags */             eModifierTypeFlag_GpencilMod | eModifierTypeFlag_SupportsEditmode,
 
 	/* copyData */          copyData,

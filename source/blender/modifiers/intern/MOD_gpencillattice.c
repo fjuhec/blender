@@ -144,7 +144,7 @@ ModifierTypeInfo modifierType_GpencilLattice = {
 	/* name */              "Lattice",
 	/* structName */        "GpencilLatticeModifierData",
 	/* structSize */        sizeof(GpencilLatticeModifierData),
-	/* type */             	eModifierTypeType_Gpencil,
+	/* type */              eModifierTypeType_Gpencil,
 	/* flags */             eModifierTypeFlag_GpencilMod | eModifierTypeFlag_Single | eModifierTypeFlag_SupportsEditmode,
 
 	/* copyData */          copyData,
