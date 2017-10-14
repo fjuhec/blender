@@ -178,7 +178,7 @@ static void GPENCIL_engine_free(void)
 
 static void GPENCIL_cache_init(void *vedata)
 {
-	if (G.debug_value == 668) {
+	if (G.debug_value == 665) {
 		printf("GPENCIL_cache_init\n");
 	}
 
@@ -391,7 +391,7 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 	/* object datablock (this is not draw now) */
 	if (ob->type == OB_GPENCIL && ob->gpd) {
 		if ((stl->g_data->session_flag & GP_DRW_PAINT_READY) == 0) {
-			if (G.debug_value == 668) {
+			if (G.debug_value == 665) {
 				printf("GPENCIL_cache_populate: %s\n", ob->id.name);
 			}
 			/* allocate memory for saving gp objects */
@@ -441,7 +441,7 @@ static void GPENCIL_cache_finish(void *vedata)
 
 			/* save end shading group */
 			stl->g_data->gp_object_cache[i].end_grp = stl->storage->shgroup_id - 1;
-			if (G.debug_value == 668) {
+			if (G.debug_value == 665) {
 				printf("GPENCIL_cache_finish: %s %d->%d\n", ob->id.name, 
 					stl->g_data->gp_object_cache[i].init_grp, stl->g_data->gp_object_cache[i].end_grp);
 			}
@@ -664,7 +664,7 @@ static void GPENCIL_draw_scene(void *vedata)
 				/* Stroke Pass: DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH
 				 * draw only a subset that usually start with a fill and end with stroke because the
 				 * shading groups are created by pairs */
-				if (G.debug_value == 668) {
+				if (G.debug_value == 665) {
 					printf("GPENCIL_draw_scene: %s %d->%d\n", ob->id.name, init_grp, end_grp);
 				}
 

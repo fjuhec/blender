@@ -175,7 +175,7 @@ static void gpencil_batch_cache_init(Object *ob, int cfra)
 	GpencilBatchCache *cache = gpencil_batch_get_element(ob);
 	bGPdata *gpd = ob->gpd;
 
-	if (G.debug_value == 668) {
+	if (G.debug_value >= 664) {
 		printf("gpencil_batch_cache_init: %s\n", ob->id.name);
 	}
 
@@ -212,7 +212,7 @@ static void gpencil_batch_cache_clear(GpencilBatchCache *cache, bGPdata *gpd)
 		return;
 	}
 
-	if (G.debug_value == 668) {
+	if (G.debug_value >= 664) {
 		printf("gpencil_batch_cache_clear: %s\n", gpd->id.name);
 	}
 
@@ -238,6 +238,10 @@ static GpencilBatchCache *gpencil_batch_cache_get(Object *ob, int cfra)
 	bGPdata *gpd = ob->gpd;
 
 	if (!gpencil_batch_cache_valid(ob, gpd, cfra)) {
+		if (G.debug_value >= 664) {
+			printf("gpencil_batch_cache: %s\n", gpd->id.name);
+		}
+
 		GpencilBatchCache *cache = gpencil_batch_get_element(ob);
 		if (cache) {
 			gpencil_batch_cache_clear(cache, gpd);
@@ -1071,7 +1075,7 @@ void DRW_gpencil_populate_datablock(GPENCIL_e_data *e_data, void *vedata, Scene 
 	bGPDframe *derived_gpf = NULL;
 	bool no_onion = (bool)(gpd->flag & GP_DATA_STROKE_WEIGHTMODE);
 
-	if (G.debug_value == 668) {
+	if (G.debug_value == 665) {
 		printf("DRW_gpencil_populate_datablock: %s\n", gpd->id.name);
 	}
 
