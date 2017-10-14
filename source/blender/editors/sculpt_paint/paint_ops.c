@@ -361,9 +361,6 @@ static void PALETTE_OT_color_add(wmOperatorType *ot)
 
 static int palette_color_delete_exec(bContext *C, wmOperator *UNUSED(op))
 {
-#if 0
-	Paint *paint = BKE_paint_get_active_from_context(C);
-#endif
 	Palette *palette = BKE_palette_get_active_from_context(C);
 	PaletteColor *color = BLI_findlink(&palette->colors, palette->active_color);
 
