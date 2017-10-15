@@ -21,11 +21,20 @@
 # Note: This will be a simple addon later, but until it gets to master, it's simpler to have it
 #       as a startup module!
 
+import bpy
+from bpy.props import (
+        BoolProperty,
+        )
+
 
 from . import (repository, engine, operators, ui)
 
 
 classes = repository.classes + engine.classes + operators.classes + ui.classes
+
+
+bpy.types.WindowManager.amber_enable_editing = BoolProperty(name="Enable Amber Editing",
+                                                            description="Enable editing of items in Amber asset engine repositories")
 
 
 if __name__ == "__main__":  # only for live edit.

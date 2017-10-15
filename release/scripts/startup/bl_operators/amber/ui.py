@@ -103,6 +103,7 @@ class AMBER_PT_options(Panel, AmberPanel):
         ae = space.asset_engine
 
         row = layout.row()
+        row.prop(context.window_manager, "amber_enable_editing", toggle=True)
 
 
 class AMBER_PT_tags(Panel, AmberPanel):

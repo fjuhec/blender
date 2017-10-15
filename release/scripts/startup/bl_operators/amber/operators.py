@@ -57,8 +57,9 @@ class AmberOpsEditing(AmberOps):
     @classmethod
     def poll(cls, context):
         space = context.space_data
+        wm = context.window_manager
         if space and space.type == 'FILE_BROWSER':
-            return (space.active_operator is None) and AmberOps.poll(context)
+            return (space.active_operator is None) and wm.amber_enable_editing and AmberOps.poll(context)
         return False
 
 
