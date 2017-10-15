@@ -116,7 +116,7 @@ Gwn_Batch *DRW_gpencil_get_stroke_geom(bGPDframe *gpf, bGPDstroke *gps, short th
 	bGPDspoint *points = gps->points;
 	int totpoints = gps->totpoints;
 	/* if cyclic needs more vertex */
-	int cyclic_add = (gps->flag & GP_STROKE_CYCLIC) ? 2 : 0;
+	int cyclic_add = (gps->flag & GP_STROKE_CYCLIC) ? 1 : 0;
 
 	static Gwn_VertFormat format = { 0 };
 	static unsigned int pos_id, color_id, thickness_id;
@@ -147,10 +147,8 @@ Gwn_Batch *DRW_gpencil_get_stroke_geom(bGPDframe *gpf, bGPDstroke *gps, short th
 		/* draw line to first point to complete the cycle */
 		gpencil_set_stroke_point(vbo, gpf->viewmatrix, &points[0], idx, pos_id, color_id, thickness_id, thickness, ink);
 		++idx;
-		/* now add adjacency points using 2nd & 3rd point to get smooth transition */
+		/* now add adjacency point (not drawn) */
 		gpencil_set_stroke_point(vbo, gpf->viewmatrix, &points[1], idx, pos_id, color_id, thickness_id, thickness, ink);
-		++idx;
-		gpencil_set_stroke_point(vbo, gpf->viewmatrix, &points[2], idx, pos_id, color_id, thickness_id, thickness, ink);
 		++idx;
 	}
 	/* last adjacency point (not drawn) */

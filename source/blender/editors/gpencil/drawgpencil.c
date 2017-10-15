@@ -729,7 +729,7 @@ static void gp_draw_stroke_3d(
 	UNUSED_VARS(offset);
 
 	/* if cyclic needs more vertex */
-	int cyclic_add = (cyclic) ? 2 : 0;
+	int cyclic_add = (cyclic) ? 1 : 0;
 
 	Gwn_VertFormat *format = immVertexFormat();
 	unsigned pos = GWN_vertformat_attr_add(format, "pos", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
@@ -769,13 +769,9 @@ static void gp_draw_stroke_3d(
 		mul_v3_m4v3(fpt, diff_mat, &points->x);
 		immVertex3fv(pos, fpt);
 
-		/* now add adjacency points using 2nd & 3rd point to get smooth transition */
+		/* now add adjacency point (not drawn) */
 		immAttrib1f(thickattrib, max_ff((points + 1)->pressure * thickness, 1.0f));
 		mul_v3_m4v3(fpt, diff_mat, &(points + 1)->x);
-		immVertex3fv(pos, fpt);
-
-		immAttrib1f(thickattrib, max_ff((points + 2)->pressure * thickness, 1.0f));
-		mul_v3_m4v3(fpt, diff_mat, &(points + 2)->x);
 		immVertex3fv(pos, fpt);
 	}
 	/* last adjacency point (not drawn) */
