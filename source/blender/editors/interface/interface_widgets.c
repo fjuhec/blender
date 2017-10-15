@@ -3607,8 +3607,8 @@ static uiWidgetType *widget_type(uiWidgetTypeEnum type)
 			break;
 
 		case UI_WTYPE_TAB:
-			wt.draw = widget_tab;
 			wt.wcol_theme = &btheme->tui.wcol_tab;
+			wt.draw = widget_tab;
 			break;
 
 		case UI_WTYPE_TOOLTIP:

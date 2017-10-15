@@ -941,13 +941,12 @@ static void ui_apply_but_TEX(bContext *C, uiBut *but, uiHandleButtonData *data)
 static void ui_apply_but_TAB(bContext *C, uiBut *but, uiHandleButtonData *data)
 {
 	if (data->str) {
-		ui_apply_but_TEX(C, but, data);
-		return;
+		ui_but_string_set(C, but, data->str);
+		ui_but_update_edited(but);
 	}
-
-	ui_but_value_set(but, but->hardmax);
-
-	ui_apply_but_func(C, but);
+	else {
+		ui_apply_but_func(C, but);
+	}
 
 	data->retval = but->retval;
 	data->applied = true;

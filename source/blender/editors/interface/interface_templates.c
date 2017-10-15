@@ -235,7 +235,7 @@ typedef struct TemplateID {
 } TemplateID;
 
 /* Search browse menu, assign  */
-static void id_search_call_cb(bContext *C, void *arg_template, void *item)
+static void template_ID_set_property_cb(bContext *C, void *arg_template, void *item)
 {
 	TemplateID *template = (TemplateID *)arg_template;
 
@@ -246,15 +246,6 @@ static void id_search_call_cb(bContext *C, void *arg_template, void *item)
 		RNA_id_pointer_create(item, &idptr);
 		RNA_property_pointer_set(&template->ptr, template->prop, idptr);
 		RNA_property_update(C, &template->ptr, template->prop);
-	}
-}
-
-static void id_rename_cb(bContext *C, void *arg, char *origstr)
-{
-	ID *id = arg;
-
-	if (origstr && !STREQ(id->name + 2, origstr)) {
-		BLI_libblock_ensure_unique_name(CTX_data_main(C), id->name);
 	}
 }
 
@@ -311,7 +302,7 @@ static uiBlock *id_search_menu(bContext *C, ARegion *ar, void *arg_litem)
 	active_item_ptr = RNA_property_pointer_get(&template.ptr, template.prop);
 
 	return template_common_search_menu(
-	               C, ar, id_search_cb, &template, id_search_call_cb, active_item_ptr.data,
+	               C, ar, id_search_cb, &template, template_ID_set_property_cb, active_item_ptr.data,
 	               template.prv_rows, template.prv_cols);
 }
 
@@ -716,23 +707,21 @@ static void template_ID_tabs(
 
 	for (ID *id = template->idlb->first; id; id = id->next) {
 		wmOperatorType *unlink_ot = WM_operatortype_find(unlinkop, false);
-		const char *id_name = id->name + 2;
 		const bool is_active = active_ptr.data == id;
-		const unsigned int but_width = UI_fontstyle_string_width(&style->widgetlabel, id_name) + UI_UNIT_X +
+		const unsigned int but_width = UI_fontstyle_string_width(&style->widgetlabel, id->name + 2) + UI_UNIT_X +
 		                               (is_active ? ICON_DEFAULT_WIDTH_SCALE : 0);
 		uiButTab *tab;
 
 		tab = (uiButTab *)uiDefButR_prop(
-		        block, UI_BTYPE_TAB, 0, id_name, 0, 0, but_width, UI_UNIT_Y,
+		        block, UI_BTYPE_TAB, 0, "", 0, 0, but_width, UI_UNIT_Y,
 		        &template->ptr, template->prop, 0, 0.0f,
 		        sizeof(id->name) - 2, 0.0f, 0.0f, "");
-		UI_but_funcN_set(&tab->but, id_search_call_cb, MEM_dupallocN(template), id);
-		tab->but.poin = &id->name[2];
+		UI_but_funcN_set(&tab->but, template_ID_set_property_cb, MEM_dupallocN(template), id);
+		tab->but.custom_data = (void *)id;
 		tab->unlink_ot = unlink_ot;
 
-		UI_but_func_rename_set(&tab->but, id_rename_cb, id);
 		if (is_active) {
-			UI_but_flag_enable(&tab->but, UI_SELECT | UI_BUT_VALUE_CLEAR);
+			UI_but_flag_enable(&tab->but, UI_BUT_VALUE_CLEAR);
 		}
 		UI_but_drawflag_enable(&tab->but, but_align);
 	}

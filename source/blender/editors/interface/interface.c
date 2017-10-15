@@ -1484,6 +1484,18 @@ int ui_but_is_pushed_ex(uiBut *but, double *value)
 					if (*value == (double)but->hardmax) is_push = true;
 				}
 				break;
+			case UI_BTYPE_TAB:
+				if (but->rnaprop && but->custom_data) {
+					/* uiBut.custom_data points to data this tab represents (e.g. workspace).
+					 * uiBut.rnapoin/prop store an active value (e.g. active workspace). */
+					if (RNA_property_type(but->rnaprop) == PROP_POINTER) {
+						PointerRNA active_ptr = RNA_property_pointer_get(&but->rnapoin, but->rnaprop);
+						if (active_ptr.data == but->custom_data) {
+							is_push = true;
+						}
+					}
+				}
+				break;
 			default:
 				is_push = -1;
 				break;
@@ -2173,14 +2185,23 @@ void ui_but_string_get_ex(uiBut *but, char *str, const size_t maxlen, const int 
 		*r_use_exp_float = false;
 	}
 
-	if (but->rnaprop && ELEM(but->type, UI_BTYPE_TEXT, UI_BTYPE_SEARCH_MENU)) {
+	if (but->rnaprop && ELEM(but->type, UI_BTYPE_TEXT, UI_BTYPE_SEARCH_MENU, UI_BTYPE_TAB)) {
 		PropertyType type;
 		const char *buf = NULL;
 		int buf_len;
 
 		type = RNA_property_type(but->rnaprop);
 
-		if (type == PROP_STRING) {
+		if ((but->type == UI_BTYPE_TAB) && (but->custom_data)) {
+			StructRNA *ptr_type = RNA_property_pointer_type(&but->rnapoin, but->rnaprop);
+			PointerRNA ptr;
+
+			/* uiBut.custom_data points to data this tab represents (e.g. workspace).
+			 * uiBut.rnapoin/prop store an active value (e.g. active workspace). */
+			RNA_pointer_create(but->rnapoin.id.data, ptr_type, but->custom_data, &ptr);
+			buf = RNA_struct_name_get_alloc(&ptr, str, maxlen, &buf_len);
+		}
+		else if (type == PROP_STRING) {
 			/* RNA string */
 			buf = RNA_property_string_get_alloc(&but->rnapoin, but->rnaprop, str, maxlen, &buf_len);
 		}
@@ -2216,7 +2237,7 @@ void ui_but_string_get_ex(uiBut *but, char *str, const size_t maxlen, const int 
 			MEM_freeN((void *)buf);
 		}
 	}
-	else if (ELEM(but->type, UI_BTYPE_TEXT, UI_BTYPE_SEARCH_MENU, UI_BTYPE_TAB)) {
+	else if (ELEM(but->type, UI_BTYPE_TEXT, UI_BTYPE_SEARCH_MENU)) {
 		/* string */
 		BLI_strncpy(str, but->poin, maxlen);
 		return;
@@ -2426,18 +2447,16 @@ bool ui_but_string_set(bContext *C, uiBut *but, const char *str)
 				return true;
 			}
 			else if (type == PROP_POINTER) {
-				/* RNA pointer */
-				PointerRNA ptr, rptr;
-				PropertyRNA *prop;
-
 				if (str[0] == '\0') {
 					RNA_property_pointer_set(&but->rnapoin, but->rnaprop, PointerRNA_NULL);
 					return true;
 				}
 				else {
-					ptr = but->rnasearchpoin;
-					prop = but->rnasearchprop;
-					
+					/* RNA pointer */
+					PointerRNA rptr;
+					PointerRNA ptr = but->rnasearchpoin;
+					PropertyRNA *prop = but->rnasearchprop;
+
 					if (prop && RNA_property_collection_lookup_string(&ptr, prop, str, &rptr))
 						RNA_property_pointer_set(&but->rnapoin, but->rnaprop, rptr);
 
@@ -2459,6 +2478,21 @@ bool ui_but_string_set(bContext *C, uiBut *but, const char *str)
 			}
 		}
 	}
+	else if (but->type == UI_BTYPE_TAB) {
+		if (but->rnaprop && but->custom_data) {
+			StructRNA *ptr_type = RNA_property_pointer_type(&but->rnapoin, but->rnaprop);
+			PointerRNA ptr;
+			PropertyRNA *prop;
+
+			/* uiBut.custom_data points to data this tab represents (e.g. workspace).
+			 * uiBut.rnapoin/prop store an active value (e.g. active workspace). */
+			RNA_pointer_create(but->rnapoin.id.data, ptr_type, but->custom_data, &ptr);
+			prop = RNA_struct_name_property(ptr_type);
+			if (RNA_property_editable(&ptr, prop)) {
+				RNA_property_string_set(&ptr, prop, str);
+			}
+		}
+	}
 	else if (but->type == UI_BTYPE_TEXT) {
 		/* string */
 		if (!but->poin || (str[0] == '\0')) {
@@ -2473,7 +2507,7 @@ bool ui_but_string_set(bContext *C, uiBut *but, const char *str)
 
 		return true;
 	}
-	else if (ELEM(but->type, UI_BTYPE_SEARCH_MENU, UI_BTYPE_TAB)) {
+	else if (but->type == UI_BTYPE_SEARCH_MENU) {
 		/* string */
 		BLI_strncpy(but->poin, str, but->hardmax);
 		return true;
@@ -3010,6 +3044,7 @@ void ui_but_update_ex(uiBut *but, const bool validate)
 
 		case UI_BTYPE_TEXT:
 		case UI_BTYPE_SEARCH_MENU:
+		case UI_BTYPE_TAB:
 			if (!but->editstr) {
 				char str[UI_MAX_DRAW_STR];
 
