@@ -89,7 +89,36 @@ typedef struct tGPDinterpolate {
 	void *draw_handle_screen; /* handle for drawing strokes while operator is running screen stuff */
 } tGPDinterpolate;
 
-/* Temporary 'Stroke Point' data 
+/* Temporary primitive operation data */
+typedef struct tGPDprimitive {
+	struct Scene *scene;              /* current scene from context */
+	struct Object *ob;                /* current active gp object */
+	struct ScrArea *sa;               /* area where painting originated */
+	struct RegionView3D *rv3d;        /* region where painting originated */
+	struct View3D *v3d;               /* view3 where painting originated */
+	struct ARegion *ar;               /* region where painting originated */
+	struct bGPdata *gpd;              /* current GP datablock */
+	struct Palette *palette;          /* current palette */
+	struct PaletteColor *palcolor;    /* current palette color */
+
+	int cframe;                       /* current frame number */
+	struct bGPDlayer *gpl;            /* layer */
+	struct bGPDframe *gpf;            /* frame */
+	int type;                         /* type of primitive */
+	int tot_edges;                    /* number of polygon edges */
+	int top[2];                       /* first box corner */
+	int bottom[2];                    /* last box corner */
+	int flag;                         /* flag to determine operations in progress */
+	short oldevent;                   /* save old event to avoid accidental mouse clicks */
+	
+	int lock_axis;                    /* lock to viewport axis */
+
+	NumInput num;                     /* numeric input */
+	void *draw_handle_3d;             /* handle for drawing strokes while operator is running 3d stuff */
+	void *draw_handle_screen;         /* handle for drawing strokes while operator is running screen stuff */
+} tGPDprimitive;
+
+/* Temporary 'Stroke Point' data
  *
  * Used as part of the 'stroke cache' used during drawing of new strokes
  */
@@ -171,6 +200,7 @@ void ED_gpencil_draw_view3d_object(struct wmWindowManager *wm, struct Scene *sce
 void ED_gpencil_draw_ex(struct Scene *scene, struct bGPdata *gpd, int winx, int winy,
                         const int cfra, const char spacetype);
 void ED_gp_draw_interpolation(const struct bContext *C, struct tGPDinterpolate *tgpi, const int type);
+void ED_gp_draw_primitives(const struct bContext *C, struct tGPDprimitive *tgpi, const int type);
 
 /* ----------- Grease-Pencil AnimEdit API ------------------ */
 bool  ED_gplayer_frames_looper(struct bGPDlayer *gpl, struct Scene *scene,

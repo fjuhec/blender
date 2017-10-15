@@ -1446,6 +1446,37 @@ void ED_gp_draw_interpolation(const bContext *C, tGPDinterpolate *tgpi, const in
 	glDisable(GL_BLEND);
 }
 
+/* draw interpolate strokes (used only while operator is running) */
+void ED_gp_draw_primitives(const bContext *C, tGPDprimitive *tgpi, const int type)
+{
+	Object *obact = CTX_data_active_object(C);
+	float diff_mat[4][4];
+	float color[4];
+
+	int offsx = 0;
+	int offsy = 0;
+	int winx = tgpi->ar->winx;
+	int winy = tgpi->ar->winy;
+
+	UI_GetThemeColor3fv(TH_GP_VERTEX_SELECT, color);
+	color[3] = 0.6f;
+	int dflag = 0;
+	/* if 3d stuff, enable flags */
+	if (type == REGION_DRAW_POST_VIEW) {
+		dflag |= (GP_DRAWDATA_ONLY3D | GP_DRAWDATA_NOSTATUS);
+	}
+
+	/* turn on alpha-blending */
+	glEnable(GL_BLEND);
+	/* calculate parent position */
+	ED_gpencil_parent_location(obact, tgpi->gpd, tgpi->gpl, diff_mat);
+	if (tgpi->gpf) {
+		gp_draw_strokes(tgpi->gpd, tgpi->gpf, offsx, offsy, winx, winy, dflag, false,
+			tgpi->gpl->thickness, 1.0f, color, true, true, diff_mat);
+	}
+	glDisable(GL_BLEND);
+}
+
 /* loop over gpencil data layers, drawing them */
 static void gp_draw_data_layers(
         const bGPDbrush *brush, float alpha, Object *ob, bGPdata *gpd,

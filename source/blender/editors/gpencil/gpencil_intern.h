@@ -235,6 +235,11 @@ enum {
 	GP_MOVE_PALETTE_CURRENT = 4
 };
 
+enum {
+	GP_STROKE_BOX = -1,
+	GP_STROKE_CIRCLE = 1
+};
+
 
 void GPENCIL_OT_stroke_arrange(struct wmOperatorType *ot);
 void GPENCIL_OT_stroke_change_palette(struct wmOperatorType *ot);
@@ -273,6 +278,10 @@ void gpencil_undo_finish(void);
 void GPENCIL_OT_interpolate(struct wmOperatorType *ot);
 void GPENCIL_OT_interpolate_sequence(struct wmOperatorType *ot);
 void GPENCIL_OT_interpolate_reverse(struct wmOperatorType *ot);
+
+/* primitves ---------- */
+
+void GPENCIL_OT_primitive(struct wmOperatorType *ot);
 
 /* vertex groups ------------ */
 void GPENCIL_OT_vertex_group_assign(struct wmOperatorType *ot);

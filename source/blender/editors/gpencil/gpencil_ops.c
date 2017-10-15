@@ -706,6 +706,9 @@ void ED_operatortypes_gpencil(void)
 	WM_operatortype_append(GPENCIL_OT_interpolate);
 	WM_operatortype_append(GPENCIL_OT_interpolate_sequence);
 	WM_operatortype_append(GPENCIL_OT_interpolate_reverse);
+
+	/* Primitives */
+	WM_operatortype_append(GPENCIL_OT_primitive);
 }
 
 void ED_operatormacros_gpencil(void)
