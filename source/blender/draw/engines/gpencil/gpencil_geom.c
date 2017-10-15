@@ -135,8 +135,14 @@ Gwn_Batch *DRW_gpencil_get_stroke_geom(bGPDframe *gpf, bGPDstroke *gps, short th
 	for (int i = 0; i < totpoints; i++, pt++) {
 		/* first point for adjacency (not drawn) */
 		if (i == 0) {
-			gpencil_set_stroke_point(vbo, gpf->viewmatrix, &points[1], idx, pos_id, color_id, thickness_id, thickness, ink);
-			++idx;
+			if (gps->flag & GP_STROKE_CYCLIC && totpoints > 2) {
+				gpencil_set_stroke_point(vbo, gpf->viewmatrix, &points[totpoints - 1], idx, pos_id, color_id, thickness_id, thickness, ink);
+				++idx;
+			}
+			else {
+				gpencil_set_stroke_point(vbo, gpf->viewmatrix, &points[1], idx, pos_id, color_id, thickness_id, thickness, ink);
+				++idx;
+			}
 		}
 		/* set point */
 		gpencil_set_stroke_point(vbo, gpf->viewmatrix, pt, idx, pos_id, color_id, thickness_id, thickness, ink);
