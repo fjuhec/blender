@@ -100,6 +100,7 @@ typedef struct tGPDprimitive {
 	struct bGPdata *gpd;              /* current GP datablock */
 	struct Palette *palette;          /* current palette */
 	struct PaletteColor *palcolor;    /* current palette color */
+	struct bGPDbrush *brush;          /* current brush */ 
 
 	int cframe;                       /* current frame number */
 	struct bGPDlayer *gpl;            /* layer */
@@ -115,7 +116,6 @@ typedef struct tGPDprimitive {
 
 	NumInput num;                     /* numeric input */
 	void *draw_handle_3d;             /* handle for drawing strokes while operator is running 3d stuff */
-	void *draw_handle_screen;         /* handle for drawing strokes while operator is running screen stuff */
 } tGPDprimitive;
 
 /* Temporary 'Stroke Point' data

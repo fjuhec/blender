@@ -733,7 +733,7 @@ static void gp_draw_stroke_3d(
 
 	Gwn_VertFormat *format = immVertexFormat();
 	unsigned pos = GWN_vertformat_attr_add(format, "pos", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
-	unsigned color = GWN_vertformat_attr_add(format, "color", GWN_COMP_F32, 4, GWN_FETCH_FLOAT);
+	unsigned color = GWN_vertformat_attr_add(format, "color", GWN_COMP_U8, 4, GWN_FETCH_INT_TO_FLOAT_UNIT);
 	unsigned thickattrib = GWN_vertformat_attr_add(format, "thickness", GWN_COMP_F32, 1, GWN_FETCH_FLOAT);
 
 	immBindBuiltinProgram(GPU_SHADER_GPENCIL_STROKE);
@@ -1256,7 +1256,7 @@ static void gp_draw_strokes_edit(
 		Gwn_VertFormat *format = immVertexFormat();
 		unsigned int pos; /* specified later */
 		unsigned int size = GWN_vertformat_attr_add(format, "size", GWN_COMP_F32, 1, GWN_FETCH_FLOAT);
-		unsigned int color = GWN_vertformat_attr_add(format, "color", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
+		unsigned int color = GWN_vertformat_attr_add(format, "color", GWN_COMP_U8, 3, GWN_FETCH_INT_TO_FLOAT_UNIT);
 
 		if (gps->flag & GP_STROKE_3DSPACE) {
 			pos = GWN_vertformat_attr_add(format, "pos", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
@@ -1449,6 +1449,11 @@ void ED_gp_draw_interpolation(const bContext *C, tGPDinterpolate *tgpi, const in
 /* draw interpolate strokes (used only while operator is running) */
 void ED_gp_draw_primitives(const bContext *C, tGPDprimitive *tgpi, const int type)
 {
+	/* if idle, do not draw */
+	if (tgpi->flag == 0) {
+		return;
+	}
+
 	Object *obact = CTX_data_active_object(C);
 	float diff_mat[4][4];
 	float color[4];
@@ -1471,8 +1476,11 @@ void ED_gp_draw_primitives(const bContext *C, tGPDprimitive *tgpi, const int typ
 	/* calculate parent position */
 	ED_gpencil_parent_location(obact, tgpi->gpd, tgpi->gpl, diff_mat);
 	if (tgpi->gpf) {
-		gp_draw_strokes(tgpi->gpd, tgpi->gpf, offsx, offsy, winx, winy, dflag, false,
-			tgpi->gpl->thickness, 1.0f, color, true, true, diff_mat);
+		bGPDstroke *gps = tgpi->gpf->strokes.first;
+		if (gps->totpoints > 0) {
+			gp_draw_strokes(tgpi->gpd, tgpi->gpf, offsx, offsy, winx, winy, dflag, false,
+				tgpi->gpl->thickness, 1.0f, color, true, true, diff_mat);
+		}
 	}
 	glDisable(GL_BLEND);
 }
