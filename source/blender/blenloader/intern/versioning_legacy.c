@@ -2296,11 +2296,12 @@ void blo_do_versions_pre250(FileData *fd, Library *lib, Main *main)
 		/* during 2.41 images with this name were used for viewer node output, lets fix that */
 		if (main->versionfile == 241) {
 			Image *ima;
-			for (ima = main->image.first; ima; ima = ima->id.next)
+			for (ima = main->image.first; ima; ima = ima->id.next) {
 				if (STREQ(ima->name, "Compositor")) {
 					strcpy(ima->id.name + 2, "Viewer Node");
 					strcpy(ima->name, "Viewer Node");
 				}
+			}
 		}
 	}
 
@@ -2910,12 +2911,12 @@ void blo_do_versions_pre250(FileData *fd, Library *lib, Main *main)
 		Scene *sce;
 		for (sce = main->scene.first; sce; sce = sce->id.next) {
 			if (sce->toolsettings->skgen_subdivisions[0] == sce->toolsettings->skgen_subdivisions[1] ||
-				sce->toolsettings->skgen_subdivisions[0] == sce->toolsettings->skgen_subdivisions[2] ||
-				sce->toolsettings->skgen_subdivisions[1] == sce->toolsettings->skgen_subdivisions[2])
+			    sce->toolsettings->skgen_subdivisions[0] == sce->toolsettings->skgen_subdivisions[2] ||
+			    sce->toolsettings->skgen_subdivisions[1] == sce->toolsettings->skgen_subdivisions[2])
 			{
-					sce->toolsettings->skgen_subdivisions[0] = SKGEN_SUB_CORRELATION;
-					sce->toolsettings->skgen_subdivisions[1] = SKGEN_SUB_LENGTH;
-					sce->toolsettings->skgen_subdivisions[2] = SKGEN_SUB_ANGLE;
+				sce->toolsettings->skgen_subdivisions[0] = SKGEN_SUB_CORRELATION;
+				sce->toolsettings->skgen_subdivisions[1] = SKGEN_SUB_LENGTH;
+				sce->toolsettings->skgen_subdivisions[2] = SKGEN_SUB_ANGLE;
 			}
 		}
 	}

@@ -169,7 +169,7 @@ struct EdgeRingOpSubdProps {
 };
 
 
-static void mesh_operator_edgering_props(wmOperatorType *ot, const int cuts_default)
+static void mesh_operator_edgering_props(wmOperatorType *ot, const int cuts_min, const int cuts_default)
 {
 	/* Note, these values must match delete_mesh() event values */
 	static EnumPropertyItem prop_subd_edgering_types[] = {
@@ -181,7 +181,7 @@ static void mesh_operator_edgering_props(wmOperatorType *ot, const int cuts_defa
 
 	PropertyRNA *prop;
 
-	prop = RNA_def_int(ot->srna, "number_cuts", cuts_default, 0, 1000, "Number of Cuts", "", 0, 64);
+	prop = RNA_def_int(ot->srna, "number_cuts", cuts_default, 0, 1000, "Number of Cuts", "", cuts_min, 64);
 	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 
 	RNA_def_enum(ot->srna, "interpolation", prop_subd_edgering_types, SUBD_RING_INTERP_PATH,
@@ -248,7 +248,7 @@ void MESH_OT_subdivide_edgering(wmOperatorType *ot)
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
 	/* properties */
-	mesh_operator_edgering_props(ot, 10);
+	mesh_operator_edgering_props(ot, 1, 10);
 }
 
 
@@ -306,7 +306,7 @@ void EMBM_project_snap_verts(bContext *C, ARegion *ar, BMEditMesh *em)
 	ED_view3d_init_mats_rv3d(obedit, ar->regiondata);
 
 	struct SnapObjectContext *snap_context = ED_transform_snap_object_context_create_view3d(
-	        CTX_data_main(C), CTX_data_scene(C), SNAP_OBJECT_USE_CACHE,
+	        CTX_data_main(C), CTX_data_scene(C), 0,
 	        ar, CTX_wm_view3d(C));
 
 	BM_ITER_MESH (eve, &iter, em->bm, BM_VERTS_OF_MESH) {
@@ -684,27 +684,38 @@ static void edbm_add_edge_face_exec__tricky_finalize_sel(BMesh *bm, BMElem *ele_
 	/* now we need to find the edge that isnt connected to this element */
 	BM_select_history_clear(bm);
 
+	/* Notes on hidden geometry:
+	 * - un-hide the face since its possible hidden was copied when copying surrounding face attributes.
+	 * - un-hide before adding to select history
+	 *   since we may extend into an existing, hidden vert/edge.
+	 */
+
+	BM_elem_flag_disable(f, BM_ELEM_HIDDEN);
+	BM_face_select_set(bm, f, false);
+
 	if (ele_desel->head.htype == BM_VERT) {
 		BMLoop *l = BM_face_vert_share_loop(f, (BMVert *)ele_desel);
 		BLI_assert(f->len == 3);
-		BM_face_select_set(bm, f, false);
 		BM_vert_select_set(bm, (BMVert *)ele_desel, false);
-
 		BM_edge_select_set(bm, l->next->e, true);
 		BM_select_history_store(bm, l->next->e);
 	}
 	else {
 		BMLoop *l = BM_face_edge_share_loop(f, (BMEdge *)ele_desel);
 		BLI_assert(f->len == 4 || f->len == 3);
-		BM_face_select_set(bm, f, false);
+
 		BM_edge_select_set(bm, (BMEdge *)ele_desel, false);
 		if (f->len == 4) {
-			BM_edge_select_set(bm, l->next->next->e, true);
-			BM_select_history_store(bm, l->next->next->e);
+			BMEdge *e_active = l->next->next->e;
+			BM_elem_flag_disable(e_active, BM_ELEM_HIDDEN);
+			BM_edge_select_set(bm, e_active, true);
+			BM_select_history_store(bm, e_active);
 		}
 		else {
-			BM_vert_select_set(bm, l->next->next->v, true);
-			BM_select_history_store(bm, l->next->next->v);
+			BMVert *v_active = l->next->next->v;
+			BM_elem_flag_disable(v_active, BM_ELEM_HIDDEN);
+			BM_vert_select_set(bm, v_active, true);
+			BM_select_history_store(bm, v_active);
 		}
 	}
 }
@@ -758,6 +769,14 @@ static int edbm_add_edge_face_exec(bContext *C, wmOperator *op)
 	else
 #endif
 	{
+		/* Newly created faces may include existing hidden edges,
+		 * copying face data from surrounding, may have copied hidden face flag too.
+		 *
+		 * Important that faces use flushing since 'edges.out' wont include hidden edges that already existed.
+		 */
+		BMO_slot_buffer_hflag_disable(em->bm, bmop.slots_out, "faces.out", BM_FACE, BM_ELEM_HIDDEN, true);
+		BMO_slot_buffer_hflag_disable(em->bm, bmop.slots_out, "edges.out", BM_EDGE, BM_ELEM_HIDDEN, false);
+
 		BMO_slot_buffer_hflag_enable(em->bm, bmop.slots_out, "faces.out", BM_FACE, BM_ELEM_SELECT, true);
 		BMO_slot_buffer_hflag_enable(em->bm, bmop.slots_out, "edges.out", BM_EDGE, BM_ELEM_SELECT, true);
 	}
@@ -5216,8 +5235,10 @@ static int edbm_noise_exec(bContext *C, wmOperator *op)
 	else {
 		BM_ITER_MESH (eve, &iter, em->bm, BM_VERTS_OF_MESH) {
 			if (BM_elem_flag_test(eve, BM_ELEM_SELECT)) {
-				float tin, dum;
-				externtex(ma->mtex[0], eve->co, &tin, &dum, &dum, &dum, &dum, 0, NULL, false, false);
+				float tin = 0.0f, dum;
+				if (ma->mtex[ma->texact] != NULL) {
+					externtex(ma->mtex[ma->texact], eve->co, &tin, &dum, &dum, &dum, &dum, 0, NULL, false, false);
+				}
 				eve->co[2] += fac * tin;
 			}
 		}
@@ -5426,7 +5447,7 @@ void MESH_OT_bridge_edge_loops(wmOperatorType *ot)
 	RNA_def_float(ot->srna, "merge_factor", 0.5f, 0.0f, 1.0f, "Merge Factor", "", 0.0f, 1.0f);
 	RNA_def_int(ot->srna, "twist_offset", 0, -1000, 1000, "Twist", "Twist offset for closed loops", -1000, 1000);
 
-	mesh_operator_edgering_props(ot, 0);
+	mesh_operator_edgering_props(ot, 0, 0);
 }
 
 static int edbm_wireframe_exec(bContext *C, wmOperator *op)

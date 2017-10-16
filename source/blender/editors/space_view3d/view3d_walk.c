@@ -49,7 +49,6 @@
 
 #include "ED_screen.h"
 #include "ED_space_api.h"
-#include "ED_transform.h"
 #include "ED_transform_snap_object_context.h"
 
 #include "PIL_time.h" /* smoothview */
@@ -588,7 +587,7 @@ static bool initWalkInfo(bContext *C, WalkInfo *walk, wmOperator *op)
 	walk->rv3d->rflag |= RV3D_NAVIGATING;
 
 	walk->snap_context = ED_transform_snap_object_context_create_view3d(
-	        CTX_data_main(C), walk->scene, SNAP_OBJECT_USE_CACHE,
+	        CTX_data_main(C), walk->scene, 0,
 	        walk->ar, walk->v3d);
 
 	walk->v3d_camera_control = ED_view3d_cameracontrol_acquire(
@@ -674,16 +673,6 @@ static int walkEnd(bContext *C, WalkInfo *walk)
 	return OPERATOR_CANCELLED;
 }
 
-static bool wm_event_is_last_mousemove(const wmEvent *event)
-{
-	while ((event = event->next)) {
-		if (ELEM(event->type, MOUSEMOVE, INBETWEEN_MOUSEMOVE)) {
-			return false;
-		}
-	}
-	return true;
-}
-
 static void walkEvent(bContext *C, wmOperator *op, WalkInfo *walk, const wmEvent *event)
 {
 	if (event->type == TIMER && event->customdata == walk->timer) {
@@ -736,7 +725,7 @@ static void walkEvent(bContext *C, wmOperator *op, WalkInfo *walk, const wmEvent
 			}
 			else
 #endif
-			if (wm_event_is_last_mousemove(event)) {
+			if (WM_event_is_last_mousemove(event)) {
 				wmWindow *win = CTX_wm_window(C);
 
 #ifdef __APPLE__

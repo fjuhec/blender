@@ -130,7 +130,7 @@ void curvemapping_free(CurveMapping *cumap)
 	}
 }
 
-void curvemapping_copy_data(CurveMapping *target, CurveMapping *cumap)
+void curvemapping_copy_data(CurveMapping *target, const CurveMapping *cumap)
 {
 	int a;
 
@@ -146,7 +146,7 @@ void curvemapping_copy_data(CurveMapping *target, CurveMapping *cumap)
 	}
 }
 
-CurveMapping *curvemapping_copy(CurveMapping *cumap)
+CurveMapping *curvemapping_copy(const CurveMapping *cumap)
 {
 	if (cumap) {
 		CurveMapping *cumapn = MEM_dupallocN(cumap);
@@ -508,7 +508,7 @@ static void calchandle_curvemap(
 				if ((bezt->h2 == HD_AUTO_ANIM) && next && prev) { /* keep horizontal if extrema */
 					const float ydiff1 = prev->vec[1][1] - bezt->vec[1][1];
 					const float ydiff2 = next->vec[1][1] - bezt->vec[1][1];
-					if ((ydiff1 <= 0.0f && ydiff2 <= 0.0f)||
+					if ((ydiff1 <= 0.0f && ydiff2 <= 0.0f) ||
 					    (ydiff1 >= 0.0f && ydiff2 >= 0.0f))
 					{
 						bezt->vec[2][1] = bezt->vec[1][1];
@@ -1380,7 +1380,7 @@ void scopes_update(Scopes *scopes, ImBuf *ibuf, const ColorManagedViewSettings *
 
 	/* Keep number of threads in sync with the merge parts below. */
 	ScopesUpdateData data = {
-		.scopes = scopes, . ibuf = ibuf,
+		.scopes = scopes, .ibuf = ibuf,
 		.cm_processor = cm_processor, .display_buffer = display_buffer, .ycc_mode = ycc_mode,
 		.bin_lum = bin_lum, .bin_r = bin_r, .bin_g = bin_g, .bin_b = bin_b, .bin_a = bin_a,
 	};

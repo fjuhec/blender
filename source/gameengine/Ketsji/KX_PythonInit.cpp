@@ -30,7 +30,7 @@
  *  \ingroup ketsji
  */
 
-#include "glew-mx.h"
+#include "GPU_glew.h"
 
 #ifdef _MSC_VER
 #  pragma warning (disable:4786)
@@ -39,11 +39,6 @@
 #ifdef WITH_PYTHON
 #  ifdef   _XOPEN_SOURCE
 #    undef _XOPEN_SOURCE
-#  endif
-#  if defined(__sun) || defined(sun)
-#    if defined(_XPG4)
-#      undef _XPG4
-#    endif
 #  endif
 #  include <Python.h>
 

@@ -17,15 +17,15 @@
 #ifndef __SESSION_H__
 #define __SESSION_H__
 
-#include "buffers.h"
-#include "device.h"
-#include "shader.h"
-#include "tile.h"
+#include "render/buffers.h"
+#include "device/device.h"
+#include "render/shader.h"
+#include "render/tile.h"
 
-#include "util_progress.h"
-#include "util_stats.h"
-#include "util_thread.h"
-#include "util_vector.h"
+#include "util/util_progress.h"
+#include "util/util_stats.h"
+#include "util/util_thread.h"
+#include "util/util_vector.h"
 
 CCL_NAMESPACE_BEGIN
 
@@ -53,9 +53,16 @@ public:
 	int2 tile_size;
 	TileOrder tile_order;
 	int start_resolution;
+	int pixel_size;
 	int threads;
 
 	bool display_buffer_linear;
+
+	bool use_denoising;
+	int denoising_radius;
+	float denoising_strength;
+	float denoising_feature_strength;
+	bool denoising_relative_pca;
 
 	double cancel_timeout;
 	double reset_timeout;
@@ -75,7 +82,14 @@ public:
 		samples = INT_MAX;
 		tile_size = make_int2(64, 64);
 		start_resolution = INT_MAX;
+		pixel_size = 1;
 		threads = 0;
+
+		use_denoising = false;
+		denoising_radius = 8;
+		denoising_strength = 0.0f;
+		denoising_feature_strength = 0.0f;
+		denoising_relative_pca = false;
 
 		display_buffer_linear = false;
 
@@ -98,6 +112,7 @@ public:
 		&& experimental == params.experimental
 		&& tile_size == params.tile_size
 		&& start_resolution == params.start_resolution
+		&& pixel_size == params.pixel_size
 		&& threads == params.threads
 		&& display_buffer_linear == params.display_buffer_linear
 		&& cancel_timeout == params.cancel_timeout
@@ -126,7 +141,7 @@ public:
 	Stats stats;
 
 	function<void(RenderTile&)> write_render_tile_cb;
-	function<void(RenderTile&)> update_render_tile_cb;
+	function<void(RenderTile&, bool)> update_render_tile_cb;
 
 	explicit Session(const SessionParams& params);
 	~Session();
@@ -141,9 +156,13 @@ public:
 	void set_pause(bool pause);
 
 	void update_scene();
-	void load_kernels();
+	void load_kernels(bool lock_scene=true);
 
 	void device_free();
+
+	/* Returns the rendering progress or 0 if no progress can be determined
+	 * (for example, when rendering with unlimited samples). */
+	float get_progress();
 
 protected:
 	struct DelayedReset {
@@ -158,7 +177,7 @@ protected:
 	void update_status_time(bool show_pause = false, bool show_done = false);
 
 	void tonemap(int sample);
-	void path_trace();
+	void render();
 	void reset_(BufferParams& params, int samples);
 
 	void run_cpu();
@@ -173,7 +192,8 @@ protected:
 	void update_tile_sample(RenderTile& tile);
 	void release_tile(RenderTile& tile);
 
-	void update_progress_sample();
+	void map_neighbor_tiles(RenderTile *tiles, Device *tile_device);
+	void unmap_neighbor_tiles(RenderTile *tiles, Device *tile_device);
 
 	bool device_use_gl;
 
@@ -193,17 +213,15 @@ protected:
 	thread_mutex display_mutex;
 
 	bool kernels_loaded;
+	DeviceRequestedFeatures loaded_kernel_features;
 
-	double start_time;
 	double reset_time;
-	double preview_time;
-	double paused_time;
 
 	/* progressive refine */
 	double last_update_time;
 	bool update_progressive_refine(bool cancel);
 
-	vector<RenderBuffers *> tile_buffers;
+	vector<RenderTile> render_tiles;
 
 	DeviceRequestedFeatures get_requested_device_features();
 

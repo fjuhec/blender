@@ -152,7 +152,7 @@ Brush *BKE_brush_add(Main *bmain, const char *name, short ob_mode)
 {
 	Brush *brush;
 
-	brush = BKE_libblock_alloc(bmain, ID_BR, name);
+	brush = BKE_libblock_alloc(bmain, ID_BR, name, 0);
 
 	BKE_brush_init(brush);
 
@@ -172,34 +172,38 @@ struct Brush *BKE_brush_first_search(struct Main *bmain, short ob_mode)
 	return NULL;
 }
 
-Brush *BKE_brush_copy(Main *bmain, Brush *brush)
+/**
+ * Only copy internal data of Brush ID from source to already allocated/initialized destination.
+ * You probably nerver want to use that directly, use id_copy or BKE_id_copy_ex for typical needs.
+ *
+ * WARNING! This function will not handle ID user count!
+ *
+ * \param flag  Copying options (see BKE_library.h's LIB_ID_COPY_... flags for more).
+ */
+void BKE_brush_copy_data(Main *UNUSED(bmain), Brush *brush_dst, const Brush *brush_src, const int flag)
 {
-	Brush *brushn;
-	
-	brushn = BKE_libblock_copy(bmain, &brush->id);
+	if (brush_src->icon_imbuf) {
+		brush_dst->icon_imbuf = IMB_dupImBuf(brush_src->icon_imbuf);
+	}
 
-	if (brush->mtex.tex)
-		id_us_plus((ID *)brush->mtex.tex);
+	if ((flag & LIB_ID_COPY_NO_PREVIEW) == 0) {
+		BKE_previewimg_id_copy(&brush_dst->id, &brush_src->id);
+	}
+	else {
+		brush_dst->preview = NULL;
+	}
 
-	if (brush->mask_mtex.tex)
-		id_us_plus((ID *)brush->mask_mtex.tex);
-
-	if (brush->paint_curve)
-		id_us_plus((ID *)brush->paint_curve);
-
-	if (brush->icon_imbuf)
-		brushn->icon_imbuf = IMB_dupImBuf(brush->icon_imbuf);
-
-	brushn->preview = NULL;
-
-	brushn->curve = curvemapping_copy(brush->curve);
+	brush_dst->curve = curvemapping_copy(brush_src->curve);
 
 	/* enable fake user by default */
-	id_fake_user_set(&brush->id);
+	id_fake_user_set(&brush_dst->id);
+}
 
-	BKE_id_copy_ensure_local(bmain, &brush->id, &brushn->id);
-
-	return brushn;
+Brush *BKE_brush_copy(Main *bmain, const Brush *brush)
+{
+	Brush *brush_copy;
+	BKE_id_copy_ex(bmain, &brush->id, (ID **)&brush_copy, 0, false);
+	return brush_copy;
 }
 
 /** Free (or release) any data used by this brush (does not free the brush itself). */
@@ -239,7 +243,7 @@ void BKE_brush_make_local(Main *bmain, Brush *brush, const bool lib_local)
 	if (lib_local || is_local) {
 		if (!is_lib) {
 			id_clear_lib_data(bmain, &brush->id);
-			BKE_id_expand_local(&brush->id);
+			BKE_id_expand_local(bmain, &brush->id);
 
 			/* enable fake user by default */
 			id_fake_user_set(&brush->id);
@@ -248,6 +252,9 @@ void BKE_brush_make_local(Main *bmain, Brush *brush, const bool lib_local)
 			Brush *brush_new = BKE_brush_copy(bmain, brush);  /* Ensures FAKE_USER is set */
 
 			brush_new->id.us = 0;
+
+			/* setting newid is mandatory for complex make_lib_local logic... */
+			ID_NEW_SET(brush, brush_new);
 
 			if (!lib_local) {
 				BKE_libblock_remap(bmain, brush, brush_new, ID_REMAP_SKIP_INDIRECT_USAGE);
@@ -514,13 +521,13 @@ int BKE_brush_clone_image_delete(Brush *brush)
  * region space mouse coordinates, or 3d world coordinates for 3D mapping.
  *
  * rgba outputs straight alpha. */
-float BKE_brush_sample_tex_3D(const Scene *scene, Brush *br,
+float BKE_brush_sample_tex_3D(const Scene *scene, const Brush *br,
                               const float point[3],
                               float rgba[4], const int thread,
                               struct ImagePool *pool)
 {
 	UnifiedPaintSettings *ups = &scene->toolsettings->unified_paint_settings;
-	MTex *mtex = &br->mtex;
+	const MTex *mtex = &br->mtex;
 	float intensity = 1.0;
 	bool hasrgb = false;
 
@@ -814,7 +821,7 @@ int BKE_brush_size_get(const Scene *scene, const Brush *brush)
 	return size;
 }
 
-int BKE_brush_use_locked_size(const Scene *scene, const Brush *brush)
+bool BKE_brush_use_locked_size(const Scene *scene, const Brush *brush)
 {
 	const short us_flag = scene->toolsettings->unified_paint_settings.flag;
 
@@ -823,7 +830,7 @@ int BKE_brush_use_locked_size(const Scene *scene, const Brush *brush)
 	       (brush->flag & BRUSH_LOCK_SIZE);
 }
 
-int BKE_brush_use_size_pressure(const Scene *scene, const Brush *brush)
+bool BKE_brush_use_size_pressure(const Scene *scene, const Brush *brush)
 {
 	const short us_flag = scene->toolsettings->unified_paint_settings.flag;
 
@@ -832,13 +839,23 @@ int BKE_brush_use_size_pressure(const Scene *scene, const Brush *brush)
 	       (brush->flag & BRUSH_SIZE_PRESSURE);
 }
 
-int BKE_brush_use_alpha_pressure(const Scene *scene, const Brush *brush)
+bool BKE_brush_use_alpha_pressure(const Scene *scene, const Brush *brush)
 {
 	const short us_flag = scene->toolsettings->unified_paint_settings.flag;
 
 	return (us_flag & UNIFIED_PAINT_ALPHA) ?
 	       (us_flag & UNIFIED_PAINT_BRUSH_ALPHA_PRESSURE) :
 	       (brush->flag & BRUSH_ALPHA_PRESSURE);
+}
+
+bool BKE_brush_sculpt_has_secondary_color(const Brush *brush)
+{
+	return ELEM(
+	        brush->sculpt_tool, SCULPT_TOOL_BLOB, SCULPT_TOOL_DRAW,
+	        SCULPT_TOOL_INFLATE, SCULPT_TOOL_CLAY, SCULPT_TOOL_CLAY_STRIPS,
+	        SCULPT_TOOL_PINCH, SCULPT_TOOL_CREASE, SCULPT_TOOL_LAYER,
+	        SCULPT_TOOL_FLATTEN, SCULPT_TOOL_FILL, SCULPT_TOOL_SCRAPE,
+	        SCULPT_TOOL_MASK);
 }
 
 void BKE_brush_unprojected_radius_set(Scene *scene, Brush *brush, float unprojected_radius)
@@ -959,7 +976,7 @@ void BKE_brush_randomize_texture_coords(UnifiedPaintSettings *ups, bool mask)
 }
 
 /* Uses the brush curve control to find a strength value */
-float BKE_brush_curve_strength(Brush *br, float p, const float len)
+float BKE_brush_curve_strength(const Brush *br, float p, const float len)
 {
 	float strength;
 

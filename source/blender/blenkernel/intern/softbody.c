@@ -1856,19 +1856,21 @@ static void dfdx_spring(int ia, int ic, int op, float dir[3], float L, float len
 	float m, delta_ij;
 	int i, j;
 	if (L < len) {
-		for (i=0;i<3;i++)
+		for (i=0;i<3;i++) {
 			for (j=0;j<3;j++) {
 				delta_ij = (i==j ? (1.0f): (0.0f));
 				m=factor*(dir[i]*dir[j] + (1-L/len)*(delta_ij - dir[i]*dir[j]));
 				EIG_linear_solver_matrix_add(ia+i, op+ic+j, m);
 			}
+		}
 	}
 	else {
-		for (i=0;i<3;i++)
+		for (i=0;i<3;i++) {
 			for (j=0;j<3;j++) {
 				m=factor*dir[i]*dir[j];
 				EIG_linear_solver_matrix_add(ia+i, op+ic+j, m);
 			}
+		}
 	}
 }
 
@@ -2233,9 +2235,9 @@ static void sb_cf_threads_run(Scene *scene, Object *ob, float forcetime, float t
 
 static void softbody_calc_forcesEx(Scene *scene, Object *ob, float forcetime, float timenow)
 {
-/* rule we never alter free variables :bp->vec bp->pos in here !
- * this will ruin adaptive stepsize AKA heun! (BM)
- */
+	/* rule we never alter free variables :bp->vec bp->pos in here !
+	 * this will ruin adaptive stepsize AKA heun! (BM)
+	 */
 	SoftBody *sb= ob->soft;	/* is supposed to be there */
 	/*BodyPoint *bproot;*/ /* UNUSED */
 	ListBase *do_effector = NULL;
@@ -3410,7 +3412,7 @@ static void softbody_update_positions(Object *ob, SoftBody *sb, float (*vertexCo
  * lloc, lrot, lscale are allowed to be NULL, just in case you don't need it.
  * should be pretty useful for pythoneers :)
  * not! velocity .. 2nd order stuff
- * vcloud_estimate_transform see
+ * vcloud_estimate_transform_v3 see
  */
 
 void SB_estimate_transform(Object *ob, float lloc[3], float lrot[3][3], float lscale[3][3])
@@ -3434,7 +3436,7 @@ void SB_estimate_transform(Object *ob, float lloc[3], float lrot[3][3], float ls
 		copy_v3_v3(opos[a], bp->pos);
 	}
 
-	vcloud_estimate_transform(sb->totpoint, opos, NULL, rpos, NULL, com, rcom, lrot, lscale);
+	vcloud_estimate_transform_v3(sb->totpoint, opos, NULL, rpos, NULL, com, rcom, lrot, lscale);
 	//sub_v3_v3(com, rcom);
 	if (lloc) copy_v3_v3(lloc, com);
 	copy_v3_v3(sb->lcom, com);

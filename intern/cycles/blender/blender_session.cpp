@@ -16,36 +16,38 @@
 
 #include <stdlib.h>
 
-#include "background.h"
-#include "buffers.h"
-#include "camera.h"
-#include "device.h"
-#include "integrator.h"
-#include "film.h"
-#include "light.h"
-#include "mesh.h"
-#include "object.h"
-#include "scene.h"
-#include "session.h"
-#include "shader.h"
+#include "render/background.h"
+#include "render/buffers.h"
+#include "render/camera.h"
+#include "device/device.h"
+#include "render/integrator.h"
+#include "render/film.h"
+#include "render/light.h"
+#include "render/mesh.h"
+#include "render/object.h"
+#include "render/scene.h"
+#include "render/session.h"
+#include "render/shader.h"
 
-#include "util_color.h"
-#include "util_foreach.h"
-#include "util_function.h"
-#include "util_hash.h"
-#include "util_logging.h"
-#include "util_progress.h"
-#include "util_time.h"
+#include "util/util_color.h"
+#include "util/util_foreach.h"
+#include "util/util_function.h"
+#include "util/util_hash.h"
+#include "util/util_logging.h"
+#include "util/util_progress.h"
+#include "util/util_time.h"
 
-#include "blender_sync.h"
-#include "blender_session.h"
-#include "blender_util.h"
+#include "blender/blender_sync.h"
+#include "blender/blender_session.h"
+#include "blender/blender_util.h"
 
 CCL_NAMESPACE_BEGIN
 
 bool BlenderSession::headless = false;
 int BlenderSession::num_resumable_chunks = 0;
 int BlenderSession::current_resumable_chunk = 0;
+int BlenderSession::start_resumable_chunk = 0;
+int BlenderSession::end_resumable_chunk = 0;
 
 BlenderSession::BlenderSession(BL::RenderEngine& b_engine,
                                BL::UserPreferences& b_userpref,
@@ -68,6 +70,7 @@ BlenderSession::BlenderSession(BL::RenderEngine& b_engine,
 	background = true;
 	last_redraw_time = 0.0;
 	start_resize_time = 0.0;
+	last_status_time = 0.0;
 }
 
 BlenderSession::BlenderSession(BL::RenderEngine& b_engine,
@@ -93,6 +96,7 @@ BlenderSession::BlenderSession(BL::RenderEngine& b_engine,
 	background = false;
 	last_redraw_time = 0.0;
 	start_resize_time = 0.0;
+	last_status_time = 0.0;
 }
 
 BlenderSession::~BlenderSession()
@@ -111,8 +115,7 @@ void BlenderSession::create()
 void BlenderSession::create_session()
 {
 	SessionParams session_params = BlenderSync::get_session_params(b_engine, b_userpref, b_scene, background);
-	bool is_cpu = session_params.device.type == DEVICE_CPU;
-	SceneParams scene_params = BlenderSync::get_scene_params(b_scene, background, is_cpu);
+	SceneParams scene_params = BlenderSync::get_scene_params(b_scene, background);
 	bool session_pause = BlenderSync::get_session_pause(b_scene, background);
 
 	/* reset status/progress */
@@ -125,9 +128,9 @@ void BlenderSession::create_session()
 	scene = new Scene(scene_params, session_params.device);
 
 	/* setup callbacks for builtin image support */
-	scene->image_manager->builtin_image_info_cb = function_bind(&BlenderSession::builtin_image_info, this, _1, _2, _3, _4, _5, _6, _7);
-	scene->image_manager->builtin_image_pixels_cb = function_bind(&BlenderSession::builtin_image_pixels, this, _1, _2, _3);
-	scene->image_manager->builtin_image_float_pixels_cb = function_bind(&BlenderSession::builtin_image_float_pixels, this, _1, _2, _3);
+	scene->image_manager->builtin_image_info_cb = function_bind(&BlenderSession::builtin_image_info, this, _1, _2, _3, _4, _5, _6, _7, _8);
+	scene->image_manager->builtin_image_pixels_cb = function_bind(&BlenderSession::builtin_image_pixels, this, _1, _2, _3, _4, _5);
+	scene->image_manager->builtin_image_float_pixels_cb = function_bind(&BlenderSession::builtin_image_float_pixels, this, _1, _2, _3, _4, _5);
 
 	/* create session */
 	session = new Session(session_params);
@@ -137,7 +140,7 @@ void BlenderSession::create_session()
 	session->set_pause(session_pause);
 
 	/* create sync */
-	sync = new BlenderSync(b_engine, b_data, b_scene, scene, !background, session->progress, is_cpu);
+	sync = new BlenderSync(b_engine, b_data, b_scene, scene, !background, session->progress);
 	BL::Object b_camera_override(b_engine.camera_override());
 	if(b_v3d) {
 		if(session_pause == false) {
@@ -175,8 +178,7 @@ void BlenderSession::reset_session(BL::BlendData& b_data_, BL::Scene& b_scene_)
 	b_scene = b_scene_;
 
 	SessionParams session_params = BlenderSync::get_session_params(b_engine, b_userpref, b_scene, background);
-	const bool is_cpu = session_params.device.type == DEVICE_CPU;
-	SceneParams scene_params = BlenderSync::get_scene_params(b_scene, background, is_cpu);
+	SceneParams scene_params = BlenderSync::get_scene_params(b_scene, background);
 
 	width = render_resolution_x(b_render);
 	height = render_resolution_y(b_render);
@@ -207,7 +209,7 @@ void BlenderSession::reset_session(BL::BlendData& b_data_, BL::Scene& b_scene_)
 	session->stats.mem_peak = session->stats.mem_used;
 
 	/* sync object should be re-created */
-	sync = new BlenderSync(b_engine, b_data, b_scene, scene, !background, session->progress, is_cpu);
+	sync = new BlenderSync(b_engine, b_data, b_scene, scene, !background, session->progress);
 
 	/* for final render we will do full data sync per render layer, only
 	 * do some basic syncing here, no objects or materials for speed */
@@ -237,86 +239,6 @@ void BlenderSession::free_session()
 		delete sync;
 
 	delete session;
-}
-
-static PassType get_pass_type(BL::RenderPass& b_pass)
-{
-	switch(b_pass.type()) {
-		case BL::RenderPass::type_COMBINED:
-			return PASS_COMBINED;
-
-		case BL::RenderPass::type_Z:
-			return PASS_DEPTH;
-		case BL::RenderPass::type_MIST:
-			return PASS_MIST;
-		case BL::RenderPass::type_NORMAL:
-			return PASS_NORMAL;
-		case BL::RenderPass::type_OBJECT_INDEX:
-			return PASS_OBJECT_ID;
-		case BL::RenderPass::type_UV:
-			return PASS_UV;
-		case BL::RenderPass::type_VECTOR:
-			return PASS_MOTION;
-		case BL::RenderPass::type_MATERIAL_INDEX:
-			return PASS_MATERIAL_ID;
-
-		case BL::RenderPass::type_DIFFUSE_DIRECT:
-			return PASS_DIFFUSE_DIRECT;
-		case BL::RenderPass::type_GLOSSY_DIRECT:
-			return PASS_GLOSSY_DIRECT;
-		case BL::RenderPass::type_TRANSMISSION_DIRECT:
-			return PASS_TRANSMISSION_DIRECT;
-		case BL::RenderPass::type_SUBSURFACE_DIRECT:
-			return PASS_SUBSURFACE_DIRECT;
-
-		case BL::RenderPass::type_DIFFUSE_INDIRECT:
-			return PASS_DIFFUSE_INDIRECT;
-		case BL::RenderPass::type_GLOSSY_INDIRECT:
-			return PASS_GLOSSY_INDIRECT;
-		case BL::RenderPass::type_TRANSMISSION_INDIRECT:
-			return PASS_TRANSMISSION_INDIRECT;
-		case BL::RenderPass::type_SUBSURFACE_INDIRECT:
-			return PASS_SUBSURFACE_INDIRECT;
-
-		case BL::RenderPass::type_DIFFUSE_COLOR:
-			return PASS_DIFFUSE_COLOR;
-		case BL::RenderPass::type_GLOSSY_COLOR:
-			return PASS_GLOSSY_COLOR;
-		case BL::RenderPass::type_TRANSMISSION_COLOR:
-			return PASS_TRANSMISSION_COLOR;
-		case BL::RenderPass::type_SUBSURFACE_COLOR:
-			return PASS_SUBSURFACE_COLOR;
-
-		case BL::RenderPass::type_EMIT:
-			return PASS_EMISSION;
-		case BL::RenderPass::type_ENVIRONMENT:
-			return PASS_BACKGROUND;
-		case BL::RenderPass::type_AO:
-			return PASS_AO;
-		case BL::RenderPass::type_SHADOW:
-			return PASS_SHADOW;
-
-		case BL::RenderPass::type_DIFFUSE:
-		case BL::RenderPass::type_COLOR:
-		case BL::RenderPass::type_REFRACTION:
-		case BL::RenderPass::type_SPECULAR:
-		case BL::RenderPass::type_REFLECTION:
-			return PASS_NONE;
-#ifdef WITH_CYCLES_DEBUG
-		case BL::RenderPass::type_DEBUG:
-		{
-			if(b_pass.debug_type() == BL::RenderPass::debug_type_BVH_TRAVERSAL_STEPS)
-				return PASS_BVH_TRAVERSAL_STEPS;
-			if(b_pass.debug_type() == BL::RenderPass::debug_type_BVH_TRAVERSED_INSTANCES)
-				return PASS_BVH_TRAVERSED_INSTANCES;
-			if(b_pass.debug_type() == BL::RenderPass::debug_type_RAY_BOUNCES)
-				return PASS_RAY_BOUNCES;
-			break;
-		}
-#endif
-	}
-	
-	return PASS_NONE;
 }
 
 static ShaderEvalType get_shader_type(const string& pass_type)
@@ -375,12 +297,13 @@ static BL::RenderResult begin_render_result(BL::RenderEngine& b_engine,
 static void end_render_result(BL::RenderEngine& b_engine,
                               BL::RenderResult& b_rr,
                               bool cancel,
+                              bool highlight,
                               bool do_merge_results)
 {
-	b_engine.end_result(b_rr, (int)cancel, (int)do_merge_results);
+	b_engine.end_result(b_rr, (int)cancel, (int) highlight, (int)do_merge_results);
 }
 
-void BlenderSession::do_write_update_render_tile(RenderTile& rtile, bool do_update_only)
+void BlenderSession::do_write_update_render_tile(RenderTile& rtile, bool do_update_only, bool highlight)
 {
 	BufferParams& params = rtile.buffers->params;
 	int x = params.full_x - session->tile_manager.params.full_x;
@@ -416,37 +339,37 @@ void BlenderSession::do_write_update_render_tile(RenderTile& rtile, bool do_upda
 			update_render_result(b_rr, b_rlay, rtile);
 		}
 
-		end_render_result(b_engine, b_rr, true, true);
+		end_render_result(b_engine, b_rr, true, highlight, true);
 	}
 	else {
 		/* write result */
 		write_render_result(b_rr, b_rlay, rtile);
-		end_render_result(b_engine, b_rr, false, true);
+		end_render_result(b_engine, b_rr, false, false, true);
 	}
 }
 
 void BlenderSession::write_render_tile(RenderTile& rtile)
 {
-	do_write_update_render_tile(rtile, false);
+	do_write_update_render_tile(rtile, false, false);
 }
 
-void BlenderSession::update_render_tile(RenderTile& rtile)
+void BlenderSession::update_render_tile(RenderTile& rtile, bool highlight)
 {
 	/* use final write for preview renders, otherwise render result wouldn't be
 	 * be updated in blender side
 	 * would need to be investigated a bit further, but for now shall be fine
 	 */
 	if(!b_engine.is_preview())
-		do_write_update_render_tile(rtile, true);
+		do_write_update_render_tile(rtile, true, highlight);
 	else
-		do_write_update_render_tile(rtile, false);
+		do_write_update_render_tile(rtile, false, false);
 }
 
 void BlenderSession::render()
 {
 	/* set callback to write out render results */
 	session->write_render_tile_cb = function_bind(&BlenderSession::write_render_tile, this, _1);
-	session->update_render_tile_cb = function_bind(&BlenderSession::update_render_tile, this, _1);
+	session->update_render_tile_cb = function_bind(&BlenderSession::update_render_tile, this, _1, _2);
 
 	/* get buffer parameters */
 	SessionParams session_params = BlenderSync::get_session_params(b_engine, b_userpref, b_scene, background);
@@ -467,33 +390,38 @@ void BlenderSession::render()
 
 		/* layer will be missing if it was disabled in the UI */
 		if(b_single_rlay == b_rr.layers.end()) {
-			end_render_result(b_engine, b_rr, true, false);
+			end_render_result(b_engine, b_rr, true, true, false);
 			continue;
 		}
 
 		BL::RenderLayer b_rlay = *b_single_rlay;
 
 		/* add passes */
-		array<Pass> passes;
-		Pass::add(PASS_COMBINED, passes);
-
-		if(session_params.device.advanced_shading) {
-
-			/* loop over passes */
-			BL::RenderLayer::passes_iterator b_pass_iter;
-
-			for(b_rlay.passes.begin(b_pass_iter); b_pass_iter != b_rlay.passes.end(); ++b_pass_iter) {
-				BL::RenderPass b_pass(*b_pass_iter);
-				PassType pass_type = get_pass_type(b_pass);
-
-				if(pass_type == PASS_MOTION && scene->integrator->motion_blur)
-					continue;
-				if(pass_type != PASS_NONE)
-					Pass::add(pass_type, passes);
-			}
-		}
-
+		array<Pass> passes = sync->sync_render_passes(b_rlay, *b_layer_iter, session_params);
 		buffer_params.passes = passes;
+
+		PointerRNA crl = RNA_pointer_get(&b_layer_iter->ptr, "cycles");
+		bool use_denoising = !session_params.progressive_refine && get_boolean(crl, "use_denoising");
+		buffer_params.denoising_data_pass = use_denoising;
+		session->tile_manager.schedule_denoising = use_denoising;
+		session->params.use_denoising = use_denoising;
+		scene->film->denoising_data_pass = buffer_params.denoising_data_pass;
+		scene->film->denoising_flags = 0;
+		if(!get_boolean(crl, "denoising_diffuse_direct"))        scene->film->denoising_flags |= DENOISING_CLEAN_DIFFUSE_DIR;
+		if(!get_boolean(crl, "denoising_diffuse_indirect"))      scene->film->denoising_flags |= DENOISING_CLEAN_DIFFUSE_IND;
+		if(!get_boolean(crl, "denoising_glossy_direct"))         scene->film->denoising_flags |= DENOISING_CLEAN_GLOSSY_DIR;
+		if(!get_boolean(crl, "denoising_glossy_indirect"))       scene->film->denoising_flags |= DENOISING_CLEAN_GLOSSY_IND;
+		if(!get_boolean(crl, "denoising_transmission_direct"))   scene->film->denoising_flags |= DENOISING_CLEAN_TRANSMISSION_DIR;
+		if(!get_boolean(crl, "denoising_transmission_indirect")) scene->film->denoising_flags |= DENOISING_CLEAN_TRANSMISSION_IND;
+		if(!get_boolean(crl, "denoising_subsurface_direct"))     scene->film->denoising_flags |= DENOISING_CLEAN_SUBSURFACE_DIR;
+		if(!get_boolean(crl, "denoising_subsurface_indirect"))   scene->film->denoising_flags |= DENOISING_CLEAN_SUBSURFACE_IND;
+		scene->film->denoising_clean_pass = (scene->film->denoising_flags & DENOISING_CLEAN_ALL_PASSES);
+		buffer_params.denoising_clean_pass = scene->film->denoising_clean_pass;
+		session->params.denoising_radius = get_int(crl, "denoising_radius");
+		session->params.denoising_strength = get_float(crl, "denoising_strength");
+		session->params.denoising_feature_strength = get_float(crl, "denoising_feature_strength");
+		session->params.denoising_relative_pca = get_boolean(crl, "denoising_relative_pca");
+
 		scene->film->pass_alpha_threshold = b_layer_iter->pass_alpha_threshold();
 		scene->film->tag_passes_update(scene, passes);
 		scene->film->tag_update(scene);
@@ -547,7 +475,7 @@ void BlenderSession::render()
 		}
 
 		/* free result without merging */
-		end_render_result(b_engine, b_rr, true, false);
+		end_render_result(b_engine, b_rr, true, true, false);
 
 		if(session->progress.get_cancel())
 			break;
@@ -580,7 +508,7 @@ static void populate_bake_data(BakeData *data, const
 	BL::BakePixel bp = pixel_array;
 
 	int i;
-	for(i=0; i < num_pixels; i++) {
+	for(i = 0; i < num_pixels; i++) {
 		if(bp.object_id() == object_id) {
 			data->set(i, bp.primitive_id(), bp.uv(), bp.du_dx(), bp.du_dy(), bp.dv_dx(), bp.dv_dy());
 		} else {
@@ -628,8 +556,6 @@ void BlenderSession::bake(BL::Object& b_object,
                           float result[])
 {
 	ShaderEvalType shader_type = get_shader_type(pass_type);
-	size_t object_index = OBJECT_NONE;
-	int tri_offset = 0;
 
 	/* Set baking flag in advance, so kernel loading can check if we need
 	 * any baking capabilities.
@@ -638,9 +564,6 @@ void BlenderSession::bake(BL::Object& b_object,
 
 	/* ensure kernels are loaded before we do any scene updates */
 	session->load_kernels();
-
-	if(session->progress.get_cancel())
-		return;
 
 	if(shader_type == SHADER_EVAL_UV) {
 		/* force UV to be available */
@@ -659,50 +582,61 @@ void BlenderSession::bake(BL::Object& b_object,
 	scene->film->tag_update(scene);
 	scene->integrator->tag_update(scene);
 
-	/* update scene */
-	BL::Object b_camera_override(b_engine.camera_override());
-	sync->sync_camera(b_render, b_camera_override, width, height, "");
-	sync->sync_data(b_render,
-	                b_v3d,
-	                b_camera_override,
-	                width, height,
-	                &python_thread_state,
-	                b_rlay_name.c_str());
-
-	/* get buffer parameters */
-	SessionParams session_params = BlenderSync::get_session_params(b_engine, b_userpref, b_scene, background);
-	BufferParams buffer_params = BlenderSync::get_buffer_params(b_render, b_v3d, b_rv3d, scene->camera, width, height);
-
-	scene->bake_manager->set_shader_limit((size_t)b_engine.tile_x(), (size_t)b_engine.tile_y());
-
-	/* set number of samples */
-	session->tile_manager.set_samples(session_params.samples);
-	session->reset(buffer_params, session_params.samples);
-	session->update_scene();
-
-	/* find object index. todo: is arbitrary - copied from mesh_displace.cpp */
-	for(size_t i = 0; i < scene->objects.size(); i++) {
-		if(strcmp(scene->objects[i]->name.c_str(), b_object.name().c_str()) == 0) {
-			object_index = i;
-			tri_offset = scene->objects[i]->mesh->tri_offset;
-			break;
-		}
+	if(!session->progress.get_cancel()) {
+		/* update scene */
+		BL::Object b_camera_override(b_engine.camera_override());
+		sync->sync_camera(b_render, b_camera_override, width, height, "");
+		sync->sync_data(b_render,
+						b_v3d,
+						b_camera_override,
+						width, height,
+						&python_thread_state,
+						b_rlay_name.c_str());
 	}
 
-	int object = object_index;
+	BakeData *bake_data = NULL;
 
-	BakeData *bake_data = scene->bake_manager->init(object, tri_offset, num_pixels);
+	if(!session->progress.get_cancel()) {
+		/* get buffer parameters */
+		SessionParams session_params = BlenderSync::get_session_params(b_engine, b_userpref, b_scene, background);
+		BufferParams buffer_params = BlenderSync::get_buffer_params(b_render, b_v3d, b_rv3d, scene->camera, width, height);
 
-	populate_bake_data(bake_data, object_id, pixel_array, num_pixels);
+		scene->bake_manager->set_shader_limit((size_t)b_engine.tile_x(), (size_t)b_engine.tile_y());
 
-	/* set number of samples */
-	session->tile_manager.set_samples(session_params.samples);
-	session->reset(buffer_params, session_params.samples);
-	session->update_scene();
+		/* set number of samples */
+		session->tile_manager.set_samples(session_params.samples);
+		session->reset(buffer_params, session_params.samples);
+		session->update_scene();
 
-	session->progress.set_update_callback(function_bind(&BlenderSession::update_bake_progress, this));
+		/* find object index. todo: is arbitrary - copied from mesh_displace.cpp */
+		size_t object_index = OBJECT_NONE;
+		int tri_offset = 0;
 
-	scene->bake_manager->bake(scene->device, &scene->dscene, scene, session->progress, shader_type, bake_pass_filter, bake_data, result);
+		for(size_t i = 0; i < scene->objects.size(); i++) {
+			if(strcmp(scene->objects[i]->name.c_str(), b_object.name().c_str()) == 0) {
+				object_index = i;
+				tri_offset = scene->objects[i]->mesh->tri_offset;
+				break;
+			}
+		}
+
+		int object = object_index;
+
+		bake_data = scene->bake_manager->init(object, tri_offset, num_pixels);
+		populate_bake_data(bake_data, object_id, pixel_array, num_pixels);
+
+		/* set number of samples */
+		session->tile_manager.set_samples(session_params.samples);
+		session->reset(buffer_params, session_params.samples);
+		session->update_scene();
+
+		session->progress.set_update_callback(function_bind(&BlenderSession::update_bake_progress, this));
+	}
+
+	/* Perform bake. Check cancel to avoid crash with incomplete scene data. */
+	if(!session->progress.get_cancel()) {
+		scene->bake_manager->bake(scene->device, &scene->dscene, scene, session->progress, shader_type, bake_pass_filter, bake_data, result);
+	}
 
 	/* free all memory used (host and device), so we wouldn't leave render
 	 * engine with extra memory allocated
@@ -745,19 +679,31 @@ void BlenderSession::do_write_update_render_result(BL::RenderResult& b_rr,
 			BL::RenderPass b_pass(*b_iter);
 
 			/* find matching pass type */
-			PassType pass_type = get_pass_type(b_pass);
+			PassType pass_type = BlenderSync::get_pass_type(b_pass);
 			int components = b_pass.channels();
 
-			/* copy pixels */
-			if(!buffers->get_pass_rect(pass_type, exposure, sample, components, &pixels[0]))
+			bool read = false;
+			if(pass_type != PASS_NONE) {
+				/* copy pixels */
+				read = buffers->get_pass_rect(pass_type, exposure, sample, components, &pixels[0]);
+			}
+			else {
+				int denoising_offset = BlenderSync::get_denoising_pass(b_pass);
+				if(denoising_offset >= 0) {
+					read = buffers->get_denoising_pass_rect(denoising_offset, exposure, sample, components, &pixels[0]);
+				}
+			}
+
+			if(!read) {
 				memset(&pixels[0], 0, pixels.size()*sizeof(float));
+			}
 
 			b_pass.rect(&pixels[0]);
 		}
 	}
 	else {
 		/* copy combined pass */
-		BL::RenderPass b_combined_pass(b_rlay.passes.find_by_type(BL::RenderPass::type_COMBINED, b_rview_name.c_str()));
+		BL::RenderPass b_combined_pass(b_rlay.passes.find_by_name("Combined", b_rview_name.c_str()));
 		if(buffers->get_pass_rect(PASS_COMBINED, exposure, sample, 4, &pixels[0]))
 			b_combined_pass.rect(&pixels[0]);
 	}
@@ -788,8 +734,7 @@ void BlenderSession::synchronize()
 
 	/* on session/scene parameter changes, we recreate session entirely */
 	SessionParams session_params = BlenderSync::get_session_params(b_engine, b_userpref, b_scene, background);
-	const bool is_cpu = session_params.device.type == DEVICE_CPU;
-	SceneParams scene_params = BlenderSync::get_scene_params(b_scene, background, is_cpu);
+	SceneParams scene_params = BlenderSync::get_scene_params(b_scene, background);
 	bool session_pause = BlenderSync::get_session_pause(b_scene, background);
 
 	if(session->params.modified(session_params) ||
@@ -930,38 +875,13 @@ void BlenderSession::get_status(string& status, string& substatus)
 
 void BlenderSession::get_progress(float& progress, double& total_time, double& render_time)
 {
-	double tile_time;
-	int tile, sample, samples_per_tile;
-	int tile_total = session->tile_manager.state.num_tiles;
-	int samples = session->tile_manager.state.sample + 1;
-	int total_samples = session->tile_manager.get_num_effective_samples();
-
-	session->progress.get_tile(tile, total_time, render_time, tile_time);
-
-	sample = session->progress.get_sample();
-	samples_per_tile = session->tile_manager.get_num_effective_samples();
-
-	if(background && samples_per_tile && tile_total)
-		progress = ((float)sample / (float)(tile_total * samples_per_tile));
-	else if(!background && samples > 0 && total_samples != INT_MAX)
-		progress = ((float)samples) / total_samples;
-	else
-		progress = 0.0;
+	session->progress.get_time(total_time, render_time);
+	progress = session->progress.get_progress();
 }
 
 void BlenderSession::update_bake_progress()
 {
-	float progress;
-	int sample, samples_per_task, parts_total;
-
-	sample = session->progress.get_sample();
-	samples_per_task = scene->bake_manager->num_samples;
-	parts_total = scene->bake_manager->num_parts;
-
-	if(samples_per_task)
-		progress = ((float)sample / (float)(parts_total * samples_per_task));
-	else
-		progress = 0.0;
+	float progress = session->progress.get_progress();
 
 	if(progress != last_progress) {
 		b_engine.update_progress(progress);
@@ -1010,10 +930,14 @@ void BlenderSession::update_status_progress()
 	if(substatus.size() > 0)
 		status += " | " + substatus;
 
-	if(status != last_status) {
+	double current_time = time_dt();
+	/* When rendering in a window, redraw the status at least once per second to keep the elapsed and remaining time up-to-date.
+	 * For headless rendering, only report when something significant changes to keep the console output readable. */
+	if(status != last_status || (!headless && (current_time - last_status_time) > 1.0)) {
 		b_engine.update_stats("", (timestatus + scene + status).c_str());
 		b_engine.update_memory_stats(mem_used, mem_peak);
 		last_status = status;
+		last_status_time = current_time;
 	}
 	if(progress != last_progress) {
 		b_engine.update_progress(progress);
@@ -1080,7 +1004,14 @@ int BlenderSession::builtin_image_frame(const string &builtin_name)
 	return atoi(builtin_name.substr(last + 1, builtin_name.size() - last - 1).c_str());
 }
 
-void BlenderSession::builtin_image_info(const string &builtin_name, void *builtin_data, bool &is_float, int &width, int &height, int &depth, int &channels)
+void BlenderSession::builtin_image_info(const string &builtin_name,
+                                        void *builtin_data,
+                                        bool &is_float,
+                                        int &width,
+                                        int &height,
+                                        int &depth,
+                                        int &channels,
+                                        bool& free_cache)
 {
 	/* empty image */
 	is_float = false;
@@ -1088,6 +1019,7 @@ void BlenderSession::builtin_image_info(const string &builtin_name, void *builti
 	height = 1;
 	depth = 0;
 	channels = 0;
+	free_cache = false;
 
 	if(!builtin_data)
 		return;
@@ -1101,6 +1033,7 @@ void BlenderSession::builtin_image_info(const string &builtin_name, void *builti
 		/* image data */
 		BL::Image b_image(b_id);
 
+		free_cache = !b_image.has_data();
 		is_float = b_image.is_float();
 		width = b_image.size()[0];
 		height = b_image.size()[1];
@@ -1158,60 +1091,78 @@ void BlenderSession::builtin_image_info(const string &builtin_name, void *builti
 	}
 }
 
-bool BlenderSession::builtin_image_pixels(const string &builtin_name, void *builtin_data, unsigned char *pixels)
+bool BlenderSession::builtin_image_pixels(const string &builtin_name,
+                                          void *builtin_data,
+                                          unsigned char *pixels,
+                                          const size_t pixels_size,
+                                          const bool free_cache)
 {
-	if(!builtin_data)
+	if(!builtin_data) {
 		return false;
+	}
 
-	int frame = builtin_image_frame(builtin_name);
+	const int frame = builtin_image_frame(builtin_name);
 
 	PointerRNA ptr;
 	RNA_id_pointer_create((ID*)builtin_data, &ptr);
 	BL::Image b_image(ptr);
 
-	int width = b_image.size()[0];
-	int height = b_image.size()[1];
-	int channels = b_image.channels();
+	const int width = b_image.size()[0];
+	const int height = b_image.size()[1];
+	const int channels = b_image.channels();
 
-	unsigned char *image_pixels;
-	image_pixels = image_get_pixels_for_frame(b_image, frame);
-	size_t num_pixels = ((size_t)width) * height;
+	unsigned char *image_pixels = image_get_pixels_for_frame(b_image, frame);
+	const size_t num_pixels = ((size_t)width) * height;
 
-	if(image_pixels) {
-		memcpy(pixels, image_pixels, num_pixels * channels * sizeof(unsigned char));
-		MEM_freeN(image_pixels);
+	if(image_pixels && num_pixels * channels == pixels_size) {
+		memcpy(pixels, image_pixels, pixels_size * sizeof(unsigned char));
 	}
 	else {
 		if(channels == 1) {
-			memset(pixels, 0, num_pixels * sizeof(unsigned char));
+			memset(pixels, 0, pixels_size * sizeof(unsigned char));
 		}
 		else {
+			const size_t num_pixels_safe = pixels_size / channels;
 			unsigned char *cp = pixels;
-			for(size_t i = 0; i < num_pixels; i++, cp += channels) {
+			for(size_t i = 0; i < num_pixels_safe; i++, cp += channels) {
 				cp[0] = 255;
 				cp[1] = 0;
 				cp[2] = 255;
-				if(channels == 4)
+				if(channels == 4) {
 					cp[3] = 255;
+				}
 			}
 		}
 	}
 
-	/* premultiply, byte images are always straight for blender */
+	if(image_pixels) {
+		MEM_freeN(image_pixels);
+	}
+
+	/* Free image buffers to save memory during render. */
+	if(free_cache) {
+		b_image.buffers_free();
+	}
+
+	/* Premultiply, byte images are always straight for Blender. */
 	unsigned char *cp = pixels;
 	for(size_t i = 0; i < num_pixels; i++, cp += channels) {
 		cp[0] = (cp[0] * cp[3]) >> 8;
 		cp[1] = (cp[1] * cp[3]) >> 8;
 		cp[2] = (cp[2] * cp[3]) >> 8;
 	}
-
 	return true;
 }
 
-bool BlenderSession::builtin_image_float_pixels(const string &builtin_name, void *builtin_data, float *pixels)
+bool BlenderSession::builtin_image_float_pixels(const string &builtin_name,
+                                                void *builtin_data,
+                                                float *pixels,
+                                                const size_t pixels_size,
+                                                const bool free_cache)
 {
-	if(!builtin_data)
+	if(!builtin_data) {
 		return false;
+	}
 
 	PointerRNA ptr;
 	RNA_id_pointer_create((ID*)builtin_data, &ptr);
@@ -1222,32 +1173,42 @@ bool BlenderSession::builtin_image_float_pixels(const string &builtin_name, void
 		BL::Image b_image(b_id);
 		int frame = builtin_image_frame(builtin_name);
 
-		int width = b_image.size()[0];
-		int height = b_image.size()[1];
-		int channels = b_image.channels();
+		const int width = b_image.size()[0];
+		const int height = b_image.size()[1];
+		const int channels = b_image.channels();
 
 		float *image_pixels;
 		image_pixels = image_get_float_pixels_for_frame(b_image, frame);
-		size_t num_pixels = ((size_t)width) * height;
+		const size_t num_pixels = ((size_t)width) * height;
 
-		if(image_pixels) {
-			memcpy(pixels, image_pixels, num_pixels * channels * sizeof(float));
-			MEM_freeN(image_pixels);
+		if(image_pixels && num_pixels * channels == pixels_size) {
+			memcpy(pixels, image_pixels, pixels_size * sizeof(float));
 		}
 		else {
 			if(channels == 1) {
 				memset(pixels, 0, num_pixels * sizeof(float));
 			}
 			else {
+				const size_t num_pixels_safe = pixels_size / channels;
 				float *fp = pixels;
-				for(int i = 0; i < num_pixels; i++, fp += channels) {
+				for(int i = 0; i < num_pixels_safe; i++, fp += channels) {
 					fp[0] = 1.0f;
 					fp[1] = 0.0f;
 					fp[2] = 1.0f;
-					if(channels == 4)
+					if(channels == 4) {
 						fp[3] = 1.0f;
+					}
 				}
 			}
+		}
+
+		if(image_pixels) {
+			MEM_freeN(image_pixels);
+		}
+
+		/* Free image buffers to save memory during render. */
+		if(free_cache) {
+			b_image.buffers_free();
 		}
 
 		return true;
@@ -1257,8 +1218,9 @@ bool BlenderSession::builtin_image_float_pixels(const string &builtin_name, void
 		BL::Object b_ob(b_id);
 		BL::SmokeDomainSettings b_domain = object_smoke_domain_find(b_ob);
 
-		if(!b_domain)
+		if(!b_domain) {
 			return false;
+		}
 
 		int3 resolution = get_int3(b_domain.domain_resolution());
 		int length, amplify = (b_domain.use_high_resolution())? b_domain.amplify() + 1: 1;
@@ -1270,10 +1232,10 @@ bool BlenderSession::builtin_image_float_pixels(const string &builtin_name, void
 			amplify = 1;
 		}
 
-		int width = resolution.x * amplify;
-		int height = resolution.y * amplify;
-		int depth = resolution.z * amplify;
-		size_t num_pixels = ((size_t)width) * height * depth;
+		const int width = resolution.x * amplify;
+		const int height = resolution.y * amplify;
+		const int depth = resolution.z * amplify;
+		const size_t num_pixels = ((size_t)width) * height * depth;
 
 		if(builtin_name == Attribute::standard_name(ATTR_STD_VOLUME_DENSITY)) {
 			SmokeDomainSettings_density_grid_get_length(&b_domain.ptr, &length);
@@ -1347,15 +1309,30 @@ void BlenderSession::update_resumable_tile_manager(int num_samples)
 		return;
 	}
 
-	int num_samples_per_chunk = (int)ceilf((float)num_samples / num_resumable_chunks);
-	int range_start_sample = num_samples_per_chunk * (current_resumable_chunk - 1);
-	int range_num_samples = num_samples_per_chunk;
+	const int num_samples_per_chunk = (int)ceilf((float)num_samples / num_resumable_chunks);
+
+	int range_start_sample, range_num_samples;
+	if(current_resumable_chunk != 0) {
+		/* Single chunk rendering. */
+		range_start_sample = num_samples_per_chunk * (current_resumable_chunk - 1);
+		range_num_samples = num_samples_per_chunk;
+	}
+	else {
+		/* Ranged-chunks. */
+		const int num_chunks = end_resumable_chunk - start_resumable_chunk + 1;
+		range_start_sample = num_samples_per_chunk * (start_resumable_chunk - 1);
+		range_num_samples = num_chunks * num_samples_per_chunk;
+	}
+	/* Make sure we don't overshoot. */
 	if(range_start_sample + range_num_samples > num_samples) {
 		range_num_samples = num_samples - range_num_samples;
 	}
 
 	VLOG(1) << "Samples range start is " << range_start_sample << ", "
 	        << "number of samples to render is " << range_num_samples;
+
+	scene->integrator->start_sample = range_start_sample;
+	scene->integrator->tag_update(scene);
 
 	session->tile_manager.range_start_sample = range_start_sample;
 	session->tile_manager.range_num_samples = range_num_samples;

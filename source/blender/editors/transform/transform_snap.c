@@ -569,7 +569,9 @@ static void initSnappingMode(TransInfo *t)
 		else if (t->tsnap.applySnap != NULL && // A snapping function actually exist
 		         (obedit == NULL) ) // Object Mode
 		{
-			t->tsnap.modeSelect = SNAP_NOT_SELECTED;
+			/* In "Edit Strokes" mode, Snap tool can perform snap to selected or active objects (see T49632)
+			 * TODO: perform self snap in gpencil_strokes */
+			t->tsnap.modeSelect = ((t->options & CTX_GPENCIL_STROKES) != 0) ? SNAP_ALL : SNAP_NOT_SELECTED;
 		}
 		else {
 			/* Grid if snap is not possible */
@@ -599,7 +601,7 @@ static void initSnappingMode(TransInfo *t)
 	if (t->spacetype == SPACE_VIEW3D) {
 		if (t->tsnap.object_context == NULL) {
 			t->tsnap.object_context = ED_transform_snap_object_context_create_view3d(
-			        G.main, t->scene, SNAP_OBJECT_USE_CACHE,
+			        G.main, t->scene, 0,
 			        t->ar, t->view);
 
 			ED_transform_snap_object_context_set_editmesh_callbacks(
@@ -1015,7 +1017,7 @@ static void CalcSnapGeometry(TransInfo *t, float *UNUSED(vec))
 		float dist_px = SNAP_MIN_DISTANCE; // Use a user defined value here
 		char node_border;
 		
-		if (snapNodesTransform(t, t->mval, t->tsnap.modeSelect, loc, &dist_px, &node_border)) {
+		if (snapNodesTransform(t, t->mval, loc, &dist_px, &node_border)) {
 			copy_v2_v2(t->tsnap.snapPoint, loc);
 			t->tsnap.snapNodeBorder = node_border;
 			
@@ -1214,7 +1216,7 @@ bool snapObjectsTransform(
 	        t->tsnap.object_context,
 	        t->scene->toolsettings->snap_mode,
 	        &(const struct SnapObjectParams){
-	            .snap_select = ((t->options & CTX_GPENCIL_STROKES) != 0) ? SNAP_NOT_ACTIVE : t->tsnap.modeSelect,
+	            .snap_select = t->tsnap.modeSelect,
 	            .use_object_edit_cage = (t->flag & T_EDIT) != 0,
 	        },
 	        mval, dist_px, NULL,
@@ -1304,7 +1306,7 @@ bool peelObjectsTransform(
 	        t->tsnap.object_context,
 	        mval,
 	        &(const struct SnapObjectParams){
-	            .snap_select = ((t->options & CTX_GPENCIL_STROKES) != 0) ? SNAP_NOT_ACTIVE : t->tsnap.modeSelect,
+	            .snap_select = t->tsnap.modeSelect,
 	            .use_object_edit_cage = (t->flag & T_EDIT) != 0,
 	        },
 	        use_peel_object,
@@ -1411,22 +1413,11 @@ static bool snapNodes(
 }
 
 bool snapNodesTransform(
-        TransInfo *t, const int mval[2], SnapSelect snap_select,
+        TransInfo *t, const int mval[2],
         float r_loc[2], float *r_dist_px, char *r_node_border)
 {
 	return snapNodes(
-	        t->settings, t->sa->spacedata.first, t->ar, mval, snap_select,
-	        r_loc, r_dist_px, r_node_border);
-}
-
-bool snapNodesContext(
-        bContext *C, const int mval[2], SnapSelect snap_select,
-        float r_loc[2], float *r_dist_px, char *r_node_border)
-{
-	Scene *scene = CTX_data_scene(C);
-	ARegion *ar = CTX_wm_region(C);
-	return snapNodes(
-	        scene->toolsettings, CTX_wm_space_node(C), ar, mval, snap_select,
+	        t->settings, t->sa->spacedata.first, t->ar, mval, t->tsnap.modeSelect,
 	        r_loc, r_dist_px, r_node_border);
 }
 
@@ -1476,7 +1467,7 @@ void snapSequenceBounds(TransInfo *t, const int mval[2])
 
 	/* convert to frame range */
 	UI_view2d_region_to_view(&t->ar->v2d, mval[0], mval[1], &xmouse, &ymouse);
-	mframe = iroundf(xmouse);
+	mframe = round_fl_to_int(xmouse);
 	/* now find the closest sequence */
 	frame = BKE_sequencer_find_next_prev_edit(t->scene, mframe, SEQ_SIDE_BOTH, true, false, true);
 

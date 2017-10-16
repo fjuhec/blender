@@ -112,7 +112,7 @@ static void get_vertices(DerivedMesh *dm, std::vector<Imath::V3f> &points)
 	MVert *verts = dm->getVertArray(dm);
 
 	for (int i = 0, e = dm->getNumVerts(dm); i < e; ++i) {
-		copy_zup_yup(points[i].getValue(), verts[i].co);
+		copy_yup_from_zup(points[i].getValue(), verts[i].co);
 	}
 }
 
@@ -182,7 +182,7 @@ static void get_vertex_normals(DerivedMesh *dm, std::vector<Imath::V3f> &normals
 
 	for (int i = 0, e = dm->getNumVerts(dm); i < e; ++i) {
 		normal_short_to_float_v3(no, verts[i].no);
-		copy_zup_yup(normals[i].getValue(), no);
+		copy_yup_from_zup(normals[i].getValue(), no);
 	}
 }
 
@@ -211,7 +211,7 @@ static void get_loop_normals(DerivedMesh *dm, std::vector<Imath::V3f> &normals)
 
 			for (int j = 0; j < mp->totloop; --ml, ++j, ++loop_index) {
 				const int index = ml->v;
-				copy_zup_yup(normals[loop_index].getValue(), lnors[index]);
+				copy_yup_from_zup(normals[loop_index].getValue(), lnors[index]);
 			}
 		}
 	}
@@ -226,14 +226,14 @@ static void get_loop_normals(DerivedMesh *dm, std::vector<Imath::V3f> &normals)
 				BKE_mesh_calc_poly_normal(mp, ml - (mp->totloop - 1), verts, no);
 
 				for (int j = 0; j < mp->totloop; --ml, ++j, ++loop_index) {
-					copy_zup_yup(normals[loop_index].getValue(), no);
+					copy_yup_from_zup(normals[loop_index].getValue(), no);
 				}
 			}
 			else {
 				/* Smooth shaded, use individual vert normals. */
 				for (int j = 0; j < mp->totloop; --ml, ++j, ++loop_index) {
 					normal_short_to_float_v3(no, verts[ml->v].no);
-					copy_zup_yup(normals[loop_index].getValue(), no);
+					copy_yup_from_zup(normals[loop_index].getValue(), no);
 				}
 			}
 		}
@@ -355,7 +355,7 @@ bool AbcMeshWriter::isAnimated() const
 		md = md->next;
 	}
 
-	return false;
+	return me->adt != NULL;
 }
 
 void AbcMeshWriter::do_write()
@@ -590,7 +590,7 @@ void AbcMeshWriter::getVelocities(DerivedMesh *dm, std::vector<Imath::V3f> &vels
 		float *mesh_vels = reinterpret_cast<float *>(fss->meshVelocities);
 
 		for (int i = 0; i < totverts; ++i) {
-			copy_zup_yup(vels[i].getValue(), mesh_vels);
+			copy_yup_from_zup(vels[i].getValue(), mesh_vels);
 			mesh_vels += 3;
 		}
 	}
@@ -681,17 +681,17 @@ static void assign_materials(Main *bmain, Object *ob, const std::map<std::string
 			std::string mat_name = it->first;
 			mat_iter = mat_map.find(mat_name.c_str());
 
-			Material *assigned_name;
+			Material *assigned_mat;
 
 			if (mat_iter == mat_map.end()) {
-				assigned_name = BKE_material_add(bmain, mat_name.c_str());
-				mat_map[mat_name] = assigned_name;
+				assigned_mat = BKE_material_add(bmain, mat_name.c_str());
+				mat_map[mat_name] = assigned_mat;
 			}
 			else {
-				assigned_name = mat_iter->second;
+				assigned_mat = mat_iter->second;
 			}
 
-			assign_material(ob, assigned_name, it->second, BKE_MAT_ASSIGN_OBJECT);
+			assign_material(ob, assigned_mat, it->second, BKE_MAT_ASSIGN_OBDATA);
 		}
 	}
 }
@@ -726,7 +726,7 @@ static void read_mverts_interp(MVert *mverts, const P3fArraySamplePtr &positions
 		const Imath::V3f &ceil_pos = (*ceil_positions)[i];
 
 		interp_v3_v3v3(tmp, floor_pos.getValue(), ceil_pos.getValue(), weight);
-		copy_yup_zup(mvert.co, tmp);
+		copy_zup_from_yup(mvert.co, tmp);
 
 		mvert.bweight = 0;
 	}
@@ -755,7 +755,7 @@ void read_mverts(MVert *mverts, const P3fArraySamplePtr &positions, const N3fArr
 		MVert &mvert = mverts[i];
 		Imath::V3f pos_in = (*positions)[i];
 
-		copy_yup_zup(mvert.co, pos_in.getValue());
+		copy_zup_from_yup(mvert.co, pos_in.getValue());
 
 		mvert.bweight = 0;
 
@@ -765,7 +765,7 @@ void read_mverts(MVert *mverts, const P3fArraySamplePtr &positions, const N3fArr
 			short no[3];
 			normal_float_to_short_v3(no, nor_in.getValue());
 
-			copy_yup_zup(mvert.no, no);
+			copy_zup_from_yup(mvert.no, no);
 		}
 	}
 }
@@ -868,53 +868,6 @@ ABC_INLINE void read_normals_params(AbcMeshData &abc_data,
 	}
 }
 
-/* ************************************************************************** */
-
-AbcMeshReader::AbcMeshReader(const IObject &object, ImportSettings &settings)
-    : AbcObjectReader(object, settings)
-{
-	m_settings->read_flag |= MOD_MESHSEQ_READ_ALL;
-
-	IPolyMesh ipoly_mesh(m_iobject, kWrapExisting);
-	m_schema = ipoly_mesh.getSchema();
-
-	get_min_max_time(m_iobject, m_schema, m_min_time, m_max_time);
-}
-
-bool AbcMeshReader::valid() const
-{
-	return m_schema.valid();
-}
-
-void AbcMeshReader::readObjectData(Main *bmain, float time)
-{
-	Mesh *mesh = BKE_mesh_add(bmain, m_data_name.c_str());
-
-	m_object = BKE_object_add_only_object(bmain, OB_MESH, m_object_name.c_str());
-	m_object->data = mesh;
-
-	const ISampleSelector sample_sel(time);
-
-	DerivedMesh *dm = CDDM_from_mesh(mesh);
-	DerivedMesh *ndm = this->read_derivedmesh(dm, time, MOD_MESHSEQ_READ_ALL);
-
-	if (ndm != dm) {
-		dm->release(dm);
-	}
-
-	DM_to_mesh(ndm, mesh, m_object, CD_MASK_MESH, true);
-
-	if (m_settings->validate_meshes) {
-		BKE_mesh_validate(mesh, false, false);
-	}
-
-	readFaceSetsSample(bmain, mesh, 0, sample_sel);
-
-	if (has_animations(m_schema, m_settings)) {
-		addCacheModifier();
-	}
-}
-
 static bool check_smooth_poly_flag(DerivedMesh *dm)
 {
 	MPoly *mpolys = dm->getPolyArray(dm);
@@ -944,22 +897,94 @@ static void *add_customdata_cb(void *user_data, const char *name, int data_type)
 {
 	DerivedMesh *dm = static_cast<DerivedMesh *>(user_data);
 	CustomDataType cd_data_type = static_cast<CustomDataType>(data_type);
-	void *cd_ptr = NULL;
+	void *cd_ptr;
+	CustomData *loopdata;
+	int numloops;
 
-	if (ELEM(cd_data_type, CD_MLOOPUV, CD_MLOOPCOL)) {
-		cd_ptr = CustomData_get_layer_named(dm->getLoopDataLayout(dm), cd_data_type, name);
+	/* unsupported custom data type -- don't do anything. */
+	if (!ELEM(cd_data_type, CD_MLOOPUV, CD_MLOOPCOL)) {
+		return NULL;
+	}
 
-		if (cd_ptr == NULL) {
-			cd_ptr = CustomData_add_layer_named(dm->getLoopDataLayout(dm),
-			                                    cd_data_type,
-			                                    CD_DEFAULT,
-			                                    NULL,
-			                                    dm->getNumLoops(dm),
-			                                    name);
-		}
+	loopdata = dm->getLoopDataLayout(dm);
+	cd_ptr = CustomData_get_layer_named(loopdata, cd_data_type, name);
+	if (cd_ptr != NULL) {
+		/* layer already exists, so just return it. */
+		return cd_ptr;
+	}
+
+	/* create a new layer, taking care to construct the hopefully-soon-to-be-removed
+	 * CD_MTEXPOLY layer too, with the same name. */
+	numloops = dm->getNumLoops(dm);
+	cd_ptr = CustomData_add_layer_named(loopdata, cd_data_type, CD_DEFAULT,
+	                                    NULL, numloops, name);
+	if (cd_data_type == CD_MLOOPUV) {
+		CustomData_add_layer_named(dm->getPolyDataLayout(dm),
+		                           CD_MTEXPOLY, CD_DEFAULT,
+		                           NULL, numloops, name);
 	}
 
 	return cd_ptr;
+}
+
+static void get_weight_and_index(CDStreamConfig &config,
+                                 Alembic::AbcCoreAbstract::TimeSamplingPtr time_sampling,
+                                 size_t samples_number)
+{
+	Alembic::AbcGeom::index_t i0, i1;
+
+	config.weight = get_weight_and_index(config.time,
+	                                     time_sampling,
+	                                     samples_number,
+	                                     i0,
+	                                     i1);
+
+	config.index = i0;
+	config.ceil_index = i1;
+}
+
+static void read_mesh_sample(const std::string & iobject_full_name,
+                             ImportSettings *settings,
+                             const IPolyMeshSchema &schema,
+                             const ISampleSelector &selector,
+                             CDStreamConfig &config,
+                             bool &do_normals)
+{
+	const IPolyMeshSchema::Sample sample = schema.getValue(selector);
+
+	AbcMeshData abc_mesh_data;
+	abc_mesh_data.face_counts = sample.getFaceCounts();
+	abc_mesh_data.face_indices = sample.getFaceIndices();
+	abc_mesh_data.positions = sample.getPositions();
+
+	read_normals_params(abc_mesh_data, schema.getNormalsParam(), selector);
+
+	do_normals = (abc_mesh_data.face_normals != NULL);
+
+	get_weight_and_index(config, schema.getTimeSampling(), schema.getNumSamples());
+
+	if (config.weight != 0.0f) {
+		Alembic::AbcGeom::IPolyMeshSchema::Sample ceil_sample;
+		schema.get(ceil_sample, Alembic::Abc::ISampleSelector(config.ceil_index));
+		abc_mesh_data.ceil_positions = ceil_sample.getPositions();
+	}
+
+	if ((settings->read_flag & MOD_MESHSEQ_READ_UV) != 0) {
+		read_uvs_params(config, abc_mesh_data, schema.getUVsParam(), selector);
+	}
+
+	if ((settings->read_flag & MOD_MESHSEQ_READ_VERT) != 0) {
+		read_mverts(config, abc_mesh_data);
+	}
+
+	if ((settings->read_flag & MOD_MESHSEQ_READ_POLY) != 0) {
+		read_mpolys(config, abc_mesh_data);
+	}
+
+	if ((settings->read_flag & (MOD_MESHSEQ_READ_UV | MOD_MESHSEQ_READ_COLOR)) != 0) {
+		read_custom_data(iobject_full_name,
+		                 schema.getArbGeomParams(), config, selector);
+	}
 }
 
 CDStreamConfig get_config(DerivedMesh *dm)
@@ -978,9 +1003,73 @@ CDStreamConfig get_config(DerivedMesh *dm)
 	return config;
 }
 
-DerivedMesh *AbcMeshReader::read_derivedmesh(DerivedMesh *dm, const float time, int read_flag)
+/* ************************************************************************** */
+
+AbcMeshReader::AbcMeshReader(const IObject &object, ImportSettings &settings)
+    : AbcObjectReader(object, settings)
 {
-	ISampleSelector sample_sel(time);
+	m_settings->read_flag |= MOD_MESHSEQ_READ_ALL;
+
+	IPolyMesh ipoly_mesh(m_iobject, kWrapExisting);
+	m_schema = ipoly_mesh.getSchema();
+
+	get_min_max_time(m_iobject, m_schema, m_min_time, m_max_time);
+}
+
+bool AbcMeshReader::valid() const
+{
+	return m_schema.valid();
+}
+
+void AbcMeshReader::readObjectData(Main *bmain, const Alembic::Abc::ISampleSelector &sample_sel)
+{
+	Mesh *mesh = BKE_mesh_add(bmain, m_data_name.c_str());
+
+	m_object = BKE_object_add_only_object(bmain, OB_MESH, m_object_name.c_str());
+	m_object->data = mesh;
+
+	DerivedMesh *dm = CDDM_from_mesh(mesh);
+	DerivedMesh *ndm = this->read_derivedmesh(dm, sample_sel, MOD_MESHSEQ_READ_ALL, NULL);
+
+	if (ndm != dm) {
+		dm->release(dm);
+	}
+
+	DM_to_mesh(ndm, mesh, m_object, CD_MASK_MESH, true);
+
+	if (m_settings->validate_meshes) {
+		BKE_mesh_validate(mesh, false, false);
+	}
+
+	readFaceSetsSample(bmain, mesh, 0, sample_sel);
+
+	if (has_animations(m_schema, m_settings)) {
+		addCacheModifier();
+	}
+}
+
+bool AbcMeshReader::accepts_object_type(const Alembic::AbcCoreAbstract::ObjectHeader &alembic_header,
+                                        const Object *const ob,
+                                        const char **err_str) const
+{
+	if (!Alembic::AbcGeom::IPolyMesh::matches(alembic_header)) {
+		*err_str = "Object type mismatch, Alembic object path pointed to PolyMesh when importing, but not any more.";
+		return false;
+	}
+
+	if (ob->type != OB_MESH) {
+		*err_str = "Object type mismatch, Alembic object path points to PolyMesh.";
+		return false;
+	}
+
+	return true;
+}
+
+DerivedMesh *AbcMeshReader::read_derivedmesh(DerivedMesh *dm,
+                                             const ISampleSelector &sample_sel,
+                                             int read_flag,
+                                             const char **err_str)
+{
 	const IPolyMeshSchema::Sample sample = m_schema.getValue(sample_sel);
 
 	const P3fArraySamplePtr &positions = sample.getPositions();
@@ -1003,12 +1092,28 @@ DerivedMesh *AbcMeshReader::read_derivedmesh(DerivedMesh *dm, const float time, 
 
 		settings.read_flag |= MOD_MESHSEQ_READ_ALL;
 	}
+	else {
+		/* If the face count changed (e.g. by triangulation), only read points.
+		 * This prevents crash from T49813.
+		 * TODO(kevin): perhaps find a better way to do this? */
+		if (face_counts->size() != dm->getNumPolys(dm) ||
+		    face_indices->size() != dm->getNumLoops(dm))
+		{
+			settings.read_flag = MOD_MESHSEQ_READ_VERT;
+
+			if (err_str) {
+				*err_str = "Topology has changed, perhaps by triangulating the"
+				           " mesh. Only vertices will be read!";
+			}
+		}
+	}
 
 	CDStreamConfig config = get_config(new_dm ? new_dm : dm);
-	config.time = time;
+	config.time = sample_sel.getRequestedTime();
 
 	bool do_normals = false;
-	read_mesh_sample(&settings, m_schema, sample_sel, config, do_normals);
+	read_mesh_sample(m_iobject.getFullName(),
+	                 &settings, m_schema, sample_sel, config, do_normals);
 
 	if (new_dm) {
 		/* Check if we had ME_SMOOTH flag set to restore it. */
@@ -1018,6 +1123,16 @@ DerivedMesh *AbcMeshReader::read_derivedmesh(DerivedMesh *dm, const float time, 
 
 		CDDM_calc_normals(new_dm);
 		CDDM_calc_edges(new_dm);
+
+		/* Here we assume that the number of materials doesn't change, i.e. that
+		 * the material slots that were created when the object was loaded from
+		 * Alembic are still valid now. */
+		size_t num_polys = new_dm->getNumPolys(new_dm);
+		if (num_polys > 0) {
+			MPoly *dmpolies = new_dm->getPolyArray(new_dm);
+			std::map<std::string, int> mat_map;
+			assign_facesets_to_mpoly(sample_sel, 0, dmpolies, num_polys, mat_map);
+		}
 
 		return new_dm;
 	}
@@ -1029,8 +1144,11 @@ DerivedMesh *AbcMeshReader::read_derivedmesh(DerivedMesh *dm, const float time, 
 	return dm;
 }
 
-void AbcMeshReader::readFaceSetsSample(Main *bmain, Mesh *mesh, size_t poly_start,
-                                       const ISampleSelector &sample_sel)
+void AbcMeshReader::assign_facesets_to_mpoly(
+        const ISampleSelector &sample_sel,
+        size_t poly_start,
+        MPoly *mpoly, int totpoly,
+        std::map<std::string, int> & r_mat_map)
 {
 	std::vector<std::string> face_sets;
 	m_schema.getFaceSetNames(face_sets);
@@ -1039,21 +1157,21 @@ void AbcMeshReader::readFaceSetsSample(Main *bmain, Mesh *mesh, size_t poly_star
 		return;
 	}
 
-	std::map<std::string, int> mat_map;
 	int current_mat = 0;
 
 	for (int i = 0; i < face_sets.size(); ++i) {
 		const std::string &grp_name = face_sets[i];
 
-		if (mat_map.find(grp_name) == mat_map.end()) {
-			mat_map[grp_name] = 1 + current_mat++;
+		if (r_mat_map.find(grp_name) == r_mat_map.end()) {
+			r_mat_map[grp_name] = 1 + current_mat++;
 		}
 
-		const int assigned_mat = mat_map[grp_name];
+		const int assigned_mat = r_mat_map[grp_name];
 
 		const IFaceSet faceset = m_schema.getFaceSet(grp_name);
 
 		if (!faceset.valid()) {
+			std::cerr << " Face set " << grp_name << " invalid for " << m_object_name << "\n";
 			continue;
 		}
 
@@ -1065,77 +1183,26 @@ void AbcMeshReader::readFaceSetsSample(Main *bmain, Mesh *mesh, size_t poly_star
 		for (size_t l = 0; l < num_group_faces; l++) {
 			size_t pos = (*group_faces)[l] + poly_start;
 
-			if (pos >= mesh->totpoly) {
+			if (pos >= totpoly) {
 				std::cerr << "Faceset overflow on " << faceset.getName() << '\n';
 				break;
 			}
 
-			MPoly &poly = mesh->mpoly[pos];
+			MPoly &poly = mpoly[pos];
 			poly.mat_nr = assigned_mat - 1;
 		}
 	}
 
+}
+
+void AbcMeshReader::readFaceSetsSample(Main *bmain, Mesh *mesh, size_t poly_start,
+                                       const ISampleSelector &sample_sel)
+{
+	std::map<std::string, int> mat_map;
+	assign_facesets_to_mpoly(sample_sel,
+	                         poly_start, mesh->mpoly, mesh->totpoly,
+	                         mat_map);
 	utils::assign_materials(bmain, m_object, mat_map);
-}
-
-static void get_weight_and_index(CDStreamConfig &config,
-                                 Alembic::AbcCoreAbstract::TimeSamplingPtr time_sampling,
-                                 size_t samples_number)
-{
-	Alembic::AbcGeom::index_t i0, i1;
-
-	config.weight = get_weight_and_index(config.time,
-	                                     time_sampling,
-	                                     samples_number,
-	                                     i0,
-	                                     i1);
-
-	config.index = i0;
-	config.ceil_index = i1;
-}
-
-void read_mesh_sample(ImportSettings *settings,
-                      const IPolyMeshSchema &schema,
-                      const ISampleSelector &selector,
-                      CDStreamConfig &config,
-                      bool &do_normals)
-{
-	const IPolyMeshSchema::Sample sample = schema.getValue(selector);
-
-	AbcMeshData abc_mesh_data;
-	abc_mesh_data.face_counts = sample.getFaceCounts();
-	abc_mesh_data.face_indices = sample.getFaceIndices();
-	abc_mesh_data.positions = sample.getPositions();
-
-	read_normals_params(abc_mesh_data, schema.getNormalsParam(), selector);
-
-	do_normals = (abc_mesh_data.face_normals != NULL);
-
-	get_weight_and_index(config, schema.getTimeSampling(), schema.getNumSamples());
-
-	if (config.weight != 0.0f) {
-		Alembic::AbcGeom::IPolyMeshSchema::Sample ceil_sample;
-		schema.get(ceil_sample, Alembic::Abc::ISampleSelector(static_cast<Alembic::AbcCoreAbstract::index_t>(config.ceil_index)));
-		abc_mesh_data.ceil_positions = ceil_sample.getPositions();
-	}
-
-	if ((settings->read_flag & MOD_MESHSEQ_READ_UV) != 0) {
-		read_uvs_params(config, abc_mesh_data, schema.getUVsParam(), selector);
-	}
-
-	if ((settings->read_flag & MOD_MESHSEQ_READ_VERT) != 0) {
-		read_mverts(config, abc_mesh_data);
-	}
-
-	if ((settings->read_flag & MOD_MESHSEQ_READ_POLY) != 0) {
-		read_mpolys(config, abc_mesh_data);
-	}
-
-	if ((settings->read_flag & (MOD_MESHSEQ_READ_UV | MOD_MESHSEQ_READ_COLOR)) != 0) {
-		read_custom_data(schema.getArbGeomParams(), config, selector);
-	}
-
-	/* TODO: face sets */
 }
 
 /* ************************************************************************** */
@@ -1153,6 +1220,49 @@ ABC_INLINE MEdge *find_edge(MEdge *edges, int totedge, int v1, int v2)
 	return NULL;
 }
 
+static void read_subd_sample(const std::string & iobject_full_name,
+                             ImportSettings *settings,
+                             const ISubDSchema &schema,
+                             const ISampleSelector &selector,
+                             CDStreamConfig &config)
+{
+	const ISubDSchema::Sample sample = schema.getValue(selector);
+
+	AbcMeshData abc_mesh_data;
+	abc_mesh_data.face_counts = sample.getFaceCounts();
+	abc_mesh_data.face_indices = sample.getFaceIndices();
+	abc_mesh_data.vertex_normals = N3fArraySamplePtr();
+	abc_mesh_data.face_normals = N3fArraySamplePtr();
+	abc_mesh_data.positions = sample.getPositions();
+
+	get_weight_and_index(config, schema.getTimeSampling(), schema.getNumSamples());
+
+	if (config.weight != 0.0f) {
+		Alembic::AbcGeom::ISubDSchema::Sample ceil_sample;
+		schema.get(ceil_sample, Alembic::Abc::ISampleSelector(config.ceil_index));
+		abc_mesh_data.ceil_positions = ceil_sample.getPositions();
+	}
+
+	if ((settings->read_flag & MOD_MESHSEQ_READ_UV) != 0) {
+		read_uvs_params(config, abc_mesh_data, schema.getUVsParam(), selector);
+	}
+
+	if ((settings->read_flag & MOD_MESHSEQ_READ_VERT) != 0) {
+		read_mverts(config, abc_mesh_data);
+	}
+
+	if ((settings->read_flag & MOD_MESHSEQ_READ_POLY) != 0) {
+		read_mpolys(config, abc_mesh_data);
+	}
+
+	if ((settings->read_flag & (MOD_MESHSEQ_READ_UV | MOD_MESHSEQ_READ_COLOR)) != 0) {
+		read_custom_data(iobject_full_name,
+		                 schema.getArbGeomParams(), config, selector);
+	}
+}
+
+/* ************************************************************************** */
+
 AbcSubDReader::AbcSubDReader(const IObject &object, ImportSettings &settings)
     : AbcObjectReader(object, settings)
 {
@@ -1169,7 +1279,24 @@ bool AbcSubDReader::valid() const
 	return m_schema.valid();
 }
 
-void AbcSubDReader::readObjectData(Main *bmain, float time)
+bool AbcSubDReader::accepts_object_type(const Alembic::AbcCoreAbstract::ObjectHeader &alembic_header,
+                                        const Object *const ob,
+                                        const char **err_str) const
+{
+	if (!Alembic::AbcGeom::ISubD::matches(alembic_header)) {
+		*err_str = "Object type mismatch, Alembic object path pointed to SubD when importing, but not any more.";
+		return false;
+	}
+
+	if (ob->type != OB_MESH) {
+		*err_str = "Object type mismatch, Alembic object path points to SubD.";
+		return false;
+	}
+
+	return true;
+}
+
+void AbcSubDReader::readObjectData(Main *bmain, const Alembic::Abc::ISampleSelector &sample_sel)
 {
 	Mesh *mesh = BKE_mesh_add(bmain, m_data_name.c_str());
 
@@ -1177,7 +1304,7 @@ void AbcSubDReader::readObjectData(Main *bmain, float time)
 	m_object->data = mesh;
 
 	DerivedMesh *dm = CDDM_from_mesh(mesh);
-	DerivedMesh *ndm = this->read_derivedmesh(dm, time, MOD_MESHSEQ_READ_ALL);
+	DerivedMesh *ndm = this->read_derivedmesh(dm, sample_sel, MOD_MESHSEQ_READ_ALL, NULL);
 
 	if (ndm != dm) {
 		dm->release(dm);
@@ -1185,7 +1312,6 @@ void AbcSubDReader::readObjectData(Main *bmain, float time)
 
 	DM_to_mesh(ndm, mesh, m_object, CD_MASK_MESH, true);
 
-	const ISampleSelector sample_sel(time);
 	const ISubDSchema::Sample sample = m_schema.getValue(sample_sel);
 	Int32ArraySamplePtr indices = sample.getCreaseIndices();
 	Alembic::Abc::FloatArraySamplePtr sharpnesses = sample.getCreaseSharpnesses();
@@ -1216,50 +1342,11 @@ void AbcSubDReader::readObjectData(Main *bmain, float time)
 	}
 }
 
-void read_subd_sample(ImportSettings *settings,
-                      const ISubDSchema &schema,
-                      const ISampleSelector &selector,
-                      CDStreamConfig &config)
+DerivedMesh *AbcSubDReader::read_derivedmesh(DerivedMesh *dm,
+                                             const ISampleSelector &sample_sel,
+                                             int read_flag,
+                                             const char **err_str)
 {
-	const ISubDSchema::Sample sample = schema.getValue(selector);
-
-	AbcMeshData abc_mesh_data;
-	abc_mesh_data.face_counts = sample.getFaceCounts();
-	abc_mesh_data.face_indices = sample.getFaceIndices();
-	abc_mesh_data.vertex_normals = N3fArraySamplePtr();
-	abc_mesh_data.face_normals = N3fArraySamplePtr();
-	abc_mesh_data.positions = sample.getPositions();
-
-	get_weight_and_index(config, schema.getTimeSampling(), schema.getNumSamples());
-
-	if (config.weight != 0.0f) {
-		Alembic::AbcGeom::ISubDSchema::Sample ceil_sample;
-		schema.get(ceil_sample, Alembic::Abc::ISampleSelector(static_cast<Alembic::AbcCoreAbstract::index_t>(config.ceil_index)));
-		abc_mesh_data.ceil_positions = ceil_sample.getPositions();
-	}
-
-	if ((settings->read_flag & MOD_MESHSEQ_READ_UV) != 0) {
-		read_uvs_params(config, abc_mesh_data, schema.getUVsParam(), selector);
-	}
-
-	if ((settings->read_flag & MOD_MESHSEQ_READ_VERT) != 0) {
-		read_mverts(config, abc_mesh_data);
-	}
-
-	if ((settings->read_flag & MOD_MESHSEQ_READ_POLY) != 0) {
-		read_mpolys(config, abc_mesh_data);
-	}
-
-	if ((settings->read_flag & (MOD_MESHSEQ_READ_UV | MOD_MESHSEQ_READ_COLOR)) != 0) {
-		read_custom_data(schema.getArbGeomParams(), config, selector);
-	}
-
-	/* TODO: face sets */
-}
-
-DerivedMesh *AbcSubDReader::read_derivedmesh(DerivedMesh *dm, const float time, int read_flag)
-{
-	ISampleSelector sample_sel(time);
 	const ISubDSchema::Sample sample = m_schema.getValue(sample_sel);
 
 	const P3fArraySamplePtr &positions = sample.getPositions();
@@ -1281,11 +1368,27 @@ DerivedMesh *AbcSubDReader::read_derivedmesh(DerivedMesh *dm, const float time, 
 
 		settings.read_flag |= MOD_MESHSEQ_READ_ALL;
 	}
+	else {
+		/* If the face count changed (e.g. by triangulation), only read points.
+		 * This prevents crash from T49813.
+		 * TODO(kevin): perhaps find a better way to do this? */
+		if (face_counts->size() != dm->getNumPolys(dm) ||
+		    face_indices->size() != dm->getNumLoops(dm))
+		{
+			settings.read_flag = MOD_MESHSEQ_READ_VERT;
+
+			if (err_str) {
+				*err_str = "Topology has changed, perhaps by triangulating the"
+				           " mesh. Only vertices will be read!";
+			}
+		}
+	}
 
 	/* Only read point data when streaming meshes, unless we need to create new ones. */
 	CDStreamConfig config = get_config(new_dm ? new_dm : dm);
-	config.time = time;
-	read_subd_sample(&settings, m_schema, sample_sel, config);
+	config.time = sample_sel.getRequestedTime();
+	read_subd_sample(m_iobject.getFullName(),
+	                 &settings, m_schema, sample_sel, config);
 
 	if (new_dm) {
 		/* Check if we had ME_SMOOTH flag set to restore it. */

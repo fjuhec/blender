@@ -16,45 +16,42 @@
 
 /* OpenCL kernel entry points - unfinished */
 
-#include "../../kernel_compat_opencl.h"
-#include "../../kernel_math.h"
-#include "../../kernel_types.h"
-#include "../../kernel_globals.h"
-#include "../../kernel_image_opencl.h"
+#include "kernel/kernel_compat_opencl.h"
+#include "kernel/kernel_math.h"
+#include "kernel/kernel_types.h"
+#include "kernel/kernel_globals.h"
+#include "kernel/kernels/opencl/kernel_opencl_image.h"
 
-#include "../../kernel_film.h"
+#include "kernel/kernel_film.h"
 
 #if defined(__COMPILE_ONLY_MEGAKERNEL__) || !defined(__NO_BAKING__)
-#  include "../../kernel_path.h"
-#  include "../../kernel_path_branched.h"
+#  include "kernel/kernel_path.h"
+#  include "kernel/kernel_path_branched.h"
 #else  /* __COMPILE_ONLY_MEGAKERNEL__ */
 /* Include only actually used headers for the case
  * when path tracing kernels are not needed.
  */
-#  include "../../kernel_random.h"
-#  include "../../kernel_differential.h"
-#  include "../../kernel_montecarlo.h"
-#  include "../../kernel_projection.h"
-#  include "../../geom/geom.h"
-#  include "../../bvh/bvh.h"
+#  include "kernel/kernel_random.h"
+#  include "kernel/kernel_differential.h"
+#  include "kernel/kernel_montecarlo.h"
+#  include "kernel/kernel_projection.h"
+#  include "kernel/geom/geom.h"
+#  include "kernel/bvh/bvh.h"
 
-#  include "../../kernel_accumulate.h"
-#  include "../../kernel_camera.h"
-#  include "../../kernel_shader.h"
+#  include "kernel/kernel_accumulate.h"
+#  include "kernel/kernel_camera.h"
+#  include "kernel/kernel_shader.h"
 #endif  /* defined(__COMPILE_ONLY_MEGAKERNEL__) || !defined(__NO_BAKING__) */
 
-#include "../../kernel_bake.h"
+#include "kernel/kernel_bake.h"
 
 #ifdef __COMPILE_ONLY_MEGAKERNEL__
 
 __kernel void kernel_ocl_path_trace(
 	ccl_constant KernelData *data,
 	ccl_global float *buffer,
-	ccl_global uint *rng_state,
 
-#define KERNEL_TEX(type, ttype, name) \
-	ccl_global type *name,
-#include "../../kernel_textures.h"
+	KERNEL_BUFFER_PARAMS,
 
 	int sample,
 	int sx, int sy, int sw, int sh, int offset, int stride)
@@ -63,28 +60,24 @@ __kernel void kernel_ocl_path_trace(
 
 	kg->data = data;
 
-#define KERNEL_TEX(type, ttype, name) \
-	kg->name = name;
-#include "../../kernel_textures.h"
+	kernel_set_buffer_pointers(kg, KERNEL_BUFFER_ARGS);
+	kernel_set_buffer_info(kg);
 
-	int x = sx + get_global_id(0);
-	int y = sy + get_global_id(1);
+	int x = sx + ccl_global_id(0);
+	int y = sy + ccl_global_id(1);
 
 	if(x < sx + sw && y < sy + sh)
-		kernel_path_trace(kg, buffer, rng_state, sample, x, y, offset, stride);
+		kernel_path_trace(kg, buffer, sample, x, y, offset, stride);
 }
 
 #else  /* __COMPILE_ONLY_MEGAKERNEL__ */
 
-__kernel void kernel_ocl_shader(
+__kernel void kernel_ocl_displace(
 	ccl_constant KernelData *data,
 	ccl_global uint4 *input,
 	ccl_global float4 *output,
-	ccl_global float *output_luma,
 
-#define KERNEL_TEX(type, ttype, name) \
-	ccl_global type *name,
-#include "../../kernel_textures.h"
+	KERNEL_BUFFER_PARAMS,
 
 	int type, int sx, int sw, int offset, int sample)
 {
@@ -92,20 +85,35 @@ __kernel void kernel_ocl_shader(
 
 	kg->data = data;
 
-#define KERNEL_TEX(type, ttype, name) \
-	kg->name = name;
-#include "../../kernel_textures.h"
+	kernel_set_buffer_pointers(kg, KERNEL_BUFFER_ARGS);
+	kernel_set_buffer_info(kg);
 
-	int x = sx + get_global_id(0);
+	int x = sx + ccl_global_id(0);
 
 	if(x < sx + sw) {
-		kernel_shader_evaluate(kg,
-		                       input,
-		                       output,
-		                       output_luma,
-		                       (ShaderEvalType)type,
-		                       x,
-		                       sample);
+		kernel_displace_evaluate(kg, input, output, x);
+	}
+}
+__kernel void kernel_ocl_background(
+	ccl_constant KernelData *data,
+	ccl_global uint4 *input,
+	ccl_global float4 *output,
+
+	KERNEL_BUFFER_PARAMS,
+
+	int type, int sx, int sw, int offset, int sample)
+{
+	KernelGlobals kglobals, *kg = &kglobals;
+
+	kg->data = data;
+
+	kernel_set_buffer_pointers(kg, KERNEL_BUFFER_ARGS);
+	kernel_set_buffer_info(kg);
+
+	int x = sx + ccl_global_id(0);
+
+	if(x < sx + sw) {
+		kernel_background_evaluate(kg, input, output, x);
 	}
 }
 
@@ -114,9 +122,7 @@ __kernel void kernel_ocl_bake(
 	ccl_global uint4 *input,
 	ccl_global float4 *output,
 
-#define KERNEL_TEX(type, ttype, name) \
-	ccl_global type *name,
-#include "../../kernel_textures.h"
+	KERNEL_BUFFER_PARAMS,
 
 	int type, int filter, int sx, int sw, int offset, int sample)
 {
@@ -124,11 +130,10 @@ __kernel void kernel_ocl_bake(
 
 	kg->data = data;
 
-#define KERNEL_TEX(type, ttype, name) \
-	kg->name = name;
-#include "../../kernel_textures.h"
+	kernel_set_buffer_pointers(kg, KERNEL_BUFFER_ARGS);
+	kernel_set_buffer_info(kg);
 
-	int x = sx + get_global_id(0);
+	int x = sx + ccl_global_id(0);
 
 	if(x < sx + sw) {
 #ifdef __NO_BAKING__
@@ -144,9 +149,7 @@ __kernel void kernel_ocl_convert_to_byte(
 	ccl_global uchar4 *rgba,
 	ccl_global float *buffer,
 
-#define KERNEL_TEX(type, ttype, name) \
-	ccl_global type *name,
-#include "../../kernel_textures.h"
+	KERNEL_BUFFER_PARAMS,
 
 	float sample_scale,
 	int sx, int sy, int sw, int sh, int offset, int stride)
@@ -155,12 +158,11 @@ __kernel void kernel_ocl_convert_to_byte(
 
 	kg->data = data;
 
-#define KERNEL_TEX(type, ttype, name) \
-	kg->name = name;
-#include "../../kernel_textures.h"
+	kernel_set_buffer_pointers(kg, KERNEL_BUFFER_ARGS);
+	kernel_set_buffer_info(kg);
 
-	int x = sx + get_global_id(0);
-	int y = sy + get_global_id(1);
+	int x = sx + ccl_global_id(0);
+	int y = sy + ccl_global_id(1);
 
 	if(x < sx + sw && y < sy + sh)
 		kernel_film_convert_to_byte(kg, rgba, buffer, sample_scale, x, y, offset, stride);
@@ -171,9 +173,7 @@ __kernel void kernel_ocl_convert_to_half_float(
 	ccl_global uchar4 *rgba,
 	ccl_global float *buffer,
 
-#define KERNEL_TEX(type, ttype, name) \
-	ccl_global type *name,
-#include "../../kernel_textures.h"
+	KERNEL_BUFFER_PARAMS,
 
 	float sample_scale,
 	int sx, int sy, int sw, int sh, int offset, int stride)
@@ -182,15 +182,30 @@ __kernel void kernel_ocl_convert_to_half_float(
 
 	kg->data = data;
 
-#define KERNEL_TEX(type, ttype, name) \
-	kg->name = name;
-#include "../../kernel_textures.h"
+	kernel_set_buffer_pointers(kg, KERNEL_BUFFER_ARGS);
+	kernel_set_buffer_info(kg);
 
-	int x = sx + get_global_id(0);
-	int y = sy + get_global_id(1);
+	int x = sx + ccl_global_id(0);
+	int y = sy + ccl_global_id(1);
 
 	if(x < sx + sw && y < sy + sh)
 		kernel_film_convert_to_half_float(kg, rgba, buffer, sample_scale, x, y, offset, stride);
+}
+
+__kernel void kernel_ocl_zero_buffer(ccl_global float4 *buffer, uint64_t size, uint64_t offset)
+{
+	size_t i = ccl_global_id(0) + ccl_global_id(1) * ccl_global_size(0);
+
+	if(i < size / sizeof(float4)) {
+		buffer[i+offset/sizeof(float4)] = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
+	}
+	else if(i == size / sizeof(float4)) {
+		ccl_global uchar *b = (ccl_global uchar*)&buffer[i+offset/sizeof(float4)];
+
+		for(i = 0; i < size % sizeof(float4); i++) {
+			*(b++) = 0;
+		}
+	}
 }
 
 #endif  /* __COMPILE_ONLY_MEGAKERNEL__ */

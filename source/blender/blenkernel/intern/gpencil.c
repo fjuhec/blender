@@ -39,6 +39,7 @@
 #include "BLI_blenlib.h"
 #include "BLI_utildefines.h"
 #include "BLI_math_vector.h"
+#include "BLI_string_utils.h"
 
 #include "BLT_translation.h"
 
@@ -382,7 +383,8 @@ bGPDpalette *BKE_gpencil_palette_addnew(bGPdata *gpd, const char *name, bool set
 	               sizeof(palette->info));
 
 	/* make this one the active one */
-	if (setactive) {
+	/* NOTE: Always make this active if there's nothing else yet (T50123) */
+	if ((setactive) || (gpd->palettes.first == gpd->palettes.last)) {
 		BKE_gpencil_palette_setactive(gpd, palette);
 	}
 
@@ -625,7 +627,7 @@ bGPdata *BKE_gpencil_data_addnew(const char name[])
 	bGPdata *gpd;
 	
 	/* allocate memory for a new block */
-	gpd = BKE_libblock_alloc(G.main, ID_GD, name);
+	gpd = BKE_libblock_alloc(G.main, ID_GD, name, 0);
 	
 	/* initial settings */
 	gpd->flag = (GP_DATA_DISPINFO | GP_DATA_EXPAND);
@@ -751,47 +753,62 @@ bGPDlayer *BKE_gpencil_layer_duplicate(const bGPDlayer *gpl_src)
 	return gpl_dst;
 }
 
-/* make a copy of a given gpencil datablock */
-bGPdata *BKE_gpencil_data_duplicate(Main *bmain, bGPdata *gpd_src, bool internal_copy)
+/**
+ * Only copy internal data of GreasePencil ID from source to already allocated/initialized destination.
+ * You probably nerver want to use that directly, use id_copy or BKE_id_copy_ex for typical needs.
+ *
+ * WARNING! This function will not handle ID user count!
+ *
+ * \param flag  Copying options (see BKE_library.h's LIB_ID_COPY_... flags for more).
+ */
+void BKE_gpencil_copy_data(Main *UNUSED(bmain), bGPdata *gpd_dst, const bGPdata *gpd_src, const int UNUSED(flag))
 {
-	const bGPDlayer *gpl_src;
-	bGPDlayer *gpl_dst;
-	bGPdata *gpd_dst;
-
-	/* error checking */
-	if (gpd_src == NULL) {
-		return NULL;
-	}
-	
-	/* make a copy of the base-data */
-	if (internal_copy) {
-		/* make a straight copy for undo buffers used during stroke drawing */
-		gpd_dst = MEM_dupallocN(gpd_src);
-	}
-	else {
-		/* make a copy when others use this */
-		gpd_dst = BKE_libblock_copy(bmain, &gpd_src->id);
-	}
-	
 	/* copy layers */
 	BLI_listbase_clear(&gpd_dst->layers);
-	for (gpl_src = gpd_src->layers.first; gpl_src; gpl_src = gpl_src->next) {
+	for (const bGPDlayer *gpl_src = gpd_src->layers.first; gpl_src; gpl_src = gpl_src->next) {
 		/* make a copy of source layer and its data */
-		gpl_dst = BKE_gpencil_layer_duplicate(gpl_src);
+		bGPDlayer *gpl_dst = BKE_gpencil_layer_duplicate(gpl_src);  /* TODO here too could add unused flags... */
 		BLI_addtail(&gpd_dst->layers, gpl_dst);
 	}
-	if (!internal_copy) {
-		/* copy palettes */
-		bGPDpalette *palette_src, *palette_dst;
-		BLI_listbase_clear(&gpd_dst->palettes);
-		for (palette_src = gpd_src->palettes.first; palette_src; palette_src = palette_src->next) {
-			palette_dst = BKE_gpencil_palette_duplicate(palette_src);
-			BLI_addtail(&gpd_dst->palettes, palette_dst);
-		}
+
+	/* copy palettes */
+	BLI_listbase_clear(&gpd_dst->palettes);
+	for (const bGPDpalette *palette_src = gpd_src->palettes.first; palette_src; palette_src = palette_src->next) {
+		bGPDpalette *palette_dst = BKE_gpencil_palette_duplicate(palette_src);  /* TODO here too could add unused flags... */
+		BLI_addtail(&gpd_dst->palettes, palette_dst);
 	}
-	
-	/* return new */
-	return gpd_dst;
+}
+
+/* make a copy of a given gpencil datablock */
+bGPdata *BKE_gpencil_data_duplicate(Main *bmain, const bGPdata *gpd_src, bool internal_copy)
+{
+	/* Yuck and super-uber-hyper yuck!!!
+	 * Should be replaceable with a no-main copy (LIB_ID_COPY_NO_MAIN etc.), but not sure about it,
+	 * so for now keep old code for that one. */
+	if (internal_copy) {
+		const bGPDlayer *gpl_src;
+		bGPDlayer *gpl_dst;
+		bGPdata *gpd_dst;
+
+		/* make a straight copy for undo buffers used during stroke drawing */
+		gpd_dst = MEM_dupallocN(gpd_src);
+
+		/* copy layers */
+		BLI_listbase_clear(&gpd_dst->layers);
+		for (gpl_src = gpd_src->layers.first; gpl_src; gpl_src = gpl_src->next) {
+			/* make a copy of source layer and its data */
+			gpl_dst = BKE_gpencil_layer_duplicate(gpl_src);
+			BLI_addtail(&gpd_dst->layers, gpl_dst);
+		}
+
+		/* return new */
+		return gpd_dst;
+	}
+	else {
+		bGPdata *gpd_copy;
+		BKE_id_copy_ex(bmain, &gpd_src->id, (ID **)&gpd_copy, 0, false);
+		return gpd_copy;
+	}
 }
 
 void BKE_gpencil_make_local(Main *bmain, bGPdata *gpd, const bool lib_local)
@@ -1263,7 +1280,11 @@ void BKE_gpencil_palettecolor_changename(bGPdata *gpd, char *oldname, const char
 	bGPDlayer *gpl;
 	bGPDframe *gpf;
 	bGPDstroke *gps;
-
+	
+	/* Sanity checks (gpd may not be set in the RNA pointers sometimes) */
+	if (ELEM(NULL, gpd, oldname, newname))
+		return;
+	
 	for (gpl = gpd->layers.first; gpl; gpl = gpl->next) {
 		for (gpf = gpl->frames.first; gpf; gpf = gpf->next) {
 			for (gps = gpf->strokes.first; gps; gps = gps->next) {
@@ -1282,7 +1303,11 @@ void BKE_gpencil_palettecolor_delete_strokes(struct bGPdata *gpd, char *name)
 	bGPDlayer *gpl;
 	bGPDframe *gpf;
 	bGPDstroke *gps, *gpsn;
-
+	
+	/* Sanity checks (gpd may not be set in the RNA pointers sometimes) */
+	if (ELEM(NULL, gpd, name))
+		return;
+	
 	for (gpl = gpd->layers.first; gpl; gpl = gpl->next) {
 		for (gpf = gpl->frames.first; gpf; gpf = gpf->next) {
 			for (gps = gpf->strokes.first; gps; gps = gpsn) {

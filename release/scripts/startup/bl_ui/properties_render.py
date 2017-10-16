@@ -275,6 +275,7 @@ class RENDER_PT_performance(RenderButtonsPanel, Panel):
 
         col.separator()
         col.prop(rd, "preview_start_resolution")
+        col.prop(rd, "preview_pixel_size", text="")
 
         col = split.column()
         col.label(text="Memory:")
@@ -286,7 +287,7 @@ class RENDER_PT_performance(RenderButtonsPanel, Panel):
         sub.prop(rd, "use_free_image_textures")
         sub = col.column()
         sub.active = rd.use_raytrace
-        sub.label(text="Acceleration structure:")
+        sub.label(text="Acceleration Structure:")
         sub.prop(rd, "raytrace_method", text="")
         if rd.raytrace_method == 'OCTREE':
             sub.prop(rd, "octree_resolution", text="Resolution")
@@ -347,7 +348,7 @@ class RENDER_PT_stamp(RenderButtonsPanel, Panel):
         col.active = rd.use_stamp
         row = col.row()
         row.prop(rd, "stamp_font_size", text="Font Size")
-        row.prop(rd, "use_stamp_labels", text="Draw labels")
+        row.prop(rd, "use_stamp_labels", text="Draw Labels")
 
         row = col.row()
         row.column().prop(rd, "stamp_foreground", slider=True)
@@ -377,7 +378,7 @@ class RENDER_PT_stamp(RenderButtonsPanel, Panel):
         sub.active = rd.use_stamp_note
         sub.prop(rd, "stamp_note_text", text="")
         if rd.use_sequencer:
-            layout.label("Sequencer")
+            layout.label("Sequencer:")
             layout.prop(rd, "use_stamp_strip_meta")
 
 
@@ -408,37 +409,6 @@ class RENDER_PT_output(RenderButtonsPanel, Panel):
         layout.template_image_settings(image_settings, color_management=False)
         if rd.use_multiview:
             layout.template_image_views(image_settings)
-
-        if file_format == 'QUICKTIME':
-            quicktime = rd.quicktime
-
-            split = layout.split()
-            col = split.column()
-            col.prop(quicktime, "codec_type", text="Video Codec")
-            col.prop(quicktime, "codec_spatial_quality", text="Quality")
-
-            # Audio
-            col.prop(quicktime, "audiocodec_type", text="Audio Codec")
-            if quicktime.audiocodec_type != 'No audio':
-                split = layout.split()
-                if quicktime.audiocodec_type == 'LPCM':
-                    split.prop(quicktime, "audio_bitdepth", text="")
-
-                split.prop(quicktime, "audio_samplerate", text="")
-
-                split = layout.split()
-                col = split.column()
-                if quicktime.audiocodec_type == 'AAC':
-                    col.prop(quicktime, "audio_bitrate")
-
-                subsplit = split.split()
-                col = subsplit.column()
-
-                if quicktime.audiocodec_type == 'AAC':
-                    col.prop(quicktime, "audio_codec_isvbr")
-
-                col = subsplit.column()
-                col.prop(quicktime, "audio_resampling_hq")
 
 
 class RENDER_PT_encoding(RenderButtonsPanel, Panel):
@@ -482,9 +452,9 @@ class RENDER_PT_encoding(RenderButtonsPanel, Panel):
         layout.prop(ffmpeg, "gopsize")
         # B-Frames
         row = layout.row()
-        row.prop(ffmpeg, "use_max_b_frames", text='Max B-frames')
+        row.prop(ffmpeg, "use_max_b_frames", text="Max B-frames")
         pbox = row.split()
-        pbox.prop(ffmpeg, "max_b_frames", text='')
+        pbox.prop(ffmpeg, "max_b_frames", text="")
         pbox.enabled = ffmpeg.use_max_b_frames
 
         split = layout.split()
@@ -584,5 +554,24 @@ class RENDER_PT_bake(RenderButtonsPanel, Panel):
             sub.prop(rd, "bake_user_scale", text="User Scale")
 
 
+classes = (
+    RENDER_MT_presets,
+    RENDER_MT_ffmpeg_presets,
+    RENDER_MT_framerate_presets,
+    RENDER_PT_render,
+    RENDER_PT_dimensions,
+    RENDER_PT_antialiasing,
+    RENDER_PT_motion_blur,
+    RENDER_PT_shading,
+    RENDER_PT_performance,
+    RENDER_PT_post_processing,
+    RENDER_PT_stamp,
+    RENDER_PT_output,
+    RENDER_PT_encoding,
+    RENDER_PT_bake,
+)
+
 if __name__ == "__main__":  # only for live edit.
-    bpy.utils.register_module(__name__)
+    from bpy.utils import register_class
+    for cls in classes:
+        register_class(cls)

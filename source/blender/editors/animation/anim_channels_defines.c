@@ -2775,7 +2775,7 @@ static bAnimChannelType ACF_DSMCLIP =
 	acf_generic_indention_1,         /* indent level */
 	acf_generic_basic_offset,        /* offset */
 
-	acf_generic_idblock_name ,       /* name */
+	acf_generic_idblock_name,        /* name */
 	acf_generic_idfill_name_prop,    /* name prop */
 	acf_dsmclip_icon,                /* icon */
 
@@ -3856,7 +3856,8 @@ void ANIM_channel_draw(bAnimContext *ac, bAnimListElem *ale, float yminc, float 
 	if (ac->sl) {
 		if ((ac->spacetype == SPACE_IPO) &&
 		    (acf->has_setting(ac, ale, ACHANNEL_SETTING_VISIBLE) ||
-		     acf->has_setting(ac, ale, ACHANNEL_SETTING_ALWAYS_VISIBLE))) {
+		     acf->has_setting(ac, ale, ACHANNEL_SETTING_ALWAYS_VISIBLE)))
+		{
 			/* for F-Curves, draw color-preview of curve behind checkbox */
 			if (ELEM(ale->type, ANIMTYPE_FCURVE, ANIMTYPE_NLACURVE)) {
 				FCurve *fcu = (FCurve *)ale->data;
@@ -4457,8 +4458,8 @@ void ANIM_channel_draw_widgets(const bContext *C, bAnimContext *ac, bAnimListEle
 		 *       a callback available (e.g. broken F-Curve rename)
 		 */
 		if (acf->name_prop(ale, &ptr, &prop)) {
-			const short margin_x = 3 * iroundf(UI_DPI_FAC);
-			const short channel_height = iroundf(ymaxc - yminc);
+			const short margin_x = 3 * round_fl_to_int(UI_DPI_FAC);
+			const short channel_height = round_fl_to_int(ymaxc - yminc);
 			const short width = ac->ar->winx - offset - (margin_x * 2);
 			uiBut *but;
 			

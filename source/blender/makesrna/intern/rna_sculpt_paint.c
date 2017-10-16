@@ -28,6 +28,7 @@
 #include <stdlib.h>
 
 #include "RNA_define.h"
+#include "RNA_enum_types.h"
 
 #include "rna_internal.h"
 
@@ -75,13 +76,15 @@ EnumPropertyItem rna_enum_gpencil_sculpt_brush_items[] = {
 	{ 0, NULL, 0, NULL, NULL }
 };
 
-EnumPropertyItem rna_enum_gpencil_lockaxis_items[] = {
+#ifndef RNA_RUNTIME
+static EnumPropertyItem rna_enum_gpencil_lockaxis_items[] = {
 	{ GP_LOCKAXIS_NONE, "GP_LOCKAXIS_NONE", 0, "None", "" },
 	{ GP_LOCKAXIS_X, "GP_LOCKAXIS_X", 0, "X", "Project strokes to plane locked to X" },
 	{ GP_LOCKAXIS_Y, "GP_LOCKAXIS_Y", 0, "Y", "Project strokes to plane locked to Y" },
 	{ GP_LOCKAXIS_Z, "GP_LOCKAXIS_Z", 0, "Z", "Project strokes to plane locked to Z" },
 	{ 0, NULL, 0, NULL, NULL }
 };
+#endif
 
 EnumPropertyItem rna_enum_symmetrize_direction_items[] = {
 	{BMO_SYMMETRIZE_NEGATIVE_X, "NEGATIVE_X", 0, "-X to +X", ""},
@@ -668,22 +671,20 @@ static void rna_def_vertex_paint(BlenderRNA *brna)
 	RNA_def_struct_path_func(srna, "rna_VertexPaint_path");
 	RNA_def_struct_ui_text(srna, "Vertex Paint", "Properties of vertex and weight paint mode");
 
-	/* vertex paint only */
-	prop = RNA_def_property(srna, "use_normal", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag", VP_NORMALS);
-	RNA_def_property_ui_text(prop, "Normals", "Apply the vertex normal before painting");
-	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
-	
-	prop = RNA_def_property(srna, "use_spray", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag", VP_SPRAY);
-	RNA_def_property_ui_text(prop, "Spray", "Keep applying paint effect while holding mouse");
-	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
-
 	/* weight paint only */
 	prop = RNA_def_property(srna, "use_group_restrict", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag", VP_ONLYVGROUP);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", VP_FLAG_VGROUP_RESTRICT);
 	RNA_def_property_ui_text(prop, "Restrict", "Restrict painting to vertices in the group");
 	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
+
+	/* Mirroring */
+	prop = RNA_def_property(srna, "radial_symmetry", PROP_INT, PROP_XYZ);
+	RNA_def_property_int_sdna(prop, NULL, "radial_symm");
+	RNA_def_property_int_default(prop, 1);
+	RNA_def_property_range(prop, 1, 64);
+	RNA_def_property_ui_range(prop, 1, 32, 1, 1);
+	RNA_def_property_ui_text(prop, "Radial Symmetry Count X Axis",
+	                         "Number of times to copy strokes across the surface");
 }
 
 static void rna_def_image_paint(BlenderRNA *brna)
@@ -1047,15 +1048,6 @@ static void rna_def_gpencil_sculpt(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Affect Thickness", "The brush affects the thickness of the point");
 	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
 
-	prop = RNA_def_property(srna, "interpolate_all_layers", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_BRUSHEDIT_FLAG_INTERPOLATE_ALL_LAYERS);
-	RNA_def_property_ui_text(prop, "Interpolate All Layers", "Interpolate all layers, not only active");
-	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
-
-	prop = RNA_def_property(srna, "interpolate_selected_only", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_BRUSHEDIT_FLAG_INTERPOLATE_ONLY_SELECTED);
-	RNA_def_property_ui_text(prop, "Interpolate Selected Strokes", "Interpolate only selected strokes in the original frame");
-	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
 
 	prop = RNA_def_property(srna, "selection_alpha", PROP_FLOAT, PROP_NONE);
 	RNA_def_property_float_sdna(prop, NULL, "alpha");

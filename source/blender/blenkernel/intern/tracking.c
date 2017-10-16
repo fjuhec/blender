@@ -49,8 +49,8 @@
 #include "BLI_math.h"
 #include "BLI_math_base.h"
 #include "BLI_listbase.h"
-#include "BLI_path_util.h"
 #include "BLI_string.h"
+#include "BLI_string_utils.h"
 #include "BLI_threads.h"
 
 #include "BLT_translation.h"
@@ -190,7 +190,7 @@ void BKE_tracking_free(MovieTracking *tracking)
 }
 
 /* Copy the whole list of tracks. */
-static void tracking_tracks_copy(ListBase *tracks_dst, ListBase *tracks_src, GHash *tracks_mapping)
+static void tracking_tracks_copy(ListBase *tracks_dst, const ListBase *tracks_src, GHash *tracks_mapping, const int flag)
 {
 	MovieTrackingTrack *track_dst, *track_src;
 
@@ -202,7 +202,9 @@ static void tracking_tracks_copy(ListBase *tracks_dst, ListBase *tracks_src, GHa
 		if (track_src->markers) {
 			track_dst->markers = MEM_dupallocN(track_src->markers);
 		}
-		id_us_plus(&track_dst->gpd->id);
+		if ((flag & LIB_ID_CREATE_NO_USER_REFCOUNT) == 0) {
+			id_us_plus(&track_dst->gpd->id);
+		}
 		BLI_addtail(tracks_dst, track_dst);
 		BLI_ghash_insert(tracks_mapping, track_src, track_dst);
 	}
@@ -210,7 +212,8 @@ static void tracking_tracks_copy(ListBase *tracks_dst, ListBase *tracks_src, GHa
 
 /* copy the whole list of plane tracks (need whole MovieTracking structures due to embedded pointers to tracks).
  * WARNING: implies tracking_[dst/src] and their tracks have already been copied. */
-static void tracking_plane_tracks_copy(ListBase *plane_tracks_dst, ListBase *plane_tracks_src, GHash *tracks_mapping)
+static void tracking_plane_tracks_copy(
+        ListBase *plane_tracks_dst, const ListBase *plane_tracks_src, GHash *tracks_mapping, const int flag)
 {
 	MovieTrackingPlaneTrack *plane_track_dst, *plane_track_src;
 
@@ -225,14 +228,17 @@ static void tracking_plane_tracks_copy(ListBase *plane_tracks_dst, ListBase *pla
 		for (int i = 0; i < plane_track_dst->point_tracksnr; i++) {
 			plane_track_dst->point_tracks[i] = BLI_ghash_lookup(tracks_mapping, plane_track_src->point_tracks[i]);
 		}
-		id_us_plus(&plane_track_dst->image->id);
+		if ((flag & LIB_ID_CREATE_NO_USER_REFCOUNT) == 0) {
+			id_us_plus(&plane_track_dst->image->id);
+		}
 		BLI_addtail(plane_tracks_dst, plane_track_dst);
 	}
 }
 
 /* Copy reconstruction structure. */
 static void tracking_reconstruction_copy(
-        MovieTrackingReconstruction *reconstruction_dst, MovieTrackingReconstruction *reconstruction_src)
+        MovieTrackingReconstruction *reconstruction_dst, const MovieTrackingReconstruction *reconstruction_src,
+        const int UNUSED(flag))
 {
 	*reconstruction_dst = *reconstruction_src;
 	if (reconstruction_src->cameras) {
@@ -242,23 +248,25 @@ static void tracking_reconstruction_copy(
 
 /* Copy stabilization structure. */
 static void tracking_stabilization_copy(
-        MovieTrackingStabilization *stabilization_dst, MovieTrackingStabilization *stabilization_src)
+        MovieTrackingStabilization *stabilization_dst, const MovieTrackingStabilization *stabilization_src,
+        const int UNUSED(flag))
 {
 	*stabilization_dst = *stabilization_src;
 }
 
 /* Copy tracking object. */
 static void tracking_object_copy(
-        MovieTrackingObject *object_dst, MovieTrackingObject *object_src, GHash *tracks_mapping)
+        MovieTrackingObject *object_dst, const MovieTrackingObject *object_src, GHash *tracks_mapping, const int flag)
 {
 	*object_dst = *object_src;
-	tracking_tracks_copy(&object_dst->tracks, &object_src->tracks, tracks_mapping);
-	tracking_plane_tracks_copy(&object_dst->plane_tracks, &object_src->plane_tracks, tracks_mapping);
-	tracking_reconstruction_copy(&object_dst->reconstruction, &object_src->reconstruction);
+	tracking_tracks_copy(&object_dst->tracks, &object_src->tracks, tracks_mapping, flag);
+	tracking_plane_tracks_copy(&object_dst->plane_tracks, &object_src->plane_tracks, tracks_mapping, flag);
+	tracking_reconstruction_copy(&object_dst->reconstruction, &object_src->reconstruction, flag);
 }
 
 /* Copy list of tracking objects. */
-static void tracking_objects_copy(ListBase *objects_dst, ListBase *objects_src, GHash *tracks_mapping)
+static void tracking_objects_copy(
+        ListBase *objects_dst, const ListBase *objects_src, GHash *tracks_mapping, const int flag)
 {
 	MovieTrackingObject *object_dst, *object_src;
 
@@ -266,22 +274,22 @@ static void tracking_objects_copy(ListBase *objects_dst, ListBase *objects_src, 
 
 	for (object_src = objects_src->first; object_src != NULL; object_src = object_src->next) {
 		object_dst = MEM_mallocN(sizeof(*object_dst), __func__);
-		tracking_object_copy(object_dst, object_src, tracks_mapping);
+		tracking_object_copy(object_dst, object_src, tracks_mapping, flag);
 		BLI_addtail(objects_dst, object_dst);
 	}
 }
 
 /* Copy tracking structure content. */
-void BKE_tracking_copy(MovieTracking *tracking_dst, MovieTracking *tracking_src)
+void BKE_tracking_copy(MovieTracking *tracking_dst, const MovieTracking *tracking_src, const int flag)
 {
 	GHash *tracks_mapping = BLI_ghash_ptr_new(__func__);
 
 	*tracking_dst = *tracking_src;
 
-	tracking_tracks_copy(&tracking_dst->tracks, &tracking_src->tracks, tracks_mapping);
-	tracking_plane_tracks_copy(&tracking_dst->plane_tracks, &tracking_src->plane_tracks, tracks_mapping);
-	tracking_reconstruction_copy(&tracking_dst->reconstruction, &tracking_src->reconstruction);
-	tracking_stabilization_copy(&tracking_dst->stabilization, &tracking_src->stabilization);
+	tracking_tracks_copy(&tracking_dst->tracks, &tracking_src->tracks, tracks_mapping, flag);
+	tracking_plane_tracks_copy(&tracking_dst->plane_tracks, &tracking_src->plane_tracks, tracks_mapping, flag);
+	tracking_reconstruction_copy(&tracking_dst->reconstruction, &tracking_src->reconstruction, flag);
+	tracking_stabilization_copy(&tracking_dst->stabilization, &tracking_src->stabilization, flag);
 	if (tracking_src->act_track) {
 		tracking_dst->act_track = BLI_ghash_lookup(tracks_mapping, tracking_src->act_track);
 	}
@@ -299,7 +307,7 @@ void BKE_tracking_copy(MovieTracking *tracking_dst, MovieTracking *tracking_src)
 	}
 
 	/* Warning! Will override tracks_mapping. */
-	tracking_objects_copy(&tracking_dst->objects, &tracking_src->objects, tracks_mapping);
+	tracking_objects_copy(&tracking_dst->objects, &tracking_src->objects, tracks_mapping, flag);
 
 	/* Those remaining are runtime data, they will be reconstructed as needed, do not bother copying them. */
 	tracking_dst->dopesheet.ok = false;
@@ -974,8 +982,11 @@ static void track_mask_set_pixel_cb(int x, int x_end, int y, void *user_data)
 }
 
 static void track_mask_gpencil_layer_rasterize(int frame_width, int frame_height,
-                                               MovieTrackingMarker *marker, bGPDlayer *layer,
-                                               float *mask, int mask_width, int mask_height)
+                                               const float region_min[2],
+                                               bGPDlayer *layer,
+                                               float *mask,
+                                               int mask_width,
+                                               int mask_height)
 {
 	bGPDframe *frame = layer->frames.first;
 	TrackMaskSetPixelData data;
@@ -994,8 +1005,8 @@ static void track_mask_gpencil_layer_rasterize(int frame_width, int frame_height
 				point = mask_points = MEM_callocN(2 * stroke->totpoints * sizeof(int),
 				                               "track mask rasterization points");
 				for (int i = 0; i < stroke->totpoints; i++, point += 2) {
-					point[0] = (stroke_points[i].x - marker->search_min[0]) * frame_width;
-					point[1] = (stroke_points[i].y - marker->search_min[1]) * frame_height;
+					point[0] = stroke_points[i].x * frame_width - region_min[0];
+					point[1] = stroke_points[i].y * frame_height - region_min[1];
 				}
 				/* TODO: add an option to control whether AA is enabled or not */
 				BLI_bitmap_draw_2d_poly_v2i_n(
@@ -1010,24 +1021,40 @@ static void track_mask_gpencil_layer_rasterize(int frame_width, int frame_height
 	}
 }
 
-float *BKE_tracking_track_get_mask(int frame_width, int frame_height,
-                                   MovieTrackingTrack *track, MovieTrackingMarker *marker)
+/* Region is in pixel space, relative to marker's center. */
+float *tracking_track_get_mask_for_region(int frame_width, int frame_height,
+                                          const float region_min[2],
+                                          const float region_max[2],
+                                          MovieTrackingTrack *track)
 {
 	float *mask = NULL;
 	bGPDlayer *layer = track_mask_gpencil_layer_get(track);
-	int mask_width, mask_height;
-
-	mask_width = (marker->search_max[0] - marker->search_min[0]) * frame_width;
-	mask_height = (marker->search_max[1] - marker->search_min[1]) * frame_height;
-
-	if (layer) {
+	if (layer != NULL) {
+		const int mask_width = region_max[0] - region_min[0];
+		const int mask_height = region_max[1] - region_min[1];
 		mask = MEM_callocN(mask_width * mask_height * sizeof(float), "track mask");
-
-		track_mask_gpencil_layer_rasterize(frame_width, frame_height, marker, layer,
-		                                   mask, mask_width, mask_height);
+		track_mask_gpencil_layer_rasterize(frame_width, frame_height,
+		                                   region_min,
+		                                   layer,
+		                                   mask,
+		                                   mask_width, mask_height);
 	}
-
 	return mask;
+}
+
+float *BKE_tracking_track_get_mask(int frame_width, int frame_height,
+                                   MovieTrackingTrack *track,
+                                   MovieTrackingMarker *marker)
+{
+	/* Convert normalized space marker's search area to pixel-space region. */
+	const float region_min[2] = {marker->search_min[0] * frame_width,
+	                             marker->search_min[1] * frame_height};
+	const float region_max[2] = {marker->search_max[0] * frame_width,
+	                             marker->search_max[1] * frame_height};
+	return tracking_track_get_mask_for_region(frame_width, frame_height,
+	                                          region_min,
+	                                          region_max,
+	                                          track);
 }
 
 float BKE_tracking_track_get_weight_for_marker(MovieClip *clip, MovieTrackingTrack *track, MovieTrackingMarker *marker)

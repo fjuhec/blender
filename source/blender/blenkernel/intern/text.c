@@ -224,7 +224,7 @@ Text *BKE_text_add(Main *bmain, const char *name)
 {
 	Text *ta;
 
-	ta = BKE_libblock_alloc(bmain, ID_TXT, name);
+	ta = BKE_libblock_alloc(bmain, ID_TXT, name, 0);
 
 	BKE_text_init(ta);
 
@@ -235,8 +235,9 @@ Text *BKE_text_add(Main *bmain, const char *name)
 /* to a valid utf-8 sequences */
 int txt_extended_ascii_as_utf8(char **str)
 {
-	int bad_char, added = 0, i = 0;
-	int length = strlen(*str);
+	ptrdiff_t bad_char, i = 0;
+	const ptrdiff_t length = (ptrdiff_t)strlen(*str);
+	int added = 0;
 
 	while ((*str)[i]) {
 		if ((bad_char = BLI_utf8_invalid_byte(*str + i, length - i)) == -1)
@@ -248,7 +249,7 @@ int txt_extended_ascii_as_utf8(char **str)
 	
 	if (added != 0) {
 		char *newstr = MEM_mallocN(length + added + 1, "text_line");
-		int mi = 0;
+		ptrdiff_t mi = 0;
 		i = 0;
 		
 		while ((*str)[i]) {
@@ -409,7 +410,8 @@ Text *BKE_text_load_ex(Main *bmain, const char *file, const char *relpath, const
 		return false;
 	}
 
-	ta = BKE_libblock_alloc(bmain, ID_TXT, BLI_path_basename(filepath_abs));
+	ta = BKE_libblock_alloc(bmain, ID_TXT, BLI_path_basename(filepath_abs), 0);
+	ta->id.us = 0;
 
 	BLI_listbase_clear(&ta->lines);
 	ta->curl = ta->sell = NULL;
@@ -447,53 +449,49 @@ Text *BKE_text_load(Main *bmain, const char *file, const char *relpath)
 	return BKE_text_load_ex(bmain, file, relpath, false);
 }
 
-Text *BKE_text_copy(Main *bmain, Text *ta)
+/**
+ * Only copy internal data of Text ID from source to already allocated/initialized destination.
+ * You probably nerver want to use that directly, use id_copy or BKE_id_copy_ex for typical needs.
+ *
+ * WARNING! This function will not handle ID user count!
+ *
+ * \param flag  Copying options (see BKE_library.h's LIB_ID_COPY_... flags for more).
+ */
+void BKE_text_copy_data(Main *UNUSED(bmain), Text *ta_dst, const Text *ta_src, const int UNUSED(flag))
 {
-	Text *tan;
-	TextLine *line, *tmp;
-	
-	tan = BKE_libblock_copy(bmain, &ta->id);
-	
 	/* file name can be NULL */
-	if (ta->name) {
-		tan->name = BLI_strdup(ta->name);
-	}
-	else {
-		tan->name = NULL;
+	if (ta_src->name) {
+		ta_dst->name = BLI_strdup(ta_src->name);
 	}
 
-	tan->flags = ta->flags | TXT_ISDIRTY;
-	
-	BLI_listbase_clear(&tan->lines);
-	tan->curl = tan->sell = NULL;
-	tan->compiled = NULL;
-	
-	tan->nlines = ta->nlines;
+	ta_dst->flags |= TXT_ISDIRTY;
 
-	line = ta->lines.first;
+	BLI_listbase_clear(&ta_dst->lines);
+	ta_dst->curl = ta_dst->sell = NULL;
+	ta_dst->compiled = NULL;
+
 	/* Walk down, reconstructing */
-	while (line) {
-		tmp = (TextLine *) MEM_mallocN(sizeof(TextLine), "textline");
-		tmp->line = MEM_mallocN(line->len + 1, "textline_string");
-		tmp->format = NULL;
-		
-		strcpy(tmp->line, line->line);
+	for (TextLine *line_src = ta_src->lines.first; line_src; line_src = line_src->next) {
+		TextLine *line_dst = MEM_mallocN(sizeof(*line_dst), __func__);
 
-		tmp->len = line->len;
-		
-		BLI_addtail(&tan->lines, tmp);
-		
-		line = line->next;
+		line_dst->line = BLI_strdup(line_src->line);
+		line_dst->format = NULL;
+		line_dst->len = line_src->len;
+
+		BLI_addtail(&ta_dst->lines, line_dst);
 	}
 
-	tan->curl = tan->sell = tan->lines.first;
-	tan->curc = tan->selc = 0;
+	ta_dst->curl = ta_dst->sell = ta_dst->lines.first;
+	ta_dst->curc = ta_dst->selc = 0;
 
-	init_undo_text(tan);
+	init_undo_text(ta_dst);
+}
 
-	BKE_id_copy_ensure_local(bmain, &ta->id, &tan->id);
-
-	return tan;
+Text *BKE_text_copy(Main *bmain, const Text *ta)
+{
+	Text *ta_copy;
+	BKE_id_copy_ex(bmain, &ta->id, (ID **)&ta_copy, 0, false);
+	return ta_copy;
 }
 
 void BKE_text_make_local(Main *bmain, Text *text, const bool lib_local)
@@ -1933,7 +1931,7 @@ void txt_do_undo(Text *text)
 	int op = text->undo_buf[text->undo_pos];
 	int prev_flags;
 	unsigned int linep;
-	unsigned int uchar;
+	unsigned int uni_char;
 	unsigned int curln, selln;
 	unsigned short curc, selc;
 	unsigned short charp;
@@ -1969,14 +1967,14 @@ void txt_do_undo(Text *text)
 		case UNDO_BS_3:
 		case UNDO_BS_4:
 			charp = op - UNDO_BS_1 + 1;
-			uchar = txt_undo_read_unicode(text->undo_buf, &text->undo_pos, charp);
+			uni_char = txt_undo_read_unicode(text->undo_buf, &text->undo_pos, charp);
 			
 			/* get and restore the cursors */
 			txt_undo_read_cur(text->undo_buf, &text->undo_pos, &curln, &curc);
 			txt_move_to(text, curln, curc, 0);
 			txt_move_to(text, curln, curc, 1);
 			
-			txt_add_char(text, uchar);
+			txt_add_char(text, uni_char);
 
 			text->undo_pos--;
 			break;
@@ -1986,14 +1984,14 @@ void txt_do_undo(Text *text)
 		case UNDO_DEL_3:
 		case UNDO_DEL_4:
 			charp = op - UNDO_DEL_1 + 1;
-			uchar = txt_undo_read_unicode(text->undo_buf, &text->undo_pos, charp);
+			uni_char = txt_undo_read_unicode(text->undo_buf, &text->undo_pos, charp);
 
 			/* get and restore the cursors */
 			txt_undo_read_cur(text->undo_buf, &text->undo_pos, &curln, &curc);
 			txt_move_to(text, curln, curc, 0);
 			txt_move_to(text, curln, curc, 1);
 
-			txt_add_char(text, uchar);
+			txt_add_char(text, uni_char);
 
 			txt_move_left(text, 0);
 
@@ -2161,7 +2159,7 @@ void txt_do_redo(Text *text)
 	char *buf;
 	unsigned int linep;
 	unsigned short charp;
-	unsigned int uchar;
+	unsigned int uni_uchar;
 	unsigned int curln, selln;
 	unsigned short curc, selc;
 	
@@ -2188,9 +2186,9 @@ void txt_do_redo(Text *text)
 			txt_move_to(text, curln, curc, 1);
 			
 			charp = op - UNDO_INSERT_1 + 1;
-			uchar = txt_redo_read_unicode(text->undo_buf, &text->undo_pos, charp);
+			uni_uchar = txt_redo_read_unicode(text->undo_buf, &text->undo_pos, charp);
 
-			txt_add_char(text, uchar);
+			txt_add_char(text, uni_uchar);
 			break;
 
 		case UNDO_BS_1:

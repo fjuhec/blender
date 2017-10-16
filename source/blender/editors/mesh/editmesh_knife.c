@@ -971,7 +971,7 @@ static void knifetool_draw_angle_snapping(const KnifeTool_OpData *kcd)
 
 			copy_v3_v3(co_depth, kcd->prev.cage);
 			mul_m4_v3(kcd->ob->obmat, co_depth);
-			ED_view3d_win_to_3d(kcd->ar, co_depth, kcd->curr.mval, curr_cage_adjust);
+			ED_view3d_win_to_3d(kcd->vc.v3d, kcd->ar, co_depth, kcd->curr.mval, curr_cage_adjust);
 			mul_m4_v3(kcd->ob->imat, curr_cage_adjust);
 
 			sub_v3_v3v3(ray_dir, curr_cage_adjust, kcd->prev.cage);
@@ -1206,6 +1206,7 @@ static bool knife_ray_intersect_face(
 
 	for (; tri_i < tottri; tri_i++) {
 		const float *lv1, *lv2, *lv3;
+		float ray_tri_uv[2];
 
 		tri = kcd->em->looptris[tri_i];
 		if (tri[0]->f != f)
@@ -1217,7 +1218,7 @@ static bool knife_ray_intersect_face(
 		 * tesselation edge and might not hit either tesselation tri with
 		 * an exact test;
 		 * we will exclude hits near real edges by a later test */
-		if (isect_ray_tri_epsilon_v3(v1, raydir, lv1, lv2, lv3, &lambda, NULL, KNIFE_FLT_EPS)) {
+		if (isect_ray_tri_epsilon_v3(v1, raydir, lv1, lv2, lv3, &lambda, ray_tri_uv, KNIFE_FLT_EPS)) {
 			/* check if line coplanar with tri */
 			normal_tri_v3(tri_norm, lv1, lv2, lv3);
 			plane_from_point_normal_v3(tri_plane, lv1, tri_norm);
@@ -1226,8 +1227,7 @@ static bool knife_ray_intersect_face(
 			{
 				return false;
 			}
-			copy_v3_v3(hit_cageco, v1);
-			madd_v3_v3fl(hit_cageco, raydir, lambda);
+			interp_v3_v3v3v3_uv(hit_cageco, lv1, lv2, lv3, ray_tri_uv);
 			/* Now check that far enough away from verts and edges */
 			lst = knife_get_face_kedges(kcd, f);
 			for (ref = lst->first; ref; ref = ref->next) {
@@ -1239,11 +1239,7 @@ static bool knife_ray_intersect_face(
 					return false;
 				}
 			}
-
-			transform_point_by_tri_v3(
-			        hit_co, hit_cageco,
-			        tri[0]->v->co, tri[1]->v->co, tri[2]->v->co,
-			        lv1, lv2, lv3);
+			interp_v3_v3v3v3_uv(hit_co, tri[0]->v->co, tri[1]->v->co, tri[2]->v->co, ray_tri_uv);
 			return true;
 		}
 	}
@@ -1472,7 +1468,7 @@ static void clip_to_ortho_planes(float v1[3], float v2[3], const float center[3]
 
 	/* could be v1 or v2 */
 	sub_v3_v3(v1, center);
-	project_plane_v3_v3v3(closest, v1, dir);
+	project_plane_normalized_v3_v3v3(closest, v1, dir);
 	add_v3_v3(closest, center);
 
 	madd_v3_v3v3fl(v1, closest, dir,  d);
@@ -2140,7 +2136,7 @@ static float snap_v2_angle(float r[2], const float v[2], const float v_ref[2], f
 	normalize_v2_v2(v_unit, v);
 	angle = angle_signed_v2v2(v_unit, v_ref);
 	angle_delta = (roundf(angle / angle_snap) * angle_snap) - angle;
-	rotate_m2(m2, angle_delta);
+	angle_to_mat2(m2, angle_delta);
 
 	mul_v2_m2v2(r, m2, v);
 	return angle + angle_delta;

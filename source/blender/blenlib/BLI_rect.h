@@ -47,12 +47,16 @@ bool BLI_rcti_is_empty(const struct rcti *rect);
 bool BLI_rctf_is_empty(const struct rctf *rect);
 void BLI_rctf_init(struct rctf *rect, float xmin, float xmax, float ymin, float ymax);
 void BLI_rcti_init(struct rcti *rect, int xmin, int xmax, int ymin, int ymax);
+void BLI_rctf_init_pt_radius(struct rctf *rect, const float xy[2], float size);
+void BLI_rcti_init_pt_radius(struct rcti *rect, const int xy[2], int size);
 void BLI_rcti_init_minmax(struct rcti *rect);
 void BLI_rctf_init_minmax(struct rctf *rect);
 void BLI_rcti_do_minmax_v(struct rcti *rect, const int xy[2]);
 void BLI_rctf_do_minmax_v(struct rctf *rect, const float xy[2]);
 
 void BLI_rctf_transform_pt_v(const rctf *dst, const rctf *src, float xy_dst[2], const float xy_src[2]);
+void BLI_rctf_transform_calc_m4_pivot_min_ex(const rctf *dst, const rctf *src, float matrix[4][4], uint x, uint y);
+void BLI_rctf_transform_calc_m4_pivot_min(const rctf *dst, const rctf *src, float matrix[4][4]);
 
 void BLI_rctf_translate(struct rctf *rect, float x, float y);
 void BLI_rcti_translate(struct rcti *rect, int x, int y);
@@ -95,6 +99,7 @@ void BLI_rctf_union(struct rctf *rctf1, const struct rctf *rctf2);
 void BLI_rcti_rctf_copy(struct rcti *dst, const struct rctf *src);
 void BLI_rctf_rcti_copy(struct rctf *dst, const struct rcti *src);
 void BLI_rcti_rctf_copy_floor(struct rcti *dst, const struct rctf *src);
+void BLI_rcti_rctf_copy_round(struct rcti *dst, const struct rctf *src);
 
 void BLI_rctf_rotate_expand(rctf *dst, const rctf *src, const float angle);
 

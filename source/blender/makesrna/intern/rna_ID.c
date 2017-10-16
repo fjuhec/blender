@@ -250,9 +250,10 @@ void rna_PropertyGroup_unregister(Main *UNUSED(bmain), StructRNA *type)
 	RNA_struct_free(&BLENDER_RNA, type);
 }
 
-StructRNA *rna_PropertyGroup_register(Main *UNUSED(bmain), ReportList *reports, void *data, const char *identifier,
-                                      StructValidateFunc validate, StructCallbackFunc UNUSED(call),
-                                      StructFreeFunc UNUSED(free))
+StructRNA *rna_PropertyGroup_register(
+        Main *UNUSED(bmain), ReportList *reports, void *data, const char *identifier,
+        StructValidateFunc validate, StructCallbackFunc UNUSED(call),
+        StructFreeFunc UNUSED(free))
 {
 	PointerRNA dummyptr;
 
@@ -342,7 +343,7 @@ static void rna_ID_user_clear(ID *id)
 
 static void rna_ID_user_remap(ID *id, Main *bmain, ID *new_id)
 {
-	if (GS(id->name) == GS(new_id->name)) {
+	if ((GS(id->name) == GS(new_id->name)) && (id != new_id)) {
 		/* For now, do not allow remapping data in linked data from here... */
 		BKE_libblock_remap(bmain, id, new_id, ID_REMAP_SKIP_INDIRECT_USAGE | ID_REMAP_SKIP_NEVER_NULL_USAGE);
 	}
@@ -358,7 +359,9 @@ static struct ID *rna_ID_make_local(struct ID *self, Main *bmain, int clear_prox
 		id_make_local(bmain, self, false, false);
 	}
 
-	return self->newid ? self->newid : self;
+	ID *ret_id = self->newid ? self->newid : self;
+	BKE_id_clear_newpoin(self);
+	return ret_id;
 }
 
 
@@ -800,7 +803,11 @@ static void rna_def_ID_properties(BlenderRNA *brna)
 	RNA_def_struct_name_property(srna, prop);
 #endif
 
-	/* IDP_ID -- not implemented yet in id properties */
+	/* IDP_ID */
+	prop = RNA_def_property(srna, "id", PROP_POINTER, PROP_NONE);
+	RNA_def_property_flag(prop, PROP_EXPORT | PROP_IDPROPERTY | PROP_NEVER_UNLINK);
+	RNA_def_property_struct_type(prop, "ID");
+
 
 	/* ID property groups > level 0, since level 0 group is merged
 	 * with native RNA properties. the builtin_properties will take
@@ -838,7 +845,7 @@ static void rna_def_ID_materials(BlenderRNA *brna)
 	RNA_def_function_flag(func, FUNC_USE_MAIN);
 	RNA_def_function_ui_description(func, "Add a new material to the data-block");
 	parm = RNA_def_pointer(func, "material", "Material", "", "Material to add");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 
 	func = RNA_def_function(srna, "pop", "rna_IDMaterials_pop_id");
 	RNA_def_function_flag(func, FUNC_USE_REPORTS | FUNC_USE_MAIN);
@@ -1012,7 +1019,7 @@ static void rna_def_ID(BlenderRNA *brna)
 	RNA_def_function_ui_description(func, "Replace all usage in the .blend file of this ID by new given one");
 	RNA_def_function_flag(func, FUNC_USE_MAIN);
 	parm = RNA_def_pointer(func, "new_id", "ID", "", "New ID to use");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL);
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
 
 	func = RNA_def_function(srna, "make_local", "rna_ID_make_local");
 	RNA_def_function_ui_description(func, "Make this datablock local, return local one "
@@ -1021,14 +1028,13 @@ static void rna_def_ID(BlenderRNA *brna)
 	parm = RNA_def_boolean(func, "clear_proxy", true, "",
 	                       "Whether to clear proxies (the default behavior, "
 	                       "note that if object has to be duplicated to be made local, proxies are always cleared)");
-	RNA_def_property_flag(parm, PROP_PYFUNC_OPTIONAL);
 	parm = RNA_def_pointer(func, "id", "ID", "", "This ID, or the new ID if it was copied");
 	RNA_def_function_return(func, parm);
 
 	func = RNA_def_function(srna, "user_of_id", "BKE_library_ID_use_ID");
 	RNA_def_function_ui_description(func, "Count the number of times that ID uses/references given one");
 	parm = RNA_def_pointer(func, "id", "ID", "", "ID to count usages");
-	RNA_def_property_flag(parm, PROP_REQUIRED | PROP_NEVER_NULL);
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
 	parm = RNA_def_int(func, "count", 0, 0, INT_MAX,
 	                   "", "Number of usages/references of given id by current data-block", 0, INT_MAX);
 	RNA_def_function_return(func, parm);

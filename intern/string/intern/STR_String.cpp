@@ -37,9 +37,6 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
-#if defined(__sun__) || defined(__sun) || defined(__sparc) || defined(__sparc__) || defined(_AIX)
-#  include <strings.h>
-#endif
 #include "STR_String.h"
 
 /*-------------------------------------------------------------------------------------------------
@@ -545,9 +542,9 @@ STR_String& STR_String::Capitalize()
 	if (this->m_len > 1) _strlwr(this->m_data + 1);
 #else
 	if (this->m_len > 0)
-		this->m_data[0] = (this->m_data[0] >= 'A' && this->m_data[0] <= 'A') ? this->m_data[0] + 'a' - 'A' : this->m_data[0];
+		this->m_data[0] = (this->m_data[0] >= 'a' && this->m_data[0] <= 'z') ? this->m_data[0] + 'A' - 'a' : this->m_data[0];
 	for (int i = 1; i < this->m_len; i++)
-		this->m_data[i] = (this->m_data[i] >= 'a' && this->m_data[i] <= 'z') ? this->m_data[i] + 'A' - 'a' : this->m_data[i];
+		this->m_data[i] = (this->m_data[i] >= 'A' && this->m_data[i] <= 'Z') ? this->m_data[i] + 'a' - 'A' : this->m_data[i];
 #endif
 	return *this;
 }

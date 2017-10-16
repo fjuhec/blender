@@ -99,8 +99,12 @@ static void ed_keymap_gpencil_general(wmKeyConfig *keyconf)
 	WM_keymap_add_item(keymap, "GPENCIL_OT_editmode_toggle", TABKEY, KM_PRESS, 0, DKEY);
 	
 	/* Pie Menu - For standard tools */
-	WM_keymap_add_menu_pie(keymap, "GPENCIL_PIE_tool_palette", QKEY, KM_PRESS, 0, DKEY);
-	WM_keymap_add_menu_pie(keymap, "GPENCIL_PIE_settings_palette", WKEY, KM_PRESS, 0, DKEY);
+	WM_keymap_add_menu_pie(keymap, "GPENCIL_MT_pie_tool_palette", QKEY, KM_PRESS, 0, DKEY);
+	WM_keymap_add_menu_pie(keymap, "GPENCIL_MT_pie_settings_palette", WKEY, KM_PRESS, 0, DKEY);
+	
+	/* Add Blank Frame */
+	/* XXX: BKEY or NKEY? BKEY is easier to reach from DKEY, so we'll use that for now */
+	WM_keymap_add_item(keymap, "GPENCIL_OT_blank_frame_add", BKEY, KM_PRESS, 0, DKEY);
 	
 	/* Delete Active Frame - For easier video tutorials/review sessions */
 	/* NOTE: This works even when not in EditMode */
@@ -131,7 +135,7 @@ static void ed_keymap_gpencil_editing(wmKeyConfig *keyconf)
 	WM_keymap_add_item(keymap, "GPENCIL_OT_editmode_toggle", TABKEY, KM_PRESS, 0, 0);
 	
 	/* Pie Menu - For settings/tools easy access */
-	WM_keymap_add_menu_pie(keymap, "GPENCIL_PIE_sculpt", EKEY, KM_PRESS, 0, DKEY);
+	WM_keymap_add_menu_pie(keymap, "GPENCIL_MT_pie_sculpt", EKEY, KM_PRESS, 0, DKEY);
 	
 	/* Brush Settings */
 	/* NOTE: We cannot expose these in the standard keymap, as they will interfere with regular hotkeys
@@ -401,6 +405,8 @@ void ED_operatortypes_gpencil(void)
 	WM_operatortype_append(GPENCIL_OT_layer_isolate);
 	WM_operatortype_append(GPENCIL_OT_layer_merge);
 
+	WM_operatortype_append(GPENCIL_OT_blank_frame_add);
+	
 	WM_operatortype_append(GPENCIL_OT_active_frame_delete);
 	WM_operatortype_append(GPENCIL_OT_active_frames_delete_all);
 	
@@ -443,6 +449,7 @@ void ED_operatortypes_gpencil(void)
 	/* Interpolation */
 	WM_operatortype_append(GPENCIL_OT_interpolate);
 	WM_operatortype_append(GPENCIL_OT_interpolate_sequence);
+	WM_operatortype_append(GPENCIL_OT_interpolate_reverse);
 }
 
 void ED_operatormacros_gpencil(void)

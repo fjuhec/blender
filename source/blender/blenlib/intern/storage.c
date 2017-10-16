@@ -37,14 +37,10 @@
 
 #include <sys/stat.h>
 
-#if defined(__NetBSD__) || defined(__DragonFly__) || defined(__sun__) || defined(__sun)
+#if defined(__NetBSD__) || defined(__DragonFly__)
    /* Other modern unix os's should probably use this also */
 #  include <sys/statvfs.h>
 #  define USE_STATFS_STATVFS
-#elif (defined(__sparc) || defined(__sparc__)) && !defined(__FreeBSD__) && !defined(__linux__)
-#  include <sys/statfs.h>
-   /* 4 argument version (not common) */
-#  define USE_STATFS_4ARGS
 #endif
 
 #if defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__) || defined(__DragonFly__)
@@ -113,7 +109,7 @@ double BLI_dir_free_space(const char *dir)
 #ifdef WIN32
 	DWORD sectorspc, bytesps, freec, clusters;
 	char tmp[4];
-	
+
 	tmp[0] = '\\'; tmp[1] = 0; /* Just a failsafe */
 	if (dir[0] == '/' || dir[0] == '\\') {
 		tmp[0] = '\\';
@@ -139,10 +135,10 @@ double BLI_dir_free_space(const char *dir)
 
 	char name[FILE_MAXDIR], *slash;
 	int len = strlen(dir);
-	
+
 	if (len >= FILE_MAXDIR) /* path too long */
 		return -1;
-	
+
 	strcpy(name, dir);
 
 	if (len) {
@@ -194,7 +190,7 @@ size_t BLI_file_size(const char *path)
  */
 int BLI_exists(const char *name)
 {
-#if defined(WIN32) 
+#if defined(WIN32)
 	BLI_stat_t st;
 	wchar_t *tmp_16 = alloc_utf16_from_8(name, 1);
 	int len, res;
@@ -253,10 +249,8 @@ int BLI_stat(const char *path, BLI_stat_t *buffer)
 
 int BLI_wstat(const wchar_t *path, BLI_stat_t *buffer)
 {
-#if defined(_MSC_VER) || defined(__MINGW64__)
+#if defined(_MSC_VER)
 	return _wstat64(path, buffer);
-#elif defined(__MINGW32__)
-	return _wstati64(path, buffer);
 #else
 	return _wstat(path, buffer);
 #endif
@@ -372,7 +366,7 @@ LinkNode *BLI_file_read_as_lines(const char *name)
 	size_t size;
 
 	if (!fp) return NULL;
-		
+
 	fseek(fp, 0, SEEK_END);
 	size = (size_t)ftell(fp);
 	fseek(fp, 0, SEEK_SET);
@@ -385,7 +379,7 @@ LinkNode *BLI_file_read_as_lines(const char *name)
 	buf = MEM_mallocN(size, "file_as_lines");
 	if (buf) {
 		size_t i, last = 0;
-		
+
 		/*
 		 * size = because on win32 reading
 		 * all the bytes in the file will return
@@ -403,10 +397,10 @@ LinkNode *BLI_file_read_as_lines(const char *name)
 				last = i + 1;
 			}
 		}
-		
+
 		MEM_freeN(buf);
 	}
-	
+
 	fclose(fp);
 
 	return lines.list;
@@ -424,23 +418,13 @@ void BLI_file_free_lines(LinkNode *lines)
 bool BLI_file_older(const char *file1, const char *file2)
 {
 #ifdef WIN32
-#ifndef __MINGW32__
 	struct _stat st1, st2;
-#else
-	struct _stati64 st1, st2;
-#endif
 
 	UTF16_ENCODE(file1);
 	UTF16_ENCODE(file2);
-	
-#ifndef __MINGW32__
+
 	if (_wstat(file1_16, &st1)) return false;
 	if (_wstat(file2_16, &st2)) return false;
-#else
-	if (_wstati64(file1_16, &st1)) return false;
-	if (_wstati64(file2_16, &st2)) return false;
-#endif
-
 
 	UTF16_UN_ENCODE(file2);
 	UTF16_UN_ENCODE(file1);

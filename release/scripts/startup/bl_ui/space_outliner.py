@@ -56,7 +56,7 @@ class OUTLINER_HT_header(Header):
                 row.operator("anim.keyframe_delete", text="", icon='KEY_DEHLT')
             else:
                 row = layout.row()
-                row.label(text="No Keying Set active")
+                row.label(text="No Keying Set Active")
         elif space.display_mode == 'ORPHAN_DATA':
             layout.operator("outliner.orphans_purge")
 
@@ -93,7 +93,8 @@ class OUTLINER_MT_view(Menu):
             layout.separator()
             layout.operator("outliner.show_active")
 
-        layout.operator("outliner.show_one_level")
+        layout.operator("outliner.show_one_level", text="Show One Level")
+        layout.operator("outliner.show_one_level", text="Hide One Level").open = False
         layout.operator("outliner.show_hierarchy")
 
         layout.separator()
@@ -129,5 +130,16 @@ class OUTLINER_MT_edit_datablocks(Menu):
         layout.operator("outliner.drivers_add_selected")
         layout.operator("outliner.drivers_delete_selected")
 
+
+classes = (
+    OUTLINER_HT_header,
+    OUTLINER_MT_editor_menus,
+    OUTLINER_MT_view,
+    OUTLINER_MT_search,
+    OUTLINER_MT_edit_datablocks,
+)
+
 if __name__ == "__main__":  # only for live edit.
-    bpy.utils.register_module(__name__)
+    from bpy.utils import register_class
+    for cls in classes:
+        register_class(cls)

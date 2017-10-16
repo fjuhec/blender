@@ -62,7 +62,8 @@ void RNA_def_struct_refine_func(StructRNA *srna, const char *refine);
 void RNA_def_struct_idprops_func(StructRNA *srna, const char *refine);
 void RNA_def_struct_register_funcs(StructRNA *srna, const char *reg, const char *unreg, const char *instance);
 void RNA_def_struct_path_func(StructRNA *srna, const char *path);
-void RNA_def_struct_identifier(StructRNA *srna, const char *identifier);
+void RNA_def_struct_identifier_no_struct_map(StructRNA *srna, const char *identifier);
+void RNA_def_struct_identifier(BlenderRNA *brna, StructRNA *srna, const char *identifier);
 void RNA_def_struct_ui_text(StructRNA *srna, const char *name, const char *description);
 void RNA_def_struct_ui_icon(StructRNA *srna, int icon);
 void RNA_struct_free_extension(StructRNA *srna, ExtensionRNA *ext);
@@ -137,8 +138,8 @@ void RNA_def_property_enum_bitflag_sdna(PropertyRNA *prop, const char *structnam
 void RNA_def_property_pointer_sdna(PropertyRNA *prop, const char *structname, const char *propname);
 void RNA_def_property_collection_sdna(PropertyRNA *prop, const char *structname, const char *propname, const char *lengthpropname);
 
-void RNA_def_property_flag(PropertyRNA *prop, int flag);
-void RNA_def_property_clear_flag(PropertyRNA *prop, int flag);
+void RNA_def_property_flag(PropertyRNA *prop, PropertyFlag flag);
+void RNA_def_property_clear_flag(PropertyRNA *prop, PropertyFlag flag);
 void RNA_def_property_subtype(PropertyRNA *prop, PropertySubType subtype);
 void RNA_def_property_array(PropertyRNA *prop, int length);
 void RNA_def_property_multi_array(PropertyRNA *prop, int dimension, const int length[]);
@@ -167,6 +168,7 @@ void RNA_def_property_editable_func(PropertyRNA *prop, const char *editable);
 void RNA_def_property_editable_array_func(PropertyRNA *prop, const char *editable);
 
 void RNA_def_property_update_runtime(PropertyRNA *prop, const void *func);
+void RNA_def_property_poll_runtime(PropertyRNA *prop, const void *func);
 
 void RNA_def_property_dynamic_array_funcs(PropertyRNA *prop, const char *getlength);
 void RNA_def_property_boolean_funcs(PropertyRNA *prop, const char *get, const char *set);
@@ -201,6 +203,9 @@ void RNA_def_function_output(FunctionRNA *func, PropertyRNA *ret);
 void RNA_def_function_flag(FunctionRNA *func, int flag);
 void RNA_def_function_ui_description(FunctionRNA *func, const char *description);
 
+void RNA_def_parameter_flags(PropertyRNA *prop, PropertyFlag flag_property, ParameterFlag flag_parameter);
+void RNA_def_parameter_clear_flags(PropertyRNA *prop, PropertyFlag flag_property, ParameterFlag flag_parameter);
+
 /* Dynamic Enums
  * strings are not freed, assumed pointing to static location. */
 
@@ -212,8 +217,8 @@ void RNA_enum_item_end(EnumPropertyItem **items, int *totitem);
 
 /* Memory management */
 
-void RNA_def_struct_duplicate_pointers(StructRNA *srna);
-void RNA_def_struct_free_pointers(StructRNA *srna);
+void RNA_def_struct_duplicate_pointers(BlenderRNA *brna, StructRNA *srna);
+void RNA_def_struct_free_pointers(BlenderRNA *brna, StructRNA *srna);
 void RNA_def_func_duplicate_pointers(FunctionRNA *func);
 void RNA_def_func_free_pointers(FunctionRNA *func);
 void RNA_def_property_duplicate_pointers(StructOrFunctionRNA *cont_, PropertyRNA *prop);

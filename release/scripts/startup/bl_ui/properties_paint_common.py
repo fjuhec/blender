@@ -157,9 +157,9 @@ def brush_texpaint_common(panel, context, layout, brush, settings, projpaint=Fal
         col.separator()
         if projpaint:
             if settings.mode == 'MATERIAL':
-                col.prop(settings, "use_clone_layer", text="Clone from paint slot")
+                col.prop(settings, "use_clone_layer", text="Clone from Paint Slot")
             elif settings.mode == 'IMAGE':
-                col.prop(settings, "use_clone_layer", text="Clone from image/UV map")
+                col.prop(settings, "use_clone_layer", text="Clone from Image/UV Map")
 
             if settings.use_clone_layer:
                 ob = context.active_object
@@ -309,3 +309,13 @@ def brush_mask_texture_settings(layout, brush):
     split = layout.split()
     split.prop(mask_tex_slot, "offset")
     split.prop(mask_tex_slot, "scale")
+
+
+classes = (
+    VIEW3D_MT_tools_projectpaint_clone,
+)
+
+if __name__ == "__main__":  # only for live edit.
+    from bpy.utils import register_class
+    for cls in classes:
+        register_class(cls)

@@ -83,7 +83,7 @@ bSound *BKE_sound_new_file(struct Main *bmain, const char *filepath)
 
 	BLI_path_abs(str, path);
 
-	sound = BKE_libblock_alloc(bmain, ID_SO, BLI_path_basename(filepath));
+	sound = BKE_libblock_alloc(bmain, ID_SO, BLI_path_basename(filepath), 0);
 	BLI_strncpy(sound->name, filepath, FILE_MAX);
 	/* sound->type = SOUND_TYPE_FILE; */ /* XXX unused currently */
 
@@ -147,12 +147,40 @@ void BKE_sound_free(bSound *sound)
 
 	BKE_sound_free_waveform(sound);
 	
+#endif  /* WITH_AUDASPACE */
 	if (sound->spinlock) {
 		BLI_spin_end(sound->spinlock);
 		MEM_freeN(sound->spinlock);
 		sound->spinlock = NULL;
-	}	
-#endif  /* WITH_AUDASPACE */
+	}
+}
+
+/**
+ * Only copy internal data of Sound ID from source to already allocated/initialized destination.
+ * You probably nerver want to use that directly, use id_copy or BKE_id_copy_ex for typical needs.
+ *
+ * WARNING! This function will not handle ID user count!
+ *
+ * \param flag  Copying options (see BKE_library.h's LIB_ID_COPY_... flags for more).
+ */
+void BKE_sound_copy_data(Main *bmain, bSound *sound_dst, const bSound *UNUSED(sound_src), const int UNUSED(flag))
+{
+	sound_dst->handle = NULL;
+	sound_dst->cache = NULL;
+	sound_dst->waveform = NULL;
+	sound_dst->playback_handle = NULL;
+	sound_dst->spinlock = NULL;  /* Think this is OK? Otherwise, easy to create new spinlock here... */
+
+	/* Just to be sure, should not have any value actually after reading time. */
+	sound_dst->ipo = NULL;
+	sound_dst->newpackedfile = NULL;
+
+	if (sound_dst->packedfile) {
+		sound_dst->packedfile = dupPackedFile(sound_dst->packedfile);
+	}
+
+	/* Initialize whole runtime (audaspace) stuff. */
+	BKE_sound_load(bmain, sound_dst);
 }
 
 void BKE_sound_make_local(Main *bmain, bSound *sound, const bool lib_local)
@@ -167,6 +195,10 @@ static const char *force_device = NULL;
 #ifdef WITH_JACK
 static void sound_sync_callback(void *data, int mode, float time)
 {
+	// Ugly: Blender doesn't like it when the animation is played back during rendering
+	if (G.is_rendering)
+		return;
+
 	struct Main *bmain = (struct Main *)data;
 	struct Scene *scene;
 
@@ -450,6 +482,16 @@ void BKE_sound_destroy_scene(struct Scene *scene)
 		AUD_destroySet(scene->speaker_handles);
 }
 
+void BKE_sound_reset_scene_specs(struct Scene *scene)
+{
+	AUD_Specs specs;
+
+	specs.channels = AUD_Device_getChannels(sound_device);
+	specs.rate = AUD_Device_getRate(sound_device);
+
+	AUD_Sequence_setSpecs(scene->sound_scene, specs);
+}
+
 void BKE_sound_mute_scene(struct Scene *scene, int muted)
 {
 	if (scene->sound_scene)
@@ -576,15 +618,10 @@ void BKE_sound_update_sequencer(struct Main *main, bSound *sound)
 
 static void sound_start_play_scene(struct Scene *scene)
 {
-	AUD_Specs specs;
-
 	if (scene->playback_handle)
 		AUD_Handle_stop(scene->playback_handle);
 
-	specs.channels = AUD_Device_getChannels(sound_device);
-	specs.rate = AUD_Device_getRate(sound_device);
-
-	AUD_Sequence_setSpecs(scene->sound_scene, specs);
+	BKE_sound_reset_scene_specs(scene);
 
 	if ((scene->playback_handle = AUD_Device_play(sound_device, scene->sound_scene, 1)))
 		AUD_Handle_setLoopCount(scene->playback_handle, -1);
@@ -693,6 +730,10 @@ void BKE_sound_seek_scene(struct Main *bmain, struct Scene *scene)
 
 float BKE_sound_sync_scene(struct Scene *scene)
 {
+	// Ugly: Blender doesn't like it when the animation is played back during rendering
+	if (G.is_rendering)
+		return NAN_FLT;
+
 	if (scene->playback_handle) {
 		if (scene->audio.flag & AUDIO_SYNC)
 			return AUD_getSynchronizerPosition(scene->playback_handle);
@@ -704,6 +745,10 @@ float BKE_sound_sync_scene(struct Scene *scene)
 
 int BKE_sound_scene_playing(struct Scene *scene)
 {
+	// Ugly: Blender doesn't like it when the animation is played back during rendering
+	if (G.is_rendering)
+		return -1;
+
 	if (scene->audio.flag & AUDIO_SYNC)
 		return AUD_isSynchronizerPlaying();
 	else
@@ -898,6 +943,7 @@ void BKE_sound_delete_cache(struct bSound *UNUSED(sound)) {}
 void BKE_sound_load(struct Main *UNUSED(bmain), struct bSound *UNUSED(sound)) {}
 void BKE_sound_create_scene(struct Scene *UNUSED(scene)) {}
 void BKE_sound_destroy_scene(struct Scene *UNUSED(scene)) {}
+void BKE_sound_reset_scene_specs(struct Scene *UNUSED(scene)) {}
 void BKE_sound_mute_scene(struct Scene *UNUSED(scene), int UNUSED(muted)) {}
 void *BKE_sound_scene_add_scene_sound(struct Scene *UNUSED(scene), struct Sequence *UNUSED(sequence),
                                       int UNUSED(startframe), int UNUSED(endframe), int UNUSED(frameskip)) { return NULL; }

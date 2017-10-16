@@ -335,6 +335,8 @@ typedef struct DupliObject {
 
 	/* particle this dupli was generated from */
 	struct ParticleSystem *particle_system;
+	unsigned int random_id;
+	unsigned int pad;
 } DupliObject;
 
 /* **************** OBJECT ********************* */
@@ -680,6 +682,9 @@ typedef enum ObjectMode {
 
 /* any mode where the brush system is used */
 #define OB_MODE_ALL_PAINT (OB_MODE_SCULPT | OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT | OB_MODE_TEXTURE_PAINT)
+
+/* any mode that uses ob->sculpt */
+#define OB_MODE_ALL_SCULPT (OB_MODE_SCULPT | OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT)
 
 #define MAX_DUPLI_RECUR 8
 

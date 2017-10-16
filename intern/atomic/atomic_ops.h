@@ -100,12 +100,15 @@ ATOMIC_INLINE size_t atomic_sub_and_fetch_z(size_t *p, size_t x);
 ATOMIC_INLINE size_t atomic_fetch_and_add_z(size_t *p, size_t x);
 ATOMIC_INLINE size_t atomic_fetch_and_sub_z(size_t *p, size_t x);
 ATOMIC_INLINE size_t atomic_cas_z(size_t *v, size_t old, size_t _new);
+ATOMIC_INLINE size_t atomic_fetch_and_update_max_z(size_t *p, size_t x); /* Uses CAS loop, see warning below. */
 
-ATOMIC_INLINE unsigned atomic_add_and_fetch_u(unsigned *p, unsigned x);
-ATOMIC_INLINE unsigned atomic_sub_and_fetch_u(unsigned *p, unsigned x);
-ATOMIC_INLINE unsigned atomic_fetch_and_add_u(unsigned *p, unsigned x);
-ATOMIC_INLINE unsigned atomic_fetch_and_sub_u(unsigned *p, unsigned x);
-ATOMIC_INLINE unsigned atomic_cas_u(unsigned *v, unsigned old, unsigned _new);
+ATOMIC_INLINE unsigned int atomic_add_and_fetch_u(unsigned int *p, unsigned int x);
+ATOMIC_INLINE unsigned int atomic_sub_and_fetch_u(unsigned int *p, unsigned int x);
+ATOMIC_INLINE unsigned int atomic_fetch_and_add_u(unsigned int *p, unsigned int x);
+ATOMIC_INLINE unsigned int atomic_fetch_and_sub_u(unsigned int *p, unsigned int x);
+ATOMIC_INLINE unsigned int atomic_cas_u(unsigned int *v, unsigned int old, unsigned int _new);
+
+ATOMIC_INLINE void *atomic_cas_ptr(void **v, void *old, void *_new);
 
 /* WARNING! Float 'atomics' are really faked ones, those are actually closer to some kind of spinlock-sync'ed operation,
  *          which means they are only efficient if collisions are highly unlikely (i.e. if probability of two threads

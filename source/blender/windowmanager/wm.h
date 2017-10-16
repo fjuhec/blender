@@ -57,7 +57,7 @@ void wm_operatortype_free(void);
 void wm_operatortype_init(void);
 void wm_window_keymap(wmKeyConfig *keyconf);
 
-void wm_tweakevent_test(bContext *C, wmEvent *event, int action);
+void wm_tweakevent_test(bContext *C, const wmEvent *event, int action);
 
 /* wm_gesture.c */
 #define WM_LASSO_MIN_POINTS		1024
@@ -78,6 +78,7 @@ void wm_autosave_location(char *filepath);
 
 /* wm_stereo.c */
 void wm_method_draw_stereo3d(const bContext *C, wmWindow *win);
+void wm_stereo3d_mouse_offset_apply(wmWindow *win, int *r_mouse_xy);
 int wm_stereo3d_set_exec(bContext *C, wmOperator *op);
 int wm_stereo3d_set_invoke(bContext *C, wmOperator *op, const wmEvent *event);
 void wm_stereo3d_set_draw(bContext *C, wmOperator *op);

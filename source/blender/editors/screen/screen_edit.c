@@ -467,7 +467,7 @@ bScreen *ED_screen_add(wmWindow *win, Scene *scene, const char *name)
 	bScreen *sc;
 	ScrVert *sv1, *sv2, *sv3, *sv4;
 	
-	sc = BKE_libblock_alloc(G.main, ID_SCR, name);
+	sc = BKE_libblock_alloc(G.main, ID_SCR, name, 0);
 	sc->scene = scene;
 	sc->do_refresh = true;
 	sc->redraws_flag = TIME_ALL_3D_WIN | TIME_ALL_ANIM_WIN;
@@ -766,7 +766,9 @@ static void screen_test_scale(bScreen *sc, int winsize_x, int winsize_y)
 				/* lower edge */
 				const int yval = sa->v2->vec.y - headery_init;
 				se = screen_findedge(sc, sa->v4, sa->v1);
-				select_connected_scredge(sc, se);
+				if (se != NULL) {
+					select_connected_scredge(sc, se);
+				}
 				for (sv = sc->vertbase.first; sv; sv = sv->next) {
 					if (sv != sa->v2 && sv != sa->v3) {
 						if (sv->flag) {
@@ -779,7 +781,9 @@ static void screen_test_scale(bScreen *sc, int winsize_x, int winsize_y)
 				/* upper edge */
 				const int yval = sa->v1->vec.y + headery_init;
 				se = screen_findedge(sc, sa->v2, sa->v3);
-				select_connected_scredge(sc, se);
+				if (se != NULL) {
+					select_connected_scredge(sc, se);
+				}
 				for (sv = sc->vertbase.first; sv; sv = sv->next) {
 					if (sv != sa->v1 && sv != sa->v4) {
 						if (sv->flag) {
@@ -1224,6 +1228,7 @@ void ED_screen_refresh(wmWindowManager *wm, wmWindow *win)
 		winrct.ymax = winsize_y - 1;
 		
 		/* header size depends on DPI, let's verify */
+		WM_window_set_dpi(win);
 		screen_refresh_headersizes();
 		
 		screen_test_scale(win->screen, winsize_x, winsize_y);
@@ -1358,7 +1363,7 @@ void ED_screen_exit(bContext *C, wmWindow *window, bScreen *screen)
 /* *********************************** */
 
 /* case when on area-edge or in azones, or outside window */
-static void screen_cursor_set(wmWindow *win, wmEvent *event)
+static void screen_cursor_set(wmWindow *win, const wmEvent *event)
 {
 	const int winsize_x = WM_window_pixels_x(win);
 	const int winsize_y = WM_window_pixels_y(win);
@@ -1397,7 +1402,7 @@ static void screen_cursor_set(wmWindow *win, wmEvent *event)
 
 /* called in wm_event_system.c. sets state vars in screen, cursors */
 /* event type is mouse move */
-void ED_screen_set_subwinactive(bContext *C, wmEvent *event)
+void ED_screen_set_subwinactive(bContext *C, const wmEvent *event)
 {
 	wmWindow *win = CTX_wm_window(C);
 	
@@ -1758,7 +1763,10 @@ bool ED_screen_delete_scene(bContext *C, Scene *scene)
 
 	BKE_libblock_remap(bmain, scene, newscene, ID_REMAP_SKIP_INDIRECT_USAGE | ID_REMAP_SKIP_NEVER_NULL_USAGE);
 
-	BKE_libblock_free(bmain, scene);
+	id_us_clear_real(&scene->id);
+	if (scene->id.us == 0) {
+		BKE_libblock_free(bmain, scene);
+	}
 
 	return true;
 }
@@ -1889,17 +1897,28 @@ ScrArea *ED_screen_state_toggle(bContext *C, wmWindow *win, ScrArea *sa, const s
 
 	if (sa && sa->full) {
 		/* restoring back to SCREENNORMAL */
-		ScrArea *old;
-
 		sc = sa->full;       /* the old screen to restore */
 		oldscreen = win->screen; /* the one disappearing */
 
 		sc->state = SCREENNORMAL;
 
-		/* find old area */
-		for (old = sc->areabase.first; old; old = old->next)
-			if (old->full) break;
-		if (old == NULL) {
+		/* find old area to restore from */
+		ScrArea *fullsa = NULL;
+		for (ScrArea *old = sc->areabase.first; old; old = old->next) {
+			/* area to restore from is always first */
+			if (old->full && !fullsa) {
+				fullsa = old;
+			}
+
+			/* clear full screen state */
+			old->full = NULL;
+			old->flag &= ~AREA_TEMP_INFO;
+		}
+
+		sa->flag &= ~AREA_TEMP_INFO;
+		sa->full = NULL;
+
+		if (fullsa == NULL) {
 			if (G.debug & G_DEBUG)
 				printf("%s: something wrong in areafullscreen\n", __func__);
 			return NULL;
@@ -1912,9 +1931,7 @@ ScrArea *ED_screen_state_toggle(bContext *C, wmWindow *win, ScrArea *sa, const s
 			}
 		}
 
-		ED_area_data_swap(old, sa);
-		if (sa->flag & AREA_TEMP_INFO) sa->flag &= ~AREA_TEMP_INFO;
-		old->full = NULL;
+		ED_area_data_swap(fullsa, sa);
 
 		/* animtimer back */
 		sc->animtimer = oldscreen->animtimer;
@@ -1922,7 +1939,6 @@ ScrArea *ED_screen_state_toggle(bContext *C, wmWindow *win, ScrArea *sa, const s
 
 		ED_screen_set(C, sc);
 
-		BKE_screen_free(oldscreen);
 		BKE_libblock_free(CTX_data_main(C), oldscreen);
 
 		/* After we've restored back to SCREENNORMAL, we have to wait with
@@ -2166,10 +2182,11 @@ void ED_update_for_newframe(Main *bmain, Scene *scene, int UNUSED(mute))
 	/* update animated texture nodes */
 	{
 		Tex *tex;
-		for (tex = bmain->tex.first; tex; tex = tex->id.next)
+		for (tex = bmain->tex.first; tex; tex = tex->id.next) {
 			if (tex->use_nodes && tex->nodetree) {
 				ntreeTexTagAnimated(tex->nodetree);
 			}
+		}
 	}
 	
 }

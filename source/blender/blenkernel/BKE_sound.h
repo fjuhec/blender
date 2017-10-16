@@ -80,6 +80,8 @@ void BKE_sound_load(struct Main *main, struct bSound *sound);
 
 void BKE_sound_free(struct bSound *sound);
 
+void BKE_sound_copy_data(struct Main *bmain, struct bSound *sound_dst, const struct bSound *sound_src, const int flag);
+
 void BKE_sound_make_local(struct Main *bmain, struct bSound *sound, const bool lib_local);
 
 #if defined(__AUD_C_API_H__) || defined(WITH_SYSTEM_AUDASPACE)
@@ -89,6 +91,8 @@ AUD_Device *BKE_sound_mixdown(struct Scene *scene, AUD_DeviceSpecs specs, int st
 void BKE_sound_create_scene(struct Scene *scene);
 
 void BKE_sound_destroy_scene(struct Scene *scene);
+
+void BKE_sound_reset_scene_specs(struct Scene *scene);
 
 void BKE_sound_mute_scene(struct Scene *scene, int muted);
 

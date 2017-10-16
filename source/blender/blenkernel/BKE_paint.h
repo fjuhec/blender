@@ -99,7 +99,9 @@ void BKE_paint_set_overlay_override(enum OverlayFlags flag);
 /* palettes */
 void                 BKE_palette_free(struct Palette *palette);
 struct Palette      *BKE_palette_add(struct Main *bmain, const char *name);
-struct Palette      *BKE_palette_copy(struct Main *bmain, struct Palette *palette);
+void BKE_palette_copy_data(
+        struct Main *bmain, struct Palette *palette_dst, const struct Palette *palette_src, const int flag);
+struct Palette      *BKE_palette_copy(struct Main *bmain, const struct Palette *palette);
 void                 BKE_palette_make_local(struct Main *bmain, struct Palette *palette, const bool lib_local);
 struct PaletteColor *BKE_palette_color_add(struct Palette *palette);
 bool                 BKE_palette_is_empty(const struct Palette *palette);
@@ -109,12 +111,14 @@ void                 BKE_palette_clear(struct Palette *palette);
 /* paint curves */
 struct PaintCurve *BKE_paint_curve_add(struct Main *bmain, const char *name);
 void BKE_paint_curve_free(struct PaintCurve *pc);
-struct PaintCurve *BKE_paint_curve_copy(struct Main *bmain, struct PaintCurve *pc);
+void BKE_paint_curve_copy_data(
+        struct Main *bmain, struct PaintCurve *pc_dst, const struct PaintCurve *pc_src, const int flag);
+struct PaintCurve *BKE_paint_curve_copy(struct Main *bmain, const struct PaintCurve *pc);
 void               BKE_paint_curve_make_local(struct Main *bmain, struct PaintCurve *pc, const bool lib_local);
 
 void BKE_paint_init(struct Scene *sce, PaintMode mode, const char col[3]);
 void BKE_paint_free(struct Paint *p);
-void BKE_paint_copy(struct Paint *src, struct Paint *tar);
+void BKE_paint_copy(struct Paint *src, struct Paint *tar, const int flag);
 
 void BKE_paint_cavity_curve_preset(struct Paint *p, int preset);
 
@@ -155,6 +159,14 @@ void paint_calculate_rake_rotation(struct UnifiedPaintSettings *ups, struct Brus
 void paint_update_brush_rake_rotation(struct UnifiedPaintSettings *ups, struct Brush *brush, float rotation);
 
 void BKE_paint_stroke_get_average(struct Scene *scene, struct Object *ob, float stroke[3]);
+
+/* Used for both vertex color and weight paint */
+struct SculptVertexPaintGeomMap {
+	int *vert_map_mem;
+	struct MeshElemMap *vert_to_loop;
+	int *poly_map_mem;
+	struct MeshElemMap *vert_to_poly;
+};
 
 /* Session data (mode-specific) */
 
@@ -201,10 +213,38 @@ typedef struct SculptSession {
 
 	struct SculptStroke *stroke;
 	struct StrokeCache *cache;
+
+	union {
+		struct {
+			struct SculptVertexPaintGeomMap gmap;
+
+			/* For non-airbrush painting to re-apply from the original (MLoop aligned). */
+			unsigned int *previous_color;
+		} vpaint;
+
+		struct {
+			struct SculptVertexPaintGeomMap gmap;
+			/* Keep track of how much each vertex has been painted (non-airbrush only). */
+			float *alpha_weight;
+
+			/* Needed to continuously re-apply over the same weights (BRUSH_ACCUMULATE disabled).
+			 * Lazy initialize as needed (flag is set to 1 to tag it as uninitialized). */
+			struct MDeformVert *dvert_prev;
+		} wpaint;
+
+		//struct {
+		//ToDo: identify sculpt-only fields
+		//} sculpt;
+	} mode;
+	int mode_type;
+
+	/* This flag prevents PBVH from being freed when creating the vp_handle for texture paint. */
+	bool building_vp_handle;
 } SculptSession;
 
 void BKE_sculptsession_free(struct Object *ob);
 void BKE_sculptsession_free_deformMats(struct SculptSession *ss);
+void BKE_sculptsession_free_vwpaint_data(struct SculptSession *ss);
 void BKE_sculptsession_bm_to_me(struct Object *ob, bool reorder);
 void BKE_sculptsession_bm_to_me_for_render(struct Object *object);
 void BKE_sculpt_update_mesh_elements(struct Scene *scene, struct Sculpt *sd, struct Object *ob,

@@ -17,10 +17,10 @@
 #include "scene.h"
 #include "volume.h"
 
-#include "util_foreach.h"
-#include "util_logging.h"
-#include "util_progress.h"
-#include "util_task.h"
+#include "util/util_foreach.h"
+#include "util/util_logging.h"
+#include "util/util_progress.h"
+#include "util/util_task.h"
 
 #include "../kernel/openvdb/vdb_globals.h"
 

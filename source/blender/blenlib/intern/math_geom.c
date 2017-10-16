@@ -37,20 +37,6 @@
 
 /********************************** Polygons *********************************/
 
-void cent_tri_v3(float cent[3], const float v1[3], const float v2[3], const float v3[3])
-{
-	cent[0] = (v1[0] + v2[0] + v3[0]) / 3.0f;
-	cent[1] = (v1[1] + v2[1] + v3[1]) / 3.0f;
-	cent[2] = (v1[2] + v2[2] + v3[2]) / 3.0f;
-}
-
-void cent_quad_v3(float cent[3], const float v1[3], const float v2[3], const float v3[3], const float v4[3])
-{
-	cent[0] = 0.25f * (v1[0] + v2[0] + v3[0] + v4[0]);
-	cent[1] = 0.25f * (v1[1] + v2[1] + v3[1] + v4[1]);
-	cent[2] = 0.25f * (v1[2] + v2[2] + v3[2] + v4[2]);
-}
-
 void cross_tri_v3(float n[3], const float v1[3], const float v2[3], const float v3[3])
 {
 	float n1[3], n2[3];
@@ -586,8 +572,8 @@ float dist_squared_to_ray_v3(
 }
 /**
  * Find the closest point in a seg to a ray and return the distance squared.
- * \param r_point : Is the point on segment closest to ray (or to ray_origin if the ray and the segment are parallel).
- * \param depth: the distance of r_point projection on ray to the ray_origin.
+ * \param r_point: Is the point on segment closest to ray (or to ray_origin if the ray and the segment are parallel).
+ * \param r_depth: the distance of r_point projection on ray to the ray_origin.
  */
 float dist_squared_ray_to_seg_v3(
         const float ray_origin[3], const float ray_direction[3],
@@ -632,6 +618,152 @@ float dist_squared_ray_to_seg_v3(
 	}
 	return len_squared_v3(t) - SQUARE(*r_depth);
 }
+
+/* -------------------------------------------------------------------- */
+/** \name dist_squared_to_ray_to_aabb and helpers
+ * \{ */
+
+void dist_squared_ray_to_aabb_v3_precalc(
+        struct DistRayAABB_Precalc *neasrest_precalc,
+        const float ray_origin[3], const float ray_direction[3])
+{
+	copy_v3_v3(neasrest_precalc->ray_origin, ray_origin);
+	copy_v3_v3(neasrest_precalc->ray_direction, ray_direction);
+
+	for (int i = 0; i < 3; i++) {
+		neasrest_precalc->ray_inv_dir[i] =
+		        (neasrest_precalc->ray_direction[i] != 0.0f) ?
+		        (1.0f / neasrest_precalc->ray_direction[i]) : FLT_MAX;
+		neasrest_precalc->sign[i] = (neasrest_precalc->ray_inv_dir[i] < 0.0f);
+	}
+}
+
+/**
+ * Returns the distance from a ray to a bound-box (projected on ray)
+ */
+float dist_squared_ray_to_aabb_v3(
+        const struct DistRayAABB_Precalc *data,
+        const float bb_min[3], const float bb_max[3],
+        float r_point[3], float *r_depth)
+{
+	// bool r_axis_closest[3];
+	float local_bvmin[3], local_bvmax[3];
+	if (data->sign[0]) {
+		local_bvmin[0] = bb_max[0];
+		local_bvmax[0] = bb_min[0];
+	}
+	else {
+		local_bvmin[0] = bb_min[0];
+		local_bvmax[0] = bb_max[0];
+	}
+	if (data->sign[1]) {
+		local_bvmin[1] = bb_max[1];
+		local_bvmax[1] = bb_min[1];
+	}
+	else {
+		local_bvmin[1] = bb_min[1];
+		local_bvmax[1] = bb_max[1];
+	}
+	if (data->sign[2]) {
+		local_bvmin[2] = bb_max[2];
+		local_bvmax[2] = bb_min[2];
+	}
+	else {
+		local_bvmin[2] = bb_min[2];
+		local_bvmax[2] = bb_max[2];
+	}
+
+	const float tmin[3] = {
+		(local_bvmin[0] - data->ray_origin[0]) * data->ray_inv_dir[0],
+		(local_bvmin[1] - data->ray_origin[1]) * data->ray_inv_dir[1],
+		(local_bvmin[2] - data->ray_origin[2]) * data->ray_inv_dir[2],
+	};
+	const float tmax[3] = {
+		(local_bvmax[0] - data->ray_origin[0]) * data->ray_inv_dir[0],
+		(local_bvmax[1] - data->ray_origin[1]) * data->ray_inv_dir[1],
+		(local_bvmax[2] - data->ray_origin[2]) * data->ray_inv_dir[2],
+	};
+	/* `va` and `vb` are the coordinates of the AABB edge closest to the ray */
+	float va[3], vb[3];
+	/* `rtmin` and `rtmax` are the minimum and maximum distances of the ray hits on the AABB */
+	float rtmin, rtmax;
+	int main_axis;
+
+	if ((tmax[0] <= tmax[1]) && (tmax[0] <= tmax[2])) {
+		rtmax = tmax[0];
+		va[0] = vb[0] = local_bvmax[0];
+		main_axis = 3;
+		// r_axis_closest[0] = data->sign[0];
+	}
+	else if ((tmax[1] <= tmax[0]) && (tmax[1] <= tmax[2])) {
+		rtmax = tmax[1];
+		va[1] = vb[1] = local_bvmax[1];
+		main_axis = 2;
+		// r_axis_closest[1] = data->sign[1];
+	}
+	else {
+		rtmax = tmax[2];
+		va[2] = vb[2] = local_bvmax[2];
+		main_axis = 1;
+		// r_axis_closest[2] = data->sign[2];
+	}
+
+	if ((tmin[0] >= tmin[1]) && (tmin[0] >= tmin[2])) {
+		rtmin = tmin[0];
+		va[0] = vb[0] = local_bvmin[0];
+		main_axis -= 3;
+		// r_axis_closest[0] = !data->sign[0];
+	}
+	else if ((tmin[1] >= tmin[0]) && (tmin[1] >= tmin[2])) {
+		rtmin = tmin[1];
+		va[1] = vb[1] = local_bvmin[1];
+		main_axis -= 1;
+		// r_axis_closest[1] = !data->sign[1];
+	}
+	else {
+		rtmin = tmin[2];
+		va[2] = vb[2] = local_bvmin[2];
+		main_axis -= 2;
+		// r_axis_closest[2] = !data->sign[2];
+	}
+	if (main_axis < 0) {
+		main_axis += 3;
+	}
+
+	/* if rtmin <= rtmax, ray intersect `AABB` */
+	if (rtmin <= rtmax) {
+		float dvec[3];
+		copy_v3_v3(r_point, local_bvmax);
+		sub_v3_v3v3(dvec, local_bvmax, data->ray_origin);
+		*r_depth = dot_v3v3(dvec, data->ray_direction);
+		return 0.0f;
+	}
+
+	if (data->sign[main_axis]) {
+		va[main_axis] = local_bvmax[main_axis];
+		vb[main_axis] = local_bvmin[main_axis];
+	}
+	else {
+		va[main_axis] = local_bvmin[main_axis];
+		vb[main_axis] = local_bvmax[main_axis];
+	}
+
+	return dist_squared_ray_to_seg_v3(
+	        data->ray_origin, data->ray_direction, va, vb,
+	        r_point, r_depth);
+}
+
+float dist_squared_ray_to_aabb_v3_simple(
+        const float ray_origin[3], const float ray_direction[3],
+        const float bbmin[3], const float bbmax[3],
+        float r_point[3], float *r_depth)
+{
+	struct DistRayAABB_Precalc data;
+	dist_squared_ray_to_aabb_v3_precalc(&data, ray_origin, ray_direction);
+	return dist_squared_ray_to_aabb_v3(&data, bbmin, bbmax, r_point, r_depth);
+}
+/** \} */
+
 
 /* Adapted from "Real-Time Collision Detection" by Christer Ericson,
  * published by Morgan Kaufmann Publishers, copyright 2005 Elsevier Inc.
@@ -779,18 +911,29 @@ int isect_seg_seg_v2(const float v1[2], const float v2[2], const float v3[2], co
 	return ISECT_LINE_LINE_NONE;
 }
 
-/* get intersection point of two 2D segments and return intersection type:
- *  -1: collinear
- *   1: intersection
+/**
+ * Get intersection point of two 2D segments.
+ *
+ * \param endpoint_bias: Bias to use when testing for end-point overlap.
+ * A positive value considers intersections that extend past the endpoints,
+ * negative values contract the endpoints.
+ * Note the bias is applied to a 0-1 factor, not scaled to the length of segments.
+ *
+ * \returns intersection type:
+ * - -1: collinear.
+ * -  1: intersection.
+ * -  0: no intersection.
  */
-int isect_seg_seg_v2_point(
+int isect_seg_seg_v2_point_ex(
         const float v0[2], const float v1[2],
         const float v2[2], const float v3[2],
+        const float endpoint_bias,
         float r_vi[2])
 {
 	float s10[2], s32[2], s30[2], d;
 	const float eps = 1e-6f;
-	const float eps_sq = eps * eps;
+	const float endpoint_min = -endpoint_bias;
+	const float endpoint_max =  endpoint_bias + 1.0f;
 
 	sub_v2_v2v2(s10, v1, v0);
 	sub_v2_v2v2(s32, v3, v2);
@@ -804,8 +947,8 @@ int isect_seg_seg_v2_point(
 		u = cross_v2v2(s30, s32) / d;
 		v = cross_v2v2(s10, s30) / d;
 
-		if ((u >= -eps && u <= 1.0f + eps) &&
-		    (v >= -eps && v <= 1.0f + eps))
+		if ((u >= endpoint_min && u <= endpoint_max) &&
+		    (v >= endpoint_min && v <= endpoint_max))
 		{
 			/* intersection */
 			float vi_test[2];
@@ -824,7 +967,7 @@ int isect_seg_seg_v2_point(
 			sub_v2_v2v2(s_vi_v2, vi_test, v2);
 			v = (dot_v2v2(s32, s_vi_v2) / dot_v2v2(s32, s32));
 #endif
-			if (v >= -eps && v <= 1.0f + eps) {
+			if (v >= endpoint_min && v <= endpoint_max) {
 				copy_v2_v2(r_vi, vi_test);
 				return 1;
 			}
@@ -842,7 +985,7 @@ int isect_seg_seg_v2_point(
 			float u_a, u_b;
 
 			if (equals_v2v2(v0, v1)) {
-				if (len_squared_v2v2(v2, v3) > eps_sq) {
+				if (len_squared_v2v2(v2, v3) > SQUARE(eps)) {
 					/* use non-point segment as basis */
 					SWAP(const float *, v0, v2);
 					SWAP(const float *, v1, v3);
@@ -869,7 +1012,7 @@ int isect_seg_seg_v2_point(
 			if (u_a > u_b)
 				SWAP(float, u_a, u_b);
 
-			if (u_a > 1.0f + eps || u_b < -eps) {
+			if (u_a > endpoint_max || u_b < endpoint_min) {
 				/* non-overlapping segments */
 				return -1;
 			}
@@ -883,6 +1026,15 @@ int isect_seg_seg_v2_point(
 		/* lines are collinear */
 		return -1;
 	}
+}
+
+int isect_seg_seg_v2_point(
+        const float v0[2], const float v1[2],
+        const float v2[2], const float v3[2],
+        float r_vi[2])
+{
+	const float endpoint_bias = 1e-6f;
+	return isect_seg_seg_v2_point_ex(v0, v1, v2, v3, endpoint_bias, r_vi);
 }
 
 bool isect_seg_seg_v2_simple(const float v1[2], const float v2[2], const float v3[2], const float v4[2])
@@ -1842,7 +1994,7 @@ bool isect_tri_tri_epsilon_v3(
 		     (range[0].max < range[1].min)) == 0)
 		{
 			if (r_i1 && r_i2) {
-				project_plane_v3_v3v3(plane_co, plane_co, plane_no);
+				project_plane_normalized_v3_v3v3(plane_co, plane_co, plane_no);
 				madd_v3_v3v3fl(r_i1, plane_co, plane_no, max_ff(range[0].min, range[1].min));
 				madd_v3_v3v3fl(r_i2, plane_co, plane_no, min_ff(range[0].max, range[1].max));
 			}
@@ -2323,222 +2475,32 @@ bool isect_ray_aabb_v3(
 	return true;
 }
 
-void dist_squared_ray_to_aabb_v3_precalc(
-        struct NearestRayToAABB_Precalc *data,
-        const float ray_origin[3], const float ray_direction[3])
-{
-	float dir_sq[3];
-
-	for (int i = 0; i < 3; i++) {
-		data->ray_origin[i] = ray_origin[i];
-		data->ray_direction[i] = ray_direction[i];
-		data->ray_inv_dir[i] = (data->ray_direction[i] != 0.0f) ? (1.0f / data->ray_direction[i]) : FLT_MAX;
-		/* It has to be a function of `ray_inv_dir`,
-		 * since the division of 1 by 0.0f, can be -inf or +inf */
-		data->sign[i] = (data->ray_inv_dir[i] < 0.0f);
-
-		dir_sq[i] = SQUARE(data->ray_direction[i]);
-	}
-
-	/* `diag_sq` Length square of each face diagonal */
-	float diag_sq[3] = {
-		dir_sq[1] + dir_sq[2],
-		dir_sq[0] + dir_sq[2],
-		dir_sq[0] + dir_sq[1],
-	};
-	data->idiag_sq[0] = (diag_sq[0] > FLT_EPSILON) ? (1.0f / diag_sq[0]) : FLT_MAX;
-	data->idiag_sq[1] = (diag_sq[1] > FLT_EPSILON) ? (1.0f / diag_sq[1]) : FLT_MAX;
-	data->idiag_sq[2] = (diag_sq[2] > FLT_EPSILON) ? (1.0f / diag_sq[2]) : FLT_MAX;
-
-	data->cdot_axis[0] = data->ray_direction[0] * data->idiag_sq[0];
-	data->cdot_axis[1] = data->ray_direction[1] * data->idiag_sq[1];
-	data->cdot_axis[2] = data->ray_direction[2] * data->idiag_sq[2];
-}
-
-/**
- * Returns the squared distance from a ray to a bound-box `AABB`.
- * It is based on `fast_ray_nearest_hit` solution to obtain
- * the coordinates of the nearest edge of Bound Box to the ray
+/*
+ * Test a bounding box (AABB) for ray intersection
+ * assumes the ray is already local to the boundbox space
  */
-float dist_squared_ray_to_aabb_v3(
-        const struct NearestRayToAABB_Precalc *data,
+bool isect_ray_aabb_v3_simple(
+        const float orig[3], const float dir[3],
         const float bb_min[3], const float bb_max[3],
-        bool r_axis_closest[3])
+        float *tmin, float *tmax)
 {
-	/* `tmin` is a vector that has the smaller distances to each of the
-	 * infinite planes of the `AABB` faces (hit in nearest face X plane,
-	 * nearest face Y plane and nearest face Z plane) */
-	float local_bvmin[3], local_bvmax[3];
-
-	if (data->sign[0] == 0) {
-		local_bvmin[0] = bb_min[0] - data->ray_origin[0];
-		local_bvmax[0] = bb_max[0] - data->ray_origin[0];
-	}
+	double t[7];
+	float hit_dist[2];
+	t[1] = (double)(bb_min[0] - orig[0]) / dir[0];
+	t[2] = (double)(bb_max[0] - orig[0]) / dir[0];
+	t[3] = (double)(bb_min[1] - orig[1]) / dir[1];
+	t[4] = (double)(bb_max[1] - orig[1]) / dir[1];
+	t[5] = (double)(bb_min[2] - orig[2]) / dir[2];
+	t[6] = (double)(bb_max[2] - orig[2]) / dir[2];
+	hit_dist[0] = (float)fmax(fmax(fmin(t[1], t[2]), fmin(t[3], t[4])), fmin(t[5], t[6]));
+	hit_dist[1] = (float)fmin(fmin(fmax(t[1], t[2]), fmax(t[3], t[4])), fmax(t[5], t[6]));
+	if ((hit_dist[1] < 0 || hit_dist[0] > hit_dist[1]))
+		return false;
 	else {
-		local_bvmin[0] = bb_max[0] - data->ray_origin[0];
-		local_bvmax[0] = bb_min[0] - data->ray_origin[0];
+		if (tmin) *tmin = hit_dist[0];
+		if (tmax) *tmax = hit_dist[1];
+		return true;
 	}
-
-	if (data->sign[1] == 0) {
-		local_bvmin[1] = bb_min[1] - data->ray_origin[1];
-		local_bvmax[1] = bb_max[1] - data->ray_origin[1];
-	}
-	else {
-		local_bvmin[1] = bb_max[1] - data->ray_origin[1];
-		local_bvmax[1] = bb_min[1] - data->ray_origin[1];
-	}
-
-	if (data->sign[2] == 0) {
-		local_bvmin[2] = bb_min[2] - data->ray_origin[2];
-		local_bvmax[2] = bb_max[2] - data->ray_origin[2];
-	}
-	else {
-		local_bvmin[2] = bb_max[2] - data->ray_origin[2];
-		local_bvmax[2] = bb_min[2] - data->ray_origin[2];
-	}
-
-	const float tmin[3] = {
-		local_bvmin[0] * data->ray_inv_dir[0],
-		local_bvmin[1] * data->ray_inv_dir[1],
-		local_bvmin[2] * data->ray_inv_dir[2],
-	};
-
-	/* `tmax` is a vector that has the longer distances to each of the
-	 * infinite planes of the `AABB` faces (hit in farthest face X plane,
-	 * farthest face Y plane and farthest face Z plane) */
-	const float tmax[3] = {
-		local_bvmax[0] * data->ray_inv_dir[0],
-		local_bvmax[1] * data->ray_inv_dir[1],
-		local_bvmax[2] * data->ray_inv_dir[2],
-	};
-	/* `v1` and `v3` is be the coordinates of the nearest `AABB` edge to the ray*/
-	float v1[3], v2[3];
-	/* `rtmin` is the highest value of the smaller distances. == max_axis_v3(tmin)
-	 * `rtmax` is the lowest value of longer distances. == min_axis_v3(tmax)*/
-	float rtmin, rtmax, mul, rdist;
-	/* `main_axis` is the axis equivalent to edge close to the ray */
-	int main_axis;
-
-	r_axis_closest[0] = false;
-	r_axis_closest[1] = false;
-	r_axis_closest[2] = false;
-
-	/* *** min_axis_v3(tmax) *** */
-	if ((tmax[0] <= tmax[1]) && (tmax[0] <= tmax[2])) {
-		// printf("# Hit in X %s\n", data->sign[0] ? "min", "max");
-		rtmax = tmax[0];
-		v1[0] = v2[0] = local_bvmax[0];
-		mul = local_bvmax[0] * data->ray_direction[0];
-		main_axis = 3;
-		r_axis_closest[0] = data->sign[0];
-	}
-	else if ((tmax[1] <= tmax[0]) && (tmax[1] <= tmax[2])) {
-		// printf("# Hit in Y %s\n", data->sign[1] ? "min", "max");
-		rtmax = tmax[1];
-		v1[1] = v2[1] = local_bvmax[1];
-		mul = local_bvmax[1] * data->ray_direction[1];
-		main_axis = 2;
-		r_axis_closest[1] = data->sign[1];
-	}
-	else {
-		// printf("# Hit in Z %s\n", data->sign[2] ? "min", "max");
-		rtmax = tmax[2];
-		v1[2] = v2[2] = local_bvmax[2];
-		mul = local_bvmax[2] * data->ray_direction[2];
-		main_axis = 1;
-		r_axis_closest[2] = data->sign[2];
-	}
-
-	/* *** max_axis_v3(tmin) *** */
-	if ((tmin[0] >= tmin[1]) && (tmin[0] >= tmin[2])) {
-		// printf("# To X %s\n", data->sign[0] ? "max", "min");
-		rtmin = tmin[0];
-		v1[0] = v2[0] = local_bvmin[0];
-		mul += local_bvmin[0] * data->ray_direction[0];
-		main_axis -= 3;
-		r_axis_closest[0] = !data->sign[0];
-	}
-	else if ((tmin[1] >= tmin[0]) && (tmin[1] >= tmin[2])) {
-		// printf("# To Y %s\n", data->sign[1] ? "max", "min");
-		rtmin = tmin[1];
-		v1[1] = v2[1] = local_bvmin[1];
-		mul += local_bvmin[1] * data->ray_direction[1];
-		main_axis -= 1;
-		r_axis_closest[1] = !data->sign[1];
-	}
-	else {
-		// printf("# To Z %s\n", data->sign[2] ? "max", "min");
-		rtmin = tmin[2];
-		v1[2] = v2[2] = local_bvmin[2];
-		mul += local_bvmin[2] * data->ray_direction[2];
-		main_axis -= 2;
-		r_axis_closest[2] = !data->sign[2];
-	}
-	/* *** end min/max axis *** */
-
-
-	/* `if rtmax < 0`, the whole `AABB` is behing us */
-	if ((rtmax < 0.0f) && (rtmin < 0.0f)) {
-		return FLT_MAX;
-	}
-
-	if (main_axis < 0) {
-		main_axis += 3;
-	}
-
-	if (data->sign[main_axis] == 0) {
-		v1[main_axis] = local_bvmin[main_axis];
-		v2[main_axis] = local_bvmax[main_axis];
-	}
-	else {
-		v1[main_axis] = local_bvmax[main_axis];
-		v2[main_axis] = local_bvmin[main_axis];
-	}
-
-	/* if rtmin < rtmax, ray intersect `AABB` */
-	if (rtmin <= rtmax) {
-		const float proj = rtmin * data->ray_direction[main_axis];
-		rdist = 0.0f;
-		r_axis_closest[main_axis] = (proj - v1[main_axis]) < (v2[main_axis] - proj);
-	}
-	else {
-		/* `proj` equals to nearest point on the ray closest to the edge `v1 v2` of the `AABB`. */
-		const float proj = mul * data->cdot_axis[main_axis];
-		float depth;
-		if (v1[main_axis] > proj) {  /* the nearest point to the ray is the point v1 */
-			/* `depth` is equivalent the distance from the origin to the point v1,
-			 * Here's a faster way to calculate the dot product of v1 and ray
-			 * (depth = dot_v3v3(v1, data->ray.direction))*/
-			depth = mul + data->ray_direction[main_axis] * v1[main_axis];
-			rdist = len_squared_v3(v1) - SQUARE(depth);
-			r_axis_closest[main_axis] = true;
-		}
-		else if (v2[main_axis] < proj) {  /* the nearest point of the ray is the point v2 */
-			depth = mul + data->ray_direction[main_axis] * v2[main_axis];
-			rdist = len_squared_v3(v2) - SQUARE(depth);
-			r_axis_closest[main_axis] = false;
-		}
-		else {  /* the nearest point of the ray is on the edge of the `AABB`. */
-			float v[2];
-			mul *= data->idiag_sq[main_axis];
-			if (main_axis == 0) {
-				v[0] = (mul * data->ray_direction[1]) - v1[1];
-				v[1] = (mul * data->ray_direction[2]) - v1[2];
-			}
-			else if (main_axis == 1) {
-				v[0] = (mul * data->ray_direction[0]) - v1[0];
-				v[1] = (mul * data->ray_direction[2]) - v1[2];
-			}
-			else {
-				v[0] = (mul * data->ray_direction[0]) - v1[0];
-				v[1] = (mul * data->ray_direction[1]) - v1[1];
-			}
-			rdist = len_squared_v2(v);
-			r_axis_closest[main_axis] = (proj - v1[main_axis]) < (v2[main_axis] - proj);
-		}
-	}
-
-	return rdist;
 }
 
 /* find closest point to p on line through (l1, l2) and return lambda,
@@ -2964,7 +2926,15 @@ static bool barycentric_weights(const float v1[3], const float v2[3], const floa
 	}
 }
 
-void interp_weights_face_v3(float w[4], const float v1[3], const float v2[3], const float v3[3], const float v4[3], const float co[3])
+void interp_weights_tri_v3(float w[3], const float v1[3], const float v2[3], const float v3[3], const float co[3])
+{
+	float n[3];
+
+	normal_tri_v3(n, v1, v2, v3);
+	barycentric_weights(v1, v2, v3, co, n, w);
+}
+
+void interp_weights_quad_v3(float w[4], const float v1[3], const float v2[3], const float v3[3], const float v4[3], const float co[3])
 {
 	float w2[3];
 
@@ -2977,7 +2947,7 @@ void interp_weights_face_v3(float w[4], const float v1[3], const float v2[3], co
 		w[1] = 1.0f;
 	else if (equals_v3v3(co, v3))
 		w[2] = 1.0f;
-	else if (v4 && equals_v3v3(co, v4))
+	else if (equals_v3v3(co, v4))
 		w[3] = 1.0f;
 	else {
 		/* otherwise compute barycentric interpolation weights */
@@ -2985,34 +2955,23 @@ void interp_weights_face_v3(float w[4], const float v1[3], const float v2[3], co
 		bool degenerate;
 
 		sub_v3_v3v3(n1, v1, v3);
-		if (v4) {
-			sub_v3_v3v3(n2, v2, v4);
-		}
-		else {
-			sub_v3_v3v3(n2, v2, v3);
-		}
+		sub_v3_v3v3(n2, v2, v4);
 		cross_v3_v3v3(n, n1, n2);
 
-		/* OpenGL seems to split this way, so we do too */
-		if (v4) {
-			degenerate = barycentric_weights(v1, v2, v4, co, n, w);
-			SWAP(float, w[2], w[3]);
+		degenerate = barycentric_weights(v1, v2, v4, co, n, w);
+		SWAP(float, w[2], w[3]);
 
-			if (degenerate || (w[0] < 0.0f)) {
-				/* if w[1] is negative, co is on the other side of the v1-v3 edge,
-				 * so we interpolate using the other triangle */
-				degenerate = barycentric_weights(v2, v3, v4, co, n, w2);
+		if (degenerate || (w[0] < 0.0f)) {
+			/* if w[1] is negative, co is on the other side of the v1-v3 edge,
+			 * so we interpolate using the other triangle */
+			degenerate = barycentric_weights(v2, v3, v4, co, n, w2);
 
-				if (!degenerate) {
-					w[0] = 0.0f;
-					w[1] = w2[0];
-					w[2] = w2[1];
-					w[3] = w2[2];
-				}
+			if (!degenerate) {
+				w[0] = 0.0f;
+				w[1] = w2[0];
+				w[2] = w2[1];
+				w[3] = w2[2];
 			}
-		}
-		else {
-			barycentric_weights(v1, v2, v3, co, n, w);
 		}
 	}
 }
@@ -3058,6 +3017,9 @@ bool barycentric_coords_v2(const float v1[2], const float v2[2], const float v3[
 
 /**
  * \note: using #cross_tri_v2 means locations outside the triangle are correctly weighted
+ *
+ * \note This is *exactly* the same calculation as #resolve_tri_uv_v2,
+ * although it has double precision and is used for texture baking, so keep both.
  */
 void barycentric_weights_v2(const float v1[2], const float v2[2], const float v3[2], const float co[2], float w[3])
 {
@@ -3097,9 +3059,11 @@ void barycentric_weights_v2_persp(const float v1[4], const float v2[4], const fl
 	}
 }
 
-/* same as #barycentric_weights_v2 but works with a quad,
+/**
+ * same as #barycentric_weights_v2 but works with a quad,
  * note: untested for values outside the quad's bounds
- * this is #interp_weights_poly_v2 expanded for quads only */
+ * this is #interp_weights_poly_v2 expanded for quads only
+ */
 void barycentric_weights_v2_quad(const float v1[2], const float v2[2], const float v3[2], const float v4[2],
                                  const float co[2], float w[4])
 {
@@ -3552,6 +3516,8 @@ void interp_cubic_v3(float x[3], float v[3], const float x1[3], const float v1[3
  * Barycentric reverse
  *
  * Compute coordinates (u, v) for point \a st with respect to triangle (\a st0, \a st1, \a st2)
+ *
+ * \note same basic result as #barycentric_weights_v2, see it's comment for details.
  */
 void resolve_tri_uv_v2(float r_uv[2], const float st[2],
                        const float st0[2], const float st1[2], const float st2[2])
@@ -3763,6 +3729,9 @@ void interp_barycentric_tri_v3(float data[3][3], float u, float v, float res[3])
 
 /***************************** View & Projection *****************************/
 
+/**
+ * Matches `glOrtho` result.
+ */
 void orthographic_m4(float matrix[4][4], const float left, const float right, const float bottom, const float top,
                      const float nearClip, const float farClip)
 {
@@ -3783,6 +3752,9 @@ void orthographic_m4(float matrix[4][4], const float left, const float right, co
 	matrix[3][2] = -(farClip + nearClip) / Zdelta;
 }
 
+/**
+ * Matches `glFrustum` result.
+ */
 void perspective_m4(float mat[4][4], const float left, const float right, const float bottom, const float top,
                     const float nearClip, const float farClip)
 {
@@ -3917,10 +3889,9 @@ void lookat_m4(float mat[4][4], float vx, float vy, float vz, float px, float py
 	float sine, cosine, hyp, hyp1, dx, dy, dz;
 	float mat1[4][4];
 
-	unit_m4(mat);
 	unit_m4(mat1);
 
-	rotate_m4(mat, 'Z', -twist);
+	axis_angle_to_mat4_single(mat, 'Z', -twist);
 
 	dx = px - vx;
 	dy = py - vy;
@@ -4060,9 +4031,29 @@ void map_to_sphere(float *r_u, float *r_v, const float x, const float y, const f
 	}
 }
 
+void map_to_plane_v2_v3v3(float r_co[2], const float co[3], const float no[3])
+{
+	float target[3] = {0.0f, 0.0f, 1.0f};
+	float axis[3];
+
+	cross_v3_v3v3(axis, no, target);
+	normalize_v3(axis);
+
+	map_to_plane_axis_angle_v2_v3v3fl(r_co, co, axis, angle_normalized_v3v3(no, target));
+}
+
+void map_to_plane_axis_angle_v2_v3v3fl(float r_co[2], const float co[3], const float axis[3], const float angle)
+{
+	float tmp[3];
+
+	rotate_normalized_v3_v3v3fl(tmp, co, axis, angle);
+
+	copy_v2_v2(r_co, tmp);
+}
+
 /********************************* Normals **********************************/
 
-void accumulate_vertex_normals_tri(
+void accumulate_vertex_normals_tri_v3(
         float n1[3], float n2[3], float n3[3],
         const float f_no[3],
         const float co1[3], const float co2[3], const float co3[3])
@@ -4096,7 +4087,7 @@ void accumulate_vertex_normals_tri(
 	}
 }
 
-void accumulate_vertex_normals(
+void accumulate_vertex_normals_v3(
         float n1[3], float n2[3], float n3[3], float n4[3],
         const float f_no[3],
         const float co1[3], const float co2[3], const float co3[3], const float co4[3])
@@ -4140,7 +4131,7 @@ void accumulate_vertex_normals(
 
 /* Add weighted face normal component into normals of the face vertices.
  * Caller must pass pre-allocated vdiffs of nverts length. */
-void accumulate_vertex_normals_poly(float **vertnos, const float polyno[3],
+void accumulate_vertex_normals_poly_v3(float **vertnos, const float polyno[3],
                                     const float **vertcos, float vdiffs[][3], const int nverts)
 {
 	int i;
@@ -4171,7 +4162,7 @@ void accumulate_vertex_normals_poly(float **vertnos, const float polyno[3],
 
 /********************************* Tangents **********************************/
 
-void tangent_from_uv(
+void tangent_from_uv_v3(
         const float uv1[2], const float uv2[2], const float uv3[3],
         const float co1[3], const float co2[3], const float co3[3],
         const float n[3],
@@ -4213,30 +4204,28 @@ void tangent_from_uv(
 /****************************** Vector Clouds ********************************/
 
 /* vector clouds */
-/* void vcloud_estimate_transform(int list_size, float (*pos)[3], float *weight, float (*rpos)[3], float *rweight,
- *                                float lloc[3], float rloc[3], float lrot[3][3], float lscale[3][3])
- *
+/**
  * input
- * (
- * int list_size
- * 4 lists as pointer to array[list_size]
- * 1. current pos array of 'new' positions
- * 2. current weight array of 'new'weights (may be NULL pointer if you have no weights )
- * 3. reference rpos array of 'old' positions
- * 4. reference rweight array of 'old'weights (may be NULL pointer if you have no weights )
- * )
+ *
+ * \param list_size: 4 lists as pointer to array[list_size]
+ * \param pos: current pos array of 'new' positions
+ * \param weight: current weight array of 'new'weights (may be NULL pointer if you have no weights)
+ * \param rpos: Reference rpos array of 'old' positions
+ * \param rweight: Reference rweight array of 'old'weights (may be NULL pointer if you have no weights).
+ *
  * output
- * (
- * float lloc[3] center of mass pos
- * float rloc[3] center of mass rpos
- * float lrot[3][3] rotation matrix
- * float lscale[3][3] scale matrix
+ *
+ * \param lloc: Center of mass pos.
+ * \param rloc: Center of mass rpos.
+ * \param lrot: Rotation matrix.
+ * \param lscale: Scale matrix.
+ *
  * pointers may be NULL if not needed
- * )
  */
 
-void vcloud_estimate_transform(int list_size, float (*pos)[3], float *weight, float (*rpos)[3], float *rweight,
-                               float lloc[3], float rloc[3], float lrot[3][3], float lscale[3][3])
+void vcloud_estimate_transform_v3(
+        const int list_size, const float (*pos)[3], const float *weight, const float (*rpos)[3], const float *rweight,
+        float lloc[3], float rloc[3], float lrot[3][3], float lscale[3][3])
 {
 	float accu_com[3] = {0.0f, 0.0f, 0.0f}, accu_rcom[3] = {0.0f, 0.0f, 0.0f};
 	float accu_weight = 0.0f, accu_rweight = 0.0f;

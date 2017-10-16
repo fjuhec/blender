@@ -271,7 +271,7 @@ static void calc_tangent_vector(ObjectRen *obr, VlakRen *vlr, int do_tangent)
 	}
 	else return;
 
-	tangent_from_uv(uv1, uv2, uv3, v1->co, v2->co, v3->co, vlr->n, tang);
+	tangent_from_uv_v3(uv1, uv2, uv3, v1->co, v2->co, v3->co, vlr->n, tang);
 	
 	if (do_tangent) {
 		tav= RE_vertren_get_tangent(obr, v1, 1);
@@ -283,7 +283,7 @@ static void calc_tangent_vector(ObjectRen *obr, VlakRen *vlr, int do_tangent)
 	}
 	
 	if (v4) {
-		tangent_from_uv(uv1, uv3, uv4, v1->co, v3->co, v4->co, vlr->n, tang);
+		tangent_from_uv_v3(uv1, uv3, uv4, v1->co, v3->co, v4->co, vlr->n, tang);
 		
 		if (do_tangent) {
 			tav= RE_vertren_get_tangent(obr, v1, 1);
@@ -398,7 +398,7 @@ static void calc_vertexnormals(Render *UNUSED(re), ObjectRen *obr, bool do_verte
 			float *n4= (vlr->v4)? vlr->v4->n: NULL;
 			const float *c4= (vlr->v4)? vlr->v4->co: NULL;
 
-			accumulate_vertex_normals(vlr->v1->n, vlr->v2->n, vlr->v3->n, n4,
+			accumulate_vertex_normals_v3(vlr->v1->n, vlr->v2->n, vlr->v3->n, n4,
 				vlr->n, vlr->v1->co, vlr->v2->co, vlr->v3->co, c4);
 		}
 		if (do_tangent) {
@@ -3439,10 +3439,9 @@ static void init_render_mesh(Render *re, ObjectRen *obr, int timeoffset)
 										if (need_nmap_tangent_concrete || need_tangent) {
 											int uv_start = CustomData_get_layer_index(&dm->faceData, CD_MTFACE);
 											int uv_index = CustomData_get_named_layer_index(&dm->faceData, CD_MTFACE, layer->name);
-											BLI_assert(uv_start >= 0 && uv_index >= 0);
-											if ((uv_start < 0 || uv_index < 0))
-												continue;
-											int n = uv_index - uv_start;
+
+											/* if there are no UVs, orco tangents are in first slot */
+											int n = (uv_start >= 0 && uv_index >= 0) ? uv_index - uv_start : 0;
 
 											const float *tangent = (const float *) layer->data;
 											float *ftang = RE_vlakren_get_nmap_tangent(obr, vlr, n, true);
@@ -4658,14 +4657,22 @@ static void add_render_object(Render *re, Object *ob, Object *par, DupliObject *
 
 	index= (dob)? dob->persistent_id[0]: 0;
 
+	/* It seems that we may generate psys->renderdata recursively in some nasty intricated cases of
+	 * several levels of bupliobject (see T51524).
+	 * For now, basic rule is, do not restore psys if it was already in 'render state'.
+	 * Another, more robust solution could be to add some reference counting to that renderdata... */
+	bool psys_has_renderdata = false;
+
 	/* the emitter has to be processed first (render levels of modifiers) */
 	/* so here we only check if the emitter should be rendered */
 	if (ob->particlesystem.first) {
 		show_emitter= 0;
 		for (psys=ob->particlesystem.first; psys; psys=psys->next) {
 			show_emitter += psys->part->draw & PART_DRAW_EMITTER;
-			if (!(re->r.scemode & R_VIEWPORT_PREVIEW))
+			if (!(re->r.scemode & R_VIEWPORT_PREVIEW)) {
+				psys_has_renderdata |= (psys->renderdata != NULL);
 				psys_render_set(ob, psys, re->viewmat, re->winmat, re->winx, re->winy, timeoffset);
+			}
 		}
 
 		/* if no psys has "show emitter" selected don't render emitter */
@@ -4712,8 +4719,9 @@ static void add_render_object(Render *re, Object *ob, Object *par, DupliObject *
 			if (dob)
 				psys->flag |= PSYS_USE_IMAT;
 			init_render_object_data(re, obr, timeoffset);
-			if (!(re->r.scemode & R_VIEWPORT_PREVIEW))
+			if (!(re->r.scemode & R_VIEWPORT_PREVIEW) && !psys_has_renderdata) {
 				psys_render_restore(ob, psys);
+			}
 			psys->flag &= ~PSYS_USE_IMAT;
 
 			/* only add instance for objects that have not been used for dupli */
@@ -5569,12 +5577,17 @@ static void calculate_speedvectors(Render *re, ObjectInstanceRen *obi, float *ve
 					/* interpolate speed vectors from strand surface */
 					face= mesh->face[*index];
 
-					co1= mesh->co[face[0]];
-					co2= mesh->co[face[1]];
-					co3= mesh->co[face[2]];
-					co4= (face[3])? mesh->co[face[3]]: NULL;
+					co1 = mesh->co[face[0]];
+					co2 = mesh->co[face[1]];
+					co3 = mesh->co[face[2]];
 
-					interp_weights_face_v3(w, co1, co2, co3, co4, strand->vert->co);
+					if (face[3]) {
+						co4 = mesh->co[face[3]];
+						interp_weights_quad_v3(w, co1, co2, co3, co4, strand->vert->co);
+					}
+					else {
+						interp_weights_tri_v3(w, co1, co2, co3, strand->vert->co);
+					}
 
 					zero_v4(speed);
 					madd_v4_v4fl(speed, winspeed[face[0]], w[0]);

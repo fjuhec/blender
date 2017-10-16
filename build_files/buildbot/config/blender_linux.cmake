@@ -70,7 +70,7 @@ set(FFMPEG_LIBRARIES
 )
 
 # SndFile libraries
-set(SNDFILE_LIBRARY          "/usr/lib/libsndfile.a;/usr/lib/libFLAC.a" CACHE STRING "" FORCE)
+set(SNDFILE_LIBRARY          "/usr/lib${MULTILIB}/libsndfile.a;/usr/lib${MULTILIB}/libFLAC.a" CACHE STRING "" FORCE)
 
 # OpenAL libraries
 set(OPENAL_ROOT_DIR           "/opt/lib/openal" CACHE STRING "" FORCE)
@@ -94,6 +94,10 @@ set(OPENCOLORIO_OPENCOLORIO_LIBRARY "${OPENCOLORIO_ROOT_DIR}/lib/libOpenColorIO.
 set(OPENCOLORIO_TINYXML_LIBRARY "${OPENCOLORIO_ROOT_DIR}/lib/libtinyxml.a"         CACHE STRING "" FORCE)
 set(OPENCOLORIO_YAML-CPP_LIBRARY "${OPENCOLORIO_ROOT_DIR}/lib/libyaml-cpp.a"       CACHE STRING "" FORCE)
 
+# Freetype
+set(FREETYPE_INCLUDE_DIRS "/usr/include/freetype2"       CACHE STRING "" FORCE)
+set(FREETYPE_LIBRARY "/usr/lib${MULTILIB}/libfreetype.a" CACHE STRING "" FORCE)
+
 # OpenImageIO
 if(GLIBC EQUAL "2.19")
 	set(OPENIMAGEIO_LIBRARY
@@ -102,6 +106,7 @@ if(GLIBC EQUAL "2.19")
 		/usr/lib${MULTILIB}/libwebp.a
 		/usr/lib${MULTILIB}/liblzma.a
 		/usr/lib${MULTILIB}/libjbig.a
+		${FREETYPE_LIBRARY}
 		CACHE STRING "" FORCE
 	)
 endif()

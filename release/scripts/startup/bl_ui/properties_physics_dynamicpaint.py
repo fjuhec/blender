@@ -68,7 +68,7 @@ class PHYSICS_PT_dynamic_paint(PhysicButtonsPanel, Panel):
 
         md = context.dynamic_paint
 
-        layout.prop(md, "ui_type", expand=True)
+        layout.row().prop(md, "ui_type", expand=True)
 
         if md.ui_type == 'CANVAS':
             canvas = md.canvas_settings
@@ -245,7 +245,7 @@ class PHYSICS_PT_dp_canvas_output(PhysicButtonsPanel, Panel):
 
                 # paint-map output
                 row = layout.row()
-                row.prop_search(surface, "output_name_a", ob.data, "vertex_colors", text="Paintmap layer")
+                row.prop_search(surface, "output_name_a", ob.data, "vertex_colors", text="Paintmap Layer")
                 if surface.output_exists(object=ob, index=0):
                     ic = 'ZOOMOUT'
                 else:
@@ -255,7 +255,7 @@ class PHYSICS_PT_dp_canvas_output(PhysicButtonsPanel, Panel):
 
                 # wet-map output
                 row = layout.row()
-                row.prop_search(surface, "output_name_b", ob.data, "vertex_colors", text="Wetmap layer")
+                row.prop_search(surface, "output_name_b", ob.data, "vertex_colors", text="Wetmap Layer")
                 if surface.output_exists(object=ob, index=1):
                     ic = 'ZOOMOUT'
                 else:
@@ -282,7 +282,7 @@ class PHYSICS_PT_dp_canvas_output(PhysicButtonsPanel, Panel):
             layout.prop(surface, "image_output_path", text="")
             row = layout.row()
             row.prop(surface, "image_fileformat", text="")
-            row.prop(surface, "use_premultiply", text="Premultiply alpha")
+            row.prop(surface, "use_premultiply", text="Premultiply Alpha")
 
             if surface_type == 'PAINT':
                 split = layout.split(percentage=0.4)
@@ -363,7 +363,7 @@ class PHYSICS_PT_dp_effects(PhysicButtonsPanel, Panel):
         canvas = context.dynamic_paint.canvas_settings
         surface = canvas.canvas_surfaces.active
 
-        layout.prop(surface, "effect_ui", expand=True)
+        layout.row().prop(surface, "effect_ui", expand=True)
 
         if surface.effect_ui == 'SPREAD':
             layout.prop(surface, "use_spread")
@@ -439,12 +439,12 @@ class PHYSICS_PT_dp_brush_source(PhysicButtonsPanel, Panel):
         if brush.paint_source == 'PARTICLE_SYSTEM':
             col.prop_search(brush, "particle_system", ob, "particle_systems", text="")
             if brush.particle_system:
-                col.label(text="Particle effect:")
+                col.label(text="Particle Effect:")
                 sub = col.column()
                 sub.active = not brush.use_particle_radius
                 sub.prop(brush, "solid_radius", text="Solid Radius")
                 col.prop(brush, "use_particle_radius", text="Use Particle's Radius")
-                col.prop(brush, "smooth_radius", text="Smooth radius")
+                col.prop(brush, "smooth_radius", text="Smooth Radius")
 
         if brush.paint_source in {'DISTANCE', 'VOLUME_DISTANCE', 'POINT'}:
             col.prop(brush, "paint_distance", text="Paint Distance")
@@ -529,12 +529,20 @@ class PHYSICS_PT_dp_brush_wave(PhysicButtonsPanel, Panel):
             row.prop(brush, "wave_clamp")
 
 
-def register():
-    bpy.utils.register_module(__name__)
+classes = (
+    PHYSICS_UL_dynapaint_surfaces,
+    PHYSICS_PT_dynamic_paint,
+    PHYSICS_PT_dp_advanced_canvas,
+    PHYSICS_PT_dp_canvas_output,
+    PHYSICS_PT_dp_canvas_initial_color,
+    PHYSICS_PT_dp_effects,
+    PHYSICS_PT_dp_cache,
+    PHYSICS_PT_dp_brush_source,
+    PHYSICS_PT_dp_brush_velocity,
+    PHYSICS_PT_dp_brush_wave,
+)
 
-
-def unregister():
-    bpy.utils.register_module(__name__)
-
-if __name__ == "__main__":
-    register()
+if __name__ == "__main__":  # only for live edit.
+    from bpy.utils import register_class
+    for cls in classes:
+        register_class(cls)

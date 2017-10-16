@@ -67,7 +67,7 @@
 static void rna_ImagePackedFile_save(ImagePackedFile *imapf, ReportList *reports)
 {
 	if (writePackedFile(reports, imapf->filepath, imapf->packedfile, 0) != RET_OK) {
-		BKE_reportf(reports, RPT_ERROR, "Image could not save packed file to '%s'",
+		BKE_reportf(reports, RPT_ERROR, "Could not save packed file to disk as '%s'",
 		            imapf->filepath);
 	}
 }
@@ -291,7 +291,7 @@ static void rna_Image_filepath_from_user(Image *image, ImageUser *image_user, ch
 
 static void rna_Image_buffers_free(Image *image)
 {
-	BKE_image_free_buffers(image);
+	BKE_image_free_buffers_ex(image, true);
 }
 
 #else
@@ -314,7 +314,7 @@ void RNA_api_image(StructRNA *srna)
 	RNA_def_function_ui_description(func, "Save image to a specific path using a scenes render settings");
 	RNA_def_function_flag(func, FUNC_USE_CONTEXT | FUNC_USE_REPORTS);
 	parm = RNA_def_string_file_path(func, "filepath", NULL, 0, "", "Save path");
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	RNA_def_pointer(func, "scene", "Scene", "", "Scene to take image parameters from");
 
 	func = RNA_def_function(srna, "save", "rna_Image_save");
@@ -346,9 +346,9 @@ void RNA_api_image(StructRNA *srna)
 	RNA_def_function_ui_description(func, "Scale the image in pixels");
 	RNA_def_function_flag(func, FUNC_USE_REPORTS);
 	parm = RNA_def_int(func, "width", 1, 1, 10000, "", "Width", 1, 10000);
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	parm = RNA_def_int(func, "height", 1, 1, 10000, "", "Height", 1, 10000);
-	RNA_def_property_flag(parm, PROP_REQUIRED);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 
 	func = RNA_def_function(srna, "gl_touch", "rna_Image_gl_touch");
 	RNA_def_function_ui_description(func, "Delay the image from being cleaned from the cache due inactivity");
@@ -372,7 +372,6 @@ void RNA_api_image(StructRNA *srna)
 	            "The texture minifying function", -INT_MAX, INT_MAX);
 	RNA_def_int(func, "mag", GL_LINEAR, -INT_MAX, INT_MAX, "Magnification",
 	            "The texture magnification function", -INT_MAX, INT_MAX);
-
 	/* return value */
 	parm = RNA_def_int(func, "error", 0, -INT_MAX, INT_MAX, "Error", "OpenGL error value", -INT_MAX, INT_MAX);
 	RNA_def_function_return(func, parm);
@@ -386,7 +385,7 @@ void RNA_api_image(StructRNA *srna)
 	RNA_def_pointer(func, "image_user", "ImageUser", "", "Image user of the image to get filepath for");
 	parm = RNA_def_string_file_path(func, "filepath", NULL, FILE_MAX, "File Path",
 	                                "The resulting filepath from the image and it's user");
-	RNA_def_property_flag(parm, PROP_THICK_WRAP);  /* needed for string return value */
+	RNA_def_parameter_flags(parm, PROP_THICK_WRAP, 0);  /* needed for string return value */
 	RNA_def_function_output(func, parm);
 
 	func = RNA_def_function(srna, "buffers_free", "rna_Image_buffers_free");

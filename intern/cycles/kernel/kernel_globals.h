@@ -16,6 +16,17 @@
 
 /* Constant Globals */
 
+#ifndef __KERNEL_GLOBALS_H__
+#define __KERNEL_GLOBALS_H__
+
+#ifdef __KERNEL_CPU__
+#  include "util/util_vector.h"
+#endif
+
+#ifdef __KERNEL_OPENCL__
+#  include "util/util_atomic.h"
+#endif
+
 CCL_NAMESPACE_BEGIN
 
 /* On the CPU, we pass along the struct KernelGlobals to nearly everywhere in
@@ -42,16 +53,9 @@ struct VolumeStep;
 #  define MAX_VOLUME        1024
 
 typedef struct KernelGlobals {
-	texture_image_uchar4 texture_byte4_images[TEX_NUM_BYTE4_CPU];
-	texture_image_float4 texture_float4_images[TEX_NUM_FLOAT4_CPU];
-	texture_image_half4 texture_half4_images[TEX_NUM_HALF4_CPU];
-	texture_image_float texture_float_images[TEX_NUM_FLOAT_CPU];
-	texture_image_uchar texture_byte_images[TEX_NUM_BYTE_CPU];
-	texture_image_half texture_half_images[TEX_NUM_HALF_CPU];
-
-#  define KERNEL_TEX(type, ttype, name) ttype name;
+#  define KERNEL_TEX(type, name) texture<type> name;
 #  define KERNEL_IMAGE_TEX(type, ttype, name)
-#  include "kernel_textures.h"
+#  include "kernel/kernel_textures.h"
 
 	KernelData __data;
 
@@ -72,7 +76,15 @@ typedef struct KernelGlobals {
 	VolumeStep *decoupled_volume_steps[2];
 	int decoupled_volume_steps_index;
 
+	/* split kernel */
+	SplitData split_data;
+	SplitParams split_param_data;
+
+	int2 global_size;
+	int2 global_id;
+
 #  ifdef WITH_OPENVDB
+	/* OpenVDB */
 	OpenVDBGlobals *vdb;
 	OpenVDBThreadData *vdb_tdata;
 #  endif
@@ -88,15 +100,14 @@ typedef struct KernelGlobals {
 #ifdef __KERNEL_CUDA__
 
 __constant__ KernelData __data;
-typedef struct KernelGlobals {} KernelGlobals;
+typedef struct KernelGlobals {
+	/* NOTE: Keep the size in sync with SHADOW_STACK_MAX_HITS. */
+	Intersection hits_stack[64];
+} KernelGlobals;
 
-#  ifdef __KERNEL_CUDA_TEX_STORAGE__
-#    define KERNEL_TEX(type, ttype, name) ttype name;
-#  else
-#    define KERNEL_TEX(type, ttype, name) const __constant__ __device__ type *name;
-#  endif
+#  define KERNEL_TEX(type, name) const __constant__ __device__ type *name;
 #  define KERNEL_IMAGE_TEX(type, ttype, name) ttype name;
-#  include "kernel_textures.h"
+#  include "kernel/kernel_textures.h"
 
 #endif  /* __KERNEL_CUDA__ */
 
@@ -104,18 +115,74 @@ typedef struct KernelGlobals {} KernelGlobals;
 
 #ifdef __KERNEL_OPENCL__
 
+#  define KERNEL_TEX(type, name) \
+typedef type name##_t;
+#  include "kernel/kernel_textures.h"
+
 typedef ccl_addr_space struct KernelGlobals {
 	ccl_constant KernelData *data;
+	ccl_global char *buffers[8];
 
-#  define KERNEL_TEX(type, ttype, name) \
-	ccl_global type *name;
-#  include "kernel_textures.h"
+#  define KERNEL_TEX(type, name) \
+	TextureInfo name;
+#  include "kernel/kernel_textures.h"
 
 #  ifdef __SPLIT_KERNEL__
-	ShaderData *sd_input;
-	Intersection *isect_shadow;
+	SplitData split_data;
+	SplitParams split_param_data;
 #  endif
 } KernelGlobals;
+
+#define KERNEL_BUFFER_PARAMS \
+	ccl_global char *buffer0, \
+	ccl_global char *buffer1, \
+	ccl_global char *buffer2, \
+	ccl_global char *buffer3, \
+	ccl_global char *buffer4, \
+	ccl_global char *buffer5, \
+	ccl_global char *buffer6, \
+	ccl_global char *buffer7
+
+#define KERNEL_BUFFER_ARGS buffer0, buffer1, buffer2, buffer3, buffer4, buffer5, buffer6, buffer7
+
+ccl_device_inline void kernel_set_buffer_pointers(KernelGlobals *kg, KERNEL_BUFFER_PARAMS)
+{
+#ifdef __SPLIT_KERNEL__
+	if(ccl_local_id(0) + ccl_local_id(1) == 0)
+#endif
+	{
+		kg->buffers[0] = buffer0;
+		kg->buffers[1] = buffer1;
+		kg->buffers[2] = buffer2;
+		kg->buffers[3] = buffer3;
+		kg->buffers[4] = buffer4;
+		kg->buffers[5] = buffer5;
+		kg->buffers[6] = buffer6;
+		kg->buffers[7] = buffer7;
+	}
+
+#  ifdef __SPLIT_KERNEL__
+	ccl_barrier(CCL_LOCAL_MEM_FENCE);
+#  endif
+}
+
+ccl_device_inline void kernel_set_buffer_info(KernelGlobals *kg)
+{
+#  ifdef __SPLIT_KERNEL__
+	if(ccl_local_id(0) + ccl_local_id(1) == 0)
+#  endif
+	{
+		ccl_global TextureInfo *info = (ccl_global TextureInfo*)kg->buffers[0];
+
+#  define KERNEL_TEX(type, name) \
+		kg->name = *(info++);
+#  include "kernel/kernel_textures.h"
+	}
+
+#  ifdef __SPLIT_KERNEL__
+	ccl_barrier(CCL_LOCAL_MEM_FENCE);
+#  endif
+}
 
 #endif  /* __KERNEL_OPENCL__ */
 
@@ -155,3 +222,4 @@ ccl_device float lookup_table_read_2D(KernelGlobals *kg, float x, float y, int o
 
 CCL_NAMESPACE_END
 
+#endif  /* __KERNEL_GLOBALS_H__ */

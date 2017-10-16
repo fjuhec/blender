@@ -21,8 +21,8 @@
 #include <string.h>
 #endif
 
-#include "util_math.h"
-#include "util_types.h"
+#include "util/util_math.h"
+#include "util/util_types.h"
 
 CCL_NAMESPACE_BEGIN
 
@@ -74,7 +74,7 @@ ccl_device_inline float3 transform_perspective(const Transform *t, const float3 
 ccl_device_inline float3 transform_point(const Transform *t, const float3 a)
 {
 	/* TODO(sergey): Disabled for now, causes crashes in certain cases. */
-#if defined(__KERNEL_SSE__) && defined(__KERNEL_SSE2__) && 0
+#if defined(__KERNEL_SSE__) && defined(__KERNEL_SSE2__)
 	ssef x, y, z, w, aa;
 	aa = a.m128;
 
@@ -103,8 +103,7 @@ ccl_device_inline float3 transform_point(const Transform *t, const float3 a)
 
 ccl_device_inline float3 transform_direction(const Transform *t, const float3 a)
 {
-	/* TODO(sergey): Disabled for now, causes crashes in certain cases. */
-#if defined(__KERNEL_SSE__) && defined(__KERNEL_SSE2__) && 0
+#if defined(__KERNEL_SSE__) && defined(__KERNEL_SSE2__)
 	ssef x, y, z, w, aa;
 	aa = a.m128;
 	x = _mm_loadu_ps(&t->x.x);

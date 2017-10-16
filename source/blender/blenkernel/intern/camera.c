@@ -86,22 +86,31 @@ void *BKE_camera_add(Main *bmain, const char *name)
 {
 	Camera *cam;
 
-	cam =  BKE_libblock_alloc(bmain, ID_CA, name);
+	cam =  BKE_libblock_alloc(bmain, ID_CA, name, 0);
 
 	BKE_camera_init(cam);
 
 	return cam;
 }
 
-Camera *BKE_camera_copy(Main *bmain, Camera *cam)
+/**
+ * Only copy internal data of Camera ID from source to already allocated/initialized destination.
+ * You probably nerver want to use that directly, use id_copy or BKE_id_copy_ex for typical needs.
+ *
+ * WARNING! This function will not handle ID user count!
+ *
+ * \param flag  Copying options (see BKE_library.h's LIB_ID_COPY_... flags for more).
+ */
+void BKE_camera_copy_data(Main *UNUSED(bmain), Camera *UNUSED(cam_dst), const Camera *UNUSED(cam_src), const int UNUSED(flag))
 {
-	Camera *camn;
-	
-	camn = BKE_libblock_copy(bmain, &cam->id);
+	/* Nothing to do! */
+}
 
-	BKE_id_copy_ensure_local(bmain, &cam->id, &camn->id);
-
-	return camn;
+Camera *BKE_camera_copy(Main *bmain, const Camera *cam)
+{
+	Camera *cam_copy;
+	BKE_id_copy_ex(bmain, &cam->id, (ID **)&cam_copy, 0, false);
+	return cam_copy;
 }
 
 void BKE_camera_make_local(Main *bmain, Camera *cam, const bool lib_local)
@@ -252,7 +261,7 @@ void BKE_camera_params_from_view3d(CameraParams *params, const View3D *v3d, cons
 	}
 	else if (rv3d->persp == RV3D_ORTHO) {
 		/* orthographic view */
-		int sensor_size = BKE_camera_sensor_size(params->sensor_fit, params->sensor_x, params->sensor_y);
+		float sensor_size = BKE_camera_sensor_size(params->sensor_fit, params->sensor_x, params->sensor_y);
 		params->clipend *= 0.5f;    // otherwise too extreme low zbuffer quality
 		params->clipsta = -params->clipend;
 
@@ -337,6 +346,8 @@ void BKE_camera_params_compute_viewplane(CameraParams *params, int winx, int win
 	viewplane.ymin *= pixsize;
 	viewplane.ymax *= pixsize;
 
+	/* Used for rendering (offset by near-clip with perspective views), passed to RE_SetPixelSize.
+	 * For viewport drawing 'RegionView3D.pixsize'. */
 	params->viewdx = pixsize;
 	params->viewdy = params->ycor * pixsize;
 	params->viewplane = viewplane;

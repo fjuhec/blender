@@ -122,6 +122,8 @@ struct GPUMaterial {
 	int partvel;
 	int partangvel;
 
+	int objectinfoloc;
+
 	ListBase lamps;
 	bool bound;
 
@@ -225,7 +227,7 @@ static void gpu_material_set_attrib_id(GPUMaterial *material)
 	attribs->totlayer = b;
 }
 
-static int GPU_material_construct_end(GPUMaterial *material, const char *passname)
+static int gpu_material_construct_end(GPUMaterial *material, const char *passname)
 {
 	if (material->outlink) {
 		GPUNodeLink *outlink = material->outlink;
@@ -268,6 +270,8 @@ static int GPU_material_construct_end(GPUMaterial *material, const char *passnam
 			material->partvel = GPU_shader_get_uniform(shader, GPU_builtin_name(GPU_PARTICLE_VELOCITY));
 		if (material->builtins & GPU_PARTICLE_ANG_VELOCITY)
 			material->partangvel = GPU_shader_get_uniform(shader, GPU_builtin_name(GPU_PARTICLE_ANG_VELOCITY));
+		if (material->builtins & GPU_OBJECT_INFO)
+			material->objectinfoloc = GPU_shader_get_uniform(shader, GPU_builtin_name(GPU_OBJECT_INFO));
 		return 1;
 	}
 	else {
@@ -308,9 +312,11 @@ void GPU_material_free(ListBase *gpumaterial)
 	BLI_freelistN(gpumaterial);
 }
 
-bool GPU_lamp_override_visible(GPULamp *lamp, SceneRenderLayer *srl, Material *ma)
+bool GPU_lamp_visible(GPULamp *lamp, SceneRenderLayer *srl, Material *ma)
 {
-	if (srl && srl->light_override)
+	if (lamp->hide)
+		return false;
+	else if (srl && srl->light_override)
 		return BKE_group_object_exists(srl->light_override, lamp->ob);
 	else if (ma && ma->group)
 		return BKE_group_object_exists(ma->group, lamp->ob);
@@ -334,8 +340,8 @@ void GPU_material_bind(
 			for (LinkData *nlink = material->lamps.first; nlink; nlink = nlink->next) {
 				GPULamp *lamp = nlink->data;
 				
-				if (!lamp->hide && (lamp->lay & viewlay) && (!(lamp->mode & LA_LAYER) || (lamp->lay & oblay)) &&
-				    GPU_lamp_override_visible(lamp, srl, material->ma))
+				if ((lamp->lay & viewlay) && (!(lamp->mode & LA_LAYER) || (lamp->lay & oblay)) &&
+				    GPU_lamp_visible(lamp, srl, material->ma))
 				{
 					lamp->dynenergy = lamp->energy;
 					copy_v3_v3(lamp->dyncol, lamp->col);
@@ -398,9 +404,14 @@ void GPU_material_bind(
 	}
 }
 
+GPUBuiltin GPU_get_material_builtins(GPUMaterial *material)
+{
+	return material->builtins;
+}
+
 void GPU_material_bind_uniforms(
         GPUMaterial *material, float obmat[4][4], float viewmat[4][4], float obcol[4],
-        float autobumpscale, GPUParticleInfo *pi)
+        float autobumpscale, GPUParticleInfo *pi, float object_info[3])
 {
 	if (material->pass) {
 		GPUShader *shader = GPU_pass_shader(material->pass);
@@ -448,6 +459,9 @@ void GPU_material_bind_uniforms(
 		}
 		if (material->builtins & GPU_PARTICLE_ANG_VELOCITY) {
 			GPU_shader_uniform_vector(shader, material->partangvel, 3, 1, pi->angular_velocity);
+		}
+		if (material->builtins & GPU_OBJECT_INFO) {
+			GPU_shader_uniform_vector(shader, material->objectinfoloc, 3, 1, object_info);
 		}
 
 	}
@@ -609,7 +623,7 @@ static GPUNodeLink *lamp_get_visibility(GPUMaterial *mat, GPULamp *lamp, GPUNode
 			
 			GPU_link(mat, "lamp_visibility_spot",
 			         GPU_dynamic_uniform(&lamp->spotsi, GPU_DYNAMIC_LAMP_SPOTSIZE, lamp->ob),
-			         GPU_dynamic_uniform(&lamp->spotbl, GPU_DYNAMIC_LAMP_SPOTSIZE, lamp->ob),
+			         GPU_dynamic_uniform(&lamp->spotbl, GPU_DYNAMIC_LAMP_SPOTBLEND, lamp->ob),
 			         inpr, visifac, &visifac);
 		}
 
@@ -1891,7 +1905,7 @@ GPUMaterial *GPU_material_matcap(Scene *scene, Material *ma, bool use_opensubdiv
 		
 	GPU_material_output_link(mat, outlink);
 
-	GPU_material_construct_end(mat, "matcap_pass");
+	gpu_material_construct_end(mat, "matcap_pass");
 	
 	/* note that even if building the shader fails in some way, we still keep
 	 * it to avoid trying to compile again and again, and simple do not use
@@ -2044,7 +2058,7 @@ static void do_world_tex(GPUShadeInput *shi, struct World *wo, GPUNodeLink **hor
 	}
 }
 
-static void GPU_material_old_world(struct GPUMaterial *mat, struct World *wo)
+static void gpu_material_old_world(struct GPUMaterial *mat, struct World *wo)
 {
 	GPUShadeInput shi;
 	GPUShadeResult shr;
@@ -2112,17 +2126,18 @@ GPUMaterial *GPU_material_world(struct Scene *scene, struct World *wo)
 	mat->type = GPU_MATERIAL_TYPE_WORLD;
 	
 	/* create nodes */
-	if (BKE_scene_use_new_shading_nodes(scene) && wo->nodetree && wo->use_nodes)
+	if (BKE_scene_use_new_shading_nodes(scene) && wo->nodetree && wo->use_nodes) {
 		ntreeGPUMaterialNodes(wo->nodetree, mat, NODE_NEW_SHADING);
+	}
 	else {
-		GPU_material_old_world(mat, wo);
+		gpu_material_old_world(mat, wo);
 	}
 
 	if (GPU_material_do_color_management(mat))
 		if (mat->outlink)
 			GPU_link(mat, "linearrgb_to_srgb", mat->outlink, &mat->outlink);
 
-	GPU_material_construct_end(mat, wo->id.name);
+	gpu_material_construct_end(mat, wo->id.name);
 	
 	/* note that even if building the shader fails in some way, we still keep
 	 * it to avoid trying to compile again and again, and simple do not use
@@ -2188,7 +2203,7 @@ GPUMaterial *GPU_material_from_blender(Scene *scene, Material *ma, bool use_open
 		if (mat->outlink)
 			GPU_link(mat, "linearrgb_to_srgb", mat->outlink, &mat->outlink);
 
-	GPU_material_construct_end(mat, ma->id.name);
+	gpu_material_construct_end(mat, ma->id.name);
 
 	/* note that even if building the shader fails in some way, we still keep
 	 * it to avoid trying to compile again and again, and simple do not use

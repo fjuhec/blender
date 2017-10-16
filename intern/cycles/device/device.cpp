@@ -17,23 +17,24 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "device.h"
-#include "device_intern.h"
+#include "device/device.h"
+#include "device/device_intern.h"
 
-#include "util_debug.h"
-#include "util_foreach.h"
-#include "util_half.h"
-#include "util_math.h"
-#include "util_opengl.h"
-#include "util_time.h"
-#include "util_types.h"
-#include "util_vector.h"
-#include "util_string.h"
+#include "util/util_debug.h"
+#include "util/util_foreach.h"
+#include "util/util_half.h"
+#include "util/util_math.h"
+#include "util/util_opengl.h"
+#include "util/util_time.h"
+#include "util/util_types.h"
+#include "util/util_vector.h"
+#include "util/util_string.h"
 
 CCL_NAMESPACE_BEGIN
 
 bool Device::need_types_update = true;
 bool Device::need_devices_update = true;
+thread_mutex Device::device_mutex;
 vector<DeviceType> Device::types;
 vector<DeviceInfo> Device::devices;
 
@@ -48,11 +49,11 @@ std::ostream& operator <<(std::ostream &os,
 	os << "Max nodes group: " << requested_features.max_nodes_group << std::endl;
 	/* TODO(sergey): Decode bitflag into list of names. */
 	os << "Nodes features: " << requested_features.nodes_features << std::endl;
-	os << "Use hair: "
+	os << "Use Hair: "
 	   << string_from_bool(requested_features.use_hair) << std::endl;
-	os << "Use object motion: "
+	os << "Use Object Motion: "
 	   << string_from_bool(requested_features.use_object_motion) << std::endl;
-	os << "Use camera motion: "
+	os << "Use Camera Motion: "
 	   << string_from_bool(requested_features.use_camera_motion) << std::endl;
 	os << "Use Baking: "
 	   << string_from_bool(requested_features.use_baking) << std::endl;
@@ -64,6 +65,12 @@ std::ostream& operator <<(std::ostream &os,
 	   << string_from_bool(requested_features.use_integrator_branched) << std::endl;
 	os << "Use Patch Evaluation: "
 	   << string_from_bool(requested_features.use_patch_evaluation) << std::endl;
+	os << "Use Transparent Shadows: "
+	   << string_from_bool(requested_features.use_transparent) << std::endl;
+	os << "Use Principled BSDF: "
+	   << string_from_bool(requested_features.use_principled) << std::endl;
+	os << "Use Denoising: "
+	   << string_from_bool(requested_features.use_denoising) << std::endl;
 	return os;
 }
 
@@ -78,7 +85,7 @@ Device::~Device()
 
 void Device::pixels_alloc(device_memory& mem)
 {
-	mem_alloc(mem, MEM_READ_WRITE);
+	mem_alloc("pixels", mem, MEM_READ_WRITE);
 }
 
 void Device::pixels_copy_from(device_memory& mem, int y, int w, int h)
@@ -290,53 +297,49 @@ string Device::string_from_type(DeviceType type)
 
 vector<DeviceType>& Device::available_types()
 {
+	thread_scoped_lock lock(device_mutex);
 	if(need_types_update) {
 		types.clear();
 		types.push_back(DEVICE_CPU);
-
 #ifdef WITH_CUDA
-		if(device_cuda_init())
+		if(device_cuda_init()) {
 			types.push_back(DEVICE_CUDA);
+		}
 #endif
-
 #ifdef WITH_OPENCL
-		if(device_opencl_init())
+		if(device_opencl_init()) {
 			types.push_back(DEVICE_OPENCL);
+		}
 #endif
-
 #ifdef WITH_NETWORK
 		types.push_back(DEVICE_NETWORK);
 #endif
-
 		need_types_update = false;
 	}
-
 	return types;
 }
 
 vector<DeviceInfo>& Device::available_devices()
 {
+	thread_scoped_lock lock(device_mutex);
 	if(need_devices_update) {
 		devices.clear();
-#ifdef WITH_CUDA
-		if(device_cuda_init())
-			device_cuda_info(devices);
-#endif
-
 #ifdef WITH_OPENCL
-		if(device_opencl_init())
+		if(device_opencl_init()) {
 			device_opencl_info(devices);
+		}
 #endif
-
+#ifdef WITH_CUDA
+		if(device_cuda_init()) {
+			device_cuda_info(devices);
+		}
+#endif
 		device_cpu_info(devices);
-
 #ifdef WITH_NETWORK
 		device_network_info(devices);
 #endif
-
 		need_devices_update = false;
 	}
-
 	return devices;
 }
 
@@ -344,17 +347,18 @@ string Device::device_capabilities()
 {
 	string capabilities = "CPU device capabilities: ";
 	capabilities += device_cpu_capabilities() + "\n";
-#ifdef WITH_CUDA
-	if(device_cuda_init()) {
-		capabilities += "\nCUDA device capabilities:\n";
-		capabilities += device_cuda_capabilities();
-	}
-#endif
 
 #ifdef WITH_OPENCL
 	if(device_opencl_init()) {
 		capabilities += "\nOpenCL device capabilities:\n";
 		capabilities += device_opencl_capabilities();
+	}
+#endif
+
+#ifdef WITH_CUDA
+	if(device_cuda_init()) {
+		capabilities += "\nCUDA device capabilities:\n";
+		capabilities += device_cuda_capabilities();
 	}
 #endif
 
@@ -373,12 +377,14 @@ DeviceInfo Device::get_multi_device(vector<DeviceInfo> subdevices)
 	info.num = 0;
 
 	info.has_bindless_textures = true;
-	info.pack_images = false;
+	info.has_volume_decoupled = true;
+	info.has_qbvh = true;
 	foreach(DeviceInfo &device, subdevices) {
 		assert(device.type == info.multi_devices[0].type);
 
-		info.pack_images |= device.pack_images;
 		info.has_bindless_textures &= device.has_bindless_textures;
+		info.has_volume_decoupled &= device.has_volume_decoupled;
+		info.has_qbvh &= device.has_qbvh;
 	}
 
 	return info;
@@ -396,6 +402,18 @@ void Device::free_memory()
 	need_devices_update = true;
 	types.free_memory();
 	devices.free_memory();
+}
+
+
+device_sub_ptr::device_sub_ptr(Device *device, device_memory& mem, int offset, int size, MemoryType type)
+ : device(device)
+{
+	ptr = device->mem_alloc_sub_ptr(mem, offset, size, type);
+}
+
+device_sub_ptr::~device_sub_ptr()
+{
+	device->mem_free_sub_ptr(ptr);
 }
 
 CCL_NAMESPACE_END

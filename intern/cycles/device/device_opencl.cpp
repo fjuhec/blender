@@ -16,12 +16,12 @@
 
 #ifdef WITH_OPENCL
 
-#include "opencl/opencl.h"
+#include "device/opencl/opencl.h"
 
-#include "device_intern.h"
+#include "device/device_intern.h"
 
-#include "util_foreach.h"
-#include "util_logging.h"
+#include "util/util_foreach.h"
+#include "util/util_logging.h"
 
 CCL_NAMESPACE_BEGIN
 
@@ -73,8 +73,34 @@ bool device_opencl_init(void)
 	return result;
 }
 
+
+static cl_int device_opencl_get_num_platforms_safe(cl_uint *num_platforms)
+{
+#ifdef _WIN32
+	__try {
+		return clGetPlatformIDs(0, NULL, num_platforms);
+	}
+	__except(EXCEPTION_EXECUTE_HANDLER) {
+		/* Ignore crashes inside the OpenCL driver and hope we can
+		 * survive even with corrupted OpenCL installs. */
+		fprintf(stderr, "Cycles OpenCL: driver crashed, continuing without OpenCL.\n");
+	}
+
+	*num_platforms = 0;
+	return CL_DEVICE_NOT_FOUND;
+#else
+	return clGetPlatformIDs(0, NULL, num_platforms);
+#endif
+}
+
 void device_opencl_info(vector<DeviceInfo>& devices)
 {
+	cl_uint num_platforms = 0;
+	device_opencl_get_num_platforms_safe(&num_platforms);
+	if(num_platforms == 0) {
+		return;
+	}
+
 	vector<OpenCLPlatformDevice> usable_devices;
 	OpenCLInfo::get_usable_devices(&usable_devices);
 	/* Devices are numbered consecutively across platforms. */
@@ -95,9 +121,10 @@ void device_opencl_info(vector<DeviceInfo>& devices)
 		/* We don't know if it's used for display, but assume it is. */
 		info.display_device = true;
 		info.advanced_shading = OpenCLInfo::kernel_use_advanced_shading(platform_name);
-		info.pack_images = true;
 		info.use_split_kernel = OpenCLInfo::kernel_use_split(platform_name,
 		                                                     device_type);
+		info.has_volume_decoupled = false;
+		info.has_qbvh = false;
 		info.id = string("OPENCL_") + platform_name + "_" + device_name + "_" + hardware_id;
 		devices.push_back(info);
 		num_devices++;
@@ -114,7 +141,7 @@ string device_opencl_capabilities(void)
 	                         * it could also be nicely reported to the console.
 	                         */
 	cl_uint num_platforms = 0;
-	opencl_assert(clGetPlatformIDs(0, NULL, &num_platforms));
+	opencl_assert(device_opencl_get_num_platforms_safe(&num_platforms));
 	if(num_platforms == 0) {
 		return "No OpenCL platforms found\n";
 	}
@@ -130,10 +157,22 @@ string device_opencl_capabilities(void)
 		opencl_assert(func(id, what, sizeof(data), &data, NULL)); \
 		result += string_printf("%s: %s\n", name, data); \
 	} while(false)
+#define APPEND_STRING_EXTENSION_INFO(func, id, name, what) \
+	do { \
+		char data[1024] = "\0"; \
+		size_t length = 0; \
+		if(func(id, what, sizeof(data), &data, &length) == CL_SUCCESS) { \
+			if(length != 0 && data[0] != '\0') { \
+				result += string_printf("%s: %s\n", name, data); \
+			} \
+		} \
+	} while(false)
 #define APPEND_PLATFORM_STRING_INFO(id, name, what) \
 	APPEND_STRING_INFO(clGetPlatformInfo, id, "\tPlatform " name, what)
 #define APPEND_DEVICE_STRING_INFO(id, name, what) \
 	APPEND_STRING_INFO(clGetDeviceInfo, id, "\t\t\tDevice " name, what)
+#define APPEND_DEVICE_STRING_EXTENSION_INFO(id, name, what) \
+	APPEND_STRING_EXTENSION_INFO(clGetDeviceInfo, id, "\t\t\tDevice " name, what)
 
 	vector<cl_device_id> device_ids;
 	for(cl_uint platform = 0; platform < num_platforms; ++platform) {
@@ -167,6 +206,7 @@ string device_opencl_capabilities(void)
 			result += string_printf("\t\tDevice: #%u\n", device);
 
 			APPEND_DEVICE_STRING_INFO(device_id, "Name", CL_DEVICE_NAME);
+			APPEND_DEVICE_STRING_EXTENSION_INFO(device_id, "Board Name", CL_DEVICE_BOARD_NAME_AMD);
 			APPEND_DEVICE_STRING_INFO(device_id, "Vendor", CL_DEVICE_VENDOR);
 			APPEND_DEVICE_STRING_INFO(device_id, "OpenCL C Version", CL_DEVICE_OPENCL_C_VERSION);
 			APPEND_DEVICE_STRING_INFO(device_id, "Profile", CL_DEVICE_PROFILE);

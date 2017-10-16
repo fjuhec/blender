@@ -684,7 +684,7 @@ static float invGammaCorrect(float c)
 	else if (i >= RE_GAMMA_TABLE_SIZE) res =  powf(c,  valid_inv_gamma);
 	else                               res = inv_gamma_range_table[i] +
 	                                         ((c - color_domain_table[i]) * inv_gamfactor_table[i]);
- 
+
 	return res;
 }
 
@@ -1074,29 +1074,31 @@ static void do_sub_effect(const SeqRenderData *context, Sequence *UNUSED(seq), f
 
 static void do_drop_effect_byte(float facf0, float facf1, int x, int y, unsigned char *rect2i, unsigned char *rect1i, unsigned char *outi)
 {
-	int height, width, temp, fac, fac1, fac2;
+	int temp, fac, fac1, fac2;
 	unsigned char *rt1, *rt2, *out;
 	int field = 1;
 
-	width = x;
-	height = y;
+	const int width = x;
+	const int height = y;
+	const int xoff = min_ii(XOFF, width);
+	const int yoff = min_ii(YOFF, height);
 
 	fac1 = (int) (70.0f * facf0);
 	fac2 = (int) (70.0f * facf1);
 
-	rt2 = (unsigned char *) (rect2i + YOFF * width);
-	rt1 = (unsigned char *) rect1i;
-	out = (unsigned char *) outi;
-	for (y = 0; y < height - YOFF; y++) {
+	rt2 = rect2i + yoff * 4 * width;
+	rt1 = rect1i;
+	out = outi;
+	for (y = 0; y < height - yoff; y++) {
 		if (field) fac = fac1;
 		else fac = fac2;
 		field = !field;
 
-		memcpy(out, rt1, sizeof(int) * XOFF);
-		rt1 += XOFF * 4;
-		out += XOFF * 4;
+		memcpy(out, rt1, sizeof(*out) * xoff * 4);
+		rt1 += xoff * 4;
+		out += xoff * 4;
 
-		for (x = XOFF; x < width; x++) {
+		for (x = xoff; x < width; x++) {
 			temp = ((fac * rt2[3]) >> 8);
 
 			*(out++) = MAX2(0, *rt1 - temp); rt1++;
@@ -1105,37 +1107,38 @@ static void do_drop_effect_byte(float facf0, float facf1, int x, int y, unsigned
 			*(out++) = MAX2(0, *rt1 - temp); rt1++;
 			rt2 += 4;
 		}
-		rt2 += XOFF * 4;
+		rt2 += xoff * 4;
 	}
-	memcpy(out, rt1, sizeof(int) * YOFF * width);
+	memcpy(out, rt1, sizeof(*out) * yoff * 4 * width);
 }
 
 static void do_drop_effect_float(float facf0, float facf1, int x, int y, float *rect2i, float *rect1i, float *outi)
 {
-	int height, width;
 	float temp, fac, fac1, fac2;
 	float *rt1, *rt2, *out;
 	int field = 1;
 
-	width = x;
-	height = y;
+	const int width = x;
+	const int height = y;
+	const int xoff = min_ii(XOFF, width);
+	const int yoff = min_ii(YOFF, height);
 
 	fac1 = 70.0f * facf0;
 	fac2 = 70.0f * facf1;
 
-	rt2 =  (rect2i + YOFF * width);
+	rt2 =  rect2i + yoff * 4 * width;
 	rt1 =  rect1i;
 	out =  outi;
-	for (y = 0; y < height - YOFF; y++) {
+	for (y = 0; y < height - yoff; y++) {
 		if (field) fac = fac1;
 		else fac = fac2;
 		field = !field;
 
-		memcpy(out, rt1, 4 * sizeof(float) * XOFF);
-		rt1 += XOFF * 4;
-		out += XOFF * 4;
+		memcpy(out, rt1, sizeof(*out) * xoff * 4);
+		rt1 += xoff * 4;
+		out += xoff * 4;
 
-		for (x = XOFF; x < width; x++) {
+		for (x = xoff; x < width; x++) {
 			temp = fac * rt2[3];
 
 			*(out++) = MAX2(0.0f, *rt1 - temp); rt1++;
@@ -1144,9 +1147,9 @@ static void do_drop_effect_float(float facf0, float facf1, int x, int y, float *
 			*(out++) = MAX2(0.0f, *rt1 - temp); rt1++;
 			rt2 += 4;
 		}
-		rt2 += XOFF * 4;
+		rt2 += xoff * 4;
 	}
-	memcpy(out, rt1, 4 * sizeof(float) * YOFF * width);
+	memcpy(out, rt1, sizeof(*out) * yoff * 4 * width);
 }
 
 /*********************** Mul *************************/
@@ -1858,7 +1861,7 @@ static void RVBlurBitmap2_float(float *map, int width, int height, float blur, i
 	float *filter = NULL;
 	int x, y, i, fx, fy;
 	int index, ix, halfWidth;
-	float fval, k, curColor[3], curColor2[3], weight = 0;
+	float fval, k, curColor[4], curColor2[4], weight = 0;
 
 	/* If we're not really blurring, bail out */
 	if (blur <= 0)
@@ -1903,47 +1906,38 @@ static void RVBlurBitmap2_float(float *map, int width, int height, float blur, i
 	for (y = 0; y < height; y++) {
 		/* Do the left & right strips */
 		for (x = 0; x < halfWidth; x++) {
-			index = (x + y * width) * 4;
 			fx = 0;
-			curColor[0] = curColor[1] = curColor[2] = 0.0f;
-			curColor2[0] = curColor2[1] = curColor2[2] = 0.0f;
+			zero_v4(curColor);
+			zero_v4(curColor2);
 
 			for (i = x - halfWidth; i < x + halfWidth; i++) {
 				if ((i >= 0) && (i < width)) {
-					curColor[0] += map[(i + y * width) * 4 + GlowR] * filter[fx];
-					curColor[1] += map[(i + y * width) * 4 + GlowG] * filter[fx];
-					curColor[2] += map[(i + y * width) * 4 + GlowB] * filter[fx];
+					index = (i + y * width) * 4;
+					madd_v4_v4fl(curColor, map + index, filter[fx]);
 
-					curColor2[0] += map[(width - 1 - i + y * width) * 4 + GlowR] * filter[fx];
-					curColor2[1] += map[(width - 1 - i + y * width) * 4 + GlowG] * filter[fx];
-					curColor2[2] += map[(width - 1 - i + y * width) * 4 + GlowB] * filter[fx];
+					index = (width - 1 - i + y * width) * 4;
+					madd_v4_v4fl(curColor2, map + index, filter[fx]);
 				}
 				fx++;
 			}
-			temp[index + GlowR] = curColor[0];
-			temp[index + GlowG] = curColor[1];
-			temp[index + GlowB] = curColor[2];
+			index = (x + y * width) * 4;
+			copy_v4_v4(temp + index, curColor);
 
-			temp[((width - 1 - x + y * width) * 4) + GlowR] = curColor2[0];
-			temp[((width - 1 - x + y * width) * 4) + GlowG] = curColor2[1];
-			temp[((width - 1 - x + y * width) * 4) + GlowB] = curColor2[2];
-
+			index = (width - 1 - x + y * width) * 4;
+			copy_v4_v4(temp + index, curColor2);
 		}
 
 		/* Do the main body */
 		for (x = halfWidth; x < width - halfWidth; x++) {
-			index = (x + y * width) * 4;
 			fx = 0;
-			zero_v3(curColor);
+			zero_v4(curColor);
 			for (i = x - halfWidth; i < x + halfWidth; i++) {
-				curColor[0] += map[(i + y * width) * 4 + GlowR] * filter[fx];
-				curColor[1] += map[(i + y * width) * 4 + GlowG] * filter[fx];
-				curColor[2] += map[(i + y * width) * 4 + GlowB] * filter[fx];
+				index = (i + y * width) * 4;
+				madd_v4_v4fl(curColor, map + index, filter[fx]);
 				fx++;
 			}
-			temp[index + GlowR] = curColor[0];
-			temp[index + GlowG] = curColor[1];
-			temp[index + GlowB] = curColor[2];
+			index = (x + y * width) * 4;
+			copy_v4_v4(temp + index, curColor);
 		}
 	}
 
@@ -1954,46 +1948,39 @@ static void RVBlurBitmap2_float(float *map, int width, int height, float blur, i
 	for (x = 0; x < width; x++) {
 		/* Do the top & bottom strips */
 		for (y = 0; y < halfWidth; y++) {
-			index = (x + y * width) * 4;
 			fy = 0;
-			zero_v3(curColor);
-			zero_v3(curColor2);
+			zero_v4(curColor);
+			zero_v4(curColor2);
 			for (i = y - halfWidth; i < y + halfWidth; i++) {
 				if ((i >= 0) && (i < height)) {
 					/* Bottom */
-					curColor[0] += map[(x + i * width) * 4 + GlowR] * filter[fy];
-					curColor[1] += map[(x + i * width) * 4 + GlowG] * filter[fy];
-					curColor[2] += map[(x + i * width) * 4 + GlowB] * filter[fy];
+					index = (x + i * width) * 4;
+					madd_v4_v4fl(curColor, map + index, filter[fy]);
 
 					/* Top */
-					curColor2[0] += map[(x + (height - 1 - i) * width) * 4 + GlowR] * filter[fy];
-					curColor2[1] += map[(x + (height - 1 - i) * width) * 4 + GlowG] * filter[fy];
-					curColor2[2] += map[(x + (height - 1 - i) * width) * 4 + GlowB] * filter[fy];
+					index = (x + (height - 1 - i) * width) * 4;
+					madd_v4_v4fl(curColor2, map + index, filter[fy]);
 				}
 				fy++;
 			}
-			temp[index + GlowR] = curColor[0];
-			temp[index + GlowG] = curColor[1];
-			temp[index + GlowB] = curColor[2];
-			temp[((x + (height - 1 - y) * width) * 4) + GlowR] = curColor2[0];
-			temp[((x + (height - 1 - y) * width) * 4) + GlowG] = curColor2[1];
-			temp[((x + (height - 1 - y) * width) * 4) + GlowB] = curColor2[2];
+			index = (x + y * width) * 4;
+			copy_v4_v4(temp + index, curColor);
+
+			index = (x + (height - 1 - y) * width) * 4;
+			copy_v4_v4(temp + index, curColor2);
 		}
 	
 		/* Do the main body */
 		for (y = halfWidth; y < height - halfWidth; y++) {
-			index = (x + y * width) * 4;
 			fy = 0;
-			zero_v3(curColor);
+			zero_v4(curColor);
 			for (i = y - halfWidth; i < y + halfWidth; i++) {
-				curColor[0] += map[(x + i * width) * 4 + GlowR] * filter[fy];
-				curColor[1] += map[(x + i * width) * 4 + GlowG] * filter[fy];
-				curColor[2] += map[(x + i * width) * 4 + GlowB] * filter[fy];
+				index = (x + i * width) * 4;
+				madd_v4_v4fl(curColor, map + index, filter[fy]);
 				fy++;
 			}
-			temp[index + GlowR] = curColor[0];
-			temp[index + GlowG] = curColor[1];
-			temp[index + GlowB] = curColor[2];
+			index = (x + y * width) * 4;
+			copy_v4_v4(temp + index, curColor);
 		}
 	}
 
@@ -2012,10 +1999,10 @@ static void RVAddBitmaps_float(float *a, float *b, float *c, int width, int heig
 	for (y = 0; y < height; y++) {
 		for (x = 0; x < width; x++) {
 			index = (x + y * width) * 4;
-			c[index + GlowR] = MIN2(1.0f, a[index + GlowR] + b[index + GlowR]);
-			c[index + GlowG] = MIN2(1.0f, a[index + GlowG] + b[index + GlowG]);
-			c[index + GlowB] = MIN2(1.0f, a[index + GlowB] + b[index + GlowB]);
-			c[index + GlowA] = MIN2(1.0f, a[index + GlowA] + b[index + GlowA]);
+			c[index + GlowR] = min_ff(1.0f, a[index + GlowR] + b[index + GlowR]);
+			c[index + GlowG] = min_ff(1.0f, a[index + GlowG] + b[index + GlowG]);
+			c[index + GlowB] = min_ff(1.0f, a[index + GlowB] + b[index + GlowB]);
+			c[index + GlowA] = min_ff(1.0f, a[index + GlowA] + b[index + GlowA]);
 		}
 	}
 }
@@ -2032,10 +2019,10 @@ static void RVIsolateHighlights_float(float *in, float *out, int width, int heig
 			/* Isolate the intensity */
 			intensity = (in[index + GlowR] + in[index + GlowG] + in[index + GlowB] - threshold);
 			if (intensity > 0) {
-				out[index + GlowR] = MIN2(clamp, (in[index + GlowR] * boost * intensity));
-				out[index + GlowG] = MIN2(clamp, (in[index + GlowG] * boost * intensity));
-				out[index + GlowB] = MIN2(clamp, (in[index + GlowB] * boost * intensity));
-				out[index + GlowA] = MIN2(clamp, (in[index + GlowA] * boost * intensity));
+				out[index + GlowR] = min_ff(clamp, (in[index + GlowR] * boost * intensity));
+				out[index + GlowG] = min_ff(clamp, (in[index + GlowG] * boost * intensity));
+				out[index + GlowB] = min_ff(clamp, (in[index + GlowB] * boost * intensity));
+				out[index + GlowA] = min_ff(clamp, (in[index + GlowA] * boost * intensity));
 			}
 			else {
 				out[index + GlowR] = 0;

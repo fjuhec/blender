@@ -889,7 +889,7 @@ static int slide_point_modal(bContext *C, wmOperator *op, const wmEvent *event)
 			if (ELEM(event->type, LEFTSHIFTKEY, RIGHTSHIFTKEY))
 				data->is_accurate = (event->val == KM_PRESS);
 
-			/* fall-through */  /* update CV position */
+			ATTR_FALLTHROUGH;  /* update CV position */
 		case MOUSEMOVE:
 		{
 			ScrArea *sa = CTX_wm_area(C);
@@ -999,7 +999,7 @@ static int slide_point_modal(bContext *C, wmOperator *op, const wmEvent *event)
 
 				if (weight) {
 					sub_v2_v2v2(c, offco, p);
-					project_v2_v2v2(vec, c, no);
+					project_v2_v2v2_normalized(vec, c, no);
 
 					w = len_v2(vec);
 
@@ -1376,7 +1376,7 @@ static int slide_spline_curvature_modal(bContext *C, wmOperator *op, const wmEve
 
 			}
 
-			/* fall-through */  /* update CV position */
+			ATTR_FALLTHROUGH;  /* update CV position */
 		case MOUSEMOVE:
 		{
 			float B[2], mouse_coord[2], delta[2];

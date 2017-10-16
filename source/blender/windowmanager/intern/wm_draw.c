@@ -430,7 +430,7 @@ static int wm_triple_gen_textures(wmWindow *win, wmDrawTriple *triple)
 	return 1;
 }
 
-void wm_triple_draw_textures(wmWindow *win, wmDrawTriple *triple, float alpha)
+void wm_triple_draw_textures(wmWindow *win, wmDrawTriple *triple, float alpha, bool is_interlace)
 {
 	const int sizex = WM_window_pixels_x(win);
 	const int sizey = WM_window_pixels_y(win);
@@ -451,7 +451,13 @@ void wm_triple_draw_textures(wmWindow *win, wmDrawTriple *triple, float alpha)
 		halfy /= triple->y;
 	}
 
-	GPU_basic_shader_bind((triple->target == GL_TEXTURE_2D) ? GPU_SHADER_TEXTURE_2D : GPU_SHADER_TEXTURE_RECT);
+	/* interlace stereo buffer bind the shader before calling wm_triple_draw_textures */
+	if (is_interlace) {
+		glEnable(triple->target);
+	}
+	else {
+		GPU_basic_shader_bind((triple->target == GL_TEXTURE_2D) ? GPU_SHADER_TEXTURE_2D : GPU_SHADER_TEXTURE_RECT);
+	}
 
 	glBindTexture(triple->target, triple->bind);
 
@@ -472,7 +478,12 @@ void wm_triple_draw_textures(wmWindow *win, wmDrawTriple *triple, float alpha)
 
 	glBindTexture(triple->target, 0);
 
-	GPU_basic_shader_bind(GPU_SHADER_USE_COLOR);
+	if (is_interlace) {
+		glDisable(triple->target);
+	}
+	else {
+		GPU_basic_shader_bind(GPU_SHADER_USE_COLOR);
+	}
 }
 
 static void wm_triple_copy_textures(wmWindow *win, wmDrawTriple *triple)
@@ -495,7 +506,7 @@ static void wm_draw_region_blend(wmWindow *win, ARegion *ar, wmDrawTriple *tripl
 		wmSubWindowScissorSet(win, win->screen->mainwin, &ar->winrct, true);
 
 		glEnable(GL_BLEND);
-		wm_triple_draw_textures(win, triple, 1.0f - fac);
+		wm_triple_draw_textures(win, triple, 1.0f - fac, false);
 		glDisable(GL_BLEND);
 	}
 }
@@ -516,7 +527,7 @@ static void wm_method_draw_triple(bContext *C, wmWindow *win)
 
 		wmSubWindowSet(win, screen->mainwin);
 
-		wm_triple_draw_textures(win, drawdata->triple, 1.0f);
+		wm_triple_draw_textures(win, drawdata->triple, 1.0f, false);
 	}
 	else {
 		/* we run it when we start OR when we turn stereo on */
@@ -656,7 +667,7 @@ static void wm_method_draw_triple_multiview(bContext *C, wmWindow *win, StereoVi
 
 				wmSubWindowSet(win, screen->mainwin);
 
-				wm_triple_draw_textures(win, drawdata->triple, 1.0f);
+				wm_triple_draw_textures(win, drawdata->triple, 1.0f, false);
 			}
 		}
 		else {
@@ -856,25 +867,13 @@ static bool wm_draw_update_test_window(wmWindow *win)
 
 static int wm_automatic_draw_method(wmWindow *win)
 {
-	/* Ideally all cards would work well with triple buffer, since if it works
-	 * well gives the least redraws and is considerably faster at partial redraw
-	 * for sculpting or drawing overlapping menus. For typically lower end cards
-	 * copy to texture is slow though and so we use overlap instead there. */
-
+	/* We assume all supported GPUs now support triple buffer well. */
 	if (win->drawmethod == USER_DRAW_AUTOMATIC) {
-		/* Windows software driver darkens color on each redraw */
-		if (GPU_type_matches(GPU_DEVICE_SOFTWARE, GPU_OS_WIN, GPU_DRIVER_SOFTWARE))
-			return USER_DRAW_OVERLAP_FLIP;
-		else if (GPU_type_matches(GPU_DEVICE_SOFTWARE, GPU_OS_UNIX, GPU_DRIVER_SOFTWARE))
-			return USER_DRAW_OVERLAP;
-		/* drawing lower color depth again degrades colors each time */
-		else if (GPU_color_depth() < 24)
-			return USER_DRAW_OVERLAP;
-		else
-			return USER_DRAW_TRIPLE;
+		return USER_DRAW_TRIPLE;
 	}
-	else
+	else {
 		return win->drawmethod;
+	}
 }
 
 bool WM_is_draw_triple(wmWindow *win)
@@ -915,15 +914,14 @@ void wm_draw_update(bContext *C)
 	
 	for (win = wm->windows.first; win; win = win->next) {
 #ifdef WIN32
-		if (GPU_type_matches(GPU_DEVICE_INTEL, GPU_OS_ANY, GPU_DRIVER_ANY)) {
-			GHOST_TWindowState state = GHOST_GetWindowState(win->ghostwin);
+		GHOST_TWindowState state = GHOST_GetWindowState(win->ghostwin);
 
-			if (state == GHOST_kWindowStateMinimized) {
-				/* do not update minimized windows, it gives issues on intel drivers (see [#33223])
-				 * anyway, it seems logical to skip update for invisible windows
-				 */
-				continue;
-			}
+		if (state == GHOST_kWindowStateMinimized) {
+			/* do not update minimized windows, gives issues on Intel (see T33223)
+			 * and AMD (see T50856). it seems logical to skip update for invisible
+			 * window anyway.
+			 */
+			continue;
 		}
 #endif
 		if (win->drawmethod != U.wmdrawmethod) {

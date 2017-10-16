@@ -50,7 +50,9 @@
 #include "DEG_depsgraph_build.h"
 
 #include "MEM_guardedalloc.h"
+
 #include "MOD_weightvg_util.h"
+#include "MOD_modifiertypes.h"
 
 /**************************************
  * Modifiers functions.               *
@@ -91,10 +93,6 @@ static void copyData(ModifierData *md, ModifierData *target)
 	modifier_copyData_generic(md, target);
 
 	twmd->cmap_curve = curvemapping_copy(wmd->cmap_curve);
-
-	if (twmd->mask_texture) {
-		id_us_plus(&twmd->mask_texture->id);
-	}
 }
 
 static CustomDataMask requiredDataMask(Object *UNUSED(ob), ModifierData *md)
@@ -126,14 +124,14 @@ static bool dependsOnTime(ModifierData *md)
 static void foreachObjectLink(ModifierData *md, Object *ob, ObjectWalkFunc walk, void *userData)
 {
 	WeightVGEditModifierData *wmd = (WeightVGEditModifierData *) md;
-	walk(userData, ob, &wmd->mask_tex_map_obj, IDWALK_NOP);
+	walk(userData, ob, &wmd->mask_tex_map_obj, IDWALK_CB_NOP);
 }
 
 static void foreachIDLink(ModifierData *md, Object *ob, IDWalkFunc walk, void *userData)
 {
 	WeightVGEditModifierData *wmd = (WeightVGEditModifierData *) md;
 
-	walk(userData, ob, (ID **)&wmd->mask_texture, IDWALK_USER);
+	walk(userData, ob, (ID **)&wmd->mask_texture, IDWALK_CB_USER);
 
 	foreachObjectLink(md, ob, (ObjectWalkFunc)walk, userData);
 }
@@ -226,8 +224,7 @@ static DerivedMesh *applyModifier(ModifierData *md, Object *ob, DerivedMesh *der
 		if (!do_add)
 			return dm;
 		/* Else, add a valid data layer! */
-		dvert = CustomData_add_layer_named(&dm->vertData, CD_MDEFORMVERT, CD_CALLOC,
-		                                   NULL, numVerts, wmd->defgrp_name);
+		dvert = CustomData_add_layer(&dm->vertData, CD_MDEFORMVERT, CD_CALLOC, NULL, numVerts);
 		/* Ultimate security check. */
 		if (!dvert)
 			return dm;

@@ -17,12 +17,12 @@
 #ifndef __ATTRIBUTE_H__
 #define __ATTRIBUTE_H__
 
-#include "kernel_types.h"
+#include "kernel/kernel_types.h"
 
-#include "util_list.h"
-#include "util_param.h"
-#include "util_types.h"
-#include "util_vector.h"
+#include "util/util_list.h"
+#include "util/util_param.h"
+#include "util/util_types.h"
+#include "util/util_vector.h"
 
 CCL_NAMESPACE_BEGIN
 
@@ -119,6 +119,8 @@ public:
 	void remove(AttributeStandard std);
 
 	Attribute *find(AttributeRequest& req);
+
+	void remove(Attribute *attribute);
 
 	void resize(bool reserve_only = false);
 	void clear();

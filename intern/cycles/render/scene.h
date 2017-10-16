@@ -17,18 +17,18 @@
 #ifndef __SCENE_H__
 #define __SCENE_H__
 
-#include "image.h"
-#include "shader.h"
+#include "render/image.h"
+#include "render/shader.h"
 
-#include "device_memory.h"
+#include "device/device_memory.h"
 
-#include "util_param.h"
-#include "util_string.h"
-#include "util_system.h"
-#include "util_texture.h"
-#include "util_thread.h"
-#include "util_types.h"
-#include "util_vector.h"
+#include "util/util_param.h"
+#include "util/util_string.h"
+#include "util/util_system.h"
+#include "util/util_texture.h"
+#include "util/util_thread.h"
+#include "util/util_types.h"
+#include "util/util_vector.h"
 
 CCL_NAMESPACE_BEGIN
 
@@ -71,6 +71,7 @@ public:
 	device_vector<uint> prim_visibility;
 	device_vector<uint> prim_index;
 	device_vector<uint> prim_object;
+	device_vector<float2> prim_time;
 
 	/* mesh */
 	device_vector<uint> tri_shader;
@@ -115,19 +116,12 @@ public:
 	device_vector<uint> sobol_directions;
 
 	/* cpu images */
-	device_vector<uchar4> tex_byte4_image[TEX_NUM_BYTE4_CPU];
-	device_vector<float4> tex_float4_image[TEX_NUM_FLOAT4_CPU];
-	device_vector<float> tex_float_image[TEX_NUM_FLOAT_CPU];
-	device_vector<uchar> tex_byte_image[TEX_NUM_BYTE_CPU];
-	device_vector<half4> tex_half4_image[TEX_NUM_HALF4_CPU];
-	device_vector<half> tex_half_image[TEX_NUM_HALF_CPU];
-
-	/* opencl images */
-	device_vector<uchar4> tex_image_byte4_packed;
-	device_vector<float4> tex_image_float4_packed;
-	device_vector<uchar> tex_image_byte_packed;
-	device_vector<float> tex_image_float_packed;
-	device_vector<uint4> tex_image_packed_info;
+	vector<device_vector<float4>* > tex_float4_image;
+	vector<device_vector<uchar4>* > tex_byte4_image;
+	vector<device_vector<half4>* > tex_half4_image;
+	vector<device_vector<float>* > tex_float_image;
+	vector<device_vector<uchar>* > tex_byte_image;
+	vector<device_vector<half>* > tex_half_image;
 
 	/* volume */
 	device_vector<uint> vol_shader;
@@ -148,6 +142,7 @@ public:
 	} bvh_type;
 	bool use_bvh_spatial_split;
 	bool use_bvh_unaligned_nodes;
+	int num_bvh_time_steps;
 	bool use_qbvh;
 	bool persistent_data;
 	int texture_limit;
@@ -158,7 +153,8 @@ public:
 		bvh_type = BVH_DYNAMIC;
 		use_bvh_spatial_split = false;
 		use_bvh_unaligned_nodes = true;
-		use_qbvh = false;
+		num_bvh_time_steps = 0;
+		use_qbvh = true;
 		persistent_data = false;
 		texture_limit = 0;
 	}
@@ -168,6 +164,7 @@ public:
 		&& bvh_type == params.bvh_type
 		&& use_bvh_spatial_split == params.use_bvh_spatial_split
 		&& use_bvh_unaligned_nodes == params.use_bvh_unaligned_nodes
+		&& num_bvh_time_steps == params.num_bvh_time_steps
 		&& use_qbvh == params.use_qbvh
 		&& persistent_data == params.persistent_data
 		&& texture_limit == params.texture_limit); }

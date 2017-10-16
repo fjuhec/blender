@@ -235,8 +235,7 @@ static void unlink_group_cb(
 	}
 	else {
 		Main *bmain = CTX_data_main(C);
-		BKE_libblock_unlink(bmain, group, false, false);
-		BKE_libblock_free(bmain, group);
+		BKE_libblock_delete(bmain, group);
 	}
 }
 
@@ -399,7 +398,7 @@ static void object_deselect_cb(
 
 static void object_delete_cb(
         bContext *C, ReportList *reports, Scene *scene, TreeElement *te,
-        TreeStoreElem *UNUSED(tsep), TreeStoreElem *tselem, void *UNUSED(user_data))
+        TreeStoreElem *tsep, TreeStoreElem *tselem, void *user_data)
 {
 	Base *base = (Base *)te->directdata;
 	
@@ -411,7 +410,9 @@ static void object_delete_cb(
 			BKE_reportf(reports, RPT_WARNING, "Cannot delete indirectly linked object '%s'", base->object->id.name + 2);
 			return;
 		}
-		else if (BKE_library_ID_is_indirectly_used(bmain, base->object) && ID_REAL_USERS(base->object) <= 1) {
+		else if (BKE_library_ID_is_indirectly_used(bmain, base->object) &&
+		         ID_REAL_USERS(base->object) <= 1 && ID_EXTRA_USERS(base->object) == 0)
+		{
 			BKE_reportf(reports, RPT_WARNING,
 			            "Cannot delete object '%s' from scene '%s', indirectly used objects need at least one user",
 			            base->object->id.name + 2, scene->id.name + 2);
@@ -429,6 +430,13 @@ static void object_delete_cb(
 		tselem->id = NULL;
 #endif
 	}
+	else {
+		/* No base, means object is no more instantiated in any scene.
+		 * Should not happen ideally, but does happens, see T51625.
+		 * Rather than twisting in all kind of ways to address all possible cases leading to that situation, simpler
+		 * to allow deleting such object as a mere generic data-block. */
+		id_delete_cb(C, reports, scene, te, tsep, tselem, user_data);
+	}
 }
 
 static void id_local_cb(
@@ -441,6 +449,9 @@ static void id_local_cb(
 		 * just clear the lib */
 		if (id_make_local(bmain, tselem->id, false, false) == false) {
 			id_clear_lib_data(bmain, tselem->id);
+		}
+		else {
+			BKE_main_id_clear_newpoins(bmain);
 		}
 	}
 }
@@ -522,7 +533,7 @@ static void group_linkobs2scene_cb(
 		if (!base) {
 			/* link to scene */
 			base = BKE_scene_base_add(scene, gob->ob);
-			id_lib_extern((ID *)gob->ob); /* in case these are from a linked group */
+			id_us_plus(&gob->ob->id);
 		}
 		base->object->flag |= SELECT;
 		base->flag |= SELECT;
@@ -839,7 +850,9 @@ static Base *outline_delete_hierarchy(bContext *C, ReportList *reports, Scene *s
 		BKE_reportf(reports, RPT_WARNING, "Cannot delete indirectly linked object '%s'", base->object->id.name + 2);
 		return base_next;
 	}
-	else if (BKE_library_ID_is_indirectly_used(bmain, base->object) && ID_REAL_USERS(base->object) <= 1) {
+	else if (BKE_library_ID_is_indirectly_used(bmain, base->object) &&
+	         ID_REAL_USERS(base->object) <= 1 && ID_EXTRA_USERS(base->object) == 0)
+	{
 		BKE_reportf(reports, RPT_WARNING,
 		            "Cannot delete object '%s' from scene '%s', indirectly used objects need at least one user",
 		            base->object->id.name + 2, scene->id.name + 2);
@@ -1044,7 +1057,7 @@ static EnumPropertyItem prop_group_op_types[] = {
 	{OL_GROUPOP_UNLINK, "UNLINK",     0, "Unlink Group", ""},
 	{OL_GROUPOP_LOCAL, "LOCAL",       0, "Make Local Group", ""},
 	{OL_GROUPOP_LINK, "LINK",         0, "Link Group Objects to Scene", ""},
-	{OL_GROUPOP_DELETE, "DELETE",     0, "Delete Group", "WARNING: no undo"},
+	{OL_GROUPOP_DELETE, "DELETE",     0, "Delete Group", ""},
 	{OL_GROUPOP_REMAP, "REMAP",       0, "Remap Users",
 	 "Make all users of selected data-blocks to use instead current (clicked) one"},
 	{OL_GROUPOP_INSTANCE, "INSTANCE", 0, "Instance Groups in Scene", ""},
@@ -1083,7 +1096,7 @@ static int outliner_group_operation_exec(bContext *C, wmOperator *op)
 			DAG_relations_tag_update(CTX_data_main(C));
 			break;
 		case OL_GROUPOP_DELETE:
-			WM_operator_name_call(C, "OUTLINER_OT_id_delete", WM_OP_INVOKE_REGION_WIN, NULL);
+			outliner_do_libdata_operation(C, op->reports, scene, soops, &soops->tree, id_delete_cb, NULL);
 			break;
 		case OL_GROUPOP_REMAP:
 			outliner_do_libdata_operation(C, op->reports, scene, soops, &soops->tree, id_remap_cb, NULL);
@@ -1247,6 +1260,7 @@ static int outliner_id_operation_exec(bContext *C, wmOperator *op)
 		{
 			if (idlevel > 0) {
 				outliner_do_libdata_operation(C, op->reports, scene, soops, &soops->tree, id_delete_cb, NULL);
+				ED_undo_push(C, "Delete");
 			}
 			break;
 		}
@@ -1254,6 +1268,7 @@ static int outliner_id_operation_exec(bContext *C, wmOperator *op)
 		{
 			if (idlevel > 0) {
 				outliner_do_libdata_operation(C, op->reports, scene, soops, &soops->tree, id_remap_cb, NULL);
+				ED_undo_push(C, "Remap");
 			}
 			break;
 		}
@@ -1362,18 +1377,20 @@ static int outliner_lib_operation_exec(bContext *C, wmOperator *op)
 			outliner_do_libdata_operation(C, op->reports, scene, soops, &soops->tree, item_rename_cb, NULL);
 
 			WM_event_add_notifier(C, NC_ID | NA_EDITED, NULL);
-			ED_undo_push(C, "Rename");
+			ED_undo_push(C, "Rename Library");
 			break;
 		}
 		case OL_LIB_DELETE:
 		{
 			outliner_do_libdata_operation(C, op->reports, scene, soops, &soops->tree, id_delete_cb, NULL);
+			ED_undo_push(C, "Delete Library");
 			break;
 		}
 		case OL_LIB_RELOCATE:
 		{
 			/* rename */
 			outliner_do_libdata_operation(C, op->reports, scene, soops, &soops->tree, lib_relocate_cb, NULL);
+			ED_undo_push(C, "Relocate Library");
 			break;
 		}
 		case OL_LIB_RELOAD:

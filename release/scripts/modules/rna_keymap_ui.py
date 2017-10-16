@@ -128,16 +128,15 @@ def draw_kmi(display_keymaps, kc, km, kmi, layout, level):
     else:
         box = col.column()
 
-    split = box.split(percentage=0.01)
+    split = box.split()
 
     # header bar
-    row = split.row()
+    row = split.row(align=True)
     row.prop(kmi, "show_expanded", text="", emboss=False)
-
-    row = split.row()
     row.prop(kmi, "active", text="", emboss=False)
 
     if km.is_modal:
+        row.separator()
         row.prop(kmi, "propvalue", text="")
     else:
         row.label(text=kmi.name)
@@ -231,6 +230,7 @@ def draw_filtered(display_keymaps, filter_type, filter_text, layout):
                 "`": 'ACCENT_GRAVE',
                 "*": 'NUMPAD_ASTERIX',
                 "/": 'NUMPAD_SLASH',
+                '+': 'NUMPAD_PLUS',
                 "RMB": 'RIGHTMOUSE',
                 "LMB": 'LEFTMOUSE',
                 "MMB": 'MIDDLEMOUSE',

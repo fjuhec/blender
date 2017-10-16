@@ -77,7 +77,8 @@ int  BKE_armature_bonelist_count(struct ListBase *lb);
 void BKE_armature_bonelist_free(struct ListBase *lb);
 void BKE_armature_free(struct bArmature *arm);
 void BKE_armature_make_local(struct Main *bmain, struct bArmature *arm, const bool lib_local);
-struct bArmature *BKE_armature_copy(struct Main *bmain, struct bArmature *arm);
+void BKE_armature_copy_data(struct Main *bmain, struct bArmature *arm_dst, const struct bArmature *arm_src, const int flag);
+struct bArmature *BKE_armature_copy(struct Main *bmain, const struct bArmature *arm);
 
 /* Bounding box. */
 struct BoundBox *BKE_armature_boundbox_get(struct Object *ob);
@@ -171,12 +172,18 @@ void BKE_pose_eval_init(struct EvaluationContext *eval_ctx,
                         struct Object *ob,
                         struct bPose *pose);
 
+void BKE_pose_eval_init_ik(struct EvaluationContext *eval_ctx,
+                           struct Scene *scene,
+                           struct Object *ob,
+                           struct bPose *pose);
+
 void BKE_pose_eval_bone(struct EvaluationContext *eval_ctx,
                         struct Scene *scene,
                         struct Object *ob,
                         struct bPoseChannel *pchan);
 
 void BKE_pose_constraints_evaluate(struct EvaluationContext *eval_ctx,
+                                   struct Scene *scene,
                                    struct Object *ob,
                                    struct bPoseChannel *pchan);
 

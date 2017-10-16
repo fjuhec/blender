@@ -25,12 +25,14 @@
  */
 
 #include "DNA_cachefile_types.h"
+#include "DNA_mesh_types.h"
 #include "DNA_modifier_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 
 #include "BKE_cachefile.h"
 #include "BKE_DerivedMesh.h"
+#include "BKE_cdderivedmesh.h"
 #include "BKE_global.h"
 #include "BKE_library.h"
 #include "BKE_library_query.h"
@@ -81,6 +83,7 @@ static void freeData(ModifierData *md)
 #ifdef WITH_ALEMBIC
 		CacheReader_free(mcmd->reader);
 #endif
+		mcmd->reader = NULL;
 	}
 }
 
@@ -94,10 +97,14 @@ static bool isDisabled(ModifierData *md, int UNUSED(useRenderParams))
 
 static DerivedMesh *applyModifier(ModifierData *md, Object *ob,
                                   DerivedMesh *dm,
-                                  ModifierApplyFlag flag)
+                                  ModifierApplyFlag UNUSED(flag))
 {
 #ifdef WITH_ALEMBIC
 	MeshSeqCacheModifierData *mcmd = (MeshSeqCacheModifierData *) md;
+
+	/* Only used to check whether we are operating on org data or not... */
+	Mesh *me = (ob->type == OB_MESH) ? ob->data : NULL;
+	DerivedMesh *org_dm = dm;
 
 	Scene *scene = md->scene;
 	const float frame = BKE_scene_frame_get(scene);
@@ -111,12 +118,22 @@ static DerivedMesh *applyModifier(ModifierData *md, Object *ob,
 
 	if (!mcmd->reader) {
 		mcmd->reader = CacheReader_open_alembic_object(cache_file->handle,
-		                                               mcmd->reader,
+		                                               NULL,
 		                                               ob,
 		                                               mcmd->object_path);
 		if (!mcmd->reader) {
 			modifier_setError(md, "Could not create Alembic reader for file %s", cache_file->filepath);
 			return dm;
+		}
+	}
+
+	if (me != NULL) {
+		MVert *mvert = dm->getVertArray(dm);
+		MEdge *medge = dm->getEdgeArray(dm);
+		MPoly *mpoly = dm->getPolyArray(dm);
+		if ((me->mvert == mvert) || (me->medge == medge) || (me->mpoly == mpoly)) {
+			/* We need to duplicate data here, otherwise we'll modify org mesh, see T51701. */
+			dm = CDDM_copy(dm);
 		}
 	}
 
@@ -131,11 +148,15 @@ static DerivedMesh *applyModifier(ModifierData *md, Object *ob,
 		modifier_setError(md, "%s", err_str);
 	}
 
+	if (!ELEM(result, NULL, dm) && (dm != org_dm)) {
+		dm->release(dm);
+		dm = org_dm;
+	}
+
 	return result ? result : dm;
-	UNUSED_VARS(flag);
 #else
 	return dm;
-	UNUSED_VARS(md, ob, flag);
+	UNUSED_VARS(md, ob);
 #endif
 }
 
@@ -150,7 +171,7 @@ static void foreachIDLink(ModifierData *md, Object *ob,
 {
 	MeshSeqCacheModifierData *mcmd = (MeshSeqCacheModifierData *) md;
 
-	walk(userData, ob, (ID **)&mcmd->cache_file, IDWALK_USER);
+	walk(userData, ob, (ID **)&mcmd->cache_file, IDWALK_CB_USER);
 }
 
 

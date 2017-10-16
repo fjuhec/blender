@@ -337,7 +337,7 @@ static void clip_listener(bScreen *UNUSED(sc), ScrArea *sa, wmNotifier *wmn)
 			switch (wmn->data) {
 				case ND_FRAME:
 					clip_scopes_tag_refresh(sa);
-					/* fall-through */
+					ATTR_FALLTHROUGH;
 
 				case ND_FRAME_RANGE:
 					ED_area_tag_redraw(sa);
@@ -821,6 +821,7 @@ static void clip_keymap(struct wmKeyConfig *keyconf)
 #endif
 }
 
+/* DO NOT make this static, this hides the symbol and breaks API generation script. */
 const char *clip_context_dir[] = {"edit_movieclip", "edit_mask", NULL};
 
 static int clip_context(const bContext *C, const char *member, bContextDataResult *result)

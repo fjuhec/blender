@@ -84,8 +84,8 @@ typedef struct TransSnap {
 	bool	peel;
 	bool	snap_spatial_grid;
 	short  	status;
-	float	snapPoint[3]; /* snapping from this point */
-	float	snapTarget[3]; /* to this point */
+	float	snapPoint[3]; /* snapping from this point (in global-space)*/
+	float	snapTarget[3]; /* to this point (in global-space)*/
 	float	snapNormal[3];
 	char	snapNodeBorder;
 	ListBase points;
@@ -533,6 +533,9 @@ typedef struct TransInfo {
 	/* alternative transformation. used to add offset to tracking markers */
 #define T_ALT_TRANSFORM		(1 << 24)
 
+	/** #TransInfo.center has been set, don't change it. */
+#define T_OVERRIDE_CENTER	(1 << 25)
+
 /* TransInfo->modifiers */
 #define	MOD_CONSTRAINT_SELECT	0x01
 #define	MOD_PRECISION			0x02
@@ -728,7 +731,7 @@ typedef enum {
 	INPUT_CUSTOM_RATIO_FLIP,
 } MouseInputMode;
 
-void initMouseInput(TransInfo *t, MouseInput *mi, const float center[2], const int mval[2]);
+void initMouseInput(TransInfo *t, MouseInput *mi, const float center[2], const int mval[2], const bool precision);
 void initMouseInputMode(TransInfo *t, MouseInput *mi, MouseInputMode mode);
 eRedrawFlag handleMouseInput(struct TransInfo *t, struct MouseInput *mi, const struct wmEvent *event);
 void applyMouseInput(struct TransInfo *t, struct MouseInput *mi, const int mval[2], float output[3]);

@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-#include "image.h"
-#include "mesh.h"
-#include "attribute.h"
+#include "render/image.h"
+#include "render/mesh.h"
+#include "render/attribute.h"
 
-#include "util_debug.h"
-#include "util_foreach.h"
-#include "util_transform.h"
+#include "util/util_debug.h"
+#include "util/util_foreach.h"
+#include "util/util_transform.h"
 
 CCL_NAMESPACE_BEGIN
 
@@ -504,6 +504,16 @@ Attribute *AttributeSet::find(AttributeRequest& req)
 		return find(req.name);
 	else
 		return find(req.std);
+}
+
+void AttributeSet::remove(Attribute *attribute)
+{
+	if(attribute->std == ATTR_STD_NONE) {
+		remove(attribute->name);
+	}
+	else {
+		remove(attribute->std);
+	}
 }
 
 void AttributeSet::resize(bool reserve_only)

@@ -43,6 +43,7 @@
 #include "BLI_alloca.h"
 #include "BLI_dynstr.h"
 #include "BLI_listbase.h"
+#include "BLI_string_utils.h"
 
 #include "BLT_translation.h"
 
@@ -258,7 +259,7 @@ void BKE_animdata_free(ID *id, const bool do_id_user)
 /* Copying -------------------------------------------- */
 
 /* Make a copy of the given AnimData - to be used when copying datablocks */
-AnimData *BKE_animdata_copy(AnimData *adt, const bool do_action)
+AnimData *BKE_animdata_copy(Main *bmain, AnimData *adt, const bool do_action)
 {
 	AnimData *dadt;
 	
@@ -269,8 +270,9 @@ AnimData *BKE_animdata_copy(AnimData *adt, const bool do_action)
 	
 	/* make a copy of action - at worst, user has to delete copies... */
 	if (do_action) {
-		dadt->action = BKE_action_copy(G.main, adt->action);
-		dadt->tmpact = BKE_action_copy(G.main, adt->tmpact);
+		BLI_assert(bmain != NULL);
+		BKE_id_copy_ex(bmain, (ID *)dadt->action, (ID **)&dadt->action, 0, false);
+		BKE_id_copy_ex(bmain, (ID *)dadt->tmpact, (ID **)&dadt->tmpact, 0, false);
 	}
 	else {
 		id_us_plus((ID *)dadt->action);
@@ -290,7 +292,7 @@ AnimData *BKE_animdata_copy(AnimData *adt, const bool do_action)
 	return dadt;
 }
 
-bool BKE_animdata_copy_id(ID *id_to, ID *id_from, const bool do_action)
+bool BKE_animdata_copy_id(Main *bmain, ID *id_to, ID *id_from, const bool do_action)
 {
 	AnimData *adt;
 
@@ -302,23 +304,25 @@ bool BKE_animdata_copy_id(ID *id_to, ID *id_from, const bool do_action)
 	adt = BKE_animdata_from_id(id_from);
 	if (adt) {
 		IdAdtTemplate *iat = (IdAdtTemplate *)id_to;
-		iat->adt = BKE_animdata_copy(adt, do_action);
+		iat->adt = BKE_animdata_copy(bmain, adt, do_action);
 	}
 
 	return true;
 }
 
-void BKE_animdata_copy_id_action(ID *id)
+void BKE_animdata_copy_id_action(ID *id, const bool set_newid)
 {
 	AnimData *adt = BKE_animdata_from_id(id);
 	if (adt) {
 		if (adt->action) {
 			id_us_min((ID *)adt->action);
-			adt->action = BKE_action_copy(G.main, adt->action);
+			adt->action = set_newid ? ID_NEW_SET(adt->action, BKE_action_copy(G.main, adt->action)) :
+			                          BKE_action_copy(G.main, adt->action);
 		}
 		if (adt->tmpact) {
 			id_us_min((ID *)adt->tmpact);
-			adt->tmpact = BKE_action_copy(G.main, adt->tmpact);
+			adt->tmpact = set_newid ? ID_NEW_SET(adt->tmpact, BKE_action_copy(G.main, adt->tmpact)) :
+			                          BKE_action_copy(G.main, adt->tmpact);
 		}
 	}
 }
@@ -391,73 +395,6 @@ void BKE_animdata_merge_copy(ID *dst_id, ID *src_id, eAnimData_MergeCopy_Modes a
 		}
 		
 		BLI_movelisttolist(&dst->drivers, &drivers);
-	}
-}
-
-/* Make Local -------------------------------------------- */
-
-static void make_local_strips(ListBase *strips)
-{
-	NlaStrip *strip;
-
-	for (strip = strips->first; strip; strip = strip->next) {
-		if (strip->act) BKE_action_make_local(G.main, strip->act, false);
-		if (strip->remap && strip->remap->target) BKE_action_make_local(G.main, strip->remap->target, false);
-		
-		make_local_strips(&strip->strips);
-	}
-}
-
-/* Use local copy instead of linked copy of various ID-blocks */
-void BKE_animdata_make_local(AnimData *adt)
-{
-	NlaTrack *nlt;
-	
-	/* Actions - Active and Temp */
-	if (adt->action) BKE_action_make_local(G.main, adt->action, false);
-	if (adt->tmpact) BKE_action_make_local(G.main, adt->tmpact, false);
-	/* Remaps */
-	if (adt->remap && adt->remap->target) BKE_action_make_local(G.main, adt->remap->target, false);
-	
-	/* Drivers */
-	/* TODO: need to remap the ID-targets too? */
-	
-	/* NLA Data */
-	for (nlt = adt->nla_tracks.first; nlt; nlt = nlt->next)
-		make_local_strips(&nlt->strips);
-}
-
-
-/* When duplicating data (i.e. objects), drivers referring to the original data will 
- * get updated to point to the duplicated data (if drivers belong to the new data)
- */
-void BKE_animdata_relink(AnimData *adt)
-{
-	/* sanity check */
-	if (adt == NULL)
-		return;
-	
-	/* drivers */
-	if (adt->drivers.first) {
-		FCurve *fcu;
-		
-		/* check each driver against all the base paths to see if any should go */
-		for (fcu = adt->drivers.first; fcu; fcu = fcu->next) {
-			ChannelDriver *driver = fcu->driver;
-			DriverVar *dvar;
-			
-			/* driver variables */
-			for (dvar = driver->variables.first; dvar; dvar = dvar->next) {
-				/* only change the used targets, since the others will need fixing manually anyway */
-				DRIVER_TARGETS_USED_LOOPER(dvar)
-				{
-					if (dtar->id && dtar->id->newid) {
-						dtar->id = dtar->id->newid;
-					}
-				}
-				DRIVER_TARGETS_LOOPER_END
-			}
-		}
 	}
 }
 
@@ -687,6 +624,8 @@ char *BKE_animdata_driver_path_hack(bContext *C, PointerRNA *ptr, PropertyRNA *p
 					}
 					break;
 				}
+				default:
+					break;
 			}
 
 			/* fix RNA pointer, as we've now changed the ID root by changing the paths */
@@ -1411,7 +1350,7 @@ void BKE_keyingset_free_path(KeyingSet *ks, KS_Path *ksp)
 }
 
 /* Copy all KeyingSets in the given list */
-void BKE_keyingsets_copy(ListBase *newlist, ListBase *list)
+void BKE_keyingsets_copy(ListBase *newlist, const ListBase *list)
 {
 	KeyingSet *ksn;
 	KS_Path *kspn;
@@ -1583,7 +1522,8 @@ static bool animsys_write_rna_setting(PathResolvedRNA *anim_rna, const float val
 		}
 		case PROP_INT:
 		{
-			const int value_coerce = (int)value;
+			int value_coerce = (int)value;
+			RNA_property_int_clamp(ptr, prop, &value_coerce);
 			if (array_index != -1) {
 				if (RNA_property_int_get_index(ptr, prop, array_index) != value_coerce) {
 					RNA_property_int_set_index(ptr, prop, array_index, value_coerce);
@@ -1600,15 +1540,17 @@ static bool animsys_write_rna_setting(PathResolvedRNA *anim_rna, const float val
 		}
 		case PROP_FLOAT:
 		{
+			float value_coerce = value;
+			RNA_property_float_clamp(ptr, prop, &value_coerce);
 			if (array_index != -1) {
-				if (RNA_property_float_get_index(ptr, prop, array_index) != value) {
-					RNA_property_float_set_index(ptr, prop, array_index, value);
+				if (RNA_property_float_get_index(ptr, prop, array_index) != value_coerce) {
+					RNA_property_float_set_index(ptr, prop, array_index, value_coerce);
 					written = true;
 				}
 			}
 			else {
-				if (RNA_property_float_get(ptr, prop) != value) {
-					RNA_property_float_set(ptr, prop, value);
+				if (RNA_property_float_get(ptr, prop) != value_coerce) {
+					RNA_property_float_set(ptr, prop, value_coerce);
 					written = true;
 				}
 			}

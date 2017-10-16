@@ -49,12 +49,11 @@ void BKE_rigidbody_free_constraint(struct Object *ob);
 
 /* ...... */
 
-struct RigidBodyOb *BKE_rigidbody_copy_object(struct Object *ob);
-struct RigidBodyCon *BKE_rigidbody_copy_constraint(struct Object *ob);
-void BKE_rigidbody_relink_constraint(struct RigidBodyCon *rbc);
+struct RigidBodyOb *BKE_rigidbody_copy_object(const struct Object *ob, const int flag);
+struct RigidBodyCon *BKE_rigidbody_copy_constraint(const struct Object *ob, const int flag);
 
 /* Callback format for performing operations on ID-pointers for rigidbody world. */
-typedef void (*RigidbodyWorldIDFunc)(struct RigidBodyWorld *rbw, struct ID **idpoin, void *userdata, int cd_flag);
+typedef void (*RigidbodyWorldIDFunc)(struct RigidBodyWorld *rbw, struct ID **idpoin, void *userdata, int cb_flag);
 
 void BKE_rigidbody_world_id_loop(struct RigidBodyWorld *rbw, RigidbodyWorldIDFunc func, void *userdata);
 
@@ -67,7 +66,7 @@ struct RigidBodyOb *BKE_rigidbody_create_object(struct Scene *scene, struct Obje
 struct RigidBodyCon *BKE_rigidbody_create_constraint(struct Scene *scene, struct Object *ob, short type);
 
 /* copy */
-struct RigidBodyWorld *BKE_rigidbody_world_copy(struct RigidBodyWorld *rbw);
+struct RigidBodyWorld *BKE_rigidbody_world_copy(struct RigidBodyWorld *rbw, const int flag);
 void BKE_rigidbody_world_groups_relink(struct RigidBodyWorld *rbw);
 
 /* 'validate' (i.e. make new or replace old) Physics-Engine objects */

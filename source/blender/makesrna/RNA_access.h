@@ -262,6 +262,7 @@ extern StructRNA RNA_GPencilLayer;
 extern StructRNA RNA_GPencilPalette;
 extern StructRNA RNA_GPencilPaletteColor;
 extern StructRNA RNA_GPencilBrush;
+extern StructRNA RNA_GPencilInterpolateSettings;
 extern StructRNA RNA_GPencilStroke;
 extern StructRNA RNA_GPencilStrokePoint;
 extern StructRNA RNA_GPencilSculptSettings;
@@ -487,7 +488,6 @@ extern StructRNA RNA_PropertyGroupItem;
 extern StructRNA RNA_PropertySensor;
 extern StructRNA RNA_PythonConstraint;
 extern StructRNA RNA_PythonController;
-extern StructRNA RNA_QuickTimeSettings;
 extern StructRNA RNA_RadarSensor;
 extern StructRNA RNA_RandomSensor;
 extern StructRNA RNA_RaySensor;
@@ -597,6 +597,7 @@ extern StructRNA RNA_StucciTexture;
 extern StructRNA RNA_SubsurfModifier;
 extern StructRNA RNA_SunLamp;
 extern StructRNA RNA_SurfaceCurve;
+extern StructRNA RNA_SurfaceDeformModifier;
 extern StructRNA RNA_SurfaceModifier;
 extern StructRNA RNA_TexMapping;
 extern StructRNA RNA_Text;
@@ -765,6 +766,8 @@ void RNA_struct_blender_type_set(StructRNA *srna, void *blender_type);
 struct IDProperty *RNA_struct_idprops(PointerRNA *ptr, bool create);
 bool RNA_struct_idprops_check(StructRNA *srna);
 bool RNA_struct_idprops_register_check(const StructRNA *type);
+bool RNA_struct_idprops_datablock_allowed(const StructRNA *type);
+bool RNA_struct_idprops_contains_datablock(const StructRNA *type);
 bool RNA_struct_idprops_unset(PointerRNA *ptr, const char *identifier);
 
 PropertyRNA *RNA_struct_find_property(PointerRNA *ptr, const char *identifier);
@@ -778,6 +781,9 @@ FunctionRNA *RNA_struct_find_function(StructRNA *srna, const char *identifier);
 const struct ListBase *RNA_struct_type_functions(StructRNA *srna);
 
 char *RNA_struct_name_get_alloc(PointerRNA *ptr, char *fixedbuf, int fixedlen, int *r_len);
+
+bool RNA_struct_available_or_report(struct ReportList *reports, const char *identifier);
+bool RNA_struct_bl_idname_ok_or_report(struct ReportList *reports, const char *identifier, const char *sep);
 
 /* Properties
  *
@@ -793,6 +799,7 @@ PropertyType RNA_property_type(PropertyRNA *prop);
 PropertySubType RNA_property_subtype(PropertyRNA *prop);
 PropertyUnit RNA_property_unit(PropertyRNA *prop);
 int RNA_property_flag(PropertyRNA *prop);
+bool RNA_property_builtin(PropertyRNA *prop);
 void *RNA_property_py_data_get(PropertyRNA *prop);
 
 int  RNA_property_array_length(PointerRNA *ptr, PropertyRNA *prop);
@@ -1142,6 +1149,8 @@ const struct ListBase *RNA_function_defined_parameters(FunctionRNA *func);
 
 /* Utility */
 
+int RNA_parameter_flag(PropertyRNA *prop);
+
 ParameterList *RNA_parameter_list_create(ParameterList *parms, PointerRNA *ptr, FunctionRNA *func);
 void RNA_parameter_list_free(ParameterList *parms);
 int  RNA_parameter_list_size(ParameterList *parms);
@@ -1190,7 +1199,7 @@ StructRNA *ID_code_to_RNA_type(short idcode);
 } (void)0
 
 /* macro which inserts the function name */
-#if defined __GNUC__ || defined __sun
+#if defined __GNUC__
 #  define RNA_warning(format, args ...) _RNA_warning("%s: " format "\n", __func__, ##args)
 #else
 #  define RNA_warning(format, ...) _RNA_warning("%s: " format "\n", __FUNCTION__, __VA_ARGS__)

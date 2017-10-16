@@ -559,11 +559,10 @@ void BKE_splineik_execute_tree(Scene *scene, Object *ob, bPoseChannel *pchan_roo
 /* *************** Depsgraph evaluation callbacks ************ */
 
 void BKE_pose_eval_init(EvaluationContext *UNUSED(eval_ctx),
-                        Scene *scene,
+                        Scene *UNUSED(scene),
                         Object *ob,
                         bPose *pose)
 {
-	float ctime = BKE_scene_frame_get(scene); /* not accurate... */
 	bPoseChannel *pchan;
 
 	DEBUG_PRINT("%s on %s\n", __func__, ob->id.name);
@@ -581,6 +580,16 @@ void BKE_pose_eval_init(EvaluationContext *UNUSED(eval_ctx),
 	for (pchan = pose->chanbase.first; pchan != NULL; pchan = pchan->next) {
 		pchan->flag &= ~(POSE_DONE | POSE_CHAIN | POSE_IKTREE | POSE_IKSPLINE);
 	}
+}
+
+void BKE_pose_eval_init_ik(EvaluationContext *UNUSED(eval_ctx),
+                           Scene *scene,
+                           Object *ob,
+                           bPose *UNUSED(pose))
+{
+	float ctime = BKE_scene_frame_get(scene); /* not accurate... */
+
+	DEBUG_PRINT("%s on %s\n", __func__, ob->id.name);
 
 	/* 2a. construct the IK tree (standard IK) */
 	BIK_initialize_tree(scene, ob, ctime);
@@ -628,10 +637,10 @@ void BKE_pose_eval_bone(EvaluationContext *UNUSED(eval_ctx),
 }
 
 void BKE_pose_constraints_evaluate(EvaluationContext *UNUSED(eval_ctx),
+                                   Scene *scene,
                                    Object *ob,
                                    bPoseChannel *pchan)
 {
-	Scene *scene = G.main->scene.first;
 	DEBUG_PRINT("%s on %s pchan %s\n", __func__, ob->id.name, pchan->name);
 	bArmature *arm = (bArmature *)ob->data;
 	if (arm->flag & ARM_RESTPOS) {
@@ -702,4 +711,8 @@ void BKE_pose_eval_proxy_copy(EvaluationContext *UNUSED(eval_ctx), Object *ob)
 		printf("Proxy copy error, lib Object: %s proxy Object: %s\n",
 		       ob->id.name + 2, ob->proxy_from->id.name + 2);
 	}
+	/* Rest of operations are NO-OP in depsgraph, so can clear
+	 * flag now.
+	 */
+	ob->recalc &= ~OB_RECALC_ALL;
 }

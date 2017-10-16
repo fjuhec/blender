@@ -152,7 +152,7 @@ int imb_savepng(struct ImBuf *ibuf, const char *name, int flags)
 	compression = (int)(((float)(ibuf->foptions.quality) / 11.1111f));
 	compression = compression < 0 ? 0 : (compression > 9 ? 9 : compression);
 
-	if (ibuf->float_colorspace) {
+	if (ibuf->float_colorspace || (ibuf->colormanage_flag & IMB_COLORMANAGE_IS_DATA)) {
 		/* float buffer was managed already, no need in color space conversion */
 		chanel_colormanage_cb = channel_colormanage_noop;
 	}
@@ -613,11 +613,12 @@ ImBuf *imb_loadpng(const unsigned char *mem, size_t size, int flags, char colors
 			int unit_type;
 			png_uint_32 xres, yres;
 
-			if (png_get_pHYs(png_ptr, info_ptr, &xres, &yres, &unit_type))
+			if (png_get_pHYs(png_ptr, info_ptr, &xres, &yres, &unit_type)) {
 				if (unit_type == PNG_RESOLUTION_METER) {
 					ibuf->ppm[0] = xres;
 					ibuf->ppm[1] = yres;
 				}
+			}
 		}
 	}
 	else {

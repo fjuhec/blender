@@ -19,20 +19,20 @@
 
 #ifdef WITH_OSL
 /* So no context pollution happens from indirectly included windows.h */
-#  include "util_windows.h"
+#  include "util/util_windows.h"
 #  include <OSL/oslexec.h>
 #endif
 
-#include "attribute.h"
-#include "kernel_types.h"
+#include "render/attribute.h"
+#include "kernel/kernel_types.h"
 
-#include "node.h"
+#include "graph/node.h"
 
-#include "util_map.h"
-#include "util_param.h"
-#include "util_string.h"
-#include "util_thread.h"
-#include "util_types.h"
+#include "util/util_map.h"
+#include "util/util_param.h"
+#include "util/util_string.h"
+#include "util/util_thread.h"
+#include "util/util_types.h"
 
 CCL_NAMESPACE_BEGIN
 
@@ -82,17 +82,12 @@ enum DisplacementMethod {
 
 class Shader : public Node {
 public:
-	NODE_DECLARE;
+	NODE_DECLARE
 
 	int pass_id;
 
 	/* shader graph */
 	ShaderGraph *graph;
-
-	/* shader graph with auto bump mapping included, we compile two shaders,
-	 * with and without bump,  because the displacement method is a mesh
-	 * level setting, so we need to handle both */
-	ShaderGraph *graph_bump;
 
 	/* sampling */
 	bool use_mis;
@@ -105,6 +100,15 @@ public:
 	bool need_update;
 	bool need_update_attributes;
 
+	/* If the shader has only volume components, the surface is assumed to
+	 * be transparent.
+	 * However, graph optimization might remove the volume subgraph, but
+	 * since the user connected something to the volume output the surface
+	 * should still be transparent.
+	 * Therefore, has_volume_connected stores whether some volume subtree
+	 * was connected before optimization. */
+	bool has_volume_connected;
+
 	/* information about shader after compiling */
 	bool has_surface;
 	bool has_surface_emission;
@@ -112,6 +116,7 @@ public:
 	bool has_volume;
 	bool has_displacement;
 	bool has_surface_bssrdf;
+	bool has_bump;
 	bool has_bssrdf_bump;
 	bool has_surface_spatial_varying;
 	bool has_volume_spatial_varying;
@@ -195,13 +200,16 @@ protected:
 	typedef unordered_map<ustring, uint, ustringHash> AttributeIDMap;
 	AttributeIDMap unique_attribute_id;
 
-	thread_mutex lookup_table_mutex;
+	static thread_mutex lookup_table_mutex;
 	static vector<float> beckmann_table;
+	static bool beckmann_table_ready;
 
 	size_t beckmann_table_offset;
 
 	void get_requested_graph_features(ShaderGraph *graph,
 	                                  DeviceRequestedFeatures *requested_features);
+
+	thread_spin_lock attribute_lock_;
 };
 
 CCL_NAMESPACE_END

@@ -337,7 +337,7 @@ static void action_channel_region_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(
 			}
 			break;
 		case NC_GPENCIL:
-			if (wmn->action == NA_RENAME)
+			if (ELEM(wmn->action, NA_RENAME, NA_SELECTED))
 				ED_region_tag_redraw(ar);
 			break;
 		case NC_ID:
@@ -407,10 +407,15 @@ static void action_listener(bScreen *UNUSED(sc), ScrArea *sa, wmNotifier *wmn)
 	/* context changes */
 	switch (wmn->category) {
 		case NC_GPENCIL:
-			if (wmn->action == NA_EDITED) {
-				/* only handle this event in GPencil mode for performance considerations */
-				if (saction->mode == SACTCONT_GPENCIL)
+			/* only handle these events in GPencil mode for performance considerations */
+			if (saction->mode == SACTCONT_GPENCIL) {
+				if (wmn->action == NA_EDITED) {
 					ED_area_tag_redraw(sa);
+				}
+				else if (wmn->action == NA_SELECTED) {
+					saction->flag |= SACTION_TEMP_NEEDCHANSYNC;
+					ED_area_tag_refresh(sa);
+				}
 			}
 			break;
 		case NC_ANIMATION:
@@ -619,13 +624,17 @@ static void action_id_remap(ScrArea *UNUSED(sa), SpaceLink *slink, ID *old_id, I
 {
 	SpaceAction *sact = (SpaceAction *)slink;
 
-	if (!ELEM(GS(old_id->name), ID_GR)) {
-		return;
+	if ((ID *)sact->action == old_id) {
+		sact->action = (bAction *)new_id;
 	}
 
 	if ((ID *)sact->ads.filter_grp == old_id) {
 		sact->ads.filter_grp = (Group *)new_id;
 	}
+	if ((ID *)sact->ads.source == old_id) {
+		sact->ads.source = new_id;
+	}
+
 }
 
 /* only called once, from space/spacetypes.c */

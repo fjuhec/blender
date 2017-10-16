@@ -83,10 +83,11 @@ bArmature *BKE_armature_add(Main *bmain, const char *name)
 {
 	bArmature *arm;
 
-	arm = BKE_libblock_alloc(bmain, ID_AR, name);
+	arm = BKE_libblock_alloc(bmain, ID_AR, name, 0);
 	arm->deformflag = ARM_DEF_VGROUP | ARM_DEF_ENVELOPE;
 	arm->flag = ARM_COL_CUSTOM; /* custom bone-group colors */
 	arm->layer = 1;
+	arm->ghostsize = 1;
 	return arm;
 }
 
@@ -149,54 +150,70 @@ void BKE_armature_make_local(Main *bmain, bArmature *arm, const bool lib_local)
 	BKE_id_make_local_generic(bmain, &arm->id, true, lib_local);
 }
 
-static void copy_bonechildren(Bone *newBone, Bone *oldBone, Bone *actBone, Bone **newActBone)
+static void copy_bonechildren(
+        Bone *bone_dst, const Bone *bone_src, const Bone *bone_src_act, Bone **r_bone_dst_act, const int flag)
 {
-	Bone *curBone, *newChildBone;
+	Bone *bone_src_child, *bone_dst_child;
 
-	if (oldBone == actBone)
-		*newActBone = newBone;
+	if (bone_src == bone_src_act) {
+		*r_bone_dst_act = bone_dst;
+	}
 
-	if (oldBone->prop)
-		newBone->prop = IDP_CopyProperty(oldBone->prop);
+	if (bone_src->prop) {
+		bone_dst->prop = IDP_CopyProperty_ex(bone_src->prop, flag);
+	}
 
 	/* Copy this bone's list */
-	BLI_duplicatelist(&newBone->childbase, &oldBone->childbase);
+	BLI_duplicatelist(&bone_dst->childbase, &bone_src->childbase);
 
 	/* For each child in the list, update it's children */
-	newChildBone = newBone->childbase.first;
-	for (curBone = oldBone->childbase.first; curBone; curBone = curBone->next) {
-		newChildBone->parent = newBone;
-		copy_bonechildren(newChildBone, curBone, actBone, newActBone);
-		newChildBone = newChildBone->next;
+	for (bone_src_child = bone_src->childbase.first, bone_dst_child = bone_dst->childbase.first;
+	     bone_src_child;
+	     bone_src_child = bone_src_child->next, bone_dst_child = bone_dst_child->next)
+	{
+		bone_dst_child->parent = bone_dst;
+		copy_bonechildren(bone_dst_child, bone_src_child, bone_src_act, r_bone_dst_act, flag);
 	}
 }
 
-bArmature *BKE_armature_copy(Main *bmain, bArmature *arm)
+/**
+ * Only copy internal data of Armature ID from source to already allocated/initialized destination.
+ * You probably nerver want to use that directly, use id_copy or BKE_id_copy_ex for typical needs.
+ *
+ * WARNING! This function will not handle ID user count!
+ *
+ * \param flag  Copying options (see BKE_library.h's LIB_ID_COPY_... flags for more).
+ */
+void BKE_armature_copy_data(Main *UNUSED(bmain), bArmature *arm_dst, const bArmature *arm_src, const int flag)
 {
-	bArmature *newArm;
-	Bone *oldBone, *newBone;
-	Bone *newActBone = NULL;
+	Bone *bone_src, *bone_dst;
+	Bone *bone_dst_act = NULL;
 
-	newArm = BKE_libblock_copy(bmain, &arm->id);
-	BLI_duplicatelist(&newArm->bonebase, &arm->bonebase);
+	/* We never handle usercount here for own data. */
+	const int flag_subdata = flag | LIB_ID_CREATE_NO_USER_REFCOUNT;
+
+	BLI_duplicatelist(&arm_dst->bonebase, &arm_src->bonebase);
 
 	/* Duplicate the childrens' lists */
-	newBone = newArm->bonebase.first;
-	for (oldBone = arm->bonebase.first; oldBone; oldBone = oldBone->next) {
-		newBone->parent = NULL;
-		copy_bonechildren(newBone, oldBone, arm->act_bone, &newActBone);
-		newBone = newBone->next;
+	bone_dst = arm_dst->bonebase.first;
+	for (bone_src = arm_src->bonebase.first; bone_src; bone_src = bone_src->next) {
+		bone_dst->parent = NULL;
+		copy_bonechildren(bone_dst, bone_src, arm_src->act_bone, &bone_dst_act, flag_subdata);
+		bone_dst = bone_dst->next;
 	}
 
-	newArm->act_bone = newActBone;
+	arm_dst->act_bone = bone_dst_act;
 
-	newArm->edbo = NULL;
-	newArm->act_edbone = NULL;
-	newArm->sketch = NULL;
+	arm_dst->edbo = NULL;
+	arm_dst->act_edbone = NULL;
+	arm_dst->sketch = NULL;
+}
 
-	BKE_id_copy_ensure_local(bmain, &arm->id, &newArm->id);
-
-	return newArm;
+bArmature *BKE_armature_copy(Main *bmain, const bArmature *arm)
+{
+	bArmature *arm_copy;
+	BKE_id_copy_ex(bmain, &arm->id, (ID **)&arm_copy, 0, false);
+	return arm_copy;
 }
 
 static Bone *get_named_bone_bonechildren(ListBase *lb, const char *name)
@@ -981,6 +998,11 @@ void armature_deform_verts(Object *armOb, Object *target, DerivedMesh *dm, float
 		return;
 	}
 
+	if ((armOb->pose->flag & POSE_RECALC) != 0) {
+		printf("ERROR! Trying to evaluate influence of armature '%s' which needs Pose recalc!", armOb->id.name);
+		BLI_assert(0);
+	}
+
 	invert_m4_m4(obinv, target->obmat);
 	copy_m4_m4(premat, target->obmat);
 	mul_m4_m4m4(postmat, obinv, armOb->obmat);
@@ -1036,6 +1058,17 @@ void armature_deform_verts(Object *armOb, Object *target, DerivedMesh *dm, float
 			if (use_dverts) {
 				defnrToPC = MEM_callocN(sizeof(*defnrToPC) * defbase_tot, "defnrToBone");
 				defnrToPCIndex = MEM_callocN(sizeof(*defnrToPCIndex) * defbase_tot, "defnrToIndex");
+				/* TODO(sergey): Some considerations here:
+				 *
+				 * - Make it more generic function, maybe even keep together with chanhash.
+				 * - Check whether keeping this consistent across frames gives speedup.
+				 * - Don't use hash for small armatures.
+				 */
+				GHash *idx_hash = BLI_ghash_ptr_new("pose channel index by name");
+				int pchan_index = 0;
+				for (pchan = armOb->pose->chanbase.first; pchan != NULL; pchan = pchan->next, ++pchan_index) {
+					BLI_ghash_insert(idx_hash, pchan, SET_INT_IN_POINTER(pchan_index));
+				}
 				for (i = 0, dg = target->defbase.first; dg; i++, dg = dg->next) {
 					defnrToPC[i] = BKE_pose_channel_find_name(armOb->pose, dg->name);
 					/* exclude non-deforming bones */
@@ -1044,10 +1077,11 @@ void armature_deform_verts(Object *armOb, Object *target, DerivedMesh *dm, float
 							defnrToPC[i] = NULL;
 						}
 						else {
-							defnrToPCIndex[i] = BLI_findindex(&armOb->pose->chanbase, defnrToPC[i]);
+							defnrToPCIndex[i] = GET_INT_FROM_POINTER(BLI_ghash_lookup(idx_hash, defnrToPC[i]));
 						}
 					}
 				}
+				BLI_ghash_free(idx_hash, NULL, NULL);
 			}
 		}
 	}
@@ -1967,6 +2001,8 @@ void BKE_pose_rebuild_ex(Object *ob, bArmature *arm, const bool sort_bones)
 	if (counter > 1 && sort_bones) {
 		DAG_pose_sort(ob);
 	}
+#else
+	UNUSED_VARS(sort_bones);
 #endif
 
 	ob->pose->flag &= ~POSE_RECALC;

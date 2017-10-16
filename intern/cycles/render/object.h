@@ -17,14 +17,14 @@
 #ifndef __OBJECT_H__
 #define __OBJECT_H__
 
-#include "node.h"
-#include "scene.h"
+#include "graph/node.h"
+#include "render/scene.h"
 
-#include "util_boundbox.h"
-#include "util_param.h"
-#include "util_transform.h"
-#include "util_thread.h"
-#include "util_types.h"
+#include "util/util_boundbox.h"
+#include "util/util_param.h"
+#include "util/util_transform.h"
+#include "util/util_thread.h"
+#include "util/util_types.h"
 
 CCL_NAMESPACE_BEGIN
 
@@ -40,7 +40,7 @@ struct Transform;
 
 class Object : public Node {
 public:
-	NODE_DECLARE;
+	NODE_DECLARE
 
 	Mesh *mesh;
 	Transform tfm;
@@ -53,13 +53,14 @@ public:
 	bool use_motion;
 	bool hide_on_missing_motion;
 	bool use_holdout;
+	bool is_shadow_catcher;
 
 	float3 dupli_generated;
 	float2 dupli_uv;
 
 	ParticleSystem *particle_system;
 	int particle_index;
-	
+
 	Object();
 	~Object();
 
@@ -74,6 +75,11 @@ public:
 	 * kernel scene.
 	 */
 	bool is_traceable();
+
+	/* Combine object's visibility with all possible internal run-time
+	 * determined flags which denotes trace-time visibility.
+	 */
+	uint visibility_for_tracing() const;
 };
 
 /* Object Manager */

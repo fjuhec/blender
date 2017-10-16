@@ -32,10 +32,13 @@ __all__ = (
     "preset_find",
     "preset_paths",
     "refresh_script_paths",
+    "app_template_paths",
     "register_class",
     "register_module",
     "register_manual_map",
     "unregister_manual_map",
+    "register_classes_factory",
+    "register_submodule_factory",
     "make_rna_paths",
     "manual_map",
     "previews",
@@ -49,18 +52,18 @@ __all__ = (
     "unregister_class",
     "unregister_module",
     "user_resource",
-    )
+)
 
 from _bpy import (
-        _utils_units as units,
-        blend_paths,
-        escape_identifier,
-        register_class,
-        resource_path,
-        script_paths as _bpy_script_paths,
-        unregister_class,
-        user_resource as _user_resource,
-        )
+    _utils_units as units,
+    blend_paths,
+    escape_identifier,
+    register_class,
+    resource_path,
+    script_paths as _bpy_script_paths,
+    unregister_class,
+    user_resource as _user_resource,
+)
 
 import bpy as _bpy
 import os as _os
@@ -70,6 +73,7 @@ import addon_utils as _addon_utils
 
 _user_preferences = _bpy.context.user_preferences
 _script_module_dirs = "startup", "modules"
+_is_factory_startup = _bpy.app.factory_startup
 
 
 def _test_import(module_name, loaded_modules):
@@ -142,7 +146,8 @@ def load_scripts(reload_scripts=False, refresh_scripts=False):
        as modules.
     :type refresh_scripts: bool
     """
-    use_time = _bpy.app.debug_python
+    use_time = use_class_register_check = _bpy.app.debug_python
+    use_user = not _is_factory_startup
 
     if use_time:
         import time
@@ -161,7 +166,8 @@ def load_scripts(reload_scripts=False, refresh_scripts=False):
         for module_name in [ext.module for ext in _user_preferences.addons]:
             _addon_utils.disable(module_name)
 
-        # *AFTER* unregistering all add-ons, otherwise all calls to unregister_module() will silently fail (do nothing).
+        # *AFTER* unregistering all add-ons, otherwise all calls to
+        # unregister_module() will silently fail (do nothing).
         _bpy_types.TypeMap.clear()
 
     def register_module_call(mod):
@@ -232,7 +238,7 @@ def load_scripts(reload_scripts=False, refresh_scripts=False):
     from bpy_restrict_state import RestrictBlend
 
     with RestrictBlend():
-        for base_path in script_paths():
+        for base_path in script_paths(use_user=use_user):
             for path_subdir in _script_module_dirs:
                 path = _os.path.join(base_path, path_subdir)
                 if _os.path.isdir(path):
@@ -244,6 +250,12 @@ def load_scripts(reload_scripts=False, refresh_scripts=False):
 
                     for mod in modules_from_path(path, loaded_modules):
                         test_register(mod)
+
+    # load template (if set)
+    if any(_bpy.utils.app_template_paths()):
+        import bl_app_template_utils
+        bl_app_template_utils.reset(reload_scripts=reload_scripts)
+        del bl_app_template_utils
 
     # deal with addons separately
     _initialize = getattr(_addon_utils, "_initialize", None)
@@ -269,13 +281,21 @@ def load_scripts(reload_scripts=False, refresh_scripts=False):
     if use_time:
         print("Python Script Load Time %.4f" % (time.time() - t_main))
 
+    if use_class_register_check:
+        for cls in _bpy.types.bpy_struct.__subclasses__():
+            if getattr(cls, "is_registered", False):
+                for subcls in cls.__subclasses__():
+                    if not subcls.is_registered:
+                        print(
+                            "Warning, unregistered class: %s(%s)" %
+                            (subcls.__name__, cls.__name__)
+                        )
+
 
 # base scripts
-_scripts = _os.path.join(_os.path.dirname(__file__),
-                         _os.path.pardir,
-                         _os.path.pardir,
-                         )
-_scripts = (_os.path.normpath(_scripts), )
+_scripts = (
+    _os.path.dirname(_os.path.dirname(_os.path.dirname(__file__))),
+)
 
 
 def script_path_user():
@@ -290,7 +310,7 @@ def script_path_pref():
     return _os.path.normpath(path) if path else None
 
 
-def script_paths(subdir=None, user_pref=True, check_all=False):
+def script_paths(subdir=None, user_pref=True, check_all=False, use_user=True):
     """
     Returns a list of valid script paths.
 
@@ -312,15 +332,30 @@ def script_paths(subdir=None, user_pref=True, check_all=False):
     # so the 'BLENDER_SYSTEM_SCRIPTS' environment variable will be used.
     base_paths = _bpy_script_paths()
 
+    # Defined to be (system, user) so we can skip the second if needed.
+    if not use_user:
+        base_paths = base_paths[:1]
+
     if check_all:
         # All possible paths, no duplicates, keep order.
-        base_paths = (
-            *(path for path in (_os.path.join(resource_path(res), "scripts")
-              for res in ('LOCAL', 'USER', 'SYSTEM')) if path not in base_paths),
-            *base_paths,
-            )
+        if use_user:
+            test_paths = ('LOCAL', 'USER', 'SYSTEM')
+        else:
+            test_paths = ('LOCAL', 'SYSTEM')
 
-    for path in (*base_paths, script_path_user(), script_path_pref()):
+        base_paths = (
+            *(path for path in (
+                _os.path.join(resource_path(res), "scripts")
+                for res in test_paths) if path not in base_paths),
+            *base_paths,
+        )
+
+    if use_user:
+        test_paths = (*base_paths, script_path_user(), script_path_pref())
+    else:
+        test_paths = (*base_paths, script_path_pref())
+
+    for path in test_paths:
         if path:
             path = _os.path.normpath(path)
             if path not in scripts and _os.path.isdir(path):
@@ -354,6 +389,37 @@ def refresh_script_paths():
         path = _os.path.join(path, "modules")
         if _os.path.isdir(path):
             _sys_path_ensure(path)
+
+
+def app_template_paths(subdir=None):
+    """
+    Returns valid application template paths.
+
+    :arg subdir: Optional subdir.
+    :type subdir: string
+    :return: app template paths.
+    :rtype: generator
+    """
+    # Note: keep in sync with: Blender's BKE_appdir_app_template_any
+
+    subdir_tuple = (subdir,) if subdir is not None else ()
+
+    # Avoid adding 'bl_app_templates_system' twice.
+    # Either we have a portable build or an installed system build.
+    for resource_type, module_name in (
+            ('USER', "bl_app_templates_user"),
+            ('LOCAL', "bl_app_templates_system"),
+            ('SYSTEM', "bl_app_templates_system"),
+    ):
+        path = resource_path(resource_type)
+        if path:
+            path = _os.path.join(
+                *(path, "scripts", "startup", module_name, *subdir_tuple))
+            if _os.path.isdir(path):
+                yield path
+                # Only load LOCAL or SYSTEM (never both).
+                if resource_type == 'LOCAL':
+                    break
 
 
 def preset_paths(subdir):
@@ -634,6 +700,65 @@ def unregister_module(module, verbose=False):
             traceback.print_exc()
     if verbose:
         print("done.\n")
+
+
+def register_classes_factory(classes):
+    """
+    Utility function to create register and unregister functions
+    which simply registers and unregisters a sequence of classes.
+    """
+    def register():
+        from bpy.utils import register_class
+        for cls in classes:
+            register_class(cls)
+
+    def unregister():
+        from bpy.utils import unregister_class
+        for cls in reversed(classes):
+            unregister_class(cls)
+
+    return register, unregister
+
+
+def register_submodule_factory(module_name, submodule_names):
+    """
+    Utility function to create register and unregister functions
+    which simply load submodules,
+    calling their register & unregister functions.
+
+    .. note::
+
+       Modules are registered in the order given,
+       unregistered in reverse order.
+
+    :arg module_name: The module name, typically ``__name__``.
+    :type module_name: string
+    :arg submodule_names: List of submodule names to load and unload.
+    :type submodule_names: list of strings
+    :return: register and unregister functions.
+    :rtype: tuple pair of functions
+    """
+
+    module = None
+    submodules = []
+
+    def register():
+        nonlocal module
+        module = __import__(name=module_name, fromlist=submodule_names)
+        submodules[:] = [getattr(module, name) for name in submodule_names]
+        for mod in submodules:
+            mod.register()
+
+    def unregister():
+        from sys import modules
+        for mod in reversed(submodules):
+            mod.unregister()
+            name = mod.__name__
+            delattr(module, name.partition(".")[2])
+            del modules[name]
+        submodules.clear()
+
+    return register, unregister
 
 
 # -----------------------------------------------------------------------------

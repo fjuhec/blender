@@ -366,10 +366,10 @@ static void ui_block_bounds_calc_centered_pie(uiBlock *block)
 
 static void ui_block_bounds_calc_popup(
         wmWindow *window, uiBlock *block,
-        eBlockBoundsCalc bounds_calc, const int xy[2])
+        eBlockBoundsCalc bounds_calc, const int xy[2], int r_xy[2])
 {
 	int width, height, oldwidth, oldheight;
-	int oldbounds, xmax, ymax;
+	int oldbounds, xmax, ymax, raw_x, raw_y;
 	const int margin = UI_SCREEN_MARGIN;
 	rcti rect, rect_bounds;
 	int ofs_dummy[2];
@@ -407,8 +407,8 @@ static void ui_block_bounds_calc_popup(
 
 	/* offset block based on mouse position, user offset is scaled
 	 * along in case we resized the block in ui_block_bounds_calc_text */
-	rect.xmin = xy[0] + block->rect.xmin + (block->mx * width) / oldwidth;
-	rect.ymin = xy[1] + block->rect.ymin + (block->my * height) / oldheight;
+	raw_x = rect.xmin = xy[0] + block->rect.xmin + (block->mx * width) / oldwidth;
+	raw_y = rect.ymin = xy[1] + block->rect.ymin + (block->my * height) / oldheight;
 	rect.xmax = rect.xmin + width;
 	rect.ymax = rect.ymin + height;
 
@@ -422,6 +422,13 @@ static void ui_block_bounds_calc_popup(
 
 	/* now recompute bounds and safety */
 	ui_block_bounds_calc(block);
+
+	/* If given, adjust input coordinates such that they would generate real final popup position.
+	 * Needed to handle correctly floating panels once they have been dragged around, see T52999. */
+	if (r_xy) {
+		r_xy[0] = xy[0] + block->rect.xmin - raw_x;
+		r_xy[1] = xy[1] + block->rect.ymin - raw_y;
+	}
 }
 
 /* used for various cases */
@@ -487,6 +494,9 @@ static int ui_but_calc_float_precision(uiBut *but, double value)
 	}
 	else if (prec == -1) {
 		prec = (but->hardmax < 10.001f) ? 3 : 2;
+	}
+	else {
+		CLAMP(prec, 0, UI_PRECISION_FLOAT_MAX);
 	}
 
 	return UI_calc_float_precision(prec, value);
@@ -684,7 +694,7 @@ static bool ui_but_update_from_old_block(const bContext *C, uiBlock *block, uiBu
 
 	if (oldbut->active) {
 		/* flags from the buttons we want to refresh, may want to add more here... */
-		const int flag_copy = UI_BUT_REDALERT;
+		const int flag_copy = UI_BUT_REDALERT | UI_HAS_ICON;
 
 		found_active = true;
 
@@ -1165,6 +1175,8 @@ static void ui_menu_block_set_keymaps(const bContext *C, uiBlock *block)
 	uiBut *but;
 	char buf[128];
 
+	BLI_assert(block->flag & UI_BLOCK_LOOP);
+
 	/* only do it before bounding */
 	if (block->rect.xmin != block->rect.xmax)
 		return;
@@ -1179,6 +1191,9 @@ static void ui_menu_block_set_keymaps(const bContext *C, uiBlock *block)
 	}
 	else {
 		for (but = block->buttons.first; but; but = but->next) {
+			if (but->dt != UI_EMBOSS_PULLDOWN) {
+				continue;
+			}
 
 			if (ui_but_event_operator_string(C, but, buf, sizeof(buf))) {
 				ui_but_add_shortcut(but, buf, false);
@@ -1223,7 +1238,7 @@ void UI_block_update_from_old(const bContext *C, uiBlock *block)
 	block->oldblock = NULL;
 }
 
-void UI_block_end_ex(const bContext *C, uiBlock *block, const int xy[2])
+void UI_block_end_ex(const bContext *C, uiBlock *block, const int xy[2], int r_xy[2])
 {
 	wmWindow *window = CTX_wm_window(C);
 	Scene *scene = CTX_data_scene(C);
@@ -1291,7 +1306,7 @@ void UI_block_end_ex(const bContext *C, uiBlock *block, const int xy[2])
 			/* fallback */
 		case UI_BLOCK_BOUNDS_POPUP_MOUSE:
 		case UI_BLOCK_BOUNDS_POPUP_MENU:
-			ui_block_bounds_calc_popup(window, block, block->bounds_type, xy);
+			ui_block_bounds_calc_popup(window, block, block->bounds_type, xy, r_xy);
 			break;
 	}
 
@@ -1309,7 +1324,7 @@ void UI_block_end(const bContext *C, uiBlock *block)
 {
 	wmWindow *window = CTX_wm_window(C);
 
-	UI_block_end_ex(C, block, &window->eventstate->x);
+	UI_block_end_ex(C, block, &window->eventstate->x, NULL);
 }
 
 /* ************** BLOCK DRAWING FUNCTION ************* */
@@ -1337,7 +1352,7 @@ static void ui_but_to_pixelrect(rcti *rect, const ARegion *ar, uiBlock *block, u
 	rctf rectf;
 
 	ui_block_to_window_rctf(ar, block, &rectf, (but) ? &but->rect : &block->rect);
-	BLI_rcti_rctf_copy_floor(rect, &rectf);
+	BLI_rcti_rctf_copy_round(rect, &rectf);
 	BLI_rcti_translate(rect, -ar->winrct.xmin, -ar->winrct.ymin);
 }
 
@@ -1932,13 +1947,14 @@ void ui_but_value_set(uiBut *but, double value)
 	else {
 		/* first do rounding */
 		if (but->pointype == UI_BUT_POIN_CHAR) {
-			value = (char)floor(value + 0.5);
+			value = round_db_to_uchar_clamp(value);
 		}
 		else if (but->pointype == UI_BUT_POIN_SHORT) {
-			value = (short)floor(value + 0.5);
+			value = round_db_to_short_clamp(value);
 		}
-		else if (but->pointype == UI_BUT_POIN_INT)
-			value = (int)floor(value + 0.5);
+		else if (but->pointype == UI_BUT_POIN_INT) {
+			value = round_db_to_int_clamp(value);
+		}
 		else if (but->pointype == UI_BUT_POIN_FLOAT) {
 			float fval = (float)value;
 			if (fval >= -0.00001f && fval <= 0.00001f) fval = 0.0f;  /* prevent negative zero */
@@ -1987,22 +2003,29 @@ uiBut *ui_but_drag_multi_edit_get(uiBut *but)
 /** \name Check to show extra icons
  *
  * Extra icons are shown on the right hand side of buttons.
+ * This could (should!) definitely become more generic, but for now this is good enough.
  * \{ */
+
+static bool ui_but_icon_extra_is_visible_text_clear(const uiBut *but)
+{
+	BLI_assert(but->type == UI_BTYPE_TEXT);
+	return ((but->flag & UI_BUT_VALUE_CLEAR) && but->drawstr[0]);
+}
 
 static bool ui_but_icon_extra_is_visible_search_unlink(const uiBut *but)
 {
 	BLI_assert(but->type == UI_BTYPE_SEARCH_MENU);
 	return ((but->editstr == NULL) &&
 	        (but->drawstr[0] != '\0') &&
-	        (but->flag & UI_BUT_SEARCH_UNLINK));
+	        (but->flag & UI_BUT_VALUE_CLEAR));
 }
 
-static bool ui_but_icon_extra_is_visible_eyedropper(uiBut *but)
+static bool ui_but_icon_extra_is_visible_search_eyedropper(uiBut *but)
 {
 	StructRNA *type;
 	short idcode;
 
-	BLI_assert(but->type == UI_BTYPE_SEARCH_MENU && (but->flag & UI_BUT_SEARCH_UNLINK));
+	BLI_assert(but->type == UI_BTYPE_SEARCH_MENU && (but->flag & UI_BUT_VALUE_CLEAR));
 
 	if (but->rnaprop == NULL) {
 		return false;
@@ -2011,21 +2034,31 @@ static bool ui_but_icon_extra_is_visible_eyedropper(uiBut *but)
 	type = RNA_property_pointer_type(&but->rnapoin, but->rnaprop);
 	idcode = RNA_type_to_ID_code(type);
 
-
 	return ((but->editstr == NULL) &&
 	        (idcode == ID_OB || OB_DATA_SUPPORT_ID(idcode)));
 }
 
 uiButExtraIconType ui_but_icon_extra_get(uiBut *but)
 {
-	if ((but->flag & UI_BUT_SEARCH_UNLINK) == 0) {
-		/* pass */
-	}
-	else if (ui_but_icon_extra_is_visible_search_unlink(but)) {
-		return UI_BUT_ICONEXTRA_UNLINK;
-	}
-	else if (ui_but_icon_extra_is_visible_eyedropper(but)) {
-		return UI_BUT_ICONEXTRA_EYEDROPPER;
+	switch (but->type) {
+		case UI_BTYPE_TEXT:
+			if (ui_but_icon_extra_is_visible_text_clear(but)) {
+				return UI_BUT_ICONEXTRA_CLEAR;
+			}
+			break;
+		case UI_BTYPE_SEARCH_MENU:
+			if ((but->flag & UI_BUT_VALUE_CLEAR) == 0) {
+				/* pass */
+			}
+			else if (ui_but_icon_extra_is_visible_search_unlink(but)) {
+				return UI_BUT_ICONEXTRA_CLEAR;
+			}
+			else if (ui_but_icon_extra_is_visible_search_eyedropper(but)) {
+				return UI_BUT_ICONEXTRA_EYEDROPPER;
+			}
+			break;
+		default:
+			break;
 	}
 
 	return UI_BUT_ICONEXTRA_NONE;
@@ -2129,9 +2162,14 @@ static float ui_get_but_step_unit(uiBut *but, float step_default)
 
 /**
  * \param float_precision  For number buttons the precision to use or -1 to fallback to the button default.
+ * \param use_exp_float  Use exponent representation of floats when out of reasonable range (outside of 1e3/1e-3).
  */
-void ui_but_string_get_ex(uiBut *but, char *str, const size_t maxlen, const int float_precision)
+void ui_but_string_get_ex(uiBut *but, char *str, const size_t maxlen, const int float_precision, const bool use_exp_float, bool *r_use_exp_float)
 {
+	if (r_use_exp_float) {
+		*r_use_exp_float = false;
+	}
+
 	if (but->rnaprop && ELEM(but->type, UI_BTYPE_TEXT, UI_BTYPE_SEARCH_MENU)) {
 		PropertyType type;
 		const char *buf = NULL;
@@ -2199,17 +2237,38 @@ void ui_but_string_get_ex(uiBut *but, char *str, const size_t maxlen, const int 
 				ui_get_but_string_unit(but, str, maxlen, value, false, float_precision);
 			}
 			else {
-				const int prec = (float_precision == -1) ? ui_but_calc_float_precision(but, value) : float_precision;
-				BLI_snprintf(str, maxlen, "%.*f", prec, value);
+				int prec = (float_precision == -1) ? ui_but_calc_float_precision(but, value) : float_precision;
+				if (use_exp_float) {
+					const int int_digits_num = integer_digits_f(value);
+					if (int_digits_num < -6 || int_digits_num > 12) {
+						BLI_snprintf(str, maxlen, "%.*g", prec, value);
+						if (r_use_exp_float) {
+							*r_use_exp_float = true;
+						}
+					}
+					else {
+						prec -= int_digits_num;
+						CLAMP(prec, 0, UI_PRECISION_FLOAT_MAX);
+						BLI_snprintf(str, maxlen, "%.*f", prec, value);
+					}
+				}
+				else {
+#if 0				/* TODO, but will likely break some stuff, so better after 2.79 release. */
+					prec -= int_digits_num;
+					CLAMP(prec, 0, UI_PRECISION_FLOAT_MAX);
+#endif
+					BLI_snprintf(str, maxlen, "%.*f", prec, value);
+				}
 			}
 		}
-		else
+		else {
 			BLI_snprintf(str, maxlen, "%d", (int)value);
+		}
 	}
 }
 void ui_but_string_get(uiBut *but, char *str, const size_t maxlen)
 {
-	ui_but_string_get_ex(but, str, maxlen, -1);
+	ui_but_string_get_ex(but, str, maxlen, -1, false, NULL);
 }
 
 /**
@@ -2271,7 +2330,7 @@ char *ui_but_string_get_dynamic(uiBut *but, int *r_str_size)
 
 #ifdef WITH_PYTHON
 
-static bool ui_set_but_string_eval_num_unit(bContext *C, uiBut *but, const char *str, double *value)
+static bool ui_set_but_string_eval_num_unit(bContext *C, uiBut *but, const char *str, double *r_value)
 {
 	char str_unit_convert[256];
 	const int unit_type = UI_but_unit_type_get(but);
@@ -2283,13 +2342,13 @@ static bool ui_set_but_string_eval_num_unit(bContext *C, uiBut *but, const char 
 	bUnit_ReplaceString(str_unit_convert, sizeof(str_unit_convert), but->drawstr,
 	                    ui_get_but_scale_unit(but, 1.0), but->block->unit->system, RNA_SUBTYPE_UNIT_VALUE(unit_type));
 
-	return BPY_execute_string_as_number(C, str_unit_convert, value, true);
+	return BPY_execute_string_as_number(C, str_unit_convert, true, r_value);
 }
 
 #endif /* WITH_PYTHON */
 
 
-bool ui_but_string_set_eval_num(bContext *C, uiBut *but, const char *str, double *value)
+bool ui_but_string_set_eval_num(bContext *C, uiBut *but, const char *str, double *r_value)
 {
 	bool ok = false;
 
@@ -2298,13 +2357,13 @@ bool ui_but_string_set_eval_num(bContext *C, uiBut *but, const char *str, double
 	if (str[0] != '\0') {
 		bool is_unit_but = (ui_but_is_float(but) && ui_but_is_unit(but));
 		/* only enable verbose if we won't run again with units */
-		if (BPY_execute_string_as_number(C, str, value, is_unit_but == false)) {
+		if (BPY_execute_string_as_number(C, str, is_unit_but == false, r_value)) {
 			/* if the value parsed ok without unit conversion this button may still need a unit multiplier */
 			if (is_unit_but) {
 				char str_new[128];
 
-				BLI_snprintf(str_new, sizeof(str_new), "%f", *value);
-				ok = ui_set_but_string_eval_num_unit(C, but, str_new, value);
+				BLI_snprintf(str_new, sizeof(str_new), "%f", *r_value);
+				ok = ui_set_but_string_eval_num_unit(C, but, str_new, r_value);
 			}
 			else {
 				ok = true; /* parse normal string via py (no unit conversion needed) */
@@ -2312,17 +2371,16 @@ bool ui_but_string_set_eval_num(bContext *C, uiBut *but, const char *str, double
 		}
 		else if (is_unit_but) {
 			/* parse failed, this is a unit but so run replacements and parse again */
-			ok = ui_set_but_string_eval_num_unit(C, but, str, value);
+			ok = ui_set_but_string_eval_num_unit(C, but, str, r_value);
 		}
 	}
 
 #else /* WITH_PYTHON */
 
-	*value = atof(str);
+	*r_value = atof(str);
 	ok = true;
 
-	(void)C;
-	(void)but;
+	UNUSED_VARS(C, but);
 
 #endif /* WITH_PYTHON */
 
@@ -2432,7 +2490,9 @@ bool ui_but_string_set(bContext *C, uiBut *but, const char *str)
 			return false;
 		}
 
-		if (!ui_but_is_float(but)) value = (int)floor(value + 0.5);
+		if (!ui_but_is_float(but)) {
+			value = floor(value + 0.5);
+		}
 
 		/* not that we use hard limits here */
 		if (value < (double)but->hardmin) value = but->hardmin;
@@ -3151,7 +3211,9 @@ static uiBut *ui_def_but(
 	}
 
 	if (block->flag & UI_BLOCK_RADIAL) {
-		but->drawflag |= (UI_BUT_TEXT_LEFT | UI_BUT_ICON_LEFT);
+		but->drawflag |= UI_BUT_TEXT_LEFT;
+		if (but->str && but->str[0])
+			but->drawflag |= UI_BUT_ICON_LEFT;
 	}
 	else if ((block->flag & UI_BLOCK_LOOP) ||
 	         ELEM(but->type,
@@ -3896,6 +3958,8 @@ uiBut *uiDefIconTextButO_ptr(uiBlock *block, int type, wmOperatorType *ot, int o
 uiBut *uiDefIconTextButO(uiBlock *block, int type, const char *opname, int opcontext, int icon, const char *str, int x, int y, short width, short height, const char *tip)
 {
 	wmOperatorType *ot = WM_operatortype_find(opname, 0);
+	if (str && str[0] == '\0') 
+		return uiDefIconButO_ptr(block, type, ot, opcontext, icon, x, y, width, height, tip);
 	return uiDefIconTextButO_ptr(block, type, ot, opcontext, icon, str, x, y, width, height, tip);
 }
 

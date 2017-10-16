@@ -33,21 +33,6 @@ CCL_NAMESPACE_BEGIN
 
 /* Return position normalized to 0..1 in mesh bounds */
 
-#if defined(__KERNEL_CUDA__) && __CUDA_ARCH__ < 300
-ccl_device float4 volume_image_texture_3d(int id, float x, float y, float z)
-{
-	float4 r;
-	switch(id) {
-		case 0: r = kernel_tex_image_interp_3d(__tex_image_float4_3d_000, x, y, z); break;
-		case 1: r = kernel_tex_image_interp_3d(__tex_image_float4_3d_001, x, y, z); break;
-		case 2: r = kernel_tex_image_interp_3d(__tex_image_float4_3d_002, x, y, z); break;
-		case 3: r = kernel_tex_image_interp_3d(__tex_image_float4_3d_003, x, y, z); break;
-		case 4: r = kernel_tex_image_interp_3d(__tex_image_float4_3d_004, x, y, z); break;
-	}
-	return r;
-}
-#endif  /* __KERNEL_CUDA__ */
-
 ccl_device_inline float3 volume_normalized_position(KernelGlobals *kg,
                                                     const ShaderData *sd,
                                                     float3 P)
@@ -68,39 +53,14 @@ ccl_device_inline float3 volume_normalized_position(KernelGlobals *kg,
 
 ccl_device float volume_attribute_float(KernelGlobals *kg, const ShaderData *sd, const AttributeDescriptor desc, float *dx, float *dy)
 {
-	float r;
-	
-#ifdef __KERNEL_CUDA__
-#  if __CUDA_ARCH__ >= 300
-	float3 P = volume_normalized_position(kg, sd, ccl_fetch(sd, P));
-	CUtexObject tex = kernel_tex_fetch(__bindless_mapping, desc.offset);
-	r = kernel_tex_image_interp_3d_float(tex, P.x, P.y, P.z);
-#  else
-	float3 P = volume_normalized_position(kg, sd, ccl_fetch(sd, P));
-	r = average(float4_to_float3(volume_image_texture_3d(desc.offset, P.x, P.y, P.z)));
-#  endif
-#elif defined(__KERNEL_OPENCL__)
-	float3 P = volume_normalized_position(kg, sd, ccl_fetch(sd, P));
-	r = average(float4_to_float3(kernel_tex_image_interp_3d(kg, desc.offset, P.x, P.y, P.z)));
+#ifdef __OPENVDB__
+	float3 P = sd->P;
+	/* XXX OpenVDB does not support cubic interpolation - lukas_t */
+	float r = kernel_tex_voxel_float(desc.offset, P.x, P.y, P.z, OPENVDB_SAMPLE_BOX);
 #else
-
-#if 1 /* XXX WITH_OPENVDB ? */
-	float3 P = ccl_fetch(sd, P);
-	/* XXX OpenVDB does not support cubic interpolation (could use quadratic though) - lukas_t */
-#if 0
-	if(sd->flag & SD_VOLUME_CUBIC)
-		r = kernel_tex_voxel_float(desc.offset, P.x, P.y, P.z, ...)
-	else
-#endif
-		r = kernel_tex_voxel_float(desc.offset, P.x, P.y, P.z, OPENVDB_SAMPLE_BOX);
-#else
-	float3 P = volume_normalized_position(kg, sd, ccl_fetch(sd, P));
-	if(sd->flag & SD_VOLUME_CUBIC)
-		r = average(float4_to_float3(kernel_tex_image_interp_3d_ex(desc.offset, P.x, P.y, P.z, INTERPOLATION_CUBIC)));
-	else
-		r = average(float4_to_float3(kernel_tex_image_interp_3d(desc.offset, P.x, P.y, P.z)));
-#endif
-
+	float3 P = volume_normalized_position(kg, sd, sd->P);
+	InterpolationType interp = (sd->flag & SD_VOLUME_CUBIC)? INTERPOLATION_CUBIC: INTERPOLATION_NONE;
+	float r = average(float4_to_float3(kernel_tex_image_interp_3d_float(kg, desc.offset, P.x, P.y, P.z, interp)));
 #endif
 
 	if(dx) *dx = 0.0f;
@@ -111,33 +71,14 @@ ccl_device float volume_attribute_float(KernelGlobals *kg, const ShaderData *sd,
 
 ccl_device float3 volume_attribute_float3(KernelGlobals *kg, const ShaderData *sd, const AttributeDescriptor desc, float3 *dx, float3 *dy)
 {
-	float3 r;
-	
-#ifdef __KERNEL_CUDA__
-#  if __CUDA_ARCH__ >= 300
-	float3 P = volume_normalized_position(kg, sd, ccl_fetch(sd, P));
-	CUtexObject tex = kernel_tex_fetch(__bindless_mapping, desc.offset);
-	r = float4_to_float3(kernel_tex_image_interp_3d_float4(tex, P.x, P.y, P.z));
-#  else
-	float3 P = volume_normalized_position(kg, sd, ccl_fetch(sd, P));
-	r = float4_to_float3(volume_image_texture_3d(desc.offset, P.x, P.y, P.z));
-#  endif
-#elif defined(__KERNEL_OPENCL__)
-	float3 P = volume_normalized_position(kg, sd, ccl_fetch(sd, P));
-	r = float4_to_float3(kernel_tex_image_interp_3d(kg, desc.offset, P.x, P.y, P.z));
+#ifdef __OPENVDB__
+	float3 P = sd->P;
+	/* XXX OpenVDB does not support cubic interpolation - lukas_t */
+	float3 r = kernel_tex_voxel_float3(desc.offset, P.x, P.y, P.z, OPENVDB_SAMPLE_BOX);
 #else
-
-#if 1 /* XXX WITH_OPENVDB ? */
-	float3 P = ccl_fetch(sd, P);
-	r = kernel_tex_voxel_float3(desc.offset, P.x, P.y, P.z, OPENVDB_SAMPLE_POINT);
-#else
-	float3 P = volume_normalized_position(kg, sd, ccl_fetch(sd, P));
-	if(sd->flag & SD_VOLUME_CUBIC)
-		r = float4_to_float3(kernel_tex_image_interp_3d_ex(desc.offset, P.x, P.y, P.z, INTERPOLATION_CUBIC));
-	else
-		r = float4_to_float3(kernel_tex_image_interp_3d(desc.offset, P.x, P.y, P.z));
-#endif
-
+	float3 P = volume_normalized_position(kg, sd, sd->P);
+	InterpolationType interp = (sd->flag & SD_VOLUME_CUBIC)? INTERPOLATION_CUBIC: INTERPOLATION_NONE;
+	float3 r = float4_to_float3(kernel_tex_image_interp_3d(kg, desc.offset, P.x, P.y, P.z, interp));
 #endif
 
 	if(dx) *dx = make_float3(0.0f, 0.0f, 0.0f);

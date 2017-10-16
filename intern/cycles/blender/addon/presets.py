@@ -32,14 +32,11 @@ class AddPresetIntegrator(AddPresetBase, Operator):
 
     preset_values = [
         "cycles.max_bounces",
-        "cycles.min_bounces",
         "cycles.diffuse_bounces",
         "cycles.glossy_bounces",
         "cycles.transmission_bounces",
         "cycles.volume_bounces",
-        "cycles.transparent_min_bounces",
         "cycles.transparent_max_bounces",
-        "cycles.use_transparent_shadows",
         "cycles.caustics_reflective",
         "cycles.caustics_refractive",
         "cycles.blur_glossy"
@@ -82,12 +79,23 @@ class AddPresetSampling(AddPresetBase, Operator):
     preset_subdir = "cycles/sampling"
 
 
+classes = (
+    AddPresetIntegrator,
+    AddPresetSampling,
+)
+
+
 def register():
-    pass
+    from bpy.utils import register_class
+    for cls in classes:
+        register_class(cls)
 
 
 def unregister():
-    pass
+    from bpy.utils import unregister_class
+    for cls in classes:
+        unregister_class(cls)
+
 
 if __name__ == "__main__":
     register()

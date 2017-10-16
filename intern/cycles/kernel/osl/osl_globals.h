@@ -21,10 +21,10 @@
 
 #include <OSL/oslexec.h>
 
-#include "util_map.h"
-#include "util_param.h"
-#include "util_thread.h"
-#include "util_vector.h"
+#include "util/util_map.h"
+#include "util/util_param.h"
+#include "util/util_thread.h"
+#include "util/util_vector.h"
 
 #ifndef WIN32
 using std::isfinite;
@@ -86,7 +86,7 @@ struct OSLThreadData {
 	OSL::ShaderGlobals globals;
 	OSL::PerThreadInfo *osl_thread_info;
 	OSLTraceData tracedata;
-	OSL::ShadingContext *context[SHADER_CONTEXT_NUM];
+	OSL::ShadingContext *context;
 	OIIO::TextureSystem::Perthread *oiio_thread_info;
 };
 

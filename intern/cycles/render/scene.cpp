@@ -16,28 +16,28 @@
 
 #include <stdlib.h>
 
-#include "background.h"
-#include "bake.h"
-#include "camera.h"
-#include "curves.h"
-#include "device.h"
-#include "film.h"
-#include "integrator.h"
-#include "light.h"
-#include "mesh.h"
-#include "object.h"
-#include "osl.h"
-#include "particles.h"
-#include "scene.h"
-#include "shader.h"
-#include "svm.h"
-#include "tables.h"
+#include "render/background.h"
+#include "render/bake.h"
+#include "render/camera.h"
+#include "render/curves.h"
+#include "device/device.h"
+#include "render/film.h"
+#include "render/integrator.h"
+#include "render/light.h"
+#include "render/mesh.h"
+#include "render/object.h"
+#include "render/osl.h"
+#include "render/particles.h"
+#include "render/scene.h"
+#include "render/shader.h"
+#include "render/svm.h"
+#include "render/tables.h"
 #include "volume.h"
 
-#include "util_foreach.h"
-#include "util_guarded_allocator.h"
-#include "util_logging.h"
-#include "util_progress.h"
+#include "util/util_foreach.h"
+#include "util/util_guarded_allocator.h"
+#include "util/util_logging.h"
+#include "util/util_progress.h"
 
 CCL_NAMESPACE_BEGIN
 
@@ -155,8 +155,6 @@ void Scene::device_update(Device *device_, Progress& progress)
 	 * - Film needs light manager to run for use_light_visibility
 	 * - Lookup tables are done a second time to handle film tables
 	 */
-	
-	image_manager->set_pack_images(device->info.pack_images);
 
 	progress.set_status("Updating Shaders");
 	shader_manager->device_update(device, &dscene, this, progress);

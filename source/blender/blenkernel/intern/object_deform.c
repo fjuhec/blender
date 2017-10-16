@@ -32,6 +32,7 @@
 #include "BLI_utildefines.h"
 #include "BLI_ghash.h"
 #include "BLI_listbase.h"
+#include "BLI_string_utils.h"
 
 #include "DNA_armature_types.h"
 #include "DNA_cloth_types.h"
@@ -480,6 +481,8 @@ bool BKE_object_defgroup_array_get(ID *id, MDeformVert **dvert_arr, int *dvert_t
 				*dvert_tot = lt->pntsu * lt->pntsv * lt->pntsw;
 				return true;
 			}
+			default:
+				break;
 		}
 	}
 
@@ -623,7 +626,7 @@ void BKE_object_defgroup_mirror_selection(
 		if (dg_selection[i]) {
 			char name_flip[MAXBONENAME];
 
-			BKE_deform_flip_side_name(name_flip, defgroup->name, false);
+			BLI_string_flip_side_name(name_flip, defgroup->name, false, sizeof(name_flip));
 			i_mirr = STREQ(name_flip, defgroup->name) ? i : defgroup_name_index(ob, name_flip);
 
 			if ((i_mirr >= 0 && i_mirr < defbase_tot) && (dg_flags_sel[i_mirr] == false)) {

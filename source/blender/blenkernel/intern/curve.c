@@ -89,20 +89,33 @@ void BKE_curve_editfont_free(Curve *cu)
 	}
 }
 
-void BKE_curve_editNurb_keyIndex_free(EditNurb *editnurb)
+static void curve_editNurb_keyIndex_cv_free_cb(void *val)
 {
-	if (!editnurb->keyindex) {
+	CVKeyIndex *index = val;
+	MEM_freeN(index->orig_cv);
+	MEM_freeN(val);
+}
+
+void BKE_curve_editNurb_keyIndex_delCV(GHash *keyindex, const void *cv)
+{
+	BLI_assert(keyindex != NULL);
+	BLI_ghash_remove(keyindex, cv, NULL, curve_editNurb_keyIndex_cv_free_cb);
+}
+
+void BKE_curve_editNurb_keyIndex_free(GHash **keyindex)
+{
+	if (!(*keyindex)) {
 		return;
 	}
-	BLI_ghash_free(editnurb->keyindex, NULL, MEM_freeN);
-	editnurb->keyindex = NULL;
+	BLI_ghash_free(*keyindex, NULL, curve_editNurb_keyIndex_cv_free_cb);
+	*keyindex = NULL;
 }
 
 void BKE_curve_editNurb_free(Curve *cu)
 {
 	if (cu->editnurb) {
 		BKE_nurbList_free(&cu->editnurb->nurbs);
-		BKE_curve_editNurb_keyIndex_free(cu->editnurb);
+		BKE_curve_editNurb_keyIndex_free(&cu->editnurb->keyindex);
 		MEM_freeN(cu->editnurb);
 		cu->editnurb = NULL;
 	}
@@ -166,7 +179,7 @@ Curve *BKE_curve_add(Main *bmain, const char *name, int type)
 {
 	Curve *cu;
 
-	cu = BKE_libblock_alloc(bmain, ID_CU, name);
+	cu = BKE_libblock_alloc(bmain, ID_CU, name, 0);
 	cu->type = type;
 
 	BKE_curve_init(cu);
@@ -174,42 +187,39 @@ Curve *BKE_curve_add(Main *bmain, const char *name, int type)
 	return cu;
 }
 
-Curve *BKE_curve_copy(Main *bmain, Curve *cu)
+/**
+ * Only copy internal data of Curve ID from source to already allocated/initialized destination.
+ * You probably nerver want to use that directly, use id_copy or BKE_id_copy_ex for typical needs.
+ *
+ * WARNING! This function will not handle ID user count!
+ *
+ * \param flag  Copying options (see BKE_library.h's LIB_ID_COPY_... flags for more).
+ */
+void BKE_curve_copy_data(Main *bmain, Curve *cu_dst, const Curve *cu_src, const int flag)
 {
-	Curve *cun;
-	int a;
+	BLI_listbase_clear(&cu_dst->nurb);
+	BKE_nurbList_duplicate(&(cu_dst->nurb), &(cu_src->nurb));
 
-	cun = BKE_libblock_copy(bmain, &cu->id);
+	cu_dst->mat = MEM_dupallocN(cu_src->mat);
 
-	BLI_listbase_clear(&cun->nurb);
-	BKE_nurbList_duplicate(&(cun->nurb), &(cu->nurb));
+	cu_dst->str = MEM_dupallocN(cu_src->str);
+	cu_dst->strinfo = MEM_dupallocN(cu_src->strinfo);
+	cu_dst->tb = MEM_dupallocN(cu_src->tb);
+	cu_dst->bb = MEM_dupallocN(cu_src->bb);
 
-	cun->mat = MEM_dupallocN(cu->mat);
-	for (a = 0; a < cun->totcol; a++) {
-		id_us_plus((ID *)cun->mat[a]);
+	if (cu_src->key) {
+		BKE_id_copy_ex(bmain, &cu_src->key->id, (ID **)&cu_dst->key, flag, false);
 	}
 
-	cun->str = MEM_dupallocN(cu->str);
-	cun->strinfo = MEM_dupallocN(cu->strinfo);
-	cun->tb = MEM_dupallocN(cu->tb);
-	cun->bb = MEM_dupallocN(cu->bb);
+	cu_dst->editnurb = NULL;
+	cu_dst->editfont = NULL;
+}
 
-	if (cu->key) {
-		cun->key = BKE_key_copy(bmain, cu->key);
-		cun->key->from = (ID *)cun;
-	}
-
-	cun->editnurb = NULL;
-	cun->editfont = NULL;
-
-	id_us_plus((ID *)cun->vfont);
-	id_us_plus((ID *)cun->vfontb);
-	id_us_plus((ID *)cun->vfonti);
-	id_us_plus((ID *)cun->vfontbi);
-
-	BKE_id_copy_ensure_local(bmain, &cu->id, &cun->id);
-
-	return cun;
+Curve *BKE_curve_copy(Main *bmain, const Curve *cu)
+{
+	Curve *cu_copy;
+	BKE_id_copy_ex(bmain, &cu->id, (ID **)&cu_copy, 0, false);
+	return cu_copy;
 }
 
 void BKE_curve_make_local(Main *bmain, Curve *cu, const bool lib_local)
@@ -455,7 +465,7 @@ void BKE_nurbList_free(ListBase *lb)
 	BLI_listbase_clear(lb);
 }
 
-Nurb *BKE_nurb_duplicate(Nurb *nu)
+Nurb *BKE_nurb_duplicate(const Nurb *nu)
 {
 	Nurb *newnu;
 	int len;
@@ -519,7 +529,7 @@ Nurb *BKE_nurb_copy(Nurb *src, int pntsu, int pntsv)
 	return newnu;
 }
 
-void BKE_nurbList_duplicate(ListBase *lb1, ListBase *lb2)
+void BKE_nurbList_duplicate(ListBase *lb1, const ListBase *lb2)
 {
 	Nurb *nu, *nun;
 
@@ -731,6 +741,7 @@ BezTriple *BKE_nurb_bezt_get_prev(Nurb *nu, BezTriple *bezt)
 	BezTriple *bezt_prev;
 
 	BLI_assert(ARRAY_HAS_ITEM(bezt, nu->bezt, nu->pntsu));
+	BLI_assert(nu->pntsv <= 1);
 
 	if (bezt == nu->bezt) {
 		if (nu->flagu & CU_NURB_CYCLIC) {
@@ -752,6 +763,7 @@ BPoint *BKE_nurb_bpoint_get_prev(Nurb *nu, BPoint *bp)
 	BPoint *bp_prev;
 
 	BLI_assert(ARRAY_HAS_ITEM(bp, nu->bp, nu->pntsu));
+	BLI_assert(nu->pntsv == 1);
 
 	if (bp == nu->bp) {
 		if (nu->flagu & CU_NURB_CYCLIC) {
@@ -768,7 +780,7 @@ BPoint *BKE_nurb_bpoint_get_prev(Nurb *nu, BPoint *bp)
 	return bp_prev;
 }
 
-void BKE_nurb_bezt_calc_normal(struct Nurb *UNUSED(nu), struct BezTriple *bezt, float r_normal[3])
+void BKE_nurb_bezt_calc_normal(struct Nurb *UNUSED(nu), BezTriple *bezt, float r_normal[3])
 {
 	/* calculate the axis matrix from the spline */
 	float dir_prev[3], dir_next[3];
@@ -783,7 +795,7 @@ void BKE_nurb_bezt_calc_normal(struct Nurb *UNUSED(nu), struct BezTriple *bezt, 
 	normalize_v3(r_normal);
 }
 
-void BKE_nurb_bezt_calc_plane(struct Nurb *nu, struct BezTriple *bezt, float r_plane[3])
+void BKE_nurb_bezt_calc_plane(struct Nurb *nu, BezTriple *bezt, float r_plane[3])
 {
 	float dir_prev[3], dir_next[3];
 
@@ -820,7 +832,7 @@ void BKE_nurb_bezt_calc_plane(struct Nurb *nu, struct BezTriple *bezt, float r_p
 	normalize_v3(r_plane);
 }
 
-void BKE_nurb_bpoint_calc_normal(struct Nurb *nu, struct BPoint *bp, float r_normal[3])
+void BKE_nurb_bpoint_calc_normal(struct Nurb *nu, BPoint *bp, float r_normal[3])
 {
 	BPoint *bp_prev = BKE_nurb_bpoint_get_prev(nu, bp);
 	BPoint *bp_next = BKE_nurb_bpoint_get_next(nu, bp);
@@ -841,6 +853,34 @@ void BKE_nurb_bpoint_calc_normal(struct Nurb *nu, struct BPoint *bp, float r_nor
 	}
 
 	normalize_v3(r_normal);
+}
+
+void BKE_nurb_bpoint_calc_plane(struct Nurb *nu, BPoint *bp, float r_plane[3])
+{
+	BPoint *bp_prev = BKE_nurb_bpoint_get_prev(nu, bp);
+	BPoint *bp_next = BKE_nurb_bpoint_get_next(nu, bp);
+
+	float dir_prev[3] = {0.0f}, dir_next[3] = {0.0f};
+
+	if (bp_prev) {
+		sub_v3_v3v3(dir_prev, bp_prev->vec, bp->vec);
+		normalize_v3(dir_prev);
+	}
+	if (bp_next) {
+		sub_v3_v3v3(dir_next, bp->vec, bp_next->vec);
+		normalize_v3(dir_next);
+	}
+	cross_v3_v3v3(r_plane, dir_prev, dir_next);
+
+	/* matches with bones more closely */
+	{
+		float dir_mid[3], tvec[3];
+		add_v3_v3v3(dir_mid, dir_prev, dir_next);
+		cross_v3_v3v3(tvec, r_plane, dir_mid);
+		copy_v3_v3(r_plane, tvec);
+	}
+
+	normalize_v3(r_plane);
 }
 
 /* ~~~~~~~~~~~~~~~~~~~~Non Uniform Rational B Spline calculations ~~~~~~~~~~~ */
@@ -3999,7 +4039,7 @@ bool BKE_nurb_check_valid_u(struct Nurb *nu)
 		return true;           /* not a nurb, lets assume its valid */
 
 	if (nu->pntsu < nu->orderu) return false;
-	if (((nu->flag & CU_NURB_CYCLIC) == 0) && (nu->flagu & CU_NURB_BEZIER)) { /* Bezier U Endpoints */
+	if (((nu->flagu & CU_NURB_CYCLIC) == 0) && (nu->flagu & CU_NURB_BEZIER)) { /* Bezier U Endpoints */
 		if (nu->orderu == 4) {
 			if (nu->pntsu < 5)
 				return false;  /* bezier with 4 orderu needs 5 points */
@@ -4020,7 +4060,7 @@ bool BKE_nurb_check_valid_v(struct Nurb *nu)
 
 	if (nu->pntsv < nu->orderv)
 		return false;
-	if (((nu->flag & CU_NURB_CYCLIC) == 0) && (nu->flagv & CU_NURB_BEZIER)) { /* Bezier V Endpoints */
+	if (((nu->flagv & CU_NURB_CYCLIC) == 0) && (nu->flagv & CU_NURB_BEZIER)) { /* Bezier V Endpoints */
 		if (nu->orderv == 4) {
 			if (nu->pntsv < 5)
 				return false;  /* bezier with 4 orderu needs 5 points */
@@ -4099,6 +4139,7 @@ bool BKE_nurb_type_convert(Nurb *nu, const short type, const bool use_handles)
 			MEM_freeN(nu->bp);
 			nu->bp = NULL;
 			nu->pntsu = nr;
+			nu->pntsv = 0;
 			nu->type = CU_BEZIER;
 			BKE_nurb_handles_calc(nu);
 		}
@@ -4402,7 +4443,9 @@ bool BKE_curve_center_bounds(Curve *cu, float cent[3])
 }
 
 
-void BKE_curve_transform_ex(Curve *cu, float mat[4][4], const bool do_keys, const float unit_scale)
+void BKE_curve_transform_ex(
+        Curve *cu, float mat[4][4],
+        const bool do_keys, const bool do_props, const float unit_scale)
 {
 	Nurb *nu;
 	BPoint *bp;
@@ -4416,7 +4459,9 @@ void BKE_curve_transform_ex(Curve *cu, float mat[4][4], const bool do_keys, cons
 				mul_m4_v3(mat, bezt->vec[0]);
 				mul_m4_v3(mat, bezt->vec[1]);
 				mul_m4_v3(mat, bezt->vec[2]);
-				bezt->radius *= unit_scale;
+				if (do_props) {
+					bezt->radius *= unit_scale;
+				}
 			}
 			BKE_nurb_handles_calc(nu);
 		}
@@ -4424,7 +4469,9 @@ void BKE_curve_transform_ex(Curve *cu, float mat[4][4], const bool do_keys, cons
 			i = nu->pntsu * nu->pntsv;
 			for (bp = nu->bp; i--; bp++) {
 				mul_m4_v3(mat, bp->vec);
-				bp->radius *= unit_scale;
+				if (do_props) {
+					bp->radius *= unit_scale;
+				}
 			}
 		}
 	}
@@ -4440,10 +4487,12 @@ void BKE_curve_transform_ex(Curve *cu, float mat[4][4], const bool do_keys, cons
 	}
 }
 
-void BKE_curve_transform(Curve *cu, float mat[4][4], const bool do_keys)
+void BKE_curve_transform(
+        Curve *cu, float mat[4][4],
+        const bool do_keys, const bool do_props)
 {
 	float unit_scale = mat4_to_scale(mat);
-	BKE_curve_transform_ex(cu, mat, do_keys, unit_scale);
+	BKE_curve_transform_ex(cu, mat, do_keys, do_props, unit_scale);
 }
 
 void BKE_curve_translate(Curve *cu, float offset[3], const bool do_keys)
@@ -4630,16 +4679,5 @@ void BKE_curve_eval_geometry(EvaluationContext *UNUSED(eval_ctx),
 	}
 	if (curve->bb == NULL || (curve->bb->flag & BOUNDBOX_DIRTY)) {
 		BKE_curve_texspace_calc(curve);
-	}
-}
-
-void BKE_curve_eval_path(EvaluationContext *UNUSED(eval_ctx),
-                         Curve *curve)
-{
-	/* TODO(sergey): This will probably need to be a part of
-	 * the modifier stack still.
-	 */
-	if (G.debug & G_DEBUG_DEPSGRAPH) {
-		printf("%s on %s\n", __func__, curve->id.name);
 	}
 }

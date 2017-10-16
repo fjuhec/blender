@@ -64,13 +64,13 @@ static void initData(ModifierData *md)
 
 static void copyData(ModifierData *md, ModifierData *target)
 {
+#if 0
 	ArmatureModifierData *amd = (ArmatureModifierData *) md;
+#endif
 	ArmatureModifierData *tamd = (ArmatureModifierData *) target;
 
-	tamd->object = amd->object;
-	tamd->deformflag = amd->deformflag;
-	tamd->multi = amd->multi;
-	BLI_strncpy(tamd->defgrp_name, amd->defgrp_name, sizeof(tamd->defgrp_name));
+	modifier_copyData_generic(md, target);
+	tamd->prevCos = NULL;
 }
 
 static CustomDataMask requiredDataMask(Object *UNUSED(ob), ModifierData *UNUSED(md))
@@ -96,7 +96,7 @@ static void foreachObjectLink(
 {
 	ArmatureModifierData *amd = (ArmatureModifierData *) md;
 
-	walk(userData, ob, &amd->object, IDWALK_NOP);
+	walk(userData, ob, &amd->object, IDWALK_CB_NOP);
 }
 
 static void updateDepgraph(ModifierData *md, DagForest *forest,

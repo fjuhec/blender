@@ -49,6 +49,7 @@
 
 #include "BKE_brush.h"
 #include "BKE_colortools.h"
+#include "BKE_deform.h"
 #include "BKE_main.h"
 #include "BKE_context.h"
 #include "BKE_crazyspace.h"
@@ -309,24 +310,31 @@ PaintCurve *BKE_paint_curve_add(Main *bmain, const char *name)
 {
 	PaintCurve *pc;
 
-	pc = BKE_libblock_alloc(bmain, ID_PC, name);
+	pc = BKE_libblock_alloc(bmain, ID_PC, name, 0);
 
 	return pc;
 }
 
-PaintCurve *BKE_paint_curve_copy(Main *bmain, PaintCurve *pc)
+/**
+ * Only copy internal data of PaintCurve ID from source to already allocated/initialized destination.
+ * You probably nerver want to use that directly, use id_copy or BKE_id_copy_ex for typical needs.
+ *
+ * WARNING! This function will not handle ID user count!
+ *
+ * \param flag  Copying options (see BKE_library.h's LIB_ID_COPY_... flags for more).
+ */
+void BKE_paint_curve_copy_data(Main *UNUSED(bmain), PaintCurve *pc_dst, const PaintCurve *pc_src, const int UNUSED(flag))
 {
-	PaintCurve *pc_new;
-
-	pc_new = BKE_libblock_copy(bmain, &pc->id);
-
-	if (pc->tot_points != 0) {
-		pc_new->points = MEM_dupallocN(pc->points);
+	if (pc_src->tot_points != 0) {
+		pc_dst->points = MEM_dupallocN(pc_src->points);
 	}
+}
 
-	BKE_id_copy_ensure_local(bmain, &pc->id, &pc_new->id);
-
-	return pc_new;
+PaintCurve *BKE_paint_curve_copy(Main *bmain, const PaintCurve *pc)
+{
+	PaintCurve *pc_copy;
+	BKE_id_copy_ex(bmain, &pc->id, (ID **)&pc_copy, 0, false);
+	return pc_copy;
 }
 
 void BKE_paint_curve_make_local(Main *bmain, PaintCurve *pc, const bool lib_local)
@@ -388,7 +396,7 @@ Palette *BKE_palette_add(Main *bmain, const char *name)
 {
 	Palette *palette;
 
-	palette = BKE_libblock_alloc(bmain, ID_PAL, name);
+	palette = BKE_libblock_alloc(bmain, ID_PAL, name, 0);
 
 	/* enable fake user by default */
 	id_fake_user_set(&palette->id);
@@ -396,17 +404,24 @@ Palette *BKE_palette_add(Main *bmain, const char *name)
 	return palette;
 }
 
-Palette *BKE_palette_copy(Main *bmain, Palette *palette)
+/**
+ * Only copy internal data of Palette ID from source to already allocated/initialized destination.
+ * You probably nerver want to use that directly, use id_copy or BKE_id_copy_ex for typical needs.
+ *
+ * WARNING! This function will not handle ID user count!
+ *
+ * \param flag  Copying options (see BKE_library.h's LIB_ID_COPY_... flags for more).
+ */
+void BKE_palette_copy_data(Main *UNUSED(bmain), Palette *palette_dst, const Palette *palette_src, const int UNUSED(flag))
 {
-	Palette *palette_new;
+	BLI_duplicatelist(&palette_dst->colors, &palette_src->colors);
+}
 
-	palette_new = BKE_libblock_copy(bmain, &palette->id);
-
-	BLI_duplicatelist(&palette_new->colors, &palette->colors);
-
-	BKE_id_copy_ensure_local(bmain, &palette->id, &palette_new->id);
-
-	return palette_new;
+Palette *BKE_palette_copy(Main *bmain, const Palette *palette)
+{
+	Palette *palette_copy;
+	BKE_id_copy_ex(bmain, &palette->id, (ID **)&palette_copy, 0, false);
+	return palette_copy;
 }
 
 void BKE_palette_make_local(Main *bmain, Palette *palette, const bool lib_local)
@@ -452,7 +467,7 @@ bool BKE_paint_select_vert_test(Object *ob)
 	         (ob->type == OB_MESH) &&
 	         (ob->data != NULL) &&
 	         (((Mesh *)ob->data)->editflag & ME_EDIT_PAINT_VERT_SEL) &&
-	         (ob->mode & OB_MODE_WEIGHT_PAINT)
+	         (ob->mode & OB_MODE_WEIGHT_PAINT || ob->mode & OB_MODE_VERTEX_PAINT)
 	         );
 }
 
@@ -537,12 +552,15 @@ void BKE_paint_free(Paint *paint)
  * still do a id_us_plus(), rather then if we were copying between 2 existing
  * scenes where a matching value should decrease the existing user count as
  * with paint_brush_set() */
-void BKE_paint_copy(Paint *src, Paint *tar)
+void BKE_paint_copy(Paint *src, Paint *tar, const int flag)
 {
 	tar->brush = src->brush;
-	id_us_plus((ID *)tar->brush);
-	id_us_plus((ID *)tar->palette);
 	tar->cavity_curve = curvemapping_copy(src->cavity_curve);
+
+	if ((flag & LIB_ID_CREATE_NO_USER_REFCOUNT) == 0) {
+		id_us_plus((ID *)tar->brush);
+		id_us_plus((ID *)tar->palette);
+	}
 }
 
 void BKE_paint_stroke_get_average(Scene *scene, Object *ob, float stroke[3])
@@ -656,6 +674,33 @@ void BKE_sculptsession_free_deformMats(SculptSession *ss)
 	MEM_SAFE_FREE(ss->deform_imats);
 }
 
+void BKE_sculptsession_free_vwpaint_data(struct SculptSession *ss)
+{
+	struct SculptVertexPaintGeomMap *gmap = NULL;
+	if (ss->mode_type == OB_MODE_VERTEX_PAINT) {
+		gmap = &ss->mode.vpaint.gmap;
+
+		MEM_SAFE_FREE(ss->mode.vpaint.previous_color);
+	}
+	else if (ss->mode_type == OB_MODE_WEIGHT_PAINT) {
+		gmap = &ss->mode.wpaint.gmap;
+
+		MEM_SAFE_FREE(ss->mode.wpaint.alpha_weight);
+		if (ss->mode.wpaint.dvert_prev) {
+			BKE_defvert_array_free_elems(ss->mode.wpaint.dvert_prev, ss->totvert);
+			MEM_freeN(ss->mode.wpaint.dvert_prev);
+			ss->mode.wpaint.dvert_prev = NULL;
+		}
+	}
+	else {
+		return;
+	}
+	MEM_SAFE_FREE(gmap->vert_to_loop);
+	MEM_SAFE_FREE(gmap->vert_map_mem);
+	MEM_SAFE_FREE(gmap->vert_to_poly);
+	MEM_SAFE_FREE(gmap->poly_map_mem);
+}
+
 /* Write out the sculpt dynamic-topology BMesh to the Mesh */
 static void sculptsession_bm_to_me_update_data_only(Object *ob, bool reorder)
 {
@@ -747,6 +792,8 @@ void BKE_sculptsession_free(Object *ob)
 		if (ss->deform_imats)
 			MEM_freeN(ss->deform_imats);
 
+		BKE_sculptsession_free_vwpaint_data(ob->sculpt);
+
 		MEM_freeN(ss);
 
 		ob->sculpt = NULL;
@@ -831,6 +878,8 @@ void BKE_sculpt_update_mesh_elements(Scene *scene, Sculpt *sd, Object *ob,
 	ss->modifiers_active = sculpt_modifiers_active(scene, sd, ob);
 	ss->show_diffuse_color = (sd->flags & SCULPT_SHOW_DIFFUSE) != 0;
 
+	ss->building_vp_handle = false;
+
 	if (need_mask) {
 		if (mmd == NULL) {
 			if (!CustomData_has_layer(&me->vdata, CD_PAINT_MASK)) {
@@ -859,7 +908,8 @@ void BKE_sculpt_update_mesh_elements(Scene *scene, Sculpt *sd, Object *ob,
 
 	dm = mesh_get_derived_final(scene, ob, CD_MASK_BAREMESH);
 
-	if (mmd) {
+	/* VWPaint require mesh info for loop lookup, so require sculpt mode here */
+	if (mmd && ob->mode & OB_MODE_SCULPT) {
 		ss->multires = mmd;
 		ss->totvert = dm->getNumVerts(dm);
 		ss->totpoly = dm->getNumPolys(dm);

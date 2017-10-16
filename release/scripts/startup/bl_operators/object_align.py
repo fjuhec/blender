@@ -26,13 +26,14 @@ from mathutils import Vector
 def GlobalBB_LQ(bb_world):
 
     # Initialize the variables with the 8th vertex
-    left, right, front, back, down, up = (bb_world[7][0],
-                                          bb_world[7][0],
-                                          bb_world[7][1],
-                                          bb_world[7][1],
-                                          bb_world[7][2],
-                                          bb_world[7][2],
-                                          )
+    left, right, front, back, down, up = (
+        bb_world[7][0],
+        bb_world[7][0],
+        bb_world[7][1],
+        bb_world[7][1],
+        bb_world[7][2],
+        bb_world[7][2],
+    )
 
     # Test against the other 7 verts
     for i in range(7):
@@ -129,6 +130,11 @@ def align_objects(context,
     space = context.space_data
 
     cursor = (space if space and space.type == 'VIEW_3D' else scene).cursor_location
+
+    # We are accessing runtime data such as evaluated bounding box, so we need to
+    # be sure it is properly updated and valid (bounding box might be lost on operator
+    # redo).
+    scene.update()
 
     Left_Front_Up_SEL = [0.0, 0.0, 0.0]
     Right_Back_Down_SEL = [0.0, 0.0, 0.0]
@@ -398,16 +404,23 @@ class AlignObjects(Operator):
 
     def execute(self, context):
         align_axis = self.align_axis
-        ret = align_objects(context,
-                            'X' in align_axis,
-                            'Y' in align_axis,
-                            'Z' in align_axis,
-                            self.align_mode,
-                            self.relative_to,
-                            self.bb_quality)
+        ret = align_objects(
+            context,
+            'X' in align_axis,
+            'Y' in align_axis,
+            'Z' in align_axis,
+            self.align_mode,
+            self.relative_to,
+            self.bb_quality,
+        )
 
         if not ret:
             self.report({'WARNING'}, "No objects with bound-box selected")
             return {'CANCELLED'}
         else:
             return {'FINISHED'}
+
+
+classes = (
+    AlignObjects,
+)

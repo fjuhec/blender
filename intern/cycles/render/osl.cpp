@@ -14,26 +14,26 @@
  * limitations under the License.
  */
 
-#include "device.h"
+#include "device/device.h"
 
-#include "graph.h"
-#include "light.h"
-#include "osl.h"
-#include "scene.h"
-#include "shader.h"
-#include "nodes.h"
+#include "render/graph.h"
+#include "render/light.h"
+#include "render/osl.h"
+#include "render/scene.h"
+#include "render/shader.h"
+#include "render/nodes.h"
 
 #ifdef WITH_OSL
 
-#include "osl_globals.h"
-#include "osl_services.h"
-#include "osl_shader.h"
+#include "kernel/osl/osl_globals.h"
+#include "kernel/osl/osl_services.h"
+#include "kernel/osl/osl_shader.h"
 
-#include "util_foreach.h"
-#include "util_logging.h"
-#include "util_md5.h"
-#include "util_path.h"
-#include "util_progress.h"
+#include "util/util_foreach.h"
+#include "util/util_logging.h"
+#include "util/util_md5.h"
+#include "util/util_path.h"
+#include "util/util_progress.h"
 
 #endif
 
@@ -156,6 +156,7 @@ void OSLShaderManager::device_free(Device *device, DeviceScene *dscene, Scene *s
 	og->surface_state.clear();
 	og->volume_state.clear();
 	og->displacement_state.clear();
+	og->bump_state.clear();
 	og->background_state.reset();
 }
 
@@ -232,8 +233,10 @@ void OSLShaderManager::shading_system_init()
 			"glossy",			/* PATH_RAY_GLOSSY */
 			"singular",			/* PATH_RAY_SINGULAR */
 			"transparent",		/* PATH_RAY_TRANSPARENT */
-			"shadow",			/* PATH_RAY_SHADOW_OPAQUE */
-			"shadow",			/* PATH_RAY_SHADOW_TRANSPARENT */
+			"shadow",			/* PATH_RAY_SHADOW_OPAQUE_NON_CATCHER */
+			"shadow",			/* PATH_RAY_SHADOW_OPAQUE_CATCHER */
+			"shadow",			/* PATH_RAY_SHADOW_TRANSPARENT_NON_CATCHER */
+			"shadow",			/* PATH_RAY_SHADOW_TRANSPARENT_CATCHER */
 
 			"__unused__",
 			"__unused__",
@@ -718,6 +721,7 @@ void OSLCompiler::add(ShaderNode *node, const char *name, bool isfilepath)
 				current_shader->has_surface_bssrdf = true;
 				current_shader->has_bssrdf_bump = true; /* can't detect yet */
 			}
+			current_shader->has_bump = true; /* can't detect yet */
 		}
 
 		if(node->has_spatial_varying()) {
@@ -1026,6 +1030,9 @@ void OSLCompiler::generate_nodes(const ShaderNodeSet& nodes)
 							if(node->has_bssrdf_bump())
 								current_shader->has_bssrdf_bump = true;
 						}
+						if(node->has_bump()) {
+							current_shader->has_bump = true;
+						}
 					}
 					else if(current_type == SHADER_TYPE_VOLUME) {
 						if(node->has_spatial_varying())
@@ -1088,23 +1095,14 @@ void OSLCompiler::compile(Scene *scene, OSLGlobals *og, Shader *shader)
 		ShaderGraph *graph = shader->graph;
 		ShaderNode *output = (graph)? graph->output(): NULL;
 
-		/* copy graph for shader with bump mapping */
-		if(output->input("Surface")->link && output->input("Displacement")->link)
-			if(!shader->graph_bump)
-				shader->graph_bump = shader->graph->copy();
+		bool has_bump = (shader->displacement_method != DISPLACE_TRUE) &&
+		                output->input("Surface")->link && output->input("Displacement")->link;
 
 		/* finalize */
 		shader->graph->finalize(scene,
-		                        false,
-		                        true,
-		                        shader->has_integrator_dependency);
-		if(shader->graph_bump) {
-			shader->graph_bump->finalize(scene,
-			                             true,
-			                             true,
-			                             shader->has_integrator_dependency,
-			                             shader->displacement_method == DISPLACE_BOTH);
-		}
+		                        has_bump,
+		                        shader->has_integrator_dependency,
+		                        shader->displacement_method == DISPLACE_BOTH);
 
 		current_shader = shader;
 
@@ -1112,7 +1110,8 @@ void OSLCompiler::compile(Scene *scene, OSLGlobals *og, Shader *shader)
 		shader->has_surface_emission = false;
 		shader->has_surface_transparent = false;
 		shader->has_surface_bssrdf = false;
-		shader->has_bssrdf_bump = false;
+		shader->has_bump = has_bump;
+		shader->has_bssrdf_bump = has_bump;
 		shader->has_volume = false;
 		shader->has_displacement = false;
 		shader->has_surface_spatial_varying = false;
@@ -1124,8 +1123,8 @@ void OSLCompiler::compile(Scene *scene, OSLGlobals *og, Shader *shader)
 		if(shader->used && graph && output->input("Surface")->link) {
 			shader->osl_surface_ref = compile_type(shader, shader->graph, SHADER_TYPE_SURFACE);
 
-			if(shader->graph_bump && shader->displacement_method != DISPLACE_TRUE)
-				shader->osl_surface_bump_ref = compile_type(shader, shader->graph_bump, SHADER_TYPE_BUMP);
+			if(has_bump)
+				shader->osl_surface_bump_ref = compile_type(shader, shader->graph, SHADER_TYPE_BUMP);
 			else
 				shader->osl_surface_bump_ref = OSL::ShaderGroupRef();
 

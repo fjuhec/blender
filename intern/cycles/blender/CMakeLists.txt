@@ -1,12 +1,6 @@
 
 set(INC
-	../graph
-	../render
-	../device
-	../kernel
-	../kernel/svm
-	../util
-	../subd
+	..
 	../../glew-mx
 	../../guardedalloc
 	../../mikktspace
@@ -25,6 +19,7 @@ set(SRC
 	blender_camera.cpp
 	blender_mesh.cpp
 	blender_object.cpp
+	blender_object_cull.cpp
 	blender_particles.cpp
 	blender_curves.cpp
 	blender_logging.cpp
@@ -36,6 +31,7 @@ set(SRC
 	blender_volume.cpp
 
 	CCL_api.h
+	blender_object_cull.h
 	blender_sync.h
 	blender_session.h
 	blender_texture.h

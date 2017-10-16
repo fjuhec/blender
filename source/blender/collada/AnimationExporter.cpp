@@ -312,12 +312,12 @@ void AnimationExporter::dae_animation(Object *ob, FCurve *fcu, char *transformNa
 	if (ob->type == OB_ARMATURE) {
 		ob_name =  getObjectBoneName(ob, fcu);
 		BLI_snprintf(
-				anim_id,
-				sizeof(anim_id),
-				"%s_%s.%s",
-				(char *)translate_id(ob_name).c_str(),
-				(char *)translate_id(transformName).c_str(),
-				axis_name);
+		        anim_id,
+		        sizeof(anim_id),
+		        "%s_%s.%s",
+		        (char *)translate_id(ob_name).c_str(),
+		        (char *)translate_id(transformName).c_str(),
+		        axis_name);
 	}
 	else {
 		if (ma)
@@ -326,12 +326,12 @@ void AnimationExporter::dae_animation(Object *ob, FCurve *fcu, char *transformNa
 			ob_name = id_name(ob);
 
 		BLI_snprintf(
-				anim_id,
-				sizeof(anim_id),
-				"%s_%s_%s",
-				(char *)translate_id(ob_name).c_str(),
-				(char *)getAnimationPathId(fcu).c_str(),
-				axis_name);
+		        anim_id,
+		        sizeof(anim_id),
+		        "%s_%s_%s",
+		        (char *)translate_id(ob_name).c_str(),
+		        (char *)getAnimationPathId(fcu).c_str(),
+		        axis_name);
 	}
 
 	openAnimation(anim_id, COLLADABU::Utils::EMPTY_STRING);
@@ -530,7 +530,7 @@ void AnimationExporter::dae_baked_animation(std::vector<float> &fra, Object *ob_
 
 	addSampler(sampler);
 
-	std::string target = translate_id(bone_name) + "/transform";
+	std::string target = get_joint_id(bone, ob_arm) + "/transform";
 	addChannel(COLLADABU::URI(empty, sampler_id), target);
 
 	closeAnimation();

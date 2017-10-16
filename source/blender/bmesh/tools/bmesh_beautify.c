@@ -62,7 +62,7 @@ typedef struct EdRotState {
 
 #if 0
 /* use BLI_ghashutil_inthash_v4 direct */
-static unsigned int erot_gsetutil_hash(const void *ptr)
+static uint erot_gsetutil_hash(const void *ptr)
 {
 	const EdRotState *e_state = (const EdRotState *)ptr;
 	return BLI_ghashutil_inthash_v4(&e_state->v1);
@@ -150,7 +150,7 @@ static float bm_edge_calc_rotate_beauty__area(
 			           (ELEM(v4, v1, v2, v3) == false));
 
 			add_v3_v3v3(no, no_a, no_b);
-			if (UNLIKELY((no_scale = normalize_v3(no)) <= FLT_EPSILON)) {
+			if (UNLIKELY((no_scale = normalize_v3(no)) == 0.0f)) {
 				break;
 			}
 
@@ -182,7 +182,12 @@ static float bm_edge_calc_rotate_beauty__area(
 			}
 		}
 
-		return BLI_polyfill_beautify_quad_rotate_calc(v1_xy, v2_xy, v3_xy, v4_xy);
+		/**
+		 * Important to lock degenerate here,
+		 * since the triangle pars will be projected into different 2D spaces.
+		 * Allowing to rotate out of a degenerate state can flip the faces (when performed iteratively).
+		 */
+		return BLI_polyfill_beautify_quad_rotate_calc_ex(v1_xy, v2_xy, v3_xy, v4_xy, true);
 	} while (false);
 
 	return FLT_MAX;
@@ -368,7 +373,7 @@ void BM_mesh_beautify_fill(
 	TIMEIT_START(beautify_fill);
 #endif
 
-	eheap = BLI_heap_new_ex((unsigned int)edge_array_len);
+	eheap = BLI_heap_new_ex((uint)edge_array_len);
 	eheap_table = MEM_mallocN(sizeof(HeapNode *) * (size_t)edge_array_len, __func__);
 
 	/* build heap */

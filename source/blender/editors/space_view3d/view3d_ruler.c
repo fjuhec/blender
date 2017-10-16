@@ -48,7 +48,6 @@
 
 #include "ED_screen.h"
 #include "ED_view3d.h"
-#include "ED_transform.h"
 #include "ED_transform_snap_object_context.h"
 #include "ED_space_api.h"
 
@@ -280,7 +279,7 @@ static void ruler_state_set(bContext *C, RulerInfo *ruler_info, int state)
 	}
 	else if (state == RULER_STATE_DRAG) {
 		ruler_info->snap_context = ED_transform_snap_object_context_create_view3d(
-		        CTX_data_main(C), CTX_data_scene(C), SNAP_OBJECT_USE_CACHE,
+		        CTX_data_main(C), CTX_data_scene(C), 0,
 		        ruler_info->ar, CTX_wm_view3d(C));
 	}
 	else {
@@ -700,7 +699,7 @@ static void view3d_ruler_free(RulerInfo *ruler_info)
 static void view3d_ruler_item_project(RulerInfo *ruler_info, float r_co[3],
                                       const int xy[2])
 {
-	ED_view3d_win_to_3d_int(ruler_info->ar, r_co, xy, r_co);
+	ED_view3d_win_to_3d_int(ruler_info->sa->spacedata.first, ruler_info->ar, r_co, xy, r_co);
 }
 
 /* use for mousemove events */
@@ -1009,9 +1008,12 @@ static int view3d_ruler_modal(bContext *C, wmOperator *op, const wmEvent *event)
 		}
 		case RETKEY:
 		{
-			view3d_ruler_to_gpencil(C, ruler_info);
-			do_draw = true;
-			exit_code = OPERATOR_FINISHED;
+			/* Enter may be used to invoke from search. */
+			if (event->val == KM_PRESS) {
+				view3d_ruler_to_gpencil(C, ruler_info);
+				do_draw = true;
+				exit_code = OPERATOR_FINISHED;
+			}
 			break;
 		}
 		case DELKEY:

@@ -70,13 +70,11 @@ if 'cmake' in builder:
 
     if builder.startswith('mac'):
         # Set up OSX architecture
-        if builder.endswith('x86_64_10_6_cmake'):
+        if builder.endswith('x86_64_10_9_cmake'):
             cmake_extra_options.append('-DCMAKE_OSX_ARCHITECTURES:STRING=x86_64')
-        cmake_extra_options.append('-DCUDA_NVCC_EXECUTABLE=/usr/local/cuda8-hack/bin/nvcc')
-        cmake_extra_options.append('-DWITH_CODEC_QUICKTIME=OFF')
-        cmake_extra_options.append('-DCMAKE_OSX_DEPLOYMENT_TARGET=10.6')
-        build_cubins = False
-
+        cmake_extra_options.append('-DCMAKE_OSX_DEPLOYMENT_TARGET=10.9')
+        cmake_extra_options.append('-DCUDA_HOST_COMPILER=/usr/local/cuda-hack/clang')
+        cmake_extra_options.append('-DCUDA_NVCC_EXECUTABLE=/usr/local/cuda-hack/nvcc')
 
     elif builder.startswith('win'):
         if builder.endswith('_vc2015'):
@@ -93,7 +91,6 @@ if 'cmake' in builder:
             elif builder.startswith('win32'):
                 bits = 32
                 cmake_options.extend(['-G', 'Visual Studio 12 2013'])
-        cmake_extra_options.append('-DCUDA_NVCC_EXECUTABLE:FILEPATH=C:/Program Files/NVIDIA GPU Computing Toolkit/CUDA/v8.0/bin/nvcc.exe')
 
     elif builder.startswith('linux'):
         tokens = builder.split("_")
@@ -112,8 +109,8 @@ if 'cmake' in builder:
             chroot_name = 'buildbot_' + deb_name + '_i686'
             cuda_chroot_name = 'buildbot_' + deb_name + '_x86_64'
             targets = ['player', 'blender', 'cuda']
-
-        cmake_extra_options.append('-DCUDA_NVCC_EXECUTABLE=/usr/local/cuda-8.0/bin/nvcc')
+        cmake_extra_options.extend(["-DCMAKE_C_COMPILER=/usr/bin/gcc-7",
+                                    "-DCMAKE_CXX_COMPILER=/usr/bin/g++-7"])
 
     cmake_options.append("-C" + os.path.join(blender_dir, cmake_config_file))
 
@@ -180,7 +177,7 @@ if 'cmake' in builder:
             os.remove('CMakeCache.txt')
         retcode = subprocess.call(target_chroot_prefix + ['cmake', blender_dir] + target_cmake_options)
         if retcode != 0:
-            print('Condifuration FAILED!')
+            print('Configuration FAILED!')
             sys.exit(retcode)
 
         if 'win32' in builder or 'win64' in builder:

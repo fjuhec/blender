@@ -18,7 +18,7 @@
  */
 
 #ifdef __QBVH__
-#  include "qbvh_shadow_all.h"
+#  include "kernel/bvh/qbvh_shadow_all.h"
 #endif
 
 #if BVH_FEATURE(BVH_HAIR)
@@ -45,6 +45,7 @@ ccl_device_inline
 bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
                                  const Ray *ray,
                                  Intersection *isect_array,
+                                 const uint visibility,
                                  const uint max_hits,
                                  uint *num_hits)
 {
@@ -100,9 +101,6 @@ bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 	gen_idirsplat_swap(pn, shuf_identity, shuf_swap, idir, idirsplat, shufflexyz);
 #endif  /* __KERNEL_SSE2__ */
 
-	IsectPrecalc isect_precalc;
-	triangle_intersect_precalc(dir, &isect_precalc);
-
 	/* traversal loop */
 	do {
 		do {
@@ -121,7 +119,7 @@ bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 				                               idir,
 				                               isect_t,
 				                               node_addr,
-				                               PATH_RAY_SHADOW,
+				                               visibility,
 				                               dist);
 #else // __KERNEL_SSE2__
 				traverse_mask = NODE_INTERSECT(kg,
@@ -136,7 +134,7 @@ bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 				                               idirsplat,
 				                               shufflexyz,
 				                               node_addr,
-				                               PATH_RAY_SHADOW,
+				                               visibility,
 				                               dist);
 #endif // __KERNEL_SSE2__
 
@@ -187,8 +185,7 @@ bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 
 					/* primitive intersection */
 					while(prim_addr < prim_addr2) {
-						kernel_assert(kernel_tex_fetch(__prim_type, prim_addr) == type);
-
+						kernel_assert((kernel_tex_fetch(__prim_type, prim_addr) & PRIMITIVE_ALL) == p_type);
 						bool hit;
 
 						/* todo: specialized intersect functions which don't fill in
@@ -198,10 +195,10 @@ bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 						switch(p_type) {
 							case PRIMITIVE_TRIANGLE: {
 								hit = triangle_intersect(kg,
-								                         &isect_precalc,
 								                         isect_array,
 								                         P,
-								                         PATH_RAY_SHADOW,
+								                         dir,
+								                         visibility,
 								                         object,
 								                         prim_addr);
 								break;
@@ -213,7 +210,7 @@ bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 								                                P,
 								                                dir,
 								                                ray->time,
-								                                PATH_RAY_SHADOW,
+								                                visibility,
 								                                object,
 								                                prim_addr);
 								break;
@@ -222,31 +219,32 @@ bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 #if BVH_FEATURE(BVH_HAIR)
 							case PRIMITIVE_CURVE:
 							case PRIMITIVE_MOTION_CURVE: {
+								const uint curve_type = kernel_tex_fetch(__prim_type, prim_addr);
 								if(kernel_data.curve.curveflags & CURVE_KN_INTERPOLATE) {
-									hit = bvh_cardinal_curve_intersect(kg,
-									                                   isect_array,
-									                                   P,
-									                                   dir,
-									                                   PATH_RAY_SHADOW,
-									                                   object,
-									                                   prim_addr,
-									                                   ray->time,
-									                                   type,
-									                                   NULL,
-									                                   0, 0);
+									hit = cardinal_curve_intersect(kg,
+									                               isect_array,
+									                               P,
+									                               dir,
+									                               visibility,
+									                               object,
+									                               prim_addr,
+									                               ray->time,
+									                               curve_type,
+									                               NULL,
+									                               0, 0);
 								}
 								else {
-									hit = bvh_curve_intersect(kg,
-									                          isect_array,
-									                          P,
-									                          dir,
-									                          PATH_RAY_SHADOW,
-									                          object,
-									                          prim_addr,
-									                          ray->time,
-									                          type,
-									                          NULL,
-									                          0, 0);
+									hit = curve_intersect(kg,
+									                      isect_array,
+									                      P,
+									                      dir,
+									                      visibility,
+									                      object,
+									                      prim_addr,
+									                      ray->time,
+									                      curve_type,
+									                      NULL,
+									                      0, 0);
 								}
 								break;
 							}
@@ -308,12 +306,11 @@ bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 					object = kernel_tex_fetch(__prim_object, -prim_addr-1);
 
 #  if BVH_FEATURE(BVH_MOTION)
-					bvh_instance_motion_push(kg, object, ray, &P, &dir, &idir, &isect_t, &ob_itfm);
+					isect_t = bvh_instance_motion_push(kg, object, ray, &P, &dir, &idir, isect_t, &ob_itfm);
 #  else
-					bvh_instance_push(kg, object, ray, &P, &dir, &idir, &isect_t);
+					isect_t = bvh_instance_push(kg, object, ray, &P, &dir, &idir, isect_t);
 #  endif
 
-					triangle_intersect_precalc(dir, &isect_precalc);
 					num_hits_in_instance = 0;
 					isect_array->t = isect_t;
 
@@ -353,22 +350,17 @@ bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 				bvh_instance_pop_factor(kg, object, ray, &P, &dir, &idir, &t_fac);
 #  endif
 
-				triangle_intersect_precalc(dir, &isect_precalc);
-
 				/* scale isect->t to adjust for instancing */
 				for(int i = 0; i < num_hits_in_instance; i++) {
 					(isect_array-i-1)->t *= t_fac;
 				}
 			}
 			else {
-				float ignore_t = FLT_MAX;
-
 #  if BVH_FEATURE(BVH_MOTION)
-				bvh_instance_motion_pop(kg, object, ray, &P, &dir, &idir, &ignore_t, &ob_itfm);
+				bvh_instance_motion_pop(kg, object, ray, &P, &dir, &idir, FLT_MAX, &ob_itfm);
 #  else
-				bvh_instance_pop(kg, object, ray, &P, &dir, &idir, &ignore_t);
+				bvh_instance_pop(kg, object, ray, &P, &dir, &idir, FLT_MAX);
 #  endif
-				triangle_intersect_precalc(dir, &isect_precalc);
 			}
 
 			isect_t = tmax;
@@ -399,6 +391,7 @@ bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 ccl_device_inline bool BVH_FUNCTION_NAME(KernelGlobals *kg,
                                          const Ray *ray,
                                          Intersection *isect_array,
+                                         const uint visibility,
                                          const uint max_hits,
                                          uint *num_hits)
 {
@@ -407,6 +400,7 @@ ccl_device_inline bool BVH_FUNCTION_NAME(KernelGlobals *kg,
 		return BVH_FUNCTION_FULL_NAME(QBVH)(kg,
 		                                    ray,
 		                                    isect_array,
+		                                    visibility,
 		                                    max_hits,
 		                                    num_hits);
 	}
@@ -417,6 +411,7 @@ ccl_device_inline bool BVH_FUNCTION_NAME(KernelGlobals *kg,
 		return BVH_FUNCTION_FULL_NAME(BVH)(kg,
 		                                   ray,
 		                                   isect_array,
+		                                   visibility,
 		                                   max_hits,
 		                                   num_hits);
 	}

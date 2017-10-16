@@ -116,6 +116,12 @@ struct GHash {
 };
 
 
+/* -------------------------------------------------------------------- */
+/* GHash API */
+
+/** \name Internal Utility API
+ * \{ */
+
 BLI_INLINE void ghash_entry_copy(
         GHash *gh_dst, Entry *dst, GHash *gh_src, Entry *src,
         GHashKeyCopyFP keycopyfp, GHashValCopyFP valcopyfp)
@@ -131,12 +137,6 @@ BLI_INLINE void ghash_entry_copy(
 		}
 	}
 }
-
-/* -------------------------------------------------------------------- */
-/* GHash API */
-
-/** \name Internal Utility API
- * \{ */
 
 /**
  * Get the full hash for a key.
@@ -763,6 +763,28 @@ bool BLI_ghash_reinsert(GHash *gh, void *key, void *val, GHashKeyFreeFP keyfreef
 }
 
 /**
+ * Replaces the key of an item in the \a gh.
+ *
+ * Use when a key is re-allocated or it's memory location is changed.
+ *
+ * \returns The previous key or NULL if not found, the caller may free if it's needed.
+ */
+void *BLI_ghash_replace_key(GHash *gh, void *key)
+{
+	const unsigned int hash = ghash_keyhash(gh, key);
+	const unsigned int bucket_index = ghash_bucket_index(gh, hash);
+	GHashEntry *e = (GHashEntry *)ghash_lookup_entry_ex(gh, key, bucket_index);
+	if (e != NULL) {
+		void *key_prev = e->e.key;
+		e->e.key = key;
+		return key_prev;
+	}
+	else {
+		return NULL;
+	}
+}
+
+/**
  * Lookup the value of \a key in \a gh.
  *
  * \param key  The key to lookup.
@@ -1225,6 +1247,11 @@ bool BLI_ghashutil_intcmp(const void *a, const void *b)
 	return (a != b);
 }
 
+size_t BLI_ghashutil_combine_hash(size_t hash_a, size_t hash_b)
+{
+	return hash_a ^ (hash_b + 0x9e3779b9 + (hash_a << 6) + (hash_a >> 2));
+}
+
 /**
  * This function implements the widely used "djb" hash apparently posted
  * by Daniel Bernstein to comp.lang.c some time ago.  The 32 bit
@@ -1428,6 +1455,18 @@ bool BLI_gset_reinsert(GSet *gs, void *key, GSetKeyFreeFP keyfreefp)
 {
 	return ghash_insert_safe_keyonly((GHash *)gs, key, true, keyfreefp);
 }
+
+/**
+ * Replaces the key to the set if it's found.
+ * Matching #BLI_ghash_replace_key
+ *
+ * \returns The old key or NULL if not found.
+ */
+void *BLI_gset_replace_key(GSet *gs, void *key)
+{
+	return BLI_ghash_replace_key((GHash *)gs, key);
+}
+
 
 bool BLI_gset_remove(GSet *gs, const void *key, GSetKeyFreeFP keyfreefp)
 {

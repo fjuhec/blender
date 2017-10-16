@@ -25,38 +25,38 @@
 
 #include <string.h>
 
-#include "mesh.h"
-#include "object.h"
-#include "scene.h"
+#include "render/mesh.h"
+#include "render/object.h"
+#include "render/scene.h"
 
-#include "osl_closures.h"
-#include "osl_globals.h"
-#include "osl_services.h"
-#include "osl_shader.h"
+#include "kernel/osl/osl_closures.h"
+#include "kernel/osl/osl_globals.h"
+#include "kernel/osl/osl_services.h"
+#include "kernel/osl/osl_shader.h"
 
-#include "kernel_compat_cpu.h"
-#include "kernel_globals.h"
-#include "kernel_random.h"
-#include "kernel_projection.h"
-#include "kernel_differential.h"
-#include "kernel_montecarlo.h"
-#include "kernel_camera.h"
-
-#include "kernels/cpu/kernel_cpu_image.h"
+#include "kernel/kernel_compat_cpu.h"
+#include "kernel/split/kernel_split_data_types.h"
+#include "kernel/kernel_globals.h"
+#include "kernel/kernel_random.h"
+#include "kernel/kernel_projection.h"
+#include "kernel/kernel_differential.h"
+#include "kernel/kernel_montecarlo.h"
+#include "kernel/kernel_camera.h"
+#include "kernel/kernels/cpu/kernel_cpu_image.h"
+#include "kernel/geom/geom.h"
+#include "kernel/bvh/bvh.h"
 
 /* Note: "util_foreach.h" needs to be included after "kernel_compat_cpu.h", as
  * for some reason ccl::foreach conflicts with openvdb::tools::foreach, which is
  * indirectly included through "kernel_compat_cpu.h".
  */
-#include "util_foreach.h"
-#include "util_logging.h"
-#include "util_string.h"
-#include "geom/geom.h"
-#include "bvh/bvh.h"
+#include "util/util_foreach.h"
+#include "util/util_logging.h"
+#include "util/util_string.h"
 
-#include "kernel_projection.h"
-#include "kernel_accumulate.h"
-#include "kernel_shader.h"
+#include "kernel/kernel_projection.h"
+#include "kernel/kernel_accumulate.h"
+#include "kernel/kernel_shader.h"
 
 #ifdef WITH_PTEX
 #  include <Ptexture.h>
@@ -107,6 +107,8 @@ ustring OSLRenderServices::u_curve_tangent_normal("geom:curve_tangent_normal");
 #endif
 ustring OSLRenderServices::u_path_ray_length("path:ray_length");
 ustring OSLRenderServices::u_path_ray_depth("path:ray_depth");
+ustring OSLRenderServices::u_path_diffuse_depth("path:diffuse_depth");
+ustring OSLRenderServices::u_path_glossy_depth("path:glossy_depth");
 ustring OSLRenderServices::u_path_transparent_depth("path:transparent_depth");
 ustring OSLRenderServices::u_path_transmission_depth("path:transmission_depth");
 ustring OSLRenderServices::u_trace("trace");
@@ -715,7 +717,7 @@ bool OSLRenderServices::get_object_standard_attribute(KernelGlobals *kg, ShaderD
 		else
 			motion_triangle_vertices(kg, sd->object, sd->prim, sd->time, P);
 
-		if(!(sd->flag & SD_TRANSFORM_APPLIED)) {
+		if(!(sd->object_flag & SD_OBJECT_TRANSFORM_APPLIED)) {
 			object_position_transform(kg, sd, &P[0]);
 			object_position_transform(kg, sd, &P[1]);
 			object_position_transform(kg, sd, &P[2]);
@@ -764,6 +766,24 @@ bool OSLRenderServices::get_background_attribute(KernelGlobals *kg, ShaderData *
 		int f = state->bounce;
 		return set_attribute_int(f, type, derivatives, val);
 	}
+	else if(name == u_path_diffuse_depth) {
+		/* Diffuse Ray Depth */
+		PathState *state = sd->osl_path_state;
+		int f = state->diffuse_bounce;
+		return set_attribute_int(f, type, derivatives, val);
+	}
+	else if(name == u_path_glossy_depth) {
+		/* Glossy Ray Depth */
+		PathState *state = sd->osl_path_state;
+		int f = state->glossy_bounce;
+		return set_attribute_int(f, type, derivatives, val);
+	}
+	else if(name == u_path_transmission_depth) {
+		/* Transmission Ray Depth */
+		PathState *state = sd->osl_path_state;
+		int f = state->transmission_bounce;
+		return set_attribute_int(f, type, derivatives, val);
+	}
 	else if(name == u_path_transparent_depth) {
 		/* Transparent Ray Depth */
 		PathState *state = sd->osl_path_state;
@@ -808,7 +828,7 @@ bool OSLRenderServices::get_background_attribute(KernelGlobals *kg, ShaderData *
 bool OSLRenderServices::get_attribute(OSL::ShaderGlobals *sg, bool derivatives, ustring object_name,
                                       TypeDesc type, ustring name, void *val)
 {
-	if(sg->renderstate == NULL)
+	if(sg == NULL || sg->renderstate == NULL)
 		return false;
 
 	ShaderData *sd = (ShaderData *)(sg->renderstate);
@@ -946,7 +966,7 @@ bool OSLRenderServices::texture(ustring filename,
 
 	if(filename.length() && filename[0] == '@') {
 		int slot = atoi(filename.c_str() + 1);
-		float4 rgba = kernel_tex_image_interp(slot, s, 1.0f - t);
+		float4 rgba = kernel_tex_image_interp(kg, slot, s, 1.0f - t);
 
 		result[0] = rgba[0];
 		if(nchannels > 1)
@@ -1027,7 +1047,7 @@ bool OSLRenderServices::texture3d(ustring filename,
 	bool status;
 	if(filename.length() && filename[0] == '@') {
 		int slot = atoi(filename.c_str() + 1);
-		float4 rgba = kernel_tex_image_interp_3d(slot, P.x, P.y, P.z);
+		float4 rgba = kernel_tex_image_interp_3d(kg, slot, P.x, P.y, P.z, INTERPOLATION_NONE);
 
 		result[0] = rgba[0];
 		if(nchannels > 1)
@@ -1181,8 +1201,9 @@ bool OSLRenderServices::trace(TraceOpt &options, OSL::ShaderGlobals *sg,
 	tracedata->init = true;
 	tracedata->sd.osl_globals = sd->osl_globals;
 
-	/* raytrace */
-	return scene_intersect(sd->osl_globals, ray, PATH_RAY_ALL_VISIBILITY, &tracedata->isect, NULL, 0.0f, 0.0f);
+	/* Raytrace, leaving out shadow opaque to avoid early exit. */
+	uint visibility = PATH_RAY_ALL_VISIBILITY - PATH_RAY_SHADOW_OPAQUE;
+	return scene_intersect(sd->osl_globals, ray, visibility, &tracedata->isect, NULL, 0.0f, 0.0f);
 }
 
 

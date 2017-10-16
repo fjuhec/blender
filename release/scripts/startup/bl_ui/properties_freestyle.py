@@ -123,7 +123,7 @@ class RENDERLAYER_PT_freestyle(RenderLayerFreestyleButtonsPanel, Panel):
         layout.active = rl.use_freestyle
 
         row = layout.row()
-        layout.prop(freestyle, "mode", text="Control mode")
+        layout.prop(freestyle, "mode", text="Control Mode")
         layout.prop(freestyle, "use_view_map_cache", text="View Map Cache")
         layout.label(text="Edge Detection Options:")
 
@@ -285,7 +285,7 @@ class RENDERLAYER_PT_freestyle_linestyle(RenderLayerFreestyleEditorButtonsPanel,
 
     def draw_modifier_box_error(self, box, modifier, message):
         row = box.row()
-        row.label(text=message, icon="ERROR")
+        row.label(text=message, icon='ERROR')
 
     def draw_modifier_common(self, box, modifier):
         row = box.row()
@@ -828,5 +828,17 @@ class MATERIAL_PT_freestyle_line(MaterialFreestyleButtonsPanel, Panel):
         row.prop(mat, "line_priority", text="Priority")
 
 
+classes = (
+    RENDER_PT_freestyle,
+    RENDERLAYER_UL_linesets,
+    RENDER_MT_lineset_specials,
+    RENDERLAYER_PT_freestyle,
+    RENDERLAYER_PT_freestyle_lineset,
+    RENDERLAYER_PT_freestyle_linestyle,
+    MATERIAL_PT_freestyle_line,
+)
+
 if __name__ == "__main__":  # only for live edit.
-    bpy.utils.register_module(__name__)
+    from bpy.utils import register_class
+    for cls in classes:
+        register_class(cls)

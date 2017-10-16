@@ -761,7 +761,7 @@ static PyObject *C_BVHTree_FromPolygons(PyObject *UNUSED(cls), PyObject *args, P
 			py_tricoords_fast_items = PySequence_Fast_ITEMS(py_tricoords_fast);
 
 			for (j = 0; j < 3; j++) {
-				tri[j] = (unsigned int)_PyLong_AsInt(py_tricoords_fast_items[j]);
+				tri[j] = PyC_Long_AsU32(py_tricoords_fast_items[j]);
 				if (UNLIKELY(tri[j] >= (unsigned int)coords_len)) {
 					PyErr_Format(PyExc_ValueError,
 					             "%s: index %d must be less than %d",
@@ -812,17 +812,18 @@ static PyObject *C_BVHTree_FromPolygons(PyObject *UNUSED(cls), PyObject *args, P
 			p_plink_prev = &plink->next;
 
 			for (j = 0; j < py_tricoords_len; j++) {
-				plink->poly[j] = (unsigned int)_PyLong_AsInt(py_tricoords_fast_items[j]);
+				plink->poly[j] = PyC_Long_AsU32(py_tricoords_fast_items[j]);
 				if (UNLIKELY(plink->poly[j] >= (unsigned int)coords_len)) {
 					PyErr_Format(PyExc_ValueError,
 					             "%s: index %d must be less than %d",
 					             error_prefix, plink->poly[j], coords_len);
-
-					Py_DECREF(py_tricoords_fast);
+					/* decref below */
 					valid = false;
 					break;
 				}
 			}
+
+			Py_DECREF(py_tricoords_fast);
 
 			if (py_tricoords_len >= 3) {
 				tris_len += (py_tricoords_len - 2);
@@ -1155,7 +1156,6 @@ static PyObject *C_BVHTree_FromObject(PyObject *UNUSED(cls), PyObject *args, PyO
 
 	/* Get data for tessellation */
 	{
-		DM_ensure_looptri(dm);
 		lt = dm->getLoopTriArray(dm);
 
 		tris_len = (unsigned int)dm->getNumLoopTri(dm);

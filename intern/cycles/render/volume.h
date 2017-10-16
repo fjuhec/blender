@@ -19,8 +19,8 @@
 
 #include "attribute.h"
 
-#include "util_string.h"
-#include "util_types.h"
+#include "util/util_string.h"
+#include "util/util_types.h"
 
 #ifdef WITH_OPENVDB
 #include <openvdb/openvdb.h>

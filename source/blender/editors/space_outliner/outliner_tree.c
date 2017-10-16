@@ -882,6 +882,8 @@ static void outliner_add_id_contents(SpaceOops *soops, TreeElement *te, TreeStor
 			}
 			break;
 		}
+		default:
+			break;
 	}
 }
 
@@ -1080,6 +1082,12 @@ static TreeElement *outliner_add_element(SpaceOops *soops, ListBase *lb, void *i
 		PointerRNA pptr, propptr, *ptr = (PointerRNA *)idv;
 		PropertyRNA *prop, *iterprop;
 		PropertyType proptype;
+
+		/* Don't display arrays larger, weak but index is stored as a short,
+		 * also the outliner isn't intended for editing such large data-sets. */
+		BLI_STATIC_ASSERT(sizeof(te->index) == 2, "Index is no longer short!");
+		const int tot_limit = SHRT_MAX;
+
 		int a, tot;
 
 		/* we do lazy build, for speed and to avoid infinite recusion */
@@ -1101,6 +1109,7 @@ static TreeElement *outliner_add_element(SpaceOops *soops, ListBase *lb, void *i
 
 			iterprop = RNA_struct_iterator_property(ptr->type);
 			tot = RNA_property_collection_length(ptr, iterprop);
+			CLAMP_MAX(tot, tot_limit);
 
 			/* auto open these cases */
 			if (!parent || (RNA_property_type(parent->directdata)) == PROP_POINTER)
@@ -1147,6 +1156,7 @@ static TreeElement *outliner_add_element(SpaceOops *soops, ListBase *lb, void *i
 			}
 			else if (proptype == PROP_COLLECTION) {
 				tot = RNA_property_collection_length(ptr, prop);
+				CLAMP_MAX(tot, tot_limit);
 
 				if (TSELEM_OPEN(tselem, soops)) {
 					for (a = 0; a < tot; a++) {
@@ -1159,6 +1169,7 @@ static TreeElement *outliner_add_element(SpaceOops *soops, ListBase *lb, void *i
 			}
 			else if (ELEM(proptype, PROP_BOOLEAN, PROP_INT, PROP_FLOAT)) {
 				tot = RNA_property_array_length(ptr, prop);
+				CLAMP_MAX(tot, tot_limit);
 
 				if (TSELEM_OPEN(tselem, soops)) {
 					for (a = 0; a < tot; a++)
@@ -1316,7 +1327,7 @@ static void outliner_add_library_contents(Main *mainvar, SpaceOops *soops, TreeE
 				ten = outliner_add_element(soops, &te->subtree, lbarray[a], NULL, TSE_ID_BASE, 0);
 				ten->directdata = lbarray[a];
 				
-				ten->name = (char *)BKE_idcode_to_name_plural(GS(id->name));
+				ten->name = BKE_idcode_to_name_plural(GS(id->name));
 				if (ten->name == NULL)
 					ten->name = "UNKNOWN";
 				
@@ -1356,7 +1367,7 @@ static void outliner_add_orphaned_datablocks(Main *mainvar, SpaceOops *soops)
 				ten = outliner_add_element(soops, &soops->tree, lbarray[a], NULL, TSE_ID_BASE, 0);
 				ten->directdata = lbarray[a];
 				
-				ten->name = (char *)BKE_idcode_to_name_plural(GS(id->name));
+				ten->name = BKE_idcode_to_name_plural(GS(id->name));
 				if (ten->name == NULL)
 					ten->name = "UNKNOWN";
 				
@@ -1645,11 +1656,6 @@ void outliner_build_tree(Main *mainvar, Scene *scene, SpaceOops *soops)
 	outliner_free_tree(&soops->tree);
 	outliner_storage_cleanup(soops);
 	
-	/* clear ob id.new flags */
-	for (Object *ob = mainvar->object.first; ob; ob = ob->id.next) {
-		ob->id.newid = NULL;
-	}
-	
 	/* options */
 	if (soops->outlinevis == SO_LIBRARIES) {
 		Library *lib;
@@ -1835,6 +1841,8 @@ void outliner_build_tree(Main *mainvar, Scene *scene, SpaceOops *soops)
 		outliner_sort(&soops->tree);
 	}
 	outliner_filter_tree(soops, &soops->tree);
+
+	BKE_main_id_clear_newpoins(mainvar);
 }
 
 

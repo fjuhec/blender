@@ -91,20 +91,20 @@ Imath::Box3d AbcObjectWriter::bounds()
 
 	if (!bb) {
 		if (this->m_object->type != OB_CAMERA) {
-			std::cerr << "Boundbox is null!\n";
+			ABC_LOG(m_settings.logger) << "Bounding box is null!\n";
 		}
 
 		return Imath::Box3d();
 	}
 
-	/* Convert Z-up to Y-up. */
+	/* Convert Z-up to Y-up. This also changes which vector goes into which min/max property. */
 	this->m_bounds.min.x = bb->vec[0][0];
 	this->m_bounds.min.y = bb->vec[0][2];
-	this->m_bounds.min.z = -bb->vec[0][1];
+	this->m_bounds.min.z = -bb->vec[6][1];
 
 	this->m_bounds.max.x = bb->vec[6][0];
 	this->m_bounds.max.y = bb->vec[6][2];
-	this->m_bounds.max.z = -bb->vec[6][1];
+	this->m_bounds.max.z = -bb->vec[0][1];
 
 	return this->m_bounds;
 }
@@ -127,6 +127,7 @@ AbcObjectReader::AbcObjectReader(const IObject &object, ImportSettings &settings
     , m_min_time(std::numeric_limits<chrono_t>::max())
     , m_max_time(std::numeric_limits<chrono_t>::min())
     , m_refcount(0)
+    , parent_reader(NULL)
 {
 	m_name = object.getFullName();
 	std::vector<std::string> parts;
@@ -138,6 +139,38 @@ AbcObjectReader::AbcObjectReader(const IObject &object, ImportSettings &settings
 	}
 	else {
 		m_object_name = m_data_name = parts[parts.size() - 1];
+	}
+
+	determine_inherits_xform();
+}
+
+/* Determine whether we can inherit our parent's XForm */
+void AbcObjectReader::determine_inherits_xform()
+{
+	m_inherits_xform = false;
+
+	IXform ixform = xform();
+	if (!ixform) {
+		return;
+	}
+
+	const IXformSchema & schema(ixform.getSchema());
+	if (!schema.valid()) {
+		std::cerr << "Alembic object " << ixform.getFullName()
+		          << " has an invalid schema." << std::endl;
+		return;
+	}
+
+	m_inherits_xform = schema.getInheritsXforms();
+
+	IObject ixform_parent = ixform.getParent();
+	if (!ixform_parent.getParent()) {
+		/* The archive top object certainly is not a transform itself, so handle
+		 * it as "no parent". */
+		m_inherits_xform = false;
+	}
+	else {
+		m_inherits_xform = ixform_parent && m_inherits_xform;
 	}
 }
 
@@ -170,13 +203,13 @@ static Imath::M44d blend_matrices(const Imath::M44d &m0, const Imath::M44d &m1, 
 
 	for (int i = 0; i < 4; ++i) {
 		for (int j = 0; j < 4; ++j) {
-			mat0[i][j] = m0[i][j];
+			mat0[i][j] = static_cast<float>(m0[i][j]);
 		}
 	}
 
 	for (int i = 0; i < 4; ++i) {
 		for (int j = 0; j < 4; ++j) {
-			mat1[i][j] = m1[i][j];
+			mat1[i][j] = static_cast<float>(m1[i][j]);
 		}
 	}
 
@@ -214,7 +247,15 @@ Imath::M44d get_matrix(const IXformSchema &schema, const float time)
 	return s0.getMatrix();
 }
 
-void AbcObjectReader::readObjectMatrix(const float time)
+DerivedMesh *AbcObjectReader::read_derivedmesh(DerivedMesh *dm,
+                                               const Alembic::Abc::ISampleSelector &UNUSED(sample_sel),
+                                               int UNUSED(read_flag),
+                                               const char **UNUSED(err_str))
+{
+	return dm;
+}
+
+void AbcObjectReader::setupObjectTransform(const float time)
 {
 	bool is_constant = false;
 
@@ -236,49 +277,66 @@ void AbcObjectReader::readObjectMatrix(const float time)
 	}
 }
 
-void AbcObjectReader::read_matrix(float mat[4][4], const float time, const float scale, bool &is_constant)
+Alembic::AbcGeom::IXform AbcObjectReader::xform()
 {
-	IXform ixform;
-	bool has_alembic_parent = false;
-
 	/* Check that we have an empty object (locator, bone head/tail...).  */
 	if (IXform::matches(m_iobject.getMetaData())) {
-		ixform = IXform(m_iobject, Alembic::AbcGeom::kWrapExisting);
-
-		/* See comment below. */
-		has_alembic_parent = m_iobject.getParent().getParent().valid();
+		return IXform(m_iobject, Alembic::AbcGeom::kWrapExisting);
 	}
-	/* Check that we have an object with actual data. */
-	else if (IXform::matches(m_iobject.getParent().getMetaData())) {
-		ixform = IXform(m_iobject.getParent(), Alembic::AbcGeom::kWrapExisting);
 
-		/* This is a bit hackish, but we need to make sure that extra
-		 * transformations added to the matrix (rotation/scale) are only applied
-		 * to root objects. The way objects and their hierarchy are created will
-		 * need to be revisited at some point but for now this seems to do the
-		 * trick.
-		 *
-		 * Explanation of the trick:
-		 * The first getParent() will return this object's transformation matrix.
-		 * The second getParent() will get the parent of the transform, but this
-		 * might be the archive root ('/') which is valid, so we go passed it to
-		 * make sure that there is no parent.
-		 */
-		has_alembic_parent = m_iobject.getParent().getParent().getParent().valid();
+	/* Check that we have an object with actual data, in which case the
+	 * parent Alembic object should contain the transform. */
+	IObject abc_parent = m_iobject.getParent();
+
+	/* The archive's top object can be recognised by not having a parent. */
+	if (abc_parent.getParent()
+	        && IXform::matches(abc_parent.getMetaData())) {
+		return IXform(abc_parent, Alembic::AbcGeom::kWrapExisting);
 	}
+
 	/* Should not happen. */
-	else {
+	std::cerr << "AbcObjectReader::xform(): "
+	          << "unable to find IXform for Alembic object '"
+	          << m_iobject.getFullName() << "'\n";
+	BLI_assert(false);
+
+	return IXform();
+}
+
+void AbcObjectReader::read_matrix(float r_mat[4][4], const float time,
+                                  const float scale, bool &is_constant)
+{
+	IXform ixform = xform();
+	if (!ixform) {
 		return;
 	}
 
-	const IXformSchema &schema(ixform.getSchema());
-
+	const IXformSchema & schema(ixform.getSchema());
 	if (!schema.valid()) {
+		std::cerr << "Alembic object " << ixform.getFullName()
+		          << " has an invalid schema." << std::endl;
 		return;
 	}
 
 	const Imath::M44d matrix = get_matrix(schema, time);
-	convert_matrix(matrix, m_object, mat, scale, has_alembic_parent);
+	convert_matrix(matrix, m_object, r_mat);
+
+	if (m_inherits_xform) {
+		/* In this case, the matrix in Alembic is in local coordinates, so
+		 * convert to world matrix. To prevent us from reading and accumulating
+		 * all parent matrices in the Alembic file, we assume that the Blender
+		 * parent object is already updated for the current timekey, and use its
+		 * world matrix. */
+		BLI_assert(m_object->parent);
+		mul_m4_m4m4(r_mat, m_object->parent->obmat, r_mat);
+	}
+	else {
+		/* Only apply scaling to root objects, parenting will propagate it. */
+		float scale_mat[4][4];
+		scale_m4_fl(scale_mat, scale);
+		scale_mat[3][3] = scale; /* scale translations too */
+		mul_m4_m4m4(r_mat, r_mat, scale_mat);
+	}
 
 	is_constant = schema.isConstant();
 }
@@ -322,4 +380,5 @@ void AbcObjectReader::incref()
 void AbcObjectReader::decref()
 {
 	--m_refcount;
+	BLI_assert(m_refcount >= 0);
 }

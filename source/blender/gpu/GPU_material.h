@@ -98,6 +98,7 @@ typedef enum GPUBuiltin {
 	GPU_PARTICLE_ANG_VELOCITY = (1 << 12),
 	GPU_LOC_TO_VIEW_MATRIX =    (1 << 13),
 	GPU_INVERSE_LOC_TO_VIEW_MATRIX = (1 << 14),
+	GPU_OBJECT_INFO =           (1 << 15)
 } GPUBuiltin;
 
 typedef enum GPUOpenGLBuiltin {
@@ -213,6 +214,7 @@ bool GPU_stack_link(GPUMaterial *mat, const char *name, GPUNodeStack *in, GPUNod
 
 void GPU_material_output_link(GPUMaterial *material, GPUNodeLink *link);
 void GPU_material_enable_alpha(GPUMaterial *material);
+GPUBuiltin GPU_get_material_builtins(GPUMaterial *material);
 GPUBlendMode GPU_material_alpha_blend(GPUMaterial *material, float obcol[4]);
 
 /* High level functions to create and use GPU materials */
@@ -224,13 +226,13 @@ void GPU_material_free(struct ListBase *gpumaterial);
 
 void GPU_materials_free(void);
 
-bool GPU_lamp_override_visible(GPULamp *lamp, struct SceneRenderLayer *srl, struct Material *ma);
+bool GPU_lamp_visible(GPULamp *lamp, struct SceneRenderLayer *srl, struct Material *ma);
 void GPU_material_bind(
         GPUMaterial *material, int oblay, int viewlay, double time, int mipmap,
         float viewmat[4][4], float viewinv[4][4], float cameraborder[4], bool scenelock);
 void GPU_material_bind_uniforms(
         GPUMaterial *material, float obmat[4][4], float viewmat[4][4], float obcol[4],
-        float autobumpscale, GPUParticleInfo *pi);
+        float autobumpscale, GPUParticleInfo *pi, float object_info[3]);
 void GPU_material_unbind(GPUMaterial *material);
 bool GPU_material_bound(GPUMaterial *material);
 struct Scene *GPU_material_scene(GPUMaterial *material);
@@ -345,6 +347,7 @@ struct GPUParticleInfo
 	float location[3];
 	float velocity[3];
 	float angular_velocity[3];
+	int random_id;
 };
 
 #ifdef WITH_OPENSUBDIV
