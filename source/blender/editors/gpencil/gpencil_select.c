@@ -318,7 +318,7 @@ static int gpencil_select_alternate_exec(bContext *C, wmOperator *op)
 void GPENCIL_OT_select_alternate(wmOperatorType *ot)
 {
 	/* identifiers */
-	ot->name = "Alternate";
+	ot->name = "Alternated";
 	ot->idname = "GPENCIL_OT_select_alternate";
 	ot->description = "Select alternative points in same strokes as already selected points";
 
