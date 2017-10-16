@@ -186,6 +186,7 @@ class GreasePencilStrokeEditPanel:
             col.operator("gpencil.select_linked")
             col.operator("gpencil.select_more")
             col.operator("gpencil.select_less")
+            col.operator("gpencil.select_alternate")
             col.operator("gpencil.palettecolor_select")
 
         layout.label(text="Edit:")
@@ -665,6 +666,7 @@ class GPENCIL_MT_pie_tool_palette(Menu):
                 col.operator("gpencil.select_border", text="Border Select", icon='BORDER_RECT')
                 col.operator("gpencil.select_circle", text="Circle Select", icon='META_EMPTY')
                 col.operator("gpencil.select_lasso", text="Lasso Select", icon='BORDER_LASSO')
+                col.operator("gpencil.select_alternate", text="Alternate Select", icon='BORDER_LASSO')
 
                 # SW - Edit Tools
                 col = pie.column()

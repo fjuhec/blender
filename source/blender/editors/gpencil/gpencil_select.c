@@ -259,6 +259,81 @@ void GPENCIL_OT_select_linked(wmOperatorType *ot)
 }
 
 /* ********************************************** */
+/* Select Alternate */
+
+static int gpencil_select_alternate_exec(bContext *C, wmOperator *op)
+{
+	const bool unselect_ends = RNA_boolean_get(op->ptr, "unselect_ends");
+	bGPdata *gpd = ED_gpencil_data_get_active(C);
+
+	if (gpd == NULL) {
+		BKE_report(op->reports, RPT_ERROR, "No Grease Pencil data");
+		return OPERATOR_CANCELLED;
+	}
+
+	/* if not edit/sculpt mode, the event is catched but not processed */
+	if (GPENCIL_NONE_EDIT_MODE(gpd)) {
+		return OPERATOR_CANCELLED;
+	}
+
+	/* select all points in selected strokes */
+	CTX_DATA_BEGIN(C, bGPDstroke *, gps, editable_gpencil_strokes)
+	{
+		if ((gps->flag & GP_STROKE_SELECT) && (gps->totpoints > 1)) {
+			bGPDspoint *pt;
+			int row = 0;
+			int start = 0;
+			if (unselect_ends) {
+				start = 1;
+			}
+			
+			for (int i = start; i < gps->totpoints; i++) {
+				pt = &gps->points[i];
+				if ((row % 2) == 0) {
+					pt->flag |= GP_SPOINT_SELECT;
+				}
+				else {
+					pt->flag &= ~GP_SPOINT_SELECT;
+				}
+				++row;
+			}
+
+			/* unselect start and end points */
+			if (unselect_ends) {
+				pt = &gps->points[0];
+				pt->flag &= ~GP_SPOINT_SELECT;
+
+				pt = &gps->points[gps->totpoints - 1];
+				pt->flag &= ~GP_SPOINT_SELECT;
+			}
+		}
+	}
+	CTX_DATA_END;
+
+	/* updates */
+	WM_event_add_notifier(C, NC_GPENCIL | NA_SELECTED, NULL);
+	return OPERATOR_FINISHED;
+}
+
+void GPENCIL_OT_select_alternate(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Alternate";
+	ot->idname = "GPENCIL_OT_select_alternate";
+	ot->description = "Select alternative points in same strokes as already selected points";
+
+	/* callbacks */
+	ot->exec = gpencil_select_alternate_exec;
+	ot->poll = gpencil_select_poll;
+
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+	/* properties */
+	RNA_def_boolean(ot->srna, "unselect_ends", true, "Unselect Ends", "Do not select the first and last point of the stroke");
+}
+
+/* ********************************************** */
 /* Select Grouped */
 
 typedef enum eGP_SelectGrouped {

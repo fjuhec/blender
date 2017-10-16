@@ -1044,6 +1044,7 @@ class VIEW3D_MT_select_gpencil(Menu):
         layout.operator("gpencil.select_all", text="(De)select All").action = 'TOGGLE'
         layout.operator("gpencil.select_all", text="Inverse").action = 'INVERT'
         layout.operator("gpencil.select_linked", text="Linked")
+        layout.operator("gpencil.select_alternate")
         layout.operator_menu_enum("gpencil.select_grouped", "type", text="Grouped")
 
         layout.separator()

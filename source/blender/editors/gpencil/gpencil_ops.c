@@ -194,6 +194,9 @@ static void ed_keymap_gpencil_selection(wmKeyMap *keymap)
 	WM_keymap_add_item(keymap, "GPENCIL_OT_select_linked", LKEY, KM_PRESS, 0, 0);
 	WM_keymap_add_item(keymap, "GPENCIL_OT_select_linked", LKEY, KM_PRESS, KM_CTRL, 0);
 
+	/* select alternate */
+	WM_keymap_add_item(keymap, "GPENCIL_OT_select_alternate", LKEY, KM_PRESS, KM_SHIFT, 0);
+
 	/* select grouped */
 	WM_keymap_add_item(keymap, "GPENCIL_OT_select_grouped", GKEY, KM_PRESS, KM_SHIFT, 0);
 
@@ -622,7 +625,8 @@ void ED_operatortypes_gpencil(void)
 	WM_operatortype_append(GPENCIL_OT_select_less);
 	WM_operatortype_append(GPENCIL_OT_select_first);
 	WM_operatortype_append(GPENCIL_OT_select_last);
-	
+	WM_operatortype_append(GPENCIL_OT_select_alternate);
+
 	WM_operatortype_append(GPENCIL_OT_duplicate);
 	WM_operatortype_append(GPENCIL_OT_delete);
 	WM_operatortype_append(GPENCIL_OT_dissolve);
