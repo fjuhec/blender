@@ -87,7 +87,7 @@ class GreasePencilDrawingToolsPanel:
         layout = self.layout
         if context.space_data.type == 'VIEW_3D':
             if context.active_object and context.active_object.mode == 'GPENCIL_PAINT':
-                layout.label(text="Primitives")
+                layout.label(text="Shapes")
             else:
                 layout.label(text="Measurement")
         else:
@@ -102,7 +102,7 @@ class GreasePencilDrawingToolsPanel:
 
         col = layout.column(align=True)
 
-        # XXX: Primitve tools maybe need a panel
+        # XXX: Shapes tools maybe need a panel
         if is_3d_view:
             col.operator("gpencil.primitive", text="Rectangle", icon='UV_FACESEL').type = 'BOX'
             col.operator("gpencil.primitive", text="Circle", icon='ANTIALIASED').type = 'CIRCLE'

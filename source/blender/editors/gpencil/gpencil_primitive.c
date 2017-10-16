@@ -721,9 +721,9 @@ void GPENCIL_OT_primitive(wmOperatorType *ot)
 	};
 
 	/* identifiers */
-	ot->name = "Grease Pencil Primitives";
+	ot->name = "Grease Pencil Shapes";
 	ot->idname = "GPENCIL_OT_primitive";
-	ot->description = "Create primitves grease pencil strokes";
+	ot->description = "Create predefined grease pencil stroke shapes";
 	
 	/* callbacks */
 	ot->invoke = gpencil_primitive_invoke;
@@ -736,7 +736,7 @@ void GPENCIL_OT_primitive(wmOperatorType *ot)
 	
 	/* properties */
 	RNA_def_int(ot->srna, "edges", 4, MIN_EDGES, MAX_EDGES, "Edges", "Number of polygon edges", MIN_EDGES, MAX_EDGES);
-	RNA_def_enum(ot->srna, "type", primitive_type, GP_STROKE_BOX, "Type", "Type of primitive");
+	RNA_def_enum(ot->srna, "type", primitive_type, GP_STROKE_BOX, "Type", "Type of shape");
 }
 
 /* *************************************************************** */
