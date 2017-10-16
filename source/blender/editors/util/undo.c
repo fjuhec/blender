@@ -235,10 +235,6 @@ static int ed_undo_step(bContext *C, int step, const char *undoname)
 			}
 			/* set workspace mode */
 			BKE_workspace_object_mode_set(CTX_wm_workspace(C), obact->mode);
-			bGPdata *gpd = obact->gpd;
-			if (gpd) {
-				BKE_palette_set_active_byname(C, gpd->last_palette_name);
-			}
 		}
 	}
 

@@ -1349,10 +1349,6 @@ static void gp_init_palette(tGPsdata *p)
 	palette  = palslot->palette;
 	palcolor = BKE_palette_color_get_active(palette);
 	
-	/* save last used palette */
-	// XXX: WHY???
-	BLI_strncpy(gpd->last_palette_name, palette->id.name, sizeof(gpd->last_palette_name));
-	
 	/* assign color to temp tGPsdata */
 	if (palcolor) {
 		p->palette = palette;

@@ -218,10 +218,6 @@ static eOLDrawState tree_element_set_active_object(
 		}
 		/* set workspace mode */
 		BKE_workspace_object_mode_set(CTX_wm_workspace(C), ob->mode);
-		bGPdata *gpd = ob->gpd;
-		if (gpd) {
-			BKE_palette_set_active_byname(C, gpd->last_palette_name);
-		}
 	}
 
 	if (ob != scene->obedit)
