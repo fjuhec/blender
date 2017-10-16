@@ -750,7 +750,12 @@ static void gp_draw_stroke_3d(
 		if (i == 0) {
 			gp_set_point_varying_color(points, ink, color);
 			immAttrib1f(thickattrib, max_ff(curpressure * thickness, 1.0f));
-			mul_v3_m4v3(fpt, diff_mat, &(points + 1)->x);
+			if ((cyclic) && (totpoints > 2)) {
+				mul_v3_m4v3(fpt, diff_mat, &(points + totpoints - 1)->x);
+			}
+			else {
+				mul_v3_m4v3(fpt, diff_mat, &(points + 1)->x);
+			}
 			mul_v3_fl(fpt, -1.0f);
 			immVertex3fv(pos, fpt);
 		}
