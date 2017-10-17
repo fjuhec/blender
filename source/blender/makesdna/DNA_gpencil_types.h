@@ -401,8 +401,6 @@ typedef struct bGPdata {
 	/* Runtime Only - Drawing Manager cache */
 	struct GHash *batch_cache_data;
 	
-	char last_palette_name[66]; /* name of the last palette used */  // XXX: remove
-	char pad[6];
 	
 	/* 3D Viewport/Appearance Settings */
 	int pixfactor;              /* factor to define pixel size conversion */
