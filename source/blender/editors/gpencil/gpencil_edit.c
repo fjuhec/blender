@@ -2353,7 +2353,7 @@ static void gpencil_stroke_copy_point(bGPDstroke *gps, bGPDspoint *point, float 
 	newpoint->strength = strength;
 	newpoint->time = point->time + deltatime;
 	newpoint->totweight = point->totweight;
-	newpoint->weights = point->weights;
+	newpoint->weights = MEM_dupallocN(point->weights);
 }
 
 /* Helper: join two strokes using the shortest distance (reorder stroke if necessary ) */
