@@ -393,7 +393,7 @@ typedef struct bGPdata {
 	short bstroke_style;        /* buffer style for drawing strokes (used to select shader type) */
 	short bfill_style;          /* buffer style for filling areas (used to select shader type) */
 
-	short xray_mode;            /* xray mode for strokes */
+	short xray_mode;            /* xray mode for strokes (eGP_DepthOrdering) */
 
 	/* Palettes */
 	ListBase palettes;          /* list of bGPDpalette's   - Deprecated (2.78 - 2.79 only) */
