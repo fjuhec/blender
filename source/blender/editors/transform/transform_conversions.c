@@ -3477,6 +3477,8 @@ static void posttrans_gpd_clean(bGPdata *gpd)
 		}
 #endif
 	}
+	/* set cache flag to dirty */
+	BKE_gpencil_batch_cache_dirty(gpd);
 }
 
 static void posttrans_mask_clean(Mask *mask)
