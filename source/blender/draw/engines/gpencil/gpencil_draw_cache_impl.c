@@ -1117,7 +1117,7 @@ void DRW_gpencil_populate_datablock(GPENCIL_e_data *e_data, void *vedata, Scene 
 				BLI_ghash_remove(gpl->derived_data, ob->id.name, NULL, NULL);
 			}
 			/* create new data */
-			derived_gpf = BKE_gpencil_frame_color_duplicate(C, gpf, ts);
+			derived_gpf = BKE_gpencil_frame_color_duplicate(C, gpf);
 			BLI_ghash_insert(gpl->derived_data, ob->id.name, derived_gpf);
 		}
 

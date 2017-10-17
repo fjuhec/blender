@@ -83,7 +83,7 @@ struct bGPDlayer *BKE_gpencil_layer_addnew(struct bGPdata *gpd, const char *name
 struct bGPdata   *BKE_gpencil_data_addnew(const char name[]);
 
 struct bGPDframe *BKE_gpencil_frame_duplicate(const struct bGPDframe *gpf_src);
-struct bGPDframe *BKE_gpencil_frame_color_duplicate(const struct bContext *C, const struct bGPDframe *gpf_src, struct ToolSettings *ts);
+struct bGPDframe *BKE_gpencil_frame_color_duplicate(const struct bContext *C, const struct bGPDframe *gpf_src);
 struct bGPDlayer *BKE_gpencil_layer_duplicate(const struct bGPDlayer *gpl_src);
 
 void BKE_gpencil_copy_data(struct Main *bmain, struct bGPdata *gpd_dst, const struct bGPdata *gpd_src, const int flag);

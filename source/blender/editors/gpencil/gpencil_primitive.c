@@ -118,7 +118,6 @@ static void gp_primitive_set_initdata(bContext *C, tGPDprimitive *tgpi)
 {
 	Scene *scene = CTX_data_scene(C);
 	ToolSettings *ts = CTX_data_tool_settings(C);
-	bGPdata *gpd = tgpi->gpd;
 	bGPDlayer *gpl = CTX_data_active_gpencil_layer(C);
 	bGPDbrush *brush;
 
@@ -507,10 +506,8 @@ static int gpencil_primitive_init(bContext *C, wmOperator *op)
 static int gpencil_primitive_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
 {
 	wmWindow *win = CTX_wm_window(C);
-	Scene *scene = CTX_data_scene(C);
 	bGPdata *gpd = CTX_data_gpencil_data(C);
 	bGPDlayer *gpl = CTX_data_active_gpencil_layer(C);
-	bGPDframe *actframe = gpl->actframe;
 	tGPDprimitive *tgpi = NULL;
 
 	/* cannot primitive if not active frame */

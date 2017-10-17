@@ -880,7 +880,7 @@ static void gpencil_fix_null_palette(const bContext *C, bGPDstroke *gps_src)
 }
 
 /* make a copy of a given gpencil frame and copy colors too */
-bGPDframe *BKE_gpencil_frame_color_duplicate(const bContext *C, const bGPDframe *gpf_src, ToolSettings *ts)
+bGPDframe *BKE_gpencil_frame_color_duplicate(const bContext *C, const bGPDframe *gpf_src)
 {
 	bGPDstroke *gps_dst;
 	bGPDframe *gpf_dst;
