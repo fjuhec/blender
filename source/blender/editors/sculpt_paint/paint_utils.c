@@ -217,7 +217,10 @@ void paint_stroke_operator_properties(wmOperatorType *ot)
 		{0}
 	};
 
-	RNA_def_collection_runtime(ot->srna, "stroke", &RNA_OperatorStrokeElement, "Stroke", "");
+	PropertyRNA *prop;
+
+	prop = RNA_def_collection_runtime(ot->srna, "stroke", &RNA_OperatorStrokeElement, "Stroke", "");
+	RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
 
 	RNA_def_enum(ot->srna, "mode", stroke_mode_items, BRUSH_STROKE_NORMAL, 
 	             "Stroke Mode",
@@ -282,7 +285,7 @@ static void imapaint_pick_uv(Scene *scene, Object *ob, unsigned int faceindex, c
 	float p[2], w[3], absw, minabsw;
 	float matrix[4][4], proj[4][4];
 	GLint view[4];
-	const ImagePaintMode mode = scene->toolsettings->imapaint.mode;
+	const eImageePaintMode mode = scene->toolsettings->imapaint.mode;
 	const MLoopTri *lt = dm->getLoopTriArray(dm);
 	const MPoly *mpoly = dm->getPolyArray(dm);
 	const MLoop *mloop = dm->getLoopArray(dm);
