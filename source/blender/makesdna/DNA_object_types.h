@@ -716,7 +716,7 @@ enum {
 };
 
 /* ob->mode */
-typedef enum ObjectMode {
+typedef enum eObjectMode {
 	OB_MODE_OBJECT        = 0,
 	OB_MODE_EDIT          = 1 << 0,
 	OB_MODE_SCULPT        = 1 << 1,
@@ -729,7 +729,7 @@ typedef enum ObjectMode {
 	OB_MODE_GPENCIL_PAINT = 1 << 8,
 	OB_MODE_GPENCIL_SCULPT = 1 << 9,
 	OB_MODE_GPENCIL_WEIGHT = 1 << 10,
-} ObjectMode;
+} eObjectMode;
 
 /* any mode where the brush system is used */
 #define OB_MODE_ALL_PAINT (OB_MODE_SCULPT | OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT | OB_MODE_TEXTURE_PAINT)
