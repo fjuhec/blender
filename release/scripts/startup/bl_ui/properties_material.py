@@ -82,7 +82,7 @@ class MATERIAL_UL_matslots(UIList):
                 layout.prop(ma, "name", text="", emboss=False, icon_value=icon)
             else:
                 layout.label(text="", icon_value=icon)
-            if ma and not context.scene.render.use_shading_nodes:
+            if ma and not context.view_render.use_shading_nodes:
                 manode = ma.active_node_material
                 if manode:
                     layout.label(text=iface_("Node %s") % manode.name, translate=False, icon_value=layout.icon(manode))
@@ -101,7 +101,7 @@ class MaterialButtonsPanel:
 
     @classmethod
     def poll(cls, context):
-        return context.material and (context.scene.render.engine in cls.COMPAT_ENGINES)
+        return context.material and (context.engine in cls.COMPAT_ENGINES)
 
 
 class MATERIAL_PT_context_material(MaterialButtonsPanel, Panel):
@@ -116,7 +116,7 @@ class MATERIAL_PT_context_material(MaterialButtonsPanel, Panel):
         if context.active_object and context.active_object.type == 'GPENCIL':
             return False
         else:
-            engine = context.scene.render.engine
+            engine = context.engine
             return (context.material or context.object) and (engine in cls.COMPAT_ENGINES)
 
     def draw(self, context):
@@ -199,7 +199,7 @@ class MATERIAL_PT_pipeline(MaterialButtonsPanel, Panel):
     @classmethod
     def poll(cls, context):
         mat = context.material
-        engine = context.scene.render.engine
+        engine = context.engine
         return mat and (not simple_material(mat)) and (mat.type in {'SURFACE', 'WIRE', 'VOLUME'}) and (engine in cls.COMPAT_ENGINES)
 
     def draw(self, context):
@@ -252,7 +252,7 @@ class MATERIAL_PT_diffuse(MaterialButtonsPanel, Panel):
     @classmethod
     def poll(cls, context):
         mat = context.material
-        engine = context.scene.render.engine
+        engine = context.engine
         return check_material(mat) and (mat.type in {'SURFACE', 'WIRE'}) and (engine in cls.COMPAT_ENGINES)
 
     def draw(self, context):
@@ -309,7 +309,7 @@ class MATERIAL_PT_specular(MaterialButtonsPanel, Panel):
     @classmethod
     def poll(cls, context):
         mat = context.material
-        engine = context.scene.render.engine
+        engine = context.engine
         return check_material(mat) and (mat.type in {'SURFACE', 'WIRE'}) and (engine in cls.COMPAT_ENGINES)
 
     def draw(self, context):
@@ -362,7 +362,7 @@ class MATERIAL_PT_shading(MaterialButtonsPanel, Panel):
     @classmethod
     def poll(cls, context):
         mat = context.material
-        engine = context.scene.render.engine
+        engine = context.engine
         return check_material(mat) and (mat.type in {'SURFACE', 'WIRE'}) and (engine in cls.COMPAT_ENGINES)
 
     def draw(self, context):
@@ -396,7 +396,7 @@ class MATERIAL_PT_transp(MaterialButtonsPanel, Panel):
     @classmethod
     def poll(cls, context):
         mat = context.material
-        engine = context.scene.render.engine
+        engine = context.engine
         return check_material(mat) and (mat.type in {'SURFACE', 'WIRE'}) and (engine in cls.COMPAT_ENGINES)
 
     def draw_header(self, context):
@@ -462,7 +462,7 @@ class MATERIAL_PT_mirror(MaterialButtonsPanel, Panel):
     @classmethod
     def poll(cls, context):
         mat = context.material
-        engine = context.scene.render.engine
+        engine = context.engine
         return check_material(mat) and (mat.type in {'SURFACE', 'WIRE'}) and (engine in cls.COMPAT_ENGINES)
 
     def draw_header(self, context):
@@ -520,7 +520,7 @@ class MATERIAL_PT_sss(MaterialButtonsPanel, Panel):
     @classmethod
     def poll(cls, context):
         mat = context.material
-        engine = context.scene.render.engine
+        engine = context.engine
         return check_material(mat) and (mat.type in {'SURFACE', 'WIRE'}) and (engine in cls.COMPAT_ENGINES)
 
     def draw_header(self, context):
@@ -571,7 +571,7 @@ class MATERIAL_PT_halo(MaterialButtonsPanel, Panel):
     @classmethod
     def poll(cls, context):
         mat = context.material
-        engine = context.scene.render.engine
+        engine = context.engine
         return mat and (mat.type == 'HALO') and (engine in cls.COMPAT_ENGINES)
 
     def draw(self, context):
@@ -624,7 +624,7 @@ class MATERIAL_PT_flare(MaterialButtonsPanel, Panel):
     @classmethod
     def poll(cls, context):
         mat = context.material
-        engine = context.scene.render.engine
+        engine = context.engine
         return mat and (mat.type == 'HALO') and (engine in cls.COMPAT_ENGINES)
 
     def draw_header(self, context):
@@ -658,7 +658,7 @@ class MATERIAL_PT_game_settings(MaterialButtonsPanel, Panel):
 
     @classmethod
     def poll(cls, context):
-        return context.material and (context.scene.render.engine in cls.COMPAT_ENGINES)
+        return context.material and (context.engine in cls.COMPAT_ENGINES)
 
     def draw(self, context):
         layout = self.layout
@@ -687,7 +687,7 @@ class MATERIAL_PT_physics(MaterialButtonsPanel, Panel):
 
     @classmethod
     def poll(cls, context):
-        return context.material and (context.scene.render.engine in cls.COMPAT_ENGINES)
+        return context.material and (context.engine in cls.COMPAT_ENGINES)
 
     def draw(self, context):
         layout = self.layout
@@ -720,7 +720,7 @@ class MATERIAL_PT_strand(MaterialButtonsPanel, Panel):
     @classmethod
     def poll(cls, context):
         mat = context.material
-        engine = context.scene.render.engine
+        engine = context.engine
         return mat and (mat.type in {'SURFACE', 'WIRE', 'HALO'}) and (engine in cls.COMPAT_ENGINES)
 
     def draw(self, context):
@@ -766,7 +766,7 @@ class MATERIAL_PT_options(MaterialButtonsPanel, Panel):
     @classmethod
     def poll(cls, context):
         mat = context.material
-        engine = context.scene.render.engine
+        engine = context.engine
         return check_material(mat) and (mat.type in {'SURFACE', 'WIRE'}) and (engine in cls.COMPAT_ENGINES)
 
     def draw(self, context):
@@ -816,7 +816,7 @@ class MATERIAL_PT_shadow(MaterialButtonsPanel, Panel):
     @classmethod
     def poll(cls, context):
         mat = context.material
-        engine = context.scene.render.engine
+        engine = context.engine
         return check_material(mat) and (mat.type in {'SURFACE', 'WIRE'}) and (engine in cls.COMPAT_ENGINES)
 
     def draw(self, context):
@@ -866,7 +866,7 @@ class MATERIAL_PT_transp_game(MaterialButtonsPanel, Panel):
     @classmethod
     def poll(cls, context):
         mat = context.material
-        engine = context.scene.render.engine
+        engine = context.engine
         return check_material(mat) and (engine in cls.COMPAT_ENGINES)
 
     def draw_header(self, context):
@@ -899,7 +899,7 @@ class VolumeButtonsPanel:
     @classmethod
     def poll(cls, context):
         mat = context.material
-        engine = context.scene.render.engine
+        engine = context.engine
         return mat and (mat.type == 'VOLUME') and (engine in cls.COMPAT_ENGINES)
 
 
@@ -984,7 +984,7 @@ class MATERIAL_PT_volume_transp(VolumeButtonsPanel, Panel):
     @classmethod
     def poll(cls, context):
         mat = context.material
-        engine = context.scene.render.engine
+        engine = context.engine
         return mat and simple_material(mat) and (mat.type == 'VOLUME') and (engine in cls.COMPAT_ENGINES)
 
     def draw(self, context):
@@ -1025,7 +1025,7 @@ class MATERIAL_PT_volume_options(VolumeButtonsPanel, Panel):
     @classmethod
     def poll(cls, context):
         mat = context.material
-        engine = context.scene.render.engine
+        engine = context.engine
         return check_material(mat) and (mat.type == 'VOLUME') and (engine in cls.COMPAT_ENGINES)
 
     def draw(self, context):
@@ -1066,7 +1066,7 @@ class EEVEE_MATERIAL_PT_context_material(MaterialButtonsPanel, Panel):
         if context.active_object and context.active_object.type == 'GPENCIL':
             return False
         else:
-            engine = context.scene.render.engine
+            engine = context.engine
             return (context.material or context.object) and (engine in cls.COMPAT_ENGINES)
 
     def draw(self, context):
@@ -1140,7 +1140,7 @@ class EEVEE_MATERIAL_PT_surface(MaterialButtonsPanel, Panel):
 
     @classmethod
     def poll(cls, context):
-        engine = context.scene.render.engine
+        engine = context.engine
         return context.material and (engine in cls.COMPAT_ENGINES)
 
     def draw(self, context):
@@ -1168,7 +1168,7 @@ class EEVEE_MATERIAL_PT_options(MaterialButtonsPanel, Panel):
 
     @classmethod
     def poll(cls, context):
-        engine = context.scene.render.engine
+        engine = context.engine
         return context.material and (engine in cls.COMPAT_ENGINES)
 
     def draw(self, context):

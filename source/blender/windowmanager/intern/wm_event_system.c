@@ -409,12 +409,13 @@ void wm_event_do_notifiers(bContext *C)
 		for (win = wm->windows.first; win; win = win->next) {
 			Scene *scene = WM_window_get_active_scene(win);
 			bScreen *screen = WM_window_get_active_screen(win);
+			WorkSpace *workspace = WM_window_get_active_workspace(win);
 
 			/* filter out notifiers */
 			if (note->category == NC_SCREEN &&
 			    note->reference &&
 			    note->reference != screen &&
-			    note->reference != WM_window_get_active_workspace(win) &&
+			    note->reference != workspace &&
 			    note->reference != WM_window_get_active_layout(win))
 			{
 				/* pass */
@@ -437,7 +438,7 @@ void wm_event_do_notifiers(bContext *C)
 				}
 				
 				for (sa = screen->areabase.first; sa; sa = sa->next) {
-					ED_area_do_listen(screen, sa, note, scene);
+					ED_area_do_listen(screen, sa, note, scene, workspace);
 					for (ar = sa->regionbase.first; ar; ar = ar->next) {
 						ED_region_do_listen(screen, sa, ar, note, scene);
 					}
@@ -773,11 +774,15 @@ static bool wm_operator_register_check(wmWindowManager *wm, wmOperatorType *ot)
 	return wm && (wm->op_undo_depth == 0) && (ot->flag & (OPTYPE_REGISTER | OPTYPE_UNDO));
 }
 
-static void wm_operator_finished(bContext *C, wmOperator *op, const bool repeat)
+static void wm_operator_finished(bContext *C, wmOperator *op, const bool repeat, const bool store)
 {
 	wmWindowManager *wm = CTX_wm_manager(C);
 
 	op->customdata = NULL;
+
+	if (store) {
+		WM_operator_last_properties_store(op);
+	}
 
 	/* we don't want to do undo pushes for operators that are being
 	 * called from operators that already do an undo push. usually
@@ -841,12 +846,7 @@ static int wm_operator_exec(bContext *C, wmOperator *op, const bool repeat, cons
 		wm_operator_reports(C, op, retval, false);
 	
 	if (retval & OPERATOR_FINISHED) {
-		if (store) {
-			if (wm->op_undo_depth == 0) { /* not called by py script */
-				WM_operator_last_properties_store(op);
-			}
-		}
-		wm_operator_finished(C, op, repeat);
+		wm_operator_finished(C, op, repeat, store && wm->op_undo_depth == 0);
 	}
 	else if (repeat == 0) {
 		/* warning: modal from exec is bad practice, but avoid crashing. */
@@ -1202,10 +1202,8 @@ static int wm_operator_invoke(
 			/* do nothing, wm_operator_exec() has been called somewhere */
 		}
 		else if (retval & OPERATOR_FINISHED) {
-			if (!is_nested_call) { /* not called by py script */
-				WM_operator_last_properties_store(op);
-			}
-			wm_operator_finished(C, op, 0);
+			const bool store = !is_nested_call;
+			wm_operator_finished(C, op, false, store);
 		}
 		else if (retval & OPERATOR_RUNNING_MODAL) {
 			/* take ownership of reports (in case python provided own) */
@@ -1811,7 +1809,7 @@ static int wm_handler_operator_call(bContext *C, ListBase *handlers, wmEventHand
 
 				/* important to run 'wm_operator_finished' before NULLing the context members */
 				if (retval & OPERATOR_FINISHED) {
-					wm_operator_finished(C, op, 0);
+					wm_operator_finished(C, op, false, true);
 					handler->op = NULL;
 				}
 				else if (retval & (OPERATOR_CANCELLED | OPERATOR_FINISHED)) {
