@@ -2352,6 +2352,8 @@ static void gpencil_stroke_copy_point(bGPDstroke *gps, bGPDspoint *point, float 
 	newpoint->pressure = pressure;
 	newpoint->strength = strength;
 	newpoint->time = point->time + deltatime;
+	newpoint->totweight = point->totweight;
+	newpoint->weights = point->weights;
 }
 
 /* Helper: join two strokes using the shortest distance (reorder stroke if necessary ) */
