@@ -445,7 +445,7 @@ EnumPropertyItem rna_enum_gpencil_drawing_brushes_items[] = {
 };
 
 
-EnumPropertyItem rna_enum_layer_collection_mode_settings_type_items[] = {
+const EnumPropertyItem rna_enum_layer_collection_mode_settings_type_items[] = {
 	{COLLECTION_MODE_OBJECT, "OBJECT", 0, "Object", ""},
 	{COLLECTION_MODE_EDIT, "EDIT", 0, "Edit", ""},
 	{COLLECTION_MODE_PAINT_WEIGHT, "PAINT_WEIGHT", 0, "Weight Paint", ""},
