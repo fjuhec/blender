@@ -49,7 +49,7 @@
 #include "BLI_utildefines.h"
 #include "bmesh.h"
 
-static EnumPropertyItem particle_edit_hair_brush_items[] = {
+static const EnumPropertyItem particle_edit_hair_brush_items[] = {
 	{PE_BRUSH_NONE, "NONE", 0, "None", "Don't use any brush"},
 	{PE_BRUSH_COMB, "COMB", 0, "Comb", "Comb hairs"},
 	{PE_BRUSH_SMOOTH, "SMOOTH", 0, "Smooth", "Smooth hairs"},
@@ -61,7 +61,7 @@ static EnumPropertyItem particle_edit_hair_brush_items[] = {
 	{0, NULL, 0, NULL, NULL}
 };
 
-EnumPropertyItem rna_enum_gpencil_sculpt_brush_items[] = {
+const EnumPropertyItem rna_enum_gpencil_sculpt_brush_items[] = {
 	{GP_EDITBRUSH_TYPE_SMOOTH, "SMOOTH", ICON_GPBRUSH_SMOOTH, "Smooth", "Smooth stroke points"},
 	{GP_EDITBRUSH_TYPE_THICKNESS, "THICKNESS", ICON_GPBRUSH_THICKNESS, "Thickness", "Adjust thickness of strokes"},
 	{GP_EDITBRUSH_TYPE_STRENGTH, "STRENGTH", ICON_GPBRUSH_STRENGTH, "Strength", "Adjust color strength of strokes" },
@@ -80,7 +80,7 @@ EnumPropertyItem rna_enum_gpencil_weight_brush_items[] = {
 };
 
 #ifndef RNA_RUNTIME
-static EnumPropertyItem rna_enum_gpencil_lockaxis_items[] = {
+static const EnumPropertyItem rna_enum_gpencil_lockaxis_items[] = {
 	{ GP_LOCKAXIS_NONE, "GP_LOCKAXIS_NONE", ICON_UNLOCKED, "None", "" },
 	{ GP_LOCKAXIS_X, "GP_LOCKAXIS_X", ICON_NDOF_DOM, "X", "Project strokes to plane locked to X" },
 	{ GP_LOCKAXIS_Y, "GP_LOCKAXIS_Y", ICON_NDOF_DOM, "Y", "Project strokes to plane locked to Y" },
@@ -89,7 +89,7 @@ static EnumPropertyItem rna_enum_gpencil_lockaxis_items[] = {
 };
 #endif
 
-EnumPropertyItem rna_enum_symmetrize_direction_items[] = {
+const EnumPropertyItem rna_enum_symmetrize_direction_items[] = {
 	{BMO_SYMMETRIZE_NEGATIVE_X, "NEGATIVE_X", 0, "-X to +X", ""},
 	{BMO_SYMMETRIZE_POSITIVE_X, "POSITIVE_X", 0, "+X to -X", ""},
 
@@ -124,7 +124,7 @@ static void rna_GPencil_update(Main *UNUSED(bmain), Scene *UNUSED(scene), Pointe
 	WM_main_add_notifier(NC_GPENCIL | NA_EDITED, NULL);
 }
 
-static EnumPropertyItem particle_edit_disconnected_hair_brush_items[] = {
+static const EnumPropertyItem particle_edit_disconnected_hair_brush_items[] = {
 	{PE_BRUSH_NONE, "NONE", 0, "None", "Don't use any brush"},
 	{PE_BRUSH_COMB, "COMB", 0, "Comb", "Comb hairs"},
 	{PE_BRUSH_SMOOTH, "SMOOTH", 0, "Smooth", "Smooth hairs"},
@@ -134,7 +134,7 @@ static EnumPropertyItem particle_edit_disconnected_hair_brush_items[] = {
 	{0, NULL, 0, NULL, NULL}
 };
 
-static EnumPropertyItem particle_edit_cache_brush_items[] = {
+static const EnumPropertyItem particle_edit_cache_brush_items[] = {
 	{PE_BRUSH_NONE, "NONE", 0, "None", "Don't use any brush"},
 	{PE_BRUSH_COMB, "COMB", 0, "Comb", "Comb paths"},
 	{PE_BRUSH_SMOOTH, "SMOOTH", 0, "Smooth", "Smooth paths"},
@@ -194,7 +194,7 @@ static void rna_ParticleEdit_tool_set(PointerRNA *ptr, int value)
 
 	pset->brushtype = value;
 }
-static EnumPropertyItem *rna_ParticleEdit_tool_itemf(bContext *C, PointerRNA *UNUSED(ptr),
+static const EnumPropertyItem *rna_ParticleEdit_tool_itemf(bContext *C, PointerRNA *UNUSED(ptr),
                                                      PropertyRNA *UNUSED(prop), bool *UNUSED(r_free))
 {
 	SceneLayer *sl = CTX_data_scene_layer(C);
@@ -551,7 +551,7 @@ static void rna_def_paint(BlenderRNA *brna)
 
 static void rna_def_sculpt(BlenderRNA  *brna)
 {
-	static EnumPropertyItem detail_refine_items[] = {
+	static const EnumPropertyItem detail_refine_items[] = {
 		{SCULPT_DYNTOPO_SUBDIVIDE, "SUBDIVIDE", 0,
 		 "Subdivide Edges", "Subdivide long edges to add mesh detail where needed"},
 		{SCULPT_DYNTOPO_COLLAPSE, "COLLAPSE", 0,
@@ -561,7 +561,7 @@ static void rna_def_sculpt(BlenderRNA  *brna)
 		{0, NULL, 0, NULL, NULL}
 	};
 
-	static EnumPropertyItem detail_type_items[] = {
+	static const EnumPropertyItem detail_type_items[] = {
 		{0, "RELATIVE", 0,
 		 "Relative Detail", "Mesh detail is relative to the brush size and detail size"},
 		{SCULPT_DYNTOPO_DETAIL_CONSTANT, "CONSTANT", 0,
@@ -723,7 +723,7 @@ static void rna_def_image_paint(BlenderRNA *brna)
 	PropertyRNA *prop;
 	FunctionRNA *func;
 
-	static EnumPropertyItem paint_type_items[] = {
+	static const EnumPropertyItem paint_type_items[] = {
 		{IMAGEPAINT_MODE_MATERIAL, "MATERIAL", 0,
 		 "Material", "Detect image slots from the material"},
 		{IMAGEPAINT_MODE_IMAGE, "IMAGE", 0,
@@ -854,26 +854,26 @@ static void rna_def_particle_edit(BlenderRNA *brna)
 	StructRNA *srna;
 	PropertyRNA *prop;
 
-	static EnumPropertyItem select_mode_items[] = {
+	static const EnumPropertyItem select_mode_items[] = {
 		{SCE_SELECT_PATH, "PATH", ICON_PARTICLE_PATH, "Path", "Path edit mode"},
 		{SCE_SELECT_POINT, "POINT", ICON_PARTICLE_POINT, "Point", "Point select mode"},
 		{SCE_SELECT_END, "TIP", ICON_PARTICLE_TIP, "Tip", "Tip select mode"},
 		{0, NULL, 0, NULL, NULL}
 	};
 
-	static EnumPropertyItem puff_mode[] = {
+	static const EnumPropertyItem puff_mode[] = {
 		{0, "ADD", 0, "Add", "Make hairs more puffy"},
 		{1, "SUB", 0, "Sub", "Make hairs less puffy"},
 		{0, NULL, 0, NULL, NULL}
 	};
 
-	static EnumPropertyItem length_mode[] = {
+	static const EnumPropertyItem length_mode[] = {
 		{0, "GROW", 0, "Grow", "Make hairs longer"},
 		{1, "SHRINK", 0, "Shrink", "Make hairs shorter"},
 		{0, NULL, 0, NULL, NULL}
 	};
 
-	static EnumPropertyItem edit_type_items[] = {
+	static const EnumPropertyItem edit_type_items[] = {
 		{PE_TYPE_PARTICLES, "PARTICLES", 0, "Particles", ""},
 		{PE_TYPE_SOFTBODY, "SOFT_BODY", 0, "Soft body", ""},
 		{PE_TYPE_CLOTH, "CLOTH", 0, "Cloth", ""},
@@ -1039,7 +1039,7 @@ static void rna_def_particle_edit(BlenderRNA *brna)
 
 static void rna_def_gpencil_sculpt(BlenderRNA *brna)
 {
-	static EnumPropertyItem prop_direction_items[] = {
+	static const EnumPropertyItem prop_direction_items[] = {
 		{0, "ADD", 0, "Add", "Add effect of brush"},
 		{GP_EDITBRUSH_FLAG_INVERT, "SUBTRACT", 0, "Subtract", "Subtract effect of brush"},
 		{0, NULL, 0, NULL, NULL}};
