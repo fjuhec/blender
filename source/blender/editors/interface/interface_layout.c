@@ -604,7 +604,7 @@ static void ui_item_enum_expand(
 
 	uiBut *but;
 	uiLayout *layout_radial = NULL;
-	EnumPropertyItem *item, *item_array;
+	const EnumPropertyItem *item, *item_array;
 	const char *name;
 	int itemw, icon, value;
 	bool free;
@@ -665,7 +665,7 @@ static void ui_item_enum_expand(
 	UI_block_layout_set_current(block, layout);
 
 	if (free) {
-		MEM_freeN(item_array);
+		MEM_freeN((void *)item_array);
 	}
 }
 
@@ -880,7 +880,7 @@ PointerRNA uiItemFullO(uiLayout *layout, const char *opname, const char *name, i
 
 static const char *ui_menu_enumpropname(uiLayout *layout, PointerRNA *ptr, PropertyRNA *prop, int retval)
 {
-	EnumPropertyItem *item;
+	const EnumPropertyItem *item;
 	bool free;
 	const char *name;
 
@@ -893,7 +893,7 @@ static const char *ui_menu_enumpropname(uiLayout *layout, PointerRNA *ptr, Prope
 	}
 
 	if (free) {
-		MEM_freeN(item);
+		MEM_freeN((void *)item);
 	}
 
 	return name;
@@ -1079,7 +1079,7 @@ void uiItemsFullEnumO(
 	BLI_assert((prop == NULL) || (RNA_property_type(prop) == PROP_ENUM));
 
 	if (prop && RNA_property_type(prop) == PROP_ENUM) {
-		EnumPropertyItem *item_array = NULL;
+		const EnumPropertyItem *item_array = NULL;
 		int totitem;
 		bool free;
 
@@ -1096,7 +1096,7 @@ void uiItemsFullEnumO(
 		        item_array, totitem);
 
 		if (free) {
-			MEM_freeN(item_array);
+			MEM_freeN((void *)item_array);
 		}
 
 		/* intentionally don't touch UI_BLOCK_IS_FLIP here,
@@ -1152,7 +1152,7 @@ void uiItemEnumO_string(uiLayout *layout, const char *name, int icon, const char
 	PointerRNA ptr;
 	PropertyRNA *prop;
 
-	EnumPropertyItem *item;
+	const EnumPropertyItem *item;
 	int value;
 	bool free;
 
@@ -1166,14 +1166,14 @@ void uiItemEnumO_string(uiLayout *layout, const char *name, int icon, const char
 		RNA_property_enum_items(layout->root->block->evil_C, &ptr, prop, &item, NULL, &free);
 		if (item == NULL || RNA_enum_value_from_id(item, value_str, &value) == 0) {
 			if (free) {
-				MEM_freeN(item);
+				MEM_freeN((void *)item);
 			}
 			RNA_warning("%s.%s, enum %s not found", RNA_struct_identifier(ptr.type), propname, value_str);
 			return;
 		}
 
 		if (free) {
-			MEM_freeN(item);
+			MEM_freeN((void *)item);
 		}
 	}
 	else {
@@ -1273,7 +1273,7 @@ static void ui_item_rna_size(
 		}
 		else if (type == PROP_ENUM) {
 			/* Find the longest enum item name, instead of using a dummy text! */
-			EnumPropertyItem *item, *item_array;
+			const EnumPropertyItem *item, *item_array;
 			bool free;
 
 			RNA_property_enum_items_gettexted(layout->root->block->evil_C, ptr, prop, &item_array, NULL, &free);
@@ -1283,7 +1283,7 @@ static void ui_item_rna_size(
 				}
 			}
 			if (free) {
-				MEM_freeN(item_array);
+				MEM_freeN((void *)item_array);
 			}
 		}
 	}
@@ -1502,7 +1502,7 @@ void uiItemEnumR(uiLayout *layout, const char *name, int icon, struct PointerRNA
 void uiItemEnumR_string(uiLayout *layout, struct PointerRNA *ptr, const char *propname, const char *value, const char *name, int icon)
 {
 	PropertyRNA *prop = RNA_struct_find_property(ptr, propname);
-	EnumPropertyItem *item;
+	const EnumPropertyItem *item;
 	int ivalue, a;
 	bool free;
 
@@ -1516,7 +1516,7 @@ void uiItemEnumR_string(uiLayout *layout, struct PointerRNA *ptr, const char *pr
 
 	if (!RNA_enum_value_from_id(item, value, &ivalue)) {
 		if (free) {
-			MEM_freeN(item);
+			MEM_freeN((void *)item);
 		}
 		ui_item_disabled(layout, propname);
 		RNA_warning("enum property value not found: %s", value);
@@ -1534,7 +1534,7 @@ void uiItemEnumR_string(uiLayout *layout, struct PointerRNA *ptr, const char *pr
 	}
 
 	if (free) {
-		MEM_freeN(item);
+		MEM_freeN((void *)item);
 	}
 }
 
@@ -1557,7 +1557,7 @@ void uiItemsEnumR(uiLayout *layout, struct PointerRNA *ptr, const char *propname
 		return;
 	}
 	else {
-		EnumPropertyItem *item;
+		const EnumPropertyItem *item;
 		int totitem, i;
 		bool free;
 		uiLayout *split = uiLayoutSplit(layout, 0.0f, false);
@@ -1590,7 +1590,7 @@ void uiItemsEnumR(uiLayout *layout, struct PointerRNA *ptr, const char *propname
 		}
 
 		if (free) {
-			MEM_freeN(item);
+			MEM_freeN((void *)item);
 		}
 	}
 

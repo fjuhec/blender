@@ -87,6 +87,8 @@
 #  include "CCL_api.h"
 #endif
 
+#include "DEG_depsgraph.h"
+
 #include "creator_intern.h"  /* own include */
 
 
@@ -583,6 +585,7 @@ static int arg_handle_print_help(int UNUSED(argc), const char **UNUSED(argv), vo
 
 	printf("\n");
 	printf("Experimental Features:\n");
+	BLI_argsPrintArgDoc(ba, "--enable-copy-on-write");
 
 	/* Other options _must_ be last (anything not handled will show here) */
 	printf("\n");
@@ -1090,10 +1093,8 @@ static int arg_handle_engine_set(int argc, const char **argv, void *data)
 		else {
 			Scene *scene = CTX_data_scene(C);
 			if (scene) {
-				RenderData *rd = &scene->r;
-
 				if (BLI_findstring(&R_engines, argv[1], offsetof(RenderEngineType, idname))) {
-					BLI_strncpy_utf8(rd->engine, argv[1], sizeof(rd->engine));
+					BLI_strncpy_utf8(scene->view_render.engine_id, argv[1], sizeof(scene->view_render.engine_id));
 				}
 				else {
 					printf("\nError: engine not found '%s'\n", argv[1]);
@@ -1174,6 +1175,16 @@ static int arg_handle_threads_set(int argc, const char **argv, void *UNUSED(data
 		printf("\nError: you must specify a number of threads in [%d..%d] '%s'.\n", min, max, arg_id);
 		return 0;
 	}
+}
+
+static const char arg_handle_use_copy_on_write_doc[] =
+"\n\tUse new dependency graph"
+;
+static int arg_handle_use_copy_on_write(int UNUSED(argc), const char **UNUSED(argv), void *UNUSED(data))
+{
+	printf("Using copy on write. This is highly EXPERIMENTAL!\n");
+	DEG_depsgraph_enable_copy_on_write();
+	return 0;
 }
 
 static const char arg_handle_verbosity_set_doc[] =
@@ -1819,6 +1830,8 @@ void main_args_setup(bContext *C, bArgs *ba, SYS_SystemHandle *syshandle)
 	            CB_EX(arg_handle_debug_mode_generic_set, gpumem), (void *)G_DEBUG_GPU_MEM);
 	BLI_argsAdd(ba, 1, NULL, "--debug-gpu-shaders",
 	            CB_EX(arg_handle_debug_mode_generic_set, gpumem), (void *)G_DEBUG_GPU_SHADERS);
+
+	BLI_argsAdd(ba, 1, NULL, "--enable-copy-on-write", CB(arg_handle_use_copy_on_write), NULL);
 
 	BLI_argsAdd(ba, 1, NULL, "--verbose", CB(arg_handle_verbosity_set), NULL);
 

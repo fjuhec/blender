@@ -1291,7 +1291,7 @@ static uiLayout *draw_modifier(
 		/* When Modifier is a simulation, show button to switch to context rather than the delete button. */
 		if (modifier_can_delete(md) &&
 		    (!modifier_is_simulation(md) ||
-		     STREQ(scene->r.engine, RE_engine_id_BLENDER_GAME)))
+		     STREQ(scene->view_render.engine_id, RE_engine_id_BLENDER_GAME)))
 		{
 			uiItemO(row, "", ICON_X, "OBJECT_OT_modifier_remove");
 		}
@@ -2019,7 +2019,7 @@ static uiBlock *ui_icon_view_menu_cb(bContext *C, ARegion *ar, void *arg_litem)
 	uiBlock *block;
 	uiBut *but;
 	int icon, value;
-	EnumPropertyItem *item;
+	const EnumPropertyItem *item;
 	int a;
 	bool free;
 	int w, h;
@@ -2059,7 +2059,7 @@ static uiBlock *ui_icon_view_menu_cb(bContext *C, ARegion *ar, void *arg_litem)
 	UI_block_direction_set(block, UI_DIR_DOWN);
 
 	if (free) {
-		MEM_freeN(item);
+		MEM_freeN((void *)item);
 	}
 	
 	return block;
@@ -2072,7 +2072,7 @@ void uiTemplateIconView(uiLayout *layout, PointerRNA *ptr, const char *propname,
 {
 	PropertyRNA *prop = RNA_struct_find_property(ptr, propname);
 	IconViewMenuArgs *cb_args;
-	EnumPropertyItem *items;
+	const EnumPropertyItem *items;
 	uiBlock *block;
 	uiBut *but;
 	int value, icon = ICON_NONE, tot_items;
@@ -2100,7 +2100,7 @@ void uiTemplateIconView(uiLayout *layout, PointerRNA *ptr, const char *propname,
 	ui_def_but_icon(but, icon, UI_HAS_ICON | UI_BUT_ICON_PREVIEW);
 
 	if (free_items) {
-		MEM_freeN(items);
+		MEM_freeN((void *)items);
 	}
 }
 

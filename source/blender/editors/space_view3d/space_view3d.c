@@ -1262,7 +1262,8 @@ static void view3d_tools_region_draw(const bContext *C, ARegion *ar)
 
 /* area (not region) level listener */
 static void space_view3d_listener(
-        bScreen *UNUSED(sc), ScrArea *sa, struct wmNotifier *wmn, const Scene *UNUSED(scene))
+        bScreen *UNUSED(sc), ScrArea *sa, struct wmNotifier *wmn, Scene *UNUSED(scene),
+        WorkSpace *UNUSED(workspace))
 {
 	View3D *v3d = sa->spacedata.first;
 

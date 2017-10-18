@@ -2826,8 +2826,8 @@ static bool ui_textedit_insert_ascii(uiBut *but, uiHandleButtonData *data, char 
 }
 
 static void ui_textedit_move(
-        uiBut *but, uiHandleButtonData *data, strCursorJumpDirection direction,
-        const bool select, strCursorJumpType jump)
+        uiBut *but, uiHandleButtonData *data, eStrCursorJumpDirection direction,
+        const bool select, eStrCursorJumpType jump)
 {
 	const char *str = data->str;
 	const int len = strlen(str);
@@ -2903,7 +2903,7 @@ static void ui_textedit_move(
 	}
 }
 
-static bool ui_textedit_delete(uiBut *but, uiHandleButtonData *data, int direction, strCursorJumpType jump)
+static bool ui_textedit_delete(uiBut *but, uiHandleButtonData *data, int direction, eStrCursorJumpType jump)
 {
 	char *str = data->str;
 	const int len = strlen(str);

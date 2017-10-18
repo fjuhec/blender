@@ -35,6 +35,7 @@
 #include "DNA_space_types.h"
 #include "DNA_view2d_types.h"
 #include "DNA_view3d_types.h"
+#include "DNA_workspace_types.h"
 
 #include "BLI_compiler_attrs.h"
 
@@ -93,7 +94,8 @@ void    ED_area_initialize(struct wmWindowManager *wm, struct wmWindow *win, str
 void    ED_area_exit(struct bContext *C, struct ScrArea *sa);
 int     ED_screen_area_active(const struct bContext *C);
 void    ED_screen_global_areas_create(const struct bContext *C, struct wmWindow *win);
-void    ED_area_do_listen(struct bScreen *sc, ScrArea *sa, struct wmNotifier *note, const Scene *scene);
+void    ED_area_do_listen(struct bScreen *sc, ScrArea *sa, struct wmNotifier *note, Scene *scene,
+                          struct WorkSpace *workspace);
 void    ED_area_tag_redraw(ScrArea *sa);
 void    ED_area_tag_redraw_regiontype(ScrArea *sa, int type);
 void    ED_area_tag_refresh(ScrArea *sa);
@@ -122,7 +124,7 @@ void    ED_screen_ensure_updated(struct wmWindowManager *wm, struct wmWindow *wi
 void    ED_screen_do_listen(struct bContext *C, struct wmNotifier *note);
 bool    ED_screen_change(struct bContext *C, struct bScreen *sc);
 void    ED_screen_update_after_scene_change(const struct bScreen *screen, struct Scene *scene_new);
-void    ED_screen_set_subwinactive(struct bContext *C, struct wmEvent *event);
+void    ED_screen_set_subwinactive(struct bContext *C, const struct wmEvent *event);
 void    ED_screen_exit(struct bContext *C, struct wmWindow *window, struct bScreen *screen);
 void    ED_screen_animation_timer(struct bContext *C, int redraws, int refresh, int sync, int enable);
 void    ED_screen_animation_timer_update(struct bScreen *screen, int redraws, int refresh);
@@ -140,7 +142,8 @@ void    ED_screen_preview_render(const struct bScreen *screen, int size_x, int s
 struct WorkSpace *ED_workspace_add(
         struct Main *bmain,
         const char *name,
-        SceneLayer *act_render_layer) ATTR_NONNULL();
+        SceneLayer *act_render_layer,
+        struct ViewRender *view_render) ATTR_NONNULL();
 bool ED_workspace_change(
         struct WorkSpace *workspace_new,
         struct bContext *C,
