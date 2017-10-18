@@ -330,27 +330,6 @@ void do_versions_after_linking_280(Main *main)
 		}
 	}
 
-	/* Convert grease pencil datablock to GP object */
-	if (!MAIN_VERSION_ATLEAST(main, 280, 0)) {
-		for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
-			if (scene->gpd) {
-				Object *ob;
-				SceneLayer *sl = scene->render_layers.first;
-
-				ob = BKE_object_add(main, scene, sl, OB_GPENCIL, "GP_Scene");				
-				zero_v3(ob->loc);
-				ob->gpd = scene->gpd;
-				scene->gpd = NULL;
-
-				/* set cache as dirty */
-				BKE_gpencil_batch_cache_dirty(ob->gpd);
-			}
-			/* set default mode as object */
-			scene->toolsettings->gpencil_src = GP_TOOL_SOURCE_OBJECT;
-		}
-
-	}
-
 	/* New workspace design */
 	if (!MAIN_VERSION_ATLEAST(main, 280, 1)) {
 		do_version_workspaces_after_lib_link(main);
@@ -407,49 +386,6 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 				}
 			}
 		}
-		/* ------- convert grease pencil palettes to blender palettes --------------- */
-		if (!DNA_struct_elem_find(fd->filesdna, "bGPDstroke", "Palette", "*palette")) {
-			for (bGPdata *gpd = main->gpencil.first; gpd; gpd = gpd->id.next) {
-				/* first create all palettes and colors */
-				Palette *first = NULL;
-				for (bGPDpalette *oldpalette = gpd->palettes.first; oldpalette; oldpalette = oldpalette->next) {
-					/* create palette */
-					bGPDpaletteref *palslot = BKE_gpencil_paletteslot_addnew(main, gpd, oldpalette->info);
-					Palette *newpalette = palslot->palette;
-					
-					/* save first to use later */
-					if (first == NULL) {
-						first = newpalette;
-					}
-
-					for (bGPDpalettecolor *oldcolor = oldpalette->colors.first; oldcolor; oldcolor = oldcolor->next) {
-						PaletteColor *newcolor = BKE_palette_color_add_name(newpalette, oldcolor->info);
-						/* set color attributes */
-						copy_v4_v4(newcolor->rgb, oldcolor->color);
-						copy_v4_v4(newcolor->fill, oldcolor->fill);
-						newcolor->flag = oldcolor->flag;
-					}
-					/* set first color active by default */
-					if (!BLI_listbase_is_empty(&newpalette->colors)) {
-						newpalette->active_color = 0;
-					}
-				}
-				/* second, assign the palette and the color (always to first palette) */
-				for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
-					for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
-						for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
-							Palette *palette = first;
-							PaletteColor *palcolor = BKE_palette_color_getbyname(first, gps->colorname);
-
-							gps->palette = palette;
-							gps->palcolor = palcolor;
-						}
-					}
-				}
-				gpd->id.tag &= ~LIB_TAG_NEED_LINK;
-			}
-		}
-		/* ------- end grease pencil palettes conversion --------------- */
 	}
 
 	if (!MAIN_VERSION_ATLEAST(main, 280, 1)) {
@@ -506,8 +442,71 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 				}
 			}
 		}
+	}
 
-		/* grease pencil sculpt and paint cursors */
+	if (!MAIN_VERSION_ATLEAST(main, 280, 2)) {
+		/* Convert grease pencil datablock to GP object */
+		for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
+			if (scene->gpd) {
+				Object *ob;
+				SceneLayer *sl = scene->render_layers.first;
+
+				ob = BKE_object_add(main, scene, sl, OB_GPENCIL, "GP_Scene");
+				zero_v3(ob->loc);
+				ob->gpd = scene->gpd;
+				scene->gpd = NULL;
+
+				/* set cache as dirty */
+				BKE_gpencil_batch_cache_dirty(ob->gpd);
+			}
+			/* set default mode as object */
+			scene->toolsettings->gpencil_src = GP_TOOL_SOURCE_OBJECT;
+		}
+
+		/* Convert grease pencil palettes to blender palettes */
+		if (!DNA_struct_elem_find(fd->filesdna, "bGPDstroke", "Palette", "*palette")) {
+			for (bGPdata *gpd = main->gpencil.first; gpd; gpd = gpd->id.next) {
+				/* first create all palettes and colors */
+				Palette *first = NULL;
+				for (bGPDpalette *oldpalette = gpd->palettes.first; oldpalette; oldpalette = oldpalette->next) {
+					/* create palette */
+					bGPDpaletteref *palslot = BKE_gpencil_paletteslot_addnew(main, gpd, oldpalette->info);
+					Palette *newpalette = palslot->palette;
+
+					/* save first to use later */
+					if (first == NULL) {
+						first = newpalette;
+					}
+
+					for (bGPDpalettecolor *oldcolor = oldpalette->colors.first; oldcolor; oldcolor = oldcolor->next) {
+						PaletteColor *newcolor = BKE_palette_color_add_name(newpalette, oldcolor->info);
+						/* set color attributes */
+						copy_v4_v4(newcolor->rgb, oldcolor->color);
+						copy_v4_v4(newcolor->fill, oldcolor->fill);
+						newcolor->flag = oldcolor->flag;
+					}
+					/* set first color active by default */
+					if (!BLI_listbase_is_empty(&newpalette->colors)) {
+						newpalette->active_color = 0;
+					}
+				}
+				/* second, assign the palette and the color (always to first palette) */
+				for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+					for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
+						for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
+							Palette *palette = first;
+							PaletteColor *palcolor = BKE_palette_color_getbyname(first, gps->colorname);
+
+							gps->palette = palette;
+							gps->palcolor = palcolor;
+						}
+					}
+				}
+				gpd->id.tag &= ~LIB_TAG_NEED_LINK;
+			}
+		}
+
+		/* Grease pencil sculpt and paint cursors */
 		if (!DNA_struct_elem_find(fd->filesdna, "GP_BrushEdit_Settings", "int", "weighttype")) {
 			for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
 				/* sculpt brushes */
@@ -543,7 +542,8 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 				}
 			}
 		}
-		/* init grease pencil vertex groups */
+
+		/* Init grease pencil vertex groups */
 		if (!DNA_struct_elem_find(fd->filesdna, "bGPDweight", "int", "index")) {
 			for (bGPdata *gpd = main->gpencil.first; gpd; gpd = gpd->id.next) {
 				for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
@@ -559,18 +559,21 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 				}
 			}
 		}
-		/* init grease pencil edit line color */
+
+		/* Init grease pencil edit line color */
 		if (!DNA_struct_elem_find(fd->filesdna, "bGPdata", "float", "line_color[4]")) {
 			for (bGPdata *gpd = main->gpencil.first; gpd; gpd = gpd->id.next) {
 				ARRAY_SET_ITEMS(gpd->line_color, 0.6f, 0.6f, 0.6f, 0.3f);
 			}
 		}
-		/* init pixel size factor */
+
+		/* Init grease pencil pixel size factor */
 		if (!DNA_struct_elem_find(fd->filesdna, "bGPDdata", "int", "pixfactor")) {
 			for (bGPdata *gpd = main->gpencil.first; gpd; gpd = gpd->id.next) {
 				gpd->pixfactor = GP_DEFAULT_PIX_FACTOR;
 			}
 		}
+
 	}
 
 	{
