@@ -83,6 +83,7 @@
 #include "BKE_mask.h"
 #include "BKE_utildefines.h"
 #include "BKE_workspace.h"
+#include "BKE_gpencil.h"
 
 #include "DEG_depsgraph.h"
 
@@ -345,6 +346,10 @@ static void recalcData_actedit(TransInfo *t)
 	if (ELEM(ac.datatype, ANIMCONT_GPENCIL, ANIMCONT_MASK)) {
 		/* flush transform values back to actual coordinates */
 		flushTransIntFrameActionData(t);
+		/* refresh gpencil cache */
+		if (ac.datatype == ANIMCONT_GPENCIL) {
+			BKE_gpencil_batch_cache_alldirty();
+		}
 	}
 	else {
 		/* get animdata blocks visible in editor, assuming that these will be the ones where things changed */
