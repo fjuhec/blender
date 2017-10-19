@@ -218,6 +218,12 @@ typedef struct g_data {
 	struct tGPencilObjectCache *gp_object_cache;
 
 	int session_flag;
+
+	/* number of shading groups */
+	int tot_sh;
+	int tot_sh_stroke;
+	int tot_sh_fill;
+	int tot_sh_point;
 } g_data; /* Transient data */
 
 typedef enum eGPsession_Flag {
@@ -283,13 +289,9 @@ struct DRWShadingGroup *DRW_gpencil_shgroup_stroke_create(struct GPENCIL_e_data 
 	                                                      struct bGPdata *gpd, struct PaletteColor *palcolor, int id);
 struct DRWShadingGroup *DRW_gpencil_shgroup_point_create(struct GPENCIL_e_data *e_data, struct GPENCIL_Data *vedata, struct DRWPass *pass, struct GPUShader *shader, struct Object *ob,
 	                                                     struct bGPdata *gpd, struct PaletteColor *palcolor, int id);
-struct DRWShadingGroup *DRW_gpencil_shgroup_point_volumetric_create(struct DRWPass *pass, struct GPUShader *shader);
-struct DRWShadingGroup *DRW_gpencil_shgroup_line_create(struct DRWPass *pass, struct GPUShader *shader);
-struct DRWShadingGroup *DRW_gpencil_shgroup_edit_volumetric_create(struct DRWPass *pass, struct GPUShader *shader);
-struct DRWShadingGroup *DRW_gpencil_shgroup_drawing_fill_create(struct DRWPass *pass, struct GPUShader *shader);
 
 void DRW_gpencil_populate_datablock(struct GPENCIL_e_data *e_data, void *vedata, struct Scene *scene, struct Object *ob, struct ToolSettings *ts, struct bGPdata *gpd);
-void DRW_gpencil_populate_buffer_strokes(void *vedata, struct ToolSettings *ts, struct Object *ob);
+void DRW_gpencil_populate_buffer_strokes(struct GPENCIL_e_data *e_data, void *vedata, struct ToolSettings *ts, struct Object *ob);
 void DRW_gpencil_populate_multiedit(struct GPENCIL_e_data *e_data, void *vedata, struct Scene *scene, struct Object *ob, struct ToolSettings *ts, struct bGPdata *gpd);
 
 struct Gwn_Batch *DRW_gpencil_get_point_geom(struct bGPDstroke *gps, short thickness, const float ink[4]);

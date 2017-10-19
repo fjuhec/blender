@@ -156,7 +156,6 @@ static void GPENCIL_engine_init(void *vedata)
 	if (!e_data.gpencil_blank_texture) {
 		e_data.gpencil_blank_texture = DRW_gpencil_create_blank_texture(16, 16);
 	}
-
 }
 
 static void GPENCIL_engine_free(void)
@@ -197,6 +196,15 @@ static void GPENCIL_cache_init(void *vedata)
 		stl->storage->xray = GP_XRAY_FRONT; /* used for drawing */
 		stl->storage->stroke_style = STROKE_STYLE_SOLID; /* used for drawing */
 	}
+	/* reset total shading groups */
+	stl->g_data->tot_sh = 0;
+	stl->g_data->tot_sh_stroke = 0;
+	stl->g_data->tot_sh_fill = 0;
+	stl->g_data->tot_sh_point = 0;
+
+	stl->g_data->shgrps_edit_line = NULL;
+	stl->g_data->shgrps_edit_volumetric = NULL;
+	
 	if (!stl->shgroups) {
 		/* Alloc maximum size because count strokes is very slow and can be very complex due onion skinning.
 		   I tried to allocate only one block and using realloc, increasing the size when read a new strokes
@@ -240,14 +248,12 @@ static void GPENCIL_cache_init(void *vedata)
 
 	{
 		/* Stroke pass */
-		psl->stroke_pass = DRW_pass_create("Gpencil Stroke Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_ALWAYS | DRW_STATE_BLEND);
+		psl->stroke_pass = DRW_pass_create("GPencil Stroke Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_ALWAYS | DRW_STATE_BLEND);
 		stl->storage->shgroup_id = 0;
 
 		/* edit pass */
-		psl->edit_pass = DRW_pass_create("Gpencil Edit Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND);
-		stl->g_data->shgrps_edit_volumetric = DRW_gpencil_shgroup_edit_volumetric_create(psl->edit_pass, e_data.gpencil_volumetric_sh);
-		stl->g_data->shgrps_edit_line = DRW_gpencil_shgroup_edit_volumetric_create(psl->edit_pass, e_data.gpencil_line_sh);
-		/* drawing buffer pass */
+		psl->edit_pass = DRW_pass_create("GPencil Edit Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND);
+		
 		/* detect if playing animation */
 		int oldsts = stl->storage->playing;
 		stl->storage->playing = 0;
@@ -301,20 +307,14 @@ static void GPENCIL_cache_init(void *vedata)
 			stl->storage->color_type = GPENCIL_COLOR_SOLID;
 		}
 
-		psl->drawing_pass = DRW_pass_create("Gpencil Drawing Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND);
-		stl->g_data->shgrps_drawing_fill = DRW_gpencil_shgroup_drawing_fill_create(psl->drawing_pass, e_data.gpencil_drawing_fill_sh);
-
-		if ((palcolor) && (palcolor->flag & PAC_COLOR_DOT) == 0) {
-			stl->g_data->shgrps_drawing_stroke = DRW_gpencil_shgroup_stroke_create(&e_data, vedata, psl->drawing_pass, e_data.gpencil_stroke_sh, NULL, gpd, palcolor, -1);
-		}
-		else {
-			stl->g_data->shgrps_drawing_stroke = DRW_gpencil_shgroup_point_create(&e_data, vedata, psl->drawing_pass, e_data.gpencil_point_sh, NULL, gpd, palcolor, -1);
-		}
+		/* drawing buffer pass */
+		psl->drawing_pass = DRW_pass_create("GPencil Drawing Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND);
 
 		/* we need a full screen pass to combine the result of zdepth */
 		struct Gwn_Batch *quad = DRW_cache_fullscreen_quad_get();
 		psl->mix_pass = DRW_pass_create("GPencil Mix Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
 		DRWShadingGroup *mix_shgrp = DRW_shgroup_create(e_data.gpencil_fullscreen_sh, psl->mix_pass);
+		++stl->g_data->tot_sh;
 		DRW_shgroup_call_add(mix_shgrp, quad, NULL);
 		DRW_shgroup_uniform_buffer(mix_shgrp, "strokeColor", &e_data.temp_fbcolor_color_tx);
 		DRW_shgroup_uniform_buffer(mix_shgrp, "strokeDepth", &e_data.temp_fbcolor_depth_tx);
@@ -323,6 +323,7 @@ static void GPENCIL_cache_init(void *vedata)
 		struct Gwn_Batch *vfxquad = DRW_cache_fullscreen_quad_get();
 		psl->mix_vfx_pass = DRW_pass_create("GPencil Mix VFX Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
 		DRWShadingGroup *mix_vfx_shgrp = DRW_shgroup_create(e_data.gpencil_fullscreen_sh, psl->mix_vfx_pass);
+		++stl->g_data->tot_sh;
 		DRW_shgroup_call_add(mix_vfx_shgrp, vfxquad, NULL);
 		DRW_shgroup_uniform_buffer(mix_vfx_shgrp, "strokeColor", &e_data.vfx_fbcolor_color_tx_a);
 		DRW_shgroup_uniform_buffer(mix_vfx_shgrp, "strokeDepth", &e_data.vfx_fbcolor_depth_tx_a);
@@ -331,6 +332,7 @@ static void GPENCIL_cache_init(void *vedata)
 		struct Gwn_Batch *quad_noblend = DRW_cache_fullscreen_quad_get();
 		psl->mix_pass_noblend = DRW_pass_create("GPencil Mix Pass no blend", DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
 		DRWShadingGroup *mix_shgrp_noblend = DRW_shgroup_create(e_data.gpencil_fullscreen_sh, psl->mix_pass_noblend);
+		++stl->g_data->tot_sh;
 		DRW_shgroup_call_add(mix_shgrp_noblend, quad_noblend, NULL);
 		DRW_shgroup_uniform_buffer(mix_shgrp_noblend, "strokeColor", &e_data.temp_fbcolor_color_tx);
 		DRW_shgroup_uniform_buffer(mix_shgrp_noblend, "strokeDepth", &e_data.temp_fbcolor_depth_tx);
@@ -339,6 +341,7 @@ static void GPENCIL_cache_init(void *vedata)
 		struct Gwn_Batch *vfxquad_noblend = DRW_cache_fullscreen_quad_get();
 		psl->mix_vfx_pass_noblend = DRW_pass_create("GPencil Mix VFX Pass no blend", DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
 		DRWShadingGroup *mix_vfx_shgrp_noblend = DRW_shgroup_create(e_data.gpencil_fullscreen_sh, psl->mix_vfx_pass_noblend);
+		++stl->g_data->tot_sh;
 		DRW_shgroup_call_add(mix_vfx_shgrp_noblend, vfxquad_noblend, NULL);
 		DRW_shgroup_uniform_buffer(mix_vfx_shgrp_noblend, "strokeColor", &e_data.vfx_fbcolor_color_tx_a);
 		DRW_shgroup_uniform_buffer(mix_vfx_shgrp_noblend, "strokeDepth", &e_data.vfx_fbcolor_depth_tx_a);
@@ -347,6 +350,7 @@ static void GPENCIL_cache_init(void *vedata)
 		vfxquad = DRW_cache_fullscreen_quad_get();
 		psl->vfx_copy_pass = DRW_pass_create("GPencil VFX Copy b to a Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
 		DRWShadingGroup *vfx_copy_shgrp = DRW_shgroup_create(e_data.gpencil_fullscreen_sh, psl->vfx_copy_pass);
+		++stl->g_data->tot_sh;
 		DRW_shgroup_call_add(vfx_copy_shgrp, vfxquad, NULL);
 		DRW_shgroup_uniform_buffer(vfx_copy_shgrp, "strokeColor", &e_data.vfx_fbcolor_color_tx_b);
 		DRW_shgroup_uniform_buffer(vfx_copy_shgrp, "strokeDepth", &e_data.vfx_fbcolor_depth_tx_b);
@@ -367,6 +371,7 @@ static void GPENCIL_cache_init(void *vedata)
 		struct Gwn_Batch *paintquad = DRW_cache_fullscreen_quad_get();
 		psl->painting_pass = DRW_pass_create("GPencil Painting Session Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
 		DRWShadingGroup *painting_shgrp = DRW_shgroup_create(e_data.gpencil_painting_sh, psl->painting_pass);
+		++stl->g_data->tot_sh;
 		DRW_shgroup_call_add(painting_shgrp, paintquad, NULL);
 		DRW_shgroup_uniform_buffer(painting_shgrp, "strokeColor", &e_data.painting_color_tx);
 		DRW_shgroup_uniform_buffer(painting_shgrp, "strokeDepth", &e_data.painting_depth_tx);
@@ -375,6 +380,7 @@ static void GPENCIL_cache_init(void *vedata)
 		struct Gwn_Batch *frontquad = DRW_cache_fullscreen_quad_get();
 		psl->mix_pass_front = DRW_pass_create("GPencil Mix Front Depth Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
 		DRWShadingGroup *mix_front_shgrp = DRW_shgroup_create(e_data.gpencil_front_depth_sh, psl->mix_pass_front);
+		++stl->g_data->tot_sh;
 		DRW_shgroup_call_add(mix_front_shgrp, frontquad, NULL);
 		DRW_shgroup_uniform_buffer(mix_front_shgrp, "strokeColor", &e_data.temp_fbcolor_color_tx);
 	}
@@ -404,7 +410,7 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 			}
 		}
 		/* draw current painting strokes */
-		DRW_gpencil_populate_buffer_strokes(vedata, ts, ob);
+		DRW_gpencil_populate_buffer_strokes(&e_data, vedata, ts, ob);
 	}
 }
 

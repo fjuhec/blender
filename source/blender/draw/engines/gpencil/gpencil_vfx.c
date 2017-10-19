@@ -96,9 +96,11 @@ static void DRW_gpencil_vfx_copy(
         Object *UNUSED(ob), tGPencilObjectCache *cache)
 {
 	GPENCIL_PassList *psl = ((GPENCIL_Data *)vedata)->psl;
+	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 
 	struct Gwn_Batch *vfxquad = DRW_cache_fullscreen_quad_get();
 	DRWShadingGroup *vfx_shgrp = DRW_shgroup_create(e_data->gpencil_fullscreen_sh, psl->vfx_wave_pass);
+	++stl->g_data->tot_sh;
 	DRW_shgroup_call_add(vfx_shgrp, vfxquad, NULL);
 	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeColor", &e_data->temp_fbcolor_color_tx);
 	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeDepth", &e_data->temp_fbcolor_depth_tx);
@@ -136,6 +138,7 @@ static void DRW_gpencil_vfx_wave(
 	struct Gwn_Batch *vfxquad = DRW_cache_fullscreen_quad_get();
 
 	DRWShadingGroup *vfx_shgrp = DRW_shgroup_create(e_data->gpencil_vfx_wave_sh, psl->vfx_wave_pass);
+	++stl->g_data->tot_sh;
 	DRW_shgroup_call_add(vfx_shgrp, vfxquad, NULL);
 	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeColor", &e_data->temp_fbcolor_color_tx);
 	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeDepth", &e_data->temp_fbcolor_depth_tx);
@@ -179,6 +182,7 @@ static void DRW_gpencil_vfx_blur(
 	struct Gwn_Batch *vfxquad = DRW_cache_fullscreen_quad_get();
 	/* === Pass 1 === */
 	vfx_shgrp = DRW_shgroup_create(e_data->gpencil_vfx_blur_sh, psl->vfx_blur_pass_1);
+	++stl->g_data->tot_sh;
 	DRW_shgroup_call_add(vfx_shgrp, vfxquad, NULL);
 	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeColor", &e_data->vfx_fbcolor_color_tx_a);
 	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeDepth", &e_data->vfx_fbcolor_depth_tx_a);
@@ -195,6 +199,7 @@ static void DRW_gpencil_vfx_blur(
 
 	/* === Pass 2 === */
 	vfx_shgrp = DRW_shgroup_create(e_data->gpencil_vfx_blur_sh, psl->vfx_blur_pass_2);
+	++stl->g_data->tot_sh;
 	DRW_shgroup_call_add(vfx_shgrp, vfxquad, NULL);
 	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeColor", &e_data->vfx_fbcolor_color_tx_b);
 	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeDepth", &e_data->vfx_fbcolor_depth_tx_b);
@@ -211,6 +216,7 @@ static void DRW_gpencil_vfx_blur(
 
 	/* === Pass 3 === */
 	vfx_shgrp = DRW_shgroup_create(e_data->gpencil_vfx_blur_sh, psl->vfx_blur_pass_3);
+	++stl->g_data->tot_sh;
 	DRW_shgroup_call_add(vfx_shgrp, vfxquad, NULL);
 	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeColor", &e_data->vfx_fbcolor_color_tx_a);
 	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeDepth", &e_data->vfx_fbcolor_depth_tx_a);
@@ -227,6 +233,7 @@ static void DRW_gpencil_vfx_blur(
 
 	/* === Pass 4 === */
 	vfx_shgrp = DRW_shgroup_create(e_data->gpencil_vfx_blur_sh, psl->vfx_blur_pass_4);
+	++stl->g_data->tot_sh;
 	DRW_shgroup_call_add(vfx_shgrp, vfxquad, NULL);
 	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeColor", &e_data->vfx_fbcolor_color_tx_b);
 	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeDepth", &e_data->vfx_fbcolor_depth_tx_b);
@@ -263,6 +270,7 @@ static void DRW_gpencil_vfx_pixel(
 
 	struct Gwn_Batch *vfxquad = DRW_cache_fullscreen_quad_get();
 	vfx_shgrp = DRW_shgroup_create(e_data->gpencil_vfx_pixel_sh, psl->vfx_pixel_pass);
+	++stl->g_data->tot_sh;
 	DRW_shgroup_call_add(vfx_shgrp, vfxquad, NULL);
 	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeColor", &e_data->vfx_fbcolor_color_tx_a);
 	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeDepth", &e_data->vfx_fbcolor_depth_tx_a);
@@ -311,6 +319,7 @@ static void DRW_gpencil_vfx_swirl(
 
 	struct Gwn_Batch *vfxquad = DRW_cache_fullscreen_quad_get();
 	vfx_shgrp = DRW_shgroup_create(e_data->gpencil_vfx_swirl_sh, psl->vfx_swirl_pass);
+	++stl->g_data->tot_sh;
 	DRW_shgroup_call_add(vfx_shgrp, vfxquad, NULL);
 	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeColor", &e_data->vfx_fbcolor_color_tx_a);
 	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeDepth", &e_data->vfx_fbcolor_depth_tx_a);
