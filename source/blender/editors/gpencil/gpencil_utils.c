@@ -1293,6 +1293,7 @@ void ED_gp_get_drawing_reference(ToolSettings *ts, View3D *v3d, Scene *scene, Ob
 							bGPDstroke *gps = gpf->strokes.last;
 							if (gps->totpoints > 0) {
 								copy_v3_v3(vec, &gps->points[gps->totpoints - 1].x);
+								mul_m4_v3(ob->obmat, vec);
 								return;
 							}
 						}
@@ -1305,7 +1306,7 @@ void ED_gp_get_drawing_reference(ToolSettings *ts, View3D *v3d, Scene *scene, Ob
 				}
 				else {
 					/* use object location */
-					copy_v3_v3(vec, ob->loc);
+					copy_v3_v3(vec, ob->obmat[3]);
 				}
 			}
 		}
