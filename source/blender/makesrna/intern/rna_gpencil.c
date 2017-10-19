@@ -1475,12 +1475,12 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "pixfactor", PROP_INT, PROP_NONE);
 	RNA_def_property_int_sdna(prop, NULL, "pixfactor");
 	RNA_def_property_range(prop, 30, 10000);
-	RNA_def_property_ui_text(prop, "Pixel Factor", "Factor of conversion of pixel size (set bigger values for thinner lines)");
+	RNA_def_property_ui_text(prop, "Pixel Factor", "Conversion factor for pixel size (use larger values for thinner lines)");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
-	prop = RNA_def_property(srna, "multiedit", PROP_BOOLEAN, PROP_NONE);
+	prop = RNA_def_property(srna, "use_multiedit", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_DATA_STROKE_MULTIEDIT);
-	RNA_def_property_ui_text(prop, "MultiEdit", "Edit strokes in several grease pencil Keyframes at same time");
+	RNA_def_property_ui_text(prop, "MultiEdit", "Edit strokes from multiple grease pencil keyframes at the same time (keyframes must be selected to be included)");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
 	prop = RNA_def_property(srna, "show_edit_lines", PROP_BOOLEAN, PROP_NONE);
@@ -1496,7 +1496,7 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Edit Line Color", "Color for editing line");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
-	prop = RNA_def_property(srna, "multiedit_line_only", PROP_BOOLEAN, PROP_NONE);
+	prop = RNA_def_property(srna, "show_multiedit_line_only", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_DATA_STROKE_MULTIEDIT_LINES);
 	RNA_def_property_ui_text(prop, "Lines Only", "Show only edit lines for additional frames");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
