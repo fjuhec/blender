@@ -550,11 +550,7 @@ class GreasePencilEraserPanel:
         if context.gpencil_data is None:
             return False
 
-        is_paintmode = context.active_object and context.active_object.mode in ('GPENCIL_PAINT')
-        if context.active_object and is_paintmode:
-            return True
-        else:
-            return False
+        return context.active_object and context.active_object.mode == 'GPENCIL_PAINT'
 
     @staticmethod
     def draw(self, context):
