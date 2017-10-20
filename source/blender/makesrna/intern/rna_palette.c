@@ -350,10 +350,10 @@ static void rna_def_palettecolor(BlenderRNA *brna)
 	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS | ND_DATA | NC_GPENCIL, "rna_GPencil_update");
 
 	/* Shift factor to move texture in 2d space */
-	prop = RNA_def_property(srna, "texture_shift", PROP_FLOAT, PROP_COORDS);
-	RNA_def_property_float_sdna(prop, NULL, "t_shift");
+	prop = RNA_def_property(srna, "texture_offset", PROP_FLOAT, PROP_COORDS);
+	RNA_def_property_float_sdna(prop, NULL, "t_offset");
 	RNA_def_property_array(prop, 2);
-	RNA_def_property_ui_text(prop, "Shift", "Shift Texture in 2d Space");
+	RNA_def_property_ui_text(prop, "Offset", "Shift Texture in 2d Space");
 	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS | ND_DATA | NC_GPENCIL, "rna_GPencil_update");
 
 	/* Texture opacity size */

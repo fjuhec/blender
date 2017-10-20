@@ -278,7 +278,7 @@ static DRWShadingGroup *DRW_gpencil_shgroup_fill_create(GPENCIL_e_data *e_data, 
 
 	DRW_shgroup_uniform_float(grp, "t_angle", &palcolor->t_angle, 1);
 	DRW_shgroup_uniform_vec2(grp, "t_scale", palcolor->t_scale, 1);
-	DRW_shgroup_uniform_vec2(grp, "t_shift", palcolor->t_shift, 1);
+	DRW_shgroup_uniform_vec2(grp, "t_offset", palcolor->t_offset, 1);
 	DRW_shgroup_uniform_float(grp, "t_opacity", &palcolor->t_opacity, 1);
 
 	stl->shgroups[id].t_mix = palcolor->flag & PAC_COLOR_TEX_MIX ? 1 : 0;

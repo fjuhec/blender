@@ -646,7 +646,7 @@ static void gp_draw_stroke_fill(
 
 	immUniform1f("t_angle", palcolor->t_angle);
 	immUniform2fv("t_scale", palcolor->t_scale);
-	immUniform2fv("t_shift", palcolor->t_shift);
+	immUniform2fv("t_offset", palcolor->t_offset);
 	immUniform1f("t_opacity", palcolor->t_opacity);
 	immUniform1i("t_mix", palcolor->flag & PAC_COLOR_TEX_MIX ? 1 : 0);
 	immUniform1i("t_flip", palcolor->flag & PAC_COLOR_FLIP_FILL ? 1 : 0);

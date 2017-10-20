@@ -11,7 +11,7 @@ uniform vec2 g_shift;
 
 uniform float t_angle;
 uniform vec2 t_scale;
-uniform vec2 t_shift;
+uniform vec2 t_offset;
 uniform int t_mix;
 uniform int t_flip;
 uniform float t_opacity;
@@ -95,7 +95,7 @@ void main()
 {
 	vec2 t_center = vec2(0.5, 0.5);
 	mat2 matrot_tex = mat2(cos(t_angle), -sin(t_angle), sin(t_angle), cos(t_angle));
-	vec2 rot_tex = (matrot_tex * (texCoord_interp - t_center)) + t_center + t_shift;
+	vec2 rot_tex = (matrot_tex * (texCoord_interp - t_center)) + t_center + t_offset;
 	vec4 tmp_color = texture2D(myTexture, rot_tex * t_scale);
 	vec4 text_color = vec4(tmp_color[0], tmp_color[1], tmp_color[2], tmp_color[3] * t_opacity);
 	vec4 chesscolor;

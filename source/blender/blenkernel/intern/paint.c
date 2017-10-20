@@ -555,7 +555,7 @@ PaletteColor *BKE_palette_color_copy(Palette *palette, PaletteColor *palcolor)
 	copy_v2_v2(newcolor->g_shift, palcolor->g_shift);
 	newcolor->t_angle = palcolor->t_angle;
 	copy_v2_v2(newcolor->t_scale, palcolor->t_scale);
-	copy_v2_v2(newcolor->t_shift, palcolor->t_shift);
+	copy_v2_v2(newcolor->t_offset, palcolor->t_offset);
 	newcolor->t_opacity = palcolor->t_opacity;
 	newcolor->sima = palcolor->sima;
 	newcolor->ima = palcolor->ima;

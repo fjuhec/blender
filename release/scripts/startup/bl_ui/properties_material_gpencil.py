@@ -251,7 +251,7 @@ class MATERIAL_PT_gpencil_palette_fillcolor(Panel):
             col.template_ID(pcolor, "fill_image", open="image.open")
             split = col.split(percentage=0.5)
             subcol = split.column(align=True)
-            subcol.prop(pcolor, "texture_shift", text="Location")
+            subcol.prop(pcolor, "texture_offset", text="Offset")
             subcol.prop(pcolor, "texture_angle")
             subcol.prop(pcolor, "texture_clamp", text="Clip Image")
             subcol = split.column(align=True)
