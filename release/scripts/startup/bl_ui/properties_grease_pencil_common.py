@@ -98,11 +98,10 @@ class GreasePencilDrawingToolsPanel:
         layout = self.layout
 
         is_3d_view = context.space_data.type == 'VIEW_3D'
-        is_clip_editor = context.space_data.type == 'CLIP_EDITOR'
 
         col = layout.column(align=True)
 
-        # XXX: Shapes tools maybe need a panel
+        # TODO: Shapes tools maybe need a panel
         if is_3d_view:
             col.operator("gpencil.primitive", text="Rectangle", icon='UV_FACESEL').type = 'BOX'
             col.operator("gpencil.primitive", text="Circle", icon='ANTIALIASED').type = 'CIRCLE'
@@ -517,10 +516,7 @@ class GreasePencilAppearancePanel:
 
         is_gpmode = context.active_object and \
                     context.active_object.mode in ('GPENCIL_EDIT', 'GPENCIL_PAINT', 'GPENCIL_SCULPT')
-        if context.active_object and is_gpmode:
-            return True
-        else:
-            return False
+        return is_gpmode
 
     @staticmethod
     def draw(self, context):
@@ -1072,13 +1068,8 @@ class GreasePencilDataPanel:
         layout = self.layout
 
         # owner of Grease Pencil data
-        #if context.space_data.type != 'PROPERTIES':
         gpd_owner = context.gpencil_data_owner
         gpd = context.gpencil_data
-        #else:
-        #    ob = context.object
-        #    gpd_owner = ob
-        #    gpd = ob.grease_pencil
 
         # Owner Selector
         if context.space_data.type == 'CLIP_EDITOR':
@@ -1392,7 +1383,6 @@ class GreasePencilParentLayerPanel:
 
 class GPENCIL_UL_vgroups(UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
-        # assert(isinstance(item, bpy.types.VertexGroup))
         vgroup = item
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             layout.prop(vgroup, "name", text="", emboss=False, icon_value=icon)
@@ -1494,7 +1484,7 @@ class GreasePencilInfoPanel:
 
 ###############################
 
-# XXX: Placeholder - Annotation views shouldn't use this anymore...
+# TODO: Placeholder - Annotation views shouldn't use this anymore...
 class GreasePencilPaletteColorPanel:
     bl_label = "Grease Pencil Colors"
     bl_region_type = 'TOOLS'
