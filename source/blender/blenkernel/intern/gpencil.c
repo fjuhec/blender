@@ -507,8 +507,7 @@ bGPDlayer *BKE_gpencil_layer_addnew(bGPdata *gpd, const char *name, bool setacti
 void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 {
 	bGPDbrush *brush;
-	float curcolor[3];
-	ARRAY_SET_ITEMS(curcolor, 1.0f, 1.0f, 1.0f);
+	float curcolor[3] = { 1.0f, 1.0f, 1.0f };
 
 	/* Basic brush */
 	brush = BKE_gpencil_brush_addnew(ts, "Basic", false);
@@ -1584,7 +1583,7 @@ bGPDpaletteref *BKE_gpencil_paletteslot_validate(Main *bmain, bGPdata *gpd)
 	}
 	
 	/* ensure a palette exists */
-	/* XXX: use "active palette" instead of making a new one each time?
+	/* TODO: use "active palette" instead of making a new one each time?
 	 *      (or use active one on "gp_object" in scene?)
 	 */
 	if (palslot->palette == NULL) {
@@ -2021,7 +2020,7 @@ void BKE_gpencil_move_animdata_to_palettes(bContext *C, bGPdata *gpd)
 {
 	Main *bmain = CTX_data_main(C);
 	Palette *palette = NULL;
-	AnimData *srcAdt = NULL, *dstAdt = NULL;
+	AnimData *src_adt = NULL, *dst_adt = NULL;
 	FCurve *fcu = NULL;
 	char info[64];
 
@@ -2032,15 +2031,15 @@ void BKE_gpencil_move_animdata_to_palettes(bContext *C, bGPdata *gpd)
 		return;
 	}
 	/* get animdata from src, and create for destination (if needed) */
-	srcAdt = BKE_animdata_from_id((ID *)gpd);
-	if (ELEM(NULL, srcAdt)) {
+	src_adt = BKE_animdata_from_id((ID *)gpd);
+	if (ELEM(NULL, src_adt)) {
 		if (G.debug & G_DEBUG)
 			printf("ERROR: no source AnimData\n");
 		return;
 	}
 
 	/* find first palette */
-	for (fcu = srcAdt->action->curves.first; fcu; fcu = fcu->next) {
+	for (fcu = src_adt->action->curves.first; fcu; fcu = fcu->next) {
 		if (strncmp("palette", fcu->rna_path, 7) == 0) {
 			int x = strcspn(fcu->rna_path, "[") + 2;
 			int y = strcspn(fcu->rna_path, "]");
@@ -2056,22 +2055,22 @@ void BKE_gpencil_move_animdata_to_palettes(bContext *C, bGPdata *gpd)
 	}
 
 	/* active action */
-	if (srcAdt->action) {
+	if (src_adt->action) {
 		/* get animdata from destination or create (if needed) */
-		dstAdt = BKE_animdata_add_id((ID *) palette);
-		if (ELEM(NULL, dstAdt)) {
+		dst_adt = BKE_animdata_add_id((ID *) palette);
+		if (ELEM(NULL, dst_adt)) {
 			if (G.debug & G_DEBUG)
 				printf("ERROR: no AnimData for destination palette\n");
 			return;
 		}
 
 		/* create destination action */
-		dstAdt->action = add_empty_action(G.main, srcAdt->action->id.name + 2);
+		dst_adt->action = add_empty_action(G.main, src_adt->action->id.name + 2);
 		/* move fcurves */
-		action_move_fcurves_by_basepath(srcAdt->action, dstAdt->action, "palettes");
+		action_move_fcurves_by_basepath(src_adt->action, dst_adt->action, "palettes");
 
 		/* loop over base paths, to fix for each one... */
-		for (fcu = dstAdt->action->curves.first; fcu; fcu = fcu->next) {
+		for (fcu = dst_adt->action->curves.first; fcu; fcu = fcu->next) {
 			if (strncmp("palette", fcu->rna_path, 7) == 0) {
 				int x = strcspn(fcu->rna_path, ".") + 1;
 				BLI_strncpy(fcu->rna_path, fcu->rna_path + x, strlen(fcu->rna_path));
