@@ -1066,7 +1066,10 @@ void Mesh::compute_bvh(Device *device,
 			BVHParams bparams;
 			bparams.use_spatial_split = params->use_bvh_spatial_split;
 			bparams.use_qbvh = params->use_qbvh && device->info.has_qbvh;
+			bparams.bvh_type = params->bvh_type;
 			bparams.use_bvh_embree = params->use_bvh_embree;
+			bparams.curve_flags = dscene->data.curve.curveflags;
+			bparams.curve_subdivisions = dscene->data.curve.subdivisions;
 			bparams.use_unaligned_nodes = dscene->data.bvh.have_curves &&
 			                              params->use_bvh_unaligned_nodes;
 			bparams.num_motion_triangle_steps = params->num_bvh_time_steps;
@@ -1827,11 +1830,14 @@ void MeshManager::device_update_bvh(Device *device, DeviceScene *dscene, Scene *
 	bparams.top_level = true;
 	bparams.use_qbvh = scene->params.use_qbvh && device->info.has_qbvh;
 	bparams.use_spatial_split = scene->params.use_bvh_spatial_split;
-	bparams.use_bvh_embree = scene->params.use_bvh_embree;
 	bparams.use_unaligned_nodes = dscene->data.bvh.have_curves &&
 	                              scene->params.use_bvh_unaligned_nodes;
 	bparams.num_motion_triangle_steps = scene->params.num_bvh_time_steps;
 	bparams.num_motion_curve_steps = scene->params.num_bvh_time_steps;
+	bparams.bvh_type = scene->params.bvh_type;
+	bparams.use_bvh_embree = scene->params.use_bvh_embree;
+	bparams.curve_flags = dscene->data.curve.curveflags;
+	bparams.curve_subdivisions = dscene->data.curve.subdivisions;
 
 	VLOG(1) << (bparams.use_qbvh ? "Using QBVH optimization structure"
 	                             : "Using regular BVH optimization structure");
