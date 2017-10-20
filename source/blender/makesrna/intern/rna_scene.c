@@ -634,7 +634,8 @@ static void rna_GPencilBrush_name_set(PointerRNA *ptr, const char *value)
 }
 
 /* Dynamic Enums of GP Brushes */
-static EnumPropertyItem *rna_GPencilBrush_enum_itemf(bContext *UNUSED(C), PointerRNA *ptr, PropertyRNA *UNUSED(prop),
+static const EnumPropertyItem *rna_GPencilBrush_enum_itemf(
+        bContext *UNUSED(C), PointerRNA *ptr, PropertyRNA *UNUSED(prop),
 	bool *r_free)
 {
 	ToolSettings *ts = ((Scene *)ptr->id.data)->toolsettings;

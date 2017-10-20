@@ -87,10 +87,10 @@ typedef enum eGPDspoint_Flag {
  *	   This is only used if high quality fill is enabled
  */
 typedef struct bGPDtriangle {
-	int v1, v2, v3;         /* indices for tesselated triangle used for GP Fill */
-	float uv1[2];           /* texture coordinates for v1 */
-	float uv2[2];           /* texture coordinates for v2 */
-	float uv3[2];           /* texture coordinates for v3 */
+	/* indices for tesselated triangle used for GP Fill */
+	unsigned int verts[3];
+	/* texture coordinates for verts */
+	float uv[3][2];
 } bGPDtriangle;
 
 /* ***************************************** */
@@ -99,14 +99,14 @@ typedef struct bGPDtriangle {
 /* GP brush (used for new strokes) */
 typedef struct bGPDbrush {
 	struct bGPDbrush *next, *prev;
-	
+
 	char info[64];            /* Brush name. Must be unique. */
 	short thickness;          /* thickness to apply to strokes */
 	short flag;
 	float draw_smoothfac;     /* amount of smoothing to apply to newly created strokes */
 	short draw_smoothlvl;     /* number of times to apply smooth factor to new strokes */
 	short sublevel;           /* number of times to subdivide new strokes */
-	
+
 	float draw_sensitivity;   /* amount of sensivity to apply to newly created strokes */
 	float draw_strength;      /* amount of alpha strength to apply to newly created strokes */
 	float draw_jitter;        /* amount of jitter to apply to newly created strokes */
@@ -114,11 +114,11 @@ typedef struct bGPDbrush {
 	float draw_angle_factor;  /* factor to apply when angle change (only 90 degrees) */
 	float draw_random_press;  /* factor of randomness for sensitivity and strength */
 	float draw_random_sub;    /* factor of randomness for subdivision */
-	
+
 	struct CurveMapping *cur_sensitivity;
 	struct CurveMapping *cur_strength;
 	struct CurveMapping *cur_jitter;
-	
+
 	float curcolor[3];
 	char pad[4];
 } bGPDbrush;
@@ -168,7 +168,6 @@ typedef enum eGPDpalettecolor_Flag {
 	PC_COLOR_VOLUMETRIC = (1 << 4)
 } eGPDpalettecolor_Flag;
 
-
 /* palette of colors */
 typedef struct bGPDpalette {
 	struct bGPDpalette *next, *prev;
@@ -216,17 +215,17 @@ typedef struct bGPDpaletteref {
  */
 typedef struct bGPDstroke {
 	struct bGPDstroke *next, *prev;
-	
+
 	bGPDspoint *points;		/* array of data-points for stroke */
 	bGPDtriangle *triangles;/* tesselated triangles for GP Fill */
 	int totpoints;          /* number of data-points in array */
 	int tot_triangles;      /* number of triangles in array */
-	
+
 	short thickness;        /* thickness of stroke */
 	short flag, pad[2];     /* various settings about this stroke */
-	
+
 	double inittime;		/* Init time of stroke */
-	
+
 	/* The pointer to color is only used during drawing, but not saved 
 	 * colorname is the join with the palette, but when draw, the pointer is update if the value is NULL
 	 * to speed up the drawing

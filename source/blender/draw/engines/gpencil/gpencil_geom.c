@@ -53,8 +53,8 @@
 /* set stroke point to vbo */
 static void gpencil_set_stroke_point(
         Gwn_VertBuf *vbo, float matrix[4][4], const bGPDspoint *pt, int idx,
-        unsigned int pos_id, unsigned int color_id,
-        unsigned int thickness_id, short thickness,
+        uint pos_id, uint color_id,
+        uint thickness_id, short thickness,
         const float ink[4])
 {
 	float viewfpt[3];
@@ -77,14 +77,14 @@ static void gpencil_set_stroke_point(
 Gwn_Batch *DRW_gpencil_get_point_geom(bGPDstroke *gps, short thickness, const float ink[4])
 {
 	static Gwn_VertFormat format = { 0 };
-	static unsigned int pos_id, color_id, size_id;
+	static uint pos_id, color_id, size_id;
 	if (format.attrib_ct == 0) {
 		pos_id = GWN_vertformat_attr_add(&format, "pos", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
 		color_id = GWN_vertformat_attr_add(&format, "color", GWN_COMP_F32, 4, GWN_FETCH_FLOAT);
 		size_id = GWN_vertformat_attr_add(&format, "thickness", GWN_COMP_F32, 1, GWN_FETCH_FLOAT);
 	}
 
-	Gwn_VertBuf *vbo =  GWN_vertbuf_create_with_format(&format);
+	Gwn_VertBuf *vbo = GWN_vertbuf_create_with_format(&format);
 	GWN_vertbuf_data_alloc(vbo, gps->totpoints);
 
 	/* draw stroke curve */
@@ -119,14 +119,14 @@ Gwn_Batch *DRW_gpencil_get_stroke_geom(bGPDframe *gpf, bGPDstroke *gps, short th
 	int cyclic_add = (gps->flag & GP_STROKE_CYCLIC) ? 1 : 0;
 
 	static Gwn_VertFormat format = { 0 };
-	static unsigned int pos_id, color_id, thickness_id;
+	static uint pos_id, color_id, thickness_id;
 	if (format.attrib_ct == 0) {
 		pos_id = GWN_vertformat_attr_add(&format, "pos", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
 		color_id = GWN_vertformat_attr_add(&format, "color", GWN_COMP_F32, 4, GWN_FETCH_FLOAT);
 		thickness_id = GWN_vertformat_attr_add(&format, "thickness", GWN_COMP_F32, 1, GWN_FETCH_FLOAT);
 	}
 
-	Gwn_VertBuf *vbo =  GWN_vertbuf_create_with_format(&format);
+	Gwn_VertBuf *vbo = GWN_vertbuf_create_with_format(&format);
 	GWN_vertbuf_data_alloc(vbo, totpoints + cyclic_add + 2);
 
 	/* draw stroke curve */
@@ -219,14 +219,14 @@ Gwn_Batch *DRW_gpencil_get_buffer_stroke_geom(bGPdata *gpd, float matrix[4][4], 
 	int totpoints = gpd->sbuffer_size;
 
 	static Gwn_VertFormat format = { 0 };
-	static unsigned int pos_id, color_id, thickness_id;
+	static uint pos_id, color_id, thickness_id;
 	if (format.attrib_ct == 0) {
 		pos_id = GWN_vertformat_attr_add(&format, "pos", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
 		color_id = GWN_vertformat_attr_add(&format, "color", GWN_COMP_F32, 4, GWN_FETCH_FLOAT);
 		thickness_id = GWN_vertformat_attr_add(&format, "thickness", GWN_COMP_F32, 1, GWN_FETCH_FLOAT);
 	}
 
-	Gwn_VertBuf *vbo =  GWN_vertbuf_create_with_format(&format);
+	Gwn_VertBuf *vbo = GWN_vertbuf_create_with_format(&format);
 	GWN_vertbuf_data_alloc(vbo, totpoints + 2);
 
 	/* draw stroke curve */
@@ -274,7 +274,7 @@ Gwn_Batch *DRW_gpencil_get_buffer_point_geom(bGPdata *gpd, float matrix[4][4], s
 	int totpoints = gpd->sbuffer_size;
 
 	static Gwn_VertFormat format = { 0 };
-	static unsigned int pos_id, color_id, thickness_id;
+	static uint pos_id, color_id, thickness_id;
 	if (format.attrib_ct == 0) {
 		pos_id = GWN_vertformat_attr_add(&format, "pos", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
 		color_id = GWN_vertformat_attr_add(&format, "color", GWN_COMP_F32, 4, GWN_FETCH_FLOAT);
@@ -320,8 +320,8 @@ Gwn_Batch *DRW_gpencil_get_buffer_fill_geom(const tGPspoint *points, int totpoin
 
 	int tot_triangles = totpoints - 2;
 	/* allocate memory for temporary areas */
-	unsigned int(*tmp_triangles)[3] = MEM_mallocN(sizeof(*tmp_triangles) * tot_triangles, "GP Stroke buffer temp triangulation");
-	float(*points2d)[2] = MEM_mallocN(sizeof(*points2d) * totpoints, "GP Stroke buffer temp 2d points");
+	uint (*tmp_triangles)[3] = MEM_mallocN(sizeof(*tmp_triangles) * tot_triangles, __func__);
+	float (*points2d)[2] = MEM_mallocN(sizeof(*points2d) * totpoints, __func__);
 
 	/* Convert points to array and triangulate
 	* Here a cache is not used because while drawing the information changes all the time, so the cache
@@ -332,16 +332,16 @@ Gwn_Batch *DRW_gpencil_get_buffer_fill_geom(const tGPspoint *points, int totpoin
 		points2d[i][0] = pt->x;
 		points2d[i][1] = pt->y;
 	}
-	BLI_polyfill_calc((const float(*)[2])points2d, (unsigned int)totpoints, 0, (unsigned int(*)[3])tmp_triangles);
+	BLI_polyfill_calc(points2d, (uint)totpoints, 0, tmp_triangles);
 
 	static Gwn_VertFormat format = { 0 };
-	static unsigned int pos_id, color_id;
+	static uint pos_id, color_id;
 	if (format.attrib_ct == 0) {
 		pos_id = GWN_vertformat_attr_add(&format, "pos", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
 		color_id = GWN_vertformat_attr_add(&format, "color", GWN_COMP_F32, 4, GWN_FETCH_FLOAT);
 	}
 
-	Gwn_VertBuf *vbo =  GWN_vertbuf_create_with_format(&format);
+	Gwn_VertBuf *vbo = GWN_vertbuf_create_with_format(&format);
 
 	/* draw triangulation data */
 	if (tot_triangles > 0) {
@@ -352,24 +352,13 @@ Gwn_Batch *DRW_gpencil_get_buffer_fill_geom(const tGPspoint *points, int totpoin
 
 		int idx = 0;
 		for (int i = 0; i < tot_triangles; i++) {
-			/* vertex 1 */
-			tpt = &points[tmp_triangles[i][0]];
-			gpencil_tpoint_to_point(scene, ar, v3d, tpt, &pt);
-			GWN_vertbuf_attr_set(vbo, pos_id, idx, &pt.x);
-			GWN_vertbuf_attr_set(vbo, color_id, idx, ink);
-			++idx;
-			/* vertex 2 */
-			tpt = &points[tmp_triangles[i][1]];
-			gpencil_tpoint_to_point(scene, ar, v3d, tpt, &pt);
-			GWN_vertbuf_attr_set(vbo, pos_id, idx, &pt.x);
-			GWN_vertbuf_attr_set(vbo, color_id, idx, ink);
-			++idx;
-			/* vertex 3 */
-			tpt = &points[tmp_triangles[i][2]];
-			gpencil_tpoint_to_point(scene, ar, v3d, tpt, &pt);
-			GWN_vertbuf_attr_set(vbo, pos_id, idx, &pt.x);
-			GWN_vertbuf_attr_set(vbo, color_id, idx, ink);
-			++idx;
+			for (int j = 0; j < 3; j++) {
+				tpt = &points[tmp_triangles[i][j]];
+				gpencil_tpoint_to_point(scene, ar, v3d, tpt, &pt);
+				GWN_vertbuf_attr_set(vbo, pos_id, idx, &pt.x);
+				GWN_vertbuf_attr_set(vbo, color_id, idx, ink);
+				idx++;
+			}
 		}
 	}
 
@@ -504,7 +493,7 @@ static void gp_triangulate_stroke_fill(bGPDstroke *gps)
 
 	/* allocate memory for temporary areas */
 	gps->tot_triangles = gps->totpoints - 2;
-	unsigned int(*tmp_triangles)[3] = MEM_mallocN(sizeof(*tmp_triangles) * gps->tot_triangles, "GP Stroke temp triangulation");
+	uint(*tmp_triangles)[3] = MEM_mallocN(sizeof(*tmp_triangles) * gps->tot_triangles, "GP Stroke temp triangulation");
 	float(*points2d)[2] = MEM_mallocN(sizeof(*points2d) * gps->totpoints, "GP Stroke temp 2d points");
 	float(*uv)[2] = MEM_mallocN(sizeof(*uv) * gps->totpoints, "GP Stroke temp 2d uv data");
 
@@ -512,15 +501,15 @@ static void gp_triangulate_stroke_fill(bGPDstroke *gps)
 
 	/* convert to 2d and triangulate */
 	gpencil_stroke_2d_flat(gps->points, gps->totpoints, points2d, &direction);
-	BLI_polyfill_calc((const float(*)[2])points2d, (unsigned int)gps->totpoints, direction, (unsigned int(*)[3])tmp_triangles);
+	BLI_polyfill_calc(points2d, (uint)gps->totpoints, direction, tmp_triangles);
 
 	/* calc texture coordinates automatically */
 	float minv[2];
 	float maxv[2];
 	/* first needs bounding box data */
-	gpencil_calc_2d_bounding_box((const float(*)[2])points2d, gps->totpoints, minv, maxv, false);
+	gpencil_calc_2d_bounding_box(points2d, gps->totpoints, minv, maxv, false);
 	/* calc uv data */
-	gpencil_calc_stroke_uv((const float(*)[2])points2d, gps->totpoints, minv, maxv, uv);
+	gpencil_calc_stroke_uv(points2d, gps->totpoints, minv, maxv, uv);
 
 	/* Number of triangles */
 	gps->tot_triangles = gps->totpoints - 2;
@@ -535,13 +524,11 @@ static void gp_triangulate_stroke_fill(bGPDstroke *gps)
 
 		for (int i = 0; i < gps->tot_triangles; i++) {
 			bGPDtriangle *stroke_triangle = &gps->triangles[i];
-			stroke_triangle->v1 = tmp_triangles[i][0];
-			stroke_triangle->v2 = tmp_triangles[i][1];
-			stroke_triangle->v3 = tmp_triangles[i][2];
+			memcpy(gps->triangles[i].verts, tmp_triangles[i], sizeof(uint[3]));
 			/* copy texture coordinates */
-			copy_v2_v2(stroke_triangle->uv1, uv[tmp_triangles[i][0]]);
-			copy_v2_v2(stroke_triangle->uv2, uv[tmp_triangles[i][1]]);
-			copy_v2_v2(stroke_triangle->uv3, uv[tmp_triangles[i][2]]);
+			copy_v2_v2(stroke_triangle->uv[0], uv[tmp_triangles[i][0]]);
+			copy_v2_v2(stroke_triangle->uv[1], uv[tmp_triangles[i][1]]);
+			copy_v2_v2(stroke_triangle->uv[2], uv[tmp_triangles[i][2]]);
 		}
 	}
 	else {
@@ -564,8 +551,9 @@ static void gp_triangulate_stroke_fill(bGPDstroke *gps)
 }
 
 /* add a new fill point and texture coordinates to vertex buffer */
-static void gpencil_set_fill_point(Gwn_VertBuf *vbo, int idx, bGPDspoint *pt, const float fcolor[4], float uv[2],
-	unsigned int pos_id, unsigned int color_id, unsigned int text_id)
+static void gpencil_set_fill_point(
+        Gwn_VertBuf *vbo, int idx, bGPDspoint *pt, const float fcolor[4], float uv[2],
+        uint pos_id, uint color_id, uint text_id)
 {
 	GWN_vertbuf_attr_set(vbo, pos_id, idx, &pt->x);
 	GWN_vertbuf_attr_set(vbo, color_id, idx, fcolor);
@@ -584,29 +572,26 @@ Gwn_Batch *DRW_gpencil_get_fill_geom(bGPDstroke *gps, const float color[4])
 	BLI_assert(gps->tot_triangles >= 1);
 
 	static Gwn_VertFormat format = { 0 };
-	static unsigned int pos_id, color_id, text_id;
+	static uint pos_id, color_id, text_id;
 	if (format.attrib_ct == 0) {
 		pos_id = GWN_vertformat_attr_add(&format, "pos", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
 		color_id = GWN_vertformat_attr_add(&format, "color", GWN_COMP_F32, 4, GWN_FETCH_FLOAT);
 		text_id = GWN_vertformat_attr_add(&format, "texCoord", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
 	}
 
-	Gwn_VertBuf *vbo =  GWN_vertbuf_create_with_format(&format);
+	Gwn_VertBuf *vbo = GWN_vertbuf_create_with_format(&format);
 	GWN_vertbuf_data_alloc(vbo, gps->tot_triangles * 3);
 
 	/* Draw all triangles for filling the polygon (cache must be calculated before) */
 	bGPDtriangle *stroke_triangle = gps->triangles;
 	int idx = 0;
 	for (int i = 0; i < gps->tot_triangles; i++, stroke_triangle++) {
-		gpencil_set_fill_point(vbo, idx, &gps->points[stroke_triangle->v1], color, stroke_triangle->uv1,
-			pos_id, color_id, text_id);
-		++idx;
-		gpencil_set_fill_point(vbo, idx, &gps->points[stroke_triangle->v2], color, stroke_triangle->uv2,
-			pos_id, color_id, text_id);
-		++idx;
-		gpencil_set_fill_point(vbo, idx, &gps->points[stroke_triangle->v3], color, stroke_triangle->uv3,
-			pos_id, color_id, text_id);
-		++idx;
+		for (int j = 0; j < 3; j++) {
+			gpencil_set_fill_point(
+			        vbo, idx, &gps->points[stroke_triangle->verts[j]], color, stroke_triangle->uv[j],
+			        pos_id, color_id, text_id);
+			++idx;
+		}
 	}
 
 	return GWN_batch_create_ex(GWN_PRIM_TRIS, vbo, NULL, GWN_BATCH_OWNS_VBO);
@@ -649,14 +634,14 @@ Gwn_Batch *DRW_gpencil_get_edit_geom(bGPDstroke *gps, float alpha, short dflag)
 	selectColor[3] = alpha;
 
 	static Gwn_VertFormat format = { 0 };
-	static unsigned int pos_id, color_id, size_id;
+	static uint pos_id, color_id, size_id;
 	if (format.attrib_ct == 0) {
 		pos_id = GWN_vertformat_attr_add(&format, "pos", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
 		color_id = GWN_vertformat_attr_add(&format, "color", GWN_COMP_F32, 4, GWN_FETCH_FLOAT);
 		size_id = GWN_vertformat_attr_add(&format, "size", GWN_COMP_F32, 1, GWN_FETCH_FLOAT);
 	}
 
-	Gwn_VertBuf *vbo =  GWN_vertbuf_create_with_format(&format);
+	Gwn_VertBuf *vbo = GWN_vertbuf_create_with_format(&format);
 	GWN_vertbuf_data_alloc(vbo, gps->totpoints);
 
 	/* Draw start and end point differently if enabled stroke direction hint */
@@ -728,7 +713,7 @@ Gwn_Batch *DRW_gpencil_get_edlin_geom(bGPDstroke *gps, float alpha, short UNUSED
 	copy_v4_v4(linecolor, gpd->line_color);
 
 	static Gwn_VertFormat format = { 0 };
-	static unsigned int pos_id, color_id;
+	static uint pos_id, color_id;
 	if (format.attrib_ct == 0) {
 		pos_id = GWN_vertformat_attr_add(&format, "pos", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
 		color_id = GWN_vertformat_attr_add(&format, "color", GWN_COMP_F32, 4, GWN_FETCH_FLOAT);
