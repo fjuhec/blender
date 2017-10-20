@@ -74,7 +74,7 @@ static DerivedMesh *applyModifier(ModifierData *md, const struct EvaluationConte
 {
 	GpencilLatticeModifierData *mmd = (GpencilLatticeModifierData *)md;
 	LatticeDeformData *ldata = NULL;
-	Scene *scene = CTX_data_scene(mmd->C);
+	Scene *scene = md->scene;
 	Main *bmain = CTX_data_main(mmd->C);
 	bGPdata *gpd;
 	Object *latob = NULL;
