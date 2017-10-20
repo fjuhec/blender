@@ -23,8 +23,6 @@ from bpy.types import Panel, UIList
 
 class GPENCIL_UL_paletteslots(UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
-        # assert(isinstance(item, bpy.types.GPencilPaletteSlot)
-        # ob = data
         slot = item
         palette = slot.palette
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
@@ -98,9 +96,7 @@ class MATERIAL_PT_gpencil_palette_colors(Panel):
         
         gpd = context.gpencil_data
         slot = gpd.active_palette_slot
-        #palette = slot.palette
         palette = context.active_gpencil_palette
-        #assert(slot.palette == palette)
 
         row = layout.row()
         row.template_ID(slot, "palette", new="palette.new_gpencil")
