@@ -47,8 +47,44 @@ from . import utils
 ###########################
 # Asset Engine data classes.
 class AmberDataTagPG(PropertyGroup):
-    name = StringProperty(name="Name", description="Tag name")
-    priority = IntProperty(name="Priority", default=0, description="Tag priority (used to order tags, highest priority go first)")
+    def tag_update_func(self, context):
+        if not (context and context.space_data):
+            return
+        ae = context.space_data.asset_engine
+        name_prev = self.name_prev or self.name
+
+        if ae.repository_pg.tag_lock_updates:
+            return
+        ae.repository_pg.tag_lock_updates = True
+
+        tag = ae.repository_pg.tags.get(name_prev, None)
+        if tag and tag != self:
+            tag.name_prev = tag.name = self.name
+            tag.priority = self.priority
+
+        for asset in ae.repository_pg.assets:
+            tag = asset.tags.get(name_prev, None)
+            if tag and tag != self:
+                tag.name_prev = tag.name = self.name
+                tag.priority = self.priority
+
+        self.name_prev = self.name
+
+        repository = getattr(ae, "repository", None)
+        if repository is None:
+            repository = ae.repository = AmberDataRepository()
+        repository.from_pg(ae.repository_pg)
+
+        repository.wrt_repo(os.path.join(repository.path, utils.AMBER_DB_NAME), repository.to_dict())
+
+        bpy.ops.file.refresh()
+
+        ae.repository_pg.tag_lock_updates = False
+
+    name = StringProperty(name="Name", description="Tag name", update=tag_update_func)
+    priority = IntProperty(name="Priority", default=0, description="Tag priority (used to order tags, highest priority go first)", update=tag_update_func)
+
+    name_prev = StringProperty(options={'HIDDEN'})
 
     def include_update(self, context):
         if self.use_include:
@@ -89,9 +125,9 @@ class AmberDataTagPG(PropertyGroup):
             for tag_name, tag_priority in tags.items():
                 if subset is not None and tag_name not in subset:
                     continue
-                pg_tag = pg.add()
-                pg.name = tag_name
-                pg.priority = tag_priority
+                tag_pg = pg.add()
+                tag_pg.name_prev = tag_pg.name = tag_name
+                tag_pg.priority = tag_priority
         else:
             removed_tags = set(t.name for t in pg) - set(subset or tags)
             added_tags = set(subset or tags) - set(t.name for t in pg)
@@ -101,7 +137,7 @@ class AmberDataTagPG(PropertyGroup):
                 tag_pg.priority = tags[tag_pg.name]
             for tag_name in added_tags:
                 tag_pg = pg.add()
-                tag_pg.name = tag_name
+                tag_pg.name_prev = tag_pg.name = tag_name
                 tag_pg.priority = tags[tag_name]
 
 
@@ -414,6 +450,8 @@ class AmberDataAssetPG(PropertyGroup):
                                       name="Default Variant",
                                       description="Default variant of the asset, to be used when nothing explicitly chosen")
 
+    is_selected = BoolProperty(name="Selected", default=False, description="Whether this item is selected")
+
 
 class AmberDataAsset():
     def __init__(self):
@@ -425,6 +463,7 @@ class AmberDataAsset():
         self.tags = {}
         self.variants = {}
         self.variant_default = None
+        self.is_selected = False
 
     @staticmethod
     def from_dict(assets, entries_dict, repo_uuid):
@@ -484,6 +523,8 @@ class AmberDataAsset():
             AmberDataAssetVariant.from_pg(asset.variants, asset_pg.variants)
             asset.variant_default = asset.variants[asset_pg.variant_default[:]]
 
+            asset.is_selected = asset_pg.is_selected
+
     @staticmethod
     def to_pg(pg, assets, tags):
         for idx, asset in enumerate(assets.values()):
@@ -503,6 +544,9 @@ class AmberDataAsset():
 
             AmberDataAssetVariant.to_pg(asset_pg.variants, asset.variants)
             asset_pg.variant_default = asset.variant_default.uuid
+
+            asset_pg.is_selected = asset.is_selected
+
         for idx in range(len(pg), len(assets), -1):
             pg.remove(idx - 1)
 
@@ -519,6 +563,7 @@ class AmberDataRepositoryPG(PropertyGroup):
 
     tags = CollectionProperty(name="Tags", type=AmberDataTagPG, description="Filtering tags")
     tag_index_active = IntProperty(name="Active Tag", options={'HIDDEN'})
+    tag_lock_updates = BoolProperty(options={'HIDDEN'})
 
     assets = CollectionProperty(name="Assets", type=AmberDataAssetPG)
     asset_index_active = IntProperty(name="Active Asset", options={'HIDDEN'})
@@ -704,6 +749,7 @@ class AmberDataRepositoryList:
 
     def to_pg(self, pg):
         for idx, (uuid, (name, path)) in enumerate(self.repositories.items()):
+            print(name, path)
             if idx == len(pg.repositories):
                 pg.repositories.add()
             repo_pg = pg.repositories[idx]
@@ -715,6 +761,7 @@ class AmberDataRepositoryList:
             pg.repositories.remove(idx - 1)
 
     def from_pg(self, pg):
+        print([(pg_item.name, pg_item.path) for pg_item in pg.repositories])
         self.repositories = {pg_item.uuid[:]: (pg_item.name, pg_item.path) for pg_item in pg.repositories}
 
 
