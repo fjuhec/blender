@@ -532,13 +532,11 @@ static void gp_triangulate_stroke_fill(bGPDstroke *gps)
 
 		for (int i = 0; i < gps->tot_triangles; i++) {
 			bGPDtriangle *stroke_triangle = &gps->triangles[i];
-			stroke_triangle->v1 = tmp_triangles[i][0];
-			stroke_triangle->v2 = tmp_triangles[i][1];
-			stroke_triangle->v3 = tmp_triangles[i][2];
+			memcpy(stroke_triangle->verts, tmp_triangles[i], sizeof(uint[3]));
 			/* copy texture coordinates */
-			copy_v2_v2(stroke_triangle->uv1, uv[tmp_triangles[i][0]]);
-			copy_v2_v2(stroke_triangle->uv2, uv[tmp_triangles[i][1]]);
-			copy_v2_v2(stroke_triangle->uv3, uv[tmp_triangles[i][2]]);
+			copy_v2_v2(stroke_triangle->uv[0], uv[tmp_triangles[i][0]]);
+			copy_v2_v2(stroke_triangle->uv[1], uv[tmp_triangles[i][1]]);
+			copy_v2_v2(stroke_triangle->uv[2], uv[tmp_triangles[i][2]]);
 		}
 	}
 	else {
@@ -561,8 +559,9 @@ static void gp_triangulate_stroke_fill(bGPDstroke *gps)
 }
 
 /* add a new fill point and texture coordinates to vertex buffer */
-static void gp_add_filldata_tobuffer(bGPDspoint *pt, float uv[2], unsigned pos, unsigned texcoord, short flag, 
-	int offsx, int offsy, int winx, int winy, const float diff_mat[4][4])
+static void gp_add_filldata_tobuffer(
+        const bGPDspoint *pt, const float uv[2], uint pos, unsigned texcoord, short flag,
+        int offsx, int offsy, int winx, int winy, const float diff_mat[4][4])
 {
 	float fpt[3];
 	float co[2];
@@ -660,17 +659,14 @@ static void gp_draw_stroke_fill(
 	immBegin(GWN_PRIM_TRIS, gps->tot_triangles * 3);
 	/* TODO: use batch instead of immediate mode, to share vertices */
 
-	bGPDtriangle *stroke_triangle = gps->triangles;
+	const bGPDtriangle *stroke_triangle = gps->triangles;
 	for (int i = 0; i < gps->tot_triangles; i++, stroke_triangle++) {
-		gp_add_filldata_tobuffer(&gps->points[stroke_triangle->v1], stroke_triangle->uv1,
-			pos, texcoord, gps->flag,
-			offsx, offsy, winx, winy, diff_mat);
-		gp_add_filldata_tobuffer(&gps->points[stroke_triangle->v2], stroke_triangle->uv2,
-			pos, texcoord, gps->flag,
-			offsx, offsy, winx, winy, diff_mat);
-		gp_add_filldata_tobuffer(&gps->points[stroke_triangle->v3], stroke_triangle->uv3,
-			pos, texcoord, gps->flag,
-			offsx, offsy, winx, winy, diff_mat);
+		for (int j = 0; j < 3; j++) {
+			gp_add_filldata_tobuffer(
+			        &gps->points[stroke_triangle->verts[j]], stroke_triangle->uv[j],
+			        pos, texcoord, gps->flag,
+			        offsx, offsy, winx, winy, diff_mat);
+		}
 	}
 
 	immEnd();

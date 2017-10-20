@@ -535,13 +535,11 @@ static void gp_triangulate_stroke_fill(bGPDstroke *gps)
 
 		for (int i = 0; i < gps->tot_triangles; i++) {
 			bGPDtriangle *stroke_triangle = &gps->triangles[i];
-			stroke_triangle->v1 = tmp_triangles[i][0];
-			stroke_triangle->v2 = tmp_triangles[i][1];
-			stroke_triangle->v3 = tmp_triangles[i][2];
+			memcpy(gps->triangles[i].verts, tmp_triangles[i], sizeof(uint[3]));
 			/* copy texture coordinates */
-			copy_v2_v2(stroke_triangle->uv1, uv[tmp_triangles[i][0]]);
-			copy_v2_v2(stroke_triangle->uv2, uv[tmp_triangles[i][1]]);
-			copy_v2_v2(stroke_triangle->uv3, uv[tmp_triangles[i][2]]);
+			copy_v2_v2(stroke_triangle->uv[0], uv[tmp_triangles[i][0]]);
+			copy_v2_v2(stroke_triangle->uv[1], uv[tmp_triangles[i][1]]);
+			copy_v2_v2(stroke_triangle->uv[2], uv[tmp_triangles[i][2]]);
 		}
 	}
 	else {
@@ -598,15 +596,12 @@ Gwn_Batch *DRW_gpencil_get_fill_geom(bGPDstroke *gps, const float color[4])
 	bGPDtriangle *stroke_triangle = gps->triangles;
 	int idx = 0;
 	for (int i = 0; i < gps->tot_triangles; i++, stroke_triangle++) {
-		gpencil_set_fill_point(vbo, idx, &gps->points[stroke_triangle->v1], color, stroke_triangle->uv1,
-			pos_id, color_id, text_id);
-		++idx;
-		gpencil_set_fill_point(vbo, idx, &gps->points[stroke_triangle->v2], color, stroke_triangle->uv2,
-			pos_id, color_id, text_id);
-		++idx;
-		gpencil_set_fill_point(vbo, idx, &gps->points[stroke_triangle->v3], color, stroke_triangle->uv3,
-			pos_id, color_id, text_id);
-		++idx;
+		for (int j = 0; j < 3; j++) {
+			gpencil_set_fill_point(
+			        vbo, idx, &gps->points[stroke_triangle->verts[j]], color, stroke_triangle->uv[j],
+			        pos_id, color_id, text_id);
+			++idx;
+		}
 	}
 
 	return GWN_batch_create_ex(GWN_PRIM_TRIS, vbo, NULL, GWN_BATCH_OWNS_VBO);
