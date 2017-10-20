@@ -106,7 +106,7 @@ class AMBER_PT_options(Panel, AmberPanel):
         row.prop(context.window_manager, "amber_enable_editing", toggle=True)
 
 
-class AMBER_PT_tags(Panel, AmberPanel):
+class AMBER_PT_tags_filter(Panel, AmberPanel):
     bl_space_type = 'FILE_BROWSER'
     bl_region_type = 'TOOLS'
     bl_category = "Filter"
@@ -149,12 +149,38 @@ class AMBER_UL_assets(UIList):
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             split = layout.split(0.66, False)
             split.prop(asset, "name", text="", emboss=False, icon_value=icon)
+            split.prop(asset, "is_selected", text="")
         elif self.layout_type == 'GRID':
             layout.alignment = 'CENTER'
             layout.label(text="", icon_value=icon)
 
 
-class AMBER_PT_datablocks(Panel, AmberPanel):
+class AMBER_UL_asset_tags(UIList):
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+        # assert(isinstance(item, bpy.types.AmberDataTagPG))
+        tag = item
+        if self.layout_type in {'DEFAULT', 'COMPACT'}:
+            split = layout.split(0.66, False)
+            split.prop(tag, "name", text="", emboss=False, icon_value=icon)
+        elif self.layout_type == 'GRID':
+            layout.alignment = 'CENTER'
+            layout.label(text="", icon_value=icon)
+
+
+class AMBER_UL_tags(UIList):
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+        # assert(isinstance(item, bpy.types.AmberDataTagPG))
+        tag = item
+        if self.layout_type in {'DEFAULT', 'COMPACT'}:
+            split = layout.split(0.66, False)
+            split.prop(tag, "name", text="", emboss=False, icon_value=icon)
+            split.prop(tag, "priority", text="", emboss=False)
+        elif self.layout_type == 'GRID':
+            layout.alignment = 'CENTER'
+            layout.label(text="", icon_value=icon)
+
+
+class AMBER_PT_datablocks(Panel, AmberPanelEditing):
     bl_space_type = 'FILE_BROWSER'
     bl_region_type = 'TOOLS'
     bl_category = "Asset Engine"
@@ -168,7 +194,7 @@ class AMBER_PT_datablocks(Panel, AmberPanel):
         row = layout.row()
 
 
-class AMBER_PT_assets(Panel, AmberPanel):
+class AMBER_PT_assets(Panel, AmberPanelEditing):
     bl_space_type = 'FILE_BROWSER'
     bl_region_type = 'TOOLS'
     bl_category = "Asset Engine"
@@ -186,14 +212,45 @@ class AMBER_PT_assets(Panel, AmberPanel):
         col.operator("AMBER_OT_asset_add", text="", icon='MATERIAL_DATA').active_type = 'MATERIAL'
         col.operator("AMBER_OT_asset_delete", text="", icon='ZOOMOUT')
 
+        row = self.layout.row()
+        if 0 <= ae.repository_pg.asset_index_active < len(ae.repository_pg.assets):
+            asset = ae.repository_pg.assets[ae.repository_pg.asset_index_active]
+            row.template_list("AMBER_UL_asset_tags", "", asset, "tags", asset, "tag_index_active", rows=2)
+            col = row.column()
+            col.operator_menu_enum("AMBER_OT_asset_tag_add", "tag", text="", icon='ZOOMIN')
+            col.operator("AMBER_OT_asset_tag_remove", text="", icon='ZOOMOUT')
+
+
+class AMBER_PT_tags(Panel, AmberPanelEditing):
+    bl_space_type = 'FILE_BROWSER'
+    bl_region_type = 'TOOLS'
+    bl_category = "Asset Engine"
+    bl_label = "Existing Tags"
+
+    def draw(self, context):
+        ae = context.space_data.asset_engine
+
+        row = self.layout.row()
+        row.template_list("AMBER_UL_tags", "", ae.repository_pg, "tags", ae.repository_pg, "tag_index_active", rows=3)
+
+        col = row.column()
+        col.operator("AMBER_OT_tag_add", text="", icon='ZOOMIN')
+        col.operator("AMBER_OT_tag_delete", text="", icon='ZOOMOUT')
+
 
 classes = (
+    # Browsing
     AMBER_PT_repositories,
 
     AMBER_UL_tags_filter,
     AMBER_PT_options,
-    AMBER_PT_tags,
+    AMBER_PT_tags_filter,
 
+    # Editing
     AMBER_UL_assets,
+    AMBER_UL_asset_tags,
     AMBER_PT_assets,
+
+    AMBER_UL_tags,
+    AMBER_PT_tags,
 )
