@@ -196,12 +196,7 @@ class AmberOpsAssetDelete(Operator, AmberOpsEditing):
         ae = context.space_data.asset_engine
         ae.repository_pg.assets.remove(ae.repository_pg.asset_index_active)
 
-        repository = getattr(ae, "repository", None)
-        if repository is None:
-            repository = ae.repository = AmberDataRepository()
-        repository.from_pg(ae.repository_pg)
-
-        repository.wrt_repo(os.path.join(repository.path, utils.AMBER_DB_NAME), repository.to_dict())
+        AmberDataRepository.update_from_asset_engine(ae)
 
         bpy.ops.file.refresh()
 
@@ -235,12 +230,7 @@ class AmberOpsAssetTagAdd(Operator, AmberOpsEditing):
             asset_tag.name = tag.name
             asset_tag.priority = tag.priority
 
-        repository = getattr(ae, "repository", None)
-        if repository is None:
-            repository = ae.repository = AmberDataRepository()
-        repository.from_pg(ae.repository_pg)
-
-        repository.wrt_repo(os.path.join(repository.path, utils.AMBER_DB_NAME), repository.to_dict())
+        AmberDataRepository.update_from_asset_engine(ae)
 
         bpy.ops.file.refresh()
 
@@ -258,12 +248,7 @@ class AmberOpsAssetTagRemove(Operator, AmberOpsEditing):
         asset = ae.repository_pg.assets[ae.repository_pg.asset_index_active]
         asset.tags.remove(asset.tag_index_active)
 
-        repository = getattr(ae, "repository", None)
-        if repository is None:
-            repository = ae.repository = AmberDataRepository()
-        repository.from_pg(ae.repository_pg)
-
-        repository.wrt_repo(os.path.join(repository.path, utils.AMBER_DB_NAME), repository.to_dict())
+        AmberDataRepository.update_from_asset_engine(ae)
 
         bpy.ops.file.refresh()
 
@@ -294,12 +279,7 @@ class AmberOpsTagAdd(Operator, AmberOpsEditing):
         tag.priority = self.priority
         ae.repository_pg.tag_index_active = len(tags) - 1
 
-        repository = getattr(ae, "repository", None)
-        if repository is None:
-            repository = ae.repository = AmberDataRepository()
-        repository.from_pg(ae.repository_pg)
-
-        repository.wrt_repo(os.path.join(repository.path, utils.AMBER_DB_NAME), repository.to_dict())
+        AmberDataRepository.update_from_asset_engine(ae)
 
         bpy.ops.file.refresh()
 
@@ -326,12 +306,7 @@ class AmberOpsTagDelete(Operator, AmberOpsEditing):
 
         ae.repository_pg.tags.remove(ae.repository_pg.tag_index_active)
 
-        repository = getattr(ae, "repository", None)
-        if repository is None:
-            repository = ae.repository = AmberDataRepository()
-        repository.from_pg(ae.repository_pg)
-
-        repository.wrt_repo(os.path.join(repository.path, utils.AMBER_DB_NAME), repository.to_dict())
+        AmberDataRepository.update_from_asset_engine(ae)
 
         bpy.ops.file.refresh()
 

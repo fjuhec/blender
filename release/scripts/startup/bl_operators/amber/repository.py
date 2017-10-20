@@ -47,10 +47,11 @@ from . import utils
 ###########################
 # Asset Engine data classes.
 class AmberDataTagPG(PropertyGroup):
-    def tag_update_func(self, context):
-        if not (context and context.space_data):
+    def tag_data_update(self, context):
+        sd = context.space_data
+        if not (sd and sd.type == 'FILE_BROWSER' and sd.asset_engine):
             return
-        ae = context.space_data.asset_engine
+        ae = sd.asset_engine
         name_prev = self.name_prev or self.name
 
         if ae.repository_pg.tag_lock_updates:
@@ -70,19 +71,13 @@ class AmberDataTagPG(PropertyGroup):
 
         self.name_prev = self.name
 
-        repository = getattr(ae, "repository", None)
-        if repository is None:
-            repository = ae.repository = AmberDataRepository()
-        repository.from_pg(ae.repository_pg)
-
-        repository.wrt_repo(os.path.join(repository.path, utils.AMBER_DB_NAME), repository.to_dict())
-
-        bpy.ops.file.refresh()
-
         ae.repository_pg.tag_lock_updates = False
 
-    name = StringProperty(name="Name", description="Tag name", update=tag_update_func)
-    priority = IntProperty(name="Priority", default=0, description="Tag priority (used to order tags, highest priority go first)", update=tag_update_func)
+        AmberDataRepository.update_from_asset_engine(ae)
+
+    name = StringProperty(name="Name", description="Tag name", update=tag_data_update)
+    priority = IntProperty(name="Priority", default=0, update=tag_data_update,
+                           description="Tag priority (used to order tags, highest priority go first)")
 
     name_prev = StringProperty(options={'HIDDEN'})
 
@@ -419,14 +414,23 @@ class AmberDataAssetVariant():
 
 
 class AmberDataAssetPG(PropertyGroup):
-    name = StringProperty(name="Name", description="Asset name")
-    description = StringProperty(name="Description", description="Asset description")
-    uuid = IntVectorProperty(name="UUID", description="Asset unique identifier", size=4)
+    def asset_data_update(self, context):
+        sd = context.space_data
+        if not (sd and sd.type == 'FILE_BROWSER' and sd.asset_engine):
+            return
+        ae = sd.asset_engine
+
+        AmberDataRepository.update_from_asset_engine(ae)
+        bpy.ops.file.refresh()
+
+    name = StringProperty(name="Name", description="Asset name", update=asset_data_update)
+    description = StringProperty(name="Description", description="Asset description", update=asset_data_update)
+    uuid = IntVectorProperty(name="UUID", description="Asset unique identifier", size=4, update=asset_data_update)
 
     file_type = EnumProperty(items=[(e.identifier, e.name, e.description, e.value) for e in AssetEntry.bl_rna.properties["type"].enum_items],
-                             name="File Type", description="Type of file storing the asset")
+                             name="File Type", description="Type of file storing the asset", update=asset_data_update)
     blender_type = EnumProperty(items=[(e.identifier, e.name, e.description, e.value) for e in AssetEntry.bl_rna.properties["blender_type"].enum_items],
-                                name="Blender Type", description="Blender data-block type of the asset")
+                                name="Blender Type", description="Blender data-block type of the asset", update=asset_data_update)
 
     tags = CollectionProperty(name="Tags", type=AmberDataTagPG, description="Tags of the asset")
     tag_index_active = IntProperty(name="Active Tag", options={'HIDDEN'})
@@ -615,8 +619,21 @@ class AmberDataRepository:
 
     @classmethod
     def wrt_repo(cls, db_path, repo_dict):
-        with open(db_path, 'w') as db_f:
+        temp_path = os.path.join(os.path.dirname(db_path), utils.AMBER_DB_NAME + ".tmp")
+        with open(temp_path, 'w') as db_f:
             json.dump(repo_dict, db_f, indent=4)
+        os.replace(temp_path, db_path)
+
+    @staticmethod
+    def update_from_asset_engine(ae):
+        """Generic helper wrapping repository JSON file update when editing withing Blender."""
+        repository = getattr(ae, "repository", None)
+        if repository is None:
+            repository = ae.repository = AmberDataRepository()
+        repository.from_pg(ae.repository_pg)
+
+        repository.wrt_repo(os.path.join(repository.path, utils.AMBER_DB_NAME), repository.to_dict())
+
 
     def from_dict(self, repo_dict, root_path):
         self.clear()
