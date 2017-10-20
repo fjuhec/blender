@@ -53,7 +53,7 @@
 static void initData(ModifierData *md)
 {
 	GpencilLatticeModifierData *gpmd = (GpencilLatticeModifierData *)md;
-	gpmd->passindex = 0;
+	gpmd->pass_index = 0;
 	gpmd->layername[0] = '\0';
 	gpmd->vgname[0] = '\0';
 	gpmd->object = NULL;

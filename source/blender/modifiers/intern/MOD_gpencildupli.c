@@ -43,7 +43,7 @@
 static void initData(ModifierData *md)
 {
 	GpencilDupliModifierData *gpmd = (GpencilDupliModifierData *)md;
-	gpmd->passindex = 0;
+	gpmd->pass_index = 0;
 	gpmd->layername[0] = '\0';
 	gpmd->count = 1;
 	gpmd->offset[0] = 1.0f;

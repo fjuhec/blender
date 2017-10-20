@@ -43,7 +43,7 @@
 static void initData(ModifierData *md)
 {
 	GpencilSimplifyModifierData *gpmd = (GpencilSimplifyModifierData *)md;
-	gpmd->passindex = 0;
+	gpmd->pass_index = 0;
 	gpmd->factor = 0.0f;
 	gpmd->layername[0] = '\0';
 

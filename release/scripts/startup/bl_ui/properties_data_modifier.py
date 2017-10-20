@@ -1568,7 +1568,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         row.prop(md, "inverse_vertex", text="", icon="ARROW_LEFTRIGHT")
 
         row = col.row(align=True)
-        row.prop(md, "passindex", text="Pass")
+        row.prop(md, "pass_index", text="Pass")
         row.prop(md, "inverse_pass", text="", icon="ARROW_LEFTRIGHT")
 
         row = layout.row(align=True)
@@ -1587,7 +1587,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         row.prop(md, "level")
         row.prop(md, "simple", text="", icon="PARTICLE_POINT")
         row = col.row(align=True)
-        row.prop(md, "passindex", text="Pass")
+        row.prop(md, "pass_index", text="Pass")
         row.prop(md, "inverse_pass", text="", icon="ARROW_LEFTRIGHT")
 
         col = split.column()
@@ -1604,7 +1604,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         row = col.row(align=True)
         row.prop(md, "factor")
         row = col.row(align=True)
-        row.prop(md, "passindex", text="Pass")
+        row.prop(md, "pass_index", text="Pass")
         row.prop(md, "inverse_pass", text="", icon="ARROW_LEFTRIGHT")
 
         col = split.column()
@@ -1621,7 +1621,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         row = col.row(align=True)
         row.prop(md, "thickness")
         row = col.row(align=True)
-        row.prop(md, "passindex", text="Pass")
+        row.prop(md, "pass_index", text="Pass")
         row.prop(md, "inverse_pass", text="", icon="ARROW_LEFTRIGHT")
 
         col = split.column()
@@ -1656,7 +1656,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         row.prop_search(md, "layer", gpd, "layers", text="", icon="GREASEPENCIL")
         row.prop(md, "inverse_layers", text="", icon="ARROW_LEFTRIGHT")
         row = col.row(align=True)
-        row.prop(md, "passindex", text="Pass")
+        row.prop(md, "pass_index", text="Pass")
         row.prop(md, "inverse_pass", text="", icon="ARROW_LEFTRIGHT")
 
         row = layout.row()
@@ -1678,7 +1678,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         row.prop_search(md, "layer", gpd, "layers", text="", icon="GREASEPENCIL")
         row.prop(md, "inverse_layers", text="", icon="ARROW_LEFTRIGHT")
         row = col.row(align=True)
-        row.prop(md, "passindex", text="Pass")
+        row.prop(md, "pass_index", text="Pass")
         row.prop(md, "inverse_pass", text="", icon="ARROW_LEFTRIGHT")
 
         row = layout.row()
@@ -1704,7 +1704,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         row.prop(md, "inverse_vertex", text="", icon="ARROW_LEFTRIGHT")
 
         row = col.row(align=True)
-        row.prop(md, "passindex", text="Pass")
+        row.prop(md, "pass_index", text="Pass")
         row.prop(md, "inverse_pass", text="", icon="ARROW_LEFTRIGHT")
 
     def GP_ARRAY(self, layout, ob, md):
@@ -1756,7 +1756,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         row.prop_search(md, "layer", gpd, "layers", text="", icon="GREASEPENCIL")
         row.prop(md, "inverse_layers", text="", icon="ARROW_LEFTRIGHT")
         row = col.row(align=True)
-        row.prop(md, "passindex", text="Pass")
+        row.prop(md, "pass_index", text="Pass")
         row.prop(md, "inverse_pass", text="", icon="ARROW_LEFTRIGHT")
 
         row = layout.row()
@@ -1797,7 +1797,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         row.prop(md, "inverse_vertex", text="", icon="ARROW_LEFTRIGHT")
 
         row = col.row(align=True)
-        row.prop(md, "passindex", text="Pass")
+        row.prop(md, "pass_index", text="Pass")
         row.prop(md, "inverse_pass", text="", icon="ARROW_LEFTRIGHT")
 
         layout.separator()

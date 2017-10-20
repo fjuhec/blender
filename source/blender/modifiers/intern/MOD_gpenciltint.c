@@ -47,7 +47,7 @@
 static void initData(ModifierData *md)
 {
 	GpencilTintModifierData *gpmd = (GpencilTintModifierData *)md;
-	gpmd->passindex = 0;
+	gpmd->pass_index = 0;
 	gpmd->factor = 0;
 	gpmd->layername[0] = '\0';
 	gpmd->flag |= GP_TINT_CREATE_COLORS;

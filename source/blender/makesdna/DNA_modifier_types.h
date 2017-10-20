@@ -1641,7 +1641,7 @@ typedef struct GpencilNoiseModifierData {
 	ModifierData modifier;
 	char layername[64];          /* layer name */
 	char vgname[64];             /* optional vertexgroup name, MAX_VGROUP_NAME */
-	int passindex;               /* custom index for passes */
+	int pass_index;               /* custom index for passes */
 	int flag;                    /* several flags */
 	float factor;                /* factor of noise */
 	int step;                    /* how many frames before recalculate randoms */
@@ -1666,7 +1666,7 @@ typedef enum eGpencilNoise_Flag {
 typedef struct GpencilSubdivModifierData {
 	ModifierData modifier;
 	char layername[64];          /* layer name */
-	int passindex;               /* custom index for passes */
+	int pass_index;               /* custom index for passes */
 	int flag;                    /* flags */
 	int level;                   /* factor of subdivision */
 	char pad[4];
@@ -1682,7 +1682,7 @@ typedef struct GpencilThickModifierData {
 	ModifierData modifier;
 	char layername[64];          /* layer name */
 	char vgname[64];             /* optional vertexgroup name, MAX_VGROUP_NAME */
-	int passindex;               /* custom index for passes */
+	int pass_index;               /* custom index for passes */
 	int flag;                    /* flags */
 	int thickness;               /* Thickness change */
 	char pad[4];
@@ -1699,7 +1699,7 @@ typedef enum eGpencilThick_Flag {
 typedef struct GpencilTintModifierData {
 	ModifierData modifier;
 	char layername[64];          /* layer name */
-	int passindex;               /* custom index for passes */
+	int pass_index;               /* custom index for passes */
 	int flag;                    /* flags */
 	float rgb[3];                /* Tint color */
 	float factor;                /* Mix factor */
@@ -1714,7 +1714,7 @@ typedef enum eGpencilTint_Flag {
 typedef struct GpencilColorModifierData {
 	ModifierData modifier;
 	char layername[64];          /* layer name */
-	int passindex;               /* custom index for passes */
+	int pass_index;               /* custom index for passes */
 	int flag;                    /* flags */
 	float hsv[3];                /* hsv factors */
 	char pad[4];
@@ -1730,7 +1730,7 @@ typedef struct GpencilOpacityModifierData {
 	ModifierData modifier;
 	char layername[64];          /* layer name */
 	char vgname[64];             /* optional vertexgroup name, MAX_VGROUP_NAME */
-	int passindex;               /* custom index for passes */
+	int pass_index;               /* custom index for passes */
 	int flag;                    /* flags */
 	float factor;                /* Main Opacity factor */
 	char pad[4];
@@ -1766,7 +1766,7 @@ typedef enum eGpencilArray_Flag {
 typedef struct GpencilDupliModifierData {
 	ModifierData modifier;
 	char layername[64];          /* layer name */
-	int passindex;               /* custom index for passes */
+	int pass_index;               /* custom index for passes */
 	int flag;                    /* several flags */
 	float rnd_size;              /* random size factor */
 	float rnd_rot;               /* random size factor */
@@ -1789,7 +1789,7 @@ typedef struct GpencilLatticeModifierData {
 	struct Object *object;
 	char layername[64];          /* layer name */
 	char vgname[64];             /* optional vertexgroup name, MAX_VGROUP_NAME */
-	int passindex;               /* custom index for passes */
+	int pass_index;               /* custom index for passes */
 	int flag;                    /* flags */
 	float strength;
 	char pad[4];
@@ -1806,7 +1806,7 @@ typedef enum eGpencilLattice_Flag {
 typedef struct GpencilSimplifyModifierData {
 	ModifierData modifier;
 	char layername[64];          /* layer name */
-	int passindex;               /* custom index for passes */
+	int pass_index;               /* custom index for passes */
 	int flag;                    /* flags */
 	float factor;                /* factor of simplify */
 	char pad[4];

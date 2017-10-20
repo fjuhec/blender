@@ -4917,8 +4917,8 @@ static void rna_def_modifier_gpencilnoise(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Move Extremes", "The noise moves the stroke extreme points");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
-	prop = RNA_def_property(srna, "passindex", PROP_INT, PROP_NONE);
-	RNA_def_property_int_sdna(prop, NULL, "passindex");
+	prop = RNA_def_property(srna, "pass_index", PROP_INT, PROP_NONE);
+	RNA_def_property_int_sdna(prop, NULL, "pass_index");
 	RNA_def_property_range(prop, 0, 100);
 	RNA_def_property_ui_text(prop, "Pass", "Pass index");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
@@ -4971,8 +4971,8 @@ static void rna_def_modifier_gpencilsubdiv(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Simple", "The modifier only add control points");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
-	prop = RNA_def_property(srna, "passindex", PROP_INT, PROP_NONE);
-	RNA_def_property_int_sdna(prop, NULL, "passindex");
+	prop = RNA_def_property(srna, "pass_index", PROP_INT, PROP_NONE);
+	RNA_def_property_int_sdna(prop, NULL, "pass_index");
 	RNA_def_property_range(prop, 0, 100);
 	RNA_def_property_ui_text(prop, "Pass", "Pass index");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
@@ -5010,8 +5010,8 @@ static void rna_def_modifier_gpencilsimplify(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Factor", "Factor of Simplify");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
-	prop = RNA_def_property(srna, "passindex", PROP_INT, PROP_NONE);
-	RNA_def_property_int_sdna(prop, NULL, "passindex");
+	prop = RNA_def_property(srna, "pass_index", PROP_INT, PROP_NONE);
+	RNA_def_property_int_sdna(prop, NULL, "pass_index");
 	RNA_def_property_range(prop, 0, 100);
 	RNA_def_property_ui_text(prop, "Pass", "Pass index");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
@@ -5054,8 +5054,8 @@ static void rna_def_modifier_gpencilthick(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Thickness", "Factor of thickness change");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
-	prop = RNA_def_property(srna, "passindex", PROP_INT, PROP_NONE);
-	RNA_def_property_int_sdna(prop, NULL, "passindex");
+	prop = RNA_def_property(srna, "pass_index", PROP_INT, PROP_NONE);
+	RNA_def_property_int_sdna(prop, NULL, "pass_index");
 	RNA_def_property_range(prop, 0, 100);
 	RNA_def_property_ui_text(prop, "Pass", "Pass index");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
@@ -5119,8 +5119,8 @@ static void rna_def_modifier_gpenciltint(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Create Colors", "When apply modifier, create new color in the palette");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
-	prop = RNA_def_property(srna, "passindex", PROP_INT, PROP_NONE);
-	RNA_def_property_int_sdna(prop, NULL, "passindex");
+	prop = RNA_def_property(srna, "pass_index", PROP_INT, PROP_NONE);
+	RNA_def_property_int_sdna(prop, NULL, "pass_index");
 	RNA_def_property_range(prop, 0, 100);
 	RNA_def_property_ui_text(prop, "Pass", "Pass index");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
@@ -5177,8 +5177,8 @@ static void rna_def_modifier_gpencilcolor(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Create Colors", "When apply modifier, create new color in the palette");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
-	prop = RNA_def_property(srna, "passindex", PROP_INT, PROP_NONE);
-	RNA_def_property_int_sdna(prop, NULL, "passindex");
+	prop = RNA_def_property(srna, "pass_index", PROP_INT, PROP_NONE);
+	RNA_def_property_int_sdna(prop, NULL, "pass_index");
 	RNA_def_property_range(prop, 0, 100);
 	RNA_def_property_ui_text(prop, "Pass", "Pass index");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
@@ -5221,8 +5221,8 @@ static void rna_def_modifier_gpencilopacity(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Factor", "Factor of Opacity");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
-	prop = RNA_def_property(srna, "passindex", PROP_INT, PROP_NONE);
-	RNA_def_property_int_sdna(prop, NULL, "passindex");
+	prop = RNA_def_property(srna, "pass_index", PROP_INT, PROP_NONE);
+	RNA_def_property_int_sdna(prop, NULL, "pass_index");
 	RNA_def_property_range(prop, 0, 100);
 	RNA_def_property_ui_text(prop, "Pass", "Pass index");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
@@ -5328,8 +5328,8 @@ static void rna_def_modifier_gpencildupli(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Layer", "Layer name");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
-	prop = RNA_def_property(srna, "passindex", PROP_INT, PROP_NONE);
-	RNA_def_property_int_sdna(prop, NULL, "passindex");
+	prop = RNA_def_property(srna, "pass_index", PROP_INT, PROP_NONE);
+	RNA_def_property_int_sdna(prop, NULL, "pass_index");
 	RNA_def_property_range(prop, 0, 100);
 	RNA_def_property_ui_text(prop, "Pass", "Pass index");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
@@ -5413,8 +5413,8 @@ static void rna_def_modifier_gpencillattice(BlenderRNA *brna)
 	RNA_def_property_string_funcs(prop, NULL, NULL, "rna_GpencilLatticeModifier_vgname_set");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
-	prop = RNA_def_property(srna, "passindex", PROP_INT, PROP_NONE);
-	RNA_def_property_int_sdna(prop, NULL, "passindex");
+	prop = RNA_def_property(srna, "pass_index", PROP_INT, PROP_NONE);
+	RNA_def_property_int_sdna(prop, NULL, "pass_index");
 	RNA_def_property_range(prop, 0, 100);
 	RNA_def_property_ui_text(prop, "Pass", "Pass index");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");

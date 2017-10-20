@@ -197,7 +197,7 @@ void BKE_gpencil_noise_modifier(
 	float weight = 1.0f;
 
 	if (!is_stroke_affected_by_modifier(
-	        mmd->layername, mmd->passindex, 3, gpl, gps,
+	        mmd->layername, mmd->pass_index, 3, gpl, gps,
 	         mmd->flag & GP_NOISE_INVERSE_LAYER, mmd->flag & GP_NOISE_INVERSE_PASS))
 	{
 		return;
@@ -318,7 +318,7 @@ void BKE_gpencil_subdiv_modifier(
 	int i2;
 
 	if (!is_stroke_affected_by_modifier(
-	        mmd->layername, mmd->passindex, 3, gpl, gps,
+	        mmd->layername, mmd->pass_index, 3, gpl, gps,
 	        mmd->flag & GP_SUBDIV_INVERSE_LAYER, mmd->flag & GP_SUBDIV_INVERSE_PASS))
 	{
 		return;
@@ -401,7 +401,7 @@ void BKE_gpencil_thick_modifier(
 	float curvef = 1.0;
 
 	if (!is_stroke_affected_by_modifier(
-	        mmd->layername, mmd->passindex, 3, gpl, gps,
+	        mmd->layername, mmd->pass_index, 3, gpl, gps,
 	        mmd->flag & GP_THICK_INVERSE_LAYER, mmd->flag & GP_THICK_INVERSE_PASS))
 	{
 		return;
@@ -435,7 +435,7 @@ void BKE_gpencil_tint_modifier(
 	bGPDspoint *pt;
 
 	if (!is_stroke_affected_by_modifier(
-	        mmd->layername, mmd->passindex, 1, gpl, gps,
+	        mmd->layername, mmd->pass_index, 1, gpl, gps,
 	        mmd->flag & GP_TINT_INVERSE_LAYER, mmd->flag & GP_TINT_INVERSE_PASS))
 	{
 		return;
@@ -473,7 +473,7 @@ void BKE_gpencil_color_modifier(
 	PaletteColor *palcolor;
 	float hsv[3], factor[3];
 	if (!is_stroke_affected_by_modifier(
-	        mmd->layername, mmd->passindex, 1, gpl, gps,
+	        mmd->layername, mmd->pass_index, 1, gpl, gps,
 	        mmd->flag & GP_COLOR_INVERSE_LAYER, mmd->flag & GP_COLOR_INVERSE_PASS))
 	{
 		return;
@@ -504,7 +504,7 @@ void BKE_gpencil_opacity_modifier(
 	float weight = 1.0f;
 
 	if (!is_stroke_affected_by_modifier(
-	        mmd->layername, mmd->passindex, 3, gpl, gps,
+	        mmd->layername, mmd->pass_index, 3, gpl, gps,
 	        mmd->flag & GP_OPACITY_INVERSE_LAYER, mmd->flag & GP_OPACITY_INVERSE_PASS))
 	{
 		return;
@@ -581,7 +581,7 @@ void BKE_gpencil_dupli_modifier(
 	for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
 		stroke++;
 		if (!is_stroke_affected_by_modifier(
-		        mmd->layername, mmd->passindex, 1, gpl, gps,
+		        mmd->layername, mmd->pass_index, 1, gpl, gps,
 		        mmd->flag & GP_DUPLI_INVERSE_LAYER, mmd->flag & GP_DUPLI_INVERSE_PASS))
 		{
 			continue;
@@ -757,7 +757,7 @@ void BKE_gpencil_lattice_modifier(
 	float weight = 1.0f;
 
 	if (!is_stroke_affected_by_modifier(
-	        mmd->layername, mmd->passindex, 3, gpl, gps,
+	        mmd->layername, mmd->pass_index, 3, gpl, gps,
 	        mmd->flag & GP_LATTICE_INVERSE_LAYER, mmd->flag & GP_LATTICE_INVERSE_PASS))
 	{
 		return;
@@ -947,7 +947,7 @@ void BKE_gpencil_simplify_stroke(bGPDlayer *UNUSED(gpl), bGPDstroke *gps, float 
 void BKE_gpencil_simplify_modifier(int UNUSED(id), GpencilSimplifyModifierData *mmd, Object *UNUSED(ob), bGPDlayer *gpl, bGPDstroke *gps)
 {
 	if (!is_stroke_affected_by_modifier(
-	        mmd->layername, mmd->passindex, 4, gpl, gps,
+	        mmd->layername, mmd->pass_index, 4, gpl, gps,
 	        mmd->flag & GP_SIMPLIFY_INVERSE_LAYER, mmd->flag & GP_SIMPLIFY_INVERSE_PASS))
 	{
 		return;

@@ -45,7 +45,7 @@
 static void initData(ModifierData *md)
 {
 	GpencilThickModifierData *gpmd = (GpencilThickModifierData *)md;
-	gpmd->passindex = 0;
+	gpmd->pass_index = 0;
 	gpmd->thickness = 0;
 	gpmd->layername[0] = '\0';
 	gpmd->vgname[0] = '\0';

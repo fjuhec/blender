@@ -46,7 +46,7 @@
 static void initData(ModifierData *md)
 {
 	GpencilOpacityModifierData *gpmd = (GpencilOpacityModifierData *)md;
-	gpmd->passindex = 0;
+	gpmd->pass_index = 0;
 	gpmd->factor = 1.0f;
 	gpmd->layername[0] = '\0';
 	gpmd->vgname[0] = '\0';
