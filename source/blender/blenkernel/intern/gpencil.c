@@ -1950,14 +1950,12 @@ void BKE_gpencil_palettecolor_changename(PaletteColor *palcolor, bGPdata *gpd, c
 }
 
 /* Delete all strokes of the color for all gpd datablocks */
-void BKE_gpencil_palettecolor_delete_allstrokes(bContext *C, PaletteColor *palcolor)
+void BKE_gpencil_palettecolor_delete_allstrokes(Main *bmain, PaletteColor *palcolor)
 {
 	bGPdata *gpd;
 	bGPDlayer *gpl;
 	bGPDframe *gpf;
 	bGPDstroke *gps, *gpsn;
-
-	Main *bmain = CTX_data_main(C);
 
 	/* TODO: Optimise this by only checking GP datablocks that reference the palette this comes from */
 	for (gpd = bmain->gpencil.first; gpd; gpd = gpd->id.next) {

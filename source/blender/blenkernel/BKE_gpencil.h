@@ -180,7 +180,7 @@ void BKE_gpencil_palettecolor_delete(struct bGPDpalette *palette, struct bGPDpal
 struct bGPDpalettecolor *BKE_gpencil_palettecolor_getbyname(struct bGPDpalette *palette, char *name);
 void BKE_gpencil_palettecolor_allnames(struct PaletteColor *palcolor, const char *newname);
 void BKE_gpencil_palettecolor_changename(struct PaletteColor *palcolor, struct bGPdata *gpd, const char *newname);
-void BKE_gpencil_palettecolor_delete_allstrokes(struct bContext *C, struct PaletteColor *palcolor);
+void BKE_gpencil_palettecolor_delete_allstrokes(struct Main *bmain, struct PaletteColor *palcolor);
 
 /* object boundbox */
 struct BoundBox *BKE_gpencil_boundbox_get(struct Object *ob);

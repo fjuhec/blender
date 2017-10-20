@@ -361,12 +361,13 @@ static void PALETTE_OT_color_add(wmOperatorType *ot)
 
 static int palette_color_delete_exec(bContext *C, wmOperator *UNUSED(op))
 {
+	Main *bmain = CTX_data_main(C); 
 	Palette *palette = BKE_palette_get_active_from_context(C);
 	PaletteColor *color = BLI_findlink(&palette->colors, palette->active_color);
 
 	if (color) {
 		/* delete any gp strokes using this color */
-		BKE_gpencil_palettecolor_delete_allstrokes(C, color);
+		BKE_gpencil_palettecolor_delete_allstrokes(bmain, color);
 		
 		/* delete the active color */
 		BKE_palette_color_remove(palette, color);
