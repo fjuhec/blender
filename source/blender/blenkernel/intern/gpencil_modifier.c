@@ -698,15 +698,6 @@ bool BKE_gpencil_use_this_lattice(Object *ob, Object *UNUSED(lattice))
 	if (md) {
 		return true;
 	}
-#if 0
-	GpencilLatticeModifierData *mmd = NULL;
-	if (md) {
-		mmd = (GpencilLatticeModifierData *)md;
-		if (lattice == mmd->object) {
-			return true;
-		}
-	}
-#endif
 	return false;
 }
 
