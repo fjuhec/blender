@@ -121,7 +121,7 @@ static void topbar_main_region_init(wmWindowManager *wm, ARegion *region)
 
 	/* force delayed UI_view2d_region_reinit call */
 	if (ELEM(region->alignment, RGN_ALIGN_LEFT, RGN_ALIGN_RIGHT)) {
-		region->flag |= RGN_RESIZE_LAYOUT_BASED;
+		region->flag |= RGN_FLAG_DYNAMIC_SIZE;
 	}
 	UI_view2d_region_reinit(&region->v2d, V2D_COMMONVIEW_HEADER, region->winx, region->winy);
 
@@ -148,7 +148,7 @@ static void topbar_keymap(struct wmKeyConfig *UNUSED(keyconf))
 static void topbar_header_region_init(wmWindowManager *UNUSED(wm), ARegion *ar)
 {
 	if ((ar->alignment & ~RGN_SPLIT_PREV) == RGN_ALIGN_RIGHT) {
-		ar->flag |= RGN_RESIZE_LAYOUT_BASED;
+		ar->flag |= RGN_FLAG_DYNAMIC_SIZE;
 	}
 	ED_region_header_init(ar);
 }

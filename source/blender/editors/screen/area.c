@@ -2126,7 +2126,7 @@ void ED_region_header(const bContext *C, ARegion *ar)
 	int maxco, xco, yco;
 	int headery = ED_area_headersize();
 	const int start_ofs = 0.4f * UI_UNIT_X;
-	bool region_layout_based = ar->flag & RGN_RESIZE_LAYOUT_BASED;
+	bool region_layout_based = ar->flag & RGN_FLAG_DYNAMIC_SIZE;
 
 	/* clear */
 	UI_ThemeClearColor(region_background_color_id(C, ar));
@@ -2169,7 +2169,6 @@ void ED_region_header(const bContext *C, ARegion *ar)
 
 			sa->flag |= AREA_FLAG_REGION_SIZE_UPDATE;
 			ar->flag |= RGN_SIZEX_DPI_APPLIED;
-			ar->flag &= ~RGN_RESIZE_LAYOUT_BASED;
 		}
 		UI_block_end(C, block);
 		UI_block_draw(C, block);
