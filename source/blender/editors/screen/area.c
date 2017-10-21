@@ -1848,6 +1848,18 @@ int ED_area_header_switchbutton(const bContext *C, uiBlock *block, int yco)
 
 /************************ standard UI regions ************************/
 
+static ThemeColorID region_background_color_id(const bContext *C, const ARegion *region)
+{
+	switch (region->regiontype) {
+		case RGN_TYPE_HEADER:
+			return ED_screen_area_active(C) ? TH_HEADER : TH_HEADERDESEL;
+		case RGN_TYPE_PREVIEW:
+			return TH_PREVIEW_BACK;
+		default:
+			return TH_BACK;
+	}
+}
+
 void ED_region_panels(const bContext *C, ARegion *ar, const char *context, int contextnr, const bool vertical)
 {
 	ScrArea *sa = CTX_wm_area(C);
@@ -2117,7 +2129,7 @@ void ED_region_header(const bContext *C, ARegion *ar)
 	bool region_layout_based = ar->flag & RGN_RESIZE_LAYOUT_BASED;
 
 	/* clear */
-	UI_ThemeClearColor((ED_screen_area_active(C) || (ar->regiontype != RGN_TYPE_HEADER)) ? TH_BACK : TH_HEADERDESEL);
+	UI_ThemeClearColor(region_background_color_id(C, ar));
 	glClear(GL_COLOR_BUFFER_BIT);
 	
 	/* set view2d view matrix for scrolling (without scrollers) */
