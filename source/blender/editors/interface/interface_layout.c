@@ -3517,6 +3517,7 @@ void uiLayoutOperatorButs(
         bool (*check_prop)(struct PointerRNA *, struct PropertyRNA *),
         const char label_align, const short flag)
 {
+	uiBlock *block = uiLayoutGetBlock(layout);
 	const char *op_title = RNA_struct_ui_name(op->type->srna);
 	bool can_repeat;
 
@@ -3540,14 +3541,14 @@ void uiLayoutOperatorButs(
 	/* poll() on this operator may still fail, at the moment there is no nice feedback when this happens
 	 * just fails silently */
 	if (!WM_operator_repeat_check(C, op)) {
-		UI_block_lock_set(uiLayoutGetBlock(layout), true, "Operator can't' redo");
+		UI_block_lock_set(block, true, "Operator can't' redo");
 
 		/* XXX, could give some nicer feedback or not show redo panel at all? */
 		uiItemL(layout, IFACE_("* Redo Unsupported *"), ICON_NONE);
 	}
 	else {
 		/* useful for macros where only one of the steps can't be re-done */
-		UI_block_lock_clear(uiLayoutGetBlock(layout));
+		UI_block_lock_clear(block);
 	}
 
 	/* menu */
@@ -3556,7 +3557,7 @@ void uiLayoutOperatorButs(
 		PointerRNA op_ptr;
 		uiLayout *row;
 
-		uiLayoutGetBlock(layout)->ui_operator = op;
+		block->ui_operator = op;
 
 		row = uiLayoutRow(layout, true);
 		uiItemM(row, (bContext *)C, "WM_MT_operator_presets", NULL, ICON_NONE);
@@ -3611,7 +3612,6 @@ void uiLayoutOperatorButs(
 
 	/* set various special settings for buttons */
 	{
-		uiBlock *block = uiLayoutGetBlock(layout);
 		const bool is_popup = (block->flag & UI_BLOCK_KEEP_OPEN) != 0;
 		uiBut *but;
 
@@ -3631,6 +3631,10 @@ void uiLayoutOperatorButs(
 				}
 			}
 		}
+	}
+
+	if (flag & UI_LAYOUT_OP_SPLIT_ADVANCED) {
+		uiItemO(layout, IFACE_("More..."), ICON_NONE, "SCREEN_OT_redo_last");
 	}
 }
 

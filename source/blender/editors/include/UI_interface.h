@@ -845,6 +845,9 @@ enum {
 	UI_LAYOUT_OP_COMPACT          = (1 << 3),
 	/* Don't show the "Redo Unsupported" label */
 	UI_LAYOUT_OP_HIDE_UNSUPPORTED = (1 << 4),
+	/* Only show non-advanced op-properties by default and add a "More" button invoking
+	 * redo popup with all properties. If all properties are advanced, show the first 2. */
+	UI_LAYOUT_OP_SPLIT_ADVANCED   = (1 << 5),
 };
 
 /* used for transp checkers */
