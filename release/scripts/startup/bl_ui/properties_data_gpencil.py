@@ -19,7 +19,7 @@
 # <pep8 compliant>
 import bpy
 from bpy.types import Panel
-from bl_ui.properties_grease_pencil_common import (
+from .properties_grease_pencil_common import (
         GreasePencilDataPanel,
         GreasePencilLayerOptionPanel,
         GreasePencilOnionPanel,

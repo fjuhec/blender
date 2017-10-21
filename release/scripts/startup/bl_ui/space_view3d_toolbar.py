@@ -32,7 +32,7 @@ from .properties_grease_pencil_common import (
         GreasePencilAppearancePanel,
         GreasePencilEraserPanel
         )
-from bl_ui.properties_paint_common import (
+from .properties_paint_common import (
         UnifiedPaintPanel,
         brush_texture_settings,
         brush_texpaint_common,
