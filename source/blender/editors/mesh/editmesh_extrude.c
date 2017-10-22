@@ -765,7 +765,7 @@ static int edbm_spin_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(e
 	if (ret & OPERATOR_FINISHED) {
 		/* Setup manipulators */
 		if (v3d && (v3d->twtype & V3D_MANIPULATOR_DRAW)) {
-			WM_manipulator_group_type_add("MESH_WGT_spin");
+			WM_manipulator_group_type_ensure("MESH_WGT_spin");
 		}
 	}
 #endif
@@ -1063,7 +1063,7 @@ static bool manipulator_mesh_spin_poll(const bContext *C, wmManipulatorGroupType
 {
 	wmOperator *op = WM_operator_last_redo(C);
 	if (op == NULL || !STREQ(op->type->idname, "MESH_OT_spin")) {
-		WM_manipulator_group_type_remove_ptr_delayed(wgt);
+		WM_manipulator_group_type_unlink_delayed_ptr(wgt);
 		return false;
 	}
 	return true;
@@ -1159,6 +1159,9 @@ static void manipulator_mesh_spin_draw_prepare(
         const bContext *UNUSED(C), wmManipulatorGroup *mgroup)
 {
 	ManipulatorSpinGroup *man = mgroup->customdata;
+	if (man->data.op->next) {
+		man->data.op = WM_operator_last_redo((bContext *)man->data.context);
+	}
 	manipulator_mesh_spin_update_from_op(man);
 }
 

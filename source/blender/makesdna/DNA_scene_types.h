@@ -1655,10 +1655,9 @@ typedef struct Scene {
 	
 	/* none of the dependency graph  vars is mean to be saved */
 	struct Depsgraph *depsgraph_legacy;
-	void *pad1;
-	struct  DagForest *theDag;
-	short dagflags;
-	short pad3;
+	struct GHash *depsgraph_hash;
+	void *pad3;
+	int pad7;
 
 	/* User-Defined KeyingSets */
 	int active_keyingset;			/* index of the active KeyingSet. first KeyingSet has index 1, 'none' active is 0, 'add new' is -1 */
