@@ -1417,10 +1417,10 @@ void uiTemplateOperatorRedo(uiLayout *layout, bContext *C)
 
 	if (op) {
 		uiBlock *block = uiLayoutGetBlock(layout);
-		int layout_flags = (UI_LAYOUT_OP_SHOW_REDO_BUT | UI_LAYOUT_OP_COMPACT |
-		                    UI_LAYOUT_OP_HIDE_UNSUPPORTED | UI_LAYOUT_OP_SPLIT_ADVANCED);
+		int layout_flags = (UI_TEMPLATE_OP_PROPS_SHOW_REDO_BUT | UI_TEMPLATE_OP_PROPS_COMPACT |
+		                    UI_TEMPLATE_OP_PROPS_HIDE_UNSUPPORTED | UI_TEMPLATE_OP_PROPS_SPLIT_ADVANCED);
 
-		uiLayoutOperatorButs(C, layout, op, NULL, '\0', layout_flags);
+		uiTemplateOperatorPropertyButs(C, layout, op, NULL, '\0', layout_flags);
 		UI_block_func_handle_set(block, ED_undo_operator_repeat_cb_evt, op);
 	}
 }
@@ -3783,26 +3783,38 @@ void uiTemplateOperatorPropertyButs(
         bool (*check_prop)(struct PointerRNA *, struct PropertyRNA *),
         const char label_align, const short flag)
 {
+	uiBlock *block = uiLayoutGetBlock(layout);
+	const char *op_title = RNA_struct_ui_name(op->type->srna);
+	bool can_repeat;
+
 	if (!op->properties) {
 		IDPropertyTemplate val = {0};
 		op->properties = IDP_New(IDP_GROUP, &val, "wmOperatorProperties");
 	}
 
-	if (flag & UI_TEMPLATE_OP_PROPS_SHOW_TITLE) {
-		uiItemL(layout, RNA_struct_ui_name(op->type->srna), ICON_NONE);
+	can_repeat = WM_operator_repeat_check(C, op);
+	if (!can_repeat && (flag & UI_TEMPLATE_OP_PROPS_HIDE_UNSUPPORTED)) {
+		return;
+	}
+
+	if ((flag & UI_TEMPLATE_OP_PROPS_SHOW_REDO_BUT) == UI_TEMPLATE_OP_PROPS_SHOW_REDO_BUT) {
+		uiItemFullO(layout, "SCREEN_OT_repeat_last", op_title, ICON_NONE, NULL, WM_OP_INVOKE_DEFAULT, 0);
+	}
+	else if (flag & UI_TEMPLATE_OP_PROPS_SHOW_TITLE) {
+		uiItemL(layout, op_title, ICON_NONE);
 	}
 
 	/* poll() on this operator may still fail, at the moment there is no nice feedback when this happens
 	 * just fails silently */
 	if (!WM_operator_repeat_check(C, op)) {
-		UI_block_lock_set(uiLayoutGetBlock(layout), true, "Operator can't' redo");
+		UI_block_lock_set(block, true, "Operator can't' redo");
 
 		/* XXX, could give some nicer feedback or not show redo panel at all? */
 		uiItemL(layout, IFACE_("* Redo Unsupported *"), ICON_NONE);
 	}
 	else {
 		/* useful for macros where only one of the steps can't be re-done */
-		UI_block_lock_clear(uiLayoutGetBlock(layout));
+		UI_block_lock_clear(block);
 	}
 
 	/* menu */
@@ -3811,7 +3823,7 @@ void uiTemplateOperatorPropertyButs(
 		PointerRNA op_ptr;
 		uiLayout *row;
 
-		uiLayoutGetBlock(layout)->ui_operator = op;
+		block->ui_operator = op;
 
 		row = uiLayoutRow(layout, true);
 		uiItemM(row, (bContext *)C, "WM_MT_operator_presets", NULL, ICON_NONE);
@@ -3840,7 +3852,7 @@ void uiTemplateOperatorPropertyButs(
 		RNA_pointer_create(&wm->id, op->type->srna, op->properties, &ptr);
 
 		/* main draw call */
-		empty = uiDefAutoButsRNA(layout, &ptr, check_prop, label_align) == 0;
+		empty = uiDefAutoButsRNA(layout, &ptr, check_prop, label_align, (flag & UI_TEMPLATE_OP_PROPS_COMPACT)) == 0;
 
 		if (empty && (flag & UI_TEMPLATE_OP_PROPS_SHOW_EMPTY)) {
 			uiItemL(layout, IFACE_("No Properties"), ICON_NONE);
@@ -3852,12 +3864,10 @@ void uiTemplateOperatorPropertyButs(
 	 * but this is not so important if this button is drawn in those cases
 	 * (which isn't all that likely anyway) - campbell */
 	if (op->properties->len) {
-		uiBlock *block;
 		uiBut *but;
 		uiLayout *col; /* needed to avoid alignment errors with previous buttons */
 
 		col = uiLayoutColumn(layout, false);
-		block = uiLayoutGetBlock(col);
 		but = uiDefIconTextBut(block, UI_BTYPE_BUT, 0, ICON_FILE_REFRESH, IFACE_("Reset"), 0, 0, UI_UNIT_X, UI_UNIT_Y,
 		                       NULL, 0.0, 0.0, 0.0, 0.0, TIP_("Reset operator defaults"));
 		UI_but_func_set(but, ui_layout_operator_buts__reset_cb, op, NULL);
@@ -3866,7 +3876,6 @@ void uiTemplateOperatorPropertyButs(
 
 	/* set various special settings for buttons */
 	{
-		uiBlock *block = uiLayoutGetBlock(layout);
 		const bool is_popup = (block->flag & UI_BLOCK_KEEP_OPEN) != 0;
 		uiBut *but;
 
@@ -3885,6 +3894,10 @@ void uiTemplateOperatorPropertyButs(
 				}
 			}
 		}
+	}
+
+	if (flag & UI_TEMPLATE_OP_PROPS_SPLIT_ADVANCED) {
+		uiItemO(layout, IFACE_("More..."), ICON_NONE, "SCREEN_OT_redo_last");
 	}
 }
 

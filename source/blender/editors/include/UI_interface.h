@@ -840,7 +840,7 @@ void UI_exit(void);
 /* uiLayoutOperatorButs flags */
 enum {
 	UI_TEMPLATE_OP_PROPS_SHOW_TITLE       = (1 << 0),
-	UI_TEMPLATE_OP_PROPS_SHOW_REDO_BUT    = (UI_LAYOUT_OP_SHOW_TITLE | (1 << 1)),
+	UI_TEMPLATE_OP_PROPS_SHOW_REDO_BUT    = (UI_TEMPLATE_OP_PROPS_SHOW_TITLE | (1 << 1)),
 	UI_TEMPLATE_OP_PROPS_SHOW_EMPTY       = (1 << 2),
 	UI_TEMPLATE_OP_PROPS_COMPACT          = (1 << 3),
 	/* Don't show the "Redo Unsupported" label */
