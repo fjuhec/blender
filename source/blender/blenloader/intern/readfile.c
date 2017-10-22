@@ -5473,6 +5473,8 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb)
 			gpmd->cur_thickness = newdataadr(fd, gpmd->cur_thickness);
 			if (gpmd->cur_thickness) {
 				direct_link_curvemapping(fd, gpmd->cur_thickness);
+				/* initialize the curve. Maybe this could be moved to modififer logic */
+				curvemapping_initialize(gpmd->cur_thickness);
 			}
 		}
 
