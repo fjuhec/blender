@@ -839,15 +839,15 @@ void UI_exit(void);
 
 /* uiLayoutOperatorButs flags */
 enum {
-	UI_LAYOUT_OP_SHOW_TITLE       = (1 << 0),
-	UI_LAYOUT_OP_SHOW_REDO_BUT    = (UI_LAYOUT_OP_SHOW_TITLE | (1 << 1)),
-	UI_LAYOUT_OP_SHOW_EMPTY       = (1 << 2),
-	UI_LAYOUT_OP_COMPACT          = (1 << 3),
+	UI_TEMPLATE_OP_PROPS_SHOW_TITLE       = (1 << 0),
+	UI_TEMPLATE_OP_PROPS_SHOW_REDO_BUT    = (UI_LAYOUT_OP_SHOW_TITLE | (1 << 1)),
+	UI_TEMPLATE_OP_PROPS_SHOW_EMPTY       = (1 << 2),
+	UI_TEMPLATE_OP_PROPS_COMPACT          = (1 << 3),
 	/* Don't show the "Redo Unsupported" label */
-	UI_LAYOUT_OP_HIDE_UNSUPPORTED = (1 << 4),
+	UI_TEMPLATE_OP_PROPS_HIDE_UNSUPPORTED = (1 << 4),
 	/* Only show non-advanced op-properties by default and add a "More" button invoking
 	 * redo popup with all properties. If all properties are advanced, show the first 2. */
-	UI_LAYOUT_OP_SPLIT_ADVANCED   = (1 << 5),
+	UI_TEMPLATE_OP_PROPS_SPLIT_ADVANCED   = (1 << 5),
 };
 
 /* used for transp checkers */
@@ -880,9 +880,6 @@ void uiLayoutSetFunc(uiLayout *layout, uiMenuHandleFunc handlefunc, void *argv);
 void uiLayoutSetContextPointer(uiLayout *layout, const char *name, struct PointerRNA *ptr);
 void uiLayoutContextCopy(uiLayout *layout, struct bContextStore *context);
 const char *uiLayoutIntrospect(uiLayout *layout); // XXX - testing
-void uiLayoutOperatorButs(const struct bContext *C, struct uiLayout *layout, struct wmOperator *op,
-                          bool (*check_prop)(struct PointerRNA *, struct PropertyRNA *),
-                          const char label_align, const short flag);
 struct MenuType *UI_but_menutype_get(uiBut *but);
 
 void uiLayoutSetOperatorContext(uiLayout *layout, int opcontext);
@@ -972,6 +969,9 @@ void uiTemplateImageInfo(uiLayout *layout, struct bContext *C, struct Image *ima
 void uiTemplateRunningJobs(uiLayout *layout, struct bContext *C);
 void UI_but_func_operator_search(uiBut *but);
 void uiTemplateOperatorSearch(uiLayout *layout);
+void uiTemplateOperatorPropertyButs(const struct bContext *C, uiLayout *layout, struct wmOperator *op,
+                                    bool (*check_prop)(struct PointerRNA *, struct PropertyRNA *),
+                                    const char label_align, const short flag);
 void uiTemplateHeader3D(uiLayout *layout, struct bContext *C);
 void uiTemplateEditModeSelection(uiLayout *layout, struct bContext *C);
 void uiTemplateReportsBanner(uiLayout *layout, struct bContext *C);

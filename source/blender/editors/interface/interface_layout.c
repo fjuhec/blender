@@ -64,8 +64,6 @@
 
 /************************ Structs and Defines *************************/
 
-// #define USE_OP_RESET_BUT  // we may want to make this optional, disable for now.
-
 #define UI_OPERATOR_ERROR_RET(_ot, _opname, return_statement)                 \
 	if (ot == NULL) {                                                         \
 		ui_item_disabled(layout, _opname);                                    \
