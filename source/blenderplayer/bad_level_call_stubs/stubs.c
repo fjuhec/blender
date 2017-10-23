@@ -552,6 +552,7 @@ void ED_node_shader_default(const struct bContext *C, struct ID *id) RET_NONE
 void ED_screen_animation_timer_update(struct bScreen *screen, int redraws, int refresh) RET_NONE
 struct bScreen *ED_screen_animation_playing(const struct wmWindowManager *wm) RET_NULL
 struct Scene *ED_screen_scene_find(const struct bScreen *screen, const struct wmWindowManager *wm) RET_NULL
+void ED_screen_global_topbar_area_create(const struct bContext *C, struct wmWindow *win, const struct bScreen *screen) RET_NONE
 bool ED_scene_render_layer_delete(struct Main *bmain, Scene *scene, SceneLayer *layer, ReportList *reports) RET_ZERO
 void ED_base_object_select(struct BaseLegacy *base, short mode) RET_NONE
 void ED_object_base_select(struct Base *base, short mode) RET_NONE

@@ -332,34 +332,14 @@ void do_versions_after_linking_280(Main *main)
 	}
 
 	if (!MAIN_VERSION_ATLEAST(main, 280, 2)) {
-		const short size_y = 2 * HEADERY;
+		/* Avoid including ED_ stuff here. */
+		extern void ED_screen_global_topbar_area_create(const struct bContext *, wmWindow *, const bScreen *);
 
 		for (wmWindowManager *wm = main->wm.first; wm; wm = wm->id.next) {
 			for (wmWindow *win = wm->windows.first; win; win = win->next) {
 				const bScreen *screen = BKE_workspace_active_screen_get(win->workspace_hook);
-
-				/* XXX duplicated from ED_screen_global_areas_create */
-				if (screen->temp == 0) {
-					ScrArea *sa = MEM_callocN(sizeof(*sa), "do version topbar area");
-					SpaceType *st = BKE_spacetype_from_id(SPACE_TOPBAR);
-					SpaceLink *sl = st->new(NULL); /* XXX passing NULL as context */
-
-					sa->v1 = MEM_callocN(sizeof(*sa->v1), "do_version topbar vert");
-					sa->v2 = MEM_callocN(sizeof(*sa->v2), "do_version topbar vert");
-					sa->v3 = MEM_callocN(sizeof(*sa->v3), "do_version topbar vert");
-					sa->v4 = MEM_callocN(sizeof(*sa->v4), "do_version topbar vert");
-					/* Actual coordinates of area verts are set later (screen_test_scale) */
-
-					sa->spacetype = sa->butspacetype = SPACE_TOPBAR;
-					sa->fixed_height = size_y;
-					sa->headertype = HEADERTOP;
-
-					BLI_addhead(&win->global_areas, sa);
-
-					BLI_addhead(&sa->spacedata, sl);
-					sa->regionbase = sl->regionbase;
-					BLI_listbase_clear(&sl->regionbase);
-				}
+				/* Not sure if passing NULL as context is so great... */
+				ED_screen_global_topbar_area_create(NULL, win, screen);
 			}
 		}
 

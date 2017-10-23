@@ -1100,15 +1100,13 @@ int ED_screen_area_active(const bContext *C)
 	return 0;
 }
 
-void ED_screen_global_areas_create(const bContext *C, wmWindow *win)
+void ED_screen_global_topbar_area_create(const bContext *C, wmWindow *win, const bScreen *screen)
 {
-	const bScreen *screen = BKE_workspace_active_screen_get(win->workspace_hook);
-	const short size_y = 2 * HEADERY;
-
 	if (screen->temp == 0) {
 		ScrArea *sa = MEM_callocN(sizeof(*sa), "top bar area");
 		SpaceType *st = BKE_spacetype_from_id(SPACE_TOPBAR);
 		SpaceLink *sl = st->new(C);
+		const short size_y = 2 * HEADERY;
 
 		sa->v1 = MEM_callocN(sizeof(*sa->v1), __func__);
 		sa->v2 = MEM_callocN(sizeof(*sa->v2), __func__);
@@ -1126,6 +1124,13 @@ void ED_screen_global_areas_create(const bContext *C, wmWindow *win)
 		sa->regionbase = sl->regionbase;
 		BLI_listbase_clear(&sl->regionbase);
 	}
+	/* Do not create more area types here! Function is called in versioning code (versioning_280.c). */
+}
+
+void ED_screen_global_areas_create(const bContext *C, wmWindow *win)
+{
+	const bScreen *screen = BKE_workspace_active_screen_get(win->workspace_hook);
+	ED_screen_global_topbar_area_create(C, win, screen);
 }
 
 
