@@ -46,8 +46,6 @@ static void initData(ModifierData *md)
 	ARRAY_SET_ITEMS(gpmd->size, 5, 5);
 	ARRAY_SET_ITEMS(gpmd->rgba, 0.0f, 0.0f, 0.0f, 0.9f);
 	gpmd->flag |= GP_PIXEL_USE_LINES;
-
-	BKE_gpencil_batch_cache_alldirty();
 }
 
 ModifierTypeInfo modifierType_GpencilPixel = {

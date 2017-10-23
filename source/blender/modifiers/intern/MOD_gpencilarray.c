@@ -72,8 +72,6 @@ static void initData(ModifierData *md)
 	/* fill random values */
 	BKE_gpencil_fill_random_array(gpmd->rnd, 20);
 	gpmd->rnd[0] = 1;
-
-	BKE_gpencil_batch_cache_alldirty();
 }
 
 static void copyData(ModifierData *md, ModifierData *target)

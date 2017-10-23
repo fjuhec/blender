@@ -47,8 +47,6 @@ static void initData(ModifierData *md)
 	gpmd->flag |= GP_SUBDIV_SIMPLE;
 	gpmd->level = 1;
 	gpmd->layername[0] = '\0';
-
-	BKE_gpencil_batch_cache_alldirty();
 }
 
 static void copyData(ModifierData *md, ModifierData *target)

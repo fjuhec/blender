@@ -56,8 +56,6 @@ static void initData(ModifierData *md)
 	gpmd->gp_frame = -999999;
 	gpmd->vrand1 = 1.0;
 	gpmd->vrand2 = 1.0;
-
-	BKE_gpencil_batch_cache_alldirty();
 }
 
 static void copyData(ModifierData *md, ModifierData *target)

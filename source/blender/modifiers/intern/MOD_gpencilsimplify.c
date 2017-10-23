@@ -46,8 +46,6 @@ static void initData(ModifierData *md)
 	gpmd->pass_index = 0;
 	gpmd->factor = 0.0f;
 	gpmd->layername[0] = '\0';
-
-	BKE_gpencil_batch_cache_alldirty();
 }
 
 static void copyData(ModifierData *md, ModifierData *target)

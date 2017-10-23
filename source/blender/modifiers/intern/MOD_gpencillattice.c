@@ -59,8 +59,6 @@ static void initData(ModifierData *md)
 	gpmd->object = NULL;
 	gpmd->cache_data = NULL;
 	gpmd->strength = 1.0f;
-
-	BKE_gpencil_batch_cache_alldirty();
 }
 
 static void copyData(ModifierData *md, ModifierData *target)

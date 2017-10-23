@@ -47,8 +47,6 @@ static void initData(ModifierData *md)
 	gpmd->period = 20.0f;
 	gpmd->phase = 0.0f;
 	gpmd->orientation = 1;
-	
-	BKE_gpencil_batch_cache_alldirty();
 }
 
 ModifierTypeInfo modifierType_GpencilWave = {

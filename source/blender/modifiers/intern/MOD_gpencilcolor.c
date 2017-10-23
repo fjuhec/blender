@@ -51,8 +51,6 @@ static void initData(ModifierData *md)
 	ARRAY_SET_ITEMS(gpmd->hsv, 1.0f, 1.0f, 1.0f);
 	gpmd->layername[0] = '\0';
 	gpmd->flag |= GP_COLOR_CREATE_COLORS;
-
-	BKE_gpencil_batch_cache_alldirty();
 }
 
 static void copyData(ModifierData *md, ModifierData *target)

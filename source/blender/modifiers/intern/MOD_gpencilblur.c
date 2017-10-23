@@ -44,8 +44,6 @@ static void initData(ModifierData *md)
 {
 	GpencilBlurModifierData *gpmd = (GpencilBlurModifierData *)md;
 	ARRAY_SET_ITEMS(gpmd->radius, 1, 1);
-
-	BKE_gpencil_batch_cache_alldirty();
 }
 
 ModifierTypeInfo modifierType_GpencilBlur = {

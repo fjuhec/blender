@@ -174,6 +174,10 @@ ModifierData *ED_object_modifier_add(ReportList *reports, Main *bmain, Scene *sc
 		}
 	}
 
+	if (ob->type == OB_GPENCIL) {
+		BKE_gpencil_batch_cache_dirty(ob->gpd);
+	}
+
 	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	DEG_relations_tag_update(bmain);
 

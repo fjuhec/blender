@@ -53,8 +53,6 @@ static void initData(ModifierData *md)
 	if (gpmd->cur_thickness) {
 		curvemapping_initialize(gpmd->cur_thickness);
 	}
-
-	BKE_gpencil_batch_cache_alldirty();
 }
 
 static void freeData(ModifierData *md)
