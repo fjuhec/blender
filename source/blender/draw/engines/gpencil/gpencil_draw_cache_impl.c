@@ -218,7 +218,7 @@ static void gpencil_batch_cache_clear(GpencilBatchCache *cache, bGPdata *gpd)
 	}
 
 	if (cache->cache_size > 0) {
-		for (int i = 0; i < cache->cache_size; ++i) {
+		for (int i = 0; i < cache->cache_size; i++) {
 		GWN_BATCH_DISCARD_SAFE(cache->batch_stroke[i]);
 		GWN_BATCH_DISCARD_SAFE(cache->batch_fill[i]);
 		GWN_BATCH_DISCARD_SAFE(cache->batch_edit[i]);
@@ -1230,9 +1230,9 @@ void gpencil_array_modifiers(GPENCIL_StorageList *stl, Object *ob)
 				mmd = (GpencilArrayModifierData *)md;
 				/* reset random */
 				mmd->rnd[0] = 1;
-				for (x = 0; x < mmd->count[0]; ++x) {
-					for (y = 0; y < mmd->count[1]; ++y) {
-						for (z = 0; z < mmd->count[2]; ++z) {
+				for (x = 0; x < mmd->count[0]; x++) {
+					for (y = 0; y < mmd->count[1]; y++) {
+						for (z = 0; z < mmd->count[2]; z++) {
 							ARRAY_SET_ITEMS(xyz, x, y, z);
 							if ((x == 0) && (y == 0) && (z == 0)) {
 								continue;

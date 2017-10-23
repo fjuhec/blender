@@ -431,7 +431,7 @@ static void GPENCIL_cache_finish(void *vedata)
 
 	/* Draw all pending objects */
 	if (stl->g_data->gp_cache_used > 0) {
-		for (int i = 0; i < stl->g_data->gp_cache_used; ++i) {
+		for (int i = 0; i < stl->g_data->gp_cache_used; i++) {
 			Object *ob = stl->g_data->gp_object_cache[i].ob;
 			/* save init shading group */
 			stl->g_data->gp_object_cache[i].init_grp = stl->storage->shgroup_id;
@@ -579,7 +579,7 @@ static void gpencil_free_obj_list(GPENCIL_StorageList *stl)
 {
 	/* free memory */
 	/* clear temp objects created for display only */
-	for (int i = 0; i < stl->g_data->gp_cache_used; ++i) {
+	for (int i = 0; i < stl->g_data->gp_cache_used; i++) {
 		Object *ob = stl->g_data->gp_object_cache[i].ob;
 		if (ob->mode == -1) {
 			MEM_SAFE_FREE(ob);
@@ -658,7 +658,7 @@ static void GPENCIL_draw_scene(void *vedata)
 			qsort(stl->g_data->gp_object_cache, stl->g_data->gp_cache_used,
 				sizeof(tGPencilObjectCache), gpencil_object_cache_compare_zdepth);
 
-			for (int i = 0; i < stl->g_data->gp_cache_used; ++i) {
+			for (int i = 0; i < stl->g_data->gp_cache_used; i++) {
 				cache = &stl->g_data->gp_object_cache[i];
 				Object *ob = cache->ob;
 				init_grp = cache->init_grp;
