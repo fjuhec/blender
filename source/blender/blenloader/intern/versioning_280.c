@@ -342,26 +342,6 @@ void do_versions_after_linking_280(Main *main)
 				ED_screen_global_topbar_area_create(NULL, win, screen);
 			}
 		}
-
-		for (bScreen *screen = main->screen.first; screen; screen = screen->id.next) {
-			for (ScrArea *area = screen->areabase.first, *area_next; area; area = area_next) {
-				area_next = area->next;
-
-				if (area->spacetype == SPACE_INFO) {
-					BKE_screen_area_free(area);
-
-					BLI_remlink(&screen->areabase, area);
-
-					BKE_screen_remove_double_scredges(screen);
-					BKE_screen_remove_unused_scredges(screen);
-					BKE_screen_remove_unused_scrverts(screen);
-
-					MEM_freeN(area);
-				}
-				/* AREA_TEMP_INFO is deprecated from now on, it should only be set for info areas
-				 * which are deleted above, so don't need to unset it. Its slot/bit can be reused */
-			}
-		}
 	}
 }
 
@@ -581,6 +561,26 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 						}
 					}
 				}
+			}
+		}
+
+		for (bScreen *screen = main->screen.first; screen; screen = screen->id.next) {
+			for (ScrArea *area = screen->areabase.first, *area_next; area; area = area_next) {
+				area_next = area->next;
+
+				if (area->spacetype == SPACE_INFO) {
+					BKE_screen_area_free(area);
+
+					BLI_remlink(&screen->areabase, area);
+
+					BKE_screen_remove_double_scredges(screen);
+					BKE_screen_remove_unused_scredges(screen);
+					BKE_screen_remove_unused_scrverts(screen);
+
+					MEM_freeN(area);
+				}
+				/* AREA_TEMP_INFO is deprecated from now on, it should only be set for info areas
+				 * which are deleted above, so don't need to unset it. Its slot/bit can be reused */
 			}
 		}
 	}
