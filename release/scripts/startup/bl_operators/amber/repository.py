@@ -464,6 +464,7 @@ class AmberDataAsset():
         self.uuid = (0, 0, 0, 0)
         self.file_type = ''
         self.blender_type = ''
+        self.preview_path = ""
         self.tags = {}
         self.variants = {}
         self.variant_default = None
@@ -485,6 +486,7 @@ class AmberDataAsset():
             asset.file_type = ent["file_type"]
             asset.blender_type = ent["blen_type"]
 
+            asset.preview_path = ent["preview_path"]
             asset.tags = set(ent["tags"])
 
             AmberDataAssetVariant.from_dict(asset.variants, ent["variants"])
@@ -498,6 +500,7 @@ class AmberDataAsset():
                 "description": asset.description,
                 "file_type": asset.file_type,
                 "blen_type": asset.blender_type,
+                "preview_path": asset.preview_path,
                 "tags": list(asset.tags),
                 "variants": AmberDataAssetVariant.to_dict(asset.variants),
                 "variant_default": utils.uuid_pack(asset.variant_default.uuid),
@@ -522,6 +525,7 @@ class AmberDataAsset():
             asset.file_type = asset_pg.file_type
             asset.blender_type = asset_pg.blender_type
 
+            asset.preview_path = asset_pg.preview_path
             asset.tags = set(t.name for t in asset_pg.tags)
 
             AmberDataAssetVariant.from_pg(asset.variants, asset_pg.variants)
@@ -544,6 +548,7 @@ class AmberDataAsset():
             asset_pg.file_type = asset.file_type
             asset_pg.blender_type = asset.blender_type
 
+            asset_pg.preview_path = asset.preview_path
             AmberDataTagPG.to_pg(asset_pg.tags, tags, subset=asset.tags, do_clear=False)
 
             AmberDataAssetVariant.to_pg(asset_pg.variants, asset.variants)
@@ -626,7 +631,7 @@ class AmberDataRepository:
 
     @staticmethod
     def update_from_asset_engine(ae):
-        """Generic helper wrapping repository JSON file update when editing withing Blender."""
+        """Generic helper wrapping repository JSON file update when editing within Blender."""
         repository = getattr(ae, "repository", None)
         if repository is None:
             repository = ae.repository = AmberDataRepository()
@@ -766,7 +771,7 @@ class AmberDataRepositoryList:
 
     def to_pg(self, pg):
         for idx, (uuid, (name, path)) in enumerate(self.repositories.items()):
-            print(name, path)
+            print("to_pg", name, path)
             if idx == len(pg.repositories):
                 pg.repositories.add()
             repo_pg = pg.repositories[idx]
@@ -778,7 +783,7 @@ class AmberDataRepositoryList:
             pg.repositories.remove(idx - 1)
 
     def from_pg(self, pg):
-        print([(pg_item.name, pg_item.path) for pg_item in pg.repositories])
+        print("from_pg", [(pg_item.name, pg_item.path) for pg_item in pg.repositories])
         self.repositories = {pg_item.uuid[:]: (pg_item.name, pg_item.path) for pg_item in pg.repositories}
 
 
