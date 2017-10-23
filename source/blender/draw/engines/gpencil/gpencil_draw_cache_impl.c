@@ -153,10 +153,10 @@ static bool gpencil_batch_cache_valid(Object *ob, bGPdata *gpd, int cfra)
 static void gpencil_batch_cache_resize(GpencilBatchCache *cache, int slots)
 {
 	cache->cache_size = slots;
-	cache->batch_stroke = MEM_recallocN(cache->batch_stroke, sizeof(struct Gwn_Batch) * slots);
-	cache->batch_fill = MEM_recallocN(cache->batch_fill, sizeof(struct Gwn_Batch) * slots);
-	cache->batch_edit = MEM_recallocN(cache->batch_edit, sizeof(struct Gwn_Batch) * slots);
-	cache->batch_edlin = MEM_recallocN(cache->batch_edlin, sizeof(struct Gwn_Batch) * slots);
+	cache->batch_stroke = MEM_recallocN(cache->batch_stroke, sizeof(struct Gwn_Batch *) * slots);
+	cache->batch_fill = MEM_recallocN(cache->batch_fill, sizeof(struct Gwn_Batch *) * slots);
+	cache->batch_edit = MEM_recallocN(cache->batch_edit, sizeof(struct Gwn_Batch *) * slots);
+	cache->batch_edlin = MEM_recallocN(cache->batch_edlin, sizeof(struct Gwn_Batch *) * slots);
 }
 
 /* check size and increase if no free slots */
@@ -189,10 +189,10 @@ static void gpencil_batch_cache_init(Object *ob, int cfra)
 	}
 
 	cache->cache_size = GPENCIL_MIN_BATCH_SLOTS_CHUNK;
-	cache->batch_stroke = MEM_callocN(sizeof(struct Gwn_Batch) * cache->cache_size, "Gpencil_Batch_Stroke");
-	cache->batch_fill = MEM_callocN(sizeof(struct Gwn_Batch) * cache->cache_size, "Gpencil_Batch_Fill");
-	cache->batch_edit = MEM_callocN(sizeof(struct Gwn_Batch) * cache->cache_size, "Gpencil_Batch_Edit");
-	cache->batch_edlin = MEM_callocN(sizeof(struct Gwn_Batch) * cache->cache_size, "Gpencil_Batch_Edlin");
+	cache->batch_stroke = MEM_callocN(sizeof(struct Gwn_Batch *) * cache->cache_size, "Gpencil_Batch_Stroke");
+	cache->batch_fill = MEM_callocN(sizeof(struct Gwn_Batch *) * cache->cache_size, "Gpencil_Batch_Fill");
+	cache->batch_edit = MEM_callocN(sizeof(struct Gwn_Batch *) * cache->cache_size, "Gpencil_Batch_Edit");
+	cache->batch_edlin = MEM_callocN(sizeof(struct Gwn_Batch *) * cache->cache_size, "Gpencil_Batch_Edlin");
 
 	cache->is_editmode = GPENCIL_ANY_EDIT_MODE(gpd);
 	gpd->flag &= ~GP_DATA_CACHE_IS_DIRTY;
