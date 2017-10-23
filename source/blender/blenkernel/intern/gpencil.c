@@ -94,6 +94,16 @@ void BKE_gpencil_batch_cache_alldirty()
 	}
 }
 
+/* Change draw manager status in all gpd datablocks */
+void BKE_gpencil_batch_cache_alldirty_main(Main *bmain)
+{
+	bGPdata *gpd;
+
+	for (gpd = bmain->gpencil.first; gpd; gpd = gpd->id.next) {
+		BKE_gpencil_batch_cache_dirty(gpd);
+	}
+}
+
 /* ************************************************** */
 /* Memory Management */
 

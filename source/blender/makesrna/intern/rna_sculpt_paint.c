@@ -118,9 +118,9 @@ const EnumPropertyItem rna_enum_symmetrize_direction_items[] = {
 
 #include "ED_particle.h"
 
-static void rna_GPencil_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *UNUSED(ptr))
+static void rna_GPencil_update(Main *bmain, Scene *UNUSED(scene), PointerRNA *UNUSED(ptr))
 {
-	BKE_gpencil_batch_cache_alldirty();
+	BKE_gpencil_batch_cache_alldirty_main(bmain);
 	WM_main_add_notifier(NC_GPENCIL | NA_EDITED, NULL);
 }
 

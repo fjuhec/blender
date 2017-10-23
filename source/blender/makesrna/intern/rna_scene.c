@@ -504,9 +504,9 @@ const EnumPropertyItem rna_enum_layer_collection_mode_settings_type_items[] = {
 #endif
 
 /* Grease Pencil update cache */
-static void rna_GPencil_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *UNUSED(ptr))
+static void rna_GPencil_update(Main *bmain, Scene *UNUSED(scene), PointerRNA *UNUSED(ptr))
 {
-	BKE_gpencil_batch_cache_alldirty();
+	BKE_gpencil_batch_cache_alldirty_main(bmain);
 	WM_main_add_notifier(NC_GPENCIL | NA_EDITED, NULL);
 }
 
