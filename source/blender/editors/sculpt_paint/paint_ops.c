@@ -397,6 +397,7 @@ static void PALETTE_OT_color_delete(wmOperatorType *ot)
 
 static int palettecolor_isolate_exec(bContext *C, wmOperator *op)
 {
+	Main *bmain = CTX_data_main(C);
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
 	Palette *palette = BKE_palette_get_active_from_context(C);
 
@@ -447,7 +448,7 @@ static int palettecolor_isolate_exec(bContext *C, wmOperator *op)
 	}
 
 	/* notifiers */
-	BKE_gpencil_batch_cache_alldirty();
+	BKE_gpencil_batch_cache_alldirty_main(bmain);
 	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
 
 	return OPERATOR_FINISHED;

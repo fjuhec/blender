@@ -153,7 +153,7 @@ static void deselect_action_keys(bAnimContext *ac, short test, short sel)
 static void gpencil_action_redraw(bContext *C, bAnimContext *ac)
 {
 	if ((ac) && (ac->datatype == ANIMCONT_GPENCIL)) {
-		BKE_gpencil_batch_cache_alldirty();
+		BKE_gpencil_batch_cache_alldirty_main(CTX_data_main(C));
 		WM_event_add_notifier(C, NC_GPENCIL | NA_EDITED, NULL);
 	}
 }
