@@ -219,10 +219,6 @@ typedef struct View3D {
 	
 	short flag3;
 
-	/* Pointer to the active custom transform orientation. Storing this here so we can remove it correctly. */
-	struct TransformOrientation *custom_orientation;
-	void *pad5;
-
 	/* afterdraw, for xray & transparent */
 	struct ListBase afterdraw_transp;
 	struct ListBase afterdraw_xray;
