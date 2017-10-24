@@ -1628,7 +1628,7 @@ void BKE_scene_update_tagged(EvaluationContext *eval_ctx, Main *bmain, Scene *sc
 	prepare_mesh_for_viewport_render(bmain, scene);
 
 	/* flush recalc flags to dependencies */
-	DEG_scene_flush_update(bmain, scene);
+	DEG_graph_flush_update(bmain, scene->depsgraph_legacy);
 
 	/* removed calls to quick_cache, see pointcache.c */
 	
@@ -1643,7 +1643,7 @@ void BKE_scene_update_tagged(EvaluationContext *eval_ctx, Main *bmain, Scene *sc
 	 *
 	 * in the future this should handle updates for all datablocks, not
 	 * only objects and scenes. - brecht */
-	DEG_evaluate_on_refresh(eval_ctx, scene->depsgraph_legacy, scene);
+	DEG_evaluate_on_refresh(eval_ctx, scene->depsgraph_legacy);
 
 	/* update sound system animation (TODO, move to depsgraph) */
 	BKE_sound_update_scene(bmain, scene);
@@ -2477,7 +2477,7 @@ void BKE_scene_ensure_depsgraph_hash(Scene *scene)
 void BKE_scene_free_depsgraph_hash(Scene *scene)
 {
 	/* TODO(sergey): Keep this for until we get rid of depsgraph_legacy. */
-	DEG_scene_graph_free(scene);
+	DEG_graph_free(scene->depsgraph_legacy);
 	if (scene->depsgraph_hash == NULL) {
 		return;
 	}

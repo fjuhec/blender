@@ -133,11 +133,8 @@ void DEG_free_node_types(void);
 
 /* Update Tagging -------------------------------- */
 
-/* Tag node(s) associated with states such as time and visibility */
-void DEG_scene_update_flags(Depsgraph *graph, const bool do_time);
-
 /* Update dependency graph when visible scenes/layers changes. */
-void DEG_graph_on_visible_update(struct Main *bmain, struct Scene *scene);
+void DEG_graph_on_visible_update(struct Main *bmain, Depsgraph *depsgraph);
 
 /* Update all dependency graphs when visible scenes/layers changes. */
 void DEG_on_visible_update(struct Main *bmain, const bool do_time);
@@ -170,9 +167,7 @@ enum {
 	DEG_TAG_SHADING_UPDATE  = (1 << 9),
 };
 void DEG_id_tag_update(struct ID *id, int flag);
-void DEG_id_tag_update_ex(struct Main *bmain,
-                          struct ID *id,
-                          int flag);
+void DEG_id_tag_update_ex(struct Main *bmain, struct ID *id, int flag);
 
 /* Tag given ID type for update.
  *
@@ -185,11 +180,8 @@ void DEG_ids_clear_recalc(struct Main *bmain);
 
 /* Update Flushing ------------------------------- */
 
-/* Flush updates for all IDs */
-void DEG_ids_flush_tagged(struct Main *bmain);
-
 /* Flush updates for IDs in a single scene. */
-void DEG_scene_flush_update(struct Main *bmain, struct Scene *scene);
+void DEG_graph_flush_update(struct Main *bmain, Depsgraph *depsgraph);
 
 /* Check if something was changed in the database and inform
  * editors about this.
@@ -235,15 +227,8 @@ void DEG_evaluate_on_framechange(struct EvaluationContext *eval_ctx,
 /* Data changed recalculation entry point.
  * < context_type: context to perform evaluation for
  */
-void DEG_evaluate_on_refresh_ex(struct EvaluationContext *eval_ctx,
-                                Depsgraph *graph);
-
-/* Data changed recalculation entry point.
- * < context_type: context to perform evaluation for
- */
 void DEG_evaluate_on_refresh(struct EvaluationContext *eval_ctx,
-                             Depsgraph *graph,
-                             struct Scene *scene);
+                             Depsgraph *graph);
 
 bool DEG_needs_eval(Depsgraph *graph);
 
