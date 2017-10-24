@@ -71,11 +71,12 @@ def draw_vpaint_symmetry(layout, vpaint):
 # ********** default tools for object-mode ****************
 
 
-# Helper for checking grease pencil modes
-def is_any_gpmode(context):
+# Most of these panels should not be visible in GP edit modes
+def is_not_gpencil_edit_mode(context):
     is_gpmode = context.active_object and \
-                context.active_object.mode in ('GPENCIL_EDIT', 'GPENCIL_PAINT', 'GPENCIL_SCULPT', 'GPENCIL_WEIGHT')
+                context.active_object.mode in {'GPENCIL_EDIT', 'GPENCIL_PAINT', 'GPENCIL_SCULPT', 'GPENCIL_WEIGHT'}
     return not is_gpmode
+
 
 class VIEW3D_PT_tools_transform(View3DPanel, Panel):
     bl_category = "Tools"
@@ -84,7 +85,7 @@ class VIEW3D_PT_tools_transform(View3DPanel, Panel):
 
     @classmethod
     def poll(cls, context):
-        return is_any_gpmode(context)
+        return is_not_gpencil_edit_mode(context)
 
     def draw(self, context):
         layout = self.layout
@@ -105,7 +106,7 @@ class VIEW3D_PT_tools_object(View3DPanel, Panel):
 
     @classmethod
     def poll(cls, context):
-        return is_any_gpmode(context)
+        return is_not_gpencil_edit_mode(context)
 
     def draw(self, context):
         layout = self.layout
@@ -156,7 +157,7 @@ class VIEW3D_PT_tools_add_object(View3DPanel, Panel):
 
     @classmethod
     def poll(cls, context):
-        return is_any_gpmode(context)
+        return is_not_gpencil_edit_mode(context)
 
     @staticmethod
     def draw_add_mesh(layout, label=False):
@@ -256,7 +257,7 @@ class VIEW3D_PT_tools_relations(View3DPanel, Panel):
 
     @classmethod
     def poll(cls, context):
-        return is_any_gpmode(context)
+        return is_not_gpencil_edit_mode(context)
 
     def draw(self, context):
         layout = self.layout
@@ -295,7 +296,7 @@ class VIEW3D_PT_tools_animation(View3DPanel, Panel):
 
     @classmethod
     def poll(cls, context):
-        return is_any_gpmode(context)
+        return is_not_gpencil_edit_mode(context)
 
     def draw(self, context):
         layout = self.layout
@@ -326,7 +327,7 @@ class VIEW3D_PT_tools_rigid_body(View3DPanel, Panel):
 
     @classmethod
     def poll(cls, context):
-        return is_any_gpmode(context)
+        return is_not_gpencil_edit_mode(context)
 
     def draw(self, context):
         layout = self.layout
