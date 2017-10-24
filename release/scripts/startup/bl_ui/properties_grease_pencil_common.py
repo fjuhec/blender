@@ -515,7 +515,7 @@ class GreasePencilAppearancePanel:
             return False
 
         is_gpmode = context.active_object and \
-                    context.active_object.mode in ('GPENCIL_EDIT', 'GPENCIL_PAINT', 'GPENCIL_SCULPT')
+                    context.active_object.mode in {'GPENCIL_EDIT', 'GPENCIL_PAINT', 'GPENCIL_SCULPT'}
         return is_gpmode
 
     @staticmethod

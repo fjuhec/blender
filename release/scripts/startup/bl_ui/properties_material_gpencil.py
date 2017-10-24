@@ -35,16 +35,6 @@ class GPENCIL_UL_paletteslots(UIList):
             layout.label(text="", icon_value=icon)
 
 
-class MaterialButtonsPanel:
-    bl_space_type = 'PROPERTIES'
-    bl_region_type = 'WINDOW'
-    bl_context = "material"
-
-    @classmethod
-    def poll(cls, context):
-        return context.object and context.object.type == 'GPENCIL'
-
-
 class MATERIAL_PT_gpencil_palette_slots(Panel):
     bl_label = "Palette Slots"
     bl_space_type = 'PROPERTIES'
