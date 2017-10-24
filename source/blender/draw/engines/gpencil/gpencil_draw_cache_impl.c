@@ -71,33 +71,21 @@ tGPencilObjectCache *gpencil_object_cache_allocate(tGPencilObjectCache *cache, i
 }
 
 /* add a gpencil object to cache to defer drawing */
-void gpencil_object_cache_add(tGPencilObjectCache *cache, Object *ob, int *gp_cache_used)
+void gpencil_object_cache_add(tGPencilObjectCache *cache_array, Object *ob, int *gp_cache_used)
 {
 	const DRWContextState *draw_ctx = DRW_context_state_get();
+	tGPencilObjectCache *cache = &cache_array[*gp_cache_used];
 	RegionView3D *rv3d = draw_ctx->rv3d;
-
+	
+	/* zero out all vfx_* pointers */
+	memset(cache, 0, sizeof(*cache));
+	
 	/* save object */
-	cache[*gp_cache_used].ob = ob;
-	cache[*gp_cache_used].init_grp = 0;
-	cache[*gp_cache_used].end_grp = -1;
-	cache[*gp_cache_used].init_vfx_wave_sh = NULL;
-	cache[*gp_cache_used].end_vfx_wave_sh = NULL;
-
-	cache[*gp_cache_used].init_vfx_blur_sh_1 = NULL;
-	cache[*gp_cache_used].end_vfx_blur_sh_1 = NULL;
-	cache[*gp_cache_used].init_vfx_blur_sh_2 = NULL;
-	cache[*gp_cache_used].end_vfx_blur_sh_2 = NULL;
-	cache[*gp_cache_used].init_vfx_blur_sh_3 = NULL;
-	cache[*gp_cache_used].end_vfx_blur_sh_3 = NULL;
-	cache[*gp_cache_used].init_vfx_blur_sh_4 = NULL;
-	cache[*gp_cache_used].end_vfx_blur_sh_4 = NULL;
-
-	cache[*gp_cache_used].init_vfx_pixel_sh = NULL;
-	cache[*gp_cache_used].end_vfx_pixel_sh = NULL;
-
-	cache[*gp_cache_used].init_vfx_swirl_sh = NULL;
-	cache[*gp_cache_used].end_vfx_swirl_sh = NULL;
-
+	cache->ob = ob;
+	
+	cache->init_grp = 0;
+	cache->end_grp = -1;
+	
 	/* calculate zdepth from point of view */
 	float zdepth = 0.0;
 	if (rv3d->is_persp) {
@@ -106,7 +94,7 @@ void gpencil_object_cache_add(tGPencilObjectCache *cache, Object *ob, int *gp_ca
 	else {
 		zdepth = -dot_v3v3(rv3d->viewinv[2], ob->loc);
 	}
-	cache[*gp_cache_used].zdepth = zdepth;
+	cache->zdepth = zdepth;
 
 	/* increase slots used in cache */
 	(*gp_cache_used)++;
@@ -219,10 +207,10 @@ static void gpencil_batch_cache_clear(GpencilBatchCache *cache, bGPdata *gpd)
 
 	if (cache->cache_size > 0) {
 		for (int i = 0; i < cache->cache_size; i++) {
-		GWN_BATCH_DISCARD_SAFE(cache->batch_stroke[i]);
-		GWN_BATCH_DISCARD_SAFE(cache->batch_fill[i]);
-		GWN_BATCH_DISCARD_SAFE(cache->batch_edit[i]);
-		GWN_BATCH_DISCARD_SAFE(cache->batch_edlin[i]);
+			GWN_BATCH_DISCARD_SAFE(cache->batch_stroke[i]);
+			GWN_BATCH_DISCARD_SAFE(cache->batch_fill[i]);
+			GWN_BATCH_DISCARD_SAFE(cache->batch_edit[i]);
+			GWN_BATCH_DISCARD_SAFE(cache->batch_edlin[i]);
 		}
 		MEM_SAFE_FREE(cache->batch_stroke);
 		MEM_SAFE_FREE(cache->batch_fill);
@@ -262,8 +250,8 @@ static DRWShadingGroup *DRW_gpencil_shgroup_fill_create(GPENCIL_e_data *e_data, 
 
 	/* e_data.gpencil_fill_sh */
 	DRWShadingGroup *grp = DRW_shgroup_create(shader, pass);
-	++stl->g_data->tot_sh;
-	++stl->g_data->tot_sh_fill;
+	stl->g_data->tot_sh++;
+	stl->g_data->tot_sh_fill++;
 
 	DRW_shgroup_uniform_vec4(grp, "color2", palcolor->scolor, 1);
 	stl->shgroups[id].fill_style = palcolor->fill_style;
@@ -331,9 +319,9 @@ DRWShadingGroup *DRW_gpencil_shgroup_stroke_create(GPENCIL_e_data *e_data, GPENC
 
 	/* e_data.gpencil_stroke_sh */
 	DRWShadingGroup *grp = DRW_shgroup_create(shader, pass);
-	++stl->g_data->tot_sh;
+	stl->g_data->tot_sh++;
 	if (id != -1) {
-		++stl->g_data->tot_sh_stroke;
+		stl->g_data->tot_sh_stroke++;
 	}
 
 	DRW_shgroup_uniform_vec2(grp, "Viewport", viewport_size, 1);
@@ -426,8 +414,8 @@ DRWShadingGroup *DRW_gpencil_shgroup_point_create(GPENCIL_e_data *e_data, GPENCI
 
 	/* e_data.gpencil_stroke_sh */
 	DRWShadingGroup *grp = DRW_shgroup_create(shader, pass);
-	++stl->g_data->tot_sh;
-	++stl->g_data->tot_sh_point;
+	stl->g_data->tot_sh++;
+	stl->g_data->tot_sh_point++;
 
 	DRW_shgroup_uniform_vec2(grp, "Viewport", viewport_size, 1);
 	DRW_shgroup_uniform_float(grp, "pixsize", DRW_viewport_pixelsize_get(), 1);
@@ -655,8 +643,8 @@ static void gpencil_draw_onion_strokes(GpencilBatchCache *cache, GPENCIL_e_data 
 		/* stroke */
 		gpencil_add_stroke_shgroup(cache, stl->shgroups[id].shgrps_stroke, ob, gpd, gpl, gpf, gps, opacity, tintcolor, true, custonion);
 
-		++stl->storage->shgroup_id;
-		++cache->cache_idx;
+		stl->storage->shgroup_id++;
+		cache->cache_idx++;
 	}
 }
 
@@ -750,7 +738,7 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 					stl->shgroups[id].shgrps_stroke = NULL;
 				}
 			}
-			++stl->storage->shgroup_id;
+			stl->storage->shgroup_id++;
 
 			fillgrp = stl->shgroups[id].shgrps_fill;
 			strokegrp = stl->shgroups[id].shgrps_stroke;
@@ -775,11 +763,11 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 		if (src_gps) {
 			if (!stl->g_data->shgrps_edit_line) {
 				stl->g_data->shgrps_edit_line = DRW_shgroup_create(e_data->gpencil_line_sh, psl->edit_pass);
-				++stl->g_data->tot_sh;
+				stl->g_data->tot_sh++;
 			}
 			if (!stl->g_data->shgrps_edit_volumetric) {
 				stl->g_data->shgrps_edit_volumetric = DRW_shgroup_create(e_data->gpencil_volumetric_sh, psl->edit_pass);
-				++stl->g_data->tot_sh;
+				stl->g_data->tot_sh++;
 			}
 
 			gpencil_add_editpoints_shgroup(stl, cache, ts, ob, gpd, gpl, derived_gpf, src_gps);
@@ -789,7 +777,7 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 			src_gps = src_gps->next;
 		}
 
-		++cache->cache_idx;
+		cache->cache_idx++;
 	}
 }
 
@@ -804,10 +792,11 @@ void DRW_gpencil_populate_buffer_strokes(GPENCIL_e_data *e_data, void *vedata, T
 
 	bGPDpaletteref *palslot = BKE_gpencil_paletteslot_get_active(gpd);
 	PaletteColor *palcolor = BKE_palette_color_get_active((palslot) ? palslot->palette : NULL);
+	
 	/* drawing strokes */
 	/* Check if may need to draw the active stroke cache, only if this layer is the active layer
-	* that is being edited. (Stroke buffer is currently stored in gp-data)
-	*/
+	 * that is being edited. (Stroke buffer is currently stored in gp-data)
+	 */
 	if (ED_gpencil_session_active() && (gpd->sbuffer_size > 0)) {
 		if ((gpd->sbuffer_sflag & GP_STROKE_ERASER) == 0) {
 			/* It should also be noted that sbuffer contains temporary point types
@@ -839,7 +828,7 @@ void DRW_gpencil_populate_buffer_strokes(GPENCIL_e_data *e_data, void *vedata, T
 						gpd->sfill[3] = 0.5f;
 					}
 					stl->g_data->shgrps_drawing_fill = DRW_shgroup_create(e_data->gpencil_drawing_fill_sh, psl->drawing_pass);
-					++stl->g_data->tot_sh;
+					stl->g_data->tot_sh++;
 					stl->g_data->batch_buffer_fill = DRW_gpencil_get_buffer_fill_geom(gpd->sbuffer, gpd->sbuffer_size, gpd->sfill);
 					DRW_shgroup_call_add(stl->g_data->shgrps_drawing_fill, stl->g_data->batch_buffer_fill, stl->storage->unit_matrix);
 				}
@@ -911,7 +900,7 @@ static void gpencil_draw_onionskins(
 		}
 		/* relative range */
 		if (mode == GP_ONION_MODE_RELATIVE) {
-			++idx;
+			idx++;
 			if (idx > step) {
 				break;
 			}
@@ -928,7 +917,7 @@ static void gpencil_draw_onionskins(
 			color[3] = alpha * fac * 0.66f;
 		}
 		else {
-			++idx;
+			idx++;
 			fac = alpha - ((1.1f - (1.0f / (float)idx)) * 0.66f);
 			color[3] = fac;
 		}
@@ -991,7 +980,7 @@ static void gpencil_draw_onionskins(
 		}
 		/* relative range */
 		if (mode == GP_ONION_MODE_RELATIVE) {
-			++idx;
+			idx++;
 			if (idx > step) {
 				break;
 			}
@@ -1008,7 +997,7 @@ static void gpencil_draw_onionskins(
 			color[3] = alpha * fac * 0.66f;
 		}
 		else {
-			++idx;
+			idx++;
 			fac = alpha - ((1.1f - (1.0f / (float)idx)) * 0.66f);
 			color[3] = fac;
 		}
