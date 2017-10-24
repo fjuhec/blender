@@ -181,7 +181,8 @@ class VIEW3D_MT_editor_menus(Menu):
         obj = context.active_object
         mode_string = context.mode
         edit_object = context.edit_object
-        gp_edit = context.gpencil_data and context.gpencil_data.use_stroke_edit_mode
+        gp_edit = context.active_object and \
+                  context.active_object.mode in {'GPENCIL_EDIT', 'GPENCIL_PAINT', 'GPENCIL_SCULPT', 'GPENCIL_WEIGHT'}
 
         layout.menu("VIEW3D_MT_view")
 
