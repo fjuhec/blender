@@ -425,26 +425,6 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 		}
 	}
 
-	{
-		if (!DNA_struct_elem_find(fd->filesdna, "View3D", "short", "custom_orientation_index")) {
-			for (bScreen *screen = main->screen.first; screen; screen = screen->id.next) {
-				for (ScrArea *area = screen->areabase.first; area; area = area->next) {
-					for (SpaceLink *sl = area->spacedata.first; sl; sl = sl->next) {
-						if (sl->spacetype == SPACE_VIEW3D) {
-							View3D *v3d = (View3D *)sl;
-							if (v3d->twmode >= V3D_MANIP_CUSTOM) {
-								v3d->custom_orientation_index = v3d->twmode - V3D_MANIP_CUSTOM;
-								v3d->twmode = V3D_MANIP_CUSTOM;
-							}
-							else {
-								v3d->custom_orientation_index = -1;
-							}
-						}
-					}
-				}
-			}
-		}
-
 	if (!MAIN_VERSION_ATLEAST(main, 280, 2)) {
 		/* Convert grease pencil datablock to GP object */
 		for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
@@ -574,10 +554,28 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 				gpd->pixfactor = GP_DEFAULT_PIX_FACTOR;
 			}
 		}
-
 	}
 
 	{
+		if (!DNA_struct_elem_find(fd->filesdna, "View3D", "short", "custom_orientation_index")) {
+			for (bScreen *screen = main->screen.first; screen; screen = screen->id.next) {
+				for (ScrArea *area = screen->areabase.first; area; area = area->next) {
+					for (SpaceLink *sl = area->spacedata.first; sl; sl = sl->next) {
+						if (sl->spacetype == SPACE_VIEW3D) {
+							View3D *v3d = (View3D *)sl;
+							if (v3d->twmode >= V3D_MANIP_CUSTOM) {
+								v3d->custom_orientation_index = v3d->twmode - V3D_MANIP_CUSTOM;
+								v3d->twmode = V3D_MANIP_CUSTOM;
+							}
+							else {
+								v3d->custom_orientation_index = -1;
+							}
+						}
+					}
+				}
+			}
+		}
+
 		if (!DNA_struct_elem_find(fd->filesdna, "Lamp", "float", "cascade_max_dist")) {
 			for (Lamp *la = main->lamp.first; la; la = la->id.next) {
 				la->cascade_max_dist = 1000.0f;
