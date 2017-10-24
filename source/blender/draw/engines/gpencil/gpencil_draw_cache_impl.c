@@ -71,33 +71,21 @@ tGPencilObjectCache *gpencil_object_cache_allocate(tGPencilObjectCache *cache, i
 }
 
 /* add a gpencil object to cache to defer drawing */
-void gpencil_object_cache_add(tGPencilObjectCache *cache, Object *ob, int *gp_cache_used)
+void gpencil_object_cache_add(tGPencilObjectCache *cache_array, Object *ob, int *gp_cache_used)
 {
 	const DRWContextState *draw_ctx = DRW_context_state_get();
+	tGPencilObjectCache *cache = &cache_array[*gp_cache_used];
 	RegionView3D *rv3d = draw_ctx->rv3d;
-
+	
+	/* zero out all vfx_* pointers */
+	memset(cache, 0, sizeof(*cache));
+	
 	/* save object */
-	cache[*gp_cache_used].ob = ob;
-	cache[*gp_cache_used].init_grp = 0;
-	cache[*gp_cache_used].end_grp = -1;
-	cache[*gp_cache_used].init_vfx_wave_sh = NULL;
-	cache[*gp_cache_used].end_vfx_wave_sh = NULL;
-
-	cache[*gp_cache_used].init_vfx_blur_sh_1 = NULL;
-	cache[*gp_cache_used].end_vfx_blur_sh_1 = NULL;
-	cache[*gp_cache_used].init_vfx_blur_sh_2 = NULL;
-	cache[*gp_cache_used].end_vfx_blur_sh_2 = NULL;
-	cache[*gp_cache_used].init_vfx_blur_sh_3 = NULL;
-	cache[*gp_cache_used].end_vfx_blur_sh_3 = NULL;
-	cache[*gp_cache_used].init_vfx_blur_sh_4 = NULL;
-	cache[*gp_cache_used].end_vfx_blur_sh_4 = NULL;
-
-	cache[*gp_cache_used].init_vfx_pixel_sh = NULL;
-	cache[*gp_cache_used].end_vfx_pixel_sh = NULL;
-
-	cache[*gp_cache_used].init_vfx_swirl_sh = NULL;
-	cache[*gp_cache_used].end_vfx_swirl_sh = NULL;
-
+	cache->ob = ob;
+	
+	cache->init_grp = 0;
+	cache->end_grp = -1;
+	
 	/* calculate zdepth from point of view */
 	float zdepth = 0.0;
 	if (rv3d->is_persp) {
@@ -106,7 +94,7 @@ void gpencil_object_cache_add(tGPencilObjectCache *cache, Object *ob, int *gp_ca
 	else {
 		zdepth = -dot_v3v3(rv3d->viewinv[2], ob->loc);
 	}
-	cache[*gp_cache_used].zdepth = zdepth;
+	cache->zdepth = zdepth;
 
 	/* increase slots used in cache */
 	(*gp_cache_used)++;
