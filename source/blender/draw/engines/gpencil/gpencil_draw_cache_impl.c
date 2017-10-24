@@ -134,6 +134,10 @@ static bool gpencil_batch_cache_valid(Object *ob, bGPdata *gpd, int cfra)
 		return false;
 	}
 
+	if (cache->is_dirty) {
+		return false;
+	}
+
 	return true;
 }
 
