@@ -402,14 +402,12 @@ int ED_undo_operator_repeat(bContext *C, struct wmOperator *op)
 
 	if (op) {
 		wmWindowManager *wm = CTX_wm_manager(C);
-		struct Scene *scene = CTX_data_scene(C);
+		struct Scene *cur_scene = CTX_data_scene(C);
+		ScrArea *cur_area = CTX_wm_area(C);
+		ARegion *cur_region = CTX_wm_region(C);
 
-		/* keep in sync with logic in view3d_panel_operator_redo() */
-		ARegion *ar = CTX_wm_region(C);
-		ARegion *ar1 = BKE_area_find_region_active_win(CTX_wm_area(C));
-
-		if (ar1)
-			CTX_wm_region_set(C, ar1);
+		CTX_wm_area_set(C, op->execution_area);
+		CTX_wm_region_set(C, op->execution_region);
 
 		if ((WM_operator_repeat_check(C, op)) &&
 		    (WM_operator_poll(C, op->type)) &&
@@ -418,7 +416,7 @@ int ED_undo_operator_repeat(bContext *C, struct wmOperator *op)
 		      * (which copy their data), wont stop redo, see [#29579]],
 		      *
 		      * note, - WM_operator_check_ui_enabled() jobs test _must_ stay in sync with this */
-		    (WM_jobs_test(wm, scene, WM_JOB_TYPE_ANY) == 0))
+		    (WM_jobs_test(wm, cur_scene, WM_JOB_TYPE_ANY) == 0))
 		{
 			int retval;
 
@@ -457,8 +455,8 @@ int ED_undo_operator_repeat(bContext *C, struct wmOperator *op)
 			}
 		}
 
-		/* set region back */
-		CTX_wm_region_set(C, ar);
+		CTX_wm_area_set(C, cur_area);
+		CTX_wm_region_set(C, cur_region);
 	}
 	else {
 		if (G.debug & G_DEBUG) {
