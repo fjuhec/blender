@@ -45,12 +45,13 @@
 #include "BKE_blender_copybuffer.h"
 #include "BKE_context.h"
 #include "BKE_deform.h"
-#include "BKE_depsgraph.h"
 #include "BKE_global.h"
 #include "BKE_idprop.h"
 #include "BKE_main.h"
 #include "BKE_object.h"
 #include "BKE_report.h"
+
+#include "DEG_depsgraph.h"
 
 #include "RNA_access.h"
 #include "RNA_define.h"
@@ -70,9 +71,12 @@
 /* Pose Apply */
 
 /* helper for apply_armature_pose2bones - fixes parenting of objects that are bone-parented to armature */
-static void applyarmature_fix_boneparents(Scene *scene, Object *armob)
+static void applyarmature_fix_boneparents(const bContext *C, Scene *scene, Object *armob)
 {
 	Object workob, *ob;
+	EvaluationContext eval_ctx;
+
+	CTX_data_eval_ctx(C, &eval_ctx);
 	
 	/* go through all objects in database */
 	for (ob = G.main->object.first; ob; ob = ob->id.next) {
@@ -83,7 +87,7 @@ static void applyarmature_fix_boneparents(Scene *scene, Object *armob)
 			 */
 			BKE_object_apply_mat4(ob, ob->obmat, false, false);
 			
-			BKE_object_workob_calc_parent(scene, ob, &workob);
+			BKE_object_workob_calc_parent(&eval_ctx, scene, ob, &workob);
 			invert_m4_m4(ob->parentinv, workob.obmat);
 		}
 	}
@@ -94,10 +98,13 @@ static int apply_armature_pose2bones_exec(bContext *C, wmOperator *op)
 {
 	Scene *scene = CTX_data_scene(C);
 	Object *ob = BKE_object_pose_armature_get(CTX_data_active_object(C)); // must be active object, not edit-object
+	EvaluationContext eval_ctx;
 	bArmature *arm = BKE_armature_from_object(ob);
 	bPose *pose;
 	bPoseChannel *pchan;
 	EditBone *curbone;
+
+	CTX_data_eval_ctx(C, &eval_ctx);
 	
 	/* don't check if editmode (should be done by caller) */
 	if (ob->type != OB_ARMATURE)
@@ -167,10 +174,10 @@ static int apply_armature_pose2bones_exec(bContext *C, wmOperator *op)
 	ED_armature_edit_free(arm);
 	
 	/* flush positions of posebones */
-	BKE_pose_where_is(scene, ob);
+	BKE_pose_where_is(&eval_ctx, scene, ob);
 	
 	/* fix parenting of objects which are bone-parented */
-	applyarmature_fix_boneparents(scene, ob);
+	applyarmature_fix_boneparents(C, scene, ob);
 	
 	/* note, notifier might evolve */
 	WM_event_add_notifier(C, NC_OBJECT | ND_POSE, ob);
@@ -225,7 +232,7 @@ static int pose_visual_transform_apply_exec(bContext *C, wmOperator *UNUSED(op))
 	}
 	CTX_DATA_END;
 	
-	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 
 	/* note, notifier might evolve */
 	WM_event_add_notifier(C, NC_OBJECT | ND_POSE, ob);
@@ -534,7 +541,7 @@ static int pose_paste_exec(bContext *C, wmOperator *op)
 	}
 	BKE_main_free(tmp_bmain);
 	/* Update event for pose and deformation children. */
-	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	/* Notifiers for updates, */
 	WM_event_add_notifier(C, NC_OBJECT | ND_POSE, ob);
 
@@ -757,10 +764,10 @@ static int pose_clear_transform_generic_exec(bContext *C, wmOperator *op,
 		
 		/* now recalculate paths */
 		if ((ob->pose->avs.path_bakeflag & MOTIONPATH_BAKE_HAS_PATHS))
-			ED_pose_recalculate_paths(scene, ob);
+			ED_pose_recalculate_paths(C, scene, ob);
 	}
 	
-	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 
 	/* note, notifier might evolve */
 	WM_event_add_notifier(C, NC_OBJECT | ND_TRANSFORM, ob);
@@ -907,7 +914,7 @@ static int pose_clear_user_transforms_exec(bContext *C, wmOperator *op)
 	}
 	
 	/* notifiers and updates */
-	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_OBJECT | ND_TRANSFORM, ob);
 	
 	return OPERATOR_FINISHED;

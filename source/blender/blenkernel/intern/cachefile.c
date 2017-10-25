@@ -176,7 +176,7 @@ void BKE_cachefile_update_frame(Main *bmain, Scene *scene, const float ctime, co
 		const float time = BKE_cachefile_time_offset(cache_file, ctime, fps);
 
 		if (BKE_cachefile_filepath_get(bmain, cache_file, time, filename)) {
-			BKE_cachefile_clean(scene, cache_file);
+			BKE_cachefile_clean(bmain, cache_file);
 #ifdef WITH_ALEMBIC
 			ABC_free_handle(cache_file->handle);
 			cache_file->handle = ABC_create_handle(filename, NULL);
@@ -216,11 +216,9 @@ float BKE_cachefile_time_offset(CacheFile *cache_file, const float time, const f
 }
 
 /* TODO(kevin): replace this with some depsgraph mechanism, or something similar. */
-void BKE_cachefile_clean(Scene *scene, CacheFile *cache_file)
+void BKE_cachefile_clean(struct Main *bmain, CacheFile *cache_file)
 {
-	for (Base *base = scene->base.first; base; base = base->next) {
-		Object *ob = base->object;
-
+	for (Object *ob = bmain->object.first; ob; ob = ob->id.next) {
 		ModifierData *md = modifiers_findByType(ob, eModifierType_MeshSequenceCache);
 
 		if (md) {

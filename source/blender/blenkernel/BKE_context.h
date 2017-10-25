@@ -40,15 +40,21 @@ extern "C" {
 struct ARegion;
 struct bScreen;
 struct CacheFile;
+struct Depsgraph;
+struct LayerCollection;
 struct ListBase;
 struct Main;
 struct Object;
+struct Base;
 struct PointerRNA;
 struct ReportList;
 struct Scene;
+struct SceneCollection;
+struct SceneLayer;
 struct ScrArea;
 struct SpaceLink;
 struct View3D;
+struct ViewRender;
 struct RegionView3D;
 struct StructRNA;
 struct ToolSettings;
@@ -64,10 +70,12 @@ struct bGPDpalettecolor;
 struct bGPDbrush;
 struct wmWindow;
 struct wmWindowManager;
+struct RenderEngineType;
 struct SpaceText;
 struct SpaceImage;
 struct SpaceClip;
 struct ID;
+struct EvaluationContext;
 
 /* Structs */
 
@@ -140,12 +148,14 @@ void CTX_py_dict_set(bContext *C, void *value);
 
 struct wmWindowManager *CTX_wm_manager(const bContext *C);
 struct wmWindow *CTX_wm_window(const bContext *C);
+struct WorkSpace *CTX_wm_workspace(const bContext *C);
 struct bScreen *CTX_wm_screen(const bContext *C);
 struct ScrArea *CTX_wm_area(const bContext *C);
 struct SpaceLink *CTX_wm_space_data(const bContext *C);
 struct ARegion *CTX_wm_region(const bContext *C);
 void *CTX_wm_region_data(const bContext *C);
 struct ARegion *CTX_wm_menu(const bContext *C);
+struct wmManipulatorGroup *CTX_wm_manipulator_group(const bContext *C);
 struct ReportList *CTX_wm_reports(const bContext *C);
 
 struct View3D *CTX_wm_view3d(const bContext *C);
@@ -166,6 +176,7 @@ struct SpaceAction *CTX_wm_space_action(const bContext *C);
 struct SpaceInfo *CTX_wm_space_info(const bContext *C);
 struct SpaceUserPref *CTX_wm_space_userpref(const bContext *C);
 struct SpaceClip *CTX_wm_space_clip(const bContext *C);
+struct SpaceTopBar *CTX_wm_space_topbar(const bContext *C);
 
 void CTX_wm_manager_set(bContext *C, struct wmWindowManager *wm);
 void CTX_wm_window_set(bContext *C, struct wmWindow *win);
@@ -173,6 +184,7 @@ void CTX_wm_screen_set(bContext *C, struct bScreen *screen); /* to be removed */
 void CTX_wm_area_set(bContext *C, struct ScrArea *sa);
 void CTX_wm_region_set(bContext *C, struct ARegion *region);
 void CTX_wm_menu_set(bContext *C, struct ARegion *menu);
+void CTX_wm_manipulator_group_set(bContext *C, struct wmManipulatorGroup *mgroup);
 const char *CTX_wm_operator_poll_msg_get(struct bContext *C);
 void CTX_wm_operator_poll_msg_set(struct bContext *C, const char *msg);
 
@@ -239,9 +251,15 @@ int ctx_data_list_count(const bContext *C, int (*func)(const bContext *, ListBas
 
 struct Main *CTX_data_main(const bContext *C);
 struct Scene *CTX_data_scene(const bContext *C);
+struct LayerCollection *CTX_data_layer_collection(const bContext *C);
+struct SceneCollection *CTX_data_scene_collection(const bContext *C);
+struct SceneLayer *CTX_data_scene_layer(const bContext *C);
+struct ViewRender *CTX_data_view_render(const bContext *C);
+struct RenderEngineType *CTX_data_engine(const bContext *C);
 struct ToolSettings *CTX_data_tool_settings(const bContext *C);
 
 const char *CTX_data_mode_string(const bContext *C);
+int CTX_data_mode_enum_ex(const struct Object *obedit, const struct Object *ob);
 int CTX_data_mode_enum(const bContext *C);
 
 void CTX_data_main_set(bContext *C, struct Main *bmain);
@@ -296,6 +314,9 @@ int CTX_data_visible_gpencil_layers(const bContext *C, ListBase *list);
 int CTX_data_editable_gpencil_layers(const bContext *C, ListBase *list);
 int CTX_data_editable_gpencil_strokes(const bContext *C, ListBase *list);
 
+struct Depsgraph *CTX_data_depsgraph(const bContext *C);
+
+void CTX_data_eval_ctx(const bContext *C, struct EvaluationContext *eval_ctx);
 
 #ifdef __cplusplus
 }

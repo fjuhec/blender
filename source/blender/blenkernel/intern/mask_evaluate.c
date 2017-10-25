@@ -42,9 +42,10 @@
 #include "DNA_mask_types.h"
 
 #include "BKE_curve.h"
-#include "BKE_depsgraph.h"
 #include "BKE_global.h"
 #include "BKE_mask.h"
+
+#include "DEG_depsgraph.h"
 
 
 unsigned int BKE_mask_spline_resolution(MaskSpline *spline, int width, int height)

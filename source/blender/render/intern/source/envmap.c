@@ -51,6 +51,7 @@
 
 #include "BKE_main.h"
 #include "BKE_image.h"   /* BKE_imbuf_write */
+#include "BKE_layer.h"
 #include "BKE_texture.h"
 #include "BKE_scene.h"
 
@@ -141,7 +142,6 @@ static Render *envmap_render_copy(Render *re, EnvMap *env)
 	envre->flag = re->flag;
 	
 	/* set up renderdata */
-	render_copy_renderdata(&envre->r, &re->r);
 	envre->r.mode &= ~(R_BORDER | R_PANORAMA | R_ORTHO | R_MBLUR);
 	BLI_freelistN(&envre->r.layers);
 	BLI_freelistN(&envre->r.views);
@@ -151,7 +151,7 @@ static Render *envmap_render_copy(Render *re, EnvMap *env)
 	envre->r.size = 100;
 	envre->r.yasp = envre->r.xasp = 1;
 	
-	RE_InitState(envre, NULL, &envre->r, NULL, cuberes, cuberes, NULL);
+	RE_InitState(envre, NULL, &envre->r, &envre->view_render, NULL, cuberes, cuberes, NULL);
 	envre->main = re->main;
 	envre->scene = re->scene;    /* unsure about this... */
 	envre->scene_color_manage = re->scene_color_manage;
@@ -248,17 +248,14 @@ static void envmap_transmatrix(float mat[4][4], int part)
 
 static void env_set_imats(Render *re)
 {
-	Base *base;
 	float mat[4][4];
-	
-	base = re->scene->base.first;
-	while (base) {
-		mul_m4_m4m4(mat, re->viewmat, base->object->obmat);
-		invert_m4_m4(base->object->imat, mat);
-		
-		base = base->next;
+
+	FOREACH_SCENE_OBJECT(re->scene, ob)
+	{
+		mul_m4_m4m4(mat, re->viewmat, ob->obmat);
+		invert_m4_m4(ob->imat, mat);
 	}
-	
+	FOREACH_SCENE_OBJECT_END
 }
 
 /* ------------------------------------------------------------------------- */

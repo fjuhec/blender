@@ -35,17 +35,20 @@ extern "C" {
 #endif
 
 struct bArmature;
-struct Base;
+struct BaseLegacy;
 struct bContext;
 struct Bone;
 struct bPoseChannel;
+struct EvaluationContext;
 struct IDProperty;
 struct ListBase;
 struct MeshDeformModifierData;
 struct DerivedMesh;
 struct Object;
+struct Base;
 struct ReportList;
 struct Scene;
+struct SceneLayer;
 struct ViewContext;
 struct wmKeyConfig;
 struct wmOperator;
@@ -81,6 +84,12 @@ typedef struct EditBone {
 	float oldlength;        /* for envelope scaling */
 	
 	short segments;
+
+	/* Used for display */
+	float disp_mat[4][4];  /*  in Armature space, rest pos matrix */
+	float disp_tail_mat[4][4];  /*  in Armature space, rest pos matrix */
+	/* 32 == MAX_BBONE_SUBDIV */
+	float disp_bbone_mat[32][4][4]; /*  in Armature space, rest pos matrix */
 
 	/* Used to store temporary data */
 	union {
@@ -131,7 +140,7 @@ void ED_armature_deselect_all(struct Object *obedit);
 void ED_armature_deselect_all_visible(struct Object *obedit);
 
 bool ED_do_pose_selectbuffer(
-        struct Scene *scene, struct Base *base, const unsigned int *buffer, short hits,
+        struct Scene *scene, struct SceneLayer *sl, struct Base *base, const unsigned int *buffer, short hits,
         bool extend, bool deselect, bool toggle, bool do_nearest);
 bool ED_armature_select_pick(struct bContext *C, const int mval[2], bool extend, bool deselect, bool toggle);
 int join_armature_exec(struct bContext *C, struct wmOperator *op);
@@ -166,8 +175,9 @@ void ED_armature_transform(struct bArmature *arm, float mat[4][4], const bool do
 #define ARM_GROUPS_ENVELOPE 2
 #define ARM_GROUPS_AUTO     3
 
-void create_vgroups_from_armature(struct ReportList *reports, struct Scene *scene, struct Object *ob,
-                                  struct Object *par, const int mode, const bool mirror);
+void create_vgroups_from_armature(
+        struct ReportList *reports, const struct EvaluationContext *eval_ctx, struct Scene *scene,
+        struct Object *ob, struct Object *par, const int mode, const bool mirror);
 
 /* if bone is already in list, pass it as param to ignore it */
 void unique_editbone_name(struct ListBase *ebones, char *name, EditBone *bone);
@@ -188,7 +198,7 @@ void ED_armature_exit_posemode(struct bContext *C, struct Base *base);
 void ED_armature_enter_posemode(struct bContext *C, struct Base *base);
 void ED_pose_de_selectall(struct Object *ob, int select_mode, const bool ignore_visibility);
 void ED_pose_bone_select(struct Object *ob, struct bPoseChannel *pchan, bool select);
-void ED_pose_recalculate_paths(struct Scene *scene, struct Object *ob);
+void ED_pose_recalculate_paths(struct bContext *C, struct Scene *scene, struct Object *ob);
 struct Object *ED_pose_object_from_context(struct bContext *C);
 
 /* sketch */

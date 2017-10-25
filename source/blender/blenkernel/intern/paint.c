@@ -53,7 +53,6 @@
 #include "BKE_main.h"
 #include "BKE_context.h"
 #include "BKE_crazyspace.h"
-#include "BKE_depsgraph.h"
 #include "BKE_global.h"
 #include "BKE_image.h"
 #include "BKE_key.h"
@@ -65,6 +64,8 @@
 #include "BKE_pbvh.h"
 #include "BKE_subsurf.h"
 
+#include "DEG_depsgraph.h"
+
 #include "bmesh.h"
 
 const char PAINT_CURSOR_SCULPT[3] = {255, 100, 100};
@@ -74,9 +75,9 @@ const char PAINT_CURSOR_TEXTURE_PAINT[3] = {255, 255, 255};
 
 static eOverlayControlFlags overlay_flags = 0;
 
-void BKE_paint_invalidate_overlay_tex(Scene *scene, const Tex *tex)
+void BKE_paint_invalidate_overlay_tex(Scene *scene, SceneLayer *sl, const Tex *tex)
 {
-	Paint *p = BKE_paint_get_active(scene);
+	Paint *p = BKE_paint_get_active(scene, sl);
 	Brush *br = p->brush;
 
 	if (!br)
@@ -88,9 +89,9 @@ void BKE_paint_invalidate_overlay_tex(Scene *scene, const Tex *tex)
 		overlay_flags |= PAINT_INVALID_OVERLAY_TEXTURE_SECONDARY;
 }
 
-void BKE_paint_invalidate_cursor_overlay(Scene *scene, CurveMapping *curve)
+void BKE_paint_invalidate_cursor_overlay(Scene *scene, SceneLayer *sl, CurveMapping *curve)
 {
-	Paint *p = BKE_paint_get_active(scene);
+	Paint *p = BKE_paint_get_active(scene, sl);
 	Brush *br = p->brush;
 
 	if (br && br->curve == curve)
@@ -156,13 +157,13 @@ Paint *BKE_paint_get_active_from_paintmode(Scene *sce, ePaintMode mode)
 	return NULL;
 }
 
-Paint *BKE_paint_get_active(Scene *sce)
+Paint *BKE_paint_get_active(Scene *sce, SceneLayer *sl)
 {
-	if (sce) {
+	if (sce && sl) {
 		ToolSettings *ts = sce->toolsettings;
 		
-		if (sce->basact && sce->basact->object) {
-			switch (sce->basact->object->mode) {
+		if (sl->basact && sl->basact->object) {
+			switch (sl->basact->object->mode) {
 				case OB_MODE_SCULPT:
 					return &ts->sculpt->paint;
 				case OB_MODE_VERTEX_PAINT:
@@ -188,14 +189,15 @@ Paint *BKE_paint_get_active(Scene *sce)
 Paint *BKE_paint_get_active_from_context(const bContext *C)
 {
 	Scene *sce = CTX_data_scene(C);
+	SceneLayer *sl = CTX_data_scene_layer(C);
 	SpaceImage *sima;
 
-	if (sce) {
+	if (sce && sl) {
 		ToolSettings *ts = sce->toolsettings;
 		Object *obact = NULL;
 
-		if (sce->basact && sce->basact->object)
-			obact = sce->basact->object;
+		if (sl->basact && sl->basact->object)
+			obact = sl->basact->object;
 
 		if ((sima = CTX_wm_space_image(C)) != NULL) {
 			if (obact && obact->mode == OB_MODE_EDIT) {
@@ -238,14 +240,15 @@ Paint *BKE_paint_get_active_from_context(const bContext *C)
 ePaintMode BKE_paintmode_get_active_from_context(const bContext *C)
 {
 	Scene *sce = CTX_data_scene(C);
+	SceneLayer *sl = CTX_data_scene_layer(C);
 	SpaceImage *sima;
 
-	if (sce) {
+	if (sce && sl) {
 		ToolSettings *ts = sce->toolsettings;
 		Object *obact = NULL;
 
-		if (sce->basact && sce->basact->object)
-			obact = sce->basact->object;
+		if (sl->basact && sl->basact->object)
+			obact = sl->basact->object;
 
 		if ((sima = CTX_wm_space_image(C)) != NULL) {
 			if (obact && obact->mode == OB_MODE_EDIT) {
@@ -726,7 +729,7 @@ void BKE_sculptsession_bm_to_me(Object *ob, bool reorder)
 		sculptsession_bm_to_me_update_data_only(ob, reorder);
 
 		/* ensure the objects DerivedMesh mesh doesn't hold onto arrays now realloc'd in the mesh [#34473] */
-		DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
+		DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	}
 }
 
@@ -736,7 +739,7 @@ void BKE_sculptsession_bm_to_me_for_render(Object *object)
 		if (object->sculpt->bm) {
 			/* Ensure no points to old arrays are stored in DM
 			 *
-			 * Apparently, we could not use DAG_id_tag_update
+			 * Apparently, we could not use DEG_id_tag_update
 			 * here because this will lead to the while object
 			 * surface to disappear, so we'll release DM in place.
 			 */
@@ -867,8 +870,9 @@ static bool sculpt_modifiers_active(Scene *scene, Sculpt *sd, Object *ob)
 /**
  * \param need_mask So the DerivedMesh thats returned has mask data
  */
-void BKE_sculpt_update_mesh_elements(Scene *scene, Sculpt *sd, Object *ob,
-                                     bool need_pmap, bool need_mask)
+void BKE_sculpt_update_mesh_elements(
+        const EvaluationContext *eval_ctx, Scene *scene, Sculpt *sd, Object *ob,
+        bool need_pmap, bool need_mask)
 {
 	DerivedMesh *dm;
 	SculptSession *ss = ob->sculpt;
@@ -906,7 +910,7 @@ void BKE_sculpt_update_mesh_elements(Scene *scene, Sculpt *sd, Object *ob,
 
 	ss->kb = (mmd == NULL) ? BKE_keyblock_from_object(ob) : NULL;
 
-	dm = mesh_get_derived_final(scene, ob, CD_MASK_BAREMESH);
+	dm = mesh_get_derived_final(eval_ctx, scene, ob, CD_MASK_BAREMESH);
 
 	/* VWPaint require mesh info for loop lookup, so require sculpt mode here */
 	if (mmd && ob->mode & OB_MODE_SCULPT) {
@@ -940,7 +944,7 @@ void BKE_sculpt_update_mesh_elements(Scene *scene, Sculpt *sd, Object *ob,
 
 			ss->orig_cos = (ss->kb) ? BKE_keyblock_convert_to_vertcos(ob, ss->kb) : BKE_mesh_vertexCos_get(me, NULL);
 
-			BKE_crazyspace_build_sculpt(scene, ob, &ss->deform_imats, &ss->deform_cos);
+			BKE_crazyspace_build_sculpt(eval_ctx, scene, ob, &ss->deform_imats, &ss->deform_cos);
 			BKE_pbvh_apply_vertCos(ss->pbvh, ss->deform_cos);
 
 			for (a = 0; a < me->totvert; ++a) {
@@ -976,6 +980,9 @@ void BKE_sculpt_update_mesh_elements(Scene *scene, Sculpt *sd, Object *ob,
 			}
 		}
 	}
+
+	/* 2.8x - avoid full mesh update! */
+	BKE_mesh_batch_cache_dirty(me, BKE_MESH_BATCH_DIRTY_SCULPT_COORDS);
 }
 
 int BKE_sculpt_mask_layers_ensure(Object *ob, MultiresModifierData *mmd)

@@ -55,6 +55,8 @@
 #include "BKE_sequencer.h"
 #include "BKE_writeavi.h"
 
+#include "DEG_depsgraph.h"
+
 #include "WM_api.h"
 #include "WM_types.h"
 
@@ -70,9 +72,10 @@
 #include "RNA_access.h"
 #include "RNA_define.h"
 
-#include "GPU_glew.h"
 #include "GPU_compositing.h"
 #include "GPU_framebuffer.h"
+#include "GPU_glew.h"
+#include "GPU_matrix.h"
 
 #include "render_intern.h"
 
@@ -91,6 +94,8 @@ typedef struct OGLRender {
 	Main *bmain;
 	Render *re;
 	Scene *scene;
+	WorkSpace *workspace;
+	SceneLayer *scene_layer;
 
 	View3D *v3d;
 	RegionView3D *rv3d;
@@ -147,17 +152,6 @@ typedef struct OGLRender {
 	double time_start;
 #endif
 } OGLRender;
-
-/* added because v3d is not always valid */
-static unsigned int screen_opengl_layers(OGLRender *oglrender)
-{
-	if (oglrender->v3d) {
-		return oglrender->scene->lay | oglrender->v3d->lay;
-	}
-	else {
-		return oglrender->scene->lay;
-	}
-}
 
 static bool screen_opengl_is_multiview(OGLRender *oglrender)
 {
@@ -271,9 +265,10 @@ static void screen_opengl_views_setup(OGLRender *oglrender)
 	RE_ReleaseResult(oglrender->re);
 }
 
-static void screen_opengl_render_doit(OGLRender *oglrender, RenderResult *rr)
+static void screen_opengl_render_doit(const bContext *C, OGLRender *oglrender, RenderResult *rr)
 {
 	Scene *scene = oglrender->scene;
+	SceneLayer *scene_layer = oglrender->scene_layer;
 	ARegion *ar = oglrender->ar;
 	View3D *v3d = oglrender->v3d;
 	RegionView3D *rv3d = oglrender->rv3d;
@@ -286,6 +281,9 @@ static void screen_opengl_render_doit(OGLRender *oglrender, RenderResult *rr)
 	unsigned char *rect = NULL;
 	const char *viewname = RE_GetActiveRenderView(oglrender->re);
 	ImBuf *ibuf_result = NULL;
+	EvaluationContext eval_ctx;
+
+	CTX_data_eval_ctx(C, &eval_ctx);
 
 	if (oglrender->is_sequencer) {
 		SpaceSeq *sseq = oglrender->sseq;
@@ -330,7 +328,7 @@ static void screen_opengl_render_doit(OGLRender *oglrender, RenderResult *rr)
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 			wmOrtho2(0, sizex, 0, sizey);
-			glTranslatef(sizex / 2, sizey / 2, 0.0f);
+			gpuTranslate2f(sizex / 2, sizey / 2);
 
 			G.f |= G_RENDER_OGL;
 			ED_gpencil_draw_ex(scene, gpd, sizex, sizey, scene->r.cfra, SPACE_SEQ);
@@ -355,7 +353,7 @@ static void screen_opengl_render_doit(OGLRender *oglrender, RenderResult *rr)
 
 		if (view_context) {
 			ibuf_view = ED_view3d_draw_offscreen_imbuf(
-			       scene, v3d, ar, sizex, sizey,
+			       &eval_ctx, scene, scene_layer, v3d, ar, sizex, sizey,
 			       IB_rect, draw_bgpic,
 			       alpha_mode, oglrender->ofs_samples, oglrender->ofs_full_samples, viewname,
 			       oglrender->fx, oglrender->ofs, err_out);
@@ -367,7 +365,7 @@ static void screen_opengl_render_doit(OGLRender *oglrender, RenderResult *rr)
 		}
 		else {
 			ibuf_view = ED_view3d_draw_offscreen_imbuf_simple(
-			        scene, scene->camera, oglrender->sizex, oglrender->sizey,
+			        &eval_ctx, scene, scene_layer, scene->camera, oglrender->sizex, oglrender->sizey,
 			        IB_rect, OB_SOLID, false, true, true,
 			        alpha_mode, oglrender->ofs_samples, oglrender->ofs_full_samples, viewname,
 			        oglrender->fx, oglrender->ofs, err_out);
@@ -430,7 +428,7 @@ static void addAlphaOverFloat(float dest[4], const float source[4])
 }
 
 /* add renderlayer and renderpass for each grease pencil layer for using in composition */
-static void add_gpencil_renderpass(OGLRender *oglrender, RenderResult *rr, RenderView *rv)
+static void add_gpencil_renderpass(const bContext *C, OGLRender *oglrender, RenderResult *rr, RenderView *rv)
 {
 	bGPdata *gpd = oglrender->scene->gpd;
 	Scene *scene = oglrender->scene;
@@ -474,7 +472,7 @@ static void add_gpencil_renderpass(OGLRender *oglrender, RenderResult *rr, Rende
 		}
 
 		/* render this gp layer */
-		screen_opengl_render_doit(oglrender, rr);
+		screen_opengl_render_doit(C, oglrender, rr);
 		
 		/* add RendePass composite */
 		RenderPass *rp = RE_create_gp_pass(rr, gpl->info, rv->name);
@@ -514,7 +512,7 @@ static void add_gpencil_renderpass(OGLRender *oglrender, RenderResult *rr, Rende
 	scene->r.alphamode = oldalphamode;
 }
 
-static void screen_opengl_render_apply(OGLRender *oglrender)
+static void screen_opengl_render_apply(const bContext *C, OGLRender *oglrender)
 {
 	RenderResult *rr;
 	RenderView *rv;
@@ -552,10 +550,10 @@ static void screen_opengl_render_apply(OGLRender *oglrender)
 		/* add grease pencil passes. For sequencer, the render does not include renderpasses
 		 * TODO: The sequencer render of grease pencil should be rethought */
 		if (!oglrender->is_sequencer) {
-			add_gpencil_renderpass(oglrender, rr, rv);
+			add_gpencil_renderpass(C, oglrender, rr, rv);
 		}
 		/* render composite */
-		screen_opengl_render_doit(oglrender, rr);
+		screen_opengl_render_doit(C, oglrender, rr);
 	}
 
 	RE_ReleaseResult(oglrender->re);
@@ -571,11 +569,30 @@ static void screen_opengl_render_apply(OGLRender *oglrender)
 	}
 }
 
+static bool screen_opengl_fullsample_enabled(Scene *scene)
+{
+	if (scene->r.scemode & R_FULL_SAMPLE) {
+		return true;
+	}
+	else {
+		/* XXX TODO:
+		 * Technically if the hardware supports MSAA we could keep using Blender 2.7x approach.
+		 * However anti-aliasing without full_sample is not playing well even in 2.7x.
+		 *
+		 * For example, if you enable depth of field, there is aliasing, even if the viewport is fine.
+		 * For 2.8x this is more complicated because so many things rely on shader.
+		 * So until we fix the gpu_framebuffer anti-aliasing suupport we need to force full sample.
+		 */
+		return true;
+	}
+}
+
 static bool screen_opengl_render_init(bContext *C, wmOperator *op)
 {
 	/* new render clears all callbacks */
 	wmWindowManager *wm = CTX_wm_manager(C);
 	wmWindow *win = CTX_wm_window(C);
+	WorkSpace *workspace = CTX_wm_workspace(C);
 
 	Scene *scene = CTX_data_scene(C);
 	ScrArea *prevsa = CTX_wm_area(C);
@@ -584,7 +601,7 @@ static bool screen_opengl_render_init(bContext *C, wmOperator *op)
 	OGLRender *oglrender;
 	int sizex, sizey;
 	const int samples = (scene->r.mode & R_OSA) ? scene->r.osa : 0;
-	const bool full_samples = (samples != 0) && (scene->r.scemode & R_FULL_SAMPLE);
+	const bool full_samples = (samples != 0) && screen_opengl_fullsample_enabled(scene);
 	bool is_view_context = RNA_boolean_get(op->ptr, "view_context");
 	const bool is_animation = RNA_boolean_get(op->ptr, "animation");
 	const bool is_sequencer = RNA_boolean_get(op->ptr, "sequencer");
@@ -647,6 +664,8 @@ static bool screen_opengl_render_init(bContext *C, wmOperator *op)
 	oglrender->sizey = sizey;
 	oglrender->bmain = CTX_data_main(C);
 	oglrender->scene = scene;
+	oglrender->workspace = workspace;
+	oglrender->scene_layer = CTX_data_scene_layer(C);
 	oglrender->cfrao = scene->r.cfra;
 
 	oglrender->write_still = is_write_still && !is_animation;
@@ -682,6 +701,8 @@ static bool screen_opengl_render_init(bContext *C, wmOperator *op)
 
 	/* create render */
 	oglrender->re = RE_NewSceneRender(scene);
+	ViewRender *view_render = BKE_viewrender_get(scene, workspace);
+	RE_SetEngineByID(oglrender->re, view_render->engine_id);
 
 	/* create image and image user */
 	oglrender->ima = BKE_image_verify_viewer(IMA_TYPE_R_RESULT, "Render Result");
@@ -692,7 +713,7 @@ static bool screen_opengl_render_init(bContext *C, wmOperator *op)
 	oglrender->iuser.ok = 1;
 
 	/* create render result */
-	RE_InitState(oglrender->re, NULL, &scene->r, NULL, sizex, sizey, NULL);
+	RE_InitState(oglrender->re, NULL, &scene->r, view_render, NULL, sizex, sizey, NULL);
 
 	/* create render views */
 	screen_opengl_views_setup(oglrender);
@@ -790,7 +811,7 @@ static void screen_opengl_render_end(bContext *C, OGLRender *oglrender)
 
 	if (oglrender->timer) { /* exec will not have a timer */
 		scene->r.cfra = oglrender->cfrao;
-		BKE_scene_update_for_newframe(bmain->eval_ctx, bmain, scene, screen_opengl_layers(oglrender));
+		BKE_scene_update_for_newframe(bmain->eval_ctx, bmain, scene);
 
 		WM_event_remove_timer(oglrender->wm, oglrender->win, oglrender->timer);
 	}
@@ -1000,12 +1021,7 @@ static bool screen_opengl_render_anim_step(bContext *C, wmOperator *op)
 	if (CFRA < oglrender->nfra)
 		CFRA++;
 	while (CFRA < oglrender->nfra) {
-		unsigned int lay = screen_opengl_layers(oglrender);
-
-		if (lay & 0xFF000000)
-			lay &= 0xFF000000;
-
-		BKE_scene_update_for_newframe(bmain->eval_ctx, bmain, scene, lay);
+		BKE_scene_update_for_newframe(bmain->eval_ctx, bmain, scene);
 		CFRA++;
 	}
 
@@ -1027,7 +1043,7 @@ static bool screen_opengl_render_anim_step(bContext *C, wmOperator *op)
 
 	WM_cursor_time(oglrender->win, scene->r.cfra);
 
-	BKE_scene_update_for_newframe(bmain->eval_ctx, bmain, scene, screen_opengl_layers(oglrender));
+	BKE_scene_update_for_newframe(bmain->eval_ctx, bmain, scene);
 
 	if (view_context) {
 		if (oglrender->rv3d->persp == RV3D_CAMOB && oglrender->v3d->camera && oglrender->v3d->scenelock) {
@@ -1043,7 +1059,7 @@ static bool screen_opengl_render_anim_step(bContext *C, wmOperator *op)
 	}
 
 	/* render into offscreen buffer */
-	screen_opengl_render_apply(oglrender);
+	screen_opengl_render_apply(C, oglrender);
 
 	/* save to disk */
 	rr = RE_AcquireResultRead(oglrender->re);
@@ -1093,7 +1109,7 @@ static int screen_opengl_render_modal(bContext *C, wmOperator *op, const wmEvent
 	WM_event_add_notifier(C, NC_SCENE | ND_RENDER_RESULT, oglrender->scene);
 	
 	if (anim == 0) {
-		screen_opengl_render_apply(op->customdata);
+		screen_opengl_render_apply(C, op->customdata);
 		screen_opengl_render_end(C, op->customdata);
 		return OPERATOR_FINISHED;
 	}
@@ -1144,7 +1160,7 @@ static int screen_opengl_render_exec(bContext *C, wmOperator *op)
 
 	if (!is_animation) { /* same as invoke */
 		/* render image */
-		screen_opengl_render_apply(op->customdata);
+		screen_opengl_render_apply(C, op->customdata);
 		screen_opengl_render_end(C, op->customdata);
 
 		return OPERATOR_FINISHED;

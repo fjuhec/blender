@@ -345,7 +345,7 @@ static int do_init_cloth(Object *ob, ClothModifierData *clmd, DerivedMesh *resul
 	return 1;
 }
 
-static int do_step_cloth(Object *ob, ClothModifierData *clmd, DerivedMesh *result, int framenr)
+static int do_step_cloth(const struct EvaluationContext *eval_ctx, Object *ob, ClothModifierData *clmd, DerivedMesh *result, int framenr)
 {
 	ClothVertex *verts = NULL;
 	Cloth *cloth;
@@ -370,7 +370,7 @@ static int do_step_cloth(Object *ob, ClothModifierData *clmd, DerivedMesh *resul
 		mul_m4_v3(ob->obmat, verts->xconst);
 	}
 
-	effectors = pdInitEffectors(clmd->scene, ob, NULL, clmd->sim_parms->effector_weights, true);
+	effectors = pdInitEffectors(eval_ctx, clmd->scene, ob, NULL, clmd->sim_parms->effector_weights, true);
 
 	if (clmd->sim_parms->flags & CLOTH_SIMSETTINGS_FLAG_DYNAMIC_BASEMESH )
 		cloth_update_verts ( ob, clmd, result );
@@ -400,7 +400,7 @@ static int do_step_cloth(Object *ob, ClothModifierData *clmd, DerivedMesh *resul
 /************************************************
  * clothModifier_do - main simulation function
  ************************************************/
-void clothModifier_do(ClothModifierData *clmd, Scene *scene, Object *ob, DerivedMesh *dm, float (*vertexCos)[3])
+void clothModifier_do(ClothModifierData *clmd, const struct EvaluationContext *eval_ctx, Scene *scene, Object *ob, DerivedMesh *dm, float (*vertexCos)[3])
 {
 	PointCache *cache;
 	PTCacheID pid;
@@ -478,7 +478,6 @@ void clothModifier_do(ClothModifierData *clmd, Scene *scene, Object *ob, Derived
 		return;
 	}
 
-	if (!can_simulate)
 		return;
 
 	/* if on second frame, write cache for first frame */
@@ -490,7 +489,7 @@ void clothModifier_do(ClothModifierData *clmd, Scene *scene, Object *ob, Derived
 	/* do simulation */
 	BKE_ptcache_validate(cache, framenr);
 
-	if (!do_step_cloth(ob, clmd, dm, framenr)) {
+	if (!do_step_cloth(eval_ctx, ob, clmd, dm, framenr)) {
 		BKE_ptcache_invalidate(cache);
 	}
 	else
@@ -922,7 +921,7 @@ static void cloth_from_mesh ( ClothModifierData *clmd, DerivedMesh *dm )
 }
 
 /***************************************************************************************
- * SPRING NETWORK BUILDING IMPLEMENTATION BEGIN
+ * SPRING NETWORK GWN_BATCH_BUILDING IMPLEMENTATION BEGIN
  ***************************************************************************************/
 
 BLI_INLINE void spring_verts_ordered_set(ClothSpring *spring, int v0, int v1)
@@ -1504,6 +1503,6 @@ static int cloth_build_springs ( ClothModifierData *clmd, DerivedMesh *dm )
 
 } /* cloth_build_springs */
 /***************************************************************************************
- * SPRING NETWORK BUILDING IMPLEMENTATION END
+ * SPRING NETWORK GWN_BATCH_BUILDING IMPLEMENTATION END
  ***************************************************************************************/
 

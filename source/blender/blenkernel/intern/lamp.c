@@ -69,6 +69,7 @@ void BKE_lamp_init(Lamp *la)
 	la->bufsize = 512;
 	la->clipsta = 0.5f;
 	la->clipend = 40.0f;
+	la->bleedexp = 2.5f;
 	la->samp = 3;
 	la->bias = 1.0f;
 	la->soft = 3.0f;
@@ -101,6 +102,14 @@ void BKE_lamp_init(Lamp *la)
 	la->sky_colorspace = BLI_XYZ_CIE;
 	la->sky_exposure = 1.0f;
 	la->shadow_frustum_size = 10.0f;
+	la->cascade_max_dist = 1000.0f;
+	la->cascade_count = 4;
+	la->cascade_exponent = 0.8f;
+	la->cascade_fade = 0.1f;
+	la->contact_dist = 1.0f;
+	la->contact_bias = 0.03f;
+	la->contact_spread = 0.2f;
+	la->contact_thickness = 0.5f;
 	
 	curvemapping_initialize(la->curfalloff);
 }
@@ -215,41 +224,3 @@ void BKE_lamp_free(Lamp *la)
 	BKE_icon_id_delete(&la->id);
 	la->id.icon_id = 0;
 }
-
-/* Calculate all drivers for lamps, see material_drivers_update for why this is a bad hack */
-
-static void lamp_node_drivers_update(Scene *scene, bNodeTree *ntree, float ctime)
-{
-	bNode *node;
-
-	/* nodetree itself */
-	if (ntree->adt && ntree->adt->drivers.first)
-		BKE_animsys_evaluate_animdata(scene, &ntree->id, ntree->adt, ctime, ADT_RECALC_DRIVERS);
-	
-	/* nodes */
-	for (node = ntree->nodes.first; node; node = node->next)
-		if (node->id && node->type == NODE_GROUP)
-			lamp_node_drivers_update(scene, (bNodeTree *)node->id, ctime);
-}
-
-void lamp_drivers_update(Scene *scene, Lamp *la, float ctime)
-{
-	/* Prevent infinite recursion by checking (and tagging the lamp) as having been visited already
-	 * (see BKE_scene_update_tagged()). This assumes la->id.tag & LIB_TAG_DOIT isn't set by anything else
-	 * in the meantime... [#32017] */
-	if (la->id.tag & LIB_TAG_DOIT)
-		return;
-
-	la->id.tag |= LIB_TAG_DOIT;
-	
-	/* lamp itself */
-	if (la->adt && la->adt->drivers.first)
-		BKE_animsys_evaluate_animdata(scene, &la->id, la->adt, ctime, ADT_RECALC_DRIVERS);
-	
-	/* nodes */
-	if (la->nodetree)
-		lamp_node_drivers_update(scene, la->nodetree, ctime);
-
-	la->id.tag &= ~LIB_TAG_DOIT;
-}
-

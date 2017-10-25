@@ -90,6 +90,16 @@ typedef struct TexPaintSlot {
 	int pad;
 } TexPaintSlot;
 
+/* Clay engine */
+
+/* MaterialRuntimeClay.flag */
+#define CLAY_OUTDATED		1
+
+/* MaterialEngineSettingsClay.type */
+#define CLAY_MATCAP_NONE		0
+#define CLAY_MATCAP_SIMPLE		1
+#define CLAY_MATCAP_COMPLETE	2
+
 typedef struct Material {
 	ID id;
 	struct AnimData *adt;	/* animation data (must be immediately after id for utilities to use it) */ 
@@ -201,6 +211,18 @@ typedef struct Material {
 	char nmap_tangent_names[9][64]; /* [MAX_MTFACE+1][MAX_NAME]; +1 for empty name */
 	int nmap_tangent_names_count, pad5;
 
+	/* Transparency */
+	float alpha_threshold;
+	float refract_depth;
+	char blend_method;
+	char blend_shadow;
+	char blend_flag;
+	char pad6[5];
+
+	/* image to use for image/uv space, also bake target
+	 * (not to be used shading/rendering pipeline, this is editor featyure only!). */
+	struct Image *edit_image;
+
 	struct TexPaintSlot *texpaintslot; /* cached slot for painting. Make sure to recalculate before use
 	                                    * with refresh_texpaint_image_cache */
 	ListBase gpumaterial;		/* runtime */
@@ -275,7 +297,7 @@ typedef struct Material {
 #define MA_ONLYSHADOW	1024
 #define MA_HALO_XALPHA	1024
 #define MA_STAR			0x800
-#define MA_FACETEXTURE	0x800
+// #define MA_FACETEXTURE	0x800	/* deprecated */
 #define MA_HALOTEX		0x1000
 #define MA_HALOPUNO		0x2000
 #define MA_ONLYCAST		0x2000
@@ -297,7 +319,7 @@ typedef struct Material {
 /* qdn: a bit clumsy this, tangents needed for normal maps separated from shading */
 #define MA_NORMAP_TANG	0x8000000
 #define MA_GROUP_NOLAY	0x10000000
-#define MA_FACETEXTURE_ALPHA	0x20000000
+// #define MA_FACETEXTURE_ALPHA	0x20000000	/* deprecated */
 #define MA_STR_B_UNITS	0x40000000
 #define MA_STR_SURFDIFF 0x80000000
 
@@ -476,6 +498,30 @@ typedef struct Material {
 #define MA_VOL_SHADE_SHADED						1
 #define MA_VOL_SHADE_MULTIPLE					3
 #define MA_VOL_SHADE_SHADEDPLUSMULTIPLE			4
+
+/* blend_method */
+enum {
+	MA_BM_SOLID,
+	MA_BM_ADD,
+	MA_BM_MULTIPLY,
+	MA_BM_CLIP,
+	MA_BM_HASHED,
+	MA_BM_BLEND,
+};
+
+/* blend_flag */
+enum {
+	MA_BL_HIDE_BACKSIDE =        (1 << 0),
+	MA_BL_SS_REFRACTION =        (1 << 1),
+};
+
+/* blend_shadow */
+enum {
+	MA_BS_NONE = 0,
+	MA_BS_SOLID,
+	MA_BS_CLIP,
+	MA_BS_HASHED,
+};
 
 #endif
 

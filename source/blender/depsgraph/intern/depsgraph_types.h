@@ -111,6 +111,14 @@ typedef enum eDepsNode_Type {
 	DEG_NODE_TYPE_GEOMETRY,
 	/* Sequencer Component (Scene Only) */
 	DEG_NODE_TYPE_SEQUENCER,
+	/* Component which contains all operations needed for layer collections
+	 * evaluation.
+	 */
+	DEG_NODE_TYPE_LAYER_COLLECTIONS,
+	/* Entry component of majority of ID nodes: prepares CoW pointers for
+	 * execution.
+	 */
+	DEG_NODE_TYPE_COPY_ON_WRITE,
 
 	/* **** Evaluation-Related Outer Types (with Subdata) **** */
 
@@ -122,6 +130,7 @@ typedef enum eDepsNode_Type {
 	DEG_NODE_TYPE_EVAL_PARTICLES,
 	/* Material Shading Component */
 	DEG_NODE_TYPE_SHADING,
+	DEG_NODE_TYPE_SHADING_PARAMETERS,
 	/* Cache Component */
 	DEG_NODE_TYPE_CACHE,
 } eDepsNode_Type;
@@ -206,9 +215,21 @@ typedef enum eDepsOperation_Code {
 	/* Particle System evaluation. */
 	DEG_OPCODE_PARTICLE_SYSTEM_EVAL_INIT,
 	DEG_OPCODE_PARTICLE_SYSTEM_EVAL,
+	DEG_OPCODE_PARTICLE_SETTINGS_EVAL,
+	DEG_OPCODE_PARTICLE_SETTINGS_RECALC_CLEAR,
+
+	/* Collections. ------------------------------------- */
+	DEG_OPCODE_SCENE_LAYER_INIT,
+	DEG_OPCODE_SCENE_LAYER_EVAL,
+	DEG_OPCODE_SCENE_LAYER_DONE,
+
+	/* Copy on Write. ------------------------------------ */
+	DEG_OPCODE_COPY_ON_WRITE,
 
 	/* Shading. ------------------------------------------- */
 	DEG_OPCODE_SHADING,
+	DEG_OPCODE_MATERIAL_UPDATE,
+	DEG_OPCODE_WORLD_UPDATE,
 
 	/* Masks. ------------------------------------------ */
 	DEG_OPCODE_MASK_ANIMATION,

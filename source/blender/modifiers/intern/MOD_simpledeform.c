@@ -44,9 +44,6 @@
 #include "BKE_modifier.h"
 #include "BKE_deform.h"
 
-
-#include "depsgraph_private.h"
-
 #include "MOD_util.h"
 
 #define BEND_EPS 0.000001f
@@ -293,18 +290,6 @@ static void foreachObjectLink(
 	walk(userData, ob, &smd->origin, IDWALK_CB_NOP);
 }
 
-static void updateDepgraph(ModifierData *md, DagForest *forest,
-                           struct Main *UNUSED(bmain),
-                           struct Scene *UNUSED(scene),
-                           Object *UNUSED(ob),
-                           DagNode *obNode)
-{
-	SimpleDeformModifierData *smd  = (SimpleDeformModifierData *)md;
-
-	if (smd->origin)
-		dag_add_relation(forest, dag_get_node(forest, smd->origin), obNode, DAG_RL_OB_DATA, "SimpleDeform Modifier");
-}
-
 static void updateDepsgraph(ModifierData *md,
                             struct Main *UNUSED(bmain),
                             struct Scene *UNUSED(scene),
@@ -317,8 +302,8 @@ static void updateDepsgraph(ModifierData *md,
 	}
 }
 
-static void deformVerts(ModifierData *md, Object *ob,
-                        DerivedMesh *derivedData,
+static void deformVerts(ModifierData *md, const struct EvaluationContext *UNUSED(eval_ctx),
+                        Object *ob, DerivedMesh *derivedData,
                         float (*vertexCos)[3],
                         int numVerts,
                         ModifierApplyFlag UNUSED(flag))
@@ -337,8 +322,8 @@ static void deformVerts(ModifierData *md, Object *ob,
 		dm->release(dm);
 }
 
-static void deformVertsEM(ModifierData *md, Object *ob,
-                          struct BMEditMesh *editData,
+static void deformVertsEM(ModifierData *md, const struct EvaluationContext *UNUSED(eval_ctx),
+                          Object *ob, struct BMEditMesh *editData,
                           DerivedMesh *derivedData,
                           float (*vertexCos)[3],
                           int numVerts)
@@ -381,7 +366,6 @@ ModifierTypeInfo modifierType_SimpleDeform = {
 	/* requiredDataMask */  requiredDataMask,
 	/* freeData */          NULL,
 	/* isDisabled */        NULL,
-	/* updateDepgraph */    updateDepgraph,
 	/* updateDepsgraph */   updateDepsgraph,
 	/* dependsOnTime */     NULL,
 	/* dependsOnNormals */	NULL,

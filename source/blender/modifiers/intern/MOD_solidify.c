@@ -205,8 +205,8 @@ BLI_INLINE void madd_v3v3short_fl(float r[3], const short a[3], const float f)
 }
 
 static DerivedMesh *applyModifier(
-        ModifierData *md, Object *ob,
-        DerivedMesh *dm,
+        ModifierData *md, const struct EvaluationContext *UNUSED(eval_ctx),
+        Object *ob, DerivedMesh *dm,
         ModifierApplyFlag UNUSED(flag))
 {
 	DerivedMesh *result;
@@ -973,7 +973,6 @@ ModifierTypeInfo modifierType_Solidify = {
 	/* requiredDataMask */  requiredDataMask,
 	/* freeData */          NULL,
 	/* isDisabled */        NULL,
-	/* updateDepgraph */    NULL,
 	/* updateDepsgraph */   NULL,
 	/* dependsOnTime */     NULL,
 	/* dependsOnNormals */  dependsOnNormals,

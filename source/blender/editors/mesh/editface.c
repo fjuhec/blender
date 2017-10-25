@@ -106,6 +106,8 @@ void paintface_flush_flags(Object *ob, short flag)
 		/* draw-object caches hidden faces, force re-generation T46867 */
 		GPU_drawobject_free(dm);
 	}
+
+	BKE_mesh_batch_cache_dirty(me, BKE_MESH_BATCH_DIRTY_ALL);
 }
 
 void paintface_hide(Object *ob, const bool unselected)
@@ -387,14 +389,14 @@ bool paintface_mouse_select(struct bContext *C, Object *ob, const int mval[2], b
 	}
 	
 	/* image window redraw */
-	
+
 	paintface_flush_flags(ob, SELECT);
 	WM_event_add_notifier(C, NC_GEOM | ND_SELECT, ob->data);
 	ED_region_tag_redraw(CTX_wm_region(C)); // XXX - should redraw all 3D views
 	return true;
 }
 
-int do_paintface_box_select(ViewContext *vc, rcti *rect, bool select, bool extend)
+int do_paintface_box_select(const struct EvaluationContext *eval_ctx, ViewContext *vc, rcti *rect, bool select, bool extend)
 {
 	Object *ob = vc->obact;
 	Mesh *me;
@@ -425,7 +427,7 @@ int do_paintface_box_select(ViewContext *vc, rcti *rect, bool select, bool exten
 		}
 	}
 
-	ED_view3d_backbuf_validate(vc);
+	ED_view3d_backbuf_validate(eval_ctx, vc);
 
 	ibuf = IMB_allocImBuf(size[0], size[1], 32, IB_rect);
 	rt = ibuf->rect;
@@ -515,6 +517,8 @@ void paintvert_flush_flags(Object *ob)
 			dm_mv->flag = me->mvert[i].flag;
 		}
 	}
+
+	BKE_mesh_batch_cache_dirty(me, BKE_MESH_BATCH_DIRTY_ALL);
 }
 /*  note: if the caller passes false to flush_flags, then they will need to run paintvert_flush_flags(ob) themselves */
 void paintvert_deselect_all_visible(Object *ob, int action, bool flush_flags)

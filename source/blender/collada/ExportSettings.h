@@ -28,6 +28,7 @@
 #define __EXPORTSETTINGS_H__
 
 #include "collada.h"
+#include "collada.h"
 
 struct ExportSettings {
 public:
@@ -41,7 +42,7 @@ public:
 	bool deform_bones_only;
 
 	bool active_uv_only;
-	BC_export_texture_type export_texture_type;
+	bool include_material_textures;
 	bool use_texture_copies;
 
 	bool triangulate;

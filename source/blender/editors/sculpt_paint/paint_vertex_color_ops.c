@@ -33,9 +33,10 @@
 #include "BLI_math_color.h"
 
 #include "BKE_context.h"
-#include "BKE_depsgraph.h"
 #include "BKE_mesh.h"
 #include "BKE_deform.h"
+
+#include "DEG_depsgraph.h"
 
 #include "RNA_access.h"
 #include "RNA_define.h"
@@ -97,7 +98,7 @@ static bool vertex_color_set(Object *ob, uint paintcol)
 	/* remove stale me->mcol, will be added later */
 	BKE_mesh_tessface_clear(me);
 
-	DAG_id_tag_update(&me->id, 0);
+	DEG_id_tag_update(&me->id, 0);
 
 	return true;
 }
@@ -168,7 +169,7 @@ static bool vertex_paint_from_weight(Object *ob)
 		} while (j < mp->totloop);
 	}
 
-	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 
 	return true;
 }
@@ -304,7 +305,7 @@ static bool vertex_color_smooth(Object *ob)
 
 	MEM_freeN(mlooptag);
 
-	DAG_id_tag_update(&me->id, 0);
+	DEG_id_tag_update(&me->id, 0);
 
 	return true;
 }

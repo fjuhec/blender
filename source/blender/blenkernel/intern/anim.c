@@ -43,8 +43,8 @@
 #include "DNA_key_types.h"
 #include "DNA_scene_types.h"
 
+#include "BKE_context.h"
 #include "BKE_curve.h"
-#include "BKE_depsgraph.h"
 #include "BKE_global.h"
 #include "BKE_key.h"
 #include "BKE_main.h"
@@ -53,6 +53,8 @@
 #include "BKE_scene.h"
 #include "BKE_anim.h"
 #include "BKE_report.h"
+
+#include "DEG_depsgraph_build.h"
 
 // XXX bad level call...
 
@@ -273,88 +275,18 @@ void animviz_get_object_motionpaths(Object *ob, ListBase *targets)
 
 /* ........ */
 
-/* Note on evaluation optimizations:
- * Optimization's currently used here play tricks with the depsgraph in order to try and
- * evaluate as few objects as strictly necessary to get nicer performance under standard
- * production conditions. For those people who really need the accurate version, 
- * disable the ifdef (i.e. 1 -> 0) and comment out the call to motionpaths_calc_optimise_depsgraph()
- */
-
-/* tweak the object ordering to trick depsgraph into making MotionPath calculations run faster */
-static void motionpaths_calc_optimise_depsgraph(Scene *scene, ListBase *targets)
-{
-	Base *base, *baseNext;
-	MPathTarget *mpt;
-	
-	/* make sure our temp-tag isn't already in use */
-	for (base = scene->base.first; base; base = base->next)
-		base->object->flag &= ~BA_TEMP_TAG;
-	
-	/* for each target, dump its object to the start of the list if it wasn't moved already */
-	for (mpt = targets->first; mpt; mpt = mpt->next) {
-		for (base = scene->base.first; base; base = baseNext) {
-			baseNext = base->next;
-			
-			if ((base->object == mpt->ob) && !(mpt->ob->flag & BA_TEMP_TAG)) {
-				BLI_remlink(&scene->base, base);
-				BLI_addhead(&scene->base, base);
-				
-				mpt->ob->flag |= BA_TEMP_TAG;
-				
-				/* we really don't need to continue anymore once this happens, but this line might really 'break' */
-				break;
-			}
-		}
-	}
-	
-	/* "brew me a list that's sorted a bit faster now depsy" */
-	DAG_scene_relations_rebuild(G.main, scene);
-}
-
 /* update scene for current frame */
 static void motionpaths_calc_update_scene(Scene *scene)
 {
-#if 1 // 'production' optimizations always on
-	/* rigid body simulation needs complete update to work correctly for now */
-	/* RB_TODO investigate if we could avoid updating everything */
-	if (BKE_scene_check_rigidbody_active(scene)) {
-		BKE_scene_update_for_newframe(G.main->eval_ctx, G.main, scene, scene->lay);
-	}
-	else { /* otherwise we can optimize by restricting updates */
-		Base *base, *last = NULL;
-		
-		/* only stuff that moves or needs display still */
-		DAG_scene_update_flags(G.main, scene, scene->lay, true, false);
-		
-		/* find the last object with the tag 
-		 * - all those afterwards are assumed to not be relevant for our calculations
-		 */
-		/* optimize further by moving out... */
-		for (base = scene->base.first; base; base = base->next) {
-			if (base->object->flag & BA_TEMP_TAG)
-				last = base;
-		}
-		
-		/* perform updates for tagged objects */
-		/* XXX: this will break if rigs depend on scene or other data that
-		 * is animated but not attached to/updatable from objects */
-		for (base = scene->base.first; base; base = base->next) {
-			/* update this object */
-			BKE_object_handle_update(G.main->eval_ctx, scene, base->object);
-			
-			/* if this is the last one we need to update, let's stop to save some time */
-			if (base == last)
-				break;
-		}
-	}
-#else // original, 'always correct' version
-	/* do all updates
+	/* Do all updates
 	 *  - if this is too slow, resort to using a more efficient way
 	 *    that doesn't force complete update, but for now, this is the
 	 *    most accurate way!
+	 *
+	 * TODO(segey): Bring back partial updates, which became impossible
+	 * with the new depsgraph due to unsorted nature of bases.
 	 */
-	BKE_scene_update_for_newframe(G.main->eval_ctx, G.main, scene, scene->lay); /* XXX this is the best way we can get anything moving */
-#endif
+	BKE_scene_update_for_newframe(G.main->eval_ctx, G.main, scene);
 }
 
 /* ........ */
@@ -404,7 +336,7 @@ static void motionpaths_calc_bake_targets(Scene *scene, ListBase *targets)
  *	- recalc: whether we need to
  */
 /* TODO: include reports pointer? */
-void animviz_calc_motionpaths(Scene *scene, ListBase *targets)
+void animviz_calc_motionpaths(bContext *UNUSED(C), Scene *scene, ListBase *targets)
 {
 	MPathTarget *mpt;
 	int sfra, efra;
@@ -427,10 +359,6 @@ void animviz_calc_motionpaths(Scene *scene, ListBase *targets)
 		efra = MAX2(efra, mpt->mpath->end_frame);
 	}
 	if (efra <= sfra) return;
-	
-	/* optimize the depsgraph for faster updates */
-	/* TODO: whether this is used should depend on some setting for the level of optimizations used */
-	motionpaths_calc_optimise_depsgraph(scene, targets);
 	
 	/* calculate path over requested range */
 	for (CFRA = sfra; CFRA <= efra; CFRA++) {

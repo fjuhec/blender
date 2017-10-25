@@ -46,8 +46,6 @@
 #include "BKE_deform.h"
 #include "BKE_colortools.h"
 
-
-#include "depsgraph_private.h"
 #include "MEM_guardedalloc.h"
 
 #include "MOD_util.h"
@@ -116,24 +114,6 @@ static void foreachObjectLink(
 	HookModifierData *hmd = (HookModifierData *) md;
 
 	walk(userData, ob, &hmd->object, IDWALK_CB_NOP);
-}
-
-static void updateDepgraph(ModifierData *md, DagForest *forest,
-                           struct Main *UNUSED(bmain),
-                           struct Scene *UNUSED(scene),
-                           Object *UNUSED(ob),
-                           DagNode *obNode)
-{
-	HookModifierData *hmd = (HookModifierData *) md;
-
-	if (hmd->object) {
-		DagNode *curNode = dag_get_node(forest, hmd->object);
-		
-		if (hmd->subtarget[0])
-			dag_add_relation(forest, curNode, obNode, DAG_RL_OB_DATA | DAG_RL_DATA_DATA, "Hook Modifier");
-		else
-			dag_add_relation(forest, curNode, obNode, DAG_RL_OB_DATA, "Hook Modifier");
-	}
 }
 
 static void updateDepsgraph(ModifierData *md,
@@ -376,7 +356,7 @@ static void deformVerts_do(HookModifierData *hmd, Object *ob, DerivedMesh *dm,
 	}
 }
 
-static void deformVerts(ModifierData *md, Object *ob, DerivedMesh *derivedData,
+static void deformVerts(ModifierData *md, const struct EvaluationContext *UNUSED(eval_ctx), Object *ob, DerivedMesh *derivedData,
                         float (*vertexCos)[3], int numVerts,
                         ModifierApplyFlag UNUSED(flag))
 {
@@ -392,7 +372,7 @@ static void deformVerts(ModifierData *md, Object *ob, DerivedMesh *derivedData,
 		dm->release(dm);
 }
 
-static void deformVertsEM(ModifierData *md, Object *ob, struct BMEditMesh *editData,
+static void deformVertsEM(ModifierData *md, const struct EvaluationContext *UNUSED(eval_ctx), Object *ob, struct BMEditMesh *editData,
                           DerivedMesh *derivedData, float (*vertexCos)[3], int numVerts)
 {
 	HookModifierData *hmd = (HookModifierData *) md;
@@ -427,7 +407,6 @@ ModifierTypeInfo modifierType_Hook = {
 	/* requiredDataMask */  requiredDataMask,
 	/* freeData */          freeData,
 	/* isDisabled */        isDisabled,
-	/* updateDepgraph */    updateDepgraph,
 	/* updateDepsgraph */   updateDepsgraph,
 	/* dependsOnTime */     NULL,
 	/* dependsOnNormals */	NULL,

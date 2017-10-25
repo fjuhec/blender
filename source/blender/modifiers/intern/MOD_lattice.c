@@ -44,8 +44,6 @@
 #include "BKE_library_query.h"
 #include "BKE_modifier.h"
 
-#include "depsgraph_private.h"
-
 #include "MOD_util.h"
 
 static void initData(ModifierData *md)
@@ -91,22 +89,6 @@ static void foreachObjectLink(
 	walk(userData, ob, &lmd->object, IDWALK_CB_NOP);
 }
 
-static void updateDepgraph(ModifierData *md, DagForest *forest,
-                           struct Main *UNUSED(bmain),
-                           struct Scene *UNUSED(scene),
-                           Object *UNUSED(ob),
-                           DagNode *obNode)
-{
-	LatticeModifierData *lmd = (LatticeModifierData *) md;
-
-	if (lmd->object) {
-		DagNode *latNode = dag_get_node(forest, lmd->object);
-
-		dag_add_relation(forest, latNode, obNode,
-		                 DAG_RL_DATA_DATA | DAG_RL_OB_DATA, "Lattice Modifier");
-	}
-}
-
 static void updateDepsgraph(ModifierData *md,
                             struct Main *UNUSED(bmain),
                             struct Scene *UNUSED(scene),
@@ -121,8 +103,8 @@ static void updateDepsgraph(ModifierData *md,
 	DEG_add_object_relation(node, object, DEG_OB_COMP_TRANSFORM, "Lattice Modifier");
 }
 
-static void deformVerts(ModifierData *md, Object *ob,
-                        DerivedMesh *derivedData,
+static void deformVerts(ModifierData *md, const struct EvaluationContext *UNUSED(eval_ctx),
+                        Object *ob, DerivedMesh *derivedData,
                         float (*vertexCos)[3],
                         int numVerts,
                         ModifierApplyFlag UNUSED(flag))
@@ -137,14 +119,14 @@ static void deformVerts(ModifierData *md, Object *ob,
 }
 
 static void deformVertsEM(
-        ModifierData *md, Object *ob, struct BMEditMesh *em,
+        ModifierData *md, const struct EvaluationContext *eval_ctx, Object *ob, struct BMEditMesh *em,
         DerivedMesh *derivedData, float (*vertexCos)[3], int numVerts)
 {
 	DerivedMesh *dm = derivedData;
 
 	if (!derivedData) dm = CDDM_from_editbmesh(em, false, false);
 
-	deformVerts(md, ob, dm, vertexCos, numVerts, 0);
+	deformVerts(md, eval_ctx, ob, dm, vertexCos, numVerts, 0);
 
 	if (!derivedData) dm->release(dm);
 }
@@ -169,7 +151,6 @@ ModifierTypeInfo modifierType_Lattice = {
 	/* requiredDataMask */  requiredDataMask,
 	/* freeData */          NULL,
 	/* isDisabled */        isDisabled,
-	/* updateDepgraph */    updateDepgraph,
 	/* updateDepsgraph */   updateDepsgraph,
 	/* dependsOnTime */     NULL,
 	/* dependsOnNormals */	NULL,

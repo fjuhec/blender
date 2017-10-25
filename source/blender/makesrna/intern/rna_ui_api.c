@@ -60,7 +60,7 @@ const EnumPropertyItem rna_enum_icon_items[] = {
 
 #ifdef RNA_RUNTIME
 
-static const char *rna_translate_ui_text(const char *text, const char *text_ctxt, StructRNA *type, PropertyRNA *prop,
+const char *rna_translate_ui_text(const char *text, const char *text_ctxt, StructRNA *type, PropertyRNA *prop,
                                          int translate)
 {
 	/* Also return text if UI labels translation is disabled. */
@@ -670,7 +670,38 @@ void RNA_api_ui_layout(StructRNA *srna)
 	                      "Identifier of property in data giving the type of the ID-blocks to use");
 	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	api_ui_item_common_text(func);
-	
+
+	func = RNA_def_function(srna, "template_ID_tabs", "uiTemplateIDTabs");
+	RNA_def_function_flag(func, FUNC_USE_CONTEXT);
+	api_ui_item_rna_common(func);
+	RNA_def_string(func, "new", NULL, 0, "", "Operator identifier to create a new ID block");
+	RNA_def_string(func, "open", NULL, 0, "", "Operator identifier to open a file for creating a new ID block");
+	RNA_def_string(func, "unlink", NULL, 0, "", "Operator identifier to unlink the ID block");
+
+	func = RNA_def_function(srna, "template_search", "uiTemplateSearch");
+	RNA_def_function_flag(func, FUNC_USE_CONTEXT);
+	api_ui_item_rna_common(func);
+	parm = RNA_def_pointer(func, "search_data", "AnyType", "", "Data from which to take collection to search in");
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	parm = RNA_def_string(func, "search_property", NULL, 0, "", "Identifier of search collection property");
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
+	RNA_def_string(func, "new", NULL, 0, "", "Operator identifier to create a new item for the collection");
+	RNA_def_string(func, "unlink", NULL, 0, "", "Operator identifier to unlink or delete the active "
+	               "item from the collection");
+
+	func = RNA_def_function(srna, "template_search_preview", "uiTemplateSearchPreview");
+	RNA_def_function_flag(func, FUNC_USE_CONTEXT);
+	api_ui_item_rna_common(func);
+	parm = RNA_def_pointer(func, "search_data", "AnyType", "", "Data from which to take collection to search in");
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	parm = RNA_def_string(func, "search_property", NULL, 0, "", "Identifier of search collection property");
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
+	RNA_def_string(func, "new", NULL, 0, "", "Operator identifier to create a new item for the collection");
+	RNA_def_string(func, "unlink", NULL, 0, "", "Operator identifier to unlink or delete the active "
+	               "item from the collection");
+	RNA_def_int(func, "rows", 0, 0, INT_MAX, "Number of thumbnail preview rows to display", "", 0, INT_MAX);
+	RNA_def_int(func, "cols", 0, 0, INT_MAX, "Number of thumbnail preview columns to display", "", 0, INT_MAX);
+
 	func = RNA_def_function(srna, "template_path_builder", "rna_uiTemplatePathBuilder");
 	parm = RNA_def_pointer(func, "data", "AnyType", "", "Data from which to take property");
 	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
@@ -687,6 +718,10 @@ void RNA_api_ui_layout(StructRNA *srna)
 	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
 	parm = RNA_def_pointer(func, "layout", "UILayout", "", "Sub-layout to put items in");
 	RNA_def_function_return(func, parm);
+
+	func = RNA_def_function(srna, "template_operator_redo", "uiTemplateOperatorRedo");
+	RNA_def_function_flag(func, FUNC_USE_CONTEXT);
+	RNA_def_function_ui_description(func, "Adds redo buttons for the last executed operator");
 
 	func = RNA_def_function(srna, "template_constraint", "uiTemplateConstraint");
 	RNA_def_function_ui_description(func, "Generates the UI layout for constraints");
@@ -886,6 +921,16 @@ void RNA_api_ui_layout(StructRNA *srna)
 	func = RNA_def_function(srna, "template_keymap_item_properties", "uiTemplateKeymapItemProperties");
 	parm = RNA_def_pointer(func, "item", "KeyMapItem", "", "");
 	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+
+	func = RNA_def_function(srna, "template_override_property", "uiTemplateOverrideProperty");
+	parm = RNA_def_pointer(func, "collection_render_overrides", "AnyType", "", "");
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	parm = RNA_def_pointer(func, "scene_collection_properties", "AnyType", "", "");
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
+	parm = RNA_def_string(func, "property", NULL, 0, "", "Identifier of property in collection_properties");
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
+	api_ui_item_common(func);
+	parm = RNA_def_string(func, "custom_template", NULL, 0, "", "Optional template to use for property");
 
 	func = RNA_def_function(srna, "template_component_menu", "uiTemplateComponentMenu");
 	RNA_def_function_ui_description(func, "Item. Display expanded property in a popup menu");

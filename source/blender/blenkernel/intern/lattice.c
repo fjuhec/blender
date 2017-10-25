@@ -53,7 +53,6 @@
 #include "BKE_anim.h"
 #include "BKE_cdderivedmesh.h"
 #include "BKE_curve.h"
-#include "BKE_depsgraph.h"
 #include "BKE_displist.h"
 #include "BKE_global.h"
 #include "BKE_key.h"
@@ -313,6 +312,8 @@ Lattice *BKE_lattice_copy(Main *bmain, const Lattice *lt)
 void BKE_lattice_free(Lattice *lt)
 {
 	BKE_animdata_free(&lt->id, false);
+
+	BKE_lattice_batch_cache_free(lt);
 
 	MEM_SAFE_FREE(lt->def);
 	if (lt->dvert) {
@@ -602,7 +603,7 @@ static bool where_on_path_deform(Object *ob, float ctime, float vec[4], float di
 /* co: local coord, result local too */
 /* returns quaternion for rotation, using cd->no_rot_axis */
 /* axis is using another define!!! */
-static bool calc_curve_deform(Scene *scene, Object *par, float co[3],
+static bool calc_curve_deform(const struct EvaluationContext *eval_ctx, Scene *scene, Object *par, float co[3],
                               const short axis, CurveDeform *cd, float r_quat[4])
 {
 	Curve *cu = par->data;
@@ -613,7 +614,7 @@ static bool calc_curve_deform(Scene *scene, Object *par, float co[3],
 	/* to be sure, mostly after file load, also cyclic dependencies */
 #ifdef CYCLIC_DEPENDENCY_WORKAROUND
 	if (par->curve_cache == NULL) {
-		BKE_displist_make_curveTypes(scene, par, false);
+		BKE_displist_make_curveTypes(eval_ctx, scene, par, false);
 	}
 #endif
 
@@ -706,7 +707,8 @@ static bool calc_curve_deform(Scene *scene, Object *par, float co[3],
 }
 
 void curve_deform_verts(
-        Scene *scene, Object *cuOb, Object *target, DerivedMesh *dm, float (*vertexCos)[3],
+        const struct EvaluationContext *eval_ctx, Scene *scene,
+        Object *cuOb, Object *target, DerivedMesh *dm, float (*vertexCos)[3],
         int numVerts, const char *vgroup, short defaxis)
 {
 	Curve *cu;
@@ -765,7 +767,7 @@ void curve_deform_verts(
 				if (weight > 0.0f) {
 					mul_m4_v3(cd.curvespace, vertexCos[a]);
 					copy_v3_v3(vec, vertexCos[a]);
-					calc_curve_deform(scene, cuOb, vec, defaxis, &cd, NULL);
+					calc_curve_deform(eval_ctx, scene, cuOb, vec, defaxis, &cd, NULL);
 					interp_v3_v3v3(vertexCos[a], vertexCos[a], vec, weight);
 					mul_m4_v3(cd.objectspace, vertexCos[a]);
 				}
@@ -788,7 +790,7 @@ void curve_deform_verts(
 				if (weight > 0.0f) {
 					/* already in 'cd.curvespace', prev for loop */
 					copy_v3_v3(vec, vertexCos[a]);
-					calc_curve_deform(scene, cuOb, vec, defaxis, &cd, NULL);
+					calc_curve_deform(eval_ctx, scene, cuOb, vec, defaxis, &cd, NULL);
 					interp_v3_v3v3(vertexCos[a], vertexCos[a], vec, weight);
 					mul_m4_v3(cd.objectspace, vertexCos[a]);
 				}
@@ -799,7 +801,7 @@ void curve_deform_verts(
 		if (cu->flag & CU_DEFORM_BOUNDS_OFF) {
 			for (a = 0; a < numVerts; a++) {
 				mul_m4_v3(cd.curvespace, vertexCos[a]);
-				calc_curve_deform(scene, cuOb, vertexCos[a], defaxis, &cd, NULL);
+				calc_curve_deform(eval_ctx, scene, cuOb, vertexCos[a], defaxis, &cd, NULL);
 				mul_m4_v3(cd.objectspace, vertexCos[a]);
 			}
 		}
@@ -814,7 +816,7 @@ void curve_deform_verts(
 	
 			for (a = 0; a < numVerts; a++) {
 				/* already in 'cd.curvespace', prev for loop */
-				calc_curve_deform(scene, cuOb, vertexCos[a], defaxis, &cd, NULL);
+				calc_curve_deform(eval_ctx, scene, cuOb, vertexCos[a], defaxis, &cd, NULL);
 				mul_m4_v3(cd.objectspace, vertexCos[a]);
 			}
 		}
@@ -824,7 +826,7 @@ void curve_deform_verts(
 /* input vec and orco = local coord in armature space */
 /* orco is original not-animated or deformed reference point */
 /* result written in vec and mat */
-void curve_deform_vector(Scene *scene, Object *cuOb, Object *target,
+void curve_deform_vector(const struct EvaluationContext *eval_ctx, Scene *scene, Object *cuOb, Object *target,
                          float orco[3], float vec[3], float mat[3][3], int no_rot_axis)
 {
 	CurveDeform cd;
@@ -843,7 +845,7 @@ void curve_deform_vector(Scene *scene, Object *cuOb, Object *target,
 
 	mul_m4_v3(cd.curvespace, vec);
 	
-	if (calc_curve_deform(scene, cuOb, vec, target->trackflag, &cd, quat)) {
+	if (calc_curve_deform(eval_ctx, scene, cuOb, vec, target->trackflag, &cd, quat)) {
 		float qmat[3][3];
 		
 		quat_to_mat3(qmat, quat);
@@ -1033,7 +1035,7 @@ void BKE_lattice_vertexcos_apply(struct Object *ob, float (*vertexCos)[3])
 	}
 }
 
-void BKE_lattice_modifiers_calc(Scene *scene, Object *ob)
+void BKE_lattice_modifiers_calc(const struct EvaluationContext *eval_ctx, Scene *scene, Object *ob)
 {
 	Lattice *lt = ob->data;
 	VirtualModifierData virtualModifierData;
@@ -1060,7 +1062,7 @@ void BKE_lattice_modifiers_calc(Scene *scene, Object *ob)
 		if (mti->type != eModifierTypeType_OnlyDeform) continue;
 
 		if (!vertexCos) vertexCos = BKE_lattice_vertexcos_get(ob, &numVerts);
-		mti->deformVerts(md, ob, NULL, vertexCos, numVerts, 0);
+		mti->deformVerts(md, eval_ctx, ob, NULL, vertexCos, numVerts, 0);
 	}
 
 	/* always displist to make this work like derivedmesh */
@@ -1234,8 +1236,24 @@ void BKE_lattice_translate(Lattice *lt, float offset[3], bool do_keys)
 
 /* **** Depsgraph evaluation **** */
 
-void BKE_lattice_eval_geometry(EvaluationContext *UNUSED(eval_ctx),
+void BKE_lattice_eval_geometry(const struct EvaluationContext *UNUSED(eval_ctx),
                                Lattice *UNUSED(latt))
 {
 }
 
+/* Draw Engine */
+void (*BKE_lattice_batch_cache_dirty_cb)(Lattice *lt, int mode) = NULL;
+void (*BKE_lattice_batch_cache_free_cb)(Lattice *lt) = NULL;
+
+void BKE_lattice_batch_cache_dirty(Lattice *lt, int mode)
+{
+	if (lt->batch_cache) {
+		BKE_lattice_batch_cache_dirty_cb(lt, mode);
+	}
+}
+void BKE_lattice_batch_cache_free(Lattice *lt)
+{
+	if (lt->batch_cache) {
+		BKE_lattice_batch_cache_free_cb(lt);
+	}
+}

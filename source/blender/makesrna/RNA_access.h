@@ -106,6 +106,7 @@ extern StructRNA RNA_ClothCollisionSettings;
 extern StructRNA RNA_ClothModifier;
 extern StructRNA RNA_ClothSettings;
 extern StructRNA RNA_CloudsTexture;
+extern StructRNA RNA_CollectionEngineSettings;
 extern StructRNA RNA_CollectionProperty;
 extern StructRNA RNA_CollisionModifier;
 extern StructRNA RNA_CollisionSensor;
@@ -131,6 +132,7 @@ extern StructRNA RNA_CompositorNodeCombRGBA;
 extern StructRNA RNA_CompositorNodeCombYCCA;
 extern StructRNA RNA_CompositorNodeCombYUVA;
 extern StructRNA RNA_CompositorNodeComposite;
+extern StructRNA RNA_CompositorNodeCornerPin;
 extern StructRNA RNA_CompositorNodeCrop;
 extern StructRNA RNA_CompositorNodeCurveRGB;
 extern StructRNA RNA_CompositorNodeCurveVec;
@@ -174,6 +176,7 @@ extern StructRNA RNA_CompositorNodeSepYCCA;
 extern StructRNA RNA_CompositorNodeSepYUVA;
 extern StructRNA RNA_CompositorNodeSetAlpha;
 extern StructRNA RNA_CompositorNodeSplitViewer;
+extern StructRNA RNA_CompositorNodeSunBeams;
 extern StructRNA RNA_CompositorNodeSwitchView;
 extern StructRNA RNA_CompositorNodeTexture;
 extern StructRNA RNA_CompositorNodeTime;
@@ -201,6 +204,8 @@ extern StructRNA RNA_CurveMapPoint;
 extern StructRNA RNA_CurveMapping;
 extern StructRNA RNA_CurveModifier;
 extern StructRNA RNA_CurvePoint;
+extern StructRNA RNA_Depsgraph;
+extern StructRNA RNA_DepsgraphIter;
 extern StructRNA RNA_DampedTrackConstraint;
 extern StructRNA RNA_DataTransferModifier;
 extern StructRNA RNA_DecimateModifier;
@@ -230,6 +235,7 @@ extern StructRNA RNA_EnvironmentMapTexture;
 extern StructRNA RNA_Event;
 extern StructRNA RNA_ExplodeModifier;
 extern StructRNA RNA_ExpressionController;
+extern StructRNA RNA_FaceMap;
 extern StructRNA RNA_FCurve;
 extern StructRNA RNA_FCurveSample;
 extern StructRNA RNA_FFmpegSettings;
@@ -317,6 +323,8 @@ extern StructRNA RNA_LaplacianSmoothModifier;
 extern StructRNA RNA_Lattice;
 extern StructRNA RNA_LatticeModifier;
 extern StructRNA RNA_LatticePoint;
+extern StructRNA RNA_LayerCollection;
+extern StructRNA RNA_LayerCollectionOverride;
 extern StructRNA RNA_Library;
 extern StructRNA RNA_LimitDistanceConstraint;
 extern StructRNA RNA_LimitLocationConstraint;
@@ -370,6 +378,8 @@ extern StructRNA RNA_LineStyleThicknessModifier_Tangent;
 extern StructRNA RNA_LockedTrackConstraint;
 extern StructRNA RNA_Macro;
 extern StructRNA RNA_MagicTexture;
+extern StructRNA RNA_Manipulator;
+extern StructRNA RNA_ManipulatorProperties;
 extern StructRNA RNA_MarbleTexture;
 extern StructRNA RNA_MaskModifier;
 extern StructRNA RNA_MaskSequence;
@@ -482,6 +492,7 @@ extern StructRNA RNA_PointLamp;
 extern StructRNA RNA_PointerProperty;
 extern StructRNA RNA_Pose;
 extern StructRNA RNA_PoseBone;
+extern StructRNA RNA_LightProbe;
 extern StructRNA RNA_Property;
 extern StructRNA RNA_PropertyGroup;
 extern StructRNA RNA_PropertyGroupItem;
@@ -497,12 +508,15 @@ extern StructRNA RNA_RenderLayer;
 extern StructRNA RNA_RenderPass;
 extern StructRNA RNA_RenderResult;
 extern StructRNA RNA_RenderSettings;
+extern StructRNA RNA_RenderEngineSettings;
+extern StructRNA RNA_RenderEngineSettingsClay;
 extern StructRNA RNA_RigidBodyWorld;
 extern StructRNA RNA_RigidBodyObject;
 extern StructRNA RNA_RigidBodyJointConstraint;
 extern StructRNA RNA_SPHFluidSettings;
 extern StructRNA RNA_Scene;
 extern StructRNA RNA_SceneGameData;
+extern StructRNA RNA_SceneLayer;
 extern StructRNA RNA_SceneRenderLayer;
 extern StructRNA RNA_SceneSequence;
 extern StructRNA RNA_SceneObjects;
@@ -694,11 +708,13 @@ extern StructRNA RNA_WaveModifier;
 extern StructRNA RNA_VertexWeightEditModifier;
 extern StructRNA RNA_VertexWeightMixModifier;
 extern StructRNA RNA_VertexWeightProximityModifier;
+extern StructRNA RNA_ViewRenderSettings;
 extern StructRNA RNA_Window;
 extern StructRNA RNA_WindowManager;
 extern StructRNA RNA_WipeSequence;
 extern StructRNA RNA_WireframeModifier;
 extern StructRNA RNA_WoodTexture;
+extern StructRNA RNA_WorkSpace;
 extern StructRNA RNA_World;
 extern StructRNA RNA_WorldAmbientOcclusion;
 extern StructRNA RNA_WorldLighting;
@@ -744,9 +760,10 @@ const char *RNA_struct_ui_description_raw(const StructRNA *type);
 const char *RNA_struct_translation_context(const StructRNA *type);
 int RNA_struct_ui_icon(const StructRNA *type);
 
-PropertyRNA *RNA_struct_name_property(StructRNA *type);
+PropertyRNA *RNA_struct_name_property(const StructRNA *type);
 PropertyRNA *RNA_struct_iterator_property(StructRNA *type);
 StructRNA *RNA_struct_base(StructRNA *type);
+const StructRNA *RNA_struct_base_child_of(const StructRNA *type, const StructRNA *parent_type);
 
 bool RNA_struct_is_ID(const StructRNA *type);
 bool RNA_struct_is_a(const StructRNA *type, const StructRNA *srna);
@@ -1188,9 +1205,13 @@ int RNA_function_call_direct_va(struct bContext *C, struct ReportList *reports, 
 int RNA_function_call_direct_va_lookup(struct bContext *C, struct ReportList *reports, PointerRNA *ptr,
                                        const char *identifier, const char *format, va_list args);
 
+const char *RNA_translate_ui_text(const char *text, const char *text_ctxt,
+                                  struct StructRNA *type, struct PropertyRNA *prop,
+                                  int translate);
+
 /* ID */
 
-short RNA_type_to_ID_code(StructRNA *type);
+short RNA_type_to_ID_code(const StructRNA *type);
 StructRNA *ID_code_to_RNA_type(short idcode);
 
 

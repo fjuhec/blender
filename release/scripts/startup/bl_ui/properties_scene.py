@@ -60,13 +60,13 @@ class SceneButtonsPanel:
 
     @classmethod
     def poll(cls, context):
-        rd = context.scene.render
-        return context.scene and (rd.engine in cls.COMPAT_ENGINES)
+        view_render = context.scene.view_render
+        return context.scene and (view_render.engine in cls.COMPAT_ENGINES)
 
 
 class SCENE_PT_scene(SceneButtonsPanel, Panel):
     bl_label = "Scene"
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME', 'BLENDER_CLAY', 'BLENDER_EEVEE'}
 
     def draw(self, context):
         layout = self.layout
@@ -75,13 +75,13 @@ class SCENE_PT_scene(SceneButtonsPanel, Panel):
 
         layout.prop(scene, "camera")
         layout.prop(scene, "background_set", text="Background")
-        if context.scene.render.engine != 'BLENDER_GAME':
+        if context.engine != 'BLENDER_GAME':
             layout.prop(scene, "active_clip", text="Active Clip")
 
 
 class SCENE_PT_unit(SceneButtonsPanel, Panel):
     bl_label = "Units"
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME', 'BLENDER_CLAY', 'BLENDER_EEVEE'}
 
     def draw(self, context):
         layout = self.layout
@@ -166,7 +166,7 @@ class SceneKeyingSetsPanel:
 
 class SCENE_PT_keying_sets(SceneButtonsPanel, SceneKeyingSetsPanel, Panel):
     bl_label = "Keying Sets"
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME', 'BLENDER_CLAY', 'BLENDER_EEVEE'}
 
     def draw(self, context):
         layout = self.layout
@@ -199,7 +199,7 @@ class SCENE_PT_keying_sets(SceneButtonsPanel, SceneKeyingSetsPanel, Panel):
 
 class SCENE_PT_keying_set_paths(SceneButtonsPanel, SceneKeyingSetsPanel, Panel):
     bl_label = "Active Keying Set"
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME', 'BLENDER_CLAY', 'BLENDER_EEVEE'}
 
     @classmethod
     def poll(cls, context):
@@ -256,7 +256,7 @@ class SCENE_PT_keying_set_paths(SceneButtonsPanel, SceneKeyingSetsPanel, Panel):
 class SCENE_PT_color_management(SceneButtonsPanel, Panel):
     bl_label = "Color Management"
     bl_options = {'DEFAULT_CLOSED'}
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME', 'BLENDER_CLAY', 'BLENDER_EEVEE'}
 
     def draw(self, context):
         layout = self.layout
@@ -281,7 +281,7 @@ class SCENE_PT_color_management(SceneButtonsPanel, Panel):
 class SCENE_PT_audio(SceneButtonsPanel, Panel):
     bl_label = "Audio"
     bl_options = {'DEFAULT_CLOSED'}
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME', 'BLENDER_CLAY', 'BLENDER_EEVEE'}
 
     def draw(self, context):
         layout = self.layout
@@ -332,8 +332,7 @@ class SCENE_PT_rigid_body_world(SceneButtonsPanel, Panel):
     @classmethod
     def poll(cls, context):
         scene = context.scene
-        rd = scene.render
-        return scene and (rd.engine in cls.COMPAT_ENGINES)
+        return scene and (scene.view_render.engine in cls.COMPAT_ENGINES)
 
     def draw_header(self, context):
         scene = context.scene
@@ -378,9 +377,9 @@ class SCENE_PT_rigid_body_cache(SceneButtonsPanel, Panel):
 
     @classmethod
     def poll(cls, context):
-        rd = context.scene.render
         scene = context.scene
-        return scene and scene.rigidbody_world and (rd.engine in cls.COMPAT_ENGINES)
+        view_render = scene.view_render
+        return scene and scene.rigidbody_world and (view_render.engine in cls.COMPAT_ENGINES)
 
     def draw(self, context):
         scene = context.scene
@@ -396,9 +395,9 @@ class SCENE_PT_rigid_body_field_weights(SceneButtonsPanel, Panel):
 
     @classmethod
     def poll(cls, context):
-        rd = context.scene.render
+        view_render = context.scene.view_render
         scene = context.scene
-        return scene and scene.rigidbody_world and (rd.engine in cls.COMPAT_ENGINES)
+        return scene and scene.rigidbody_world and (view_render.engine in cls.COMPAT_ENGINES)
 
     def draw(self, context):
         scene = context.scene
@@ -409,7 +408,7 @@ class SCENE_PT_rigid_body_field_weights(SceneButtonsPanel, Panel):
 
 class SCENE_PT_simplify(SceneButtonsPanel, Panel):
     bl_label = "Simplify"
-    COMPAT_ENGINES = {'BLENDER_RENDER'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_CLAY', 'BLENDER_EEVEE'}
 
     def draw_header(self, context):
         rd = context.scene.render
@@ -439,7 +438,7 @@ class SCENE_PT_simplify(SceneButtonsPanel, Panel):
 
 
 class SCENE_PT_custom_props(SceneButtonsPanel, PropertyPanel, Panel):
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME', 'BLENDER_CLAY', 'BLENDER_EEVEE'}
     _context_path = "scene"
     _property_type = bpy.types.Scene
 

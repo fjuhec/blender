@@ -736,7 +736,7 @@ void blo_do_versions_250(FileData *fd, Library *lib, Main *main)
 	if (main->versionfile < 250) {
 		bScreen *screen;
 		Scene *scene;
-		Base *base;
+		BaseLegacy *base;
 		Material *ma;
 		Camera *cam;
 		Mesh *me;
@@ -1119,8 +1119,6 @@ void blo_do_versions_250(FileData *fd, Library *lib, Main *main)
 				sce->gm.matmode = GAME_MAT_MULTITEX;
 			else
 				sce->gm.matmode = GAME_MAT_TEXFACE;
-
-			sce->gm.flag |= GAME_DISPLAY_LISTS;
 		}
 
 		for (ob = main->object.first; ob; ob = ob->id.next) {

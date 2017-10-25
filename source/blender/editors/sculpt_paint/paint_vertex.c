@@ -54,7 +54,6 @@
 
 #include "BKE_brush.h"
 #include "BKE_context.h"
-#include "BKE_depsgraph.h"
 #include "BKE_deform.h"
 #include "BKE_mesh.h"
 #include "BKE_mesh_mapping.h"
@@ -62,6 +61,8 @@
 #include "BKE_paint.h"
 #include "BKE_report.h"
 #include "BKE_subsurf.h"
+
+#include "DEG_depsgraph.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -937,11 +938,11 @@ static void do_weight_paint_vertex(
 
 
 /* Toggle operator for turning vertex paint mode on or off (copied from sculpt.c) */
-static void vertex_paint_init_session(Scene *scene, Object *ob)
+static void vertex_paint_init_session(const EvaluationContext *eval_ctx, Scene *scene, Object *ob)
 {
 	if (ob->sculpt == NULL) {
 		ob->sculpt = MEM_callocN(sizeof(SculptSession), "sculpt session");
-		BKE_sculpt_update_mesh_elements(scene, scene->toolsettings->sculpt, ob, 0, false);
+		BKE_sculpt_update_mesh_elements(eval_ctx, scene, scene->toolsettings->sculpt, ob, 0, false);
 	}
 }
 
@@ -1070,6 +1071,10 @@ static int wpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 		paint_cursor_delete_textures();
 	}
 	else {
+		EvaluationContext eval_ctx;
+
+		CTX_data_eval_ctx(C, &eval_ctx);
+
 		ob->mode |= mode_flag;
 
 		if (wp == NULL)
@@ -1087,15 +1092,17 @@ static int wpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 		if (ob->sculpt) {
 			BKE_sculptsession_free(ob);
 		}
-		vertex_paint_init_session(scene, ob);
+		vertex_paint_init_session(&eval_ctx, scene, ob);
 	}
+
+	BKE_mesh_batch_cache_dirty(ob->data, BKE_MESH_BATCH_DIRTY_ALL);
 
 	/* Weightpaint works by overriding colors in mesh,
 	 * so need to make sure we recalc on enter and
 	 * exit (exit needs doing regardless because we
 	 * should redeform).
 	 */
-	DAG_id_tag_update(&me->id, 0);
+	DEG_id_tag_update(&me->id, 0);
 
 	WM_event_add_notifier(C, NC_SCENE | ND_MODE, scene);
 
@@ -1278,10 +1285,13 @@ static bool wpaint_stroke_test_start(bContext *C, wmOperator *op, const float mo
 	bool *defbase_sel;
 	SculptSession *ss = ob->sculpt;
 	VPaint *vp = CTX_data_tool_settings(C)->wpaint;
+	EvaluationContext eval_ctx;
 
 	if (ED_wpaint_ensure_data(C, op->reports, WPAINT_ENSURE_MIRROR, &vgroup_index) == false) {
 		return false;
 	}
+
+	CTX_data_eval_ctx(C, &eval_ctx);
 
 	{
 		/* check if we are attempting to paint onto a locked vertex group,
@@ -1381,7 +1391,7 @@ static bool wpaint_stroke_test_start(bContext *C, wmOperator *op, const float mo
 	}
 
 	/* If not previously created, create vertex/weight paint mode session data */
-	vertex_paint_init_session(scene, ob);
+	vertex_paint_init_session(&eval_ctx, scene, ob);
 	vwpaint_update_cache_invariants(C, vp, ss, op, mouse);
 	vertex_paint_init_session_data(ts, ob);
 
@@ -2021,7 +2031,9 @@ static void wpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 	/* also needed for "View Selected" on last stroke */
 	paint_last_stroke_update(scene, vc->ar, mval);
 
-	DAG_id_tag_update(ob->data, 0);
+	BKE_mesh_batch_cache_dirty(ob->data, BKE_MESH_BATCH_DIRTY_ALL);
+
+	DEG_id_tag_update(ob->data, 0);
 	WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
 	swap_m4m4(wpd->vc.rv3d->persmat, mat);
 
@@ -2085,7 +2097,7 @@ static void wpaint_stroke_done(const bContext *C, struct PaintStroke *stroke)
 		}
 	}
 
-	DAG_id_tag_update(ob->data, 0);
+	DEG_id_tag_update(ob->data, 0);
 
 	WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
 
@@ -2204,6 +2216,10 @@ static int vpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 		paint_cursor_delete_textures();
 	}
 	else {
+		EvaluationContext eval_ctx;
+
+		CTX_data_eval_ctx(C, &eval_ctx);
+
 		ob->mode |= mode_flag;
 
 		ED_mesh_color_ensure(me, NULL);
@@ -2223,11 +2239,13 @@ static int vpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 			}
 			BKE_sculptsession_free(ob);
 		}
-		vertex_paint_init_session(scene, ob);
+		vertex_paint_init_session(&eval_ctx, scene, ob);
 	}
 
+	BKE_mesh_batch_cache_dirty(ob->data, BKE_MESH_BATCH_DIRTY_ALL);
+
 	/* update modifier stack for mapping requirements */
-	DAG_id_tag_update(&me->id, 0);
+	DEG_id_tag_update(&me->id, 0);
 
 	WM_event_add_notifier(C, NC_SCENE | ND_MODE, scene);
 
@@ -2313,6 +2331,9 @@ static bool vpaint_stroke_test_start(bContext *C, struct wmOperator *op, const f
 	Object *ob = CTX_data_active_object(C);
 	Mesh *me;
 	SculptSession *ss = ob->sculpt;
+	EvaluationContext eval_ctx;
+
+	CTX_data_eval_ctx(C, &eval_ctx);
 
 	/* context checks could be a poll() */
 	me = BKE_mesh_from_object(ob);
@@ -2360,12 +2381,12 @@ static bool vpaint_stroke_test_start(bContext *C, struct wmOperator *op, const f
 	/* Create projection handle */
 	if (vpd->is_texbrush) {
 		ob->sculpt->building_vp_handle = true;
-		vpd->vp_handle = ED_vpaint_proj_handle_create(scene, ob, &vpd->vertexcosnos);
+		vpd->vp_handle = ED_vpaint_proj_handle_create(&eval_ctx, scene, ob, &vpd->vertexcosnos);
 		ob->sculpt->building_vp_handle = false;
 	}
 
 	/* If not previously created, create vertex/weight paint mode session data */
-	vertex_paint_init_session(scene, ob);
+	vertex_paint_init_session(&eval_ctx, scene, ob);
 	vwpaint_update_cache_invariants(C, vp, ss, op, mouse);
 	vertex_paint_init_session_data(ts, ob);
 
@@ -2937,6 +2958,8 @@ static void vpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 
 	swap_m4m4(vc->rv3d->persmat, mat);
 
+	BKE_mesh_batch_cache_dirty(ob->data, BKE_MESH_BATCH_DIRTY_ALL);
+
 	if (vp->paint.brush->vertexpaint_tool == PAINT_BLEND_SMEAR) {
 		memcpy(vpd->smear.color_prev, vpd->smear.color_curr, sizeof(uint) * ((Mesh *)ob->data)->totloop);
 	}
@@ -2950,7 +2973,7 @@ static void vpaint_stroke_update_step(bContext *C, struct PaintStroke *stroke, P
 	if (vpd->use_fast_update == false) {
 		/* recalculate modifier stack to get new colors, slow,
 		 * avoid this if we can! */
-		DAG_id_tag_update(ob->data, 0);
+		DEG_id_tag_update(ob->data, 0);
 	}
 	else {
 		/* If using new VBO drawing, mark mcol as dirty to force colors gpu buffer refresh! */
@@ -3049,3 +3072,4 @@ void PAINT_OT_vertex_paint(wmOperatorType *ot)
 
 	paint_stroke_operator_properties(ot);
 }
+

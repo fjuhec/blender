@@ -50,7 +50,6 @@
 #include "BKE_modifier.h"
 #include "BKE_deform.h"
 
-#include "depsgraph_private.h"
 #include "DEG_depsgraph_build.h"
 
 #include "MOD_modifiertypes.h"
@@ -79,24 +78,6 @@ static void foreachObjectLink(
 	walk(userData, ob, &mmd->ob_arm, IDWALK_CB_NOP);
 }
 
-static void updateDepgraph(ModifierData *md, DagForest *forest,
-                           struct Main *UNUSED(bmain),
-                           struct Scene *UNUSED(scene),
-                           Object *UNUSED(ob),
-                           DagNode *obNode)
-{
-	MaskModifierData *mmd = (MaskModifierData *)md;
-
-	if (mmd->ob_arm) {
-		bArmature *arm = (bArmature *)mmd->ob_arm->data;
-		DagNode *armNode = dag_get_node(forest, mmd->ob_arm);
-		
-		/* tag relationship in depsgraph, but also on the armature */
-		dag_add_relation(forest, armNode, obNode, DAG_RL_DATA_DATA | DAG_RL_OB_DATA, "Mask Modifier");
-		arm->flag |= ARM_HAS_VIZ_DEPS;
-	}
-}
-
 static void updateDepsgraph(ModifierData *md,
                             struct Main *UNUSED(bmain),
                             struct Scene *UNUSED(scene),
@@ -113,8 +94,8 @@ static void updateDepsgraph(ModifierData *md,
 	}
 }
 
-static DerivedMesh *applyModifier(ModifierData *md, Object *ob,
-                                  DerivedMesh *dm,
+static DerivedMesh *applyModifier(ModifierData *md, const struct EvaluationContext *UNUSED(eval_ctx),
+                                  Object *ob, DerivedMesh *dm,
                                   ModifierApplyFlag UNUSED(flag))
 {
 	MaskModifierData *mmd = (MaskModifierData *)md;
@@ -403,7 +384,6 @@ ModifierTypeInfo modifierType_Mask = {
 	/* requiredDataMask */  requiredDataMask,
 	/* freeData */          NULL,
 	/* isDisabled */        NULL,
-	/* updateDepgraph */    updateDepgraph,
 	/* updateDepsgraph */   updateDepsgraph,
 	/* dependsOnTime */     NULL,
 	/* dependsOnNormals */	NULL,

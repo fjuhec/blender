@@ -45,13 +45,16 @@
 #include "DNA_screen_types.h"
 #include "DNA_space_types.h"
 #include "DNA_view3d_types.h"
+#include "DNA_workspace_types.h"
 
 #include "BLI_listbase.h"
 #include "BLI_utildefines.h"
 #include "BLI_rect.h"
 
+#include "BKE_icons.h"
 #include "BKE_idprop.h"
 #include "BKE_screen.h"
+#include "BKE_workspace.h"
 
 /* ************ Spacetype/regiontype handling ************** */
 
@@ -180,6 +183,7 @@ ARegion *BKE_area_region_copy(SpaceType *st, ARegion *ar)
 	BLI_listbase_clear(&newar->panels_category_active);
 	BLI_listbase_clear(&newar->ui_lists);
 	newar->swinid = 0;
+	newar->manipulator_map = NULL;
 	newar->regiontimer = NULL;
 	newar->headerstr = NULL;
 	
@@ -289,6 +293,43 @@ void BKE_spacedata_id_unref(struct ScrArea *sa, struct SpaceLink *sl, struct ID 
 	}
 }
 
+/**
+ * Avoid bad-level calls to #WM_manipulatormap_tag_refresh.
+ */
+static void (*region_refresh_tag_manipulatormap_callback)(struct wmManipulatorMap *) = NULL;
+
+void BKE_region_callback_refresh_tag_manipulatormap_set(void (*callback)(struct wmManipulatorMap *))
+{
+	region_refresh_tag_manipulatormap_callback = callback;
+}
+
+void BKE_screen_manipulator_tag_refresh(struct bScreen *sc)
+{
+	if (region_refresh_tag_manipulatormap_callback == NULL) {
+		return;
+	}
+
+	ScrArea *sa;
+	ARegion *ar;
+	for (sa = sc->areabase.first; sa; sa = sa->next) {
+		for (ar = sa->regionbase.first; ar; ar = ar->next) {
+			if (ar->manipulator_map != NULL) {
+				region_refresh_tag_manipulatormap_callback(ar->manipulator_map);
+			}
+		}
+	}
+}
+
+/**
+ * Avoid bad-level calls to #WM_manipulatormap_delete.
+ */
+static void (*region_free_manipulatormap_callback)(struct wmManipulatorMap *) = NULL;
+
+void BKE_region_callback_free_manipulatormap_set(void (*callback)(struct wmManipulatorMap *))
+{
+	region_free_manipulatormap_callback = callback;
+}
+
 /* not region itself */
 void BKE_area_region_free(SpaceType *st, ARegion *ar)
 {
@@ -338,6 +379,11 @@ void BKE_area_region_free(SpaceType *st, ARegion *ar)
 			MEM_freeN(uilst->properties);
 		}
 	}
+
+	if (ar->manipulator_map != NULL) {
+		region_free_manipulatormap_callback(ar->manipulator_map);
+	}
+
 	BLI_freelistN(&ar->ui_lists);
 	BLI_freelistN(&ar->ui_previews);
 	BLI_freelistN(&ar->panels_category);
@@ -381,6 +427,8 @@ void BKE_screen_free(bScreen *sc)
 	BLI_freelistN(&sc->vertbase);
 	BLI_freelistN(&sc->edgebase);
 	BLI_freelistN(&sc->areabase);
+
+	BKE_previewimg_free(&sc->preview);
 }
 
 /* for depsgraph */
@@ -400,6 +448,174 @@ unsigned int BKE_screen_visible_layers(bScreen *screen, Scene *scene)
 		return scene->lay;
 
 	return layer;
+}
+
+
+/* ***************** Screen edges & verts ***************** */
+
+ScrEdge *BKE_screen_find_edge(bScreen *sc, ScrVert *v1, ScrVert *v2)
+{
+	ScrEdge *se;
+
+	BKE_screen_sort_scrvert(&v1, &v2);
+	for (se = sc->edgebase.first; se; se = se->next) {
+		if (se->v1 == v1 && se->v2 == v2) {
+			return se;
+		}
+	}
+
+	return NULL;
+}
+
+void BKE_screen_sort_scrvert(ScrVert **v1, ScrVert **v2)
+{
+	ScrVert *tmp;
+
+	if (*v1 > *v2) {
+		tmp = *v1;
+		*v1 = *v2;
+		*v2 = tmp;
+	}
+}
+
+void BKE_screen_remove_double_scrverts(bScreen *sc)
+{
+	ScrVert *v1, *verg;
+	ScrEdge *se;
+	ScrArea *sa;
+
+	verg = sc->vertbase.first;
+	while (verg) {
+		if (verg->newv == NULL) { /* !!! */
+			v1 = verg->next;
+			while (v1) {
+				if (v1->newv == NULL) {   /* !?! */
+					if (v1->vec.x == verg->vec.x && v1->vec.y == verg->vec.y) {
+						/* printf("doublevert\n"); */
+						v1->newv = verg;
+					}
+				}
+				v1 = v1->next;
+			}
+		}
+		verg = verg->next;
+	}
+
+	/* replace pointers in edges and faces */
+	se = sc->edgebase.first;
+	while (se) {
+		if (se->v1->newv) se->v1 = se->v1->newv;
+		if (se->v2->newv) se->v2 = se->v2->newv;
+		/* edges changed: so.... */
+		BKE_screen_sort_scrvert(&(se->v1), &(se->v2));
+		se = se->next;
+	}
+	sa = sc->areabase.first;
+	while (sa) {
+		if (sa->v1->newv) sa->v1 = sa->v1->newv;
+		if (sa->v2->newv) sa->v2 = sa->v2->newv;
+		if (sa->v3->newv) sa->v3 = sa->v3->newv;
+		if (sa->v4->newv) sa->v4 = sa->v4->newv;
+		sa = sa->next;
+	}
+
+	/* remove */
+	verg = sc->vertbase.first;
+	while (verg) {
+		v1 = verg->next;
+		if (verg->newv) {
+			BLI_remlink(&sc->vertbase, verg);
+			MEM_freeN(verg);
+		}
+		verg = v1;
+	}
+
+}
+
+void BKE_screen_remove_double_scredges(bScreen *sc)
+{
+	ScrEdge *verg, *se, *sn;
+
+	/* compare */
+	verg = sc->edgebase.first;
+	while (verg) {
+		se = verg->next;
+		while (se) {
+			sn = se->next;
+			if (verg->v1 == se->v1 && verg->v2 == se->v2) {
+				BLI_remlink(&sc->edgebase, se);
+				MEM_freeN(se);
+			}
+			se = sn;
+		}
+		verg = verg->next;
+	}
+}
+
+void BKE_screen_remove_unused_scredges(bScreen *sc)
+{
+	ScrEdge *se, *sen;
+	ScrArea *sa;
+	int a = 0;
+
+	/* sets flags when edge is used in area */
+	sa = sc->areabase.first;
+	while (sa) {
+		se = BKE_screen_find_edge(sc, sa->v1, sa->v2);
+		if (se == NULL) printf("error: area %d edge 1 doesn't exist\n", a);
+		else se->flag = 1;
+		se = BKE_screen_find_edge(sc, sa->v2, sa->v3);
+		if (se == NULL) printf("error: area %d edge 2 doesn't exist\n", a);
+		else se->flag = 1;
+		se = BKE_screen_find_edge(sc, sa->v3, sa->v4);
+		if (se == NULL) printf("error: area %d edge 3 doesn't exist\n", a);
+		else se->flag = 1;
+		se = BKE_screen_find_edge(sc, sa->v4, sa->v1);
+		if (se == NULL) printf("error: area %d edge 4 doesn't exist\n", a);
+		else se->flag = 1;
+		sa = sa->next;
+		a++;
+	}
+	se = sc->edgebase.first;
+	while (se) {
+		sen = se->next;
+		if (se->flag == 0) {
+			BLI_remlink(&sc->edgebase, se);
+			MEM_freeN(se);
+		}
+		else {
+			se->flag = 0;
+		}
+		se = sen;
+	}
+}
+
+void BKE_screen_remove_unused_scrverts(bScreen *sc)
+{
+	ScrVert *sv, *svn;
+	ScrEdge *se;
+
+	/* we assume edges are ok */
+
+	se = sc->edgebase.first;
+	while (se) {
+		se->v1->flag = 1;
+		se->v2->flag = 1;
+		se = se->next;
+	}
+
+	sv = sc->vertbase.first;
+	while (sv) {
+		svn = sv->next;
+		if (sv->flag == 0) {
+			BLI_remlink(&sc->vertbase, sv);
+			MEM_freeN(sv);
+		}
+		else {
+			sv->flag = 0;
+		}
+		sv = svn;
+	}
 }
 
 /* ***************** Utilities ********************** */
@@ -580,7 +796,7 @@ void BKE_screen_view3d_sync(View3D *v3d, struct Scene *scene)
 	}
 }
 
-void BKE_screen_view3d_scene_sync(bScreen *sc)
+void BKE_screen_view3d_scene_sync(bScreen *sc, Scene *scene)
 {
 	/* are there cameras in the views that are not in the scene? */
 	ScrArea *sa;
@@ -589,55 +805,26 @@ void BKE_screen_view3d_scene_sync(bScreen *sc)
 		for (sl = sa->spacedata.first; sl; sl = sl->next) {
 			if (sl->spacetype == SPACE_VIEW3D) {
 				View3D *v3d = (View3D *) sl;
-				BKE_screen_view3d_sync(v3d, sc->scene);
+				BKE_screen_view3d_sync(v3d, scene);
 			}
 		}
 	}
 }
 
-void BKE_screen_view3d_main_sync(ListBase *screen_lb, Scene *scene)
+void BKE_screen_transform_orientation_remove(
+        const bScreen *screen, const WorkSpace *workspace, const TransformOrientation *orientation)
 {
-	bScreen *sc;
-	ScrArea *sa;
-	SpaceLink *sl;
+	const int orientation_index = BKE_workspace_transform_orientation_get_index(workspace, orientation);
 
-	/* from scene copy to the other views */
-	for (sc = screen_lb->first; sc; sc = sc->id.next) {
-		if (sc->scene != scene)
-			continue;
+	for (ScrArea *area = screen->areabase.first; area; area = area->next) {
+		for (SpaceLink *sl = area->spacedata.first; sl; sl = sl->next) {
+			if (sl->spacetype == SPACE_VIEW3D) {
+				View3D *v3d = (View3D *)sl;
 
-		for (sa = sc->areabase.first; sa; sa = sa->next)
-			for (sl = sa->spacedata.first; sl; sl = sl->next)
-				if (sl->spacetype == SPACE_VIEW3D)
-					BKE_screen_view3d_sync((View3D *)sl, scene);
-	}
-}
-
-void BKE_screen_view3d_twmode_remove(View3D *v3d, const int i)
-{
-	const int selected_index = (v3d->twmode - V3D_MANIP_CUSTOM);
-	if (selected_index == i) {
-		v3d->twmode = V3D_MANIP_GLOBAL; /* fallback to global	*/
-	}
-	else if (selected_index > i) {
-		v3d->twmode--;
-	}
-}
-
-void BKE_screen_view3d_main_twmode_remove(ListBase *screen_lb, Scene *scene, const int i)
-{
-	bScreen *sc;
-
-	for (sc = screen_lb->first; sc; sc = sc->id.next) {
-		if (sc->scene == scene) {
-			ScrArea *sa;
-			for (sa = sc->areabase.first; sa; sa = sa->next) {
-				SpaceLink *sl;
-				for (sl = sa->spacedata.first; sl; sl = sl->next) {
-					if (sl->spacetype == SPACE_VIEW3D) {
-						View3D *v3d = (View3D *)sl;
-						BKE_screen_view3d_twmode_remove(v3d, i);
-					}
+				if (v3d->custom_orientation_index == orientation_index) {
+					/* could also use orientation_index-- */
+					v3d->twmode = V3D_MANIP_GLOBAL;
+					v3d->custom_orientation_index = -1;
 				}
 			}
 		}
@@ -683,4 +870,14 @@ void BKE_screen_gpu_fx_validate(GPUFXSettings *fx_settings)
 
 		GPU_fx_compositor_init_ssao_settings(fx_ssao);
 	}
+}
+
+bool BKE_screen_is_fullscreen_area(const bScreen *screen)
+{
+	return ELEM(screen->state, SCREENMAXIMIZED, SCREENFULL);
+}
+
+bool BKE_screen_is_used(const bScreen *screen)
+{
+	return (screen->winid != 0);
 }

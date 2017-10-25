@@ -62,7 +62,8 @@ static void texture_get_from_context(const bContext *C, bNodeTreeType *UNUSED(tr
 {
 	SpaceNode *snode = CTX_wm_space_node(C);
 	Scene *scene = CTX_data_scene(C);
-	Object *ob = OBACT;
+	SceneLayer *sl = CTX_data_scene_layer(C);
+	Object *ob = OBACT_NEW(sl);
 	Tex *tx = NULL;
 
 	if (snode->texfrom == SNODE_TEX_OBJECT) {
@@ -120,7 +121,7 @@ static void texture_get_from_context(const bContext *C, bNodeTreeType *UNUSED(tr
 	}
 }
 
-static void foreach_nodeclass(Scene *UNUSED(scene), void *calldata, bNodeClassCallback func)
+static void foreach_nodeclass(ViewRender *UNUSED(view_render), void *calldata, bNodeClassCallback func)
 {
 	func(calldata, NODE_CLASS_INPUT, N_("Input"));
 	func(calldata, NODE_CLASS_OUTPUT, N_("Output"));

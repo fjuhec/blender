@@ -138,8 +138,7 @@ extern bool bc_has_object_type(LinkNode *export_set, short obtype);
 char *bc_CustomData_get_layer_name(const struct CustomData *data, int type, int n)
 {
 	int layer_index = CustomData_get_layer_index(data, type);
-	if (layer_index < 0)
-		return NULL;
+	if (layer_index < 0) return NULL;
 
 	return data->layers[layer_index + n].name;
 }
@@ -148,10 +147,9 @@ char *bc_CustomData_get_active_layer_name(const CustomData *data, int type)
 {
 	/* get the layer index of the active layer of type */
 	int layer_index = CustomData_get_active_layer_index(data, type);
-	if (layer_index < 1)
-		return NULL;
+	if (layer_index < 0) return NULL;
 
-	return bc_CustomData_get_layer_name(data, type, layer_index-1);
+	return data->layers[layer_index].name;
 }
 
 DocumentExporter::DocumentExporter(const ExportSettings *export_settings) : export_settings(export_settings) {
@@ -181,7 +179,7 @@ static COLLADABU::NativeString make_temp_filepath(const char *name, const char *
 // COLLADA allows this through multiple <channel>s in <animation>.
 // For this to work, we need to know objects that use a certain action.
 
-int DocumentExporter::exportCurrentScene(Scene *sce)
+int DocumentExporter::exportCurrentScene(const EvaluationContext *eval_ctx, Scene *sce)
 {
 	PointerRNA sceneptr, unit_settings;
 	PropertyRNA *system; /* unused , *scale; */
@@ -287,19 +285,19 @@ int DocumentExporter::exportCurrentScene(Scene *sce)
 	// <library_geometries>
 	if (bc_has_object_type(export_set, OB_MESH)) {
 		GeometryExporter ge(writer, this->export_settings);
-		ge.exportGeom(sce);
+		ge.exportGeom(eval_ctx, sce);
 	}
 
 	// <library_animations>
 	AnimationExporter ae(writer, this->export_settings);
-	bool has_animations = ae.exportAnimations(sce);
+	bool has_animations = ae.exportAnimations(eval_ctx, sce);
 
 	// <library_controllers>
 	ArmatureExporter arm_exporter(writer, this->export_settings);
 	ControllerExporter controller_exporter(writer, this->export_settings);
 	if (bc_has_object_type(export_set, OB_ARMATURE) || this->export_settings->include_shapekeys) 
 	{
-		controller_exporter.export_controllers(sce);
+		controller_exporter.export_controllers(eval_ctx, sce);
 	}
 
 	// <library_visual_scenes>
@@ -323,7 +321,7 @@ int DocumentExporter::exportCurrentScene(Scene *sce)
 #else
 	se.setExportTransformationType(this->export_settings->export_transformation_type);
 #endif
-	se.exportScene(sce);
+	se.exportScene(eval_ctx, sce);
 	
 	// <scene>
 	std::string scene_name(translate_id(id_name(sce)));

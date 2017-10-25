@@ -45,7 +45,9 @@
  * This workaround will make sure that curve_cache for curves
  * is up-to-date.
  */
-#define THREADED_DAG_WORKAROUND
+
+/* TODO: Disabled for now, because of eval_ctx. */
+//#define THREADED_DAG_WORKAROUND
 
 #include <math.h>
 #include <vector>
@@ -145,6 +147,7 @@ extern "C" {
 #include "BKE_customdata.h"
 #include "BKE_cdderivedmesh.h"
 #include "BKE_DerivedMesh.h"
+#include "BKE_layer.h"
 #include "BKE_material.h" /* give_current_material */
 #include "BKE_image.h"
 #include "IMB_imbuf_types.h"
@@ -589,17 +592,17 @@ static bool ConvertMaterial(
 		/* In Multitexture use the face texture if and only if
 		 * it is set in the buttons
 		 * In GLSL is not working yet :/ 3.2011 */
-		bool facetex = false;
-		if (validface && mat->mode & MA_FACETEXTURE) {
-			facetex = true;
-		}
 
 		// foreach MTex
 		for (int i = 0; i < MAXTEX; i++) {
 			// use face tex
-			if (i == 0 && facetex ) {
-				facetex = false;
+			if (i == 0) {
+#if 0
 				Image *tmp = (Image *)(tface->tpage);
+#else
+				/* weak but better then nothing */
+				Image *tmp = mat ? mat->edit_image : NULL;
+#endif
 
 				if (tmp) {
 					material->img[i] = tmp;
@@ -789,7 +792,11 @@ static bool ConvertMaterial(
 
 		// check for tface tex to fallback on
 		if (validface) {
+#if 0
 			material->img[0] = (Image *)(tface->tpage);
+#else
+			material->img[0] = mat ? mat->edit_image : NULL;
+#endif
 			// ------------------------
 			if (material->img[0]) {
 				material->texname[0] = material->img[0]->id.name;
@@ -830,7 +837,7 @@ static bool ConvertMaterial(
 	/* No material, what to do? let's see what is in the UV and set the material accordingly
 	 * light and visible is always on */
 	if (validface) {
-		material->tile = tface->tile;
+		/* nop */
 	}
 	else {
 		// nothing at all
@@ -869,13 +876,6 @@ static bool ConvertMaterial(
 	if (validmat) {
 		material->matname =(mat->id.name);
 	}
-
-	if (tface) {
-		ME_MTEXFACE_CPY(&material->mtexpoly, tface);
-	}
-	else {
-		memset(&material->mtexpoly, 0, sizeof(material->mtexpoly));
-	}
 	material->material = mat;
 	return true;
 }
@@ -894,7 +894,7 @@ static RAS_MaterialBucket *material_from_mesh(Material *ma, MFace *mface, MTFace
 		ConvertMaterial(bl_mat, ma, tface, tfaceName, mface, mcol,
 			converter->GetGLSLMaterials());
 
-		if (ma && (ma->mode & MA_FACETEXTURE) == 0)
+		if (ma)
 			converter->CacheBlenderMaterial(scene, ma, bl_mat);
 	}
 
@@ -910,7 +910,7 @@ static RAS_MaterialBucket *material_from_mesh(Material *ma, MFace *mface, MTFace
 
 		kx_blmat->Initialize(scene, bl_mat, (ma?&ma->game:NULL), lightlayer);
 		polymat = static_cast<RAS_IPolyMaterial*>(kx_blmat);
-		if (ma && (ma->mode & MA_FACETEXTURE) == 0)
+		if (ma)
 			converter->CachePolyMaterial(scene, ma, polymat);
 	}
 	
@@ -1740,7 +1740,7 @@ static void blenderSceneSetBackground(Scene *blenderscene)
 
 	for (SETLOOPER(blenderscene, it, base)) {
 		base->object->lay = base->lay;
-		base->object->flag = base->flag;
+		BKE_scene_base_flag_sync_from_base(base);
 	}
 }
 

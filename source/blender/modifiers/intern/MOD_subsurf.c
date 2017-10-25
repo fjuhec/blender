@@ -46,9 +46,11 @@
 
 
 #include "BKE_cdderivedmesh.h"
-#include "BKE_depsgraph.h"
 #include "BKE_scene.h"
 #include "BKE_subsurf.h"
+
+#include "DEG_depsgraph.h"
+#include "DEG_depsgraph_query.h"
 
 #include "MOD_modifiertypes.h"
 
@@ -96,8 +98,8 @@ static bool isDisabled(ModifierData *md, int useRenderParams)
 	return get_render_subsurf_level(&md->scene->r, levels, useRenderParams != 0) == 0;
 }
 
-static DerivedMesh *applyModifier(ModifierData *md, Object *ob,
-                                  DerivedMesh *derivedData,
+static DerivedMesh *applyModifier(ModifierData *md, const EvaluationContext *eval_ctx,
+                                  Object *ob, DerivedMesh *derivedData,
                                   ModifierApplyFlag flag)
 {
 	SubsurfModifierData *smd = (SubsurfModifierData *) md;
@@ -133,7 +135,7 @@ static DerivedMesh *applyModifier(ModifierData *md, Object *ob,
 		else if ((ob->mode & (OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT | OB_MODE_TEXTURE_PAINT)) != 0) {
 			modifier_setError(md, "OpenSubdiv is not supported in paint modes");
 		}
-		else if ((DAG_get_eval_flags_for_object(md->scene, ob) & DAG_EVAL_NEED_CPU) == 0) {
+		else if ((DEG_get_eval_flags_for_id(eval_ctx->depsgraph, &ob->id) & DAG_EVAL_NEED_CPU) == 0) {
 			subsurf_flags |= SUBSURF_USE_GPU_BACKEND;
 			do_cddm_convert = false;
 		}
@@ -146,19 +148,25 @@ static DerivedMesh *applyModifier(ModifierData *md, Object *ob,
 	result = subsurf_make_derived_from_derived(derivedData, smd, NULL, subsurf_flags);
 	result->cd_flag = derivedData->cd_flag;
 
-	if (do_cddm_convert) {
+	{
 		DerivedMesh *cddm = CDDM_copy(result);
 		result->release(result);
 		result = cddm;
 	}
 
+#ifndef WITH_OPESUBDIV
+	(void) do_cddm_convert;
+	UNUSED_VARS(eval_ctx);
+#endif
+
 	return result;
 }
 
-static DerivedMesh *applyModifierEM(ModifierData *md, Object *UNUSED(ob),
-                                    struct BMEditMesh *UNUSED(editData),
-                                    DerivedMesh *derivedData,
-                                    ModifierApplyFlag flag)
+static DerivedMesh *applyModifierEM(
+        ModifierData *md, const EvaluationContext *UNUSED(eval_ctx),
+        Object *UNUSED(ob), struct BMEditMesh *UNUSED(editData),
+        DerivedMesh *derivedData,
+        ModifierApplyFlag flag)
 {
 	SubsurfModifierData *smd = (SubsurfModifierData *) md;
 	DerivedMesh *result;
@@ -211,7 +219,6 @@ ModifierTypeInfo modifierType_Subsurf = {
 	/* requiredDataMask */  NULL,
 	/* freeData */          freeData,
 	/* isDisabled */        isDisabled,
-	/* updateDepgraph */    NULL,
 	/* updateDepsgraph */   NULL,
 	/* dependsOnTime */     NULL,
 	/* dependsOnNormals */	dependsOnNormals,

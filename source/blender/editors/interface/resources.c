@@ -53,6 +53,8 @@
 
 #include "BIF_gl.h"
 
+#include "BLF_api.h"
+
 #include "UI_interface.h"
 #include "UI_interface_icons.h"
 
@@ -164,6 +166,9 @@ const unsigned char *UI_ThemeGetColorPtr(bTheme *btheme, int spacetype, int colo
 					break;
 				case SPACE_CLIP:
 					ts = &btheme->tclip;
+					break;
+				case SPACE_TOPBAR:
+					ts = &btheme->ttopbar;
 					break;
 				default:
 					ts = &btheme->tv3d;
@@ -665,6 +670,17 @@ const unsigned char *UI_ThemeGetColorPtr(bTheme *btheme, int spacetype, int colo
 				case TH_AXIS_Z:
 					cp = btheme->tui.zaxis; break;
 
+				case TH_MANIPULATOR_HI:
+					cp = btheme->tui.manipulator_hi; break;
+				case TH_MANIPULATOR_PRIMARY:
+					cp = btheme->tui.manipulator_primary; break;
+				case TH_MANIPULATOR_SECONDARY:
+					cp = btheme->tui.manipulator_secondary; break;
+				case TH_MANIPULATOR_A:
+					cp = btheme->tui.manipulator_a; break;
+				case TH_MANIPULATOR_B:
+					cp = btheme->tui.manipulator_b; break;
+
 				case TH_INFO_SELECTED:
 					cp = ts->info_selected;
 					break;
@@ -835,6 +851,15 @@ static void ui_theme_space_init_handles_color(ThemeSpace *theme_space)
 	rgba_char_args_set(theme_space->act_spline, 0xdb, 0x25, 0x12, 255);
 }
 
+static void ui_theme_space_init_manipulator_colors(bTheme *btheme)
+{
+	rgba_char_args_set(btheme->tui.manipulator_hi, 255, 255, 255, 255);
+	rgba_char_args_set(btheme->tui.manipulator_primary, 222, 255, 13, 255);
+	rgba_char_args_set(btheme->tui.manipulator_secondary, 0, 255, 255, 255);
+	rgba_char_args_set(btheme->tui.manipulator_a, 23, 127, 23, 255);
+	rgba_char_args_set(btheme->tui.manipulator_b, 127, 23, 23, 255);
+}
+
 /**
  * initialize default theme
  * \note: when you add new colors, created & saved themes need initialized
@@ -875,6 +900,9 @@ void ui_theme_init_default(void)
 	/* common (new) variables */
 	ui_theme_init_new(btheme);
 	
+	/* Manipulator. */
+	ui_theme_space_init_manipulator_colors(btheme);
+
 	/* space view3d */
 	rgba_char_args_set_fl(btheme->tv3d.back,       0.225, 0.225, 0.225, 1.0);
 	rgba_char_args_set(btheme->tv3d.text,       0, 0, 0, 255);
@@ -1206,6 +1234,14 @@ void ui_theme_init_default(void)
 	rgba_char_args_set(btheme->tclip.strip_select, 0xff, 0x8c, 0x00, 0xff);
 	btheme->tclip.handle_vertex_size = 5;
 	ui_theme_space_init_handles_color(&btheme->tclip);
+
+	/* space topbar */
+	char tmp[4];
+	btheme->ttopbar = btheme->tv3d;
+	/* swap colors */
+	copy_v4_v4_char(tmp, btheme->ttopbar.header);
+	copy_v4_v4_char(btheme->ttopbar.header, btheme->ttopbar.tab_inactive);
+	copy_v4_v4_char(btheme->ttopbar.back, tmp);
 }
 
 void ui_style_init_default(void)
@@ -1272,24 +1308,16 @@ void UI_ThemeColor4(int colorid)
 	
 	cp = UI_ThemeGetColorPtr(theme_active, theme_spacetype, colorid);
 	glColor4ubv(cp);
-
 }
 
 /* set the color with offset for shades */
 void UI_ThemeColorShade(int colorid, int offset)
 {
-	int r, g, b;
-	const unsigned char *cp;
-	
-	cp = UI_ThemeGetColorPtr(theme_active, theme_spacetype, colorid);
-	r = offset + (int) cp[0];
-	CLAMP(r, 0, 255);
-	g = offset + (int) cp[1];
-	CLAMP(g, 0, 255);
-	b = offset + (int) cp[2];
-	CLAMP(b, 0, 255);
-	glColor4ub(r, g, b, cp[3]);
+	unsigned char col[4];
+	UI_GetThemeColorShade4ubv(colorid, offset, col);
+	glColor4ubv(col);
 }
+
 void UI_ThemeColorShadeAlpha(int colorid, int coloffset, int alphaoffset)
 {
 	int r, g, b, a;
@@ -1304,7 +1332,29 @@ void UI_ThemeColorShadeAlpha(int colorid, int coloffset, int alphaoffset)
 	CLAMP(b, 0, 255);
 	a = alphaoffset + (int) cp[3];
 	CLAMP(a, 0, 255);
+
 	glColor4ub(r, g, b, a);
+}
+
+void UI_GetThemeColorShadeAlpha4ubv(int colorid, int coloffset, int alphaoffset, unsigned char col[4])
+{
+	int r, g, b, a;
+	const unsigned char *cp;
+	
+	cp = UI_ThemeGetColorPtr(theme_active, theme_spacetype, colorid);
+	r = coloffset + (int) cp[0];
+	CLAMP(r, 0, 255);
+	g = coloffset + (int) cp[1];
+	CLAMP(g, 0, 255);
+	b = coloffset + (int) cp[2];
+	CLAMP(b, 0, 255);
+	a = alphaoffset + (int) cp[3];
+	CLAMP(a, 0, 255);
+
+	col[0] = r;
+	col[1] = g;
+	col[2] = b;
+	col[3] = a;
 }
 
 void UI_GetThemeColorBlend3ubv(int colorid1, int colorid2, float fac, unsigned char col[3])
@@ -1318,6 +1368,19 @@ void UI_GetThemeColorBlend3ubv(int colorid1, int colorid2, float fac, unsigned c
 	col[0] = floorf((1.0f - fac) * cp1[0] + fac * cp2[0]);
 	col[1] = floorf((1.0f - fac) * cp1[1] + fac * cp2[1]);
 	col[2] = floorf((1.0f - fac) * cp1[2] + fac * cp2[2]);
+}
+
+void UI_GetThemeColorBlend3f(int colorid1, int colorid2, float fac, float r_col[3])
+{
+	const unsigned char *cp1, *cp2;
+
+	cp1 = UI_ThemeGetColorPtr(theme_active, theme_spacetype, colorid1);
+	cp2 = UI_ThemeGetColorPtr(theme_active, theme_spacetype, colorid2);
+
+	CLAMP(fac, 0.0f, 1.0f);
+	r_col[0] = ((1.0f - fac) * cp1[0] + fac * cp2[0]) / 255.0f;
+	r_col[1] = ((1.0f - fac) * cp1[1] + fac * cp2[1]) / 255.0f;
+	r_col[2] = ((1.0f - fac) * cp1[2] + fac * cp2[2]) / 255.0f;
 }
 
 /* blend between to theme colors, and set it */
@@ -1372,6 +1435,12 @@ void UI_ThemeColorBlendShadeAlpha(int colorid1, int colorid2, float fac, int off
 	glColor4ub(r, g, b, a);
 }
 
+void UI_FontThemeColor(int fontid, int colorid)
+{
+	unsigned char color[4];
+	UI_GetThemeColor4ubv(colorid, color);
+	BLF_color4ubv(fontid, color);
+}
 
 /* get individual values, not scaled */
 float UI_GetThemeValuef(int colorid)
@@ -1468,6 +1537,111 @@ void UI_GetThemeColorShade3ubv(int colorid, int offset, unsigned char col[3])
 	col[0] = r;
 	col[1] = g;
 	col[2] = b;
+}
+
+void UI_GetThemeColorBlendShade3ubv(int colorid1, int colorid2, float fac, int offset, unsigned char col[3])
+{
+	const unsigned char *cp1, *cp2;
+
+	cp1 = UI_ThemeGetColorPtr(theme_active, theme_spacetype, colorid1);
+	cp2 = UI_ThemeGetColorPtr(theme_active, theme_spacetype, colorid2);
+
+	CLAMP(fac, 0.0f, 1.0f);
+
+	float blend[3];
+	blend[0] = offset + floorf((1.0f - fac) * cp1[0] + fac * cp2[0]);
+	blend[1] = offset + floorf((1.0f - fac) * cp1[1] + fac * cp2[1]);
+	blend[2] = offset + floorf((1.0f - fac) * cp1[2] + fac * cp2[2]);
+
+	F3TOCHAR3(blend, col);
+}
+
+void UI_GetThemeColorShade4ubv(int colorid, int offset, unsigned char col[4])
+{
+	int r, g, b;
+	const unsigned char *cp;
+
+	cp = UI_ThemeGetColorPtr(theme_active, theme_spacetype, colorid);
+	r = offset + (int) cp[0];
+	CLAMP(r, 0, 255);
+	g = offset + (int) cp[1];
+	CLAMP(g, 0, 255);
+	b = offset + (int) cp[2];
+	CLAMP(b, 0, 255);
+
+	col[0] = r;
+	col[1] = g;
+	col[2] = b;
+	col[3] = cp[3];
+}
+
+void UI_GetThemeColorShadeAlpha4fv(int colorid, int coloffset, int alphaoffset, float col[4])
+{
+	int r, g, b, a;
+	const unsigned char *cp;
+
+	cp = UI_ThemeGetColorPtr(theme_active, theme_spacetype, colorid);
+
+	r = coloffset + (int) cp[0];
+	CLAMP(r, 0, 255);
+	g = coloffset + (int) cp[1];
+	CLAMP(g, 0, 255);
+	b = coloffset + (int) cp[2];
+	CLAMP(b, 0, 255);
+	a = alphaoffset + (int) cp[3];
+	CLAMP(b, 0, 255);
+
+	col[0] = ((float)r) / 255.0f;
+	col[1] = ((float)g) / 255.0f;
+	col[2] = ((float)b) / 255.0f;
+	col[3] = ((float)a) / 255.0f;
+}
+
+void UI_GetThemeColorBlendShade3fv(int colorid1, int colorid2, float fac, int offset, float col[3])
+{
+	int r, g, b;
+	const unsigned char *cp1, *cp2;
+
+	cp1 = UI_ThemeGetColorPtr(theme_active, theme_spacetype, colorid1);
+	cp2 = UI_ThemeGetColorPtr(theme_active, theme_spacetype, colorid2);
+
+	CLAMP(fac, 0.0f, 1.0f);
+
+	r = offset + floorf((1.0f - fac) * cp1[0] + fac * cp2[0]);
+	CLAMP(r, 0, 255);
+	g = offset + floorf((1.0f - fac) * cp1[1] + fac * cp2[1]);
+	CLAMP(g, 0, 255);
+	b = offset + floorf((1.0f - fac) * cp1[2] + fac * cp2[2]);
+	CLAMP(b, 0, 255);
+
+	col[0] = ((float)r) / 255.0f;
+	col[1] = ((float)g) / 255.0f;
+	col[2] = ((float)b) / 255.0f;
+}
+
+void UI_GetThemeColorBlendShade4fv(int colorid1, int colorid2, float fac, int offset, float col[4])
+{
+	int r, g, b, a;
+	const unsigned char *cp1, *cp2;
+
+	cp1 = UI_ThemeGetColorPtr(theme_active, theme_spacetype, colorid1);
+	cp2 = UI_ThemeGetColorPtr(theme_active, theme_spacetype, colorid2);
+
+	CLAMP(fac, 0.0f, 1.0f);
+
+	r = offset + floorf((1.0f - fac) * cp1[0] + fac * cp2[0]);
+	CLAMP(r, 0, 255);
+	g = offset + floorf((1.0f - fac) * cp1[1] + fac * cp2[1]);
+	CLAMP(g, 0, 255);
+	b = offset + floorf((1.0f - fac) * cp1[2] + fac * cp2[2]);
+	CLAMP(b, 0, 255);
+	a = offset + floorf((1.0f - fac) * cp1[3] + fac * cp2[3]);
+	CLAMP(a, 0, 255);
+
+	col[0] = ((float)r) / 255.0f;
+	col[1] = ((float)g) / 255.0f;
+	col[2] = ((float)b) / 255.0f;
+	col[3] = ((float)a) / 255.0f;
 }
 
 /* get the color, in char pointer */
@@ -1658,11 +1832,9 @@ void init_userdef_do_versions(void)
 		U.savetime = 1;
 // XXX		error(STRINGIFY(BLENDER_STARTUP_FILE)" is buggy, please consider removing it.\n");
 	}
-	/* transform widget settings */
-	if (U.tw_hotspot == 0) {
-		U.tw_hotspot = 14;
-		U.tw_size = 25;          /* percentage of window size */
-		U.tw_handlesize = 16;    /* percentage of widget radius */
+	if (U.manipulator_size == 0) {
+		U.manipulator_size = 75;
+		U.manipulator_flag |= USER_MANIPULATOR_DRAW;
 	}
 	if (U.pad_rot_angle == 0.0f)
 		U.pad_rot_angle = 15.0f;
@@ -2500,9 +2672,6 @@ void init_userdef_do_versions(void)
 	
 	if (!USER_VERSION_ATLEAST(269, 9)) {
 		bTheme *btheme;
-		
-		U.tw_size = U.tw_size * 5.0f;
-		
 		/* Action Editor (and NLA Editor) - Keyframe Colors */
 		/* Graph Editor - larger vertex size defaults */
 		for (btheme = U.themes.first; btheme; btheme = btheme->next) {
@@ -2776,13 +2945,42 @@ void init_userdef_do_versions(void)
 		U.uiflag |= USER_LOCK_CURSOR_ADJUST;
 	}
 
+	if (!USER_VERSION_ATLEAST(280, 2)) {
+		/* interface_widgets.c */
+		struct uiWidgetColors wcol_tab = {
+			{60, 60, 60, 255},
+			{83, 83, 83, 255},
+			{114, 114, 114, 255},
+			{90, 90, 90, 255},
+
+			{0, 0, 0, 255},
+			{0, 0, 0, 255},
+
+			0,
+			0, 0
+		};
+
+		for (bTheme *btheme = U.themes.first; btheme; btheme = btheme->next) {
+			char tmp[4];
+
+			btheme->tui.wcol_tab = wcol_tab;
+			btheme->ttopbar = btheme->tv3d;
+			/* swap colors */
+			copy_v4_v4_char(tmp, btheme->ttopbar.header);
+			copy_v4_v4_char(btheme->ttopbar.header, btheme->ttopbar.tab_inactive);
+			copy_v4_v4_char(btheme->ttopbar.back, tmp);
+		}
+	}
+
 	/**
 	 * Include next version bump.
 	 *
 	 * (keep this block even if it becomes empty).
 	 */
-	{
-		
+	if (((bTheme *)U.themes.first)->tui.manipulator_hi[3] == 0) {
+		for (bTheme *btheme = U.themes.first; btheme; btheme = btheme->next) {
+			ui_theme_space_init_manipulator_colors(btheme);
+		}
 	}
 
 	if (U.pixelsize == 0.0f)
@@ -2791,11 +2989,8 @@ void init_userdef_do_versions(void)
 	if (U.image_draw_method == 0)
 		U.image_draw_method = IMAGE_DRAW_METHOD_2DTEXTURE;
 	
-	// keep the following until the new audaspace is default to be built with
-#ifdef WITH_SYSTEM_AUDASPACE
 	// we default to the first audio device
 	U.audiodevice = 0;
-#endif
 
 	/* funny name, but it is GE stuff, moves userdef stuff to engine */
 // XXX	space_set_commmandline_options();

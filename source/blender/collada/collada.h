@@ -46,13 +46,10 @@ typedef enum BC_export_transformation_type {
 	BC_TRANSFORMATION_TYPE_TRANSROTLOC
 } BC_export_transformation_type;
 
-typedef enum BC_export_texture_type {
-	BC_TEXTURE_TYPE_MAT,
-	BC_TEXTURE_TYPE_UV
-} BC_export_texture_type;
-
 struct bContext;
 struct Scene;
+struct SceneLayer;
+struct EvaluationContext;
 
 /*
  * both return 1 on success, 0 on error
@@ -67,7 +64,9 @@ int collada_import(struct bContext *C,
 
 				   int keep_bind_info);
 
-int collada_export(struct Scene *sce,
+int collada_export(const struct EvaluationContext *eval_ctx,
+                   struct Scene *sce,
+                   struct SceneLayer *scene_layer,
                    const char *filepath,
                    int apply_modifiers,
                    BC_export_mesh_type export_mesh_type,
@@ -79,7 +78,7 @@ int collada_export(struct Scene *sce,
                    int deform_bones_only,
 
                    int active_uv_only,
-                   BC_export_texture_type export_texture_type,
+                   int include_material_textures,
                    int use_texture_copies,
 
                    int triangulate,
@@ -88,9 +87,9 @@ int collada_export(struct Scene *sce,
                    int sort_by_name,
                    BC_export_transformation_type export_transformation_type,
 
-                   int open_sim,
-                   int limit_precision,
-                   int keep_bind_info);
+				   int open_sim,
+				   int limit_precision,
+				   int keep_bind_info);
 
 #ifdef __cplusplus
 }

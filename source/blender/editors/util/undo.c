@@ -101,7 +101,7 @@ void ED_undo_push(bContext *C, const char *str)
 	else if (obact && obact->mode & OB_MODE_PARTICLE_EDIT) {
 		if (U.undosteps == 0) return;
 
-		PE_undo_push(CTX_data_scene(C), str);
+		PE_undo_push(CTX_data_scene(C), CTX_data_scene_layer(C), str);
 	}
 	else if (obact && obact->mode & OB_MODE_SCULPT) {
 		/* do nothing for now */
@@ -120,6 +120,7 @@ static int ed_undo_step(bContext *C, int step, const char *undoname)
 	wmWindow *win = CTX_wm_window(C);
 	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
+	SceneLayer *sl = CTX_data_scene_layer(C);
 	Object *obedit = CTX_data_edit_object(C);
 	Object *obact = CTX_data_active_object(C);
 	ScrArea *sa = CTX_wm_area(C);
@@ -180,9 +181,9 @@ static int ed_undo_step(bContext *C, int step, const char *undoname)
 		}
 		else if (obact && obact->mode & OB_MODE_PARTICLE_EDIT) {
 			if (step == 1)
-				PE_undo(scene);
+				PE_undo(scene, sl);
 			else
-				PE_redo(scene);
+				PE_redo(scene, sl);
 		}
 		else if (U.uiflag & USER_GLOBALUNDO) {
 			// note python defines not valid here anymore.
@@ -297,7 +298,7 @@ bool ED_undo_is_valid(const bContext *C, const char *undoname)
 				return 1;
 		}
 		else if (obact && obact->mode & OB_MODE_PARTICLE_EDIT) {
-			return PE_undo_is_valid(CTX_data_scene(C));
+			return PE_undo_is_valid(CTX_data_scene(C), CTX_data_scene_layer(C));
 		}
 		
 		if (U.uiflag & USER_GLOBALUNDO) {
@@ -401,14 +402,12 @@ int ED_undo_operator_repeat(bContext *C, struct wmOperator *op)
 
 	if (op) {
 		wmWindowManager *wm = CTX_wm_manager(C);
-		struct Scene *scene = CTX_data_scene(C);
+		struct Scene *cur_scene = CTX_data_scene(C);
+		ScrArea *cur_area = CTX_wm_area(C);
+		ARegion *cur_region = CTX_wm_region(C);
 
-		/* keep in sync with logic in view3d_panel_operator_redo() */
-		ARegion *ar = CTX_wm_region(C);
-		ARegion *ar1 = BKE_area_find_region_active_win(CTX_wm_area(C));
-
-		if (ar1)
-			CTX_wm_region_set(C, ar1);
+		CTX_wm_area_set(C, op->execution_area);
+		CTX_wm_region_set(C, op->execution_region);
 
 		if ((WM_operator_repeat_check(C, op)) &&
 		    (WM_operator_poll(C, op->type)) &&
@@ -417,7 +416,7 @@ int ED_undo_operator_repeat(bContext *C, struct wmOperator *op)
 		      * (which copy their data), wont stop redo, see [#29579]],
 		      *
 		      * note, - WM_operator_check_ui_enabled() jobs test _must_ stay in sync with this */
-		    (WM_jobs_test(wm, scene, WM_JOB_TYPE_ANY) == 0))
+		    (WM_jobs_test(wm, cur_scene, WM_JOB_TYPE_ANY) == 0))
 		{
 			int retval;
 
@@ -456,8 +455,8 @@ int ED_undo_operator_repeat(bContext *C, struct wmOperator *op)
 			}
 		}
 
-		/* set region back */
-		CTX_wm_region_set(C, ar);
+		CTX_wm_area_set(C, cur_area);
+		CTX_wm_region_set(C, cur_region);
 	}
 	else {
 		if (G.debug & G_DEBUG) {
@@ -542,7 +541,7 @@ static const EnumPropertyItem *rna_undo_itemf(bContext *C, int undosys, int *tot
 		const char *name = NULL;
 		
 		if (undosys == UNDOSYSTEM_PARTICLE) {
-			name = PE_undo_get_name(CTX_data_scene(C), i, &active);
+			name = PE_undo_get_name(CTX_data_scene(C), CTX_data_scene_layer(C), i, &active);
 		}
 		else if (undosys == UNDOSYSTEM_EDITMODE) {
 			name = undo_editmode_get_name(C, i, &active);
@@ -625,7 +624,7 @@ static int undo_history_exec(bContext *C, wmOperator *op)
 		int item = RNA_int_get(op->ptr, "item");
 		
 		if (undosys == UNDOSYSTEM_PARTICLE) {
-			PE_undo_number(CTX_data_scene(C), item);
+			PE_undo_number(CTX_data_scene(C), CTX_data_scene_layer(C), item);
 		}
 		else if (undosys == UNDOSYSTEM_EDITMODE) {
 			undo_editmode_number(C, item + 1);

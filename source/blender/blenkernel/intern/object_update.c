@@ -32,18 +32,18 @@
 #include "DNA_group_types.h"
 #include "DNA_key_types.h"
 #include "DNA_material_types.h"
+#include "DNA_mesh_types.h"
 #include "DNA_scene_types.h"
 
 #include "BLI_blenlib.h"
 #include "BLI_utildefines.h"
 #include "BLI_math.h"
-#include "BLI_threads.h"
 
 #include "BKE_global.h"
 #include "BKE_armature.h"
 #include "BKE_action.h"
 #include "BKE_constraint.h"
-#include "BKE_depsgraph.h"
+#include "BKE_curve.h"
 #include "BKE_DerivedMesh.h"
 #include "BKE_animsys.h"
 #include "BKE_displist.h"
@@ -51,25 +51,22 @@
 #include "BKE_key.h"
 #include "BKE_lamp.h"
 #include "BKE_lattice.h"
+#include "BKE_library.h"
 #include "BKE_editmesh.h"
 #include "BKE_object.h"
 #include "BKE_particle.h"
 #include "BKE_pointcache.h"
 #include "BKE_scene.h"
 #include "BKE_material.h"
+#include "BKE_mesh.h"
 #include "BKE_image.h"
 
+#include "MEM_guardedalloc.h"
 #include "DEG_depsgraph.h"
 
-#ifdef WITH_LEGACY_DEPSGRAPH
-#  define DEBUG_PRINT if (!DEG_depsgraph_use_legacy() && G.debug & G_DEBUG_DEPSGRAPH) printf
-#else
-#  define DEBUG_PRINT if (G.debug & G_DEBUG_DEPSGRAPH) printf
-#endif
+#define DEBUG_PRINT if (G.debug & G_DEBUG_DEPSGRAPH) printf
 
-static ThreadMutex material_lock = BLI_MUTEX_INITIALIZER;
-
-void BKE_object_eval_local_transform(EvaluationContext *UNUSED(eval_ctx),
+void BKE_object_eval_local_transform(const EvaluationContext *UNUSED(eval_ctx),
                                      Scene *UNUSED(scene),
                                      Object *ob)
 {
@@ -81,7 +78,7 @@ void BKE_object_eval_local_transform(EvaluationContext *UNUSED(eval_ctx),
 
 /* Evaluate parent */
 /* NOTE: based on solve_parenting(), but with the cruft stripped out */
-void BKE_object_eval_parent(EvaluationContext *UNUSED(eval_ctx),
+void BKE_object_eval_parent(const EvaluationContext *UNUSED(eval_ctx),
                             Scene *scene,
                             Object *ob)
 {
@@ -113,7 +110,7 @@ void BKE_object_eval_parent(EvaluationContext *UNUSED(eval_ctx),
 	}
 }
 
-void BKE_object_eval_constraints(EvaluationContext *UNUSED(eval_ctx),
+void BKE_object_eval_constraints(const EvaluationContext *eval_ctx,
                                  Scene *scene,
                                  Object *ob)
 {
@@ -132,11 +129,11 @@ void BKE_object_eval_constraints(EvaluationContext *UNUSED(eval_ctx),
 	 *
 	 */
 	cob = BKE_constraints_make_evalob(scene, ob, NULL, CONSTRAINT_OBTYPE_OBJECT);
-	BKE_constraints_solve(&ob->constraints, cob, ctime);
+	BKE_constraints_solve(eval_ctx, &ob->constraints, cob, ctime);
 	BKE_constraints_clear_evalob(cob);
 }
 
-void BKE_object_eval_done(EvaluationContext *UNUSED(eval_ctx), Object *ob)
+void BKE_object_eval_done(const EvaluationContext *UNUSED(eval_ctx), Object *ob)
 {
 	DEBUG_PRINT("%s on %s\n", __func__, ob->id.name);
 
@@ -145,9 +142,10 @@ void BKE_object_eval_done(EvaluationContext *UNUSED(eval_ctx), Object *ob)
 	else ob->transflag &= ~OB_NEG_SCALE;
 }
 
-void BKE_object_handle_data_update(EvaluationContext *eval_ctx,
-                                   Scene *scene,
-                                   Object *ob)
+void BKE_object_handle_data_update(
+        const EvaluationContext *eval_ctx,
+        Scene *scene,
+        Object *ob)
 {
 	ID *data_id = (ID *)ob->data;
 	AnimData *adt = BKE_animdata_from_id(data_id);
@@ -184,10 +182,10 @@ void BKE_object_handle_data_update(EvaluationContext *eval_ctx,
 			}
 #endif
 			if (em) {
-				makeDerivedMesh(scene, ob, em,  data_mask, false); /* was CD_MASK_BAREMESH */
+				makeDerivedMesh(eval_ctx, scene, ob, em,  data_mask, false); /* was CD_MASK_BAREMESH */
 			}
 			else {
-				makeDerivedMesh(scene, ob, NULL, data_mask, false);
+				makeDerivedMesh(eval_ctx, scene, ob, NULL, data_mask, false);
 			}
 			break;
 		}
@@ -199,7 +197,7 @@ void BKE_object_handle_data_update(EvaluationContext *eval_ctx,
 				}
 			}
 			else {
-				BKE_pose_where_is(scene, ob);
+				BKE_pose_where_is(eval_ctx, scene, ob);
 			}
 			break;
 
@@ -210,11 +208,11 @@ void BKE_object_handle_data_update(EvaluationContext *eval_ctx,
 		case OB_CURVE:
 		case OB_SURF:
 		case OB_FONT:
-			BKE_displist_make_curveTypes(scene, ob, 0);
+			BKE_displist_make_curveTypes(eval_ctx, scene, ob, 0);
 			break;
 
 		case OB_LATTICE:
-			BKE_lattice_modifiers_calc(scene, ob);
+			BKE_lattice_modifiers_calc(eval_ctx, scene, ob);
 			break;
 
 		case OB_EMPTY:
@@ -223,28 +221,6 @@ void BKE_object_handle_data_update(EvaluationContext *eval_ctx,
 					BKE_image_user_check_frame_calc(ob->iuser, (int)ctime, 0);
 			break;
 	}
-
-	/* related materials */
-	/* XXX: without depsgraph tagging, this will always need to be run, which will be slow!
-	 * However, not doing anything (or trying to hack around this lack) is not an option
-	 * anymore, especially due to Cycles [#31834]
-	 */
-	if (ob->totcol) {
-		int a;
-		if (ob->totcol != 0) {
-			BLI_mutex_lock(&material_lock);
-			for (a = 1; a <= ob->totcol; a++) {
-				Material *ma = give_current_material(ob, a);
-				if (ma) {
-					/* recursively update drivers for this material */
-					material_drivers_update(scene, ma, ctime);
-				}
-			}
-			BLI_mutex_unlock(&material_lock);
-		}
-	}
-	else if (ob->type == OB_LAMP)
-		lamp_drivers_update(scene, ob->data, ctime);
 
 	/* particles */
 	if (ob != scene->obedit && ob->particlesystem.first) {
@@ -267,7 +243,7 @@ void BKE_object_handle_data_update(EvaluationContext *eval_ctx,
 					ob->transflag |= OB_DUPLIPARTS;
 				}
 
-				particle_system_update(scene, ob, psys, (eval_ctx->mode == DAG_EVAL_RENDER));
+				particle_system_update(eval_ctx, scene, ob, psys, (eval_ctx->mode == DAG_EVAL_RENDER));
 				psys = psys->next;
 			}
 			else if (psys->flag & PSYS_DELETE) {
@@ -285,7 +261,7 @@ void BKE_object_handle_data_update(EvaluationContext *eval_ctx,
 			 * the derivedmesh must be created before init_render_mesh,
 			 * since object_duplilist does dupliparticles before that */
 			CustomDataMask data_mask = CD_MASK_BAREMESH | CD_MASK_MFACE | CD_MASK_MTFACE | CD_MASK_MCOL;
-			dm = mesh_create_derived_render(scene, ob, data_mask);
+			dm = mesh_create_derived_render(eval_ctx, scene, ob, data_mask);
 			dm->release(dm);
 
 			for (psys = ob->particlesystem.first; psys; psys = psys->next)
@@ -296,7 +272,7 @@ void BKE_object_handle_data_update(EvaluationContext *eval_ctx,
 	/* quick cache removed */
 }
 
-void BKE_object_eval_uber_transform(EvaluationContext *UNUSED(eval_ctx),
+void BKE_object_eval_uber_transform(const EvaluationContext *UNUSED(eval_ctx),
                                     Scene *UNUSED(scene),
                                     Object *ob)
 {
@@ -326,7 +302,7 @@ void BKE_object_eval_uber_transform(EvaluationContext *UNUSED(eval_ctx),
 	}
 }
 
-void BKE_object_eval_uber_data(EvaluationContext *eval_ctx,
+void BKE_object_eval_uber_data(const EvaluationContext *eval_ctx,
                                Scene *scene,
                                Object *ob)
 {
@@ -334,11 +310,83 @@ void BKE_object_eval_uber_data(EvaluationContext *eval_ctx,
 	BLI_assert(ob->type != OB_ARMATURE);
 	BKE_object_handle_data_update(eval_ctx, scene, ob);
 
+	switch (ob->type) {
+		case OB_MESH:
+			BKE_mesh_batch_cache_dirty(ob->data, BKE_MESH_BATCH_DIRTY_ALL);
+			break;
+		case OB_LATTICE:
+			BKE_lattice_batch_cache_dirty(ob->data, BKE_LATTICE_BATCH_DIRTY_ALL);
+			break;
+		case OB_CURVE:
+		case OB_FONT:
+		case OB_SURF:
+			BKE_curve_batch_cache_dirty(ob->data, BKE_CURVE_BATCH_DIRTY_ALL);
+			break;
+	}
+
+	if (DEG_depsgraph_use_copy_on_write()) {
+		if (ob->type == OB_MESH) {
+			/* Quick hack to convert evaluated derivedMesh to Mesh. */
+			DerivedMesh *dm = ob->derivedFinal;
+			if (dm != NULL) {
+				Mesh *mesh = (Mesh *)ob->data;
+				Mesh *new_mesh = BKE_libblock_alloc_notest(ID_ME);
+				BKE_mesh_init(new_mesh);
+				/* Copy ID name so GS(new_mesh->id) works correct later on. */
+				BLI_strncpy(new_mesh->id.name, mesh->id.name, sizeof(new_mesh->id.name));
+				/* Copy materials so render engines can access them. */
+				new_mesh->mat = MEM_dupallocN(mesh->mat);
+				new_mesh->totcol = mesh->totcol;
+				DM_to_mesh(dm, new_mesh, ob, CD_MASK_MESH, true);
+				new_mesh->edit_btmesh = mesh->edit_btmesh;
+				/* Store result mesh as derived_mesh of object. This way we have
+				 * explicit  way to query final object evaluated data and know for sure
+				 * who owns the newly created mesh datablock.
+				 */
+				ob->mesh_evaluated = new_mesh;
+				/* TODO(sergey): This is kind of compatibility thing, so all render
+				 * engines can use object->data for mesh data for display. This is
+				 * something what we might want to change in the future.
+				 */
+				ob->data = new_mesh;
+				/* Save some memory by throwing DerivedMesh away. */
+				/* NOTE: Watch out, some tools might need it!
+				 * So keep around for now..
+				 */
+				/* Store original ID as a pointer in evaluated ID.
+				 * This way we can restore original object data when we are freeing
+				 * evaluated mesh.
+				 */
+				new_mesh->id.newid = &mesh->id;
+			}
+#if 0
+			if (ob->derivedFinal != NULL) {
+				ob->derivedFinal->needsFree = 1;
+				ob->derivedFinal->release(ob->derivedFinal);
+				ob->derivedFinal = NULL;
+			}
+			if (ob->derivedDeform != NULL) {
+				ob->derivedDeform->needsFree = 1;
+				ob->derivedDeform->release(ob->derivedDeform);
+				ob->derivedDeform = NULL;
+			}
+#endif
+		}
+	}
+
 	ob->recalc &= ~(OB_RECALC_DATA | OB_RECALC_TIME);
 }
 
-void BKE_object_eval_cloth(EvaluationContext *UNUSED(eval_ctx), Scene *scene, Object *object)
+void BKE_object_eval_cloth(const EvaluationContext *UNUSED(eval_ctx), Scene *scene, Object *object)
 {
 	DEBUG_PRINT("%s on %s\n", __func__, object->id.name);
 	BKE_ptcache_object_reset(scene, object, PTCACHE_RESET_DEPSGRAPH);
+}
+
+void BKE_object_eval_update_shading(const EvaluationContext *UNUSED(eval_ctx), Object *object)
+{
+	DEBUG_PRINT("%s on %s\n", __func__, object->id.name);
+	if (object->type == OB_MESH) {
+		BKE_mesh_batch_cache_dirty(object->data, BKE_MESH_BATCH_DIRTY_SHADING);
+	}
 }

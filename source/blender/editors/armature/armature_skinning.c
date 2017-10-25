@@ -43,11 +43,14 @@
 
 #include "BKE_action.h"
 #include "BKE_armature.h"
+#include "BKE_context.h"
 #include "BKE_deform.h"
 #include "BKE_object_deform.h"
 #include "BKE_report.h"
 #include "BKE_subsurf.h"
 #include "BKE_modifier.h"
+
+#include "DEG_depsgraph.h"
 
 #include "ED_armature.h"
 #include "ED_mesh.h"
@@ -247,8 +250,9 @@ static void envelope_bone_weighting(Object *ob, Mesh *mesh, float (*verts)[3], i
 	}
 }
 
-static void add_verts_to_dgroups(ReportList *reports, Scene *scene, Object *ob, Object *par,
-                                 int heat, const bool mirror)
+static void add_verts_to_dgroups(
+        ReportList *reports, const EvaluationContext *eval_ctx, Scene *scene, Object *ob, Object *par,
+        int heat, const bool mirror)
 {
 	/* This functions implements the automatic computation of vertex group
 	 * weights, either through envelopes or using a heat equilibrium.
@@ -372,7 +376,7 @@ static void add_verts_to_dgroups(ReportList *reports, Scene *scene, Object *ob, 
 
 	if (wpmode) {
 		/* if in weight paint mode, use final verts from derivedmesh */
-		DerivedMesh *dm = mesh_get_derived_final(scene, ob, CD_MASK_BAREMESH);
+		DerivedMesh *dm = mesh_get_derived_final(eval_ctx, scene, ob, CD_MASK_BAREMESH);
 		
 		if (dm->foreachMappedVert) {
 			mesh_get_mapped_verts_coords(dm, verts, mesh->totvert);
@@ -424,8 +428,9 @@ static void add_verts_to_dgroups(ReportList *reports, Scene *scene, Object *ob, 
 	MEM_freeN(verts);
 }
 
-void create_vgroups_from_armature(ReportList *reports, Scene *scene, Object *ob, Object *par,
-                                  const int mode, const bool mirror)
+void create_vgroups_from_armature(
+        ReportList *reports, const EvaluationContext *eval_ctx, Scene *scene, Object *ob, Object *par,
+        const int mode, const bool mirror)
 {
 	/* Lets try to create some vertex groups 
 	 * based on the bones of the parent armature.
@@ -451,6 +456,6 @@ void create_vgroups_from_armature(ReportList *reports, Scene *scene, Object *ob,
 		 * that are populated with the vertices for which the
 		 * bone is closest.
 		 */
-		add_verts_to_dgroups(reports, scene, ob, par, (mode == ARM_GROUPS_AUTO), mirror);
+		add_verts_to_dgroups(reports, eval_ctx, scene, ob, par, (mode == ARM_GROUPS_AUTO), mirror);
 	}
 }

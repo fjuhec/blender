@@ -69,7 +69,7 @@
 #include "BKE_sound.h"
 
 #ifdef WITH_AUDASPACE
-#  include AUD_SEQUENCE_H
+#  include <AUD_Sequence.h>
 #endif
 
 /* own include */
@@ -690,7 +690,7 @@ static void sequencer_add_draw(bContext *UNUSED(C), wmOperator *op)
 
 	/* main draw call */
 	RNA_pointer_create(NULL, op->type->srna, op->properties, &ptr);
-	uiDefAutoButsRNA(layout, &ptr, sequencer_add_draw_check_prop, '\0');
+	uiDefAutoButsRNA(layout, &ptr, sequencer_add_draw_check_prop, '\0', false);
 
 	/* image template */
 	RNA_pointer_create(NULL, &RNA_ImageFormatSettings, imf, &imf_ptr);

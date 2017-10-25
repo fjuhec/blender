@@ -40,12 +40,13 @@
 
 #include "BKE_context.h"
 #include "BKE_data_transfer.h"
-#include "BKE_depsgraph.h"
 #include "BKE_DerivedMesh.h"
 #include "BKE_mesh_mapping.h"
 #include "BKE_mesh_remap.h"
 #include "BKE_object.h"
 #include "BKE_report.h"
+
+#include "DEG_depsgraph.h"
 
 #include "RNA_access.h"
 #include "RNA_define.h"
@@ -93,14 +94,16 @@ static const EnumPropertyItem DT_layer_items[] = {
 static const EnumPropertyItem *dt_layers_select_src_itemf(
         bContext *C, PointerRNA *ptr, PropertyRNA *UNUSED(prop), bool *r_free)
 {
+	EvaluationContext eval_ctx;
 	EnumPropertyItem *item = NULL, tmp_item = {0};
 	int totitem = 0;
-
 	const int data_type = RNA_enum_get(ptr, "data_type");
 
 	if (!C) {  /* needed for docs and i18n tools */
 		return rna_enum_dt_layers_select_src_items;
 	}
+
+	CTX_data_eval_ctx(C, &eval_ctx);
 
 	RNA_enum_items_add_value(&item, &totitem, rna_enum_dt_layers_select_src_items, DT_LAYERS_ACTIVE_SRC);
 	RNA_enum_items_add_value(&item, &totitem, rna_enum_dt_layers_select_src_items, DT_LAYERS_ALL_SRC);
@@ -135,19 +138,19 @@ static const EnumPropertyItem *dt_layers_select_src_itemf(
 
 		if (ob_src) {
 			DerivedMesh *dm_src;
-			CustomData *pdata;
+			CustomData *ldata;
 			int num_data, i;
 
 			/* XXX Is this OK? */
-			dm_src = mesh_get_derived_final(scene, ob_src, CD_MASK_BAREMESH | CD_MTEXPOLY);
-			pdata = dm_src->getPolyDataLayout(dm_src);
-			num_data = CustomData_number_of_layers(pdata, CD_MTEXPOLY);
+			dm_src = mesh_get_derived_final(&eval_ctx, scene, ob_src, CD_MASK_BAREMESH | CD_MLOOPUV);
+			ldata = dm_src->getLoopDataLayout(dm_src);
+			num_data = CustomData_number_of_layers(ldata, CD_MLOOPUV);
 
 			RNA_enum_item_add_separator(&item, &totitem);
 
 			for (i = 0; i < num_data; i++) {
 				tmp_item.value = i;
-				tmp_item.identifier = tmp_item.name = CustomData_get_layer_name(pdata, CD_MTEXPOLY, i);
+				tmp_item.identifier = tmp_item.name = CustomData_get_layer_name(ldata, CD_MLOOPUV, i);
 				RNA_enum_item_add(&item, &totitem, &tmp_item);
 			}
 		}
@@ -162,7 +165,7 @@ static const EnumPropertyItem *dt_layers_select_src_itemf(
 			int num_data, i;
 
 			/* XXX Is this OK? */
-			dm_src = mesh_get_derived_final(scene, ob_src, CD_MASK_BAREMESH | CD_MLOOPCOL);
+			dm_src = mesh_get_derived_final(&eval_ctx, scene, ob_src, CD_MASK_BAREMESH | CD_MLOOPCOL);
 			ldata = dm_src->getLoopDataLayout(dm_src);
 			num_data = CustomData_number_of_layers(ldata, CD_MLOOPCOL);
 
@@ -344,6 +347,9 @@ static int data_transfer_exec(bContext *C, wmOperator *op)
 {
 	Scene *scene = CTX_data_scene(C);
 	Object *ob_src = ED_object_active_context(C);
+	EvaluationContext eval_ctx;
+
+	CTX_data_eval_ctx(C, &eval_ctx);
 
 	ListBase ctx_objects;
 	CollectionPointerLink *ctx_ob_dst;
@@ -412,7 +418,7 @@ static int data_transfer_exec(bContext *C, wmOperator *op)
 			}
 
 			if (BKE_object_data_transfer_mesh(
-			        scene, ob_src, ob_dst, data_type, use_create,
+			        &eval_ctx, scene, ob_src, ob_dst, data_type, use_create,
 			        map_vert_mode, map_edge_mode, map_loop_mode, map_poly_mode,
 			        space_transform, use_auto_transform,
 			        max_distance, ray_radius, islands_precision,
@@ -423,7 +429,7 @@ static int data_transfer_exec(bContext *C, wmOperator *op)
 			}
 		}
 
-		DAG_id_tag_update(&ob_dst->id, OB_RECALC_DATA);
+		DEG_id_tag_update(&ob_dst->id, OB_RECALC_DATA);
 
 		if (reverse_transfer) {
 			SWAP(Object *, ob_src, ob_dst);
@@ -525,7 +531,7 @@ static void data_transfer_ui(bContext *C, wmOperator *op)
 	RNA_pointer_create(&wm->id, op->type->srna, op->properties, &ptr);
 
 	/* Main auto-draw call */
-	uiDefAutoButsRNA(layout, &ptr, data_transfer_draw_check_prop, '\0');
+	uiDefAutoButsRNA(layout, &ptr, data_transfer_draw_check_prop, '\0', false);
 }
 
 /* transfers weight from active to selected */
@@ -622,7 +628,10 @@ static int datalayout_transfer_exec(bContext *C, wmOperator *op)
 {
 	Scene *scene = CTX_data_scene(C);
 	Object *ob_act = ED_object_active_context(C);
+	EvaluationContext eval_ctx;
 	DataTransferModifierData *dtmd;
+
+	CTX_data_eval_ctx(C, &eval_ctx);
 
 	dtmd = (DataTransferModifierData *)edit_modifier_property_get(op, ob_act, eModifierType_DataTransfer);
 
@@ -638,10 +647,10 @@ static int datalayout_transfer_exec(bContext *C, wmOperator *op)
 			return OPERATOR_CANCELLED;
 		}
 
-		BKE_object_data_transfer_layout(scene, ob_src, ob_dst, dtmd->data_types, use_delete,
+		BKE_object_data_transfer_layout(&eval_ctx, scene, ob_src, ob_dst, dtmd->data_types, use_delete,
 		                                dtmd->layers_select_src, dtmd->layers_select_dst);
 
-		DAG_id_tag_update(&ob_dst->id, OB_RECALC_DATA);
+		DEG_id_tag_update(&ob_dst->id, OB_RECALC_DATA);
 	}
 	else {
 		Object *ob_src = ob_act;
@@ -668,11 +677,11 @@ static int datalayout_transfer_exec(bContext *C, wmOperator *op)
 		for (ctx_ob_dst = ctx_objects.first; ctx_ob_dst; ctx_ob_dst = ctx_ob_dst->next) {
 			Object *ob_dst = ctx_ob_dst->ptr.data;
 			if (data_transfer_exec_is_object_valid(op, ob_src, ob_dst, false)) {
-				BKE_object_data_transfer_layout(scene, ob_src, ob_dst, data_type, use_delete,
+				BKE_object_data_transfer_layout(&eval_ctx, scene, ob_src, ob_dst, data_type, use_delete,
 				                                layers_select_src, layers_select_dst);
 			}
 
-			DAG_id_tag_update(&ob_dst->id, OB_RECALC_DATA);
+			DEG_id_tag_update(&ob_dst->id, OB_RECALC_DATA);
 		}
 
 		BLI_freelistN(&ctx_objects);

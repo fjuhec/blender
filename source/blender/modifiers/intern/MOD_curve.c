@@ -39,12 +39,13 @@
 
 #include "BLI_utildefines.h"
 
+
 #include "BKE_cdderivedmesh.h"
 #include "BKE_lattice.h"
 #include "BKE_library_query.h"
 #include "BKE_modifier.h"
 
-#include "depsgraph_private.h"
+#include "DEG_depsgraph.h"
 #include "DEG_depsgraph_build.h"
 
 #include "MOD_modifiertypes.h"
@@ -92,23 +93,6 @@ static void foreachObjectLink(
 	walk(userData, ob, &cmd->object, IDWALK_CB_NOP);
 }
 
-static void updateDepgraph(ModifierData *md, DagForest *forest,
-                           struct Main *UNUSED(bmain),
-                           Scene *UNUSED(scene),
-                           Object *UNUSED(ob),
-                           DagNode *obNode)
-{
-	CurveModifierData *cmd = (CurveModifierData *) md;
-
-	if (cmd->object) {
-		DagNode *curNode = dag_get_node(forest, cmd->object);
-		curNode->eval_flags |= DAG_EVAL_NEED_CURVE_PATH;
-
-		dag_add_relation(forest, curNode, obNode,
-		                 DAG_RL_DATA_DATA | DAG_RL_OB_DATA, "Curve Modifier");
-	}
-}
-
 static void updateDepsgraph(ModifierData *md,
                             struct Main *UNUSED(bmain),
                             struct Scene *UNUSED(scene),
@@ -131,8 +115,8 @@ static void updateDepsgraph(ModifierData *md,
 	DEG_add_object_relation(node, object, DEG_OB_COMP_TRANSFORM, "Curve Modifier");
 }
 
-static void deformVerts(ModifierData *md, Object *ob,
-                        DerivedMesh *derivedData,
+static void deformVerts(ModifierData *md, const struct EvaluationContext *eval_ctx,
+                        Object *ob, DerivedMesh *derivedData,
                         float (*vertexCos)[3],
                         int numVerts,
                         ModifierApplyFlag UNUSED(flag))
@@ -141,19 +125,19 @@ static void deformVerts(ModifierData *md, Object *ob,
 
 	/* silly that defaxis and curve_deform_verts are off by 1
 	 * but leave for now to save having to call do_versions */
-	curve_deform_verts(md->scene, cmd->object, ob, derivedData, vertexCos, numVerts,
+	curve_deform_verts(eval_ctx, md->scene, cmd->object, ob, derivedData, vertexCos, numVerts,
 	                   cmd->name, cmd->defaxis - 1);
 }
 
 static void deformVertsEM(
-        ModifierData *md, Object *ob, struct BMEditMesh *em,
+        ModifierData *md, const struct EvaluationContext *eval_ctx, Object *ob, struct BMEditMesh *em,
         DerivedMesh *derivedData, float (*vertexCos)[3], int numVerts)
 {
 	DerivedMesh *dm = derivedData;
 
 	if (!derivedData) dm = CDDM_from_editbmesh(em, false, false);
 
-	deformVerts(md, ob, dm, vertexCos, numVerts, 0);
+	deformVerts(md, eval_ctx, ob, dm, vertexCos, numVerts, 0);
 
 	if (!derivedData) dm->release(dm);
 }
@@ -179,7 +163,6 @@ ModifierTypeInfo modifierType_Curve = {
 	/* requiredDataMask */  requiredDataMask,
 	/* freeData */          NULL,
 	/* isDisabled */        isDisabled,
-	/* updateDepgraph */    updateDepgraph,
 	/* updateDepsgraph */   updateDepsgraph,
 	/* dependsOnTime */     NULL,
 	/* dependsOnNormals */  NULL,

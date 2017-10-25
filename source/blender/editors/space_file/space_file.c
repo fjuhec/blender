@@ -292,7 +292,8 @@ static void file_refresh(const bContext *C, ScrArea *sa)
 	}
 }
 
-static void file_listener(bScreen *UNUSED(sc), ScrArea *sa, wmNotifier *wmn)
+static void file_listener(bScreen *UNUSED(sc), ScrArea *sa, wmNotifier *wmn, Scene *UNUSED(scene),
+                          WorkSpace *UNUSED(workspace))
 {
 	SpaceFile *sfile = (SpaceFile *)sa->spacedata.first;
 
@@ -334,7 +335,9 @@ static void file_main_region_init(wmWindowManager *wm, ARegion *ar)
 	WM_event_add_keymap_handler_bb(&ar->handlers, keymap, &ar->v2d.mask, &ar->winrct);
 }
 
-static void file_main_region_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar, wmNotifier *wmn)
+static void file_main_region_listener(
+        bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar,
+        wmNotifier *wmn, const Scene *UNUSED(scene))
 {
 	/* context changes */
 	switch (wmn->category) {
@@ -598,7 +601,9 @@ static void file_tools_region_draw(const bContext *C, ARegion *ar)
 	ED_region_panels(C, ar, NULL, -1, true);
 }
 
-static void file_tools_region_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *UNUSED(ar), wmNotifier *UNUSED(wmn))
+static void file_tools_region_listener(
+        bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *UNUSED(ar),
+        wmNotifier *UNUSED(wmn), const Scene *UNUSED(scene))
 {
 #if 0
 	/* context changes */
@@ -660,7 +665,9 @@ static void file_ui_region_draw(const bContext *C, ARegion *ar)
 	UI_view2d_view_restore(C);
 }
 
-static void file_ui_region_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar, wmNotifier *wmn)
+static void file_ui_region_listener(
+        bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar,
+        wmNotifier *wmn, const Scene *UNUSED(scene))
 {
 	/* context changes */
 	switch (wmn->category) {

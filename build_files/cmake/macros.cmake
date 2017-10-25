@@ -318,7 +318,7 @@ function(SETUP_LIBDIRS)
 		link_directories(${JACK_LIBPATH})
 	endif()
 	if(WITH_CODEC_SNDFILE)
-		link_directories(${SNDFILE_LIBPATH})
+		link_directories(${LIBSNDFILE_LIBPATH})
 	endif()
 	if(WITH_FFTW3)
 		link_directories(${FFTW3_LIBPATH})
@@ -398,7 +398,7 @@ function(setup_liblinks
 		target_link_libraries(${target} ${JACK_LIBRARIES})
 	endif()
 	if(WITH_CODEC_SNDFILE)
-		target_link_libraries(${target} ${SNDFILE_LIBRARIES})
+		target_link_libraries(${target} ${LIBSNDFILE_LIBRARIES})
 	endif()
 	if(WITH_SDL AND NOT WITH_SDL_DYNLOAD)
 		target_link_libraries(${target} ${SDL_LIBRARY})
@@ -546,6 +546,12 @@ function(SETUP_BLENDER_SORTED_LIBS)
 		endif()
 	endif()
 
+	if(WITH_AUDASPACE AND NOT WITH_SYSTEM_AUDASPACE)
+		list(APPEND BLENDER_LINK_LIBS
+			audaspace
+			audaspace-py)
+	endif()
+
 	# Sort libraries
 	set(BLENDER_SORTED_LIBS
 		bf_windowmanager
@@ -566,6 +572,7 @@ function(SETUP_BLENDER_SORTED_LIBS)
 		bf_editor_space_sequencer
 		bf_editor_space_text
 		bf_editor_space_time
+		bf_editor_space_topbar
 		bf_editor_space_userpref
 		bf_editor_space_view3d
 		bf_editor_space_clip
@@ -576,12 +583,14 @@ function(SETUP_BLENDER_SORTED_LIBS)
 		bf_editor_curve
 		bf_editor_gpencil
 		bf_editor_interface
+		bf_editor_manipulator_library
 		bf_editor_mesh
 		bf_editor_metaball
 		bf_editor_object
 		bf_editor_armature
 		bf_editor_physics
 		bf_editor_render
+		bf_editor_scene
 		bf_editor_screen
 		bf_editor_sculpt_paint
 		bf_editor_sound
@@ -594,6 +603,7 @@ function(SETUP_BLENDER_SORTED_LIBS)
 		bf_python
 		bf_python_ext
 		bf_python_mathutils
+		bf_python_gawain
 		bf_python_bmesh
 		bf_freestyle
 		bf_ikplugin
@@ -601,11 +611,14 @@ function(SETUP_BLENDER_SORTED_LIBS)
 		bf_alembic
 		bf_bmesh
 		bf_gpu
+		bf_draw
 		bf_blenloader
 		bf_blenkernel
 		bf_physics
 		bf_nodes
 		bf_rna
+		bf_editor_manipulator_library  # rna -> manipulator bad-level calls
+		bf_python
 		bf_imbuf
 		bf_blenlib
 		bf_depsgraph
@@ -646,6 +659,8 @@ function(SETUP_BLENDER_SORTED_LIBS)
 		bf_blenfont
 		bf_blentranslation
 		bf_intern_audaspace
+		audaspace
+		audaspace-py
 		bf_intern_mikktspace
 		bf_intern_dualcon
 		bf_intern_cycles
@@ -657,6 +672,7 @@ function(SETUP_BLENDER_SORTED_LIBS)
 		cycles_util
 		cycles_subd
 		bf_intern_opencolorio
+		bf_intern_gawain
 		bf_intern_eigen
 		extern_rangetree
 		extern_wcwidth
@@ -1496,6 +1512,7 @@ function(find_python_package
 		  NAMES
 		    ${package}
 		  HINTS
+		    "${PYTHON_LIBPATH}/"
 		    "${PYTHON_LIBPATH}/python${PYTHON_VERSION}/"
 		    "${PYTHON_LIBPATH}/python${_PY_VER_MAJOR}/"
 		  PATH_SUFFIXES

@@ -38,7 +38,6 @@
 #include "BKE_library_query.h"
 #include "BKE_scene.h"
 
-#include "depsgraph_private.h"
 #include "DEG_depsgraph_build.h"
 
 #include "MOD_modifiertypes.h"
@@ -95,8 +94,8 @@ static bool isDisabled(ModifierData *md, int UNUSED(useRenderParams))
 	return (mcmd->cache_file == NULL) || (mcmd->object_path[0] == '\0');
 }
 
-static DerivedMesh *applyModifier(ModifierData *md, Object *ob,
-                                  DerivedMesh *dm,
+static DerivedMesh *applyModifier(ModifierData *md, const struct EvaluationContext *UNUSED(eval_ctx),
+                                  Object *ob, DerivedMesh *dm,
                                   ModifierApplyFlag UNUSED(flag))
 {
 #ifdef WITH_ALEMBIC
@@ -175,23 +174,6 @@ static void foreachIDLink(ModifierData *md, Object *ob,
 }
 
 
-static void updateDepgraph(ModifierData *md, DagForest *forest,
-                           struct Main *bmain,
-                           struct Scene *scene,
-                           Object *ob, DagNode *obNode)
-{
-	MeshSeqCacheModifierData *mcmd = (MeshSeqCacheModifierData *) md;
-
-	if (mcmd->cache_file != NULL) {
-		DagNode *curNode = dag_get_node(forest, mcmd->cache_file);
-
-		dag_add_relation(forest, curNode, obNode,
-		                 DAG_RL_DATA_DATA | DAG_RL_OB_DATA, "Cache File Modifier");
-	}
-
-	UNUSED_VARS(bmain, scene, ob);
-}
-
 static void updateDepsgraph(ModifierData *md,
                             struct Main *bmain,
                             struct Scene *scene,
@@ -225,7 +207,6 @@ ModifierTypeInfo modifierType_MeshSequenceCache = {
     /* requiredDataMask */  NULL,
     /* freeData */          freeData,
     /* isDisabled */        isDisabled,
-    /* updateDepgraph */    updateDepgraph,
     /* updateDepsgraph */   updateDepsgraph,
     /* dependsOnTime */     dependsOnTime,
     /* dependsOnNormals */  NULL,

@@ -378,7 +378,6 @@ static DerivedMesh *generate_ocean_geometry(OceanModifierData *omd)
 	/* add uvs */
 	if (CustomData_number_of_layers(&result->loopData, CD_MLOOPUV) < MAX_MTFACE) {
 		gogd.mloopuvs = CustomData_add_layer(&result->loopData, CD_MLOOPUV, CD_CALLOC, NULL, num_polys * 4);
-		CustomData_add_layer(&result->polyData, CD_MTEXPOLY, CD_CALLOC, NULL, num_polys);
 
 		if (gogd.mloopuvs) { /* unlikely to fail */
 			gogd.ix = 1.0 / gogd.rx;
@@ -543,8 +542,8 @@ static DerivedMesh *doOcean(ModifierData *md, Object *UNUSED(ob),
 }
 #endif /* WITH_OCEANSIM */
 
-static DerivedMesh *applyModifier(ModifierData *md, Object *ob,
-                                  DerivedMesh *derivedData,
+static DerivedMesh *applyModifier(ModifierData *md, const struct EvaluationContext *UNUSED(eval_ctx),
+                                  Object *ob, DerivedMesh *derivedData,
                                   ModifierApplyFlag UNUSED(flag))
 {
 	DerivedMesh *result;
@@ -578,7 +577,6 @@ ModifierTypeInfo modifierType_Ocean = {
 	/* requiredDataMask */  requiredDataMask,
 	/* freeData */          freeData,
 	/* isDisabled */        NULL,
-	/* updateDepgraph */    NULL,
 	/* updateDepsgraph */   NULL,
 	/* dependsOnTime */     NULL,
 	/* dependsOnNormals */	dependsOnNormals,

@@ -1199,7 +1199,7 @@ class TEXTURE_UL_texpaintslots(UIList):
 
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             layout.prop(item, "name", text="", emboss=False, icon_value=icon)
-            if (not mat.use_nodes) and context.scene.render.engine in {'BLENDER_RENDER', 'BLENDER_GAME'}:
+            if (not mat.use_nodes) and context.engine in {'BLENDER_RENDER', 'BLENDER_GAME'}:
                 mtex_index = mat.texture_paint_slots[index].index
                 layout.prop(mat, "use_textures", text="", index=mtex_index)
         elif self.layout_type == 'GRID':
@@ -1213,9 +1213,9 @@ class VIEW3D_MT_tools_projectpaint_uvlayer(Menu):
     def draw(self, context):
         layout = self.layout
 
-        for i, tex in enumerate(context.active_object.data.uv_textures):
-            props = layout.operator("wm.context_set_int", text=tex.name, translate=False)
-            props.data_path = "active_object.data.uv_textures.active_index"
+        for i, uv_layer in enumerate(context.active_object.data.uv_layers):
+            props = layout.operator("wm.context_set_int", text=uv_layer.name, translate=False)
+            props.data_path = "active_object.data.uv_layers.active_index"
             props.value = i
 
 
@@ -1262,7 +1262,7 @@ class VIEW3D_PT_slots_projectpaint(View3DPanel, Panel):
                 else:
                     slot = None
 
-                if (not mat.use_nodes) and context.scene.render.engine in {'BLENDER_RENDER', 'BLENDER_GAME'}:
+                if (not mat.use_nodes) and context.engine in {'BLENDER_RENDER', 'BLENDER_GAME'}:
                     row = col.row(align=True)
                     row.operator_menu_enum("paint.add_texture_paint_slot", "type")
                     row.operator("paint.delete_texture_paint_slot", text="", icon='X')
@@ -1273,11 +1273,11 @@ class VIEW3D_PT_slots_projectpaint(View3DPanel, Panel):
 
                 if slot and slot.index != -1:
                     col.label("UV Map:")
-                    col.prop_search(slot, "uv_layer", ob.data, "uv_textures", text="")
+                    col.prop_search(slot, "uv_layer", ob.data, "uv_layers", text="")
 
         elif settings.mode == 'IMAGE':
             mesh = ob.data
-            uv_text = mesh.uv_textures.active.name if mesh.uv_textures.active else ""
+            uv_text = mesh.uv_layers.active.name if mesh.uv_layers.active else ""
             col.label("Canvas Image:")
             # todo this should be combinded into a single row
             col.template_ID(settings, "canvas", open="image.open")
@@ -1315,8 +1315,8 @@ class VIEW3D_PT_stencil_projectpaint(View3DPanel, Panel):
         col = layout.column()
         col.active = ipaint.use_stencil_layer
 
-        stencil_text = mesh.uv_texture_stencil.name if mesh.uv_texture_stencil else ""
-        col.label("UV Map:")
+        stencil_text = mesh.uv_layer_stencil.name if mesh.uv_layer_stencil else ""
+        col.label("UV Map")
         col.menu("VIEW3D_MT_tools_projectpaint_stencil", text=stencil_text, translate=False)
 
         col.label("Stencil Image:")
@@ -1934,9 +1934,9 @@ class VIEW3D_MT_tools_projectpaint_stencil(Menu):
 
     def draw(self, context):
         layout = self.layout
-        for i, tex in enumerate(context.active_object.data.uv_textures):
-            props = layout.operator("wm.context_set_int", text=tex.name, translate=False)
-            props.data_path = "active_object.data.uv_texture_stencil_index"
+        for i, uv_layer in enumerate(context.active_object.data.uv_layers):
+            props = layout.operator("wm.context_set_int", text=uv_layer.name, translate=False)
+            props.data_path = "active_object.data.uv_layer_stencil_index"
             props.value = i
 
 

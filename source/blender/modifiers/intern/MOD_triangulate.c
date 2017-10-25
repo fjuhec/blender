@@ -85,6 +85,7 @@ static void copyData(ModifierData *md, ModifierData *target)
 }
 
 static DerivedMesh *applyModifier(ModifierData *md,
+                                  const struct EvaluationContext *UNUSED(eval_ctx),
                                   Object *UNUSED(ob),
                                   DerivedMesh *dm,
                                   ModifierApplyFlag UNUSED(flag))
@@ -120,7 +121,6 @@ ModifierTypeInfo modifierType_Triangulate = {
 	/* requiredDataMask */  NULL, //requiredDataMask,
 	/* freeData */          NULL,
 	/* isDisabled */        NULL,
-	/* updateDepgraph */    NULL,
 	/* updateDepsgraph */   NULL,
 	/* dependsOnTime */     NULL,
 	/* dependsOnNormals */	NULL,

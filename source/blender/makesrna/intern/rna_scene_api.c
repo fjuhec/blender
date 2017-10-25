@@ -60,7 +60,6 @@ const EnumPropertyItem rna_enum_abc_compression_items[] = {
 #ifdef RNA_RUNTIME
 
 #include "BKE_animsys.h"
-#include "BKE_depsgraph.h"
 #include "BKE_editmesh.h"
 #include "BKE_global.h"
 #include "BKE_image.h"
@@ -86,8 +85,7 @@ static void rna_Scene_frame_set(Scene *scene, int frame, float subframe)
 	BPy_BEGIN_ALLOW_THREADS;
 #endif
 
-	/* It's possible that here we're including layers which were never visible before. */
-	BKE_scene_update_for_newframe_ex(G.main->eval_ctx, G.main, scene, (1 << 20) - 1, true);
+	BKE_scene_update_for_newframe(G.main->eval_ctx, G.main, scene);
 
 #ifdef WITH_PYTHON
 	BPy_END_ALLOW_THREADS;
@@ -112,7 +110,7 @@ static void rna_Scene_uvedit_aspect(Scene *scene, Object *ob, float *aspect)
 	if ((ob->type == OB_MESH) && (ob->mode == OB_MODE_EDIT)) {
 		BMEditMesh *em;
 		em = BKE_editmesh_from_object(ob);
-		if (EDBM_mtexpoly_check(em)) {
+		if (EDBM_uv_check(em)) {
 			ED_uvedit_get_aspect(scene, ob, em->bm, aspect, aspect + 1);
 			return;
 		}
@@ -153,14 +151,24 @@ static void rna_SceneRender_get_frame_path(RenderData *rd, int frame, int previe
 }
 
 static void rna_Scene_ray_cast(
-        Scene *scene, float origin[3], float direction[3], float ray_dist,
+        Scene *scene, SceneLayer *scene_layer, const char *engine_id,
+        float origin[3], float direction[3], float ray_dist,
         int *r_success, float r_location[3], float r_normal[3], int *r_index,
         Object **r_ob, float r_obmat[16])
 {
+	RenderEngineType *engine;
+
+	if (engine_id == NULL || engine_id[0] == '\0') {
+		engine = RE_engines_find(scene->view_render.engine_id);
+	}
+	else {
+		engine = RE_engines_find(engine_id);
+	}
+
 	normalize_v3(direction);
 
 	SnapObjectContext *sctx = ED_transform_snap_object_context_create(
-	        G.main, scene, 0);
+	        G.main, scene, scene_layer, engine, 0);
 
 	bool ret = ED_transform_snap_object_project_ray_ex(
 	        sctx,
@@ -269,6 +277,7 @@ static void rna_Scene_alembic_export(
 /* Note: This definition must match to the generated function call */
 static void rna_Scene_collada_export(
         Scene *scene,
+        bContext *C,
         const char *filepath, 
         int apply_modifiers,
 
@@ -279,7 +288,7 @@ static void rna_Scene_collada_export(
         int include_shapekeys,
         int deform_bones_only,
         int active_uv_only,
-        int export_texture_type,
+        int include_material_textures,
         int use_texture_copies,
         int triangulate,
         int use_object_instantiation,
@@ -290,7 +299,13 @@ static void rna_Scene_collada_export(
         int limit_precision,
         int keep_bind_info)
 {
-	collada_export(scene,
+	EvaluationContext eval_ctx;
+
+	CTX_data_eval_ctx(C, &eval_ctx);
+
+	collada_export(&eval_ctx,
+		scene,
+		CTX_data_scene_layer(C),
 		filepath,
 
 		apply_modifiers,
@@ -303,7 +318,7 @@ static void rna_Scene_collada_export(
 		deform_bones_only,
 
 		active_uv_only,
-		export_texture_type,
+		include_material_textures,
 		use_texture_copies,
 
 		triangulate,
@@ -347,6 +362,9 @@ void RNA_api_scene(StructRNA *srna)
 	/* Ray Cast */
 	func = RNA_def_function(srna, "ray_cast", "rna_Scene_ray_cast");
 	RNA_def_function_ui_description(func, "Cast a ray onto in object space");
+	parm = RNA_def_pointer(func, "scene_layer", "SceneLayer", "", "Scene Layer");
+	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
+	parm = RNA_def_string(func, "engine", NULL, MAX_NAME, "Engine", "Render engine, use scene one by default");
 	/* ray start and end */
 	parm = RNA_def_float_vector(func, "origin", 3, NULL, -FLT_MAX, FLT_MAX, "", "", -1e4, 1e4);
 	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
@@ -400,8 +418,8 @@ void RNA_api_scene(StructRNA *srna)
 
 	RNA_def_boolean(func, "active_uv_only", false, "Only Selected UV Map", "Export only the selected UV Map");
 
-	RNA_def_int(func, "export_texture_type", 0, INT_MIN, INT_MAX,
-		"Texture Type", "Type for exported Textures (UV or MAT)", INT_MIN, INT_MAX);
+	RNA_def_boolean(func, "include_material_textures", false,
+	                "Include Material Textures", "Export textures assigned to the object Materials");
 
 	RNA_def_boolean(func, "use_texture_copies", true,
 	                "Copy", "Copy textures to same folder where the .dae file is exported");
@@ -429,6 +447,8 @@ void RNA_api_scene(StructRNA *srna)
 	RNA_def_boolean(func, "keep_bind_info", false,
 	                "Keep Bind Info",
 	                "Store bind pose information in custom bone properties for later use during Collada export");
+
+	RNA_def_function_flag(func, FUNC_USE_CONTEXT);
 
 #endif
 

@@ -181,7 +181,9 @@ typedef enum eSpaceButtons_Context {
 	BCONTEXT_CONSTRAINT = 11,
 	BCONTEXT_BONE_CONSTRAINT = 12,
 	BCONTEXT_RENDER_LAYER = 13,
-	
+	BCONTEXT_COLLECTION = 14,
+	BCONTEXT_WORKSPACE = 15,
+
 	/* always as last... */
 	BCONTEXT_TOT
 } eSpaceButtons_Context;
@@ -273,21 +275,23 @@ typedef enum eSpaceOutliner_Flag {
 
 /* SpaceOops->outlinevis */
 typedef enum eSpaceOutliner_Mode {
-	SO_ALL_SCENES = 0,
-	SO_CUR_SCENE = 1,
-	SO_VISIBLE = 2,
-	SO_SELECTED = 3,
-	SO_ACTIVE = 4,
-	SO_SAME_TYPE = 5,
-	SO_GROUPS = 6,
-	SO_LIBRARIES = 7,
-	/* SO_VERSE_SESSION = 8, */  /* deprecated! */
-	/* SO_VERSE_MS = 9, */       /* deprecated! */
-	SO_SEQUENCE = 10,
-	SO_DATABLOCKS = 11,
-	SO_USERDEF = 12,
-	/* SO_KEYMAP = 13, */        /* deprecated! */
-	SO_ID_ORPHANS = 14,
+	SO_ALL_SCENES     = 0,
+	SO_CUR_SCENE      = 1,
+	SO_VISIBLE        = 2,
+	SO_SELECTED       = 3,
+	SO_ACTIVE         = 4,
+	SO_SAME_TYPE      = 5,
+	SO_GROUPS         = 6,
+	SO_LIBRARIES      = 7,
+	/* SO_VERSE_SESSION  = 8, */  /* deprecated! */
+	/* SO_VERSE_MS       = 9, */  /* deprecated! */
+	SO_SEQUENCE       = 10,
+	SO_DATABLOCKS     = 11,
+	SO_USERDEF        = 12,
+	/* SO_KEYMAP      = 13, */    /* deprecated! */
+	SO_ID_ORPHANS     = 14,
+	SO_ACT_LAYER      = 15,
+	SO_COLLECTIONS    = 16,
 } eSpaceOutliner_Mode;
 
 /* SpaceOops->storeflag */
@@ -710,7 +714,7 @@ typedef enum eFileSel_Params_Flag {
 	FILE_LINK           = (1 << 2),
 	FILE_HIDE_DOT       = (1 << 3),
 	FILE_AUTOSELECT     = (1 << 4),
-	FILE_ACTIVELAY      = (1 << 5),
+	FILE_ACTIVE_COLLECTION = (1 << 5),
 /*  FILE_ATCURSOR       = (1 << 6), */ /* deprecated */
 	FILE_DIRSEL_ONLY    = (1 << 7),
 	FILE_FILTER         = (1 << 8),
@@ -939,7 +943,7 @@ typedef enum eSpaceImage_Sticky {
 /* SpaceImage->flag */
 typedef enum eSpaceImage_Flag {
 /*	SI_BE_SQUARE          = (1 << 0), */  /* deprecated */
-	SI_EDITTILE           = (1 << 1),     /* XXX - not used but should be? */
+/*	SI_EDITTILE           = (1 << 1), */  /* deprecated */
 	SI_CLIP_UV            = (1 << 2),
 /*	SI_DRAWTOOL           = (1 << 3), */  /* deprecated */
 	SI_NO_DRAWFACES       = (1 << 4),
@@ -1295,6 +1299,17 @@ typedef struct SpaceClip {
 	MaskSpaceInfo mask_info;
 } SpaceClip;
 
+/* Top Bar ======================================= */
+
+typedef struct SpaceTopBar {
+	SpaceLink *next, *prev;
+	ListBase regionbase;        /* storage of regions for inactive spaces */
+	int spacetype;
+
+	int pad;
+} SpaceTopBar;
+
+
 /* SpaceClip->flag */
 typedef enum eSpaceClip_Flag {
 	SC_SHOW_MARKER_PATTERN      = (1 << 0),
@@ -1372,8 +1387,9 @@ typedef enum eSpace_Type {
 	SPACE_CONSOLE  = 18,
 	SPACE_USERPREF = 19,
 	SPACE_CLIP     = 20,
-	
-	SPACEICONMAX = SPACE_CLIP
+	SPACE_TOPBAR   = 21,
+
+	SPACEICONMAX = SPACE_TOPBAR
 } eSpace_Type;
 
 /* use for function args */

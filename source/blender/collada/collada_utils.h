@@ -34,7 +34,6 @@
 
 #include <vector>
 #include <map>
-#include <set>
 #include <algorithm>
 
 extern "C" {
@@ -61,13 +60,15 @@ extern "C" {
 #include "ExportSettings.h"
 #include "collada_internal.h"
 
+struct EvaluationContext;
+
 typedef std::map<COLLADAFW::TextureMapId, std::vector<MTex *> > TexIndexTextureArrayMap;
 
 extern float bc_get_float_value(const COLLADAFW::FloatOrDoubleArray& array, unsigned int index);
 extern int bc_test_parent_loop(Object *par, Object *ob);
 extern int bc_set_parent(Object *ob, Object *par, bContext *C, bool is_parent_space = true);
 extern Object *bc_add_object(Scene *scene, int type, const char *name);
-extern Mesh *bc_get_mesh_copy(Scene *scene, Object *ob, BC_export_mesh_type export_mesh_type, bool apply_modifiers, bool triangulate);
+extern Mesh *bc_get_mesh_copy(const struct EvaluationContext *eval_ctx, Scene *scene, Object *ob, BC_export_mesh_type export_mesh_type, bool apply_modifiers, bool triangulate);
 
 extern Object *bc_get_assigned_armature(Object *ob);
 extern Object *bc_get_highest_selected_ancestor_or_self(LinkNode *export_set, Object *ob);
@@ -81,7 +82,6 @@ extern void bc_set_mark(Object *ob);
 
 extern char *bc_CustomData_get_layer_name(const CustomData *data, int type, int n);
 extern char *bc_CustomData_get_active_layer_name(const CustomData *data, int type);
-extern char *bc_CustomData_get_layer_name(const CustomData *data, int layer_index, int type);
 
 extern void bc_bubble_sort_by_Object_name(LinkNode *export_set);
 extern bool bc_is_root_bone(Bone *aBone, bool deform_bones_only);
@@ -110,14 +110,6 @@ extern void bc_get_property_vector(Bone *bone, std::string key, float val[3], co
 extern bool bc_get_property_matrix(Bone *bone, std::string key, float mat[4][4]);
 
 extern void bc_create_restpose_mat(const ExportSettings *export_settings, Bone *bone, float to_mat[4][4], float world[4][4], bool use_local_space);
-
-extern std::string bc_get_active_uvlayer_name(Object *ob);
-extern std::string bc_get_active_uvlayer_name(Mesh *me);
-extern std::string bc_get_uvlayer_name(Mesh *me, int layer);
-
-extern std::set<Image *> bc_getUVImages(Scene *sce, bool all_uv_layers);
-extern std::set<Image *> bc_getUVImages(Object *ob, bool all_uv_layers);
-extern std::set<Object *> bc_getUVTexturedObjects(Scene *sce, bool all_uv_layers);
 
 class BCPolygonNormalsIndices
 {

@@ -66,16 +66,7 @@ static const EnumPropertyItem opensubdiv_compute_type_items[] = {
 #endif
 
 static const EnumPropertyItem audio_device_items[] = {
-	{0, "NONE", 0, "None", "Null device - there will be no audio output"},
-#ifdef WITH_SDL
-	{1, "SDL", 0, "SDL", "SDL device - simple direct media layer, recommended for sequencer usage"},
-#endif
-#ifdef WITH_OPENAL
-	{2, "OPENAL", 0, "OpenAL", "OpenAL device - supports 3D audio, recommended for game engine usage"},
-#endif
-#ifdef WITH_JACK
-	{3, "JACK", 0, "JACK", "JACK Audio Connection Kit, recommended for pro audio users"},
-#endif
+	{0, "Null", 0, "None", "Null device - there will be no audio output"},
 	{0, NULL, 0, NULL, NULL}
 };
 
@@ -98,12 +89,13 @@ static const EnumPropertyItem rna_enum_language_default_items[] = {
 #include "DNA_screen_types.h"
 
 #include "BKE_blender.h"
-#include "BKE_depsgraph.h"
 #include "BKE_global.h"
 #include "BKE_main.h"
 #include "BKE_idprop.h"
 #include "BKE_pbvh.h"
 #include "BKE_paint.h"
+
+#include "DEG_depsgraph.h"
 
 #include "GPU_draw.h"
 #include "GPU_select.h"
@@ -175,10 +167,12 @@ static void rna_userdef_show_manipulator_update(Main *bmain, Scene *scene, Point
 			for (sl = sa->spacedata.first; sl; sl = sl->next) {
 				if (sl->spacetype == SPACE_VIEW3D) {
 					View3D *v3d = (View3D *)sl;
-					if (userdef->tw_flag & V3D_USE_MANIPULATOR)
-						v3d->twflag |= V3D_USE_MANIPULATOR;
-					else
-						v3d->twflag &= ~V3D_USE_MANIPULATOR;
+					if (userdef->manipulator_flag & USER_MANIPULATOR_DRAW) {
+						v3d->twflag |= V3D_MANIPULATOR_DRAW;
+					}
+					else {
+						v3d->twflag &= ~V3D_MANIPULATOR_DRAW;
+					}
 				}
 			}
 		}
@@ -363,7 +357,7 @@ static void rna_UserDef_weight_color_update(Main *bmain, Scene *scene, PointerRN
 
 	for (ob = bmain->object.first; ob; ob = ob->id.next) {
 		if (ob->mode & OB_MODE_WEIGHT_PAINT)
-			DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
+			DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	}
 
 	rna_userdef_update(bmain, scene, ptr);
@@ -502,7 +496,7 @@ static void rna_userdef_opensubdiv_update(Main *bmain, Scene *UNUSED(scene), Poi
 		if (object->derivedFinal != NULL &&
 		    object->derivedFinal->type == DM_TYPE_CCGDM)
 		{
-			DAG_id_tag_update(&object->id, OB_RECALC_OB);
+			DEG_id_tag_update(&object->id, OB_RECALC_OB);
 		}
 	}
 }
@@ -516,7 +510,6 @@ static const EnumPropertyItem *rna_userdef_audio_device_itemf(bContext *UNUSED(C
 	int totitem = 0;
 	EnumPropertyItem *item = NULL;
 
-#ifdef WITH_SYSTEM_AUDASPACE
 	int i;
 
 	char **names = BKE_sound_get_device_names();
@@ -525,31 +518,6 @@ static const EnumPropertyItem *rna_userdef_audio_device_itemf(bContext *UNUSED(C
 		EnumPropertyItem new_item = {i, names[i], 0, names[i], names[i]};
 		RNA_enum_item_add(&item, &totitem, &new_item);
 	}
-#else
-	/* NONE */
-	RNA_enum_item_add(&item, &totitem, &audio_device_items[index++]);
-
-#ifdef WITH_SDL
-#  ifdef WITH_SDL_DYNLOAD
-	if (sdlewInit() == SDLEW_SUCCESS)
-#  endif
-	{
-		RNA_enum_item_add(&item, &totitem, &audio_device_items[index]);
-	}
-	index++;
-#endif
-
-#ifdef WITH_OPENAL
-	RNA_enum_item_add(&item, &totitem, &audio_device_items[index++]);
-#endif
-
-#ifdef WITH_JACK
-	if (BKE_sound_is_jack_supported()) {
-		RNA_enum_item_add(&item, &totitem, &audio_device_items[index]);
-	}
-	index++;
-#endif
-#endif
 
 	/* may be unused */
 	UNUSED_VARS(index, audio_device_items);
@@ -1027,6 +995,11 @@ static void rna_def_userdef_theme_ui(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "State Colors", "");
 	RNA_def_property_update(prop, 0, "rna_userdef_update");
 
+	prop = RNA_def_property(srna, "wcol_tab", PROP_POINTER, PROP_NONE);
+	RNA_def_property_flag(prop, PROP_NEVER_NULL);
+	RNA_def_property_ui_text(prop, "Tab Colors", "");
+	RNA_def_property_update(prop, 0, "rna_userdef_update");
+
 	prop = RNA_def_property(srna, "menu_shadow_fac", PROP_FLOAT, PROP_FACTOR);
 	RNA_def_property_ui_text(prop, "Menu Shadow Strength", "Blending factor for menu shadows");
 	RNA_def_property_range(prop, 0.01f, 1.0f);
@@ -1069,6 +1042,37 @@ static void rna_def_userdef_theme_ui(BlenderRNA *brna)
 	RNA_def_property_float_sdna(prop, NULL, "zaxis");
 	RNA_def_property_array(prop, 3);
 	RNA_def_property_ui_text(prop, "Z Axis", "");
+	RNA_def_property_update(prop, 0, "rna_userdef_update");
+
+	/* Generic manipulator colors. */
+	prop = RNA_def_property(srna, "manipulator_hi", PROP_FLOAT, PROP_COLOR_GAMMA);
+	RNA_def_property_float_sdna(prop, NULL, "manipulator_hi");
+	RNA_def_property_array(prop, 3);
+	RNA_def_property_ui_text(prop, "Manipulator Highlight", "");
+	RNA_def_property_update(prop, 0, "rna_userdef_update");
+
+	prop = RNA_def_property(srna, "manipulator_primary", PROP_FLOAT, PROP_COLOR_GAMMA);
+	RNA_def_property_float_sdna(prop, NULL, "manipulator_primary");
+	RNA_def_property_array(prop, 3);
+	RNA_def_property_ui_text(prop, "Manipulator Primary", "");
+	RNA_def_property_update(prop, 0, "rna_userdef_update");
+
+	prop = RNA_def_property(srna, "manipulator_secondary", PROP_FLOAT, PROP_COLOR_GAMMA);
+	RNA_def_property_float_sdna(prop, NULL, "manipulator_secondary");
+	RNA_def_property_array(prop, 3);
+	RNA_def_property_ui_text(prop, "Manipulator Secondary", "");
+	RNA_def_property_update(prop, 0, "rna_userdef_update");
+
+	prop = RNA_def_property(srna, "manipulator_a", PROP_FLOAT, PROP_COLOR_GAMMA);
+	RNA_def_property_float_sdna(prop, NULL, "manipulator_a");
+	RNA_def_property_array(prop, 3);
+	RNA_def_property_ui_text(prop, "Manipulator A", "");
+	RNA_def_property_update(prop, 0, "rna_userdef_update");
+
+	prop = RNA_def_property(srna, "manipulator_b", PROP_FLOAT, PROP_COLOR_GAMMA);
+	RNA_def_property_float_sdna(prop, NULL, "manipulator_b");
+	RNA_def_property_array(prop, 3);
+	RNA_def_property_ui_text(prop, "Manipulator B", "");
 	RNA_def_property_update(prop, 0, "rna_userdef_update");
 }
 
@@ -1273,7 +1277,7 @@ static void rna_def_userdef_theme_spaces_vertex(StructRNA *srna)
 	RNA_def_property_update(prop, 0, "rna_userdef_update");
 
 	prop = RNA_def_property(srna, "vertex_size", PROP_INT, PROP_NONE);
-	RNA_def_property_range(prop, 1, 10);
+	RNA_def_property_range(prop, 1, 32);
 	RNA_def_property_ui_text(prop, "Vertex Size", "");
 	RNA_def_property_update(prop, 0, "rna_userdef_update");
 
@@ -1495,7 +1499,7 @@ static void rna_def_userdef_theme_spaces_curves(StructRNA *srna, bool incl_nurbs
 		RNA_def_property_update(prop, 0, "rna_userdef_update");
 
 		prop = RNA_def_property(srna, "handle_vertex_size", PROP_INT, PROP_NONE);
-		RNA_def_property_range(prop, 0, 255);
+		RNA_def_property_range(prop, 1, 100);
 		RNA_def_property_ui_text(prop, "Handle Vertex Size", "");
 		RNA_def_property_update(prop, 0, "rna_userdef_update");
 	}
@@ -2943,6 +2947,20 @@ static void rna_def_userdef_theme_space_clip(BlenderRNA *brna)
 	rna_def_userdef_theme_spaces_curves(srna, false, false, false, true);
 }
 
+static void rna_def_userdef_theme_space_topbar(BlenderRNA *brna)
+{
+	StructRNA *srna;
+
+	/* space_topbar */
+
+	srna = RNA_def_struct(brna, "ThemeTopBar", NULL);
+	RNA_def_struct_sdna(srna, "ThemeSpace");
+	RNA_def_struct_clear_flag(srna, STRUCT_UNDO);
+	RNA_def_struct_ui_text(srna, "Theme Top Bar", "Theme settings for the Top Bar");
+
+	rna_def_userdef_theme_spaces_main(srna);
+}
+
 static void rna_def_userdef_themes(BlenderRNA *brna)
 {
 	StructRNA *srna;
@@ -2969,6 +2987,7 @@ static void rna_def_userdef_themes(BlenderRNA *brna)
 		{16, "FILE_BROWSER", ICON_FILESEL, "File Browser", ""},
 		{17, "CONSOLE", ICON_CONSOLE, "Python Console", ""},
 		{20, "CLIP_EDITOR", ICON_CLIP, "Movie Clip Editor", ""},
+		{21, "TOPBAR", ICON_NONE, "Top Bar", ""},
 		{0, NULL, 0, NULL, NULL}
 	};
 
@@ -3102,6 +3121,12 @@ static void rna_def_userdef_themes(BlenderRNA *brna)
 	RNA_def_property_pointer_sdna(prop, NULL, "tclip");
 	RNA_def_property_struct_type(prop, "ThemeClipEditor");
 	RNA_def_property_ui_text(prop, "Clip Editor", "");
+
+	prop = RNA_def_property(srna, "topbar", PROP_POINTER, PROP_NONE);
+	RNA_def_property_flag(prop, PROP_NEVER_NULL);
+	RNA_def_property_pointer_sdna(prop, NULL, "ttopbar");
+	RNA_def_property_struct_type(prop, "ThemeTopBar");
+	RNA_def_property_ui_text(prop, "Top Bar", "");
 }
 
 static void rna_def_userdef_addon(BlenderRNA *brna)
@@ -3193,6 +3218,7 @@ static void rna_def_userdef_dothemes(BlenderRNA *brna)
 	rna_def_userdef_theme_space_console(brna);
 	rna_def_userdef_theme_space_logic(brna);
 	rna_def_userdef_theme_space_clip(brna);
+	rna_def_userdef_theme_space_topbar(brna);
 	rna_def_userdef_theme_colorset(brna);
 	rna_def_userdef_themes(brna);
 }
@@ -3345,11 +3371,6 @@ static void rna_def_userdef_view(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "show_object_info", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "uiflag", USER_DRAWVIEWINFO);
 	RNA_def_property_ui_text(prop, "Display Object Info", "Display objects name and frame number in 3D view");
-	RNA_def_property_update(prop, 0, "rna_userdef_update");
-
-	prop = RNA_def_property(srna, "use_global_scene", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag", USER_SCENEGLOBAL);
-	RNA_def_property_ui_text(prop, "Global Scene", "Force the current Scene to be displayed in all Screens");
 	RNA_def_property_update(prop, 0, "rna_userdef_update");
 
 	prop = RNA_def_property(srna, "show_large_cursors", PROP_BOOLEAN, PROP_NONE);
@@ -3517,29 +3538,24 @@ static void rna_def_userdef_view(BlenderRNA *brna)
 
 	/* 3D transform widget */
 	prop = RNA_def_property(srna, "show_manipulator", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "tw_flag", V3D_USE_MANIPULATOR);
+	RNA_def_property_boolean_sdna(prop, NULL, "manipulator_flag", USER_MANIPULATOR_DRAW);
 	RNA_def_property_ui_text(prop, "Manipulator", "Use 3D transform manipulator");
 	RNA_def_property_update(prop, 0, "rna_userdef_show_manipulator_update");
 
+	/* TODO, expose once it's working. */
+#if 0
+	prop = RNA_def_property(srna, "show_manipulator_shaded", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "manipulator_flag", USER_MANIPULATOR_SHADED);
+	RNA_def_property_ui_text(prop, "Manipulator Shaded", "Use 3D transform manipulator");
+	RNA_def_property_update(prop, 0, "rna_userdef_update");
+#endif
+
 	prop = RNA_def_property(srna, "manipulator_size", PROP_INT, PROP_PIXEL);
-	RNA_def_property_int_sdna(prop, NULL, "tw_size");
+	RNA_def_property_int_sdna(prop, NULL, "manipulator_size");
 	RNA_def_property_range(prop, 10, 200);
 	RNA_def_property_int_default(prop, 75);
 	RNA_def_property_ui_text(prop, "Manipulator Size", "Diameter of the manipulator");
 	RNA_def_property_update(prop, 0, "rna_userdef_update");
-
-	prop = RNA_def_property(srna, "manipulator_handle_size", PROP_INT, PROP_PERCENTAGE);
-	RNA_def_property_int_sdna(prop, NULL, "tw_handlesize");
-	RNA_def_property_range(prop, 2, 40);
-	RNA_def_property_int_default(prop, 25);
-	RNA_def_property_ui_text(prop, "Manipulator Handle Size", "Size of manipulator handles as percentage of the radius");
-	RNA_def_property_update(prop, 0, "rna_userdef_update");
-
-	prop = RNA_def_property(srna, "manipulator_hotspot", PROP_INT, PROP_PIXEL);
-	RNA_def_property_int_sdna(prop, NULL, "tw_hotspot");
-	RNA_def_property_range(prop, 4, 40);
-	RNA_def_property_int_default(prop, 14);
-	RNA_def_property_ui_text(prop, "Manipulator Hotspot", "Distance around the handles to accept mouse clicks");
 
 	prop = RNA_def_property(srna, "object_origin_size", PROP_INT, PROP_PIXEL);
 	RNA_def_property_int_sdna(prop, NULL, "obcenter_dia");
@@ -4189,6 +4205,7 @@ static void rna_def_userdef_system(BlenderRNA *brna)
 	RNA_def_property_enum_items(prop, multi_sample_levels);
 	RNA_def_property_ui_text(prop, "MultiSample",
 	                         "Enable OpenGL multi-sampling, only for systems that support it, requires restart");
+	RNA_def_property_update(prop, 0, "rna_userdef_dpi_update");
 
 	prop = RNA_def_property(srna, "use_region_overlap", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "uiflag2", USER_REGION_OVERLAP);

@@ -50,7 +50,6 @@
 #include "BKE_deform.h"
 #include "BKE_object.h"
 
-#include "depsgraph_private.h"
 #include "MEM_guardedalloc.h"
 
 #include "MOD_util.h"
@@ -153,31 +152,6 @@ static bool isDisabled(ModifierData *md, int UNUSED(useRenderParams))
 {
 	DisplaceModifierData *dmd = (DisplaceModifierData *) md;
 	return ((!dmd->texture && dmd->direction == MOD_DISP_DIR_RGB_XYZ) || dmd->strength == 0.0f);
-}
-
-static void updateDepgraph(ModifierData *md, DagForest *forest,
-                           struct Main *UNUSED(bmain),
-                           struct Scene *UNUSED(scene),
-                           Object *UNUSED(ob),
-                           DagNode *obNode)
-{
-	DisplaceModifierData *dmd = (DisplaceModifierData *) md;
-
-	if (dmd->map_object && dmd->texmapping == MOD_DISP_MAP_OBJECT) {
-		DagNode *curNode = dag_get_node(forest, dmd->map_object);
-
-		dag_add_relation(forest, curNode, obNode,
-		                 DAG_RL_DATA_DATA | DAG_RL_OB_DATA, "Displace Modifier");
-	}
-	
-
-	if (dmd->texmapping == MOD_DISP_MAP_GLOBAL ||
-	    (ELEM(dmd->direction, MOD_DISP_DIR_X, MOD_DISP_DIR_Y, MOD_DISP_DIR_Z, MOD_DISP_DIR_RGB_XYZ) &&
-	    dmd->space == MOD_DISP_SPACE_GLOBAL))
-	{
-		dag_add_relation(forest, obNode, obNode,
-		                 DAG_RL_DATA_DATA | DAG_RL_OB_DATA, "Displace Modifier");
-	}
 }
 
 static void updateDepsgraph(ModifierData *md,
@@ -397,8 +371,8 @@ static void displaceModifier_do(
 	}
 }
 
-static void deformVerts(ModifierData *md, Object *ob,
-                        DerivedMesh *derivedData,
+static void deformVerts(ModifierData *md, const struct EvaluationContext *UNUSED(eval_ctx),
+                        Object *ob, DerivedMesh *derivedData,
                         float (*vertexCos)[3],
                         int numVerts,
                         ModifierApplyFlag UNUSED(flag))
@@ -413,7 +387,7 @@ static void deformVerts(ModifierData *md, Object *ob,
 }
 
 static void deformVertsEM(
-        ModifierData *md, Object *ob, struct BMEditMesh *editData,
+        ModifierData *md, const struct EvaluationContext *UNUSED(eval_ctx), Object *ob, struct BMEditMesh *editData,
         DerivedMesh *derivedData, float (*vertexCos)[3], int numVerts)
 {
 	DerivedMesh *dm = get_cddm(ob, editData, derivedData, vertexCos, dependsOnNormals(md));
@@ -445,7 +419,6 @@ ModifierTypeInfo modifierType_Displace = {
 	/* requiredDataMask */  requiredDataMask,
 	/* freeData */          freeData,
 	/* isDisabled */        isDisabled,
-	/* updateDepgraph */    updateDepgraph,
 	/* updateDepsgraph */   updateDepsgraph,
 	/* dependsOnTime */     dependsOnTime,
 	/* dependsOnNormals */	dependsOnNormals,

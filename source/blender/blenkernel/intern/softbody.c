@@ -81,6 +81,8 @@ variables on the UI for now
 #include "BKE_mesh.h"
 #include "BKE_scene.h"
 
+#include "DEG_depsgraph.h"
+
 #include  "PIL_time.h"
 
 /* callbacks for errors and interrupts and some goo */
@@ -512,7 +514,7 @@ static void ccd_build_deflector_hash_single(GHash *hash, Object *ob)
 /**
  * \note group overrides scene when not NULL.
  */
-static void ccd_build_deflector_hash(Scene *scene, Group *group, Object *vertexowner, GHash *hash)
+static void ccd_build_deflector_hash(SceneLayer *sl, Group *group, Object *vertexowner, GHash *hash)
 {
 	Object *ob;
 
@@ -530,10 +532,10 @@ static void ccd_build_deflector_hash(Scene *scene, Group *group, Object *vertexo
 		}
 	}
 	else {
-		for (Base *base = scene->base.first; base; base = base->next) {
+		for (Base *base = FIRSTBASE_NEW(sl); base; base = base->next) {
 			/*Only proceed for mesh object in same layer */
-			if (base->object->type == OB_MESH && (base->lay & vertexowner->lay)) {
-				ob= base->object;
+			if (base->object->type == OB_MESH) {
+				ob = base->object;
 				if ((vertexowner) && (ob == vertexowner)) {
 					/* if vertexowner is given  we don't want to check collision with owner object */
 					continue;
@@ -558,7 +560,7 @@ static void ccd_update_deflector_hash_single(GHash *hash, Object *ob)
 /**
  * \note group overrides scene when not NULL.
  */
-static void ccd_update_deflector_hash(Scene *scene, Group *group, Object *vertexowner, GHash *hash)
+static void ccd_update_deflector_hash(SceneLayer *sl, Group *group, Object *vertexowner, GHash *hash)
 {
 	Object *ob;
 
@@ -576,10 +578,10 @@ static void ccd_update_deflector_hash(Scene *scene, Group *group, Object *vertex
 		}
 	}
 	else {
-		for (Base *base = scene->base.first; base; base = base->next) {
+		for (Base *base = FIRSTBASE_NEW(sl); base; base = base->next) {
 			/*Only proceed for mesh object in same layer */
-			if (base->object->type == OB_MESH && (base->lay & vertexowner->lay)) {
-				ob= base->object;
+			if (base->object->type == OB_MESH) {
+				ob = base->object;
 				if (ob == vertexowner) {
 					/* if vertexowner is given  we don't want to check collision with owner object */
 					continue;
@@ -977,7 +979,7 @@ static void free_softbody_intern(SoftBody *sb)
 /**
  * \note group overrides scene when not NULL.
  */
-static bool are_there_deflectors(Scene *scene, Group *group, unsigned int layer)
+static bool are_there_deflectors(SceneLayer *sl, Group *group)
 {
 	if (group) {
 		for (GroupObject *go = group->gobject.first; go; go = go->next) {
@@ -986,8 +988,8 @@ static bool are_there_deflectors(Scene *scene, Group *group, unsigned int layer)
 		}
 	}
 	else {
-		for (Base *base = scene->base.first; base; base= base->next) {
-			if ( (base->lay & layer) && base->object->pd) {
+		for (Base *base = FIRSTBASE_NEW(sl); base; base = base->next) {
+			if (base->object->pd) {
 				if (base->object->pd->deflect)
 					return 1;
 			}
@@ -997,9 +999,9 @@ static bool are_there_deflectors(Scene *scene, Group *group, unsigned int layer)
 	return 0;
 }
 
-static int query_external_colliders(Scene *scene, Group *group, Object *me)
+static int query_external_colliders(SceneLayer *sl, Group *group)
 {
-	return(are_there_deflectors(scene, group, me->lay));
+	return(are_there_deflectors(sl, group));
 }
 /* --- dependency information functions*/
 
@@ -1544,12 +1546,12 @@ static void _scan_for_ext_spring_forces(Scene *scene, Object *ob, float timenow,
 }
 
 
-static void scan_for_ext_spring_forces(Scene *scene, Object *ob, float timenow)
+static void scan_for_ext_spring_forces(const struct EvaluationContext *eval_ctx, Scene *scene, Object *ob, float timenow)
 {
 	SoftBody *sb = ob->soft;
 	ListBase *do_effector = NULL;
 
-	do_effector = pdInitEffectors(scene, ob, NULL, sb->effector_weights, true);
+	do_effector = pdInitEffectors(eval_ctx, scene, ob, NULL, sb->effector_weights, true);
 	_scan_for_ext_spring_forces(scene, ob, timenow, 0, sb->totspring, do_effector);
 	pdEndEffectors(&do_effector);
 }
@@ -1561,7 +1563,7 @@ static void *exec_scan_for_ext_spring_forces(void *data)
 	return NULL;
 }
 
-static void sb_sfesf_threads_run(Scene *scene, struct Object *ob, float timenow, int totsprings, int *UNUSED(ptr_to_break_func(void)))
+static void sb_sfesf_threads_run(const struct EvaluationContext *eval_ctx, Scene *scene, struct Object *ob, float timenow, int totsprings, int *UNUSED(ptr_to_break_func(void)))
 {
 	ListBase *do_effector = NULL;
 	ListBase threads;
@@ -1569,7 +1571,7 @@ static void sb_sfesf_threads_run(Scene *scene, struct Object *ob, float timenow,
 	int i, totthread, left, dec;
 	int lowsprings =100; /* wild guess .. may increase with better thread management 'above' or even be UI option sb->spawn_cf_threads_nopts */
 
-	do_effector= pdInitEffectors(scene, ob, NULL, ob->soft->effector_weights, true);
+	do_effector= pdInitEffectors(eval_ctx, scene, ob, NULL, ob->soft->effector_weights, true);
 
 	/* figure the number of threads while preventing pretty pointless threading overhead */
 	totthread= BKE_scene_num_threads(scene);
@@ -2233,7 +2235,7 @@ static void sb_cf_threads_run(Scene *scene, Object *ob, float forcetime, float t
 	MEM_freeN(sb_threads);
 }
 
-static void softbody_calc_forcesEx(Scene *scene, Object *ob, float forcetime, float timenow)
+static void softbody_calc_forcesEx(const struct EvaluationContext *eval_ctx, Scene *scene, Object *ob, float forcetime, float timenow)
 {
 	/* rule we never alter free variables :bp->vec bp->pos in here !
 	 * this will ruin adaptive stepsize AKA heun! (BM)
@@ -2249,7 +2251,7 @@ static void softbody_calc_forcesEx(Scene *scene, Object *ob, float forcetime, fl
 	/* gravity = sb->grav * sb_grav_force_scale(ob); */ /* UNUSED */
 
 	/* check conditions for various options */
-	do_deflector= query_external_colliders(scene, sb->collision_group, ob);
+	do_deflector= query_external_colliders(eval_ctx->scene_layer, sb->collision_group);
 	/* do_selfcollision=((ob->softflag & OB_SB_EDGES) && (sb->bspring)&& (ob->softflag & OB_SB_SELF)); */ /* UNUSED */
 	do_springcollision=do_deflector && (ob->softflag & OB_SB_EDGES) &&(ob->softflag & OB_SB_EDGECOLL);
 	do_aero=((sb->aeroedge)&& (ob->softflag & OB_SB_EDGES));
@@ -2258,10 +2260,10 @@ static void softbody_calc_forcesEx(Scene *scene, Object *ob, float forcetime, fl
 	/* bproot= sb->bpoint; */ /* need this for proper spring addressing */ /* UNUSED */
 
 	if (do_springcollision || do_aero)
-		sb_sfesf_threads_run(scene, ob, timenow, sb->totspring, NULL);
+		sb_sfesf_threads_run(eval_ctx, scene, ob, timenow, sb->totspring, NULL);
 
 	/* after spring scan because it uses Effoctors too */
-	do_effector= pdInitEffectors(scene, ob, NULL, sb->effector_weights, true);
+	do_effector= pdInitEffectors(eval_ctx, scene, ob, NULL, sb->effector_weights, true);
 
 	if (do_deflector) {
 		float defforce[3];
@@ -2278,11 +2280,11 @@ static void softbody_calc_forcesEx(Scene *scene, Object *ob, float forcetime, fl
 }
 
 
-static void softbody_calc_forces(Scene *scene, Object *ob, float forcetime, float timenow)
+static void softbody_calc_forces(const struct EvaluationContext *eval_ctx, Scene *scene, Object *ob, float forcetime, float timenow)
 {
 	/* redirection to the new threaded Version */
 	if (!(G.debug_value & 0x10)) { // 16
-		softbody_calc_forcesEx(scene, ob, forcetime, timenow);
+		softbody_calc_forcesEx(eval_ctx, scene, ob, forcetime, timenow);
 		return;
 	}
 	else {
@@ -2313,7 +2315,7 @@ static void softbody_calc_forces(Scene *scene, Object *ob, float forcetime, floa
 		}
 
 		/* check conditions for various options */
-		do_deflector= query_external_colliders(scene, sb->collision_group, ob);
+		do_deflector= query_external_colliders(eval_ctx->scene_layer, sb->collision_group);
 		do_selfcollision=((ob->softflag & OB_SB_EDGES) && (sb->bspring)&& (ob->softflag & OB_SB_SELF));
 		do_springcollision=do_deflector && (ob->softflag & OB_SB_EDGES) &&(ob->softflag & OB_SB_EDGECOLL);
 		do_aero=((sb->aeroedge)&& (ob->softflag & OB_SB_EDGES));
@@ -2321,9 +2323,9 @@ static void softbody_calc_forces(Scene *scene, Object *ob, float forcetime, floa
 		iks  = 1.0f/(1.0f-sb->inspring)-1.0f ;/* inner spring constants function */
 		/* bproot= sb->bpoint; */ /* need this for proper spring addressing */ /* UNUSED */
 
-		if (do_springcollision || do_aero)  scan_for_ext_spring_forces(scene, ob, timenow);
+		if (do_springcollision || do_aero)  scan_for_ext_spring_forces(eval_ctx, scene, ob, timenow);
 		/* after spring scan because it uses Effoctors too */
-		do_effector= pdInitEffectors(scene, ob, NULL, ob->soft->effector_weights, true);
+		do_effector= pdInitEffectors(eval_ctx, scene, ob, NULL, ob->soft->effector_weights, true);
 
 		if (do_deflector) {
 			float defforce[3];
@@ -3510,7 +3512,7 @@ static void softbody_reset(Object *ob, SoftBody *sb, float (*vertexCos)[3], int 
 	}
 }
 
-static void softbody_step(Scene *scene, Object *ob, SoftBody *sb, float dtime)
+static void softbody_step(const struct EvaluationContext *eval_ctx, Scene *scene, Object *ob, SoftBody *sb, float dtime)
 {
 	/* the simulator */
 	float forcetime;
@@ -3524,11 +3526,11 @@ static void softbody_step(Scene *scene, Object *ob, SoftBody *sb, float dtime)
 	 */
 	if (dtime < 0 || dtime > 10.5f) return;
 
-	ccd_update_deflector_hash(scene, sb->collision_group, ob, sb->scratch->colliderhash);
+	ccd_update_deflector_hash(eval_ctx->scene_layer, sb->collision_group, ob, sb->scratch->colliderhash);
 
 	if (sb->scratch->needstobuildcollider) {
-		if (query_external_colliders(scene, sb->collision_group, ob)) {
-			ccd_build_deflector_hash(scene, sb->collision_group, ob, sb->scratch->colliderhash);
+		if (query_external_colliders(eval_ctx->scene_layer, sb->collision_group)) {
+			ccd_build_deflector_hash(eval_ctx->scene_layer, sb->collision_group, ob, sb->scratch->colliderhash);
 		}
 		sb->scratch->needstobuildcollider=0;
 	}
@@ -3558,12 +3560,12 @@ static void softbody_step(Scene *scene, Object *ob, SoftBody *sb, float dtime)
 
 			sb->scratch->flag &= ~SBF_DOFUZZY;
 			/* do predictive euler step */
-			softbody_calc_forces(scene, ob, forcetime, timedone/dtime);
+			softbody_calc_forces(eval_ctx, scene, ob, forcetime, timedone/dtime);
 
 			softbody_apply_forces(ob, forcetime, 1, NULL, mid_flags);
 
 			/* crop new slope values to do averaged slope step */
-			softbody_calc_forces(scene, ob, forcetime, timedone/dtime);
+			softbody_calc_forces(eval_ctx, scene, ob, forcetime, timedone/dtime);
 
 			softbody_apply_forces(ob, forcetime, 2, &err, mid_flags);
 			softbody_apply_goalsnap(ob);
@@ -3644,7 +3646,7 @@ static void softbody_step(Scene *scene, Object *ob, SoftBody *sb, float dtime)
 }
 
 /* simulates one step. framenr is in frames */
-void sbObjectStep(Scene *scene, Object *ob, float cfra, float (*vertexCos)[3], int numVerts)
+void sbObjectStep(const struct EvaluationContext *eval_ctx, Scene *scene, Object *ob, float cfra, float (*vertexCos)[3], int numVerts)
 {
 	SoftBody *sb= ob->soft;
 	PointCache *cache;
@@ -3652,7 +3654,6 @@ void sbObjectStep(Scene *scene, Object *ob, float cfra, float (*vertexCos)[3], i
 	float dtime, timescale;
 	int framedelta, framenr, startframe, endframe;
 	int cache_result;
-
 	cache= sb->pointcache;
 
 	framenr= (int)cfra;
@@ -3721,7 +3722,7 @@ void sbObjectStep(Scene *scene, Object *ob, float cfra, float (*vertexCos)[3], i
 	}
 
 	/* try to read from cache */
-	bool can_simulate = (framenr == sb->last_frame+1) && !(cache->flag & PTCACHE_BAKED);
+	bool can_simulate = (framenr == sb->last_frame + 1) && !(cache->flag & PTCACHE_BAKED);
 
 	cache_result = BKE_ptcache_read(&pid, (float)framenr+scene->r.subframe, can_simulate);
 
@@ -3760,7 +3761,7 @@ void sbObjectStep(Scene *scene, Object *ob, float cfra, float (*vertexCos)[3], i
 	dtime = framedelta*timescale;
 
 	/* do simulation */
-	softbody_step(scene, ob, sb, dtime);
+	softbody_step(eval_ctx, scene, ob, sb, dtime);
 
 	softbody_to_object(ob, vertexCos, numVerts, 0);
 

@@ -177,9 +177,13 @@ typedef struct wmWindow {
 
 	void *ghostwin;             /* don't want to include ghost.h stuff */
 
-	struct bScreen *screen;     /* active screen */
-	struct bScreen *newscreen;  /* temporary when switching */
-	char screenname[64];        /* MAX_ID_NAME for matching window with active screen after file read */
+	struct Scene *scene;     /* The scene displayed in this window. */
+	struct Scene *new_scene; /* temporary when switching */
+
+	struct WorkSpaceInstanceHook *workspace_hook;
+
+	struct bScreen *screen DNA_DEPRECATED;
+	char screenname[64];         /* MAX_ID_NAME for matching window with active screen after file read */
 
 	short posx, posy, sizex, sizey;  /* window coords */
 	short windowstate;  /* borderless, full */
@@ -218,6 +222,10 @@ typedef struct wmWindow {
 
 	ListBase subwindows;          /* opengl stuff for sub windows, see notes in wm_subwindow.c */
 	ListBase gesture;             /* gesture stuff */
+
+	/** Global areas aren't part of the screen, but part of the window directly.
+	 * \note Code assumes global areas with fixed height, fixed width not supported yet */
+	ListBase global_areas;
 
 	struct Stereo3dFormat *stereo3d_format; /* properties for stereoscopic displays */
 } wmWindow;
@@ -363,6 +371,10 @@ typedef struct wmOperator {
 	struct uiLayout *layout;      /* runtime for drawing */
 	short flag, pad[3];
 
+	/* Screen context the operator was finished in. It gets temporarily
+	 * restored during operator repeat. Only set for registered operators. */
+	struct ScrArea *execution_area;
+	struct ARegion *execution_region;
 } wmOperator;
 
 /* operator type return flags: exec(), invoke() modal(), return values */

@@ -38,7 +38,6 @@ extern "C" {
 #include "BLI_string.h"
 
 #include "BKE_cdderivedmesh.h"
-#include "BKE_depsgraph.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
 #include "BKE_mesh.h"
@@ -287,12 +286,13 @@ static ModifierData *get_liquid_sim_modifier(Scene *scene, Object *ob)
 
 /* ************************************************************************** */
 
-AbcMeshWriter::AbcMeshWriter(Scene *scene,
+AbcMeshWriter::AbcMeshWriter(EvaluationContext *eval_ctx,
+                             Scene *scene,
                              Object *ob,
                              AbcTransformWriter *parent,
                              uint32_t time_sampling,
                              ExportSettings &settings)
-    : AbcObjectWriter(scene, ob, time_sampling, settings, parent)
+    : AbcObjectWriter(eval_ctx, scene, ob, time_sampling, settings, parent)
 {
 	m_is_animated = isAnimated();
 	m_subsurf_mod = NULL;
@@ -520,7 +520,7 @@ DerivedMesh *AbcMeshWriter::getFinalMesh()
 		m_subsurf_mod->mode |= eModifierMode_DisableTemporary;
 	}
 
-	DerivedMesh *dm = mesh_create_derived_render(m_scene, m_object, CD_MASK_MESH);
+	DerivedMesh *dm = mesh_create_derived_render(m_eval_ctx, m_scene, m_object, CD_MASK_MESH);
 
 	if (m_subsurf_mod) {
 		m_subsurf_mod->mode &= ~eModifierMode_DisableTemporary;
@@ -918,12 +918,6 @@ static void *add_customdata_cb(void *user_data, const char *name, int data_type)
 	numloops = dm->getNumLoops(dm);
 	cd_ptr = CustomData_add_layer_named(loopdata, cd_data_type, CD_DEFAULT,
 	                                    NULL, numloops, name);
-	if (cd_data_type == CD_MLOOPUV) {
-		CustomData_add_layer_named(dm->getPolyDataLayout(dm),
-		                           CD_MTEXPOLY, CD_DEFAULT,
-		                           NULL, numloops, name);
-	}
-
 	return cd_ptr;
 }
 

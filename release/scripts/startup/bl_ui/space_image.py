@@ -481,7 +481,7 @@ class IMAGE_HT_header(Header):
                 row.prop(toolsettings, "snap_target", text="")
 
             mesh = context.edit_object.data
-            layout.prop_search(mesh.uv_textures, "active", mesh, "uv_textures", text="")
+            layout.prop_search(mesh.uv_layers, "active", mesh, "uv_layers", text="")
 
         if ima:
             if ima.is_stereo_3d:
@@ -608,7 +608,7 @@ class IMAGE_PT_game_properties(Panel):
     def poll(cls, context):
         sima = context.space_data
         # display even when not in game mode because these settings effect the 3d view
-        return (sima and sima.image and not sima.show_maskedit)  # and (rd.engine == 'BLENDER_GAME')
+        return (sima and sima.image and not sima.show_maskedit)  # and (view_render.engine == 'BLENDER_GAME')
 
     def draw(self, context):
         layout = self.layout

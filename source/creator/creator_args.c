@@ -57,8 +57,6 @@
 #include "BKE_sound.h"
 #include "BKE_image.h"
 
-#include "DEG_depsgraph.h"
-
 #ifdef WITH_FFMPEG
 #include "IMB_imbuf.h"
 #endif
@@ -74,9 +72,7 @@
 
 #include "WM_api.h"
 
-#include "GPU_basic_shader.h"
 #include "GPU_draw.h"
-#include "GPU_extensions.h"
 
 /* for passing information between creator and gameengine */
 #ifdef WITH_GAMEENGINE
@@ -92,6 +88,8 @@
 #ifdef WITH_CYCLES_LOGGING
 #  include "CCL_api.h"
 #endif
+
+#include "DEG_depsgraph.h"
 
 #include "creator_intern.h"  /* own include */
 
@@ -554,6 +552,7 @@ static int arg_handle_print_help(int UNUSED(argc), const char **UNUSED(argv), vo
 	BLI_argsPrintArgDoc(ba, "--debug-depsgraph-no-threads");
 
 	BLI_argsPrintArgDoc(ba, "--debug-gpumem");
+	BLI_argsPrintArgDoc(ba, "--debug-gpu-shaders");
 	BLI_argsPrintArgDoc(ba, "--debug-wm");
 	BLI_argsPrintArgDoc(ba, "--debug-all");
 	BLI_argsPrintArgDoc(ba, "--debug-io");
@@ -571,7 +570,6 @@ static int arg_handle_print_help(int UNUSED(argc), const char **UNUSED(argv), vo
 	BLI_argsPrintArgDoc(ba, "--env-system-python");
 	printf("\n");
 	BLI_argsPrintArgDoc(ba, "-nojoystick");
-	BLI_argsPrintArgDoc(ba, "-noglsl");
 	BLI_argsPrintArgDoc(ba, "-noaudio");
 	BLI_argsPrintArgDoc(ba, "-setaudio");
 
@@ -589,8 +587,7 @@ static int arg_handle_print_help(int UNUSED(argc), const char **UNUSED(argv), vo
 
 	printf("\n");
 	printf("Experimental Features:\n");
-	BLI_argsPrintArgDoc(ba, "--enable-new-depsgraph");
-	BLI_argsPrintArgDoc(ba, "--enable-new-basic-shader-glsl");
+	BLI_argsPrintArgDoc(ba, "--enable-copy-on-write");
 
 	/* Other options _must_ be last (anything not handled will show here) */
 	printf("\n");
@@ -1021,15 +1018,6 @@ static int arg_handle_joystick_disable(int UNUSED(argc), const char **UNUSED(arg
 	return 0;
 }
 
-static const char arg_handle_glsl_disable_doc[] =
-"\n\tDisable GLSL shading."
-;
-static int arg_handle_glsl_disable(int UNUSED(argc), const char **UNUSED(argv), void *UNUSED(data))
-{
-	GPU_extensions_disable();
-	return 0;
-}
-
 static const char arg_handle_audio_disable_doc[] =
 "\n\tForce sound system to None."
 ;
@@ -1107,10 +1095,8 @@ static int arg_handle_engine_set(int argc, const char **argv, void *data)
 		else {
 			Scene *scene = CTX_data_scene(C);
 			if (scene) {
-				RenderData *rd = &scene->r;
-
 				if (BLI_findstring(&R_engines, argv[1], offsetof(RenderEngineType, idname))) {
-					BLI_strncpy_utf8(rd->engine, argv[1], sizeof(rd->engine));
+					BLI_strncpy_utf8(scene->view_render.engine_id, argv[1], sizeof(scene->view_render.engine_id));
 				}
 				else {
 					printf("\nError: engine not found '%s'\n", argv[1]);
@@ -1193,23 +1179,13 @@ static int arg_handle_threads_set(int argc, const char **argv, void *UNUSED(data
 	}
 }
 
-static const char arg_handle_depsgraph_use_new_doc[] =
-"\n\tUse new dependency graph."
+static const char arg_handle_use_copy_on_write_doc[] =
+"\n\tUse new dependency graph"
 ;
-static int arg_handle_depsgraph_use_new(int UNUSED(argc), const char **UNUSED(argv), void *UNUSED(data))
+static int arg_handle_use_copy_on_write(int UNUSED(argc), const char **UNUSED(argv), void *UNUSED(data))
 {
-	printf("Using new dependency graph.\n");
-	DEG_depsgraph_switch_to_new();
-	return 0;
-}
-
-static const char arg_handle_basic_shader_glsl_use_new_doc[] =
-"\n\tUse new GLSL basic shader."
-;
-static int arg_handle_basic_shader_glsl_use_new(int UNUSED(argc), const char **UNUSED(argv), void *UNUSED(data))
-{
-	printf("Using new GLSL basic shader.\n");
-	GPU_basic_shader_use_glsl_set(true);
+	printf("Using copy on write. This is highly EXPERIMENTAL!\n");
+	DEG_depsgraph_enable_copy_on_write();
 	return 0;
 }
 
@@ -1861,9 +1837,10 @@ void main_args_setup(bContext *C, bArgs *ba, SYS_SystemHandle *syshandle)
 	            CB_EX(arg_handle_debug_mode_generic_set, depsgraph_no_threads), (void *)G_DEBUG_DEPSGRAPH_NO_THREADS);
 	BLI_argsAdd(ba, 1, NULL, "--debug-gpumem",
 	            CB_EX(arg_handle_debug_mode_generic_set, gpumem), (void *)G_DEBUG_GPU_MEM);
+	BLI_argsAdd(ba, 1, NULL, "--debug-gpu-shaders",
+	            CB_EX(arg_handle_debug_mode_generic_set, gpumem), (void *)G_DEBUG_GPU_SHADERS);
 
-	BLI_argsAdd(ba, 1, NULL, "--enable-new-depsgraph", CB(arg_handle_depsgraph_use_new), NULL);
-	BLI_argsAdd(ba, 1, NULL, "--enable-new-basic-shader-glsl", CB(arg_handle_basic_shader_glsl_use_new), NULL);
+	BLI_argsAdd(ba, 1, NULL, "--enable-copy-on-write", CB(arg_handle_use_copy_on_write), NULL);
 
 	BLI_argsAdd(ba, 1, NULL, "--verbose", CB(arg_handle_verbosity_set), NULL);
 
@@ -1885,7 +1862,6 @@ void main_args_setup(bContext *C, bArgs *ba, SYS_SystemHandle *syshandle)
 
 	/* third pass: disabling things and forcing settings */
 	BLI_argsAddCase(ba, 3, "-nojoystick", 1, NULL, 0, CB(arg_handle_joystick_disable), syshandle);
-	BLI_argsAddCase(ba, 3, "-noglsl", 1, NULL, 0, CB(arg_handle_glsl_disable), NULL);
 	BLI_argsAddCase(ba, 3, "-noaudio", 1, NULL, 0, CB(arg_handle_audio_disable), NULL);
 	BLI_argsAddCase(ba, 3, "-setaudio", 1, NULL, 0, CB(arg_handle_audio_set), NULL);
 

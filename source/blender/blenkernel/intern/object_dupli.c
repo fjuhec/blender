@@ -49,7 +49,6 @@
 
 #include "BKE_animsys.h"
 #include "BKE_DerivedMesh.h"
-#include "BKE_depsgraph.h"
 #include "BKE_font.h"
 #include "BKE_group.h"
 #include "BKE_global.h"
@@ -62,6 +61,7 @@
 #include "BKE_editmesh.h"
 #include "BKE_anim.h"
 
+#include "DEG_depsgraph.h"
 
 #include "BLI_strict_flags.h"
 #include "BLI_hash.h"
@@ -69,7 +69,7 @@
 /* Dupli-Geometry */
 
 typedef struct DupliContext {
-	EvaluationContext *eval_ctx;
+	const EvaluationContext *eval_ctx;
 	bool do_update;
 	bool animated;
 	Group *group; /* XXX child objects are selected from this group if set, could be nicer */
@@ -77,7 +77,6 @@ typedef struct DupliContext {
 	Scene *scene;
 	Object *object;
 	float space_mat[4][4];
-	unsigned int lay;
 
 	int persistent_id[MAX_DUPLI_RECUR];
 	int level;
@@ -96,7 +95,7 @@ typedef struct DupliGenerator {
 static const DupliGenerator *get_dupli_generator(const DupliContext *ctx);
 
 /* create initial context for root object */
-static void init_context(DupliContext *r_ctx, EvaluationContext *eval_ctx, Scene *scene, Object *ob, float space_mat[4][4], bool update)
+static void init_context(DupliContext *r_ctx, const EvaluationContext *eval_ctx, Scene *scene, Object *ob, float space_mat[4][4], bool update)
 {
 	r_ctx->eval_ctx = eval_ctx;
 	r_ctx->scene = scene;
@@ -110,7 +109,6 @@ static void init_context(DupliContext *r_ctx, EvaluationContext *eval_ctx, Scene
 		copy_m4_m4(r_ctx->space_mat, space_mat);
 	else
 		unit_m4(r_ctx->space_mat);
-	r_ctx->lay = ob->lay;
 	r_ctx->level = 0;
 
 	r_ctx->gen = get_dupli_generator(r_ctx);
@@ -259,7 +257,7 @@ static void make_child_duplis(const DupliContext *ctx, void *userdata, MakeChild
 	else {
 		unsigned int lay = ctx->scene->lay;
 		int baseid = 0;
-		Base *base;
+		BaseLegacy *base;
 		for (base = ctx->scene->base.first; base; base = base->next, baseid++) {
 			Object *ob = base->object;
 
@@ -399,7 +397,7 @@ static void make_duplis_frames(const DupliContext *ctx)
 			 * However, this has always been the way that this worked (i.e. pre 2.5), so I guess that it'll be fine!
 			 */
 			BKE_animsys_evaluate_animdata(scene, &ob->id, ob->adt, (float)scene->r.cfra, ADT_RECALC_ANIM); /* ob-eval will do drivers, so we don't need to do them */
-			BKE_object_where_is_calc_time(scene, ob, (float)scene->r.cfra);
+			BKE_object_where_is_calc_time(ctx->eval_ctx, scene, ob, (float)scene->r.cfra);
 
 			make_dupli(ctx, ob, ob->obmat, scene->r.cfra, false, false);
 		}
@@ -413,7 +411,7 @@ static void make_duplis_frames(const DupliContext *ctx)
 	scene->r.cfra = cfrao;
 
 	BKE_animsys_evaluate_animdata(scene, &ob->id, ob->adt, (float)scene->r.cfra, ADT_RECALC_ANIM); /* ob-eval will do drivers, so we don't need to do them */
-	BKE_object_where_is_calc_time(scene, ob, (float)scene->r.cfra);
+	BKE_object_where_is_calc_time(ctx->eval_ctx, scene, ob, (float)scene->r.cfra);
 
 	/* but, to make sure unkeyed object transforms are still sane,
 	 * let's copy object's original data back over
@@ -548,13 +546,13 @@ static void make_duplis_verts(const DupliContext *ctx)
 		CustomDataMask dm_mask = (use_texcoords ? CD_MASK_BAREMESH | CD_MASK_ORCO : CD_MASK_BAREMESH);
 
 		if (ctx->eval_ctx->mode == DAG_EVAL_RENDER) {
-			vdd.dm = mesh_create_derived_render(scene, parent, dm_mask);
+			vdd.dm = mesh_create_derived_render(ctx->eval_ctx, scene, parent, dm_mask);
 		}
 		else if (em) {
-			vdd.dm = editbmesh_get_derived_cage(scene, parent, em, dm_mask);
+			vdd.dm = editbmesh_get_derived_cage(ctx->eval_ctx, scene, parent, em, dm_mask);
 		}
 		else {
-			vdd.dm = mesh_get_derived_final(scene, parent, dm_mask);
+			vdd.dm = mesh_get_derived_final(ctx->eval_ctx, scene, parent, dm_mask);
 		}
 		vdd.edit_btmesh = me->edit_btmesh;
 
@@ -816,13 +814,13 @@ static void make_duplis_faces(const DupliContext *ctx)
 		CustomDataMask dm_mask = (use_texcoords ? CD_MASK_BAREMESH | CD_MASK_ORCO | CD_MASK_MLOOPUV : CD_MASK_BAREMESH);
 
 		if (ctx->eval_ctx->mode == DAG_EVAL_RENDER) {
-			fdd.dm = mesh_create_derived_render(scene, parent, dm_mask);
+			fdd.dm = mesh_create_derived_render(ctx->eval_ctx, scene, parent, dm_mask);
 		}
 		else if (em) {
-			fdd.dm = editbmesh_get_derived_cage(scene, parent, em, dm_mask);
+			fdd.dm = editbmesh_get_derived_cage(ctx->eval_ctx, scene, parent, em, dm_mask);
 		}
 		else {
-			fdd.dm = mesh_get_derived_final(scene, parent, dm_mask);
+			fdd.dm = mesh_get_derived_final(ctx->eval_ctx, scene, parent, dm_mask);
 		}
 
 		if (use_texcoords) {
@@ -900,6 +898,7 @@ static void make_duplis_particle_system(const DupliContext *ctx, ParticleSystem 
 
 	if ((psys->renderdata || part->draw_as == PART_DRAW_REND) && ELEM(part->ren_as, PART_DRAW_OB, PART_DRAW_GR)) {
 		ParticleSimulationData sim = {NULL};
+		sim.eval_ctx = ctx->eval_ctx;
 		sim.scene = scene;
 		sim.ob = par;
 		sim.psys = psys;
@@ -1081,7 +1080,7 @@ static void make_duplis_particle_system(const DupliContext *ctx, ParticleSystem 
 			}
 			else {
 				/* to give ipos in object correct offset */
-				BKE_object_where_is_calc_time(scene, ob, ctime - pa_time);
+				BKE_object_where_is_calc_time(ctx->eval_ctx, scene, ob, ctime - pa_time);
 
 				copy_v3_v3(vec, obmat[3]);
 				obmat[3][0] = obmat[3][1] = obmat[3][2] = 0.0f;
@@ -1217,7 +1216,7 @@ static const DupliGenerator *get_dupli_generator(const DupliContext *ctx)
 /* ---- ListBase dupli container implementation ---- */
 
 /* Returns a list of DupliObject */
-ListBase *object_duplilist_ex(EvaluationContext *eval_ctx, Scene *scene, Object *ob, bool update)
+ListBase *object_duplilist_ex(const EvaluationContext *eval_ctx, Scene *scene, Object *ob, bool update)
 {
 	ListBase *duplilist = MEM_callocN(sizeof(ListBase), "duplilist");
 	DupliContext ctx;
@@ -1232,7 +1231,7 @@ ListBase *object_duplilist_ex(EvaluationContext *eval_ctx, Scene *scene, Object 
 
 /* note: previously updating was always done, this is why it defaults to be on
  * but there are likely places it can be called without updating */
-ListBase *object_duplilist(EvaluationContext *eval_ctx, Scene *sce, Object *ob)
+ListBase *object_duplilist(const EvaluationContext *eval_ctx, Scene *sce, Object *ob)
 {
 	return object_duplilist_ex(eval_ctx, sce, ob, true);
 }
@@ -1273,7 +1272,7 @@ int count_duplilist(Object *ob)
 	return 1;
 }
 
-DupliApplyData *duplilist_apply(Object *ob, Scene *scene, ListBase *duplilist)
+DupliApplyData *duplilist_apply(const EvaluationContext *eval_ctx, Object *ob, Scene *scene, ListBase *duplilist)
 {
 	DupliApplyData *apply_data = NULL;
 	int num_objects = BLI_listbase_count(duplilist);
@@ -1289,7 +1288,7 @@ DupliApplyData *duplilist_apply(Object *ob, Scene *scene, ListBase *duplilist)
 		for (dob = duplilist->first, i = 0; dob; dob = dob->next, ++i) {
 			/* make sure derivedmesh is calculated once, before drawing */
 			if (scene && !(dob->ob->transflag & OB_DUPLICALCDERIVED) && dob->ob->type == OB_MESH) {
-				mesh_get_derived_final(scene, dob->ob, scene->customdata_mask);
+				mesh_get_derived_final(eval_ctx, scene, dob->ob, scene->customdata_mask);
 				dob->ob->transflag |= OB_DUPLICALCDERIVED;
 			}
 		}

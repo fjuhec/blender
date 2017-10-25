@@ -48,10 +48,11 @@
 
 #include "BKE_global.h"
 
-#include "BKE_depsgraph.h"
 #include "BKE_scene.h"
 #include "BKE_displist.h"
 #include "BKE_mball_tessellate.h"  /* own include */
+
+#include "DEG_depsgraph.h"
 
 #include "BLI_strict_flags.h"
 
@@ -1078,10 +1079,10 @@ static void polygonize(PROCESS *process)
  * Iterates over ALL objects in the scene and all of its sets, including
  * making all duplis(not only metas). Copies metas to mainb array.
  * Computes bounding boxes for building BVH. */
-static void init_meta(EvaluationContext *eval_ctx, PROCESS *process, Scene *scene, Object *ob)
+static void init_meta(const EvaluationContext *eval_ctx, PROCESS *process, Scene *scene, Object *ob)
 {
 	Scene *sce_iter = scene;
-	Base *base;
+	BaseLegacy *base;
 	Object *bob;
 	MetaBall *mb;
 	const MetaElem *ml;
@@ -1103,7 +1104,7 @@ static void init_meta(EvaluationContext *eval_ctx, PROCESS *process, Scene *scen
 			zero_size = 0;
 			ml = NULL;
 
-			if (bob == ob && (base->flag & OB_FROMDUPLI) == 0) {
+			if (bob == ob && (base->flag_legacy & OB_FROMDUPLI) == 0) {
 				mb = ob->data;
 
 				if (mb->editelems) ml = mb->editelems->first;
@@ -1255,7 +1256,7 @@ static void init_meta(EvaluationContext *eval_ctx, PROCESS *process, Scene *scen
 	}
 }
 
-void BKE_mball_polygonize(EvaluationContext *eval_ctx, Scene *scene, Object *ob, ListBase *dispbase)
+void BKE_mball_polygonize(const EvaluationContext *eval_ctx, Scene *scene, Object *ob, ListBase *dispbase)
 {
 	MetaBall *mb;
 	DispList *dl;

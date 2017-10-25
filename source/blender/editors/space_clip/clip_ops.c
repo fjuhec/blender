@@ -56,7 +56,6 @@
 
 #include "BKE_context.h"
 #include "BKE_global.h"
-#include "BKE_depsgraph.h"
 #include "BKE_report.h"
 #include "BKE_library.h"
 #include "BKE_main.h"
@@ -82,6 +81,8 @@
 #include "UI_view2d.h"
 
 #include "PIL_time.h"
+
+#include "DEG_depsgraph_build.h"
 
 #include "clip_intern.h"	// own include
 
@@ -248,7 +249,7 @@ static int open_exec(bContext *C, wmOperator *op)
 
 	WM_event_add_notifier(C, NC_MOVIECLIP | NA_ADDED, clip);
 
-	DAG_relations_tag_update(bmain);
+	DEG_relations_tag_update(bmain);
 	MEM_freeN(op->customdata);
 
 	return OPERATOR_FINISHED;

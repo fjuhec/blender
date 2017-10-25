@@ -46,13 +46,14 @@
 #include "BLI_utildefines.h"
 
 #include "BKE_cdderivedmesh.h"
+#include "BKE_layer.h"
 #include "BKE_library.h"
 #include "BKE_library_query.h"
 #include "BKE_main.h"
 #include "BKE_modifier.h"
 #include "BKE_smoke.h"
 
-#include "depsgraph_private.h"
+#include "DEG_depsgraph.h"
 #include "DEG_depsgraph_build.h"
 
 #include "MOD_modifiertypes.h"
@@ -101,8 +102,8 @@ static CustomDataMask requiredDataMask(Object *UNUSED(ob), ModifierData *md)
 	return dataMask;
 }
 
-static DerivedMesh *applyModifier(ModifierData *md, Object *ob, 
-                                  DerivedMesh *dm,
+static DerivedMesh *applyModifier(ModifierData *md, const EvaluationContext *eval_ctx,
+                                  Object *ob, DerivedMesh *dm,
                                   ModifierApplyFlag flag)
 {
 	SmokeModifierData *smd = (SmokeModifierData *) md;
@@ -110,7 +111,7 @@ static DerivedMesh *applyModifier(ModifierData *md, Object *ob,
 	if (flag & MOD_APPLY_ORCO)
 		return dm;
 
-	return smokeModifier_do(smd, md->scene, ob, dm);
+	return smokeModifier_do(smd, eval_ctx, md->scene, ob, dm);
 }
 
 static bool dependsOnTime(ModifierData *UNUSED(md))
@@ -130,28 +131,6 @@ static bool is_coll_cb(Object *UNUSED(ob), ModifierData *md)
 	return (smd->type & MOD_SMOKE_TYPE_COLL) && smd->coll;
 }
 
-static void updateDepgraph(ModifierData *md, DagForest *forest,
-                           struct Main *UNUSED(bmain),
-                           struct Scene *scene, struct Object *ob,
-                           DagNode *obNode)
-{
-	SmokeModifierData *smd = (SmokeModifierData *) md;
-
-	if (smd && (smd->type & MOD_SMOKE_TYPE_DOMAIN) && smd->domain) {
-		/* Actual code uses get_collisionobjects */
-#ifdef WITH_LEGACY_DEPSGRAPH
-		dag_add_collision_relations(forest, scene, ob, obNode, smd->domain->fluid_group, ob->lay|scene->lay, eModifierType_Smoke, is_flow_cb, true, "Smoke Flow");
-		dag_add_collision_relations(forest, scene, ob, obNode, smd->domain->coll_group, ob->lay|scene->lay, eModifierType_Smoke, is_coll_cb, true, "Smoke Coll");
-		dag_add_forcefield_relations(forest, scene, ob, obNode, smd->domain->effector_weights, true, PFIELD_SMOKEFLOW, "Smoke Force Field");
-#else
-	(void)forest;
-	(void)scene;
-	(void)ob;
-	(void)obNode;
-#endif
-	}
-}
-
 static void updateDepsgraph(ModifierData *md,
                             struct Main *UNUSED(bmain),
                             struct Scene *scene,
@@ -162,8 +141,8 @@ static void updateDepsgraph(ModifierData *md,
 
 	if (smd && (smd->type & MOD_SMOKE_TYPE_DOMAIN) && smd->domain) {
 		/* Actual code uses get_collisionobjects */
-		DEG_add_collision_relations(node, scene, ob, smd->domain->fluid_group, ob->lay|scene->lay, eModifierType_Smoke, is_flow_cb, true, "Smoke Flow");
-		DEG_add_collision_relations(node, scene, ob, smd->domain->coll_group, ob->lay|scene->lay, eModifierType_Smoke, is_coll_cb, true, "Smoke Coll");
+		DEG_add_collision_relations(node, scene, ob, smd->domain->fluid_group, eModifierType_Smoke, is_flow_cb, true, "Smoke Flow");
+		DEG_add_collision_relations(node, scene, ob, smd->domain->coll_group, eModifierType_Smoke, is_coll_cb, true, "Smoke Coll");
 
 		DEG_add_forcefield_relations(node, scene, ob, smd->domain->effector_weights, true, PFIELD_SMOKEFLOW, "Smoke Force Field");
 	}
@@ -209,7 +188,6 @@ ModifierTypeInfo modifierType_Smoke = {
 	/* requiredDataMask */  requiredDataMask,
 	/* freeData */          freeData,
 	/* isDisabled */        NULL,
-	/* updateDepgraph */    updateDepgraph,
 	/* updateDepsgraph */   updateDepsgraph,
 	/* dependsOnTime */     dependsOnTime,
 	/* dependsOnNormals */	NULL,

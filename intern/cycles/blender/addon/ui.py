@@ -17,6 +17,7 @@
 # <pep8 compliant>
 
 import bpy
+from bpy_extras.node_utils import find_node_input, find_output_node
 
 from bpy.types import (
         Panel,
@@ -49,8 +50,7 @@ class CyclesButtonsPanel:
 
     @classmethod
     def poll(cls, context):
-        rd = context.scene.render
-        return rd.engine in cls.COMPAT_ENGINES
+        return context.engine in cls.COMPAT_ENGINES
 
 
 def get_device_type(context):
@@ -898,43 +898,22 @@ class CYCLES_OT_use_shading_nodes(Operator):
         return {'FINISHED'}
 
 
-def find_node(material, nodetype):
-    if material and material.node_tree:
-        ntree = material.node_tree
-
-        active_output_node = None
-        for node in ntree.nodes:
-            if getattr(node, "type", None) == nodetype:
-                if getattr(node, "is_active_output", True):
-                    return node
-                if not active_output_node:
-                    active_output_node = node
-        return active_output_node
-
-    return None
-
-
-def find_node_input(node, name):
-    for input in node.inputs:
-        if input.name == name:
-            return input
-
-    return None
-
-
-def panel_node_draw(layout, id_data, output_type, input_name):
+def panel_node_draw(layout, id_data, output_types, input_name):
     if not id_data.use_nodes:
         layout.operator("cycles.use_shading_nodes", icon='NODETREE')
         return False
 
     ntree = id_data.node_tree
 
-    node = find_node(id_data, output_type)
-    if not node:
-        layout.label(text="No output node")
-    else:
+    node = find_output_node(ntree, output_types)
+    if node:
         input = find_node_input(node, input_name)
-        layout.template_node_view(ntree, node, input)
+        if input:
+            layout.template_node_view(ntree, node, input)
+        else:
+            layout.label(text="Incompatible output node")
+    else:
+        layout.label(text="No output node")
 
     return True
 
@@ -1023,7 +1002,7 @@ class CYCLES_LAMP_PT_nodes(CyclesButtonsPanel, Panel):
         layout = self.layout
 
         lamp = context.lamp
-        if not panel_node_draw(layout, lamp, 'OUTPUT_LAMP', 'Surface'):
+        if not panel_node_draw(layout, lamp, ('OUTPUT_LAMP',), 'Surface'):
             layout.prop(lamp, "color")
 
 
@@ -1078,7 +1057,7 @@ class CYCLES_WORLD_PT_surface(CyclesButtonsPanel, Panel):
 
         world = context.world
 
-        if not panel_node_draw(layout, world, 'OUTPUT_WORLD', 'Surface'):
+        if not panel_node_draw(layout, world, ('OUTPUT_WORLD',), 'Surface'):
             layout.prop(world, "horizon_color", text="Color")
 
 
@@ -1096,7 +1075,7 @@ class CYCLES_WORLD_PT_volume(CyclesButtonsPanel, Panel):
         layout = self.layout
 
         world = context.world
-        panel_node_draw(layout, world, 'OUTPUT_WORLD', 'Volume')
+        panel_node_draw(layout, world, ('OUTPUT_WORLD',), 'Volume')
 
 
 class CYCLES_WORLD_PT_ambient_occlusion(CyclesButtonsPanel, Panel):
@@ -1241,7 +1220,7 @@ class CYCLES_MATERIAL_PT_surface(CyclesButtonsPanel, Panel):
         layout = self.layout
 
         mat = context.material
-        if not panel_node_draw(layout, mat, 'OUTPUT_MATERIAL', 'Surface'):
+        if not panel_node_draw(layout, mat, ('OUTPUT_MATERIAL', 'OUTPUT_EEVEE_MATERIAL'), 'Surface'):
             layout.prop(mat, "diffuse_color")
 
 
@@ -1261,7 +1240,7 @@ class CYCLES_MATERIAL_PT_volume(CyclesButtonsPanel, Panel):
         mat = context.material
         # cmat = mat.cycles
 
-        panel_node_draw(layout, mat, 'OUTPUT_MATERIAL', 'Volume')
+        panel_node_draw(layout, mat, ('OUTPUT_MATERIAL', 'OUTPUT_EEVEE_MATERIAL'), 'Volume')
 
 
 class CYCLES_MATERIAL_PT_displacement(CyclesButtonsPanel, Panel):
@@ -1277,7 +1256,7 @@ class CYCLES_MATERIAL_PT_displacement(CyclesButtonsPanel, Panel):
         layout = self.layout
 
         mat = context.material
-        panel_node_draw(layout, mat, 'OUTPUT_MATERIAL', 'Displacement')
+        panel_node_draw(layout, mat, ('OUTPUT_MATERIAL', 'OUTPUT_EEVEE_MATERIAL'), 'Displacement')
 
 
 class CYCLES_MATERIAL_PT_settings(CyclesButtonsPanel, Panel):
@@ -1675,6 +1654,7 @@ class CYCLES_SCENE_PT_simplify(CyclesButtonsPanel, Panel):
         row.prop(rd, "simplify_subdivision", text="Viewport")
         row.prop(rd, "simplify_subdivision_render", text="Render")
 
+
         col = layout.column(align=True)
         col.label(text="Child Particles")
         row = col.row(align=True)
@@ -1714,7 +1694,7 @@ def draw_device(self, context):
     scene = context.scene
     layout = self.layout
 
-    if scene.render.engine == 'CYCLES':
+    if context.engine == 'CYCLES':
         from . import engine
         cscene = scene.cycles
 
@@ -1734,14 +1714,11 @@ def draw_pause(self, context):
     layout = self.layout
     scene = context.scene
 
-    if scene.render.engine == "CYCLES":
+    if context.engine == "CYCLES":
         view = context.space_data
 
-        if view.viewport_shade == 'RENDERED':
-            cscene = scene.cycles
-            layername = scene.render.layers.active.name
-            layout.prop(cscene, "preview_pause", icon="PAUSE", text="")
-            layout.prop(cscene, "preview_active_layer", icon="RENDERLAYERS", text=layername)
+        cscene = scene.cycles
+        layout.prop(cscene, "preview_pause", icon="PAUSE", text="")
 
 
 def get_panels():

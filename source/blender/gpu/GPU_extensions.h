@@ -38,21 +38,16 @@ extern "C" {
 
 /* GPU extensions support */
 
-void GPU_extensions_disable(void);
-
-bool GPU_legacy_support(void);
 bool GPU_full_non_power_of_two_support(void);
-bool GPU_display_list_support(void);
 bool GPU_bicubic_bump_support(void);
-bool GPU_geometry_shader_support(void);
-bool GPU_geometry_shader_support_via_extension(void);
-bool GPU_instanced_drawing_support(void);
 
 int GPU_max_texture_size(void);
 int GPU_max_textures(void);
 float GPU_max_texture_anisotropy(void);
 int GPU_max_color_texture_samples(void);
 int GPU_max_cube_map_size(void);
+int GPU_max_ubo_binds(void);
+int GPU_max_ubo_size(void);
 int GPU_color_depth(void);
 void GPU_get_dfdy_factors(float fac[2]);
 
@@ -69,6 +64,7 @@ typedef enum GPUDeviceType {
 	GPU_DEVICE_INTEL =      (1 << 2),
 	GPU_DEVICE_SOFTWARE =   (1 << 3),
 	GPU_DEVICE_UNKNOWN =    (1 << 4),
+	GPU_DEVICE_AMD_VEGA =   (1 << 5),
 	GPU_DEVICE_ANY =        (0xff)
 } GPUDeviceType;
 

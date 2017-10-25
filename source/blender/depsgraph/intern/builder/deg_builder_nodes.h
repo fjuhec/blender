@@ -32,7 +32,8 @@
 
 #include "intern/depsgraph_types.h"
 
-struct Base;
+#include "DEG_depsgraph.h"  /* used for DEG_depsgraph_use_copy_on_write() */
+
 struct CacheFile;
 struct bGPdata;
 struct ListBase;
@@ -42,6 +43,7 @@ struct Image;
 struct FCurve;
 struct Group;
 struct Key;
+struct LayerCollection;
 struct Main;
 struct Material;
 struct Mask;
@@ -49,6 +51,8 @@ struct MTex;
 struct MovieClip;
 struct bNodeTree;
 struct Object;
+struct ParticleSettings;
+struct Probe;
 struct bPoseChannel;
 struct bConstraint;
 struct Scene;
@@ -70,9 +74,43 @@ struct DepsgraphNodeBuilder {
 	DepsgraphNodeBuilder(Main *bmain, Depsgraph *graph);
 	~DepsgraphNodeBuilder();
 
+	/* For given original ID get ID which is created by CoW system. */
+	ID *get_cow_id(const ID *id_orig) const;
+	/* Similar to above, but for the cases when there is no ID node we create
+	 * one.
+	 */
+	ID *ensure_cow_id(ID *id_orig);
+
+	/* Helper wrapper function which wraps get_cow_id with a needed type cast. */
+	template<typename T>
+	T *get_cow_datablock(const T *orig) const {
+		return (T *)get_cow_id(&orig->id);
+	}
+
+	/* Get fully expanded (ready for use) copy-on-write datablock for the given
+	 * original datablock.
+	 */
+	ID *expand_cow_id(IDDepsNode *id_node);
+	ID *expand_cow_id(ID *id_orig);
+	template<typename T>
+	T *expand_cow_datablock(T *orig) {
+		return (T *)expand_cow_id(&orig->id);
+	}
+
+	/* For a given COW datablock get corresponding original one. */
+	template<typename T>
+	T *get_orig_datablock(const T *cow) const {
+		if (DEG_depsgraph_use_copy_on_write()) {
+			return (T *)cow->id.newid;
+		}
+		else {
+			return (T *)cow;
+		}
+	}
+
 	void begin_build(Main *bmain);
 
-	IDDepsNode *add_id_node(ID *id);
+	IDDepsNode *add_id_node(ID *id, bool do_tag = true);
 	TimeSourceDepsNode *add_time_source();
 
 	ComponentDepsNode *add_component_node(ID *id,
@@ -119,13 +157,14 @@ struct DepsgraphNodeBuilder {
 	                                       int name_tag = -1);
 
 	void build_scene(Main *bmain, Scene *scene);
-	void build_group(Scene *scene, Base *base, Group *group);
-	void build_object(Scene *scene, Base *base, Object *ob);
+	void build_group(Scene *scene, Group *group);
+	void build_object(Scene *scene, Object *ob);
 	void build_object_transform(Scene *scene, Object *ob);
 	void build_object_constraints(Scene *scene, Object *ob);
 	void build_pose_constraints(Scene *scene, Object *ob, bPoseChannel *pchan);
 	void build_rigidbody(Scene *scene);
 	void build_particles(Scene *scene, Object *ob);
+	void build_particle_settings(ParticleSettings *part);
 	void build_cloth(Scene *scene, Object *object);
 	void build_animdata(ID *id);
 	OperationDepsNode *build_driver(ID *id, FCurve *fcurve);
@@ -154,10 +193,23 @@ struct DepsgraphNodeBuilder {
 	void build_cachefile(CacheFile *cache_file);
 	void build_mask(Mask *mask);
 	void build_movieclip(MovieClip *clip);
+	void build_lightprobe(Object *object);
 
+	struct LayerCollectionState {
+		int index;
+		LayerCollection *parent;
+	};
+	void build_layer_collection(Scene *scene,
+	                            LayerCollection *layer_collection,
+	                            LayerCollectionState *state);
+	void build_layer_collections(Scene *scene,
+	                             ListBase *layer_collections,
+	                             LayerCollectionState *state);
+	void build_scene_layer_collections(Scene *scene);
 protected:
 	Main *m_bmain;
 	Depsgraph *m_graph;
+	GHash *m_cow_id_hash;
 };
 
 }  // namespace DEG

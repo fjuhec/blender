@@ -57,7 +57,8 @@
 #include "BKE_modifier.h"
 #include "BKE_mesh.h"
 #include "BKE_screen.h"
-#include "BKE_depsgraph.h"
+
+#include "DEG_depsgraph.h"
 
 #include "RE_engine.h"
 #include "RE_pipeline.h"
@@ -83,6 +84,7 @@ static void bake_set_props(wmOperator *op, Scene *scene);
 typedef struct BakeAPIRender {
 	Object *ob;
 	Main *main;
+	Depsgraph *depsgraph;
 	Scene *scene;
 	ReportList *reports;
 	ListBase selected_objects;
@@ -272,7 +274,7 @@ static void refresh_images(BakeImages *bake_images)
 		Image *ima = bake_images->data[i].image;
 		if (ima->ok == IMA_OK_LOADED) {
 			GPU_free_image(ima);
-			DAG_id_tag_update(&ima->id, 0);		
+			DEG_id_tag_update(&ima->id, 0);		
 		}
 	}
 }
@@ -619,12 +621,12 @@ static size_t initialize_internal_images(BakeImages *bake_images, ReportList *re
 }
 
 /* create new mesh with edit mode changes and modifiers applied */
-static Mesh *bake_mesh_new_from_object(Main *bmain, Scene *scene, Object *ob)
+static Mesh *bake_mesh_new_from_object(EvaluationContext *eval_ctx, Main *bmain, Scene *scene, Object *ob)
 {
 	if (ob->mode & OB_MODE_EDIT)
 		ED_object_editmode_load(ob);
 
-	Mesh *me = BKE_mesh_new_from_object(bmain, scene, ob, 1, 2, 0, 0);
+	Mesh *me = BKE_mesh_new_from_object(eval_ctx, bmain, scene, ob, 1, 2, 0, 0);
 	if (me->flag & ME_AUTOSMOOTH) {
 		BKE_mesh_split_faces(me, true);
 	}
@@ -633,7 +635,7 @@ static Mesh *bake_mesh_new_from_object(Main *bmain, Scene *scene, Object *ob)
 }
 
 static int bake(
-        Render *re, Main *bmain, Scene *scene, Object *ob_low, ListBase *selected_objects, ReportList *reports,
+        Render *re, Main *bmain, Depsgraph *graph, Scene *scene, Object *ob_low, ListBase *selected_objects, ReportList *reports,
         const eScenePassType pass_type, const int pass_filter, const int margin,
         const eBakeSaveMode save_mode, const bool is_clear, const bool is_split_materials,
         const bool is_automatic_name, const bool is_selected_to_active, const bool is_cage,
@@ -672,7 +674,7 @@ static int bake(
 	size_t num_pixels;
 	int tot_materials;
 
-	RE_bake_engine_set_engine_parameters(re, bmain, scene);
+	RE_bake_engine_set_engine_parameters(re, bmain, graph, scene);
 
 	if (!RE_bake_has_engine(re)) {
 		BKE_report(reports, RPT_ERROR, "Current render engine does not support baking");
@@ -783,7 +785,7 @@ static int bake(
 	}
 
 	/* get the mesh as it arrives in the renderer */
-	me_low = bake_mesh_new_from_object(bmain, scene, ob_low);
+	me_low = bake_mesh_new_from_object(RE_GetEvalCtx(re), bmain, scene, ob_low);
 
 	/* populate the pixel array with the face data */
 	if ((is_selected_to_active && (ob_cage == NULL) && is_cage) == false)
@@ -798,7 +800,7 @@ static int bake(
 
 		/* prepare cage mesh */
 		if (ob_cage) {
-			me_cage = bake_mesh_new_from_object(bmain, scene, ob_cage);
+			me_cage = bake_mesh_new_from_object(RE_GetEvalCtx(re), bmain, scene, ob_cage);
 			if ((me_low->totpoly != me_cage->totpoly) || (me_low->totloop != me_cage->totloop)) {
 				BKE_report(reports, RPT_ERROR,
 				           "Invalid cage object, the cage mesh must have the same number "
@@ -830,7 +832,7 @@ static int bake(
 			ob_low->modifiers = modifiers_tmp;
 
 			/* get the cage mesh as it arrives in the renderer */
-			me_cage = bake_mesh_new_from_object(bmain, scene, ob_low);
+			me_cage = bake_mesh_new_from_object(RE_GetEvalCtx(re), bmain, scene, ob_low);
 			RE_bake_pixels_populate(me_cage, pixel_array_low, num_pixels, &bake_images, uv_layer);
 		}
 
@@ -856,7 +858,7 @@ static int bake(
 			tmd->quad_method = MOD_TRIANGULATE_QUAD_FIXED;
 			tmd->ngon_method = MOD_TRIANGULATE_NGON_EARCLIP;
 
-			highpoly[i].me = bake_mesh_new_from_object(bmain, scene, highpoly[i].ob);
+			highpoly[i].me = bake_mesh_new_from_object(RE_GetEvalCtx(re), bmain, scene, highpoly[i].ob);
 			highpoly[i].ob->restrictflag &= ~OB_RESTRICT_RENDER;
 
 			/* lowpoly to highpoly transformation matrix */
@@ -959,7 +961,7 @@ cage_cleanup:
 						md->mode &= ~eModifierMode_Render;
 					}
 
-					me_nores = bake_mesh_new_from_object(bmain, scene, ob_low);
+					me_nores = bake_mesh_new_from_object(RE_GetEvalCtx(re), bmain, scene, ob_low);
 					RE_bake_pixels_populate(me_nores, pixel_array_low, num_pixels, &bake_images, uv_layer);
 
 					RE_bake_normal_world_to_tangent(pixel_array_low, num_pixels, depth, result, me_nores, normal_swizzle, ob_low->obmat);
@@ -1120,6 +1122,7 @@ static void bake_init_api_data(wmOperator *op, bContext *C, BakeAPIRender *bkr)
 
 	bkr->ob = CTX_data_active_object(C);
 	bkr->main = CTX_data_main(C);
+	bkr->depsgraph = CTX_data_depsgraph(C);
 	bkr->scene = CTX_data_scene(C);
 	bkr->sa = sc ? BKE_screen_find_big_area(sc, SPACE_IMAGE, 10) : NULL;
 
@@ -1203,7 +1206,7 @@ static int bake_exec(bContext *C, wmOperator *op)
 
 	if (bkr.is_selected_to_active) {
 		result = bake(
-		        bkr.render, bkr.main, bkr.scene, bkr.ob, &bkr.selected_objects, bkr.reports,
+		        bkr.render, bkr.main, bkr.depsgraph, bkr.scene, bkr.ob, &bkr.selected_objects, bkr.reports,
 		        bkr.pass_type, bkr.pass_filter, bkr.margin, bkr.save_mode,
 		        bkr.is_clear, bkr.is_split_materials, bkr.is_automatic_name, true, bkr.is_cage,
 		        bkr.cage_extrusion, bkr.normal_space, bkr.normal_swizzle,
@@ -1216,7 +1219,7 @@ static int bake_exec(bContext *C, wmOperator *op)
 		for (link = bkr.selected_objects.first; link; link = link->next) {
 			Object *ob_iter = link->ptr.data;
 			result = bake(
-			        bkr.render, bkr.main, bkr.scene, ob_iter, NULL, bkr.reports,
+			        bkr.render, bkr.main, bkr.depsgraph, bkr.scene, ob_iter, NULL, bkr.reports,
 			        bkr.pass_type, bkr.pass_filter, bkr.margin, bkr.save_mode,
 			        is_clear, bkr.is_split_materials, bkr.is_automatic_name, false, bkr.is_cage,
 			        bkr.cage_extrusion, bkr.normal_space, bkr.normal_swizzle,
@@ -1261,7 +1264,7 @@ static void bake_startjob(void *bkv, short *UNUSED(stop), short *do_update, floa
 
 	if (bkr->is_selected_to_active) {
 		bkr->result = bake(
-		        bkr->render, bkr->main, bkr->scene, bkr->ob, &bkr->selected_objects, bkr->reports,
+		        bkr->render, bkr->main, bkr->depsgraph, bkr->scene, bkr->ob, &bkr->selected_objects, bkr->reports,
 		        bkr->pass_type, bkr->pass_filter, bkr->margin, bkr->save_mode,
 		        bkr->is_clear, bkr->is_split_materials, bkr->is_automatic_name, true, bkr->is_cage,
 		        bkr->cage_extrusion, bkr->normal_space, bkr->normal_swizzle,
@@ -1274,7 +1277,7 @@ static void bake_startjob(void *bkv, short *UNUSED(stop), short *do_update, floa
 		for (link = bkr->selected_objects.first; link; link = link->next) {
 			Object *ob_iter = link->ptr.data;
 			bkr->result = bake(
-			        bkr->render, bkr->main, bkr->scene, ob_iter, NULL, bkr->reports,
+			        bkr->render, bkr->main, bkr->depsgraph, bkr->scene, ob_iter, NULL, bkr->reports,
 			        bkr->pass_type, bkr->pass_filter, bkr->margin, bkr->save_mode,
 			        is_clear, bkr->is_split_materials, bkr->is_automatic_name, false, bkr->is_cage,
 			        bkr->cage_extrusion, bkr->normal_space, bkr->normal_swizzle,

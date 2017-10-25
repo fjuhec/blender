@@ -40,14 +40,12 @@ static bNodeSocketTemplate sh_node_bsdf_translucent_out[] = {
 	{	-1, 0, ""	}
 };
 
-static int node_shader_gpu_bsdf_translucent(GPUMaterial *mat, bNode *UNUSED(node), bNodeExecData *UNUSED(execdata), GPUNodeStack *in, GPUNodeStack *out)
+static int node_shader_gpu_bsdf_translucent(GPUMaterial *mat, bNode *node, bNodeExecData *UNUSED(execdata), GPUNodeStack *in, GPUNodeStack *out)
 {
 	if (!in[1].link)
-		in[1].link = GPU_builtin(GPU_VIEW_NORMAL);
-	else
-		GPU_link(mat, "direction_transform_m4v3", in[1].link, GPU_builtin(GPU_VIEW_MATRIX), &in[1].link);
+		GPU_link(mat, "world_normals_get", &in[1].link);
 
-	return GPU_stack_link(mat, "node_bsdf_translucent", in, out);
+	return GPU_stack_link(mat, node, "node_bsdf_translucent", in, out);
 }
 
 /* node type definition */

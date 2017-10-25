@@ -162,7 +162,7 @@ typedef struct ThemeUI {
 	/* Interface Elements (buttons, menus, icons) */
 	uiWidgetColors wcol_regular, wcol_tool, wcol_text;
 	uiWidgetColors wcol_radio, wcol_option, wcol_toggle;
-	uiWidgetColors wcol_num, wcol_numslider;
+	uiWidgetColors wcol_num, wcol_numslider, wcol_tab;
 	uiWidgetColors wcol_menu, wcol_pulldown, wcol_menu_back, wcol_menu_item, wcol_tooltip;
 	uiWidgetColors wcol_box, wcol_scroll, wcol_progress, wcol_list_item, wcol_pie_menu;
 	
@@ -183,6 +183,14 @@ typedef struct ThemeUI {
 
 	/* Axis Colors */
 	char xaxis[4], yaxis[4], zaxis[4];
+
+	/* Manipulator Colors. */
+	char manipulator_hi[4];
+	char manipulator_primary[4];
+	char manipulator_secondary[4];
+	char manipulator_a[4];
+	char manipulator_b[4];
+	char pad2[4];
 } ThemeUI;
 
 /* try to put them all in one, if needed a special struct can be created as well
@@ -391,7 +399,8 @@ typedef struct bTheme {
 	ThemeSpace tuserpref;
 	ThemeSpace tconsole;
 	ThemeSpace tclip;
-	
+	ThemeSpace ttopbar;
+
 	/* 20 sets of bone colors for this theme */
 	ThemeWireColor tarm[20];
 	/*ThemeWireColor tobj[20];*/
@@ -497,7 +506,8 @@ typedef struct UserDef {
 	short gp_settings;  /* eGP_UserdefSettings */
 	short tb_leftmouse, tb_rightmouse;
 	struct SolidLight light[3];
-	short tw_hotspot, tw_flag, tw_handlesize, tw_size;
+	short manipulator_flag, manipulator_size;
+	int pad3;
 	short textimeout, texcollectrate;
 	short wmdrawmethod; /* eWM_DrawMethod */
 	short dragthreshold;
@@ -603,7 +613,7 @@ typedef enum eUserPref_Flag {
 	USER_FLAG_DEPRECATED_1	= (1 << 1),  /* cleared */
 	USER_FLAG_DEPRECATED_2	= (1 << 2),  /* cleared */
 	USER_FLAG_DEPRECATED_3	= (1 << 3),  /* cleared */
-	USER_SCENEGLOBAL		= (1 << 4),
+/*	USER_SCENEGLOBAL         = (1 << 4), deprecated */
 	USER_TRACKBALL			= (1 << 5),
 	USER_FLAG_DEPRECATED_6	= (1 << 6),  /* cleared */
 	USER_FLAG_DEPRECATED_7	= (1 << 7),  /* cleared */
@@ -804,6 +814,11 @@ typedef enum eGP_UserdefSettings {
 	GP_PAINT_DOSMOOTH		= (1 << 0),
 	GP_PAINT_DOSIMPLIFY		= (1 << 1),
 } eGP_UserdefSettings;
+
+enum {
+	USER_MANIPULATOR_DRAW        = (1 << 0),
+	USER_MANIPULATOR_SHADED      = (1 << 1),
+};
 
 /* Color Picker Types.
  * UserDef.color_picker_type */

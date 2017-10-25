@@ -74,7 +74,7 @@ set(SNDFILE_LIBRARY          "/usr/lib${MULTILIB}/libsndfile.a;/usr/lib${MULTILI
 
 # OpenAL libraries
 set(OPENAL_ROOT_DIR           "/opt/lib/openal" CACHE STRING "" FORCE)
-set(OPENAL_INCLUDE_DIR        "${OPENAL_ROOT_DIR}/include" CACHE STRING "" FORCE)
+set(OPENAL_INCLUDE_DIR        "${OPENAL_ROOT_DIR}/include/AL" CACHE STRING "" FORCE)
 set(OPENAL_LIBRARY
 	${OPENAL_ROOT_DIR}/lib/libopenal.a
 	${OPENAL_ROOT_DIR}/lib/libcommon.a

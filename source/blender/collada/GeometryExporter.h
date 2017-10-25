@@ -46,6 +46,8 @@
 
 #include "BKE_key.h"
 
+struct EvaluationContext;
+
 extern Object *bc_get_highest_selected_ancestor_or_self(Object *ob);
 
 class Normal
@@ -72,12 +74,13 @@ class GeometryExporter : COLLADASW::LibraryGeometries
 
 	Normal n;
 
+	const struct EvaluationContext *mEvalCtx;
 	Scene *mScene;
 
 public:
 	GeometryExporter(COLLADASW::StreamWriter *sw, const ExportSettings *export_settings);
 
-	void exportGeom(Scene *sce);
+	void exportGeom(const struct EvaluationContext *eval_ctx, Scene *sce);
 
 	void operator()(Object *ob);
 
@@ -85,33 +88,15 @@ public:
 						     Mesh   *me,
 						     std::string& geom_id);
 
-	// Create polylists for meshes with Materials
+	// powerful because it handles both cases when there is material and when there's not
 	void createPolylist(short material_index,
-		bool has_uvs,
-		bool has_color,
-		Object *ob,
-		Mesh   *me,
-		std::string& geom_id,
-		std::vector<BCPolygonNormalsIndices>& norind);
-
-	// Create polylists for meshes with UV Textures
-	void createPolylists(std::set<Image *> uv_images,
-		bool has_uvs,
-		bool has_color,
-		Object *ob,
-		Mesh   *me,
-		std::string& geom_id,
-		std::vector<BCPolygonNormalsIndices>& norind);
-
-	// Create polylists for meshes with UV Textures
-	void createPolylist(std::string imageid,
-		bool has_uvs,
-		bool has_color,
-		Object *ob,
-		Mesh   *me,
-		std::string& geom_id,
-		std::vector<BCPolygonNormalsIndices>& norind);
-
+						bool has_uvs,
+						bool has_color,
+						Object *ob,
+						Mesh   *me,
+						std::string& geom_id,
+						std::vector<BCPolygonNormalsIndices>& norind);
+	
 	// creates <source> for positions
 	void createVertsSource(std::string geom_id, Mesh *me);
 

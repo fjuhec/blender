@@ -52,11 +52,13 @@ struct PaletteColor;
 struct PBVH;
 struct ReportList;
 struct Scene;
+struct SceneLayer;
 struct Sculpt;
 struct StrokeCache;
 struct Tex;
 struct ImagePool;
 struct UnifiedPaintSettings;
+struct EvaluationContext;
 
 enum eOverlayFlags;
 
@@ -89,8 +91,8 @@ typedef enum eOverlayControlFlags {
 						     PAINT_OVERLAY_OVERRIDE_PRIMARY | \
 						     PAINT_OVERLAY_OVERRIDE_CURSOR)
 
-void BKE_paint_invalidate_overlay_tex(struct Scene *scene, const struct Tex *tex);
-void BKE_paint_invalidate_cursor_overlay(struct Scene *scene, struct CurveMapping *curve);
+void BKE_paint_invalidate_overlay_tex(struct Scene *scene, struct SceneLayer *sl, const struct Tex *tex);
+void BKE_paint_invalidate_cursor_overlay(struct Scene *scene, struct SceneLayer *sl, struct CurveMapping *curve);
 void BKE_paint_invalidate_overlay_all(void);
 eOverlayControlFlags BKE_paint_get_overlay_flags(void);
 void BKE_paint_reset_overlay_invalid(eOverlayControlFlags flag);
@@ -124,7 +126,7 @@ void BKE_paint_cavity_curve_preset(struct Paint *p, int preset);
 
 short BKE_paint_object_mode_from_paint_mode(ePaintMode mode);
 struct Paint *BKE_paint_get_active_from_paintmode(struct Scene *sce, ePaintMode mode);
-struct Paint *BKE_paint_get_active(struct Scene *sce);
+struct Paint *BKE_paint_get_active(struct Scene *sce, struct SceneLayer *sl);
 struct Paint *BKE_paint_get_active_from_context(const struct bContext *C);
 ePaintMode BKE_paintmode_get_active_from_context(const struct bContext *C);
 struct Brush *BKE_paint_brush(struct Paint *paint);
@@ -247,8 +249,9 @@ void BKE_sculptsession_free_deformMats(struct SculptSession *ss);
 void BKE_sculptsession_free_vwpaint_data(struct SculptSession *ss);
 void BKE_sculptsession_bm_to_me(struct Object *ob, bool reorder);
 void BKE_sculptsession_bm_to_me_for_render(struct Object *object);
-void BKE_sculpt_update_mesh_elements(struct Scene *scene, struct Sculpt *sd, struct Object *ob,
-                                     bool need_pmap, bool need_mask);
+void BKE_sculpt_update_mesh_elements(
+        const struct EvaluationContext *eval_ctx, struct Scene *scene, struct Sculpt *sd, struct Object *ob,
+        bool need_pmap, bool need_mask);
 struct MultiresModifierData *BKE_sculpt_multires_active(struct Scene *scene, struct Object *ob);
 int BKE_sculpt_mask_layers_ensure(struct Object *ob,
                                   struct MultiresModifierData *mmd);

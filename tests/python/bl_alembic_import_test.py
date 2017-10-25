@@ -63,7 +63,7 @@ class SimpleImportTest(AbstractAlembicTest):
 
         # The objects should be linked to scene_collection in Blender 2.8,
         # and to scene in Blender 2.7x.
-        objects = bpy.context.scene.objects
+        objects = bpy.context.scene_collection.objects
         self.assertEqual(13, len(objects))
 
         # Test the hierarchy.
@@ -83,7 +83,7 @@ class SimpleImportTest(AbstractAlembicTest):
 
         # The objects should be linked to scene_collection in Blender 2.8,
         # and to scene in Blender 2.7x.
-        objects = bpy.context.scene.objects
+        objects = bpy.context.scene_collection.objects
 
         # ABC parent is top-level object, which translates to nothing in Blender
         self.assertIsNone(objects['locator1'].parent)
@@ -128,7 +128,7 @@ class SimpleImportTest(AbstractAlembicTest):
 
         # All cubes should be selected, but the sphere shouldn't be.
         for ob in bpy.data.objects:
-            self.assertEqual('Cube' in ob.name, ob.select)
+            self.assertEqual('Cube' in ob.name, ob.select_get())
 
     def test_change_path_constraint(self):
         import math
@@ -183,17 +183,19 @@ class SimpleImportTest(AbstractAlembicTest):
 
         # Check that the file loaded ok.
         bpy.context.scene.frame_set(6)
-        mesh = plane.to_mesh(bpy.context.scene, True, 'RENDER')
+        scene = bpy.context.scene
+        layer = scene.render_layers[scene.active_layer]
+        mesh = plane.to_mesh(scene, layer, True, 'RENDER')
         self.assertAlmostEqual(-1, mesh.vertices[0].co.x)
         self.assertAlmostEqual(-1, mesh.vertices[0].co.y)
         self.assertAlmostEqual(0.5905638933181763, mesh.vertices[0].co.z)
 
         # Change path from absolute to relative. This should not break the animation.
-        bpy.context.scene.frame_set(1)
+        scene.frame_set(1)
         bpy.data.cache_files[fname].filepath = relpath
-        bpy.context.scene.frame_set(6)
+        scene.frame_set(6)
 
-        mesh = plane.to_mesh(bpy.context.scene, True, 'RENDER')
+        mesh = plane.to_mesh(scene, layer, True, 'RENDER')
         self.assertAlmostEqual(1, mesh.vertices[3].co.x)
         self.assertAlmostEqual(1, mesh.vertices[3].co.y)
         self.assertAlmostEqual(0.5905638933181763, mesh.vertices[3].co.z)
