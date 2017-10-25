@@ -1,6 +1,7 @@
 
-out vec3 varposition;
-out vec3 varnormal;
+varying vec3 varposition;
+varying vec3 varnormal;
+
 
 /* Color, keep in sync with: gpu_shader_vertex.glsl */
 

@@ -186,6 +186,7 @@ typedef struct uiSelectContextStore {
 	uiSelectContextElem *elems;
 	int elems_len;
 	bool do_free;
+	bool is_enabled;
 	/* When set, simply copy values (don't apply difference).
 	 * Rules are:
 	 * - dragging numbers uses delta.
@@ -201,9 +202,7 @@ static void ui_selectcontext_apply(
         bContext *C, uiBut *but, struct uiSelectContextStore *selctx_data,
         const double value, const double value_orig);
 
-#if 0
 #define IS_ALLSELECT_EVENT(event) ((event)->alt != 0)
-#endif
 
 /** just show a tinted color so users know its activated */
 #define UI_BUT_IS_SELECT_CONTEXT UI_BUT_NODE_ACTIVE
@@ -938,20 +937,6 @@ static void ui_apply_but_TEX(bContext *C, uiBut *but, uiHandleButtonData *data)
 	data->applied = true;
 }
 
-static void ui_apply_but_TAB(bContext *C, uiBut *but, uiHandleButtonData *data)
-{
-	if (data->str) {
-		ui_but_string_set(C, but, data->str);
-		ui_but_update_edited(but);
-	}
-	else {
-		ui_apply_but_func(C, but);
-	}
-
-	data->retval = but->retval;
-	data->applied = true;
-}
-
 static void ui_apply_but_NUM(bContext *C, uiBut *but, uiHandleButtonData *data)
 {
 	if (data->str) {
@@ -1194,11 +1179,14 @@ static void ui_multibut_states_apply(bContext *C, uiHandleButtonData *data, uiBl
 				ui_but_execute_begin(C, ar, but, &active_back);
 
 #ifdef USE_ALLSELECT
-				if (mbut_state->select_others.elems_len == 0) {
-					ui_selectcontext_begin(C, but, &mbut_state->select_others);
-				}
-				if (mbut_state->select_others.elems_len == 0) {
-					mbut_state->select_others.elems_len = -1;
+				if (data->select_others.is_enabled) {
+					/* init once! */
+					if (mbut_state->select_others.elems_len == 0) {
+						ui_selectcontext_begin(C, but, &mbut_state->select_others);
+					}
+					if (mbut_state->select_others.elems_len == 0) {
+						mbut_state->select_others.elems_len = -1;
+					}
 				}
 
 				/* needed so we apply the right deltas */
@@ -2081,7 +2069,12 @@ static void ui_apply_but(bContext *C, uiBlock *block, uiBut *but, uiHandleButton
 		else
 #  endif
 		if (data->select_others.elems_len == 0) {
-			ui_selectcontext_begin(C, but, &data->select_others);
+			wmWindow *win = CTX_wm_window(C);
+			/* may have been enabled before activating */
+			if (data->select_others.is_enabled || IS_ALLSELECT_EVENT(win->eventstate)) {
+				ui_selectcontext_begin(C, but, &data->select_others);
+				data->select_others.is_enabled = true;
+			}
 		}
 		if (data->select_others.elems_len == 0) {
 			/* dont check again */
@@ -2123,9 +2116,6 @@ static void ui_apply_but(bContext *C, uiBlock *block, uiBut *but, uiHandleButton
 		case UI_BTYPE_ROW:
 		case UI_BTYPE_LISTROW:
 			ui_apply_but_ROW(C, block, but, data);
-			break;
-		case UI_BTYPE_TAB:
-			ui_apply_but_TAB(C, but, data);
 			break;
 		case UI_BTYPE_SCROLL:
 		case UI_BTYPE_GRIP:
@@ -3086,7 +3076,11 @@ static void ui_textedit_begin(bContext *C, uiBut *but, uiHandleButtonData *data)
 
 #ifdef USE_ALLSELECT
 	if (is_num_but) {
-		data->select_others.is_copy = true;
+		if (IS_ALLSELECT_EVENT(win->eventstate)) {
+			data->select_others.is_enabled = true;
+			data->select_others.is_copy = true;
+
+		}
 	}
 #endif
 
@@ -3173,9 +3167,6 @@ static void ui_textedit_end(bContext *C, uiBut *but, uiHandleButtonData *data)
 
 			ui_searchbox_free(C, data->searchbox);
 			data->searchbox = NULL;
-			if (but->free_search_arg) {
-				MEM_SAFE_FREE(but->search_arg);
-			}
 		}
 		
 		but->editstr = NULL;
@@ -3691,6 +3682,15 @@ static void ui_block_open_begin(bContext *C, uiBut *but, uiHandleButtonData *dat
 			data->menu->popup = but->block->handle->popup;
 	}
 
+#ifdef USE_ALLSELECT
+	{
+		wmWindow *win = CTX_wm_window(C);
+		if (IS_ALLSELECT_EVENT(win->eventstate)) {
+			data->select_others.is_enabled = true;
+		}
+	}
+#endif
+
 	/* this makes adjacent blocks auto open from now on */
 	//if (but->block->auto_open == 0) but->block->auto_open = 1;
 }
@@ -3885,43 +3885,6 @@ static bool ui_but_is_mouse_over_icon_extra(const ARegion *region, uiBut *but, c
 	icon_rect.xmin = icon_rect.xmax - (BLI_rcti_size_y(&icon_rect));
 
 	return BLI_rcti_isect_pt(&icon_rect, x, y);
-}
-
-static int ui_do_but_TAB(bContext *C, uiBlock *block, uiBut *but, uiHandleButtonData *data, const wmEvent *event)
-{
-	if (data->state == BUTTON_STATE_HIGHLIGHT) {
-		if ((event->type == LEFTMOUSE) &&
-		    ((event->val == KM_DBL_CLICK) || event->ctrl))
-		{
-			button_activate_state(C, but, BUTTON_STATE_TEXT_EDITING);
-			return WM_UI_HANDLER_BREAK;
-		}
-		else if (ELEM(event->type, LEFTMOUSE, PADENTER, RETKEY) && (event->val == KM_CLICK)) {
-			const bool has_icon_extra = ui_but_icon_extra_get(but) == UI_BUT_ICONEXTRA_CLEAR;
-
-			if (has_icon_extra && ui_but_is_mouse_over_icon_extra(data->region, but, &event->x)) {
-				uiButTab *tab = (uiButTab *)but;
-				wmOperatorType *ot_backup = but->optype;
-
-				but->optype = tab->unlink_ot;
-				/* Force calling unlink/delete operator. */
-				ui_apply_but(C, block, but, data, true);
-				but->optype = ot_backup;
-			}
-			button_activate_state(C, but, BUTTON_STATE_EXIT);
-			return WM_UI_HANDLER_BREAK;
-		}
-	}
-	else if (data->state == BUTTON_STATE_TEXT_EDITING) {
-		ui_do_but_textedit(C, block, but, data, event);
-		return WM_UI_HANDLER_BREAK;
-	}
-	else if (data->state == BUTTON_STATE_TEXT_SELECTING) {
-		ui_do_but_textedit_select(C, block, but, data, event);
-		return WM_UI_HANDLER_BREAK;
-	}
-
-	return WM_UI_HANDLER_CONTINUE;
 }
 
 static int ui_do_but_TEX(
@@ -5253,8 +5216,7 @@ static int ui_do_but_COLOR(
 				if (!event->ctrl) {
 					float color[3];
 					Scene *scene = CTX_data_scene(C);
-					SceneLayer *sl = CTX_data_scene_layer(C);
-					Paint *paint = BKE_paint_get_active(scene, sl);
+					Paint *paint = BKE_paint_get_active(scene);
 					Brush *brush = BKE_paint_brush(paint);
 
 					if (brush->flag & BRUSH_USE_GRADIENT) {
@@ -6162,7 +6124,6 @@ static int ui_do_but_CURVE(
 	int mx, my, a;
 	bool changed = false;
 	Scene *scene = CTX_data_scene(C);
-	SceneLayer *sl = CTX_data_scene_layer(C);
 
 	mx = event->x;
 	my = event->y;
@@ -6291,7 +6252,7 @@ static int ui_do_but_CURVE(
 				}
 				else {
 					curvemapping_changed(cumap, true);  /* remove doubles */
-					BKE_paint_invalidate_cursor_overlay(scene, sl, cumap);
+					BKE_paint_invalidate_cursor_overlay(scene, cumap);
 				}
 			}
 
@@ -7171,9 +7132,6 @@ static int ui_do_button(bContext *C, uiBlock *block, uiBut *but, const wmEvent *
 		case UI_BTYPE_HOTKEY_EVENT:
 			retval = ui_do_but_HOTKEYEVT(C, but, data, event);
 			break;
-		case UI_BTYPE_TAB:
-			retval = ui_do_but_TAB(C, block, but, data, event);
-			break;
 		case UI_BTYPE_BUT_TOGGLE:
 		case UI_BTYPE_TOGGLE:
 		case UI_BTYPE_ICON_TOGGLE:
@@ -7446,14 +7404,15 @@ bool ui_but_is_active(ARegion *ar)
 /* is called by notifier */
 void UI_screen_free_active_but(const bContext *C, bScreen *screen)
 {
-	wmWindow *win = CTX_wm_window(C);
-
-	ED_screen_areas_iter(win, screen, area) {
-		for (ARegion *region = area->regionbase.first; region; region = region->next) {
-			uiBut *but = ui_but_find_active_in_region(region);
+	ScrArea *sa = screen->areabase.first;
+	
+	for (; sa; sa = sa->next) {
+		ARegion *ar = sa->regionbase.first;
+		for (; ar; ar = ar->next) {
+			uiBut *but = ui_but_find_active_in_region(ar);
 			if (but) {
 				uiHandleButtonData *data = but->active;
-
+				
 				if (data->menu == NULL && data->searchbox == NULL)
 					if (data->state == BUTTON_STATE_HIGHLIGHT)
 						ui_but_active_free(C, but);

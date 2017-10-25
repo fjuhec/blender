@@ -53,7 +53,6 @@
 #include "DNA_mask_types.h"
 #include "DNA_node_types.h"
 #include "DNA_object_types.h"
-#include "DNA_lightprobe_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
 #include "DNA_speaker_types.h"
@@ -61,7 +60,6 @@
 #include "DNA_text_types.h"
 #include "DNA_vfont_types.h"
 #include "DNA_windowmanager_types.h"
-#include "DNA_workspace_types.h"
 #include "DNA_world_types.h"
 
 #include "BLI_blenlib.h"
@@ -73,8 +71,8 @@
 #include "BKE_brush.h"
 #include "BKE_camera.h"
 #include "BKE_cachefile.h"
-#include "BKE_collection.h"
 #include "BKE_curve.h"
+#include "BKE_depsgraph.h"
 #include "BKE_fcurve.h"
 #include "BKE_font.h"
 #include "BKE_group.h"
@@ -101,7 +99,6 @@
 #include "BKE_object.h"
 #include "BKE_paint.h"
 #include "BKE_particle.h"
-#include "BKE_lightprobe.h"
 #include "BKE_sca.h"
 #include "BKE_speaker.h"
 #include "BKE_sound.h"
@@ -109,11 +106,7 @@
 #include "BKE_scene.h"
 #include "BKE_text.h"
 #include "BKE_texture.h"
-#include "BKE_workspace.h"
 #include "BKE_world.h"
-
-#include "DEG_depsgraph.h"
-#include "DEG_depsgraph_build.h"
 
 #ifdef WITH_PYTHON
 #include "BPY_extern.h"
@@ -234,7 +227,7 @@ static int foreach_libblock_remap_callback(void *user_data, ID *id_self, ID **id
 		else {
 			if (!is_never_null) {
 				*id_p = new_id;
-				DEG_id_tag_update_ex(id_remap_data->bmain, id_self, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
+				DAG_id_tag_update_ex(id_remap_data->bmain, id_self, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
 			}
 			if (cb_flag & IDWALK_CB_USER) {
 				id_us_min(old_id);
@@ -258,7 +251,7 @@ static int foreach_libblock_remap_callback(void *user_data, ID *id_self, ID **id
 
 /* Some remapping unfortunately require extra and/or specific handling, tackle those here. */
 static void libblock_remap_data_preprocess_scene_base_unlink(
-        IDRemap *r_id_remap_data, Scene *sce, BaseLegacy *base, const bool skip_indirect, const bool is_indirect)
+        IDRemap *r_id_remap_data, Scene *sce, Base *base, const bool skip_indirect, const bool is_indirect)
 {
 	if (skip_indirect && is_indirect) {
 		r_id_remap_data->skipped_indirect++;
@@ -268,22 +261,6 @@ static void libblock_remap_data_preprocess_scene_base_unlink(
 		id_us_min((ID *)base->object);
 		BKE_scene_base_unlink(sce, base);
 		MEM_freeN(base);
-		if (!is_indirect) {
-			r_id_remap_data->status |= ID_REMAP_IS_LINKED_DIRECT;
-		}
-	}
-}
-
-/* Some remapping unfortunately require extra and/or specific handling, tackle those here. */
-static void libblock_remap_data_preprocess_scene_object_unlink(
-        IDRemap *r_id_remap_data, Scene *sce, Object *ob, const bool skip_indirect, const bool is_indirect)
-{
-	if (skip_indirect && is_indirect) {
-		r_id_remap_data->skipped_indirect++;
-		r_id_remap_data->skipped_refcounted++;
-	}
-	else {
-		BKE_collections_object_remove(r_id_remap_data->bmain, sce, ob, false);
 		if (!is_indirect) {
 			r_id_remap_data->status |= ID_REMAP_IS_LINKED_DIRECT;
 		}
@@ -304,15 +281,7 @@ static void libblock_remap_data_preprocess(IDRemap *r_id_remap_data)
 				/* In case we are unlinking... */
 				if (!r_id_remap_data->old_id) {
 					/* ... everything from scene. */
-					FOREACH_SCENE_OBJECT(sce, ob_iter)
-					{
-						libblock_remap_data_preprocess_scene_object_unlink(
-						            r_id_remap_data, sce, ob_iter, skip_indirect, is_indirect);
-					}
-					FOREACH_SCENE_OBJECT_END
-
-
-					BaseLegacy *base, *base_next;
+					Base *base, *base_next;
 					for (base = sce->base.first; base; base = base_next) {
 						base_next = base->next;
 						libblock_remap_data_preprocess_scene_base_unlink(
@@ -322,11 +291,8 @@ static void libblock_remap_data_preprocess(IDRemap *r_id_remap_data)
 				else if (GS(r_id_remap_data->old_id->name) == ID_OB) {
 					/* ... a specific object from scene. */
 					Object *old_ob = (Object *)r_id_remap_data->old_id;
+					Base *base = BKE_scene_base_find(sce, old_ob);
 
-					libblock_remap_data_preprocess_scene_object_unlink(
-					            r_id_remap_data, sce, old_ob, skip_indirect, is_indirect);
-
-					BaseLegacy *base = BKE_scene_base_find(sce, old_ob);
 					if (base) {
 						libblock_remap_data_preprocess_scene_base_unlink(
 						            r_id_remap_data, sce, base, skip_indirect, is_indirect);
@@ -372,7 +338,7 @@ static void libblock_remap_data_postprocess_object_update(Main *bmain, Object *o
 		}
 		if (new_ob == NULL) {  /* We need to remove NULL-ified groupobjects... */
 			for (Group *group = bmain->group.first; group; group = group->id.next) {
-				BKE_group_object_unlink(group, NULL);
+				BKE_group_object_unlink(group, NULL, NULL, NULL);
 			}
 		}
 		else {
@@ -382,7 +348,7 @@ static void libblock_remap_data_postprocess_object_update(Main *bmain, Object *o
 	if (old_ob->type == OB_MBALL) {
 		for (Object *ob = bmain->object.first; ob; ob = ob->id.next) {
 			if (ob->type == OB_MBALL && BKE_mball_is_basis_for(ob, old_ob)) {
-				DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+				DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 			}
 		}
 	}
@@ -392,17 +358,23 @@ static void libblock_remap_data_postprocess_group_scene_unlink(Main *UNUSED(bmai
 {
 	/* Note that here we assume no object has no base (i.e. all objects are assumed instanced
 	 * in one scene...). */
-	for (BaseLegacy *base = sce->base.first; base; base = base->next) {
-		Object *ob = base->object;
-		if (ob->flag & OB_FROMGROUP) {
-			Group *grp = BKE_group_object_find(NULL, ob);
+	for (Base *base = sce->base.first; base; base = base->next) {
+		if (base->flag & OB_FROMGROUP) {
+			Object *ob = base->object;
 
-			/* Unlinked group (old_id) is still in bmain... */
-			if (grp && (&grp->id == old_id || grp->id.us == 0)) {
-				grp = BKE_group_object_find(grp, ob);
+			if (ob->flag & OB_FROMGROUP) {
+				Group *grp = BKE_group_object_find(NULL, ob);
+
+				/* Unlinked group (old_id) is still in bmain... */
+				if (grp && (&grp->id == old_id || grp->id.us == 0)) {
+					grp = BKE_group_object_find(grp, ob);
+				}
+				if (!grp) {
+					ob->flag &= ~OB_FROMGROUP;
+				}
 			}
-			if (!grp) {
-				ob->flag &= ~OB_FROMGROUP;
+			if (!(ob->flag & OB_FROMGROUP)) {
+				base->flag &= ~OB_FROMGROUP;
 			}
 		}
 	}
@@ -620,8 +592,8 @@ void BKE_libblock_remap_locked(
 	libblock_remap_data_postprocess_nodetree_update(bmain, new_id);
 	BKE_main_lock(bmain);
 
-	/* Full rebuild of DEG! */
-	DEG_relations_tag_update(bmain);
+	/* Full rebuild of DAG! */
+	DAG_relations_tag_update(bmain);
 }
 
 void BKE_libblock_remap(Main *bmain, void *old_idv, void *new_idv, const short remap_flags)
@@ -837,9 +809,6 @@ void BKE_libblock_free_datablock(ID *id, const int UNUSED(flag))
 		case ID_SPK:
 			BKE_speaker_free((Speaker *)id);
 			break;
-		case ID_LP:
-			BKE_lightprobe_free((LightProbe *)id);
-			break;
 		case ID_SO:
 			BKE_sound_free((bSound *)id);
 			break;
@@ -886,9 +855,6 @@ void BKE_libblock_free_datablock(ID *id, const int UNUSED(flag))
 		case ID_CF:
 			BKE_cachefile_free((CacheFile *)id);
 			break;
-		case ID_WS:
-			BKE_workspace_free((WorkSpace *)id);
-			break;
 	}
 }
 
@@ -927,7 +893,7 @@ void BKE_id_free_ex(Main *bmain, void *idv, int flag, const bool use_flag_from_i
 	const short type = GS(id->name);
 
 	if (bmain && (flag & LIB_ID_FREE_NO_DEG_TAG) == 0) {
-		DEG_id_type_tag(bmain, type);
+		DAG_id_type_tag(bmain, type);
 	}
 
 #ifdef WITH_PYTHON
@@ -990,15 +956,10 @@ void BKE_libblock_free_ex(Main *bmain, void *idv, const bool do_id_user, const b
 	short type = GS(id->name);
 	ListBase *lb = which_libbase(bmain, type);
 
-	DEG_id_type_tag(bmain, type);
+	DAG_id_type_tag(bmain, type);
 
 #ifdef WITH_PYTHON
-#ifdef WITH_PYTHON_SAFETY
 	BPY_id_release(id);
-#endif
-	if (id->py_instance) {
-		BPY_DECREF_RNA_INVALIDATE(id->py_instance);
-	}
 #endif
 
 	if (do_id_user) {

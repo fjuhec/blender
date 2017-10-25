@@ -51,6 +51,7 @@ IndexedFaceSet::IndexedFaceSet() : Rep()
 	_MISize = 0;
 	_TIndices = NULL;
 	_TISize = 0;
+	_displayList = 0;
 }
 
 IndexedFaceSet::IndexedFaceSet(float *iVertices, unsigned iVSize, float *iNormals, unsigned iNSize,
@@ -149,6 +150,8 @@ IndexedFaceSet::IndexedFaceSet(float *iVertices, unsigned iVSize, float *iNormal
 		_TISize = iTISize;
 		_TIndices = iTIndices;
 	}
+
+	_displayList = 0;
 }
 
 IndexedFaceSet::IndexedFaceSet(const IndexedFaceSet& iBrother) : Rep(iBrother)
@@ -212,6 +215,8 @@ IndexedFaceSet::IndexedFaceSet(const IndexedFaceSet& iBrother) : Rep(iBrother)
 		_TIndices = new unsigned[_TISize];
 		memcpy(_TIndices, iBrother.tindices(), _TISize * sizeof(unsigned));
 	}
+
+	_displayList = 0;
 }
 
 IndexedFaceSet::~IndexedFaceSet()
@@ -271,6 +276,10 @@ IndexedFaceSet::~IndexedFaceSet()
 		delete[] _TIndices;
 		_TIndices = NULL;
 	}
+
+	// should find a way to deallocates the displayList
+	// glDeleteLists(GLuint list, GLSizei range)
+	_displayList = 0;
 }
 
 void IndexedFaceSet::accept(SceneVisitor& v)

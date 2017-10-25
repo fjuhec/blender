@@ -86,14 +86,12 @@ const EnumPropertyItem rna_enum_ramp_blend_items[] = {
 #include "DNA_space_types.h"
 
 #include "BKE_context.h"
+#include "BKE_depsgraph.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
 #include "BKE_texture.h"
 #include "BKE_node.h"
 #include "BKE_paint.h"
-
-#include "DEG_depsgraph.h"
-#include "DEG_depsgraph_build.h"
 
 #include "ED_node.h"
 #include "ED_image.h"
@@ -103,7 +101,7 @@ static void rna_Material_update(Main *UNUSED(bmain), Scene *UNUSED(scene), Point
 {
 	Material *ma = ptr->id.data;
 
-	DEG_id_tag_update(&ma->id, 0);
+	DAG_id_tag_update(&ma->id, 0);
 	WM_main_add_notifier(NC_MATERIAL | ND_SHADING, ma);
 }
 
@@ -121,7 +119,7 @@ static void rna_Material_draw_update(Main *UNUSED(bmain), Scene *UNUSED(scene), 
 {
 	Material *ma = ptr->id.data;
 
-	DEG_id_tag_update(&ma->id, 0);
+	DAG_id_tag_update(&ma->id, 0);
 	WM_main_add_notifier(NC_MATERIAL | ND_SHADING_DRAW, ma);
 }
 
@@ -215,7 +213,7 @@ static void rna_Material_active_paint_texture_index_update(Main *bmain, Scene *s
 		}
 	}
 
-	DEG_id_tag_update(&ma->id, 0);
+	DAG_id_tag_update(&ma->id, 0);
 	WM_main_add_notifier(NC_MATERIAL | ND_SHADING, ma);
 }
 
@@ -340,13 +338,11 @@ static void rna_Material_use_specular_ramp_set(PointerRNA *ptr, int value)
 static void rna_Material_use_nodes_update(bContext *C, PointerRNA *ptr)
 {
 	Material *ma = (Material *)ptr->data;
-	Main *bmain = CTX_data_main(C);
 
 	if (ma->use_nodes && ma->nodetree == NULL)
 		ED_node_shader_default(C, &ma->id);
-
-	DEG_relations_tag_update(bmain);
-	rna_Material_draw_update(bmain, CTX_data_scene(C), ptr);
+	
+	rna_Material_draw_update(CTX_data_main(C), CTX_data_scene(C), ptr);
 }
 
 static const EnumPropertyItem *rna_Material_texture_coordinates_itemf(bContext *UNUSED(C), PointerRNA *ptr,
@@ -431,7 +427,7 @@ void rna_mtex_texture_slots_clear(ID *self_id, struct bContext *C, ReportList *r
 		id_us_min((ID *)mtex_ar[index]->tex);
 		MEM_freeN(mtex_ar[index]);
 		mtex_ar[index] = NULL;
-		DEG_id_tag_update(self_id, 0);
+		DAG_id_tag_update(self_id, 0);
 	}
 
 	/* for redraw only */
@@ -1808,24 +1804,6 @@ void RNA_def_material(BlenderRNA *brna)
 		{0, NULL, 0, NULL, NULL}
 	};
 
-	static EnumPropertyItem prop_eevee_blend_items[] = {
-		{MA_BM_SOLID, "OPAQUE", 0, "Opaque", "Render surface without transparency"},
-		{MA_BM_ADD, "ADD", 0, "Additive", "Render surface and blend the result with additive blending"},
-		{MA_BM_MULTIPLY, "MULTIPLY", 0, "Multiply", "Render surface and blend the result with multiplicative blending"},
-		{MA_BM_CLIP, "CLIP", 0, "Alpha Clip", "Use the alpha threshold to clip the visibility (binary visibility)"},
-		{MA_BM_HASHED, "HASHED", 0, "Alpha Hashed", "Use noise to dither the binary visibility (works well with multi-samples)"},
-		{MA_BM_BLEND, "BLEND", 0, "Alpha Blend", "Render polygon transparent, depending on alpha channel of the texture"},
-		{0, NULL, 0, NULL, NULL}
-	};
-
-	static EnumPropertyItem prop_eevee_blend_shadow_items[] = {
-		{MA_BS_NONE, "NONE", 0, "None", "Material will cast no shadow"},
-		{MA_BS_SOLID, "OPAQUE", 0, "Opaque", "Material will cast shadows without transparency"},
-		{MA_BS_CLIP, "CLIP", 0, "Clip", "Use the alpha threshold to clip the visibility (binary visibility)"},
-		{MA_BS_HASHED, "HASHED", 0, "Hashed", "Use noise to dither the binary visibility and use filtering to reduce the noise"},
-		{0, NULL, 0, NULL, NULL}
-	};
-
 	srna = RNA_def_struct(brna, "Material", "ID");
 	RNA_def_struct_ui_text(srna, "Material",
 	                       "Material data-block to define the appearance of geometric objects for rendering");
@@ -1848,42 +1826,7 @@ void RNA_def_material(BlenderRNA *brna)
 	RNA_def_property_enum_items(prop, transparency_items);
 	RNA_def_property_ui_text(prop, "Transparency Method", "Method to use for rendering transparency");
 	RNA_def_property_update(prop, 0, "rna_Material_update");
-
-	/* Blending (only Eevee for now) */
-	prop = RNA_def_property(srna, "blend_method", PROP_ENUM, PROP_NONE);
-	RNA_def_property_enum_items(prop, prop_eevee_blend_items);
-	RNA_def_property_ui_text(prop, "Blend Mode", "Blend Mode for Transparent Faces");
-	RNA_def_property_update(prop, 0, "rna_Material_draw_update");
-
-	prop = RNA_def_property(srna, "transparent_shadow_method", PROP_ENUM, PROP_NONE);
-	RNA_def_property_enum_sdna(prop, NULL, "blend_shadow");
-	RNA_def_property_enum_items(prop, prop_eevee_blend_shadow_items);
-	RNA_def_property_ui_text(prop, "Transparent Shadow", "Shadow method for transparent material");
-	RNA_def_property_update(prop, 0, "rna_Material_draw_update");
-
-	prop = RNA_def_property(srna, "alpha_threshold", PROP_FLOAT, PROP_FACTOR);
-	RNA_def_property_range(prop, 0, 1);
-	RNA_def_property_ui_text(prop, "Clip Threshold", "A pixel is rendered only if its alpha value is above this threshold");
-	RNA_def_property_update(prop, 0, "rna_Material_draw_update");
-
-	prop = RNA_def_property(srna, "transparent_hide_backside", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "blend_flag", MA_BL_HIDE_BACKSIDE);
-	RNA_def_property_ui_text(prop, "Hide Backside", "Limit transparency to a single layer "
-	                                                 "(avoids transparency sorting problems)");
-	RNA_def_property_update(prop, 0, "rna_Material_draw_update");
-
-	prop = RNA_def_property(srna, "use_screen_refraction", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "blend_flag", MA_BL_SS_REFRACTION);
-	RNA_def_property_ui_text(prop, "Screen Space Refraction", "Use raytraced screen space refractions");
-	RNA_def_property_update(prop, 0, "rna_Material_draw_update");
-
-	prop = RNA_def_property(srna, "refraction_depth", PROP_FLOAT, PROP_DISTANCE);
-	RNA_def_property_float_sdna(prop, NULL, "refract_depth");
-	RNA_def_property_range(prop, 0.0f, FLT_MAX);
-	RNA_def_property_ui_text(prop, "Refraction Depth", "Approximate the thickness of the object to compute two refraction "
-	                                                   "event (0 is disabled)");
-	RNA_def_property_update(prop, 0, "rna_Material_draw_update");
-
+	
 	/* For Preview Render */
 	prop = RNA_def_property(srna, "preview_render_type", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_sdna(prop, NULL, "pr_type");
@@ -1943,12 +1886,6 @@ void RNA_def_material(BlenderRNA *brna)
 	RNA_def_property_flag(prop, PROP_EDITABLE);
 	RNA_def_property_ui_text(prop, "Light Group", "Limit lighting to lamps in this Group");
 	RNA_def_property_update(prop, 0, "rna_Material_update");
-
-	prop = RNA_def_property(srna, "edit_image", PROP_POINTER, PROP_NONE);
-	RNA_def_property_pointer_sdna(prop, NULL, "edit_image");
-	RNA_def_property_struct_type(prop, "Image");
-	RNA_def_property_flag(prop, PROP_EDITABLE);
-	RNA_def_property_ui_text(prop, "Edit Image", "Image to use for UV-mapping");
 
 	prop = RNA_def_property(srna, "pass_index", PROP_INT, PROP_UNSIGNED);
 	RNA_def_property_int_sdna(prop, NULL, "index");
@@ -2025,6 +1962,18 @@ void RNA_def_material(BlenderRNA *brna)
 	RNA_def_property_enum_bitflag_sdna(prop, NULL, "shadowonly_flag");
 	RNA_def_property_enum_items(prop, prop_shadows_only_items);
 	RNA_def_property_ui_text(prop, "Shadow Type", "How to draw shadows");
+	RNA_def_property_update(prop, 0, "rna_Material_update");
+	
+	prop = RNA_def_property(srna, "use_face_texture", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "mode", MA_FACETEXTURE);
+	RNA_def_property_ui_text(prop, "Face Textures",
+	                         "Replace the object's base color with color from UV map image textures");
+	RNA_def_property_update(prop, 0, "rna_Material_update");
+	
+	prop = RNA_def_property(srna, "use_face_texture_alpha", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "mode", MA_FACETEXTURE_ALPHA);
+	RNA_def_property_ui_text(prop, "Face Textures Alpha",
+	                         "Replace the object's base alpha value with alpha from UV map image textures");
 	RNA_def_property_update(prop, 0, "rna_Material_update");
 	
 	prop = RNA_def_property(srna, "use_cast_shadows", PROP_BOOLEAN, PROP_NONE);

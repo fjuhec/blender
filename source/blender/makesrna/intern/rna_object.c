@@ -47,7 +47,6 @@
 #include "BKE_editmesh.h"
 #include "BKE_group.h" /* needed for BKE_group_object_exists() */
 #include "BKE_object_deform.h"
-#include "BKE_object_facemap.h"
 
 #include "RNA_access.h"
 #include "RNA_define.h"
@@ -97,27 +96,16 @@ static const EnumPropertyItem parent_type_items[] = {
 	{0, NULL, 0, NULL, NULL}
 };
 
-#define DUPLI_ITEMS_SHARED \
-	{0, "NONE", 0, "None", ""}, \
-	{OB_DUPLIFRAMES, "FRAMES", 0, "Frames", "Make copy of object for every frame"}, \
-	{OB_DUPLIVERTS, "VERTS", 0, "Verts", "Duplicate child objects on all vertices"}, \
-	{OB_DUPLIFACES, "FACES", 0, "Faces", "Duplicate child objects on all faces"}
-
-#define DUPLI_ITEM_GROUP \
-	{OB_DUPLIGROUP, "GROUP", 0, "Group", "Enable group instancing"}
+#ifndef RNA_RUNTIME
 static const EnumPropertyItem dupli_items[] = {
-	DUPLI_ITEMS_SHARED,
-	DUPLI_ITEM_GROUP,
-	{0, NULL, 0, NULL, NULL}
-};
-#ifdef RNA_RUNTIME
-static EnumPropertyItem dupli_items_nogroup[] = {
-	DUPLI_ITEMS_SHARED,
+	{0, "NONE", 0, "None", ""},
+	{OB_DUPLIFRAMES, "FRAMES", 0, "Frames", "Make copy of object for every frame"},
+	{OB_DUPLIVERTS, "VERTS", 0, "Verts", "Duplicate child objects on all vertices"},
+	{OB_DUPLIFACES, "FACES", 0, "Faces", "Duplicate child objects on all faces"},
+	{OB_DUPLIGROUP, "GROUP", 0, "Group", "Enable group instancing"},
 	{0, NULL, 0, NULL, NULL}
 };
 #endif
-#undef DUPLI_ITEMS_SHARED
-#undef DUPLI_ITEM_GROUP
 
 static const EnumPropertyItem collision_bounds_items[] = {
 	{OB_BOUND_BOX, "BOX", ICON_MESH_CUBE, "Box", ""},
@@ -159,7 +147,6 @@ const EnumPropertyItem rna_enum_object_type_items[] = {
 	{OB_CAMERA, "CAMERA", 0, "Camera", ""},
 	{OB_LAMP, "LAMP", 0, "Lamp", ""},
 	{OB_SPEAKER, "SPEAKER", 0, "Speaker", ""},
-	{OB_LIGHTPROBE, "LIGHT_PROBE", 0, "Probe", ""},
 	{0, NULL, 0, NULL, NULL}
 };
 
@@ -194,6 +181,7 @@ const EnumPropertyItem rna_enum_object_axis_items[] = {
 #include "BKE_constraint.h"
 #include "BKE_context.h"
 #include "BKE_curve.h"
+#include "BKE_depsgraph.h"
 #include "BKE_effect.h"
 #include "BKE_global.h"
 #include "BKE_key.h"
@@ -204,9 +192,6 @@ const EnumPropertyItem rna_enum_object_axis_items[] = {
 #include "BKE_scene.h"
 #include "BKE_deform.h"
 
-#include "DEG_depsgraph.h"
-#include "DEG_depsgraph_build.h"
-
 #include "ED_object.h"
 #include "ED_particle.h"
 #include "ED_curve.h"
@@ -214,7 +199,7 @@ const EnumPropertyItem rna_enum_object_axis_items[] = {
 
 static void rna_Object_internal_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)
 {
-	DEG_id_tag_update(ptr->id.data, OB_RECALC_OB);
+	DAG_id_tag_update(ptr->id.data, OB_RECALC_OB);
 }
 
 static void rna_Object_matrix_world_update(Main *bmain, Scene *scene, PointerRNA *ptr)
@@ -226,7 +211,7 @@ static void rna_Object_matrix_world_update(Main *bmain, Scene *scene, PointerRNA
 
 static void rna_Object_hide_update(Main *bmain, Scene *UNUSED(scene), PointerRNA *UNUSED(ptr))
 {
-	DEG_id_type_tag(bmain, ID_OB);
+	DAG_id_type_tag(bmain, ID_OB);
 }
 
 static void rna_Object_matrix_local_get(PointerRNA *ptr, float values[16])
@@ -269,7 +254,7 @@ static void rna_Object_matrix_basis_set(PointerRNA *ptr, const float values[16])
 
 void rna_Object_internal_update_data(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)
 {
-	DEG_id_tag_update(ptr->id.data, OB_RECALC_DATA);
+	DAG_id_tag_update(ptr->id.data, OB_RECALC_DATA);
 	WM_main_add_notifier(NC_OBJECT | ND_DRAW, ptr->id.data);
 }
 
@@ -284,7 +269,7 @@ static void rna_Object_active_shape_update(Main *bmain, Scene *scene, PointerRNA
 				EDBM_mesh_load(ob);
 				EDBM_mesh_make(scene->toolsettings, ob, true);
 
-				DEG_id_tag_update(ob->data, 0);
+				DAG_id_tag_update(ob->data, 0);
 
 				EDBM_mesh_normals_update(((Mesh *)ob->data)->edit_btmesh);
 				BKE_editmesh_tessface_calc(((Mesh *)ob->data)->edit_btmesh);
@@ -306,20 +291,29 @@ static void rna_Object_active_shape_update(Main *bmain, Scene *scene, PointerRNA
 
 static void rna_Object_dependency_update(Main *bmain, Scene *UNUSED(scene), PointerRNA *ptr)
 {
-	DEG_id_tag_update(ptr->id.data, OB_RECALC_OB);
-	DEG_relations_tag_update(bmain);
+	DAG_id_tag_update(ptr->id.data, OB_RECALC_OB);
+	DAG_relations_tag_update(bmain);
 	WM_main_add_notifier(NC_OBJECT | ND_PARENT, ptr->id.data);
 }
 
 /* when changing the selection flag the scene needs updating */
+static void rna_Object_select_update(Main *UNUSED(bmain), Scene *scene, PointerRNA *ptr)
+{
+	if (scene) {
+		Object *ob = (Object *)ptr->id.data;
+		short mode = (ob->flag & SELECT) ? BA_SELECT : BA_DESELECT;
+		ED_base_object_select(BKE_scene_base_find(scene, ob), mode);
+	}
+}
+
 static void rna_Base_select_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)
 {
-	BaseLegacy *base = (BaseLegacy *)ptr->data;
-	short mode = (base->flag_legacy & BA_SELECT) ? BA_SELECT : BA_DESELECT;
+	Base *base = (Base *)ptr->data;
+	short mode = (base->flag & BA_SELECT) ? BA_SELECT : BA_DESELECT;
 	ED_base_object_select(base, mode);
 }
 
-static void rna_Object_layer_update__internal(Main *bmain, Scene *scene, BaseLegacy *base, Object *ob)
+static void rna_Object_layer_update__internal(Main *bmain, Scene *scene, Base *base, Object *ob)
 {
 	/* try to avoid scene sort */
 	if (scene == NULL) {
@@ -332,16 +326,16 @@ static void rna_Object_layer_update__internal(Main *bmain, Scene *scene, BaseLeg
 		/* pass */
 	}
 	else {
-		DEG_relations_tag_update(bmain);
+		DAG_relations_tag_update(bmain);
 	}
 
-	DEG_id_type_tag(bmain, ID_OB);
+	DAG_id_type_tag(bmain, ID_OB);
 }
 
 static void rna_Object_layer_update(Main *bmain, Scene *scene, PointerRNA *ptr)
 {
 	Object *ob = (Object *)ptr->id.data;
-	BaseLegacy *base;
+	Base *base;
 
 	base = scene ? BKE_scene_base_find(scene, ob) : NULL;
 	if (!base)
@@ -357,7 +351,7 @@ static void rna_Object_layer_update(Main *bmain, Scene *scene, PointerRNA *ptr)
 
 static void rna_Base_layer_update(Main *bmain, Scene *scene, PointerRNA *ptr)
 {
-	BaseLegacy *base = (BaseLegacy *)ptr->data;
+	Base *base = (Base *)ptr->data;
 	Object *ob = (Object *)base->object;
 
 	rna_Object_layer_update__internal(bmain, scene, base, ob);
@@ -430,7 +424,6 @@ static StructRNA *rna_Object_data_typef(PointerRNA *ptr)
 		case OB_LATTICE: return &RNA_Lattice;
 		case OB_ARMATURE: return &RNA_Armature;
 		case OB_SPEAKER: return &RNA_Speaker;
-		case OB_LIGHTPROBE: return &RNA_LightProbe;
 		default: return &RNA_ID;
 	}
 }
@@ -526,23 +519,6 @@ static void rna_Object_parent_bone_set(PointerRNA *ptr, const char *value)
 	ED_object_parent(ob, ob->parent, ob->partype, value);
 }
 
-static const EnumPropertyItem *rna_Object_dupli_type_itemf(
-        bContext *UNUSED(C), PointerRNA *ptr,
-        PropertyRNA *UNUSED(prop), bool *UNUSED(r_free))
-{
-	Object *ob = (Object *)ptr->data;
-	const EnumPropertyItem *item;
-
-	if (ob->type == OB_EMPTY) {
-		item = dupli_items;
-	}
-	else {
-		item = dupli_items_nogroup;
-	}
-
-	return item;
-}
-
 static void rna_Object_dup_group_set(PointerRNA *ptr, PointerRNA value)
 {
 	Object *ob = (Object *)ptr->data;
@@ -552,15 +528,9 @@ static void rna_Object_dup_group_set(PointerRNA *ptr, PointerRNA value)
 	 * thus causing a cycle/infinite-recursion leading to crashes on load [#25298]
 	 */
 	if (BKE_group_object_exists(grp, ob) == 0) {
-		if (ob->type == OB_EMPTY) {
-			id_us_min(&ob->dup_group->id);
-			ob->dup_group = grp;
-			id_us_plus(&ob->dup_group->id);
-		}
-		else {
-			BKE_report(NULL, RPT_ERROR,
-			           "Only empty objects support group instances");
-		}
+		id_us_min(&ob->dup_group->id);
+		ob->dup_group = grp;
+		id_us_plus(&ob->dup_group->id);
 	}
 	else {
 		BKE_report(NULL, RPT_ERROR,
@@ -648,87 +618,6 @@ void rna_object_vgroup_name_set(PointerRNA *ptr, const char *value, char *result
 	result[0] = '\0';
 }
 
-static void rna_FaceMap_name_set(PointerRNA *ptr, const char *value)
-{
-	Object *ob = (Object *)ptr->id.data;
-	bFaceMap *fmap = (bFaceMap *)ptr->data;
-	BLI_strncpy_utf8(fmap->name, value, sizeof(fmap->name));
-	BKE_object_facemap_unique_name(ob, fmap);
-}
-
-static int rna_FaceMap_index_get(PointerRNA *ptr)
-{
-	Object *ob = (Object *)ptr->id.data;
-
-	return BLI_findindex(&ob->fmaps, ptr->data);
-}
-
-static PointerRNA rna_Object_active_face_map_get(PointerRNA *ptr)
-{
-	Object *ob = (Object *)ptr->id.data;
-	return rna_pointer_inherit_refine(ptr, &RNA_FaceMap, BLI_findlink(&ob->fmaps, ob->actfmap - 1));
-}
-
-static int rna_Object_active_face_map_index_get(PointerRNA *ptr)
-{
-	Object *ob = (Object *)ptr->id.data;
-	return ob->actfmap - 1;
-}
-
-static void rna_Object_active_face_map_index_set(PointerRNA *ptr, int value)
-{
-	Object *ob = (Object *)ptr->id.data;
-	ob->actfmap = value + 1;
-}
-
-static void rna_Object_active_face_map_index_range(PointerRNA *ptr, int *min, int *max,
-                                                       int *UNUSED(softmin), int *UNUSED(softmax))
-{
-	Object *ob = (Object *)ptr->id.data;
-
-	*min = 0;
-	*max = max_ii(0, BLI_listbase_count(&ob->fmaps) - 1);
-}
-
-void rna_object_BKE_object_facemap_name_index_get(PointerRNA *ptr, char *value, int index)
-{
-	Object *ob = (Object *)ptr->id.data;
-	bFaceMap *fmap;
-
-	fmap = BLI_findlink(&ob->fmaps, index - 1);
-
-	if (fmap) BLI_strncpy(value, fmap->name, sizeof(fmap->name));
-	else value[0] = '\0';
-}
-
-int rna_object_BKE_object_facemap_name_index_length(PointerRNA *ptr, int index)
-{
-	Object *ob = (Object *)ptr->id.data;
-	bFaceMap *fmap;
-
-	fmap = BLI_findlink(&ob->fmaps, index - 1);
-	return (fmap) ? strlen(fmap->name) : 0;
-}
-
-void rna_object_BKE_object_facemap_name_index_set(PointerRNA *ptr, const char *value, short *index)
-{
-	Object *ob = (Object *)ptr->id.data;
-	*index = BKE_object_facemap_name_index(ob, value) + 1;
-}
-
-void rna_object_fmap_name_set(PointerRNA *ptr, const char *value, char *result, int maxlen)
-{
-	Object *ob = (Object *)ptr->id.data;
-	bFaceMap *fmap = BKE_object_facemap_find_name(ob, value);
-	if (fmap) {
-		BLI_strncpy(result, value, maxlen); /* no need for BLI_strncpy_utf8, since this matches an existing group */
-		return;
-	}
-
-	result[0] = '\0';
-}
-
-
 void rna_object_uvlayer_name_set(PointerRNA *ptr, const char *value, char *result, int maxlen)
 {
 	Object *ob = (Object *)ptr->id.data;
@@ -739,10 +628,10 @@ void rna_object_uvlayer_name_set(PointerRNA *ptr, const char *value, char *resul
 	if (ob->type == OB_MESH && ob->data) {
 		me = (Mesh *)ob->data;
 
-		for (a = 0; a < me->ldata.totlayer; a++) {
-			layer = &me->ldata.layers[a];
+		for (a = 0; a < me->pdata.totlayer; a++) {
+			layer = &me->pdata.layers[a];
 
-			if (layer->type == CD_MLOOPUV && STREQ(layer->name, value)) {
+			if (layer->type == CD_MTEXPOLY && STREQ(layer->name, value)) {
 				BLI_strncpy(result, value, maxlen);
 				return;
 			}
@@ -816,7 +705,7 @@ static void rna_Object_active_material_set(PointerRNA *ptr, PointerRNA value)
 {
 	Object *ob = (Object *)ptr->id.data;
 
-	DEG_id_tag_update(value.data, 0);
+	DAG_id_tag_update(value.data, 0);
 	assign_material(ob, value.data, ob->actcol, BKE_MAT_ASSIGN_EXISTING);
 }
 
@@ -858,14 +747,9 @@ static void rna_Object_active_particle_system_index_set(PointerRNA *ptr, int val
 
 static void rna_Object_particle_update(Main *UNUSED(bmain), Scene *scene, PointerRNA *ptr)
 {
-	/* TODO: Disabled for now, because bContext is not available. */
-#if 0
 	Object *ob = (Object *)ptr->id.data;
-	PE_current_changed(NULL, scene, ob);
-#else
-	(void) scene;
-	(void) ptr;
-#endif
+
+	PE_current_changed(scene, ob);
 }
 
 /* rotation - axis-angle */
@@ -1054,7 +938,7 @@ static void rna_MaterialSlot_update(Main *bmain, Scene *scene, PointerRNA *ptr)
 
 	WM_main_add_notifier(NC_OBJECT | ND_OB_SHADING, ptr->id.data);
 	WM_main_add_notifier(NC_MATERIAL | ND_SHADING_LINKS, NULL);
-	DEG_relations_tag_update(bmain);
+	DAG_relations_tag_update(bmain);
 }
 
 static char *rna_MaterialSlot_path(PointerRNA *ptr)
@@ -1181,7 +1065,7 @@ static void rna_GameObjectSettings_physics_type_set(PointerRNA *ptr, int value)
 	if ((gameflag_prev & OB_NAVMESH) != (ob->gameflag & OB_NAVMESH)) {
 		if (ob->type == OB_MESH) {
 			/* this is needed to refresh the derived meshes draw func */
-			DEG_id_tag_update(ptr->id.data, OB_RECALC_DATA);
+			DAG_id_tag_update(ptr->id.data, OB_RECALC_DATA);
 		}
 	}
 
@@ -1233,7 +1117,7 @@ static void rna_Object_layer_set(PointerRNA *ptr, const int *values)
 
 static void rna_Base_layer_set(PointerRNA *ptr, const int *values)
 {
-	BaseLegacy *base = (BaseLegacy *)ptr->data;
+	Base *base = (Base *)ptr->data;
 
 	unsigned int lay;
 	lay = rna_Object_layer_validate__internal(values, base->lay);
@@ -1578,69 +1462,6 @@ static float rna_VertexGroup_weight(ID *id, bDeformGroup *dg, ReportList *report
 	return weight;
 }
 
-static bFaceMap *rna_Object_fmap_new(Object *ob, const char *name)
-{
-	bFaceMap *fmap = BKE_object_facemap_add_name(ob, name);
-
-	WM_main_add_notifier(NC_OBJECT | ND_DRAW, ob);
-
-	return fmap;
-}
-
-static void rna_Object_fmap_remove(Object *ob, ReportList *reports, PointerRNA *fmap_ptr)
-{
-	bFaceMap *fmap = fmap_ptr->data;
-	if (BLI_findindex(&ob->fmaps, fmap) == -1) {
-		BKE_reportf(reports, RPT_ERROR, "FaceMap '%s' not in object '%s'", fmap->name, ob->id.name + 2);
-		return;
-	}
-
-	BKE_object_facemap_remove(ob, fmap);
-	RNA_POINTER_INVALIDATE(fmap_ptr);
-
-	WM_main_add_notifier(NC_OBJECT | ND_DRAW, ob);
-}
-
-
-static void rna_Object_fmap_clear(Object *ob)
-{
-	BKE_object_facemap_clear(ob);
-
-	WM_main_add_notifier(NC_OBJECT | ND_DRAW, ob);
-}
-
-
-static void rna_FaceMap_face_add(ID *id, bFaceMap *fmap, ReportList *reports, int index_len,
-                                 int *index)
-{
-	Object *ob = (Object *)id;
-
-	if (BKE_object_is_in_editmode(ob)) {
-		BKE_report(reports, RPT_ERROR, "FaceMap.add(): cannot be called while object is in edit mode");
-		return;
-	}
-
-	while (index_len--)
-		ED_object_facemap_face_add(ob, fmap, *index++);
-
-	WM_main_add_notifier(NC_GEOM | ND_DATA, (ID *)ob->data);
-}
-
-static void rna_FaceMap_face_remove(ID *id, bFaceMap *fmap, ReportList *reports, int index_len, int *index)
-{
-	Object *ob = (Object *)id;
-
-	if (BKE_object_is_in_editmode(ob)) {
-		BKE_report(reports, RPT_ERROR, "FaceMap.add(): cannot be called while object is in edit mode");
-		return;
-	}
-
-	while (index_len--)
-		ED_object_facemap_face_remove(ob, fmap, *index++);
-
-	WM_main_add_notifier(NC_GEOM | ND_DATA, (ID *)ob->data);
-}
-
 /* generic poll functions */
 int rna_Lattice_object_poll(PointerRNA *UNUSED(ptr), PointerRNA value)
 {
@@ -1758,49 +1579,6 @@ static void rna_def_vertex_group(BlenderRNA *brna)
 	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	parm = RNA_def_float(func, "weight", 0, 0.0f, 1.0f, "", "Vertex weight", 0.0f, 1.0f);
 	RNA_def_function_return(func, parm);
-}
-
-static void rna_def_face_map(BlenderRNA *brna)
-{
-	StructRNA *srna;
-	PropertyRNA *prop;
-	FunctionRNA *func;
-
-	srna = RNA_def_struct(brna, "FaceMap", NULL);
-	RNA_def_struct_sdna(srna, "bFaceMap");
-	RNA_def_struct_ui_text(srna, "Face Map", "Group of faces, each face can only be part of one map");
-	RNA_def_struct_ui_icon(srna, ICON_MOD_TRIANGULATE);
-
-	prop = RNA_def_property(srna, "name", PROP_STRING, PROP_NONE);
-	RNA_def_property_ui_text(prop, "Name", "Face map name");
-	RNA_def_struct_name_property(srna, prop);
-	RNA_def_property_string_funcs(prop, NULL, NULL, "rna_FaceMap_name_set");
-	/* update data because modifiers may use [#24761] */
-	RNA_def_property_update(prop, NC_GEOM | ND_DATA | NA_RENAME, "rna_Object_internal_update_data");
-	
-	prop = RNA_def_property(srna, "select", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag", SELECT);
-	RNA_def_property_ui_text(prop, "Select", "Face-map selection state (for tools to use)");
-	/* important not to use a notifier here, creates a feedback loop! */
-
-	prop = RNA_def_property(srna, "index", PROP_INT, PROP_UNSIGNED);
-	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
-	RNA_def_property_int_funcs(prop, "rna_FaceMap_index_get", NULL, NULL);
-	RNA_def_property_ui_text(prop, "Index", "Index number of the face map");
-
-	func = RNA_def_function(srna, "add", "rna_FaceMap_face_add");
-	RNA_def_function_ui_description(func, "Add vertices to the group");
-	RNA_def_function_flag(func, FUNC_USE_REPORTS | FUNC_USE_SELF_ID);
-	/* TODO, see how array size of 0 works, this shouldnt be used */
-	prop = RNA_def_int_array(func, "index", 1, NULL, 0, 0, "", "Index List", 0, 0);
-	RNA_def_parameter_flags(prop, PROP_DYNAMIC, PARM_REQUIRED);
-
-	func = RNA_def_function(srna, "remove", "rna_FaceMap_face_remove");
-	RNA_def_function_ui_description(func, "Remove a vertex from the group");
-	RNA_def_function_flag(func, FUNC_USE_REPORTS | FUNC_USE_SELF_ID);
-	/* TODO, see how array size of 0 works, this shouldnt be used */
-	prop = RNA_def_int_array(func, "index", 1, NULL, 0, 0, "", "Index List", 0, 0);
-	RNA_def_parameter_flags(prop, PROP_DYNAMIC, PARM_REQUIRED);
 }
 
 static void rna_def_material_slot(BlenderRNA *brna)
@@ -2330,54 +2108,6 @@ static void rna_def_object_vertex_groups(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_function_ui_description(func, "Delete all vertex groups from object");
 }
 
-/* object.face_maps */
-static void rna_def_object_face_maps(BlenderRNA *brna, PropertyRNA *cprop)
-{
-	StructRNA *srna;
-	
-	PropertyRNA *prop;
-
-	FunctionRNA *func;
-	PropertyRNA *parm;
-
-	RNA_def_property_srna(cprop, "FaceMaps");
-	srna = RNA_def_struct(brna, "FaceMaps", NULL);
-	RNA_def_struct_sdna(srna, "Object");
-	RNA_def_struct_ui_text(srna, "Face Maps", "Collection of face maps");
-
-	prop = RNA_def_property(srna, "active", PROP_POINTER, PROP_NONE);
-	RNA_def_property_struct_type(prop, "FaceMap");
-	RNA_def_property_pointer_funcs(prop, "rna_Object_active_face_map_get",
-	                               "rna_Object_active_face_map_set", NULL, NULL);
-	RNA_def_property_ui_text(prop, "Active Face Map", "Face maps of the object");
-	RNA_def_property_update(prop, NC_GEOM | ND_DATA, "rna_Object_internal_update_data");
-
-	prop = RNA_def_property(srna, "active_index", PROP_INT, PROP_UNSIGNED);
-	RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
-	RNA_def_property_int_sdna(prop, NULL, "actfmap");
-	RNA_def_property_int_funcs(prop, "rna_Object_active_face_map_index_get",
-	                           "rna_Object_active_face_map_index_set",
-	                           "rna_Object_active_face_map_index_range");
-	RNA_def_property_ui_text(prop, "Active Face Map Index", "Active index in face map array");
-	RNA_def_property_update(prop, NC_GEOM | ND_DATA, "rna_Object_internal_update_data");
-	
-	/* face maps */ /* add_face_map */
-	func = RNA_def_function(srna, "new", "rna_Object_fmap_new");
-	RNA_def_function_ui_description(func, "Add face map to object");
-	RNA_def_string(func, "name", "Map", 0, "", "face map name"); /* optional */
-	parm = RNA_def_pointer(func, "fmap", "FaceMap", "", "New face map");
-	RNA_def_function_return(func, parm);
-
-	func = RNA_def_function(srna, "remove", "rna_Object_fmap_remove");
-	RNA_def_function_flag(func, FUNC_USE_REPORTS);
-	RNA_def_function_ui_description(func, "Delete vertex group from object");
-	parm = RNA_def_pointer(func, "group", "FaceMap", "", "Face map to remove");
-	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
-	RNA_def_property_clear_flag(parm, PROP_THICK_WRAP);
-
-	func = RNA_def_function(srna, "clear", "rna_Object_fmap_clear");
-	RNA_def_function_ui_description(func, "Delete all vertex groups from object");
-}
 
 static void rna_def_object_lodlevel(BlenderRNA *brna)
 {
@@ -2516,6 +2246,11 @@ static void rna_def_object(BlenderRNA *brna)
 	RNA_def_property_array(prop, 8);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 	RNA_def_property_ui_text(prop, "Local View Layers", "3D local view layers the object is on");
+
+	prop = RNA_def_property(srna, "select", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", SELECT);
+	RNA_def_property_ui_text(prop, "Select", "Object selection state");
+	RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_Object_select_update");
 
 	/* for data access */
 	prop = RNA_def_property(srna, "bound_box", PROP_FLOAT, PROP_NONE);
@@ -2795,14 +2530,6 @@ static void rna_def_object(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Vertex Groups", "Vertex groups of the object");
 	rna_def_object_vertex_groups(brna, prop);
 
-	
-	/* face maps */
-	prop = RNA_def_property(srna, "face_maps", PROP_COLLECTION, PROP_NONE);
-	RNA_def_property_collection_sdna(prop, NULL, "fmaps", NULL);
-	RNA_def_property_struct_type(prop, "FaceMap");
-	RNA_def_property_ui_text(prop, "Face Maps", "Maps of faces of the object");
-	rna_def_object_face_maps(brna, prop);
-	
 	/* empty */
 	prop = RNA_def_property(srna, "empty_draw_type", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_sdna(prop, NULL, "empty_drawtype");
@@ -2897,18 +2624,6 @@ static void rna_def_object(BlenderRNA *brna)
 	RNA_def_property_ui_icon(prop, ICON_RESTRICT_RENDER_OFF, 1);
 	RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_Object_hide_update");
 
-	/* Keep it in sync with BKE_object_is_visible. */
-	prop = RNA_def_property(srna, "is_visible", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "base_flag", BASE_VISIBLED);
-	RNA_def_property_ui_text(prop, "Visible", "Visible to camera rays, set only on objects evaluated by depsgraph");
-	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
-
-	prop = RNA_def_property(srna, "collection_properties", PROP_COLLECTION, PROP_NONE);
-	RNA_def_property_collection_sdna(prop, NULL, "base_collection_properties->data.group", NULL);
-	RNA_def_property_struct_type(prop, "LayerCollectionSettings");
-	RNA_def_property_ui_text(prop, "Collection Settings",
-	                         "Engine specific render settings to be overridden by collections");
-
 	/* anim */
 	rna_def_animdata_common(srna);
 	
@@ -2943,7 +2658,6 @@ static void rna_def_object(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "dupli_type", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_bitflag_sdna(prop, NULL, "transflag");
 	RNA_def_property_enum_items(prop, dupli_items);
-	RNA_def_property_enum_funcs(prop, NULL, NULL, "rna_Object_dupli_type_itemf");
 	RNA_def_property_ui_text(prop, "Dupli Type", "If not None, object duplication method to use");
 	RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_Object_dependency_update");
 
@@ -3186,14 +2900,14 @@ static void rna_def_dupli_object(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Dupli random id", "Random id for this dupli object");
 }
 
-static void rna_def_object_base_legacy(BlenderRNA *brna)
+static void rna_def_object_base(BlenderRNA *brna)
 {
 	StructRNA *srna;
 	PropertyRNA *prop;
 
-	srna = RNA_def_struct(brna, "ObjectBaseLegacy", NULL);
+	srna = RNA_def_struct(brna, "ObjectBase", NULL);
 	RNA_def_struct_sdna(srna, "Base");
-	RNA_def_struct_ui_text(srna, "Object Base Legacy", "An object instance in a scene (deprecated)");
+	RNA_def_struct_ui_text(srna, "Object Base", "An object instance in a scene");
 	RNA_def_struct_ui_icon(srna, ICON_OBJECT_DATA);
 
 	prop = RNA_def_property(srna, "object", PROP_POINTER, PROP_NONE);
@@ -3213,13 +2927,13 @@ static void rna_def_object_base_legacy(BlenderRNA *brna)
 	RNA_def_property_array(prop, 8);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 	RNA_def_property_ui_text(prop, "Local View Layers", "3D local view layers the object base is on");
-
+	
 	prop = RNA_def_property(srna, "select", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag_legacy", BA_SELECT);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", BA_SELECT);
 	RNA_def_property_ui_text(prop, "Select", "Object base selection state");
 	RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_Base_select_update");
-
-	RNA_api_object_base_legacy(srna);
+	
+	RNA_api_object_base(srna);
 }
 
 void RNA_def_object(BlenderRNA *brna)
@@ -3228,9 +2942,8 @@ void RNA_def_object(BlenderRNA *brna)
 
 	RNA_define_animate_sdna(false);
 	rna_def_object_game_settings(brna);
-	rna_def_object_base_legacy(brna);
+	rna_def_object_base(brna);
 	rna_def_vertex_group(brna);
-	rna_def_face_map(brna);
 	rna_def_material_slot(brna);
 	rna_def_dupli_object(brna);
 	RNA_define_animate_sdna(true);

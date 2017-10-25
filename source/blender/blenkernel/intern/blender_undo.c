@@ -56,6 +56,7 @@
 #include "BKE_appdir.h"
 #include "BKE_brush.h"
 #include "BKE_context.h"
+#include "BKE_depsgraph.h"
 #include "BKE_global.h"
 #include "BKE_image.h"
 #include "BKE_main.h"
@@ -64,8 +65,6 @@
 #include "BLO_undofile.h"
 #include "BLO_readfile.h"
 #include "BLO_writefile.h"
-
-#include "DEG_depsgraph.h"
 
 /* -------------------------------------------------------------------- */
 
@@ -119,7 +118,7 @@ static int read_undosave(bContext *C, UndoElem *uel)
 
 	if (success) {
 		/* important not to update time here, else non keyed tranforms are lost */
-		DEG_on_visible_update(G.main, false);
+		DAG_on_visible_update(G.main, false);
 	}
 
 	return success;

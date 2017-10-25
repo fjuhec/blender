@@ -266,7 +266,6 @@ typedef struct Curve {
 
 	char pad2[2];
 
-	void *batch_cache;
 } Curve;
 
 #define CURVE_VFONT_ANY(cu) \

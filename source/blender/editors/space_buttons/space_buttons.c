@@ -151,10 +151,6 @@ static void buttons_main_region_draw(const bContext *C, ARegion *ar)
 		ED_region_panels(C, ar, "render_layer", sbuts->mainb, vertical);
 	else if (sbuts->mainb == BCONTEXT_WORLD)
 		ED_region_panels(C, ar, "world", sbuts->mainb, vertical);
-	else if (sbuts->mainb == BCONTEXT_WORKSPACE)
-		ED_region_panels(C, ar, "workspace", sbuts->mainb, vertical);
-	else if (sbuts->mainb == BCONTEXT_COLLECTION)
-		ED_region_panels(C, ar, "collection", sbuts->mainb, vertical);
 	else if (sbuts->mainb == BCONTEXT_OBJECT)
 		ED_region_panels(C, ar, "object", sbuts->mainb, vertical);
 	else if (sbuts->mainb == BCONTEXT_DATA)
@@ -178,20 +174,6 @@ static void buttons_main_region_draw(const bContext *C, ARegion *ar)
 
 	sbuts->re_align = 0;
 	sbuts->mainbo = sbuts->mainb;
-}
-
-static void buttons_main_region_listener(
-        bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar, wmNotifier *wmn,
-        const Scene *UNUSED(scene))
-{
-	/* context changes */
-	switch (wmn->category) {
-		case NC_SCREEN:
-			if (ELEM(wmn->data, ND_LAYER)) {
-				ED_region_tag_redraw(ar);
-			}
-			break;
-	}
 }
 
 static void buttons_operatortypes(void)
@@ -236,9 +218,7 @@ static void buttons_area_redraw(ScrArea *sa, short buttons)
 }
 
 /* reused! */
-static void buttons_area_listener(
-        bScreen *UNUSED(sc), ScrArea *sa, wmNotifier *wmn, Scene *UNUSED(scene),
-        WorkSpace *UNUSED(workspace))
+static void buttons_area_listener(bScreen *UNUSED(sc), ScrArea *sa, wmNotifier *wmn)
 {
 	SpaceButs *sbuts = sa->spacedata.first;
 
@@ -488,7 +468,6 @@ void ED_spacetype_buttons(void)
 	art->regionid = RGN_TYPE_WINDOW;
 	art->init = buttons_main_region_init;
 	art->draw = buttons_main_region_draw;
-	art->listener = buttons_main_region_listener;
 	art->keymapflag = ED_KEYMAP_UI | ED_KEYMAP_FRAMES;
 	BLI_addhead(&st->regiontypes, art);
 

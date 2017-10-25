@@ -84,6 +84,7 @@ public:
 
 	Material* GetBlenderMaterial() const;
 	Image* GetBlenderImage() const;
+	MTexPoly *GetMTexPoly() const;
 	unsigned int* GetMCol() const;
 	BL_Texture * getTex (unsigned int idx) { 
 		return (idx < MAXTEX) ? mTextures + idx : NULL; 

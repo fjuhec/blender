@@ -39,7 +39,6 @@
 #include "DNA_space_types.h"
 #include "DNA_world_types.h"
 #include "DNA_linestyle_types.h"
-#include "DNA_workspace_types.h"
 
 #include "BLI_listbase.h"
 #include "BLI_threads.h"
@@ -68,29 +67,22 @@
 static int shader_tree_poll(const bContext *C, bNodeTreeType *UNUSED(treetype))
 {
 	Scene *scene = CTX_data_scene(C);
-	WorkSpace *workspace = CTX_wm_workspace(C);
-	ViewRender *view_render = BKE_viewrender_get(scene, workspace);
-	const char *engine_id = view_render->engine_id;
-
 	/* allow empty engine string too, this is from older versions that didn't have registerable engines yet */
-	return (engine_id[0] == '\0' ||
-	        STREQ(engine_id, RE_engine_id_BLENDER_RENDER) ||
-	        STREQ(engine_id, RE_engine_id_BLENDER_GAME) ||
-	        STREQ(engine_id, RE_engine_id_CYCLES) ||
-	        !BKE_viewrender_use_shading_nodes_custom(view_render));
+	return (scene->r.engine[0] == '\0' ||
+	        STREQ(scene->r.engine, RE_engine_id_BLENDER_RENDER) ||
+	        STREQ(scene->r.engine, RE_engine_id_BLENDER_GAME) ||
+	        STREQ(scene->r.engine, RE_engine_id_CYCLES) ||
+	        !BKE_scene_use_shading_nodes_custom(scene));
 }
 
 static void shader_get_from_context(const bContext *C, bNodeTreeType *UNUSED(treetype), bNodeTree **r_ntree, ID **r_id, ID **r_from)
 {
 	SpaceNode *snode = CTX_wm_space_node(C);
 	Scene *scene = CTX_data_scene(C);
-	WorkSpace *workspace = CTX_wm_workspace(C);
-	SceneLayer *sl = CTX_data_scene_layer(C);
-	Object *ob = OBACT_NEW(sl);
-	ViewRender *view_render = BKE_viewrender_get(scene, workspace);
+	Object *ob = OBACT;
 	
 	if ((snode->shaderfrom == SNODE_SHADER_OBJECT) ||
-	    (BKE_viewrender_use_new_shading_nodes(view_render) == false))
+	    (BKE_scene_use_new_shading_nodes(scene) == false))
 	{
 		if (ob) {
 			*r_from = &ob->id;
@@ -126,12 +118,12 @@ static void shader_get_from_context(const bContext *C, bNodeTreeType *UNUSED(tre
 	}
 }
 
-static void foreach_nodeclass(ViewRender *view_render, void *calldata, bNodeClassCallback func)
+static void foreach_nodeclass(Scene *scene, void *calldata, bNodeClassCallback func)
 {
 	func(calldata, NODE_CLASS_INPUT, N_("Input"));
 	func(calldata, NODE_CLASS_OUTPUT, N_("Output"));
 
-	if (BKE_viewrender_use_new_shading_nodes(view_render)) {
+	if (BKE_scene_use_new_shading_nodes(scene)) {
 		func(calldata, NODE_CLASS_SHADER, N_("Shader"));
 		func(calldata, NODE_CLASS_TEXTURE, N_("Texture"));
 	}
@@ -221,9 +213,6 @@ static void ntree_shader_link_builtin_normal(bNodeTree *ntree,
  * render engines works but it's how the GPU shader compilation works. This we
  * can change in the future and make it a generic function, but for now it stays
  * private here.
- *
- * It also does not yet take into account render engine specific output nodes,
- * it should give priority to e.g. the Eevee material output node for Eevee.
  */
 static bNode *ntree_shader_output_node(bNodeTree *ntree)
 {
@@ -485,48 +474,6 @@ static void ntree_shader_relink_displacement(bNodeTree *ntree,
 	ntreeUpdateTree(G.main, ntree);
 }
 
-static bool ntree_tag_ssr_bsdf_cb(bNode *fromnode, bNode *UNUSED(tonode), void *userdata, const bool UNUSED(reversed))
-{
-	switch (fromnode->type) {
-		case SH_NODE_BSDF_ANISOTROPIC:
-		case SH_NODE_EEVEE_SPECULAR:
-		case SH_NODE_BSDF_PRINCIPLED:
-		case SH_NODE_BSDF_GLOSSY:
-		case SH_NODE_BSDF_GLASS:
-			fromnode->ssr_id = (*(float *)userdata);
-			(*(float *)userdata) += 1;
-			break;
-		default:
-			/* We could return false here but since we (will)
-			 * allow the use of Closure as RGBA, we can have
-			 * Bsdf nodes linked to other Bsdf nodes. */
-			break;
-	}
-
-	return true;
-}
-
-/* EEVEE: Scan the ntree to set the Screen Space Reflection
- * layer id of every specular node.
- */
-static void ntree_shader_tag_ssr_node(bNodeTree *ntree, short compatibility)
-{
-	if (compatibility & NODE_NEWER_SHADING) {
-		/* We can only deal with new shading system here. */
-		return;
-	}
-
-	bNode *output_node = ntree_shader_output_node(ntree);
-	if (output_node == NULL) {
-		return;
-	}
-	/* Make sure sockets links pointers are correct. */
-	ntreeUpdateTree(G.main, ntree);
-
-	int lobe_count = 0;
-	nodeChainIter(ntree, output_node, ntree_tag_ssr_bsdf_cb, &lobe_count, true);
-}
-
 void ntreeGPUMaterialNodes(bNodeTree *ntree, GPUMaterial *mat, short compatibility)
 {
 	/* localize tree to create links for reroute and mute */
@@ -537,8 +484,6 @@ void ntreeGPUMaterialNodes(bNodeTree *ntree, GPUMaterial *mat, short compatibili
 	 * displacement/bump mapping.
 	 */
 	ntree_shader_relink_displacement(localtree, compatibility);
-
-	ntree_shader_tag_ssr_node(localtree, compatibility);
 
 	exec = ntreeShaderBeginExecTree(localtree);
 	ntreeExecGPUNodes(exec, mat, 1, compatibility);

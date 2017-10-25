@@ -101,6 +101,12 @@
 			for (layer = data->layers + layer_index, a = 0; layer_index + a < data->totlayer; layer++, a++) { \
 				if (value.data == layer) {                                                      \
 					CustomData_set_layer_##active_type(data, layer_type, a);                    \
+					                                                                            \
+					/* keep loops in sync */                                                    \
+					if (layer_type == CD_MTEXPOLY) {                                            \
+						CustomData *ldata = rna_mesh_ldata_helper(me);                          \
+						CustomData_set_layer_##active_type(ldata, CD_MLOOPUV, a);               \
+					}                                                                           \
 					BKE_mesh_update_customdata_pointers(me, true);                              \
 					return;                                                                     \
 				}                                                                               \
@@ -125,6 +131,11 @@
 		CustomData *data = rna_mesh_##customdata_type(ptr);                                     \
 		if (data) {                                                                             \
 			CustomData_set_layer_##active_type(data, layer_type, value);                        \
+			/* keep loops in sync */                                                            \
+			if (layer_type == CD_MTEXPOLY) {                                                    \
+				CustomData *ldata = rna_mesh_ldata_helper(me);                                  \
+				CustomData_set_layer_##active_type(ldata, CD_MLOOPUV, value);                   \
+			}                                                                                   \
 			BKE_mesh_update_customdata_pointers(me, true);                                      \
 		}                                                                                       \
 	}

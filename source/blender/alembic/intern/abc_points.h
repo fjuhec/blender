@@ -38,8 +38,7 @@ class AbcPointsWriter : public AbcObjectWriter {
 	ParticleSystem *m_psys;
 
 public:
-	AbcPointsWriter(EvaluationContext *eval_ctx,
-	                Scene *scene,
+	AbcPointsWriter(Scene *scene,
 	                Object *ob,
 	                AbcTransformWriter *parent,
 	                uint32_t time_sampling,

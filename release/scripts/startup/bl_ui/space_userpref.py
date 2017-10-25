@@ -57,9 +57,7 @@ class USERPREF_HT_header(Header):
 
         layout.operator_context = 'INVOKE_DEFAULT'
 
-        if userpref.active_section == 'INTERFACE':
-            layout.operator("wm.save_workspace_file")
-        elif userpref.active_section == 'INPUT':
+        if userpref.active_section == 'INPUT':
             layout.operator("wm.keyconfig_import")
             layout.operator("wm.keyconfig_export")
         elif userpref.active_section == 'ADDONS':
@@ -227,6 +225,7 @@ class USERPREF_PT_interface(Panel):
         col.prop(view, "show_large_cursors")
         col.prop(view, "show_view_name", text="View Name")
         col.prop(view, "show_playback_fps", text="Playback FPS")
+        col.prop(view, "use_global_scene")
         col.prop(view, "object_origin_size")
 
         col.separator()
@@ -287,11 +286,11 @@ class USERPREF_PT_interface(Panel):
         #col.prop(view, "open_left_mouse_delay", text="Hold LMB")
         #col.prop(view, "open_right_mouse_delay", text="Hold RMB")
         col.prop(view, "show_manipulator")
-        ## Currently not working
-        # col.prop(view, "show_manipulator_shaded")
         sub = col.column()
         sub.active = view.show_manipulator
         sub.prop(view, "manipulator_size", text="Size")
+        sub.prop(view, "manipulator_handle_size", text="Handle Size")
+        sub.prop(view, "manipulator_hotspot", text="Hotspot")
 
         col.separator()
         col.separator()
@@ -846,9 +845,6 @@ class USERPREF_PT_theme(Panel):
             col.label(text="List Item:")
             self._theme_widget_style(col, ui.wcol_list_item)
 
-            col.label(text="Tab:")
-            self._theme_widget_style(col, ui.wcol_tab)
-
             ui_state = theme.user_interface.wcol_state
             col.label(text="State:")
 
@@ -913,7 +909,7 @@ class USERPREF_PT_theme(Panel):
             col.separator()
             col.separator()
 
-            col.label("Axis & Manipulator Colors:")
+            col.label("Axis Colors:")
 
             row = col.row()
 
@@ -931,13 +927,9 @@ class USERPREF_PT_theme(Panel):
             padding = subsplit.split(percentage=0.15)
             colsub = padding.column()
             colsub = padding.column()
-            colsub.row().prop(ui, "manipulator_primary")
-            colsub.row().prop(ui, "manipulator_secondary")
-            colsub.row().prop(ui, "manipulator_a")
-            colsub.row().prop(ui, "manipulator_b")
 
-            col.separator()
-            col.separator()
+            layout.separator()
+            layout.separator()
         elif theme.theme_area == 'BONE_COLOR_SETS':
             col = split.column()
 

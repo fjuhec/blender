@@ -40,7 +40,6 @@
 #include "MEM_guardedalloc.h"
 
 #include "BIF_gl.h"
-#include "GPU_immediate.h"
 
 #include "UI_interface.h"
 #include "UI_resources.h"
@@ -158,8 +157,6 @@ static int console_textview_line_color(struct TextViewContext *tvc, unsigned cha
 		int offl = 0, offc = 0;
 		int xy[2] = {CONSOLE_DRAW_MARGIN, CONSOLE_DRAW_MARGIN};
 		int pen[2];
-		Gwn_VertFormat *format = immVertexFormat();
-		unsigned int pos = GWN_vertformat_attr_add(format, "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
 		xy[1] += tvc->lheight / 6;
 
 		console_cursor_wrap_offset(sc->prompt, tvc->console_width, &offl, &offc, NULL);
@@ -171,17 +168,14 @@ static int console_textview_line_color(struct TextViewContext *tvc, unsigned cha
 		pen[1] += tvc->lheight * offl;
 
 		/* cursor */
-		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
-		immUniformThemeColor(TH_CONSOLE_CURSOR);
+		UI_GetThemeColor3ubv(TH_CONSOLE_CURSOR, fg);
+		glColor3ubv(fg);
 
-		immRectf(pos,
-		         (xy[0] + pen[0]) - 1,
-		         (xy[1] + pen[1]),
-		         (xy[0] + pen[0]) + 1,
-		         (xy[1] + pen[1] + tvc->lheight)
-		         );
-
-		immUnbindProgram();
+		glRecti((xy[0] + pen[0]) - 1,
+		        (xy[1] + pen[1]),
+		        (xy[0] + pen[0]) + 1,
+		        (xy[1] + pen[1] + tvc->lheight)
+		        );
 	}
 
 	console_line_color(fg, cl_iter->type);

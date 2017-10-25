@@ -34,6 +34,10 @@
 
 #include "GHOST_Context.h"
 
+//#define cglewGetContext() cglewContext
+//#include <GL/cglew.h>
+//extern "C" CGLEWContext *cglewContext;
+
 #ifndef GHOST_OPENGL_CGL_CONTEXT_FLAGS
 #define GHOST_OPENGL_CGL_CONTEXT_FLAGS 0
 #endif
@@ -116,14 +120,21 @@ public:
 	 */
 	GHOST_TSuccess updateDrawingContext();
 
+//protected:
+//	inline void activateCGLEW() const {
+//		cglewContext = m_cglewContext;
+//	}
+
 private:
+	//void initContextCGLEW()
+
 	/** The openGL view */
 	NSOpenGLView *m_openGLView;
 
 	/** The OpenGL drawing context */
 	NSOpenGLContext *m_openGLContext;
 
-	bool m_coreProfile;
+	//static CGLEWContext *s_cglewContext;
 
 	const bool m_debug;
 

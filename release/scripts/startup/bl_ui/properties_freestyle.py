@@ -33,7 +33,7 @@ class RenderFreestyleButtonsPanel:
     def poll(cls, context):
         scene = context.scene
         with_freestyle = bpy.app.build_options.freestyle
-        return scene and with_freestyle and(scene.view_render.engine in cls.COMPAT_ENGINES)
+        return scene and with_freestyle and(scene.render.engine in cls.COMPAT_ENGINES)
 
 
 class RENDER_PT_freestyle(RenderFreestyleButtonsPanel, Panel):
@@ -75,7 +75,7 @@ class RenderLayerFreestyleButtonsPanel:
         with_freestyle = bpy.app.build_options.freestyle
 
         return (scene and with_freestyle and rd.use_freestyle and
-                rd.layers.active and(scene.view_render.engine in cls.COMPAT_ENGINES))
+                rd.layers.active and(scene.render.engine in cls.COMPAT_ENGINES))
 
 
 class RenderLayerFreestyleEditorButtonsPanel(RenderLayerFreestyleButtonsPanel):
@@ -183,10 +183,7 @@ class RENDERLAYER_PT_freestyle_lineset(RenderLayerFreestyleEditorButtonsPanel, P
     def draw(self, context):
         layout = self.layout
 
-        scene = context.scene
-        rd = scene.render
-        view_render = scene.view_render
-
+        rd = context.scene.render
         rl = rd.layers.active
         freestyle = rl.freestyle_settings
         lineset = freestyle.linesets.active
@@ -782,7 +779,7 @@ class RENDERLAYER_PT_freestyle_linestyle(RenderLayerFreestyleEditorButtonsPanel,
             layout.separator()
 
             row = layout.row()
-            if view_render.use_shading_nodes:
+            if rd.use_shading_nodes:
                 row.prop(linestyle, "use_nodes")
             else:
                 row.prop(linestyle, "use_texture")
@@ -813,7 +810,7 @@ class MaterialFreestyleButtonsPanel:
         material = context.material
         with_freestyle = bpy.app.build_options.freestyle
         return with_freestyle and material and scene and scene.render.use_freestyle and \
-            (scene.view_render.engine in cls.COMPAT_ENGINES)
+            (scene.render.engine in cls.COMPAT_ENGINES)
 
 
 class MATERIAL_PT_freestyle_line(MaterialFreestyleButtonsPanel, Panel):

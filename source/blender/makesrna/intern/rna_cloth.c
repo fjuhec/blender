@@ -46,20 +46,19 @@
 #ifdef RNA_RUNTIME
 
 #include "BKE_context.h"
-#include "DEG_depsgraph.h"
-#include "DEG_depsgraph_build.h"
+#include "BKE_depsgraph.h"
 
 static void rna_cloth_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)
 {
 	Object *ob = (Object *)ptr->id.data;
 
-	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_main_add_notifier(NC_OBJECT | ND_MODIFIER, ob);
 }
 
 static void rna_cloth_dependency_update(Main *bmain, Scene *scene, PointerRNA *ptr)
 {
-	DEG_relations_tag_update(bmain);
+	DAG_relations_tag_update(bmain);
 	rna_cloth_update(bmain, scene, ptr);
 }
 
@@ -71,7 +70,7 @@ static void rna_cloth_pinning_changed(Main *UNUSED(bmain), Scene *UNUSED(scene),
 
 	cloth_free_modifier(clmd);
 
-	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_main_add_notifier(NC_OBJECT | ND_MODIFIER, ob);
 }
 

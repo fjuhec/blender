@@ -476,7 +476,6 @@ static IDProperty *IDP_CopyGroup(const IDProperty *prop, const int flag)
 	BLI_assert(prop->type == IDP_GROUP);
 	newp = idp_generic_copy(prop, flag);
 	newp->len = prop->len;
-	newp->subtype = prop->subtype;
 
 	for (link = prop->data.group.first; link; link = link->next) {
 		BLI_addtail(&newp->data.group, IDP_CopyProperty_ex(link, flag));
@@ -603,9 +602,8 @@ void IDP_ReplaceInGroup(IDProperty *group, IDProperty *prop)
 
 /**
  * If a property is missing in \a dest, add it.
- * Do it recursively.
  */
-void IDP_MergeGroup_ex(IDProperty *dest, const IDProperty *src, const bool do_overwrite, const int flag)
+void IDP_MergeGroup(IDProperty *dest, const IDProperty *src, const bool do_overwrite)
 {
 	IDProperty *prop;
 
@@ -614,44 +612,19 @@ void IDP_MergeGroup_ex(IDProperty *dest, const IDProperty *src, const bool do_ov
 
 	if (do_overwrite) {
 		for (prop = src->data.group.first; prop; prop = prop->next) {
-			if (prop->type == IDP_GROUP) {
-				IDProperty *prop_exist = IDP_GetPropertyFromGroup(dest, prop->name);
-
-				if (prop_exist != NULL) {
-					IDP_MergeGroup_ex(prop_exist, prop, do_overwrite, flag);
-					continue;
-				}
-			}
-
-			IDProperty *copy = IDP_CopyProperty_ex(prop, flag);
+			IDProperty *copy = IDP_CopyProperty(prop);
 			IDP_ReplaceInGroup(dest, copy);
 		}
 	}
 	else {
 		for (prop = src->data.group.first; prop; prop = prop->next) {
-			IDProperty *prop_exist = IDP_GetPropertyFromGroup(dest, prop->name);
-			if (prop_exist != NULL) {
-				if (prop->type == IDP_GROUP) {
-					IDP_MergeGroup_ex(prop_exist, prop, do_overwrite, flag);
-					continue;
-				}
-			}
-			else {
-				IDProperty *copy = IDP_CopyProperty_ex(prop, flag);
+			if (IDP_GetPropertyFromGroup(dest, prop->name) == NULL) {
+				IDProperty *copy = IDP_CopyProperty(prop);
 				dest->len++;
 				BLI_addtail(&dest->data.group, copy);
 			}
 		}
 	}
-}
-
-/**
- * If a property is missing in \a dest, add it.
- * Do it recursively.
- */
-void IDP_MergeGroup(IDProperty *dest, const IDProperty *src, const bool do_overwrite)
-{
-	IDP_MergeGroup_ex(dest, src, do_overwrite, 0);
 }
 
 /**

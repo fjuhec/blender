@@ -2,8 +2,7 @@
  * This fragment shader was initially found at http://fabiensanglard.net/shadowmappingVSM/index.php
  */
 
-in vec4 v_position;
-out vec4 fragColor;
+varying vec4 v_position;
 
 void main()
 {
@@ -18,6 +17,5 @@ void main()
 	float dy = dFdy(depth);
 	moment2 += 0.25 * (dx * dx + dy * dy);
 
-	fragColor = vec4(moment1, moment2, 0.0, 0.0);
-	// TODO: write to a 2-component target --^
+	gl_FragColor = vec4(moment1, moment2, 0.0, 0.0);
 }

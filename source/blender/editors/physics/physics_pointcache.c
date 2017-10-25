@@ -42,7 +42,6 @@
 #include "BKE_context.h"
 #include "BKE_screen.h"
 #include "BKE_global.h"
-#include "BKE_layer.h"
 #include "BKE_main.h"
 #include "BKE_particle.h"
 #include "BKE_pointcache.h"
@@ -166,7 +165,6 @@ static PTCacheBaker *ptcache_baker_create(bContext *C, wmOperator *op, bool all)
 
 	baker->main = CTX_data_main(C);
 	baker->scene = CTX_data_scene(C);
-	baker->scene_layer = CTX_data_scene_layer(C);
 	baker->bake = RNA_boolean_get(op->ptr, "bake");
 	baker->render = 0;
 	baker->anim_init = 0;
@@ -255,23 +253,22 @@ static void ptcache_bake_cancel(bContext *C, wmOperator *op)
 
 static int ptcache_free_bake_all_exec(bContext *C, wmOperator *UNUSED(op))
 {
-	Scene *scene = CTX_data_scene(C);
+	Scene *scene= CTX_data_scene(C);
+	Base *base;
 	PTCacheID *pid;
 	ListBase pidlist;
 
-	FOREACH_SCENE_OBJECT(scene, ob)
-	{
-		BKE_ptcache_ids_from_object(&pidlist, ob, scene, MAX_DUPLI_RECUR);
+	for (base=scene->base.first; base; base= base->next) {
+		BKE_ptcache_ids_from_object(&pidlist, base->object, scene, MAX_DUPLI_RECUR);
 
-		for (pid = pidlist.first; pid; pid = pid->next) {
+		for (pid=pidlist.first; pid; pid=pid->next) {
 			ptcache_free_bake(pid->cache);
 		}
 		
 		BLI_freelistN(&pidlist);
 		
-		WM_event_add_notifier(C, NC_OBJECT|ND_POINTCACHE, ob);
+		WM_event_add_notifier(C, NC_OBJECT|ND_POINTCACHE, base->object);
 	}
-	FOREACH_SCENE_OBJECT_END
 
 	WM_event_add_notifier(C, NC_SCENE|ND_FRAME, scene);
 

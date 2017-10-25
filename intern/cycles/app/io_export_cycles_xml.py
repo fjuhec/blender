@@ -66,7 +66,8 @@ class RenderButtonsPanel():
 
     @classmethod
     def poll(self, context):
-        return context.engine == 'CYCLES'
+        rd = context.scene.render
+        return rd.engine == 'CYCLES'
 
 
 class PHYSICS_PT_fluid_export(RenderButtonsPanel, bpy.types.Panel):

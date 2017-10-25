@@ -54,9 +54,8 @@
 #include "BLI_utildefines.h"
 
 #include "BKE_object.h"
-#include "BKE_context.h"
 
-#include "DEG_depsgraph.h"
+#include "BKE_depsgraph.h" /* for object updating */
 
 #include "ED_screen.h"
 
@@ -138,13 +137,10 @@ Object *ED_view3d_cameracontrol_object_get(View3DCameraControl *vctrl)
  * the view for first-person style navigation.
  */
 struct View3DCameraControl *ED_view3d_cameracontrol_acquire(
-        const bContext *C, Scene *scene, View3D *v3d, RegionView3D *rv3d,
+        Scene *scene, View3D *v3d, RegionView3D *rv3d,
         const bool use_parent_root)
 {
 	View3DCameraControl *vctrl;
-	EvaluationContext eval_ctx;
-
-	CTX_data_eval_ctx(C, &eval_ctx);
 
 	vctrl = MEM_callocN(sizeof(View3DCameraControl), __func__);
 
@@ -181,7 +177,7 @@ struct View3DCameraControl *ED_view3d_cameracontrol_acquire(
 		/* store the original camera loc and rot */
 		vctrl->obtfm = BKE_object_tfm_backup(ob_back);
 
-		BKE_object_where_is_calc(&eval_ctx, scene, v3d->camera);
+		BKE_object_where_is_calc(scene, v3d->camera);
 		negate_v3_v3(rv3d->ofs, v3d->camera->obmat[3]);
 
 		rv3d->dist = 0.0;
@@ -246,7 +242,7 @@ void ED_view3d_cameracontrol_update(
 
 		ob_update = v3d->camera->parent;
 		while (ob_update) {
-			DEG_id_tag_update(&ob_update->id, OB_RECALC_OB);
+			DAG_id_tag_update(&ob_update->id, OB_RECALC_OB);
 			ob_update = ob_update->parent;
 		}
 
@@ -268,7 +264,7 @@ void ED_view3d_cameracontrol_update(
 
 		BKE_object_apply_mat4(v3d->camera, view_mat, true, true);
 
-		DEG_id_tag_update(&v3d->camera->id, OB_RECALC_OB);
+		DAG_id_tag_update(&v3d->camera->id, OB_RECALC_OB);
 
 		copy_v3_v3(v3d->camera->size, size_back);
 
@@ -303,7 +299,7 @@ void ED_view3d_cameracontrol_release(
 			/* store the original camera loc and rot */
 			BKE_object_tfm_restore(ob_back, vctrl->obtfm);
 
-			DEG_id_tag_update(&ob_back->id, OB_RECALC_OB);
+			DAG_id_tag_update(&ob_back->id, OB_RECALC_OB);
 		}
 		else {
 			/* Non Camera we need to reset the view back to the original location bacause the user canceled*/
@@ -315,7 +311,7 @@ void ED_view3d_cameracontrol_release(
 		rv3d->dist = vctrl->dist_backup;
 	}
 	else if (vctrl->persp_backup == RV3D_CAMOB) { /* camera */
-		DEG_id_tag_update((ID *)view3d_cameracontrol_object(vctrl), OB_RECALC_OB);
+		DAG_id_tag_update((ID *)view3d_cameracontrol_object(vctrl), OB_RECALC_OB);
 
 		/* always, is set to zero otherwise */
 		copy_v3_v3(rv3d->ofs, vctrl->ofs_backup);

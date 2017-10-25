@@ -29,7 +29,6 @@ set(INC
 	../blenkernel
 	../blenlib
 	../blentranslation
-	../depsgraph
 	../imbuf
 	../makesdna
 	../makesrna
@@ -54,7 +53,6 @@ set(SRC
 	intern/versioning_250.c
 	intern/versioning_260.c
 	intern/versioning_270.c
-	intern/versioning_280.c
 	intern/versioning_defaults.c
 	intern/versioning_legacy.c
 	intern/writefile.c
@@ -79,10 +77,6 @@ endif()
 
 if(WITH_INTERNATIONAL)
 	add_definitions(-DWITH_INTERNATIONAL)
-endif()
-
-if(WITH_CLAY_ENGINE)
-	add_definitions(-DWITH_CLAY_ENGINE)
 endif()
 
 if(WITH_CODEC_FFMPEG)

@@ -203,6 +203,7 @@ target_link_libraries(gears_c
 		glewmx_lib
 		string_lib
 		${OPENGL_gl_LIBRARY}
+		${OPENGL_glu_LIBRARY}
 		${PLATFORM_LINKLIBS}
 		)
 
@@ -216,6 +217,7 @@ target_link_libraries(gears_cpp
 		glewmx_lib
 		string_lib
 		${OPENGL_gl_LIBRARY}
+		${OPENGL_glu_LIBRARY}
 		${PLATFORM_LINKLIBS}
 		)
 
@@ -246,6 +248,7 @@ target_link_libraries(multitest_c
 		guardedalloc_lib
 		wcwidth_lib
 		${OPENGL_gl_LIBRARY}
+		${OPENGL_glu_LIBRARY}
 		${FREETYPE_LIBRARY}
 		${ZLIB_LIBRARIES}
 		${PLATFORM_LINKLIBS}

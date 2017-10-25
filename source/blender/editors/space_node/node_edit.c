@@ -41,6 +41,7 @@
 #include "BLI_blenlib.h"
 
 #include "BKE_context.h"
+#include "BKE_depsgraph.h"
 #include "BKE_global.h"
 #include "BKE_image.h"
 #include "BKE_library.h"
@@ -48,8 +49,6 @@
 #include "BKE_node.h"
 #include "BKE_report.h"
 #include "BKE_scene.h"
-
-#include "DEG_depsgraph.h"
 
 #include "RE_engine.h"
 #include "RE_pipeline.h"
@@ -124,7 +123,7 @@ static int compo_get_recalc_flags(const bContext *C)
 	int recalc_flags = 0;
 
 	for (win = wm->windows.first; win; win = win->next) {
-		const bScreen *sc = WM_window_get_active_screen(win);
+		bScreen *sc = win->screen;
 		ScrArea *sa;
 
 		for (sa = sc->areabase.first; sa; sa = sa->next) {
@@ -329,11 +328,11 @@ void snode_dag_update(bContext *C, SpaceNode *snode)
 	if (snode->edittree != snode->nodetree) {
 		FOREACH_NODETREE(bmain, tntree, id) {
 			if (ntreeHasTree(tntree, snode->edittree))
-				DEG_id_tag_update(id, 0);
+				DAG_id_tag_update(id, 0);
 		} FOREACH_NODETREE_END
 	}
 
-	DEG_id_tag_update(snode->id, 0);
+	DAG_id_tag_update(snode->id, 0);
 }
 
 void snode_notify(bContext *C, SpaceNode *snode)
@@ -383,7 +382,7 @@ bool ED_node_is_texture(struct SpaceNode *snode)
 /* called from shading buttons or header */
 void ED_node_shader_default(const bContext *C, ID *id)
 {
-	ViewRender *view_render = CTX_data_view_render(C);
+	Scene *scene = CTX_data_scene(C);
 	bNode *in, *out;
 	bNodeSocket *fromsock, *tosock, *sock;
 	bNodeTree *ntree;
@@ -398,11 +397,7 @@ void ED_node_shader_default(const bContext *C, ID *id)
 			Material *ma = (Material *)id;
 			ma->nodetree = ntree;
 
-			if (BKE_viewrender_uses_blender_eevee(view_render)) {
-				output_type = SH_NODE_OUTPUT_MATERIAL;
-				shader_type = SH_NODE_BSDF_PRINCIPLED;
-			}
-			else if (BKE_viewrender_use_new_shading_nodes(view_render)) {
+			if (BKE_scene_use_new_shading_nodes(scene)) {
 				output_type = SH_NODE_OUTPUT_MATERIAL;
 				shader_type = SH_NODE_BSDF_DIFFUSE;
 			}
@@ -460,7 +455,7 @@ void ED_node_shader_default(const bContext *C, ID *id)
 	nodeAddLink(ntree, in, fromsock, out, tosock);
 
 	/* default values */
-	if (BKE_viewrender_use_new_shading_nodes(view_render)) {
+	if (BKE_scene_use_new_shading_nodes(scene)) {
 		PointerRNA sockptr;
 		sock = in->inputs.first;
 		RNA_pointer_create((ID *)ntree, &RNA_NodeSocket, sock, &sockptr);
@@ -2353,7 +2348,7 @@ void NODE_OT_tree_socket_move(wmOperatorType *ot)
 static int node_shader_script_update_poll(bContext *C)
 {
 	Scene *scene = CTX_data_scene(C);
-	RenderEngineType *type = RE_engines_find(scene->view_render.engine_id);
+	RenderEngineType *type = RE_engines_find(scene->r.engine);
 	SpaceNode *snode = CTX_wm_space_node(C);
 	bNode *node;
 	Text *text;
@@ -2423,7 +2418,7 @@ static int node_shader_script_update_exec(bContext *C, wmOperator *op)
 	bool found = false;
 
 	/* setup render engine */
-	type = RE_engines_find(scene->view_render.engine_id);
+	type = RE_engines_find(scene->r.engine);
 	engine = RE_engine_create(type);
 	engine->reports = op->reports;
 

@@ -45,11 +45,8 @@
 #include "BKE_camera.h"
 #include "BKE_global.h"
 #include "BKE_colortools.h"
-#include "BKE_layer.h"
 #include "BKE_report.h"
 #include "BKE_scene.h"
-
-#include "DEG_depsgraph.h"
 
 #include "RNA_access.h"
 
@@ -61,8 +58,6 @@
 #include "RE_pipeline.h"
 #include "RE_bake.h"
 
-#include "DRW_engine.h"
-
 #include "initrender.h"
 #include "renderpipeline.h"
 #include "render_types.h"
@@ -73,8 +68,8 @@
 
 static RenderEngineType internal_render_type = {
 	NULL, NULL,
-	"BLENDER_RENDER", N_("Blender Render"), RE_INTERNAL | RE_USE_LEGACY_PIPELINE,
-	NULL, NULL, NULL, NULL, NULL, NULL, render_internal_update_passes, NULL, NULL, NULL,
+	"BLENDER_RENDER", N_("Blender Render"), RE_INTERNAL,
+	NULL, NULL, NULL, NULL, NULL, NULL, render_internal_update_passes,
 	{NULL, NULL, NULL}
 };
 
@@ -82,8 +77,8 @@ static RenderEngineType internal_render_type = {
 
 static RenderEngineType internal_game_type = {
 	NULL, NULL,
-	"BLENDER_GAME", N_("Blender Game"), RE_INTERNAL | RE_GAME | RE_USE_LEGACY_PIPELINE,
-	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+	"BLENDER_GAME", N_("Blender Game"), RE_INTERNAL | RE_GAME,
+	NULL, NULL, NULL, NULL, NULL, NULL, NULL,
 	{NULL, NULL, NULL}
 };
 
@@ -93,21 +88,15 @@ ListBase R_engines = {NULL, NULL};
 
 void RE_engines_init(void)
 {
-	RE_engines_register(NULL, &internal_render_type);
+	BLI_addtail(&R_engines, &internal_render_type);
 #ifdef WITH_GAMEENGINE
-	RE_engines_register(NULL, &internal_game_type);
+	BLI_addtail(&R_engines, &internal_game_type);
 #endif
-	DRW_engines_register();
 }
 
 void RE_engines_exit(void)
 {
 	RenderEngineType *type, *next;
-
-	DRW_engines_free();
-
-	BKE_layer_collection_engine_settings_callback_free();
-	BKE_scene_layer_engine_settings_callback_free();
 
 	for (type = R_engines.first; type; type = next) {
 		next = type->next;
@@ -123,22 +112,6 @@ void RE_engines_exit(void)
 	}
 }
 
-void RE_engines_register(Main *bmain, RenderEngineType *render_type)
-{
-	if (render_type->draw_engine) {
-		DRW_engine_register(render_type->draw_engine);
-	}
-	if (render_type->collection_settings_create) {
-		BKE_layer_collection_engine_settings_callback_register(
-		            bmain, render_type->idname, render_type->collection_settings_create);
-	}
-	if (render_type->render_settings_create) {
-		BKE_scene_layer_engine_settings_callback_register(
-		            bmain, render_type->idname, render_type->render_settings_create);
-	}
-	BLI_addtail(&R_engines, render_type);
-}
-
 RenderEngineType *RE_engines_find(const char *idname)
 {
 	RenderEngineType *type;
@@ -152,7 +125,8 @@ RenderEngineType *RE_engines_find(const char *idname)
 
 bool RE_engine_is_external(Render *re)
 {
-	return (re->engine && re->engine->type && re->engine->type->render_to_image);
+	RenderEngineType *type = RE_engines_find(re->r.engine);
+	return (type && type->render);
 }
 
 /* Create, Free */
@@ -210,8 +184,7 @@ static RenderPart *get_part_from_result(Render *re, RenderResult *result)
 	return NULL;
 }
 
-RenderResult *RE_engine_begin_result(
-        RenderEngine *engine, int x, int y, int w, int h, const char *layername, const char *viewname)
+RenderResult *RE_engine_begin_result(RenderEngine *engine, int x, int y, int w, int h, const char *layername, const char *viewname)
 {
 	Render *re = engine->re;
 	RenderResult *result;
@@ -436,8 +409,7 @@ float RE_engine_get_camera_shift_x(RenderEngine *engine, Object *camera, int use
 	return BKE_camera_multiview_shift_x(re ? &re->r : NULL, camera, re->viewname);
 }
 
-void RE_engine_get_camera_model_matrix(
-        RenderEngine *engine, Object *camera, int use_spherical_stereo, float *r_modelmat)
+void RE_engine_get_camera_model_matrix(RenderEngine *engine, Object *camera, int use_spherical_stereo, float *r_modelmat)
 {
 	Render *re = engine->re;
 
@@ -514,18 +486,16 @@ RenderData *RE_engine_get_render_data(Render *re)
 }
 
 /* Bake */
-void RE_bake_engine_set_engine_parameters(Render *re, Main *bmain, Depsgraph *graph, Scene *scene)
+void RE_bake_engine_set_engine_parameters(Render *re, Main *bmain, Scene *scene)
 {
-	re->depsgraph = graph;
 	re->scene = scene;
 	re->main = bmain;
 	render_copy_renderdata(&re->r, &scene->r);
-	render_copy_viewrender(&re->view_render, &scene->view_render);
 }
 
 bool RE_bake_has_engine(Render *re)
 {
-	RenderEngineType *type = RE_engines_find(re->view_render.engine_id);
+	RenderEngineType *type = RE_engines_find(re->r.engine);
 	return (type->bake != NULL);
 }
 
@@ -536,7 +506,7 @@ bool RE_bake_engine(
         const eScenePassType pass_type, const int pass_filter,
         float result[])
 {
-	RenderEngineType *type = RE_engines_find(re->view_render.engine_id);
+	RenderEngineType *type = RE_engines_find(re->r.engine);
 	RenderEngine *engine;
 	bool persistent_data = (re->r.mode & R_PERSISTENT_DATA) != 0;
 
@@ -567,21 +537,10 @@ bool RE_bake_engine(
 
 	/* update is only called so we create the engine.session */
 	if (type->update)
-		type->update(engine, re->main, re->depsgraph, re->scene);
+		type->update(engine, re->main, re->scene);
 
-	if (type->bake) {
-		type->bake(
-		            engine,
-		            re->scene,
-		            object,
-		            pass_type,
-		            pass_filter,
-		            object_id,
-		            pixel_array,
-		            num_pixels,
-		            depth,
-		            result);
-	}
+	if (type->bake)
+		type->bake(engine, re->scene, object, pass_type, pass_filter, object_id, pixel_array, num_pixels, depth, result);
 
 	engine->tile_x = 0;
 	engine->tile_y = 0;
@@ -617,7 +576,8 @@ void RE_engine_frame_set(RenderEngine *engine, int frame, float subframe)
 	BPy_BEGIN_ALLOW_THREADS;
 #endif
 
-	BKE_scene_update_for_newframe(re->eval_ctx, re->main, scene);
+	/* It's possible that here we're including layers which were never visible before. */
+	BKE_scene_update_for_newframe_ex(re->eval_ctx, re->main, scene, (1 << 20) - 1, true);
 
 #ifdef WITH_PYTHON
 	BPy_END_ALLOW_THREADS;
@@ -628,14 +588,25 @@ void RE_engine_frame_set(RenderEngine *engine, int frame, float subframe)
 
 /* Render */
 
+static bool render_layer_exclude_animated(Scene *scene, SceneRenderLayer *srl)
+{
+	PointerRNA ptr;
+	PropertyRNA *prop;
+
+	RNA_pointer_create(&scene->id, &RNA_SceneRenderLayer, srl, &ptr);
+	prop = RNA_struct_find_property(&ptr, "layers_exclude");
+
+	return RNA_property_animated(&ptr, prop);
+}
+
 int RE_engine_render(Render *re, int do_all)
 {
-	RenderEngineType *type = RE_engines_find(re->view_render.engine_id);
+	RenderEngineType *type = RE_engines_find(re->r.engine);
 	RenderEngine *engine;
 	bool persistent_data = (re->r.mode & R_PERSISTENT_DATA) != 0;
 
 	/* verify if we can render */
-	if (!type->render_to_image)
+	if (!type->render)
 		return 0;
 	if ((re->r.scemode & R_BUTS_PREVIEW) && !(type->flag & RE_USE_PREVIEW))
 		return 0;
@@ -652,7 +623,40 @@ int RE_engine_render(Render *re, int do_all)
 	/* update animation here so any render layer animation is applied before
 	 * creating the render result */
 	if ((re->r.scemode & (R_NO_FRAME_UPDATE | R_BUTS_PREVIEW)) == 0) {
-		BKE_scene_update_for_newframe(re->eval_ctx, re->main, re->scene);
+		unsigned int lay = re->lay;
+
+		/* don't update layers excluded on all render layers */
+		if (type->flag & RE_USE_EXCLUDE_LAYERS) {
+			SceneRenderLayer *srl;
+			unsigned int non_excluded_lay = 0;
+
+			if (re->r.scemode & R_SINGLE_LAYER) {
+				srl = BLI_findlink(&re->r.layers, re->r.actlay);
+				if (srl) {
+					non_excluded_lay |= ~(srl->lay_exclude & ~srl->lay_zmask);
+
+					/* in this case we must update all because animation for
+					 * the scene has not been updated yet, and so may not be
+					 * up to date until after BKE_scene_update_for_newframe */
+					if (render_layer_exclude_animated(re->scene, srl))
+						non_excluded_lay |= ~0;
+				}
+			}
+			else {
+				for (srl = re->r.layers.first; srl; srl = srl->next) {
+					if (!(srl->layflag & SCE_LAY_DISABLE)) {
+						non_excluded_lay |= ~(srl->lay_exclude & ~srl->lay_zmask);
+
+						if (render_layer_exclude_animated(re->scene, srl))
+							non_excluded_lay |= ~0;
+					}
+				}
+			}
+
+			lay &= non_excluded_lay;
+		}
+
+		BKE_scene_update_for_newframe_ex(re->eval_ctx, re->main, re->scene, lay, true);
 		render_update_anim_renderdata(re, &re->scene->r);
 	}
 
@@ -718,18 +722,16 @@ int RE_engine_render(Render *re, int do_all)
 	if (re->result->do_exr_tile)
 		render_result_exr_file_begin(re);
 
-	if (type->update) {
-		type->update(engine, re->main, re->depsgraph, re->scene);
-	}
+	if (type->update)
+		type->update(engine, re->main, re->scene);
 
 	/* Clear UI drawing locks. */
 	if (re->draw_lock) {
 		re->draw_lock(re->dlh, 0);
 	}
 
-	if (type->render_to_image) {
-		type->render_to_image(engine, re->depsgraph);
-	}
+	if (type->render)
+		type->render(engine, re->scene);
 
 	engine->tile_x = 0;
 	engine->tile_y = 0;
@@ -790,9 +792,4 @@ void RE_engine_register_pass(struct RenderEngine *engine, struct Scene *scene, s
 			ntreeCompositRegisterPass(sce->nodetree, scene, srl, name, type);
 		}
 	}
-}
-
-SceneLayer *RE_engine_get_scene_layer(Render *re)
-{
-	return re->eval_ctx->scene_layer;
 }

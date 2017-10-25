@@ -49,8 +49,7 @@
 #include "BKE_animsys.h"
 #include "BKE_action.h"
 
-#include "GPU_immediate.h"
-#include "GPU_matrix.h"
+#include "BIF_gl.h"
 
 #include "ED_keyframes_draw.h"
 
@@ -72,8 +71,8 @@ void draw_motion_paths_init(View3D *v3d, ARegion *ar)
 	
 	if (v3d->zbuf) glDisable(GL_DEPTH_TEST);
 	
-	gpuPushMatrix();
-	gpuLoadMatrix(rv3d->viewmat);
+	glPushMatrix();
+	glLoadMatrixf(rv3d->viewmat);
 }
 
 /* set color
@@ -87,11 +86,10 @@ void draw_motion_paths_init(View3D *v3d, ARegion *ar)
 * - User selected color for next frames
 */
 static void set_motion_path_color(Scene *scene, bMotionPath *mpath, int i, short sel, int sfra, int efra,
-	float prev_color[3], float frame_color[3], float next_color[3], unsigned color)
+	float prev_color[3], float frame_color[3], float next_color[3])
 {
 	int frame = sfra + i;
 	int blend_base = (abs(frame - CFRA) == 1) ? TH_CFRAME : TH_BACK; /* "bleed" cframe color to ease color blending */
-	unsigned char ubcolor[3];
 
 #define SET_INTENSITY(A, B, C, min, max) (((1.0f - ((C - B) / (C - A))) * (max - min)) + min)
 	float intensity;  /* how faint */
@@ -99,7 +97,7 @@ static void set_motion_path_color(Scene *scene, bMotionPath *mpath, int i, short
 	if (frame < CFRA) {
 		if (mpath->flag & MOTIONPATH_FLAG_CUSTOM) {
 			/* Custom color: previous frames color is darker than current frame */
-			rgb_float_to_uchar(ubcolor, prev_color);
+			glColor3fv(prev_color);  
 		}
 		else {
 			/* black - before cfra */
@@ -111,14 +109,13 @@ static void set_motion_path_color(Scene *scene, bMotionPath *mpath, int i, short
 				/* intensity = 0.8f; */
 				intensity = SET_INTENSITY(sfra, i, CFRA, 0.68f, 0.92f);
 			}
-
-			UI_GetThemeColorBlend3ubv(TH_WIRE, blend_base, intensity, ubcolor);
+			UI_ThemeColorBlend(TH_WIRE, blend_base, intensity);
 		}
 	}
 	else if (frame > CFRA) {
 		if (mpath->flag & MOTIONPATH_FLAG_CUSTOM) {
 			/* Custom color: next frames color is equal to user selected color */
-			rgb_float_to_uchar(ubcolor, next_color);
+			glColor3fv(next_color);  
 		}
 		else {
 			/* blue - after cfra */
@@ -130,14 +127,13 @@ static void set_motion_path_color(Scene *scene, bMotionPath *mpath, int i, short
 				/* intensity = 0.8f; */
 				intensity = SET_INTENSITY(CFRA, i, efra, 0.68f, 0.92f);
 			}
-
-			UI_GetThemeColorBlend3ubv(TH_BONE_POSE, blend_base, intensity, ubcolor);
+			UI_ThemeColorBlend(TH_BONE_POSE, blend_base, intensity);
 		}
 	}
 	else {
 		if (mpath->flag & MOTIONPATH_FLAG_CUSTOM) {
 			/* Custom color: current frame color is slightly darker than user selected color */
-			rgb_float_to_uchar(ubcolor, frame_color);
+			glColor3fv(frame_color);  
 		}
 		else {
 			/* green - on cfra */
@@ -147,12 +143,9 @@ static void set_motion_path_color(Scene *scene, bMotionPath *mpath, int i, short
 			else {
 				intensity = 0.99f;
 			}
-			UI_GetThemeColorBlendShade3ubv(TH_CFRAME, TH_BACK, intensity, 10, ubcolor);
+			UI_ThemeColorBlendShade(TH_CFRAME, TH_BACK, intensity, 10);
 		}
 	}
-
-	immAttrib3ubv(color, ubcolor);
-
 #undef SET_INTENSITY
 }
 
@@ -238,65 +231,42 @@ void draw_motion_path_instance(Scene *scene,
 		/* set line thickness */
 		glLineWidth(mpath->line_thickness);
 
-		Gwn_VertFormat *format = immVertexFormat();
-		unsigned int pos = GWN_vertformat_attr_add(format, "pos", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
-		unsigned int color = GWN_vertformat_attr_add(format, "color", GWN_COMP_U8, 3, GWN_FETCH_INT_TO_FLOAT_UNIT);
-
-		immBindBuiltinProgram(GPU_SHADER_3D_SMOOTH_COLOR);
-
-		immBegin(GWN_PRIM_LINE_STRIP, len);
-
+		glBegin(GL_LINE_STRIP);
 		for (i = 0, mpv = mpv_start; i < len; i++, mpv++) {
 			short sel = (pchan) ? (pchan->bone->flag & BONE_SELECTED) : (ob->flag & SELECT);
-
 			/* Set color */
-			set_motion_path_color(scene, mpath, i, sel, sfra, efra, prev_color, frame_color, next_color, color);
-
+			set_motion_path_color(scene, mpath, i, sel, sfra, efra, prev_color, frame_color, next_color);
 			/* draw a vertex with this color */
-			immVertex3fv(pos, mpv->co);
+			glVertex3fv(mpv->co);
 		}
 
-		immEnd();
-
-		immUnbindProgram();
-
+		glEnd();
 		/* back to old line thickness */
 		glLineWidth(old_width);
 	}
 
-	unsigned int pos = GWN_vertformat_attr_add(immVertexFormat(), "pos", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
-
-	immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
-
 	/* Point must be bigger than line thickness */
 	glPointSize(mpath->line_thickness + 1.0);
 	
-	/* draw little black point at each frame */
-	immUniformColor3ub(0, 0, 0);
-
-	immBegin(GWN_PRIM_POINTS, len);
-
-	for (i = 0, mpv = mpv_start; i < len; i++, mpv++) {
-		immVertex3fv(pos, mpv->co);
-	}
-
-	immEnd();
-
+	/* draw little black point at each frame
+	 * NOTE: this is not really visible/noticeable
+	 */
+	glBegin(GL_POINTS);
+	for (i = 0, mpv = mpv_start; i < len; i++, mpv++)
+		glVertex3fv(mpv->co);
+	glEnd();
+	
 	/* Draw little white dots at each framestep value or replace with custom color */
 	if (mpath->flag & MOTIONPATH_FLAG_CUSTOM) {
-		immUniformColor3fv(mpath->color);
+		glColor4fv(mpath->color);
 	}
 	else {
-		immUniformThemeColor(TH_TEXT_HI);
+		UI_ThemeColor(TH_TEXT_HI);
 	}
-
-	immBegin(GWN_PRIM_POINTS, (len + stepsize - 1) / stepsize);
-
-	for (i = 0, mpv = mpv_start; i < len; i += stepsize, mpv += stepsize) {
-		immVertex3fv(pos, mpv->co);
-	}
-
-	immEnd();
+	glBegin(GL_POINTS);
+	for (i = 0, mpv = mpv_start; i < len; i += stepsize, mpv += stepsize)
+		glVertex3fv(mpv->co);
+	glEnd();
 	
 	/* Draw big green dot where the current frame is 
 	 * NOTE: this is only done when keyframes are shown, since this adds similar types of clutter
@@ -304,18 +274,16 @@ void draw_motion_path_instance(Scene *scene,
 	if ((avs->path_viewflag & MOTIONPATH_VIEW_KFRAS) &&
 	    (sfra < CFRA) && (CFRA <= efra)) 
 	{
+		UI_ThemeColor(TH_CFRAME);
+		
 		glPointSize(mpath->line_thickness + 5.0);
-		immUniformThemeColor(TH_CFRAME);
-
-		immBegin(GWN_PRIM_POINTS, 1);
-
+		glBegin(GL_POINTS);
 		mpv = mpv_start + (CFRA - sfra);
-		immVertex3fv(pos, mpv->co);
-
-		immEnd();
+		glVertex3fv(mpv->co);
+		glEnd();
+		
+		UI_ThemeColor(TH_TEXT_HI);
 	}
-
-	immUnbindProgram();
 	
 	/* XXX, this isn't up to date but probably should be kept so. */
 	invert_m4_m4(ob->imat, ob->obmat);
@@ -385,28 +353,24 @@ void draw_motion_path_instance(Scene *scene,
 		UI_GetThemeColor3ubv(TH_VERTEX_SELECT, col);
 		col[3] = 255;
 		
-		/* point must be bigger than line */
-		glPointSize(mpath->line_thickness + 3.0);
-
-		pos = GWN_vertformat_attr_add(immVertexFormat(), "pos", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
-
-		immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
-		immUniformColor3ubv(col);
+		/* if custom, point must be bigger than line */
+		if (mpath->flag & MOTIONPATH_FLAG_CUSTOM) {
+			glPointSize(mpath->line_thickness + 3.0);
+		}
+		else {
+			glPointSize(4.0f);
+		}
+		glColor3ubv(col);
 		
-		immBeginAtMost(GWN_PRIM_POINTS, len);
-
+		glBegin(GL_POINTS);
 		for (i = 0, mpv = mpv_start; i < len; i++, mpv++) {
 			int    frame = sfra + i; 
 			float mframe = (float)(frame);
 			
-			if (BLI_dlrbTree_search_exact(&keys, compare_ak_cfraPtr, &mframe)) {
-				immVertex3fv(pos, mpv->co);
-			}
+			if (BLI_dlrbTree_search_exact(&keys, compare_ak_cfraPtr, &mframe))
+				glVertex3fv(mpv->co);
 		}
-
-		immEnd();
-
-		immUnbindProgram();
+		glEnd();
 		
 		/* Draw frame numbers of keyframes  */
 		if (avs->path_viewflag & MOTIONPATH_VIEW_KFNOS) {
@@ -434,5 +398,5 @@ void draw_motion_path_instance(Scene *scene,
 void draw_motion_paths_cleanup(View3D *v3d)
 {
 	if (v3d->zbuf) glEnable(GL_DEPTH_TEST);
-	gpuPopMatrix();
+	glPopMatrix();
 }

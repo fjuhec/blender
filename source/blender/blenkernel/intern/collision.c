@@ -47,7 +47,6 @@
 
 #include "BKE_cloth.h"
 #include "BKE_effect.h"
-#include "BKE_layer.h"
 #include "BKE_modifier.h"
 #include "BKE_scene.h"
 
@@ -513,7 +512,7 @@ static void add_collision_object(Object ***objs, unsigned int *numobj, unsigned 
 
 // return all collision objects in scene
 // collision object will exclude self 
-Object **get_collisionobjects_ext(Scene *scene, Object *self, Group *group, unsigned int *numcollobj, unsigned int modifier_type, bool dupli)
+Object **get_collisionobjects_ext(Scene *scene, Object *self, Group *group, int layer, unsigned int *numcollobj, unsigned int modifier_type, bool dupli)
 {
 	Base *base;
 	Object **objs;
@@ -533,9 +532,9 @@ Object **get_collisionobjects_ext(Scene *scene, Object *self, Group *group, unsi
 		Scene *sce_iter;
 		/* add objects in same layer in scene */
 		for (SETLOOPER(scene, sce_iter, base)) {
-			if ((base->flag & BASE_VISIBLED) != 0) {
+			if ( base->lay & layer )
 				add_collision_object(&objs, &numobj, &maxobj, base->object, self, level, modifier_type);
-			}
+
 		}
 	}
 
@@ -548,7 +547,7 @@ Object **get_collisionobjects(Scene *scene, Object *self, Group *group, unsigned
 {
 	/* Need to check for active layers, too.
 	   Otherwise this check fails if the objects are not on the same layer - DG */
-	return get_collisionobjects_ext(scene, self, group, numcollobj, modifier_type, true);
+	return get_collisionobjects_ext(scene, self, group, self->lay | scene->lay, numcollobj, modifier_type, true);
 }
 
 static void add_collider_cache_object(ListBase **objs, Object *ob, Object *self, int level)
@@ -601,7 +600,7 @@ ListBase *get_collider_cache(Scene *scene, Object *self, Group *group)
 
 		/* add objects in same layer in scene */
 		for (SETLOOPER(scene, sce_iter, base)) {
-			if (!self || ((base->flag & BASE_VISIBLED) != 0))
+			if (!self || (base->lay & self->lay))
 				add_collider_cache_object(&objs, base->object, self, 0);
 
 		}

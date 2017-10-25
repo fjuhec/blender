@@ -24,7 +24,6 @@ set(INC
 	../../blenlib
 	../../blentranslation
 	../../bmesh
-	../../depsgraph
 	../../makesdna
 	../../makesrna
 	../../windowmanager

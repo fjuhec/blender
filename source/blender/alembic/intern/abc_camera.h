@@ -35,8 +35,7 @@ class AbcCameraWriter : public AbcObjectWriter {
 	Alembic::AbcGeom::OFloatProperty m_eye_separation;
 
 public:
-	AbcCameraWriter(EvaluationContext *eval_ctx,
-	                Scene *scene,
+	AbcCameraWriter(Scene *scene,
 	                Object *ob,
 	                AbcTransformWriter *parent,
 	                uint32_t time_sampling,

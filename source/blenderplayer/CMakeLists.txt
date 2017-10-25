@@ -87,12 +87,6 @@ list(APPEND BLENDER_LINK_LIBS
 	blenkernel_blc
 )
 
-if(WITH_AUDASPACE AND NOT WITH_SYSTEM_AUDASPACE)
-	list(APPEND BLENDER_LINK_LIBS
-		audaspace
-		audaspace-py)
-endif()
-
 if(CMAKE_SYSTEM_NAME MATCHES "Linux")
 	list(APPEND BLENDER_LINK_LIBS extern_binreloc)
 endif()
@@ -129,7 +123,6 @@ endif()
 		bf_intern_moto 
 		bf_nodes
 		bf_gpu
-		bf_intern_gawain
 		bf_imbuf
 		bf_avi 
 		ge_logic_network 
@@ -152,8 +145,6 @@ endif()
 		bf_blenfont
 		bf_blentranslation
 		bf_intern_audaspace
-		audaspace
-		audaspace-py
 		blenkernel_blc
 		bf_bmesh
 		bf_blenlib

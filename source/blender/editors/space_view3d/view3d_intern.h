@@ -38,7 +38,6 @@
 struct ARegion;
 struct ARegionType;
 struct BoundBox;
-struct Gwn_Batch;
 struct DerivedMesh;
 struct Object;
 struct SmokeDomainSettings;
@@ -47,11 +46,9 @@ struct bContext;
 struct bMotionPath;
 struct bPoseChannel;
 struct Mesh;
-struct SceneLayer;
 struct wmOperatorType;
 struct wmWindowManager;
 struct wmKeyConfig;
-struct wmManipulatorGroupType;
 
 /* drawing flags: */
 enum {
@@ -102,6 +99,7 @@ void VIEW3D_OT_view_orbit(struct wmOperatorType *ot);
 void VIEW3D_OT_view_roll(struct wmOperatorType *ot);
 void VIEW3D_OT_clip_border(struct wmOperatorType *ot);
 void VIEW3D_OT_cursor3d(struct wmOperatorType *ot);
+void VIEW3D_OT_manipulator(struct wmOperatorType *ot);
 void VIEW3D_OT_enable_manipulator(struct wmOperatorType *ot);
 void VIEW3D_OT_render_border(struct wmOperatorType *ot);
 void VIEW3D_OT_clear_render_border(struct wmOperatorType *ot);
@@ -144,29 +142,13 @@ void draw_motion_paths_cleanup(View3D *v3d);
 
 
 /* drawobject.c */
-void draw_object(
-        const struct EvaluationContext *eval_ctx, Scene *scene, struct SceneLayer *sl, struct ARegion *ar, View3D *v3d,
-        BaseLegacy *base, const short dflag);
-void draw_object_select(
-        const struct EvaluationContext *eval_ctx, Scene *scene, struct SceneLayer *sl, struct ARegion *ar, View3D *v3d,
-        Base *base, const short dflag);
+void draw_object(Scene *scene, struct ARegion *ar, View3D *v3d, Base *base, const short dflag);
+void draw_object_select(Scene *scene, ARegion *ar, View3D *v3d, Base *base, const short dflag);
 
-void draw_mesh_object_outline(View3D *v3d, Object *ob, struct DerivedMesh *dm, const unsigned char ob_wire_col[4]);
-
-bool draw_glsl_material(Scene *scene, struct SceneLayer *sl, struct Object *ob, View3D *v3d, const char dt);
-void draw_object_instance(const struct EvaluationContext *eval_ctx, Scene *scene, struct SceneLayer *sl, View3D *v3d, RegionView3D *rv3d, struct Object *ob, const char dt, int outline, const float wire_col[4]);
-void draw_object_backbufsel(const struct EvaluationContext *eval_ctx, Scene *scene, View3D *v3d, RegionView3D *rv3d, struct Object *ob);
-
-void draw_object_wire_color(Scene *scene, struct SceneLayer *, Base *base, unsigned char r_ob_wire_col[4]);
-void drawaxes(const float viewmat_local[4][4], float size, char drawtype, const unsigned char color[4]);
-void drawlamp(View3D *v3d, RegionView3D *rv3d, Base *base,
-              const char dt, const short dflag, const unsigned char ob_wire_col[4],
-              const bool is_obact);
-void drawcamera(Scene *scene, View3D *v3d, RegionView3D *rv3d, Base *base,
-                const short dflag, const unsigned char ob_wire_col[4]);
-void drawspeaker(const unsigned char ob_wire_col[3]);
-void draw_bounding_volume(struct Object *ob, char type, const unsigned char ob_wire_col[4]);
-void draw_rigidbody_shape(struct Object *ob, const unsigned char ob_wire_col[4]);
+bool draw_glsl_material(Scene *scene, struct Object *ob, View3D *v3d, const char dt);
+void draw_object_instance(Scene *scene, View3D *v3d, RegionView3D *rv3d, struct Object *ob, const char dt, int outline);
+void draw_object_backbufsel(Scene *scene, View3D *v3d, RegionView3D *rv3d, struct Object *ob);
+void drawaxes(const float viewmat_local[4][4], float size, char drawtype);
 
 void view3d_cached_text_draw_begin(void);
 void view3d_cached_text_draw_add(const float co[3],
@@ -187,13 +169,12 @@ enum {
 int view3d_effective_drawtype(const struct View3D *v3d);
 
 /* drawarmature.c */
-bool draw_armature(
-        const struct EvaluationContext *eval_ctx, Scene *scene, struct SceneLayer *sl, View3D *v3d, ARegion *ar, Base *base,
-        const short dt, const short dflag, const unsigned char ob_wire_col[4],
-        const bool is_outline);
+bool draw_armature(Scene *scene, View3D *v3d, ARegion *ar, Base *base,
+                   const short dt, const short dflag, const unsigned char ob_wire_col[4],
+                   const bool is_outline);
 
 /* drawmesh.c */
-void draw_mesh_textured(Scene *scene, struct SceneLayer *sl, View3D *v3d, RegionView3D *rv3d,
+void draw_mesh_textured(Scene *scene, View3D *v3d, RegionView3D *rv3d,
                         struct Object *ob, struct DerivedMesh *dm, const int draw_flags);
 void draw_mesh_face_select(
         struct RegionView3D *rv3d, struct Mesh *me, struct DerivedMesh *dm,
@@ -214,25 +195,16 @@ void draw_sim_debug_data(Scene *scene, View3D *v3d, ARegion *ar);
 
 /* view3d_draw.c */
 void view3d_main_region_draw(const struct bContext *C, struct ARegion *ar);
-void view3d_draw_region_info(const struct bContext *C, struct ARegion *ar, const int offset);
-
-void ED_view3d_draw_depth(
-        const struct EvaluationContext *eval_ctx, struct Depsgraph *graph,
-        struct ARegion *ar, View3D *v3d, bool alphaoverride);
-
-/* view3d_draw_legacy.c */
-void view3d_main_region_draw_legacy(const struct bContext *C, struct ARegion *ar);
-void ED_view3d_draw_depth_gpencil(const struct EvaluationContext *eval_ctx, Scene *scene, ARegion *ar, View3D *v3d);
-
+void ED_view3d_draw_depth(Scene *scene, struct ARegion *ar, View3D *v3d, bool alphaoverride);
+void ED_view3d_draw_depth_gpencil(Scene *scene, ARegion *ar, View3D *v3d);
 void ED_view3d_draw_select_loop(
-        const struct EvaluationContext *eval_ctx, ViewContext *vc, Scene *scene, struct SceneLayer *sl, View3D *v3d, ARegion *ar,
+        ViewContext *vc, Scene *scene, View3D *v3d, ARegion *ar,
         bool use_obedit_skip, bool use_nearest);
 
-void ED_view3d_draw_depth_loop(
-        const struct EvaluationContext *eval_ctx, Scene *scene, ARegion *ar, View3D *v3d);
+void ED_view3d_after_add(ListBase *lb, Base *base, const short dflag);\
 
-void ED_view3d_after_add(ListBase *lb, BaseLegacy *base, const short dflag);
-
+void circf(float x, float y, float rad);
+void circ(float x, float y, float rad);
 void view3d_update_depths_rect(struct ARegion *ar, struct ViewDepths *d, struct rcti *rect);
 float view3d_depth_near(struct ViewDepths *d);
 
@@ -247,6 +219,7 @@ void VIEW3D_OT_smoothview(struct wmOperatorType *ot);
 void VIEW3D_OT_camera_to_view(struct wmOperatorType *ot);
 void VIEW3D_OT_camera_to_view_selected(struct wmOperatorType *ot);
 void VIEW3D_OT_object_as_camera(struct wmOperatorType *ot);
+void VIEW3D_OT_localview(struct wmOperatorType *ot);
 void VIEW3D_OT_game_start(struct wmOperatorType *ot);
 
 
@@ -275,7 +248,7 @@ void ED_view3d_smooth_view_force_finish(
         struct View3D *v3d, struct ARegion *ar);
 
 void view3d_winmatrix_set(ARegion *ar, const View3D *v3d, const rcti *rect);
-void view3d_viewmatrix_set(const struct EvaluationContext *eval_ctx, Scene *scene, const View3D *v3d, RegionView3D *rv3d);
+void view3d_viewmatrix_set(Scene *scene, const View3D *v3d, RegionView3D *rv3d);
 
 void fly_modal_keymap(struct wmKeyConfig *keyconf);
 void walk_modal_keymap(struct wmKeyConfig *keyconf);
@@ -290,7 +263,7 @@ void view3d_buttons_register(struct ARegionType *art);
 
 /* view3d_camera_control.c */
 struct View3DCameraControl *ED_view3d_cameracontrol_acquire(
-        const struct bContext *C, Scene *scene, View3D *v3d, RegionView3D *rv3d,
+        Scene *scene, View3D *v3d, RegionView3D *rv3d,
         const bool use_parent_root);
 void ED_view3d_cameracontrol_update(
         struct View3DCameraControl *vctrl,
@@ -305,6 +278,7 @@ Object *ED_view3d_cameracontrol_object_get(
 /* view3d_toolbar.c */
 void VIEW3D_OT_toolshelf(struct wmOperatorType *ot);
 void view3d_toolshelf_register(struct ARegionType *art);
+void view3d_tool_props_register(struct ARegionType *art);
 
 /* view3d_snap.c */
 bool ED_view3d_minmax_verts(struct Object *obedit, float min[3], float max[3]);
@@ -322,16 +296,6 @@ ARegion *view3d_has_buttons_region(ScrArea *sa);
 ARegion *view3d_has_tools_region(ScrArea *sa);
 
 extern const char *view3d_context_dir[]; /* doc access */
-
-/* view3d_widgets.c */
-void VIEW3D_WGT_lamp_spot(struct wmManipulatorGroupType *wgt);
-void VIEW3D_WGT_lamp_area(struct wmManipulatorGroupType *wgt);
-void VIEW3D_WGT_lamp_target(struct wmManipulatorGroupType *wgt);
-void VIEW3D_WGT_camera(struct wmManipulatorGroupType *wgt);
-void VIEW3D_WGT_camera_view(struct wmManipulatorGroupType *wgt);
-void VIEW3D_WGT_force_field(struct wmManipulatorGroupType *wgt);
-void VIEW3D_WGT_empty_image(struct wmManipulatorGroupType *wgt);
-void VIEW3D_WGT_armature_spline(struct wmManipulatorGroupType *wgt);
 
 /* draw_volume.c */
 void draw_smoke_volume(struct SmokeDomainSettings *sds, struct Object *ob,
@@ -351,31 +315,5 @@ extern unsigned char view3d_camera_border_hack_col[3];
 extern bool view3d_camera_border_hack_test;
 #endif
 
-/* temporary for legacy viewport to work */
-void VP_legacy_drawcursor(Scene *scene, struct SceneLayer *sl, ARegion *ar, View3D *v3d);
-void VP_legacy_draw_view_axis(RegionView3D *rv3d, rcti *rect);
-void VP_legacy_draw_viewport_name(ARegion *ar, View3D *v3d, rcti *rect);
-void VP_legacy_draw_selected_name(Scene *scene, Object *ob, rcti *rect);
-void VP_legacy_drawgrid(UnitSettings *unit, ARegion *ar, View3D *v3d, const char **grid_unit);
-void VP_legacy_drawfloor(Scene *scene, View3D *v3d, const char **grid_unit, bool write_depth);
-void VP_legacy_view3d_main_region_setup_view(const struct EvaluationContext *eval_ctx, Scene *scene, View3D *v3d, ARegion *ar, float viewmat[4][4], float winmat[4][4]);
-bool VP_legacy_view3d_stereo3d_active(struct wmWindow *win, Scene *scene, View3D *v3d, RegionView3D *rv3d);
-void VP_legacy_view3d_stereo3d_setup(const struct EvaluationContext *eval_ctx, Scene *scene, View3D *v3d, ARegion *ar);
-void draw_dupli_objects(const struct EvaluationContext *eval_ctx, Scene *scene, SceneLayer *sl, ARegion *ar, View3D *v3d, BaseLegacy *base);
-bool VP_legacy_use_depth(Scene *scene, View3D *v3d);
-void VP_drawviewborder(Scene *scene, ARegion *ar, View3D *v3d);
-void VP_drawrenderborder(ARegion *ar, View3D *v3d);
-void VP_view3d_draw_background_none(void);
-void VP_view3d_draw_background_world(Scene *scene, View3D *v3d, RegionView3D *rv3d);
-void VP_view3d_main_region_clear(Scene *scene, View3D *v3d, ARegion *ar);
-
-/* temporary legacy calls, only when there is a switch between new/old draw calls */
-void VP_deprecated_gpu_update_lamps_shadows_world(const struct EvaluationContext *eval_ctx, Scene *scene, View3D *v3d);
-void VP_deprecated_view3d_draw_objects(
-        const struct bContext *C,
-        const struct EvaluationContext *eval_ctx,
-        Scene *scene, View3D *v3d, ARegion *ar,
-        const char **grid_unit,
-        const bool do_bgpic, const bool draw_offscreen, struct GPUFX *fx);
-
 #endif /* __VIEW3D_INTERN_H__ */
+

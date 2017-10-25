@@ -52,15 +52,12 @@ int BlenderSession::end_resumable_chunk = 0;
 BlenderSession::BlenderSession(BL::RenderEngine& b_engine,
                                BL::UserPreferences& b_userpref,
                                BL::BlendData& b_data,
-                               BL::Depsgraph& b_depsgraph,
                                BL::Scene& b_scene)
 : b_engine(b_engine),
   b_userpref(b_userpref),
   b_data(b_data),
   b_render(b_engine.render()),
-  b_depsgraph(b_depsgraph),
   b_scene(b_scene),
-  b_scene_layer(b_engine.scene_layer()),
   b_v3d(PointerRNA_NULL),
   b_rv3d(PointerRNA_NULL),
   python_thread_state(NULL)
@@ -79,7 +76,6 @@ BlenderSession::BlenderSession(BL::RenderEngine& b_engine,
 BlenderSession::BlenderSession(BL::RenderEngine& b_engine,
                                BL::UserPreferences& b_userpref,
                                BL::BlendData& b_data,
-                               BL::Depsgraph& b_depsgraph,
                                BL::Scene& b_scene,
                                BL::SpaceView3D& b_v3d,
                                BL::RegionView3D& b_rv3d,
@@ -88,9 +84,7 @@ BlenderSession::BlenderSession(BL::RenderEngine& b_engine,
   b_userpref(b_userpref),
   b_data(b_data),
   b_render(b_scene.render()),
-  b_depsgraph(b_depsgraph),
   b_scene(b_scene),
-  b_scene_layer(b_engine.scene_layer()),
   b_v3d(b_v3d),
   b_rv3d(b_rv3d),
   width(width),
@@ -148,7 +142,7 @@ void BlenderSession::create_session()
 	session->scene = scene;
 
 	/* create sync */
-	sync = new BlenderSync(b_engine, b_data, b_depsgraph, b_scene, scene, !background, session->progress);
+	sync = new BlenderSync(b_engine, b_data, b_scene, scene, !background, session->progress);
 	BL::Object b_camera_override(b_engine.camera_override());
 	if(b_v3d) {
 		if(session_pause == false) {
@@ -217,7 +211,7 @@ void BlenderSession::reset_session(BL::BlendData& b_data_, BL::Scene& b_scene_)
 	session->stats.mem_peak = session->stats.mem_used;
 
 	/* sync object should be re-created */
-	sync = new BlenderSync(b_engine, b_data, b_depsgraph, b_scene, scene, !background, session->progress);
+	sync = new BlenderSync(b_engine, b_data, b_scene, scene, !background, session->progress);
 
 	/* for final render we will do full data sync per render layer, only
 	 * do some basic syncing here, no objects or materials for speed */
@@ -1300,7 +1294,7 @@ bool BlenderSession::builtin_image_float_pixels(const string &builtin_name,
 			BL::ShaderNodeTexPointDensity b_point_density_node(b_node);
 			int length;
 			int settings = background ? 1 : 0;  /* 1 - render settings, 0 - vewport settings. */
-			b_point_density_node.calc_point_density(b_scene, b_scene_layer, settings, &length, &pixels);
+			b_point_density_node.calc_point_density(b_scene, settings, &length, &pixels);
 		}
 	}
 

@@ -67,9 +67,7 @@ int collada_import(bContext *C,
 	return 0;
 }
 
-int collada_export(const EvaluationContext *eval_ctx,
-                   Scene *sce,
-                   SceneLayer *scene_layer,
+int collada_export(Scene *sce,
                    const char *filepath,
 
                    int apply_modifiers,
@@ -82,7 +80,7 @@ int collada_export(const EvaluationContext *eval_ctx,
                    int deform_bones_only,
 
 				   int active_uv_only,
-				   int include_material_textures,
+				   BC_export_texture_type export_texture_type,
 				   int use_texture_copies,
 
                    int triangulate,
@@ -107,7 +105,7 @@ int collada_export(const EvaluationContext *eval_ctx,
 	export_settings.deform_bones_only        = deform_bones_only != 0;
 
 	export_settings.active_uv_only           = active_uv_only != 0;
-	export_settings.include_material_textures= include_material_textures != 0;
+	export_settings.export_texture_type      = export_texture_type;
 	export_settings.use_texture_copies       = use_texture_copies != 0;
 
 	export_settings.triangulate                = triangulate != 0;
@@ -124,7 +122,7 @@ int collada_export(const EvaluationContext *eval_ctx,
 	if (export_settings.include_children) includeFilter |= OB_REL_CHILDREN_RECURSIVE;
 
 	eObjectSet objectSet = (export_settings.selected) ? OB_SET_SELECTED : OB_SET_ALL;
-	export_settings.export_set = BKE_object_relational_superset(scene_layer, objectSet, (eObRelationTypes)includeFilter);
+	export_settings.export_set = BKE_object_relational_superset(sce, objectSet, (eObRelationTypes)includeFilter);
 	int export_count = BLI_linklist_count(export_settings.export_set);
 
 	if (export_count == 0) {
@@ -141,7 +139,7 @@ int collada_export(const EvaluationContext *eval_ctx,
 	}
 
 	DocumentExporter exporter(&export_settings);
-	int status = exporter.exportCurrentScene(eval_ctx, sce);
+	int status = exporter.exportCurrentScene(sce);
 
 	BLI_linklist_free(export_settings.export_set, NULL);
 

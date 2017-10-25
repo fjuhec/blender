@@ -45,8 +45,8 @@ class PhysicButtonsPanel:
     @classmethod
     def poll(cls, context):
         ob = context.object
-        view_render = context.scene.view_render
-        return (ob and ob.type == 'MESH') and (view_render.engine in cls.COMPAT_ENGINES) and (context.cloth)
+        rd = context.scene.render
+        return (ob and ob.type == 'MESH') and (rd.engine in cls.COMPAT_ENGINES) and (context.cloth)
 
 
 class PHYSICS_PT_cloth(PhysicButtonsPanel, Panel):
@@ -63,8 +63,6 @@ class PHYSICS_PT_cloth(PhysicButtonsPanel, Panel):
         layout.active = cloth_panel_enabled(md)
 
         split = layout.split(percentage=0.25)
-
-        col = split.column()
 
         split.label(text="Presets:")
         sub = split.row(align=True)

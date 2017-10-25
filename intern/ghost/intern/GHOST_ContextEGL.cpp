@@ -42,6 +42,11 @@
 #include <cstring>
 
 
+#ifdef WITH_GLEW_MX
+EGLEWContext *eglewContext = NULL;
+#endif
+
+
 #define CASE_CODE_RETURN_STR(code) case code: return #code;
 
 static const char *get_egl_error_enum_string(EGLenum error)
@@ -163,8 +168,13 @@ static bool egl_chk(bool result, const char *file = NULL, int line = 0, const ch
 
 static inline bool bindAPI(EGLenum api)
 {
-	if (EGLEW_VERSION_1_2) {
-		return (EGL_CHK(eglBindAPI(api)) == EGL_TRUE);
+#ifdef WITH_GLEW_MX
+	if (eglewContext != NULL)
+#endif
+	{
+		if (EGLEW_VERSION_1_2) {
+			return (EGL_CHK(eglBindAPI(api)) == EGL_TRUE);
+		}
 	}
 
 	return false;
@@ -228,6 +238,9 @@ GHOST_ContextEGL::GHOST_ContextEGL(
       m_surface(EGL_NO_SURFACE),
       m_display(EGL_NO_DISPLAY),
       m_swap_interval(1),
+#ifdef WITH_GLEW_MX
+      m_eglewContext(NULL),
+#endif
       m_sharedContext(choose_api(api, s_gl_sharedContext, s_gles_sharedContext, s_vg_sharedContext)),
       m_sharedCount  (choose_api(api, s_gl_sharedCount,   s_gles_sharedCount,   s_vg_sharedCount))
 {
@@ -239,6 +252,7 @@ GHOST_ContextEGL::GHOST_ContextEGL(
 GHOST_ContextEGL::~GHOST_ContextEGL()
 {
 	if (m_display != EGL_NO_DISPLAY) {
+		activateEGLEW();
 
 		bindAPI(m_api);
 
@@ -262,6 +276,10 @@ GHOST_ContextEGL::~GHOST_ContextEGL()
 			EGL_CHK(::eglDestroySurface(m_display, m_surface));
 
 		EGL_CHK(::eglTerminate(m_display));
+
+#ifdef WITH_GLEW_MX
+		delete m_eglewContext;
+#endif
 	}
 }
 
@@ -303,6 +321,9 @@ GHOST_TSuccess GHOST_ContextEGL::getSwapInterval(int &intervalOut)
 GHOST_TSuccess GHOST_ContextEGL::activateDrawingContext()
 {
 	if (m_display) {
+		activateEGLEW();
+		activateGLEW();
+
 		bindAPI(m_api);
 
 		return EGL_CHK(::eglMakeCurrent(m_display, m_surface, m_surface, m_context)) ? GHOST_kSuccess : GHOST_kFailure;
@@ -315,6 +336,14 @@ GHOST_TSuccess GHOST_ContextEGL::activateDrawingContext()
 
 void GHOST_ContextEGL::initContextEGLEW()
 {
+#ifdef WITH_GLEW_MX
+	eglewContext = new EGLEWContext;
+	memset(eglewContext, 0, sizeof(EGLEWContext));
+
+	delete m_eglewContext;
+	m_eglewContext = eglewContext;
+#endif
+
 	if (GLEW_CHK(eglewInit(m_display)) != GLEW_OK)
 		fprintf(stderr, "Warning! EGLEW failed to initialize properly.\n");
 }

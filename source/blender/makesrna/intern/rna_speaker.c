@@ -41,6 +41,7 @@
 
 #include "MEM_guardedalloc.h"
 
+#include "BKE_depsgraph.h"
 #include "BKE_main.h"
 
 #include "WM_api.h"

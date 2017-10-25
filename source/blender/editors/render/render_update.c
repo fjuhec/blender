@@ -38,11 +38,8 @@
 #include "DNA_screen_types.h"
 #include "DNA_space_types.h"
 #include "DNA_view3d_types.h"
-#include "DNA_workspace_types.h"
 #include "DNA_world_types.h"
 #include "DNA_windowmanager_types.h"
-
-#include "DRW_engine.h"
 
 #include "BLI_listbase.h"
 #include "BLI_threads.h"
@@ -51,15 +48,12 @@
 #include "BKE_context.h"
 #include "BKE_DerivedMesh.h"
 #include "BKE_icons.h"
-#include "BKE_layer.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
 #include "BKE_node.h"
 #include "BKE_paint.h"
 #include "BKE_scene.h"
-#include "BKE_workspace.h"
 
-#include "GPU_lamp.h"
 #include "GPU_material.h"
 #include "GPU_buffers.h"
 
@@ -69,8 +63,6 @@
 #include "ED_node.h"
 #include "ED_render.h"
 #include "ED_view3d.h"
-
-#include "WM_api.h"
 
 #include "render_intern.h"  // own include
 
@@ -110,14 +102,12 @@ void ED_render_scene_update(Main *bmain, Scene *scene, int updated)
 	wm = bmain->wm.first;
 	
 	for (win = wm->windows.first; win; win = win->next) {
-		bScreen *sc = WM_window_get_active_screen(win);
+		bScreen *sc = win->screen;
 		ScrArea *sa;
 		ARegion *ar;
 		
 		CTX_wm_window_set(C, win);
-		WorkSpace *workspace = BKE_workspace_active_get(win->workspace_hook);
-		ViewRender *view_render = BKE_viewrender_get(win->scene, workspace);
-
+		
 		for (sa = sc->areabase.first; sa; sa = sa->next) {
 			if (sa->spacetype != SPACE_VIEW3D)
 				continue;
@@ -143,16 +133,6 @@ void ED_render_scene_update(Main *bmain, Scene *scene, int updated)
 
 					engine->flag &= ~RE_ENGINE_DO_UPDATE;
 					engine->type->view_update(engine, C);
-
-				}
-				else if ((RE_engines_find(view_render->engine_id)->flag & RE_USE_LEGACY_PIPELINE) == 0) {
-					if (updated) {
-						CTX_wm_screen_set(C, sc);
-						CTX_wm_area_set(C, sa);
-						CTX_wm_region_set(C, ar);
-
-						DRW_notify_view_update(C);
-					}
 				}
 			}
 		}
@@ -218,7 +198,7 @@ void ED_render_engine_changed(Main *bmain)
 }
 
 /***************************** Updates ***********************************
- * ED_render_id_flush_update gets called from DEG_id_tag_update, to do   *
+ * ED_render_id_flush_update gets called from DAG_id_tag_update, to do   *
  * editor level updates when the ID changes. when these ID blocks are in *
  * the dependency graph, we can get rid of the manual dependency checks  */
 
@@ -315,11 +295,8 @@ static void material_changed(Main *bmain, Material *ma)
 	BKE_icon_changed(BKE_icon_id_ensure(&ma->id));
 
 	/* glsl */
-	if (ma->id.tag & LIB_TAG_ID_RECALC) {
-		if (!BLI_listbase_is_empty(&ma->gpumaterial)) {
-			GPU_material_free(&ma->gpumaterial);
-		}
-	}
+	if (ma->gpumaterial.first)
+		GPU_material_free(&ma->gpumaterial);
 
 	/* find node materials using this */
 	for (parent = bmain->mat.first; parent; parent = parent->id.next) {
@@ -367,6 +344,7 @@ static void material_changed(Main *bmain, Material *ma)
 static void lamp_changed(Main *bmain, Lamp *la)
 {
 	Object *ob;
+	Material *ma;
 
 	/* icons */
 	BKE_icon_changed(BKE_icon_id_ensure(&la->id));
@@ -375,6 +353,10 @@ static void lamp_changed(Main *bmain, Lamp *la)
 	for (ob = bmain->object.first; ob; ob = ob->id.next)
 		if (ob->data == la && ob->gpulamp.first)
 			GPU_lamp_free(ob);
+
+	for (ma = bmain->mat.first; ma; ma = ma->id.next)
+		if (ma->gpumaterial.first)
+			GPU_material_free(&ma->gpumaterial);
 
 	if (defmaterial.gpumaterial.first)
 		GPU_material_free(&defmaterial.gpumaterial);
@@ -396,7 +378,6 @@ static void texture_changed(Main *bmain, Tex *tex)
 	Lamp *la;
 	World *wo;
 	Scene *scene;
-	SceneLayer *sl;
 	Object *ob;
 	bNode *node;
 	bool texture_draw = false;
@@ -405,11 +386,8 @@ static void texture_changed(Main *bmain, Tex *tex)
 	BKE_icon_changed(BKE_icon_id_ensure(&tex->id));
 
 	/* paint overlays */
-	for (scene = bmain->scene.first; scene; scene = scene->id.next) {
-		for (sl = scene->render_layers.first; sl; sl = sl->next) {
-			BKE_paint_invalidate_overlay_tex(scene, sl, tex);
-		}
-	}
+	for (scene = bmain->scene.first; scene; scene = scene->id.next)
+		BKE_paint_invalidate_overlay_tex(scene, tex);
 
 	/* find materials */
 	for (ma = bmain->mat.first; ma; ma = ma->id.next) {
@@ -490,23 +468,23 @@ static void texture_changed(Main *bmain, Tex *tex)
 	}
 }
 
-static void world_changed(Main *UNUSED(bmain), World *wo)
+static void world_changed(Main *bmain, World *wo)
 {
+	Material *ma;
+
 	/* icons */
 	BKE_icon_changed(BKE_icon_id_ensure(&wo->id));
-
-	/* XXX temporary flag waiting for depsgraph proper tagging */
-	wo->update_flag = 1;
-
+	
 	/* glsl */
-	if (wo->id.tag & LIB_TAG_ID_RECALC) {
-		if (!BLI_listbase_is_empty(&defmaterial.gpumaterial)) {
-			GPU_material_free(&defmaterial.gpumaterial);
-		}
-		if (!BLI_listbase_is_empty(&wo->gpumaterial)) {
-			GPU_material_free(&wo->gpumaterial);
-		}
-	}
+	for (ma = bmain->mat.first; ma; ma = ma->id.next)
+		if (ma->gpumaterial.first)
+			GPU_material_free(&ma->gpumaterial);
+
+	if (defmaterial.gpumaterial.first)
+		GPU_material_free(&defmaterial.gpumaterial);
+	
+	if (wo->gpumaterial.first)
+		GPU_material_free(&wo->gpumaterial);
 }
 
 static void image_changed(Main *bmain, Image *ima)
@@ -525,15 +503,31 @@ static void image_changed(Main *bmain, Image *ima)
 static void scene_changed(Main *bmain, Scene *scene)
 {
 	Object *ob;
+	Material *ma;
+	World *wo;
 
 	/* glsl */
 	for (ob = bmain->object.first; ob; ob = ob->id.next) {
+		if (ob->gpulamp.first)
+			GPU_lamp_free(ob);
+		
 		if (ob->mode & OB_MODE_TEXTURE_PAINT) {
 			BKE_texpaint_slots_refresh_object(scene, ob);
 			BKE_paint_proj_mesh_data_check(scene, ob, NULL, NULL, NULL, NULL);
 			GPU_drawobject_free(ob->derivedFinal);
 		}
 	}
+
+	for (ma = bmain->mat.first; ma; ma = ma->id.next)
+		if (ma->gpumaterial.first)
+			GPU_material_free(&ma->gpumaterial);
+
+	for (wo = bmain->world.first; wo; wo = wo->id.next)
+		if (wo->gpumaterial.first)
+			GPU_material_free(&wo->gpumaterial);
+	
+	if (defmaterial.gpumaterial.first)
+		GPU_material_free(&defmaterial.gpumaterial);
 }
 
 void ED_render_id_flush_update(Main *bmain, ID *id)
@@ -578,6 +572,6 @@ void ED_render_internal_init(void)
 	RenderEngineType *ret = RE_engines_find(RE_engine_id_BLENDER_RENDER);
 	
 	ret->view_update = render_view3d_update;
-	ret->render_to_view = render_view3d_draw;
+	ret->view_draw = render_view3d_draw;
 	
 }

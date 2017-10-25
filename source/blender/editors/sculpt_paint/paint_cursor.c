@@ -54,14 +54,14 @@
 
 #include "WM_api.h"
 
+#include "BIF_gl.h"
+#include "BIF_glutil.h"
+
 #include "IMB_imbuf_types.h"
 
 #include "ED_view3d.h"
 
-#include "GPU_draw.h"
-#include "GPU_immediate.h"
-#include "GPU_immediate_util.h"
-#include "GPU_matrix.h"
+#include "GPU_basic_shader.h"
 
 #include "UI_resources.h"
 
@@ -336,8 +336,8 @@ static int load_tex(Brush *br, ViewContext *vc, float zoom, bool col, bool prima
 	glBindTexture(GL_TEXTURE_2D, target->overlay_texture);
 
 	if (refresh) {
-		GLenum format = col ? GL_RGBA : GL_RED;
-		GLenum internalformat = col ? GL_RGBA8 : GL_R8;
+		GLenum format = col ? GL_RGBA : GL_ALPHA;
+		GLenum internalformat = col ? GL_RGBA8 : GL_ALPHA8;
 
 		if (!init || (target->old_col != col)) {
 			glTexImage2D(GL_TEXTURE_2D, 0, internalformat, size, size, 0, format, GL_UNSIGNED_BYTE, buffer);
@@ -351,6 +351,8 @@ static int load_tex(Brush *br, ViewContext *vc, float zoom, bool col, bool prima
 
 		target->old_col = col;
 	}
+
+	GPU_basic_shader_bind(GPU_SHADER_TEXTURE_2D | GPU_SHADER_USE_COLOR);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -458,15 +460,17 @@ static int load_tex_cursor(Brush *br, ViewContext *vc, float zoom)
 
 	if (refresh) {
 		if (!init) {
-			glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, size, size, 0, GL_RED, GL_UNSIGNED_BYTE, buffer);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA8, size, size, 0, GL_ALPHA, GL_UNSIGNED_BYTE, buffer);
 		}
 		else {
-			glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, size, size, GL_RED, GL_UNSIGNED_BYTE, buffer);
+			glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, size, size, GL_ALPHA, GL_UNSIGNED_BYTE, buffer);
 		}
 
 		if (buffer)
 			MEM_freeN(buffer);
 	}
+
+	GPU_basic_shader_bind(GPU_SHADER_TEXTURE_2D | GPU_SHADER_USE_COLOR);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -601,20 +605,22 @@ static void paint_draw_tex_overlay(UnifiedPaintSettings *ups, Brush *brush,
 		glDepthMask(GL_FALSE);
 		glDepthFunc(GL_ALWAYS);
 
-		if (mtex->brush_map_mode == MTEX_MAP_MODE_VIEW) {
-			gpuPushMatrix();
+		glMatrixMode(GL_TEXTURE);
+		glPushMatrix();
+		glLoadIdentity();
 
+		if (mtex->brush_map_mode == MTEX_MAP_MODE_VIEW) {
 			/* brush rotation */
-			gpuTranslate2f(x, y);
-			gpuRotate2D(-RAD2DEGF(primary ? ups->brush_rotation : ups->brush_rotation_sec));
-			gpuTranslate2f(-x, -y);
+			glTranslatef(0.5, 0.5, 0);
+			glRotatef((double)RAD2DEGF((primary) ? ups->brush_rotation : ups->brush_rotation_sec),
+			          0.0, 0.0, 1.0);
+			glTranslatef(-0.5f, -0.5f, 0);
 
 			/* scale based on tablet pressure */
 			if (primary && ups->stroke_active && BKE_brush_use_size_pressure(vc->scene, brush)) {
-				const float scale = ups->size_pressure_value;
-				gpuTranslate2f(x, y);
-				gpuScale2f(scale, scale);
-				gpuTranslate2f(-x, -y);
+				glTranslatef(0.5f, 0.5f, 0);
+				glScalef(1.0f / ups->size_pressure_value, 1.0f / ups->size_pressure_value, 1);
+				glTranslatef(-0.5f, -0.5f, 0);
 			}
 
 			if (ups->draw_anchored) {
@@ -652,46 +658,41 @@ static void paint_draw_tex_overlay(UnifiedPaintSettings *ups, Brush *brush,
 				quad.xmax = brush->mask_stencil_dimension[0];
 				quad.ymax = brush->mask_stencil_dimension[1];
 			}
-			gpuPushMatrix();
+			glMatrixMode(GL_MODELVIEW);
+			glPushMatrix();
 			if (primary)
-				gpuTranslate2fv(brush->stencil_pos);
+				glTranslate2fv(brush->stencil_pos);
 			else
-				gpuTranslate2fv(brush->mask_stencil_pos);
-			gpuRotate2D(RAD2DEGF(mtex->rot));
+				glTranslate2fv(brush->mask_stencil_pos);
+			glRotatef(RAD2DEGF(mtex->rot), 0, 0, 1);
+			glMatrixMode(GL_TEXTURE);
 		}
 
 		/* set quad color. Colored overlay does not get blending */
-		Gwn_VertFormat *format = immVertexFormat();
-		unsigned int pos = GWN_vertformat_attr_add(format, "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
-		unsigned int texCoord = GWN_vertformat_attr_add(format, "texCoord", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
-
 		if (col) {
-			immBindBuiltinProgram(GPU_SHADER_2D_IMAGE_COLOR);
-			immUniformColor4f(1.0f, 1.0f, 1.0f, overlay_alpha * 0.01f);
+			glColor4f(1.0, 1.0, 1.0, overlay_alpha / 100.0f);
 		}
 		else {
-			immBindBuiltinProgram(GPU_SHADER_2D_IMAGE_ALPHA_COLOR);
-			immUniformColor3fvAlpha(U.sculpt_paint_overlay_col, overlay_alpha * 0.01f);
+			glColor4f(UNPACK3(U.sculpt_paint_overlay_col), overlay_alpha / 100.0f);
 		}
 
 		/* draw textured quad */
-		immUniform1i("image", GL_TEXTURE0);
+		glBegin(GL_QUADS);
+		glTexCoord2f(0, 0);
+		glVertex2f(quad.xmin, quad.ymin);
+		glTexCoord2f(1, 0);
+		glVertex2f(quad.xmax, quad.ymin);
+		glTexCoord2f(1, 1);
+		glVertex2f(quad.xmax, quad.ymax);
+		glTexCoord2f(0, 1);
+		glVertex2f(quad.xmin, quad.ymax);
+		glEnd();
 
-		immBegin(GWN_PRIM_TRI_FAN, 4);
-		immAttrib2f(texCoord, 0.0f, 0.0f);
-		immVertex2f(pos, quad.xmin, quad.ymin);
-		immAttrib2f(texCoord, 1.0f, 0.0f);
-		immVertex2f(pos, quad.xmax, quad.ymin);
-		immAttrib2f(texCoord, 1.0f, 1.0f);
-		immVertex2f(pos, quad.xmax, quad.ymax);
-		immAttrib2f(texCoord, 0.0f, 1.0f);
-		immVertex2f(pos, quad.xmin, quad.ymax);
-		immEnd();
+		glPopMatrix();
 
-		immUnbindProgram();
-
-		if (ELEM(mtex->brush_map_mode, MTEX_MAP_MODE_STENCIL, MTEX_MAP_MODE_VIEW)) {
-			gpuPopMatrix();
+		if (mtex->brush_map_mode == MTEX_MAP_MODE_STENCIL) {
+			glMatrixMode(GL_MODELVIEW);
+			glPopMatrix();
 		}
 	}
 }
@@ -739,41 +740,32 @@ static void paint_draw_cursor_overlay(UnifiedPaintSettings *ups, Brush *brush,
 		/* scale based on tablet pressure */
 		if (ups->stroke_active && BKE_brush_use_size_pressure(vc->scene, brush)) {
 			do_pop = true;
-			gpuPushMatrix();
-			gpuLoadIdentity();
-			gpuTranslate2fv(center);
-			gpuScaleUniform(ups->size_pressure_value);
-			gpuTranslate2f(-center[0], -center[1]);
+			glPushMatrix();
+			glLoadIdentity();
+			glTranslate2fv(center);
+			glScalef(ups->size_pressure_value, ups->size_pressure_value, 1);
+			glTranslatef(-center[0], -center[1], 0);
 		}
 
-		Gwn_VertFormat *format = immVertexFormat();
-		unsigned int pos = GWN_vertformat_attr_add(format, "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
-		unsigned int texCoord = GWN_vertformat_attr_add(format, "texCoord", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
-
-		immBindBuiltinProgram(GPU_SHADER_2D_IMAGE_COLOR);
-
-		immUniformColor3fvAlpha(U.sculpt_paint_overlay_col, brush->cursor_overlay_alpha * 0.01f);
+		glColor4f(U.sculpt_paint_overlay_col[0],
+		        U.sculpt_paint_overlay_col[1],
+		        U.sculpt_paint_overlay_col[2],
+		        brush->cursor_overlay_alpha / 100.0f);
 
 		/* draw textured quad */
-
-		/* draw textured quad */
-		immUniform1i("image", GL_TEXTURE0);
-
-		immBegin(GWN_PRIM_TRI_FAN, 4);
-		immAttrib2f(texCoord, 0.0f, 0.0f);
-		immVertex2f(pos, quad.xmin, quad.ymin);
-		immAttrib2f(texCoord, 1.0f, 0.0f);
-		immVertex2f(pos, quad.xmax, quad.ymin);
-		immAttrib2f(texCoord, 1.0f, 1.0f);
-		immVertex2f(pos, quad.xmax, quad.ymax);
-		immAttrib2f(texCoord, 0.0f, 1.0f);
-		immVertex2f(pos, quad.xmin, quad.ymax);
-		immEnd();
-
-		immUnbindProgram();
+		glBegin(GL_QUADS);
+		glTexCoord2f(0, 0);
+		glVertex2f(quad.xmin, quad.ymin);
+		glTexCoord2f(1, 0);
+		glVertex2f(quad.xmax, quad.ymin);
+		glTexCoord2f(1, 1);
+		glVertex2f(quad.xmax, quad.ymax);
+		glTexCoord2f(0, 1);
+		glVertex2f(quad.xmin, quad.ymax);
+		glEnd();
 
 		if (do_pop)
-			gpuPopMatrix();
+			glPopMatrix();
 	}
 }
 
@@ -783,7 +775,19 @@ static void paint_draw_alpha_overlay(UnifiedPaintSettings *ups, Brush *brush,
 	/* color means that primary brush texture is colured and secondary is used for alpha/mask control */
 	bool col = ELEM(mode, ePaintTextureProjective, ePaintTexture2D, ePaintVertex) ? true : false;
 	eOverlayControlFlags flags = BKE_paint_get_overlay_flags();
-	gpuPushAttrib(GPU_DEPTH_BUFFER_BIT | GPU_BLEND_BIT);
+	/* save lots of GL state
+	 * TODO: check on whether all of these are needed? */
+	glPushAttrib(GL_COLOR_BUFFER_BIT |
+	             GL_CURRENT_BIT |
+	             GL_DEPTH_BUFFER_BIT |
+	             GL_ENABLE_BIT |
+	             GL_LINE_BIT |
+	             GL_POLYGON_BIT |
+	             GL_STENCIL_BUFFER_BIT |
+	             GL_TRANSFORM_BIT |
+	             GL_VIEWPORT_BIT |
+	             GL_TEXTURE_BIT);
+
 
 	/* coloured overlay should be drawn separately */
 	if (col) {
@@ -801,98 +805,86 @@ static void paint_draw_alpha_overlay(UnifiedPaintSettings *ups, Brush *brush,
 			paint_draw_cursor_overlay(ups, brush, vc, x, y, zoom);
 	}
 
-	gpuPopAttrib();
+	glPopAttrib();
+	GPU_basic_shader_bind(GPU_SHADER_USE_COLOR);
 }
 
 
-BLI_INLINE void draw_tri_point(
-        unsigned int pos, float sel_col[4], float pivot_col[4],
-        float *co, float width, bool selected)
+BLI_INLINE void draw_tri_point(float *co, float width, bool selected)
 {
-	immUniformColor4fv(selected ? sel_col : pivot_col);
-
-	glLineWidth(3.0f);
-
 	float w = width / 2.0f;
-	float tri[3][2] = {
-		{co[0], co[1] + w},
-		{co[0] - w, co[1] - w},
-		{co[0] + w, co[1] - w},
-	};
+	if (selected)
+		UI_ThemeColor4(TH_VERTEX_SELECT);
+	else
+		UI_ThemeColor4(TH_PAINT_CURVE_PIVOT);
 
-	immBegin(GWN_PRIM_LINE_LOOP, 3);
-	immVertex2fv(pos, tri[0]);
-	immVertex2fv(pos, tri[1]);
-	immVertex2fv(pos, tri[2]);
-	immEnd();
+	glLineWidth(3.0);
 
-	immUniformColor4f(1.0f, 1.0f, 1.0f, 0.5f);
-	glLineWidth(1.0f);
+	glBegin(GL_LINE_LOOP);
+	glVertex2f(co[0], co[1] + w);
+	glVertex2f(co[0] - w, co[1] - w);
+	glVertex2f(co[0] + w, co[1] - w);
+	glEnd();
 
-	immBegin(GWN_PRIM_LINE_LOOP, 3);
-	immVertex2fv(pos, tri[0]);
-	immVertex2fv(pos, tri[1]);
-	immVertex2fv(pos, tri[2]);
-	immEnd();
+	glColor4f(1.0, 1.0, 1.0, 0.5);
+	glLineWidth(1.0);
+
+	glBegin(GL_LINE_LOOP);
+	glVertex2f(co[0], co[1] + w);
+	glVertex2f(co[0] - w, co[1] - w);
+	glVertex2f(co[0] + w, co[1] - w);
+	glEnd();
 }
 
-BLI_INLINE void draw_rect_point(
-        unsigned int pos, float sel_col[4], float handle_col[4],
-        float *co, float width, bool selected)
+BLI_INLINE void draw_rect_point(float *co, float width, bool selected)
 {
-	immUniformColor4fv(selected ? sel_col : handle_col);
-
-	glLineWidth(3.0f);
-
 	float w = width / 2.0f;
-	float minx = co[0] - w;
-	float miny = co[1] - w;
-	float maxx = co[0] + w;
-	float maxy = co[1] + w;
+	if (selected)
+		UI_ThemeColor4(TH_VERTEX_SELECT);
+	else
+		UI_ThemeColor4(TH_PAINT_CURVE_HANDLE);
+	glLineWidth(3.0);
 
-	imm_draw_box_wire_2d(pos, minx, miny, maxx, maxy);
+	glBegin(GL_LINE_LOOP);
+	glVertex2f(co[0] + w, co[1] + w);
+	glVertex2f(co[0] - w, co[1] + w);
+	glVertex2f(co[0] - w, co[1] - w);
+	glVertex2f(co[0] + w, co[1] - w);
+	glEnd();
 
-	immUniformColor4f(1.0f, 1.0f, 1.0f, 0.5f);
-	glLineWidth(1.0f);
+	glColor4f(1.0, 1.0, 1.0, 0.5);
+	glLineWidth(1.0);
 
-	imm_draw_box_wire_2d(pos, minx, miny, maxx, maxy);
+	glBegin(GL_LINE_LOOP);
+	glVertex2f(co[0] + w, co[1] + w);
+	glVertex2f(co[0] - w, co[1] + w);
+	glVertex2f(co[0] - w, co[1] - w);
+	glVertex2f(co[0] + w, co[1] - w);
+	glEnd();
 }
 
 
-BLI_INLINE void draw_bezier_handle_lines(unsigned int pos, float sel_col[4], BezTriple *bez)
+BLI_INLINE void draw_bezier_handle_lines(BezTriple *bez)
 {
-	immUniformColor4f(0.0f, 0.0f, 0.0f, 0.5f);
-	glLineWidth(3.0f);
+	short line1[] = {0, 1};
+	short line2[] = {1, 2};
 
-	immBegin(GWN_PRIM_LINE_STRIP, 3);
-	immVertex2fv(pos, bez->vec[0]);
-	immVertex2fv(pos, bez->vec[1]);
-	immVertex2fv(pos, bez->vec[2]);
-	immEnd();
+	glVertexPointer(2, GL_FLOAT, 3 * sizeof(float), bez->vec);
+	glColor4f(0.0, 0.0, 0.0, 0.5);
+	glLineWidth(3.0);
+	glDrawArrays(GL_LINE_STRIP, 0, 3);
 
-	glLineWidth(1.0f);
-
-	if (bez->f1 || bez->f2) {
-		immUniformColor4fv(sel_col);
-	}
-	else {
-		immUniformColor4f(1.0f, 1.0f, 1.0f, 0.5f);
-	}
-	immBegin(GWN_PRIM_LINES, 2);
-	immVertex2fv(pos, bez->vec[0]);
-	immVertex2fv(pos, bez->vec[1]);
-	immEnd();
-
-	if (bez->f3 || bez->f2) {
-		immUniformColor4fv(sel_col);
-	}
-	else {
-		immUniformColor4f(1.0f, 1.0f, 1.0f, 0.5f);
-	}
-	immBegin(GWN_PRIM_LINES, 2);
-	immVertex2fv(pos, bez->vec[1]);
-	immVertex2fv(pos, bez->vec[2]);
-	immEnd();
+	glLineWidth(1.0);
+	if (bez->f1 || bez->f2)
+		UI_ThemeColor4(TH_VERTEX_SELECT);
+	else
+		glColor4f(1.0, 1.0, 1.0, 0.5);
+	glDrawElements(GL_LINES, 2, GL_UNSIGNED_SHORT, line1);
+	if (bez->f3 || bez->f2)
+		UI_ThemeColor4(TH_VERTEX_SELECT);
+	else
+		glColor4f(1.0, 1.0, 1.0, 0.5);
+	glDrawElements(GL_LINES, 2, GL_UNSIGNED_SHORT, line2);
 }
 
 static void paint_draw_curve_cursor(Brush *brush)
@@ -904,26 +896,18 @@ static void paint_draw_curve_cursor(Brush *brush)
 
 		glEnable(GL_LINE_SMOOTH);
 		glEnable(GL_BLEND);
+		glEnableClientState(GL_VERTEX_ARRAY);
 
 		/* draw the bezier handles and the curve segment between the current and next point */
-		unsigned int pos = GWN_vertformat_attr_add(immVertexFormat(), "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
-
-		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
-
-		float selec_col[4], handle_col[4], pivot_col[4];
-		UI_GetThemeColor4fv(TH_VERTEX_SELECT, selec_col);
-		UI_GetThemeColor4fv(TH_PAINT_CURVE_HANDLE, handle_col);
-		UI_GetThemeColor4fv(TH_PAINT_CURVE_PIVOT, pivot_col);
-
 		for (i = 0; i < pc->tot_points - 1; i++, cp++) {
 			int j;
 			PaintCurvePoint *cp_next = cp + 1;
 			float data[(PAINT_CURVE_NUM_SEGMENTS + 1) * 2];
 			/* use color coding to distinguish handles vs curve segments  */
-			draw_bezier_handle_lines(pos, selec_col, &cp->bez);
-			draw_tri_point(pos, selec_col, pivot_col, &cp->bez.vec[1][0], 10.0f, cp->bez.f2);
-			draw_rect_point(pos, selec_col, handle_col, &cp->bez.vec[0][0], 8.0f, cp->bez.f1 || cp->bez.f2);
-			draw_rect_point(pos, selec_col, handle_col, &cp->bez.vec[2][0], 8.0f, cp->bez.f3 || cp->bez.f2);
+			draw_bezier_handle_lines(&cp->bez);
+			draw_tri_point(&cp->bez.vec[1][0], 10.0, cp->bez.f2);
+			draw_rect_point(&cp->bez.vec[0][0], 8.0, cp->bez.f1 || cp->bez.f2);
+			draw_rect_point(&cp->bez.vec[2][0], 8.0, cp->bez.f3 || cp->bez.f2);
 
 			for (j = 0; j < 2; j++)
 				BKE_curve_forward_diff_bezier(
@@ -933,35 +917,25 @@ static void paint_draw_curve_cursor(Brush *brush)
 				        cp_next->bez.vec[1][j],
 				        data + j, PAINT_CURVE_NUM_SEGMENTS, sizeof(float[2]));
 
-			float (*v)[2] = (float(*)[2])data;
+			glVertexPointer(2, GL_FLOAT, 0, data);
+			glLineWidth(3.0);
+			glColor4f(0.0, 0.0, 0.0, 0.5);
+			glDrawArrays(GL_LINE_STRIP, 0, PAINT_CURVE_NUM_SEGMENTS + 1);
 
-			immUniformColor4f(0.0f, 0.0f, 0.0f, 0.5f);
-			glLineWidth(3.0f);
-			immBegin(GWN_PRIM_LINE_STRIP, PAINT_CURVE_NUM_SEGMENTS + 1);
-			for (j = 0; j <= PAINT_CURVE_NUM_SEGMENTS; j++) {
-				immVertex2fv(pos, v[j]);
-			}
-			immEnd();
-
-			immUniformColor4f(0.9f, 0.9f, 1.0f, 0.5f);
-			glLineWidth(1.0f);
-			immBegin(GWN_PRIM_LINE_STRIP, PAINT_CURVE_NUM_SEGMENTS + 1);
-			for (j = 0; j <= PAINT_CURVE_NUM_SEGMENTS; j++) {
-				immVertex2fv(pos, v[j]);
-			}
-			immEnd();
+			glLineWidth(1.0);
+			glColor4f(0.9, 0.9, 1.0, 0.5);
+			glDrawArrays(GL_LINE_STRIP, 0, PAINT_CURVE_NUM_SEGMENTS + 1);
 		}
 
 		/* draw last line segment */
-		draw_bezier_handle_lines(pos, selec_col, &cp->bez);
-		draw_tri_point(pos, selec_col, pivot_col, &cp->bez.vec[1][0], 10.0f, cp->bez.f2);
-		draw_rect_point(pos, selec_col, handle_col, &cp->bez.vec[0][0], 8.0f, cp->bez.f1 || cp->bez.f2);
-		draw_rect_point(pos, selec_col, handle_col, &cp->bez.vec[2][0], 8.0f, cp->bez.f3 || cp->bez.f2);
+		draw_bezier_handle_lines(&cp->bez);
+		draw_tri_point(&cp->bez.vec[1][0], 10.0, cp->bez.f2);
+		draw_rect_point(&cp->bez.vec[0][0], 8.0, cp->bez.f1 || cp->bez.f2);
+		draw_rect_point(&cp->bez.vec[2][0], 8.0, cp->bez.f3 || cp->bez.f2);
 
 		glDisable(GL_BLEND);
 		glDisable(GL_LINE_SMOOTH);
-
-		immUnbindProgram();
+		glDisableClientState(GL_VERTEX_ARRAY);
 	}
 }
 
@@ -1015,6 +989,11 @@ static void paint_draw_cursor(bContext *C, int x, int y, void *UNUSED(unused))
 	Paint *paint = BKE_paint_get_active_from_context(C);
 	Brush *brush = BKE_paint_brush(paint);
 	ePaintMode mode = BKE_paintmode_get_active_from_context(C);
+	ViewContext vc;
+	float final_radius;
+	float translation[2];
+	float outline_alpha, *outline_col;
+	float zoomx, zoomy;
 
 	/* check that brush drawing is enabled */
 	if (ommit_cursor_drawing(paint, mode, brush))
@@ -1022,7 +1001,6 @@ static void paint_draw_cursor(bContext *C, int x, int y, void *UNUSED(unused))
 
 	/* can't use stroke vc here because this will be called during
 	 * mouse over too, not just during a stroke */
-	ViewContext vc;
 	view3d_set_viewcontext(C, &vc);
 
 	if (vc.rv3d && (vc.rv3d->rflag & RV3D_NAVIGATING)) {
@@ -1035,15 +1013,15 @@ static void paint_draw_cursor(bContext *C, int x, int y, void *UNUSED(unused))
 		return;
 	}
 
-	float zoomx, zoomy;
 	get_imapaint_zoom(C, &zoomx, &zoomy);
 	zoomx = max_ff(zoomx, zoomy);
 
 	/* set various defaults */
-	const float *outline_col = brush->add_col;
-	const float outline_alpha = 0.5f;
-	float translation[2] = { x, y };
-	float final_radius = (BKE_brush_size_get(scene, brush) * zoomx);
+	translation[0] = x;
+	translation[1] = y;
+	outline_alpha = 0.5;
+	outline_col = brush->add_col;
+	final_radius = (BKE_brush_size_get(scene, brush) * zoomx);
 
 	/* don't calculate rake angles while a stroke is active because the rake variables are global and
 	 * we may get interference with the stroke itself. For line strokes, such interference is visible */
@@ -1059,9 +1037,10 @@ static void paint_draw_cursor(bContext *C, int x, int y, void *UNUSED(unused))
 	if ((mode == ePaintSculpt) && vc.obact->sculpt) {
 		float location[3];
 		int pixel_radius;
+		bool hit;
 
 		/* test if brush is over the mesh */
-		bool hit = sculpt_get_brush_geometry(C, &vc, x, y, &pixel_radius, location, ups);
+		hit = sculpt_get_brush_geometry(C, &vc, x, y, &pixel_radius, location, ups);
 
 		if (BKE_brush_use_locked_size(scene, brush))
 			BKE_brush_size_set(scene, brush, pixel_radius);
@@ -1088,25 +1067,24 @@ static void paint_draw_cursor(bContext *C, int x, int y, void *UNUSED(unused))
 
 	/* make lines pretty */
 	glLineWidth(1.0f);
-	glEnable(GL_BLEND); /* TODO: also set blend mode? */
+	glEnable(GL_BLEND);
 	glEnable(GL_LINE_SMOOTH);
 
-	unsigned int pos = GWN_vertformat_attr_add(immVertexFormat(), "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
-	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
-
 	/* set brush color */
-	immUniformColor3fvAlpha(outline_col, outline_alpha);
+	glColor4f(outline_col[0], outline_col[1], outline_col[2], outline_alpha);
 
 	/* draw brush outline */
+	glTranslate2fv(translation);
+
+	/* draw an inner brush */
 	if (ups->stroke_active && BKE_brush_use_size_pressure(scene, brush)) {
 		/* inner at full alpha */
-		imm_draw_circle_wire_2d(pos, translation[0], translation[1], final_radius * ups->size_pressure_value, 40);
+		glutil_draw_lined_arc(0.0, M_PI * 2.0, final_radius * ups->size_pressure_value, 40);
 		/* outer at half alpha */
-		immUniformColor3fvAlpha(outline_col, outline_alpha * 0.5f);
+		glColor4f(outline_col[0], outline_col[1], outline_col[2], outline_alpha * 0.5f);
 	}
-	imm_draw_circle_wire_2d(pos, translation[0], translation[1], final_radius, 40);
-
-	immUnbindProgram();
+	glutil_draw_lined_arc(0.0, M_PI * 2.0, final_radius, 40);
+	glTranslatef(-translation[0], -translation[1], 0);
 
 	/* restore GL state */
 	glDisable(GL_BLEND);

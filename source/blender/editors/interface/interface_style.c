@@ -149,7 +149,7 @@ static uiFont *uifont_to_blfont(int id)
 
 
 void UI_fontstyle_draw_ex(
-        const uiFontStyle *fs, const rcti *rect, const char *str, const unsigned char col[4],
+        const uiFontStyle *fs, const rcti *rect, const char *str,
         size_t len, float *r_xofs, float *r_yofs)
 {
 	int xofs = 0, yofs;
@@ -196,7 +196,6 @@ void UI_fontstyle_draw_ex(
 	/* clip is very strict, so we give it some space */
 	BLF_clipping(fs->uifont_id, rect->xmin - 2, rect->ymin - 4, rect->xmax + 1, rect->ymax + 4);
 	BLF_position(fs->uifont_id, rect->xmin + xofs, rect->ymin + yofs, 0.0f);
-	BLF_color4ubv(fs->uifont_id, col);
 
 	BLF_draw(fs->uifont_id, str, len);
 
@@ -206,17 +205,17 @@ void UI_fontstyle_draw_ex(
 	*r_yofs = yofs;
 }
 
-void UI_fontstyle_draw(const uiFontStyle *fs, const rcti *rect, const char *str, const unsigned char col[4])
+void UI_fontstyle_draw(const uiFontStyle *fs, const rcti *rect, const char *str)
 {
 	float xofs, yofs;
 
 	UI_fontstyle_draw_ex(
-	        fs, rect, str, col,
+	        fs, rect, str,
 	        BLF_DRAW_STR_DUMMY_MAX, &xofs, &yofs);
 }
 
 /* drawn same as above, but at 90 degree angle */
-void UI_fontstyle_draw_rotated(const uiFontStyle *fs, const rcti *rect, const char *str, const unsigned char col[4])
+void UI_fontstyle_draw_rotated(const uiFontStyle *fs, const rcti *rect, const char *str)
 {
 	float height;
 	int xofs, yofs;
@@ -250,7 +249,6 @@ void UI_fontstyle_draw_rotated(const uiFontStyle *fs, const rcti *rect, const ch
 
 	BLF_enable(fs->uifont_id, BLF_ROTATION);
 	BLF_rotation(fs->uifont_id, angle);
-	BLF_color4ubv(fs->uifont_id, col);
 
 	if (fs->shadow) {
 		BLF_enable(fs->uifont_id, BLF_SHADOW);
@@ -277,14 +275,13 @@ void UI_fontstyle_draw_rotated(const uiFontStyle *fs, const rcti *rect, const ch
  *
  * For drawing on-screen labels.
  */
-void UI_fontstyle_draw_simple(const uiFontStyle *fs, float x, float y, const char *str, const unsigned char col[4])
+void UI_fontstyle_draw_simple(const uiFontStyle *fs, float x, float y, const char *str)
 {
 	if (fs->kerning == 1)
 		BLF_enable(fs->uifont_id, BLF_KERNING_DEFAULT);
 
 	UI_fontstyle_set(fs);
 	BLF_position(fs->uifont_id, x, y, 0.0f);
-	BLF_color4ubv(fs->uifont_id, col);
 	BLF_draw(fs->uifont_id, str, BLF_DRAW_STR_DUMMY_MAX);
 
 	if (fs->kerning == 1)
@@ -296,7 +293,7 @@ void UI_fontstyle_draw_simple(const uiFontStyle *fs, float x, float y, const cha
  */
 void UI_fontstyle_draw_simple_backdrop(
         const uiFontStyle *fs, float x, float y, const char *str,
-        const float col_fg[4], const float col_bg[4])
+        const unsigned char fg[4], const unsigned char bg[4])
 {
 	if (fs->kerning == 1)
 		BLF_enable(fs->uifont_id, BLF_KERNING_DEFAULT);
@@ -310,19 +307,21 @@ void UI_fontstyle_draw_simple_backdrop(
 		const float margin = height / 4.0f;
 
 		/* backdrop */
-		float color[4] = { col_bg[0], col_bg[1], col_bg[2], 0.5f };
+		glColor4ubv(bg);
 
-		UI_draw_roundbox_corner_set(UI_CNR_ALL);
-		UI_draw_roundbox_aa(true,
+		UI_draw_roundbox_corner_set(UI_CNR_ALL | UI_RB_ALPHA);
+		UI_draw_roundbox(
 		        x - margin,
 		        (y + decent) - margin,
 		        x + width + margin,
 		        (y + decent) + height + margin,
-		        margin, color);
+		        margin);
+
+		glColor4ubv(fg);
 	}
 
+
 	BLF_position(fs->uifont_id, x, y, 0.0f);
-	BLF_color4fv(fs->uifont_id, col_fg);
 	BLF_draw(fs->uifont_id, str, BLF_DRAW_STR_DUMMY_MAX);
 
 	if (fs->kerning == 1)

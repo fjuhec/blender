@@ -40,7 +40,6 @@ struct Mesh;
 struct Scene;
 struct DerivedMesh;
 struct MeshStatVis;
-struct EvaluationContext;
 
 /**
  * This structure is used for mesh edit-mode.
@@ -89,6 +88,7 @@ BMEditMesh *BKE_editmesh_copy(BMEditMesh *em);
 BMEditMesh *BKE_editmesh_from_object(struct Object *ob);
 void        BKE_editmesh_free_derivedmesh(BMEditMesh *em);
 void        BKE_editmesh_free(BMEditMesh *em);
+void        BKE_editmesh_update_linked_customdata(BMEditMesh *em);
 
 void        BKE_editmesh_color_free(BMEditMesh *em);
 void        BKE_editmesh_color_ensure(BMEditMesh *em, const char htype);
@@ -99,7 +99,6 @@ float     (*BKE_editmesh_vertexCos_get_orco(BMEditMesh *em, int *r_numVerts))[3]
 void        BKE_editmesh_statvis_calc(BMEditMesh *em, struct DerivedMesh *dm,
                                       const struct MeshStatVis *statvis);
 
-float (*BKE_editmesh_vertexCos_get(
-           const struct EvaluationContext *eval_ctx, struct BMEditMesh *em, struct Scene *scene, int *r_numVerts))[3];
+float (*BKE_editmesh_vertexCos_get(struct BMEditMesh *em, struct Scene *scene, int *r_numVerts))[3];
 
 #endif /* __BKE_EDITMESH_H__ */

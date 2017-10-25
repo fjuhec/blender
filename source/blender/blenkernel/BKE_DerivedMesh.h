@@ -98,7 +98,6 @@ struct ColorBand;
 struct GPUVertexAttribs;
 struct GPUDrawObject;
 struct PBVH;
-struct EvaluationContext;
 
 /* number of sub-elements each mesh element has (for interpolation) */
 #define SUB_ELEMS_VERT 0
@@ -143,6 +142,8 @@ typedef int (*DMSetMaterial)(int mat_nr, void *attribs);
 typedef int (*DMCompareDrawOptions)(void *userData, int cur_index, int next_index);
 typedef void (*DMSetDrawInterpOptions)(void *userData, int index, float t);
 typedef DMDrawOption (*DMSetDrawOptions)(void *userData, int index);
+typedef DMDrawOption (*DMSetDrawOptionsMappedTex)(void *userData, int origindex, int mat_nr);
+typedef DMDrawOption (*DMSetDrawOptionsTex)(struct MTexPoly *mtexpoly, const bool has_vcol, int matnr);
 
 typedef enum DMDrawFlag {
 	DM_DRAW_USE_COLORS          = (1 << 0),
@@ -388,6 +389,9 @@ struct DerivedMesh {
 	/** Draw all vertices as bgl points (no options) */
 	void (*drawVerts)(DerivedMesh *dm);
 
+	/** Draw edges in the UV mesh (if exists) */
+	void (*drawUVEdges)(DerivedMesh *dm);
+
 	/** Draw all edges as lines (no options)
 	 *
 	 * Also called for *final* editmode DerivedMeshes
@@ -406,6 +410,14 @@ struct DerivedMesh {
 	 */
 	void (*drawFacesSolid)(DerivedMesh *dm, float (*partial_redraw_planes)[4],
 	                       bool fast, DMSetMaterial setMaterial);
+
+	/** Draw all faces using MTFace
+	 * - Drawing options too complicated to enumerate, look at code.
+	 */
+	void (*drawFacesTex)(DerivedMesh *dm,
+	                     DMSetDrawOptionsTex setDrawOptions,
+	                     DMCompareDrawOptions compareDrawOptions,
+	                     void *userData, DMDrawFlag flag);
 
 	/** Draw all faces with GLSL materials
 	 *  o setMaterial is called for every different material nr
@@ -432,6 +444,14 @@ struct DerivedMesh {
 	                        DMCompareDrawOptions compareDrawOptions,
 	                        void *userData,
 	                        DMDrawFlag flag);
+
+	/** Draw mapped faces using MTFace
+	 * - Drawing options too complicated to enumerate, look at code.
+	 */
+	void (*drawMappedFacesTex)(DerivedMesh *dm,
+	                           DMSetDrawOptionsMappedTex setDrawOptions,
+	                           DMCompareDrawOptions compareDrawOptions,
+	                           void *userData, DMDrawFlag flag);
 
 	/** Draw mapped faces with GLSL materials
 	 * - setMaterial is called for every different material nr
@@ -660,56 +680,56 @@ void mesh_get_mapped_verts_coords(DerivedMesh *dm, float (*r_cos)[3], const int 
 
 /* */
 DerivedMesh *mesh_get_derived_final(
-        const struct EvaluationContext *eval_ctx, struct Scene *scene,
-        struct Object *ob, CustomDataMask dataMask);
+        struct Scene *scene, struct Object *ob,
+        CustomDataMask dataMask);
 DerivedMesh *mesh_get_derived_deform(
-        const struct EvaluationContext *eval_ctx, struct Scene *scene,
-        struct Object *ob, CustomDataMask dataMask);
+        struct Scene *scene, struct Object *ob,
+        CustomDataMask dataMask);
 
 DerivedMesh *mesh_create_derived_for_modifier(
-        const struct EvaluationContext *eval_ctx, struct Scene *scene, struct Object *ob,
+        struct Scene *scene, struct Object *ob,
         struct ModifierData *md, int build_shapekey_layers);
 
 DerivedMesh *mesh_create_derived_render(
-        const struct EvaluationContext *eval_ctx, struct Scene *scene,
-        struct Object *ob, CustomDataMask dataMask);
+        struct Scene *scene, struct Object *ob,
+        CustomDataMask dataMask);
 
 DerivedMesh *getEditDerivedBMesh(
         struct BMEditMesh *em, struct Object *ob, CustomDataMask data_mask,
         float (*vertexCos)[3]);
 
 DerivedMesh *mesh_create_derived_index_render(
-        const struct EvaluationContext *eval_ctx, struct Scene *scene,
-        struct Object *ob, CustomDataMask dataMask, int index);
+        struct Scene *scene, struct Object *ob,
+        CustomDataMask dataMask, int index);
 
 /* same as above but wont use render settings */
 DerivedMesh *mesh_create_derived(struct Mesh *me, float (*vertCos)[3]);
 DerivedMesh *mesh_create_derived_view(
-        const struct EvaluationContext *eval_ctx, struct Scene *scene,
-        struct Object *ob, CustomDataMask dataMask);
+        struct Scene *scene, struct Object *ob,
+        CustomDataMask dataMask);
 DerivedMesh *mesh_create_derived_no_deform(
-        const struct EvaluationContext *eval_ctx, struct Scene *scene,
-        struct Object *ob, float (*vertCos)[3],
+        struct Scene *scene, struct Object *ob,
+        float (*vertCos)[3],
         CustomDataMask dataMask);
 DerivedMesh *mesh_create_derived_no_deform_render(
-        const struct EvaluationContext *eval_ctx, struct Scene *scene,
-        struct Object *ob, float (*vertCos)[3],
+        struct Scene *scene, struct Object *ob,
+        float (*vertCos)[3],
         CustomDataMask dataMask);
 /* for gameengine */
 DerivedMesh *mesh_create_derived_no_virtual(
-        const struct EvaluationContext *eval_ctx, struct Scene *scene, struct Object *ob,
-        float (*vertCos)[3], CustomDataMask dataMask);
+        struct Scene *scene, struct Object *ob, float (*vertCos)[3],
+        CustomDataMask dataMask);
 DerivedMesh *mesh_create_derived_physics(
-        const struct EvaluationContext *eval_ctx, struct Scene *scene, struct Object *ob,
-        float (*vertCos)[3], CustomDataMask dataMask);
+        struct Scene *scene, struct Object *ob, float (*vertCos)[3],
+        CustomDataMask dataMask);
 
 DerivedMesh *editbmesh_get_derived_base(
         struct Object *ob, struct BMEditMesh *em, CustomDataMask data_mask);
 DerivedMesh *editbmesh_get_derived_cage(
-        const struct EvaluationContext *eval_ctx, struct Scene *scene, struct Object *,
+        struct Scene *scene, struct Object *,
         struct BMEditMesh *em, CustomDataMask dataMask);
 DerivedMesh *editbmesh_get_derived_cage_and_final(
-        const struct EvaluationContext *eval_ctx, struct Scene *scene, struct Object *,
+        struct Scene *scene, struct Object *,
         struct BMEditMesh *em, CustomDataMask dataMask,
         DerivedMesh **r_final);
 
@@ -718,7 +738,7 @@ DerivedMesh *object_get_derived_final(struct Object *ob, const bool for_render);
 float (*editbmesh_get_vertex_cos(struct BMEditMesh *em, int *r_numVerts))[3];
 bool editbmesh_modifier_is_enabled(struct Scene *scene, struct ModifierData *md, DerivedMesh *dm);
 void makeDerivedMesh(
-        const struct EvaluationContext *eval_ctx, struct Scene *scene, struct Object *ob, struct BMEditMesh *em,
+        struct Scene *scene, struct Object *ob, struct BMEditMesh *em,
         CustomDataMask dataMask, const bool build_shapekey_layers);
 
 void weight_to_rgb(float r_rgb[3], const float weight);
@@ -769,15 +789,19 @@ void DM_draw_attrib_vertex_uniforms(const DMVertexAttribs *attribs);
 void DM_calc_tangents_names_from_gpu(
         const struct GPUVertexAttribs *gattribs,
         char (*tangent_names)[MAX_NAME], int *tangent_names_count);
-
 void DM_add_named_tangent_layer_for_uv(
         CustomData *uv_data, CustomData *tan_data, int numLoopData,
         const char *layer_name);
 
+#define DM_TANGENT_MASK_ORCO (1 << 9)
+void DM_calc_loop_tangents_step_0(
+        const CustomData *loopData, bool calc_active_tangent,
+        const char (*tangent_names)[MAX_NAME], int tangent_names_count,
+        bool *rcalc_act, bool *rcalc_ren, int *ract_uv_n, int *rren_uv_n,
+        char *ract_uv_name, char *rren_uv_name, short *rtangent_mask);
 void DM_calc_loop_tangents(
         DerivedMesh *dm, bool calc_active_tangent, const char (*tangent_names)[MAX_NAME],
         int tangent_names_count);
-
 void DM_calc_auto_bump_scale(DerivedMesh *dm);
 
 /** Set object's bounding box based on DerivedMesh min/max data */

@@ -52,7 +52,7 @@
 #include "BKE_paint.h"
 #include "BKE_subsurf.h"
 
-#include "DEG_depsgraph.h"
+#include "BIF_glutil.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -323,10 +323,12 @@ static void clip_planes_from_rect(bContext *C,
 {
 	ViewContext vc;
 	BoundBox bb;
+	bglMats mats = {{0}};
 	
 	view3d_operator_needs_opengl(C);
 	view3d_set_viewcontext(C, &vc);
-	ED_view3d_clipping_calc(&bb, clip_planes, vc.ar, vc.obact, rect);
+	view3d_get_transformation(vc.ar, vc.rv3d, vc.obact, &mats);
+	ED_view3d_clipping_calc(&bb, clip_planes, &mats, rect);
 	negate_m4(clip_planes);
 }
 
@@ -362,7 +364,6 @@ static int hide_show_exec(bContext *C, wmOperator *op)
 {
 	ARegion *ar = CTX_wm_region(C);
 	Object *ob = CTX_data_active_object(C);
-	EvaluationContext eval_ctx;
 	Mesh *me = ob->data;
 	PartialVisAction action;
 	PartialVisArea area;
@@ -374,8 +375,6 @@ static int hide_show_exec(bContext *C, wmOperator *op)
 	rcti rect;
 	int totnode, i;
 
-	CTX_data_eval_ctx(C, &eval_ctx);
-
 	/* read operator properties */
 	action = RNA_enum_get(op->ptr, "action");
 	area = RNA_enum_get(op->ptr, "area");
@@ -383,7 +382,7 @@ static int hide_show_exec(bContext *C, wmOperator *op)
 
 	clip_planes_from_rect(C, clip_planes, &rect);
 
-	dm = mesh_get_derived_final(&eval_ctx, CTX_data_scene(C), ob, CD_MASK_BAREMESH);
+	dm = mesh_get_derived_final(CTX_data_scene(C), ob, CD_MASK_BAREMESH);
 	pbvh = dm->getPBVH(ob, dm);
 	ob->sculpt->pbvh = pbvh;
 

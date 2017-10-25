@@ -52,7 +52,6 @@ class OffScreenDraw(bpy.types.Operator):
     @staticmethod
     def _update_offscreen(context, offscreen):
         scene = context.scene
-        render_layer = context.render_layer
         render = scene.render
         camera = scene.camera
 
@@ -66,7 +65,6 @@ class OffScreenDraw(bpy.types.Operator):
 
         offscreen.draw_view3d(
                 scene,
-                render_layer,
                 context.space_data,
                 context.region,
                 projection_matrix,

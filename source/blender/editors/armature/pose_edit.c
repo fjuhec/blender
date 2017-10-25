@@ -43,10 +43,9 @@
 #include "BKE_armature.h"
 #include "BKE_context.h"
 #include "BKE_deform.h"
+#include "BKE_depsgraph.h"
 #include "BKE_object.h"
 #include "BKE_report.h"
-
-#include "DEG_depsgraph.h"
 
 #include "RNA_access.h"
 #include "RNA_define.h"
@@ -96,8 +95,7 @@ void ED_armature_enter_posemode(bContext *C, Base *base)
 		case OB_ARMATURE:
 			ob->restore_mode = ob->mode;
 			ob->mode |= OB_MODE_POSE;
-			/* Inform all CoW versions that we changed the mode. */
-			DEG_id_tag_update_ex(CTX_data_main(C), &ob->id, DEG_TAG_COPY_ON_WRITE);
+			
 			WM_event_add_notifier(C, NC_SCENE | ND_MODE | NS_MODE_POSE, NULL);
 			
 			break;
@@ -116,10 +114,7 @@ void ED_armature_exit_posemode(bContext *C, Base *base)
 		
 		ob->restore_mode = ob->mode;
 		ob->mode &= ~OB_MODE_POSE;
-
-		/* Inform all CoW versions that we changed the mode. */
-		DEG_id_tag_update_ex(CTX_data_main(C), &ob->id, DEG_TAG_COPY_ON_WRITE);
-
+		
 		WM_event_add_notifier(C, NC_SCENE | ND_MODE | NS_MODE_OBJECT, NULL);
 	}
 }
@@ -159,7 +154,7 @@ static bool pose_has_protected_selected(Object *ob, short warn)
  *
  * To be called from various tools that do incremental updates 
  */
-void ED_pose_recalculate_paths(bContext *C, Scene *scene, Object *ob)
+void ED_pose_recalculate_paths(Scene *scene, Object *ob)
 {
 	ListBase targets = {NULL, NULL};
 	
@@ -168,7 +163,7 @@ void ED_pose_recalculate_paths(bContext *C, Scene *scene, Object *ob)
 	animviz_get_object_motionpaths(ob, &targets);
 	
 	/* recalculate paths, then free */
-	animviz_calc_motionpaths(C, scene, &targets);
+	animviz_calc_motionpaths(scene, &targets);
 	BLI_freelistN(&targets);
 }
 
@@ -231,7 +226,7 @@ static int pose_calculate_paths_exec(bContext *C, wmOperator *op)
 
 	/* calculate the bones that now have motionpaths... */
 	/* TODO: only make for the selected bones? */
-	ED_pose_recalculate_paths(C, scene, ob);
+	ED_pose_recalculate_paths(scene, ob);
 
 	/* notifiers for updates */
 	WM_event_add_notifier(C, NC_OBJECT | ND_POSE, ob);
@@ -287,7 +282,7 @@ static int pose_update_paths_exec(bContext *C, wmOperator *UNUSED(op))
 
 	/* calculate the bones that now have motionpaths... */
 	/* TODO: only make for the selected bones? */
-	ED_pose_recalculate_paths(C, scene, ob);
+	ED_pose_recalculate_paths(scene, ob);
 	
 	/* notifiers for updates */
 	WM_event_add_notifier(C, NC_OBJECT | ND_POSE, ob);
@@ -585,7 +580,7 @@ static void pose_copy_menu(Scene *scene)
 			BKE_pose_tag_recalc(bmain, ob->pose);
 	}
 	
-	DEG_id_tag_update(&ob->id, OB_RECALC_DATA); // and all its relations
+	DAG_id_tag_update(&ob->id, OB_RECALC_DATA); // and all its relations
 	
 	BIF_undo_push("Copy Pose Attributes");
 	
@@ -618,7 +613,7 @@ static int pose_flip_names_exec(bContext *C, wmOperator *UNUSED(op))
 	BLI_freelistN(&bones_names);
 	
 	/* since we renamed stuff... */
-	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 
 	/* note, notifier might evolve */
 	WM_event_add_notifier(C, NC_OBJECT | ND_POSE, ob);
@@ -665,7 +660,7 @@ static int pose_autoside_names_exec(bContext *C, wmOperator *op)
 	CTX_DATA_END;
 	
 	/* since we renamed stuff... */
-	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 
 	/* note, notifier might evolve */
 	WM_event_add_notifier(C, NC_OBJECT | ND_POSE, ob);
@@ -714,7 +709,7 @@ static int pose_bone_rotmode_exec(bContext *C, wmOperator *op)
 	CTX_DATA_END;
 	
 	/* notifiers and updates */
-	DEG_id_tag_update((ID *)ob, OB_RECALC_DATA);
+	DAG_id_tag_update((ID *)ob, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_OBJECT | ND_TRANSFORM, ob);
 	
 	return OPERATOR_FINISHED;
@@ -1171,7 +1166,7 @@ static int pose_flip_quats_exec(bContext *C, wmOperator *UNUSED(op))
 	CTX_DATA_END;
 	
 	/* notifiers and updates */
-	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_OBJECT | ND_TRANSFORM, ob);
 	
 	return OPERATOR_FINISHED;

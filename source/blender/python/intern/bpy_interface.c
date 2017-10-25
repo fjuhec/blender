@@ -72,7 +72,6 @@
 #include "../generic/bgl.h"
 #include "../generic/blf_py_api.h"
 #include "../generic/idprop_py_api.h"
-#include "../gawain/gwn_py_api.h"
 #include "../bmesh/bmesh_py_api.h"
 #include "../mathutils/mathutils.h"
 
@@ -213,7 +212,6 @@ static struct _inittab bpy_internal_modules[] = {
 	{"mathutils.kdtree", PyInit_mathutils_kdtree},
 #endif
 	{"_bpy_path", BPyInit__bpy_path},
-	{"_gawain", BPyInit_gawain},
 	{"bgl", BPyInit_bgl},
 	{"blf", BPyInit_blf},
 	{"bmesh", BPyInit_bmesh},
@@ -532,8 +530,7 @@ static bool python_script_exec(
 
 	if (py_dict) {
 #ifdef PYMODULE_CLEAR_WORKAROUND
-		PyModuleObject *mmod = (PyModuleObject *)PyDict_GetItem(
-		        PyThreadState_GET()->interp->modules, bpy_intern_str___main__);
+		PyModuleObject *mmod = (PyModuleObject *)PyDict_GetItemString(PyThreadState_GET()->interp->modules, "__main__");
 		PyObject *dict_back = mmod->md_dict;
 		/* freeing the module will clear the namespace,
 		 * gives problems running classes defined in this namespace being used later. */

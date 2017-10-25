@@ -43,7 +43,6 @@ set(INC
 	../../../blender/blenlib
 	../../../blender/blenloader
 	../../../blender/blentranslation
-	../../../blender/depsgraph
 	../../../blender/gpu
 	../../../blender/imbuf
 	../../../blender/makesdna
@@ -95,7 +94,7 @@ if(WITH_INTERNATIONAL)
 endif()
 
 if(WITH_AUDASPACE)
-	add_definitions(-DWITH_AUDASPACE)
+	add_definitions(${AUDASPACE_DEFINITIONS})
 
 	list(APPEND INC_SYS
 		${AUDASPACE_C_INCLUDE_DIRS}

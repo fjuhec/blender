@@ -35,7 +35,6 @@ struct ID;
 struct BMeshCreateParams;
 struct BoundBox;
 struct EdgeHash;
-struct EvaluationContext;
 struct ListBase;
 struct LinkNode;
 struct BLI_Stack;
@@ -93,9 +92,6 @@ struct Mesh *BKE_mesh_copy(struct Main *bmain, const struct Mesh *me);
 void BKE_mesh_update_customdata_pointers(struct Mesh *me, const bool do_ensure_tess_cd);
 void BKE_mesh_ensure_skin_customdata(struct Mesh *me);
 
-bool BKE_mesh_ensure_facemap_customdata(struct Mesh *me);
-bool BKE_mesh_clear_facemap_customdata(struct Mesh *me);
-
 void BKE_mesh_make_local(struct Main *bmain, struct Mesh *me, const bool lib_local);
 void BKE_mesh_boundbox_calc(struct Mesh *me, float r_loc[3], float r_size[3]);
 void BKE_mesh_texspace_calc(struct Mesh *me);
@@ -119,7 +115,7 @@ void BKE_mesh_from_nurbs_displist(
         struct Object *ob, struct ListBase *dispbase, const bool use_orco_uv, const char *obdata_name);
 void BKE_mesh_from_nurbs(struct Object *ob);
 void BKE_mesh_to_curve_nurblist(struct DerivedMesh *dm, struct ListBase *nurblist, const int edge_users_test);
-void BKE_mesh_to_curve(const struct EvaluationContext *eval_ctx, struct Scene *scene, struct Object *ob);
+void BKE_mesh_to_curve(struct Scene *scene, struct Object *ob);
 void BKE_mesh_material_index_remove(struct Mesh *me, short index);
 void BKE_mesh_material_index_clear(struct Mesh *me);
 void BKE_mesh_material_remap(struct Mesh *me, const unsigned int *remap, unsigned int remap_len);
@@ -129,7 +125,6 @@ const char *BKE_mesh_cmp(struct Mesh *me1, struct Mesh *me2, float thresh);
 
 struct BoundBox *BKE_mesh_boundbox_get(struct Object *ob);
 void BKE_mesh_texspace_get(struct Mesh *me, float r_loc[3], float r_rot[3], float r_size[3]);
-void BKE_mesh_texspace_get_reference(struct Mesh *me, short **r_texflag,  float **r_loc, float **r_rot, float **r_size);
 void BKE_mesh_texspace_copy_from_object(struct Mesh *me, struct Object *ob);
 
 bool BKE_mesh_uv_cdlayer_rename_index(struct Mesh *me, const int poly_index, const int loop_index, const int face_index,
@@ -140,7 +135,7 @@ float (*BKE_mesh_vertexCos_get(const struct Mesh *me, int *r_numVerts))[3];
 
 void BKE_mesh_split_faces(struct Mesh *mesh, bool free_loop_normals);
 
-struct Mesh *BKE_mesh_new_from_object(const struct EvaluationContext *eval_ctx, struct Main *bmain, struct Scene *sce, struct Object *ob,
+struct Mesh *BKE_mesh_new_from_object(struct Main *bmain, struct Scene *sce, struct Object *ob,
                                       int apply_modifiers, int settings, int calc_tessface, int calc_undeformed);
 
 /* vertex level transformations & checks (no derived mesh) */
@@ -193,6 +188,13 @@ void BKE_mesh_calc_normals_looptri(
         const struct MLoop *mloop,
         const struct MLoopTri *looptri, int looptri_num,
         float (*r_tri_nors)[3]);
+void BKE_mesh_loop_tangents_ex(
+        const struct MVert *mverts, const int numVerts, const struct MLoop *mloops,
+        float (*r_looptangent)[4], float (*loopnors)[3], const struct MLoopUV *loopuv,
+        const int numLoops, const struct MPoly *mpolys, const int numPolys,
+        struct ReportList *reports);
+void BKE_mesh_loop_tangents(
+        struct Mesh *mesh, const char *uvmap, float (*r_looptangents)[4], struct ReportList *reports);
 
 /**
  * References a contiguous loop-fan with normal offset vars.
@@ -295,7 +297,7 @@ void BKE_mesh_loops_to_mface_corners(
         const int numTex, const int numCol,
         const bool hasPCol, const bool hasOrigSpace, const bool hasLNor);
 void BKE_mesh_loops_to_tessdata(
-        struct CustomData *fdata, struct CustomData *ldata, struct MFace *mface,
+        struct CustomData *fdata, struct CustomData *ldata, struct CustomData *pdata, struct MFace *mface,
         int *polyindices, unsigned int (*loopindices)[4], const int num_faces);
 void BKE_mesh_tangent_loops_to_tessdata(
         struct CustomData *fdata, struct CustomData *ldata, struct MFace *mface,
@@ -373,6 +375,7 @@ void BKE_mesh_calc_relative_deform(
 /* *** mesh_validate.c *** */
 
 int BKE_mesh_validate(struct Mesh *me, const int do_verbose, const int cddata_check_mask);
+void BKE_mesh_cd_validate(struct Mesh *me);
 int BKE_mesh_validate_material_indices(struct Mesh *me);
 
 bool BKE_mesh_validate_arrays(
@@ -402,19 +405,10 @@ void BKE_mesh_calc_edges(struct Mesh *mesh, bool update, const bool select);
 
 /* **** Depsgraph evaluation **** */
 
-void BKE_mesh_eval_geometry(const struct EvaluationContext *eval_ctx,
-                            struct Mesh *mesh);
+struct EvaluationContext;
 
-/* Draw Cache */
-enum {
-	BKE_MESH_BATCH_DIRTY_ALL = 0,
-	BKE_MESH_BATCH_DIRTY_MAYBE_ALL,
-	BKE_MESH_BATCH_DIRTY_SELECT,
-	BKE_MESH_BATCH_DIRTY_SHADING,
-	BKE_MESH_BATCH_DIRTY_SCULPT_COORDS,
-};
-void BKE_mesh_batch_cache_dirty(struct Mesh *me, int mode);
-void BKE_mesh_batch_cache_free(struct Mesh *me);
+void BKE_mesh_eval_geometry(struct EvaluationContext *eval_ctx,
+                            struct Mesh *mesh);
 
 #ifdef __cplusplus
 }

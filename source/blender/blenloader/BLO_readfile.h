@@ -39,18 +39,15 @@ extern "C" {
 struct BlendThumbnail;
 struct bScreen;
 struct LinkNode;
-struct ListBase;
 struct Main;
 struct MemFile;
 struct ReportList;
 struct Scene;
-struct SceneLayer;
 struct UserDef;
 struct View3D;
 struct bContext;
 struct BHead;
 struct FileData;
-struct wmWindowManager;
 
 typedef struct BlendHandle BlendHandle;
 
@@ -67,19 +64,12 @@ typedef struct BlendFileData {
 	int fileflags;
 	int globalf;
 	char filename[1024];    /* 1024 = FILE_MAX */
-
-	struct bScreen *curscreen; /* TODO think this isn't needed anymore? */
+	
+	struct bScreen *curscreen;
 	struct Scene *curscene;
-	struct SceneLayer *cur_render_layer; /* layer to activate in workspaces when reading without UI */
-
+	
 	eBlenFileType type;
 } BlendFileData;
-
-typedef struct WorkspaceConfigFileData {
-	struct Main *main; /* has to be freed when done reading file data */
-
-	struct ListBase workspaces;
-} WorkspaceConfigFileData;
 
 
 /* skip reading some data-block types (may want to skip screen data too). */
@@ -124,9 +114,9 @@ struct ID *BLO_library_link_named_part(struct Main *mainl, BlendHandle **bh, con
 struct ID *BLO_library_link_named_part_ex(
         struct Main *mainl, BlendHandle **bh,
         const short idcode, const char *name, const short flag,
-        struct Scene *scene, struct SceneLayer *sl,
+        struct Scene *scene, struct View3D *v3d,
         const bool use_placeholders, const bool force_indirect);
-void BLO_library_link_end(struct Main *mainl, BlendHandle **bh, short flag, struct Scene *scene, struct SceneLayer *sl);
+void BLO_library_link_end(struct Main *mainl, BlendHandle **bh, short flag, struct Scene *scene, struct View3D *v3d);
 
 void BLO_library_link_copypaste(struct Main *mainl, BlendHandle *bh);
 
@@ -135,9 +125,7 @@ void *BLO_library_read_struct(struct FileData *fd, struct BHead *bh, const char 
 BlendFileData *blo_read_blendafterruntime(int file, const char *name, int actualsize, struct ReportList *reports);
 
 /* internal function but we need to expose it */
-void blo_lib_link_restore(
-        struct Main *newmain, struct wmWindowManager *curwm,
-        struct Scene *curscene, struct SceneLayer *cur_render_layer);
+void blo_lib_link_screen_restore(struct Main *newmain, struct bScreen *curscreen, struct Scene *curscene);
 
 typedef void (*BLOExpandDoitCallback) (void *fdhandle, struct Main *mainvar, void *idv);
 

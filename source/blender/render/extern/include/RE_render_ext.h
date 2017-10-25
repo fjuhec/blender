@@ -41,8 +41,6 @@ struct DerivedMesh;
 struct ImagePool;
 struct MTex;
 struct Scene;
-struct SceneLayer;
-struct Render;
 
 /* render_texture.c */
 /* used by particle.c, effect.c, editmesh_modes.c and brush.c, returns 1 if rgb, 0 otherwise */
@@ -72,20 +70,17 @@ struct PointDensity;
 
 void RE_point_density_cache(
         struct Scene *scene,
-        struct SceneLayer *sl,
         struct PointDensity *pd,
         const bool use_render_params);
 
 void RE_point_density_minmax(
         struct Scene *scene,
-        struct SceneLayer *sl,
         struct PointDensity *pd,
         const bool use_render_params,
         float r_min[3], float r_max[3]);
 
 void RE_point_density_sample(
         struct Scene *scene,
-        struct SceneLayer *sl,
         struct PointDensity *pd,
         const int resolution,
         const bool use_render_params,

@@ -47,7 +47,8 @@
 
 #include "BIF_gl.h"
 
-#include "GPU_matrix.h"
+#include "GPU_extensions.h"
+#include "GPU_basic_shader.h"
 
 #include "WM_api.h"
 #include "wm_subwindow.h"
@@ -141,17 +142,15 @@ void wm_subwindow_origin_get(wmWindow *win, int swinid, int *x, int *y)
 
 static void wm_swin_matrix_get(wmWindow *win, wmSubWindow *swin, float mat[4][4])
 {
-	const bScreen *screen = WM_window_get_active_screen(win);
-
 	/* used by UI, should find a better way to get the matrix there */
-	if (swin->swinid == screen->mainwin) {
+	if (swin->swinid == win->screen->mainwin) {
 		int width, height;
 
 		wm_swin_size_get(swin, &width, &height);
 		orthographic_m4(mat, -GLA_PIXEL_OFS, (float)width - GLA_PIXEL_OFS, -GLA_PIXEL_OFS, (float)height - GLA_PIXEL_OFS, -100, 100);
 	}
 	else {
-		gpuGetProjectionMatrix(mat);
+		glGetFloatv(GL_PROJECTION_MATRIX, (float *)mat);
 	}
 }
 void wm_subwindow_matrix_get(wmWindow *win, int swinid, float mat[4][4])
@@ -217,7 +216,7 @@ int wm_subwindow_open(wmWindow *win, const rcti *winrct, bool activate)
 		/* extra service */
 		wm_swin_size_get(swin, &width, &height);
 		wmOrtho2_pixelspace(width, height);
-		gpuLoadIdentity();
+		glLoadIdentity();
 	}
 
 	return swin->swinid;
@@ -245,8 +244,8 @@ void wm_subwindow_position(wmWindow *win, int swinid, const rcti *winrct, bool a
 	wmSubWindow *swin = swin_from_swinid(win, swinid);
 	
 	if (swin) {
-		const int window_size_x = WM_window_pixels_x(win);
-		const int window_size_y = WM_window_pixels_y(win);
+		const int winsize_x = WM_window_pixels_x(win);
+		const int winsize_y = WM_window_pixels_y(win);
 
 		int width, height;
 		
@@ -265,10 +264,10 @@ void wm_subwindow_position(wmWindow *win, int swinid, const rcti *winrct, bool a
 		 * fixed it). - zr  (2001!)
 		 */
 		
-		if (swin->winrct.xmax > window_size_x)
-			swin->winrct.xmax = window_size_x;
-		if (swin->winrct.ymax > window_size_y)
-			swin->winrct.ymax = window_size_y;
+		if (swin->winrct.xmax > winsize_x)
+			swin->winrct.xmax = winsize_x;
+		if (swin->winrct.ymax > winsize_y)
+			swin->winrct.ymax = winsize_y;
 		
 		if (activate) {
 			/* extra service */
@@ -323,7 +322,7 @@ void wmSubWindowScissorSet(wmWindow *win, int swinid, const rcti *srct, bool src
 		glScissor(_curswin->winrct.xmin, _curswin->winrct.ymin, width, height);
 	
 	wmOrtho2_pixelspace(width, height);
-	gpuLoadIdentity();
+	glLoadIdentity();
 	
 	glFlush();
 }
@@ -334,13 +333,31 @@ void wmSubWindowSet(wmWindow *win, int swinid)
 	wmSubWindowScissorSet(win, swinid, NULL, true);
 }
 
+void wmFrustum(float x1, float x2, float y1, float y2, float n, float f)
+{
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	glFrustum(x1, x2, y1, y2, n, f);
+	glMatrixMode(GL_MODELVIEW);
+}
+
+void wmOrtho(float x1, float x2, float y1, float y2, float n, float f)
+{
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+
+	glOrtho(x1, x2, y1, y2, n, f);
+
+	glMatrixMode(GL_MODELVIEW);
+}
+
 void wmOrtho2(float x1, float x2, float y1, float y2)
 {
 	/* prevent opengl from generating errors */
 	if (x1 == x2) x2 += 1.0f;
 	if (y1 == y2) y2 += 1.0f;
 
-	gpuOrtho(x1, x2, y1, y2, -100, 100);
+	wmOrtho(x1, x2, y1, y2, -100, 100);
 }
 
 static void wmOrtho2_offset(const float x, const float y, const float ofs)

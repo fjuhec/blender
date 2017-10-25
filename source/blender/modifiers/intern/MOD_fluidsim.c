@@ -41,9 +41,9 @@
 
 
 #include "BKE_cdderivedmesh.h"
-#include "BKE_layer.h"
 #include "BKE_modifier.h"
 
+#include "depsgraph_private.h"
 #include "DEG_depsgraph_build.h"
 
 #include "MOD_fluidsim_util.h"
@@ -82,8 +82,8 @@ static void copyData(ModifierData *md, ModifierData *target)
 
 
 
-static DerivedMesh *applyModifier(ModifierData *md, const struct EvaluationContext *UNUSED(eval_ctx),
-                                  Object *ob, DerivedMesh *dm,
+static DerivedMesh *applyModifier(ModifierData *md, Object *ob,
+                                  DerivedMesh *dm,
                                   ModifierApplyFlag flag)
 {
 	FluidsimModifierData *fluidmd = (FluidsimModifierData *) md;
@@ -103,6 +103,33 @@ static DerivedMesh *applyModifier(ModifierData *md, const struct EvaluationConte
 	return result ? result : dm;
 }
 
+static void updateDepgraph(
+        ModifierData *md, DagForest *forest,
+        struct Main *UNUSED(bmain), Scene *scene,
+        Object *ob, DagNode *obNode)
+{
+	FluidsimModifierData *fluidmd = (FluidsimModifierData *) md;
+	Base *base;
+
+	if (fluidmd && fluidmd->fss) {
+		if (fluidmd->fss->type == OB_FLUIDSIM_DOMAIN) {
+			for (base = scene->base.first; base; base = base->next) {
+				Object *ob1 = base->object;
+				if (ob1 != ob) {
+					FluidsimModifierData *fluidmdtmp =
+					        (FluidsimModifierData *)modifiers_findByType(ob1, eModifierType_Fluidsim);
+					
+					/* only put dependencies from NON-DOMAIN fluids in here */
+					if (fluidmdtmp && fluidmdtmp->fss && (fluidmdtmp->fss->type != OB_FLUIDSIM_DOMAIN)) {
+						DagNode *curNode = dag_get_node(forest, ob1);
+						dag_add_relation(forest, curNode, obNode, DAG_RL_DATA_DATA | DAG_RL_OB_DATA, "Fluidsim Object");
+					}
+				}
+			}
+		}
+	}
+}
+
 static void updateDepsgraph(ModifierData *md,
                             struct Main *UNUSED(bmain),
                             struct Scene *scene,
@@ -112,8 +139,9 @@ static void updateDepsgraph(ModifierData *md,
 	FluidsimModifierData *fluidmd = (FluidsimModifierData *) md;
 	if (fluidmd && fluidmd->fss) {
 		if (fluidmd->fss->type == OB_FLUIDSIM_DOMAIN) {
-			FOREACH_SCENE_OBJECT(scene, ob1)
-			{
+			Base *base;
+			for (base = scene->base.first; base; base = base->next) {
+				Object *ob1 = base->object;
 				if (ob1 != ob) {
 					FluidsimModifierData *fluidmdtmp =
 					        (FluidsimModifierData *)modifiers_findByType(ob1, eModifierType_Fluidsim);
@@ -124,7 +152,6 @@ static void updateDepsgraph(ModifierData *md,
 					}
 				}
 			}
-			FOREACH_SCENE_OBJECT_END
 		}
 	}
 }
@@ -156,6 +183,7 @@ ModifierTypeInfo modifierType_Fluidsim = {
 	/* requiredDataMask */  NULL,
 	/* freeData */          freeData,
 	/* isDisabled */        NULL,
+	/* updateDepgraph */    updateDepgraph,
 	/* updateDepsgraph */   updateDepsgraph,
 	/* dependsOnTime */     dependsOnTime,
 	/* dependsOnNormals */	NULL,

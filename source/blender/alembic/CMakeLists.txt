@@ -29,7 +29,6 @@ set(INC
 	../blenlib
 	../blenloader
 	../bmesh
-	../depsgraph
 	../editors/include
 	../makesdna
 	../makesrna

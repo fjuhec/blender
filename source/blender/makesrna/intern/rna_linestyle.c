@@ -101,8 +101,7 @@ const EnumPropertyItem rna_enum_linestyle_geometry_modifier_type_items[] = {
 
 #include "BKE_linestyle.h"
 #include "BKE_texture.h"
-
-#include "DEG_depsgraph.h"
+#include "BKE_depsgraph.h"
 
 #include "ED_node.h"
 
@@ -324,7 +323,7 @@ static void rna_LineStyle_update(Main *UNUSED(bmain), Scene *UNUSED(scene), Poin
 {
 	FreestyleLineStyle *linestyle = ptr->id.data;
 
-	DEG_id_tag_update(&linestyle->id, 0);
+	DAG_id_tag_update(&linestyle->id, 0);
 	WM_main_add_notifier(NC_LINESTYLE, linestyle);
 }
 
@@ -348,7 +347,7 @@ static LineStyleModifier *rna_LineStyle_color_modifier_add(FreestyleLineStyle *l
 		return NULL;
 	}
 
-	DEG_id_tag_update(&linestyle->id, 0);
+	DAG_id_tag_update(&linestyle->id, 0);
 	WM_main_add_notifier(NC_LINESTYLE, linestyle);
 
 	return modifier;
@@ -366,7 +365,7 @@ static void rna_LineStyle_color_modifier_remove(FreestyleLineStyle *linestyle, R
 
 	RNA_POINTER_INVALIDATE(modifier_ptr);
 
-	DEG_id_tag_update(&linestyle->id, 0);
+	DAG_id_tag_update(&linestyle->id, 0);
 	WM_main_add_notifier(NC_LINESTYLE, linestyle);
 }
 
@@ -380,7 +379,7 @@ static LineStyleModifier *rna_LineStyle_alpha_modifier_add(FreestyleLineStyle *l
 		return NULL;
 	}
 
-	DEG_id_tag_update(&linestyle->id, 0);
+	DAG_id_tag_update(&linestyle->id, 0);
 	WM_main_add_notifier(NC_LINESTYLE, linestyle);
 
 	return modifier;
@@ -398,7 +397,7 @@ static void rna_LineStyle_alpha_modifier_remove(FreestyleLineStyle *linestyle, R
 
 	RNA_POINTER_INVALIDATE(modifier_ptr);
 
-	DEG_id_tag_update(&linestyle->id, 0);
+	DAG_id_tag_update(&linestyle->id, 0);
 	WM_main_add_notifier(NC_LINESTYLE, linestyle);
 }
 
@@ -412,7 +411,7 @@ static LineStyleModifier *rna_LineStyle_thickness_modifier_add(FreestyleLineStyl
 		return NULL;
 	}
 
-	DEG_id_tag_update(&linestyle->id, 0);
+	DAG_id_tag_update(&linestyle->id, 0);
 	WM_main_add_notifier(NC_LINESTYLE, linestyle);
 
 	return modifier;
@@ -430,7 +429,7 @@ static void rna_LineStyle_thickness_modifier_remove(FreestyleLineStyle *linestyl
 
 	RNA_POINTER_INVALIDATE(modifier_ptr);
 
-	DEG_id_tag_update(&linestyle->id, 0);
+	DAG_id_tag_update(&linestyle->id, 0);
 	WM_main_add_notifier(NC_LINESTYLE, linestyle);
 }
 
@@ -444,7 +443,7 @@ static LineStyleModifier *rna_LineStyle_geometry_modifier_add(FreestyleLineStyle
 		return NULL;
 	}
 
-	DEG_id_tag_update(&linestyle->id, 0);
+	DAG_id_tag_update(&linestyle->id, 0);
 	WM_main_add_notifier(NC_LINESTYLE, linestyle);
 
 	return modifier;
@@ -462,7 +461,7 @@ static void rna_LineStyle_geometry_modifier_remove(FreestyleLineStyle *linestyle
 
 	RNA_POINTER_INVALIDATE(modifier_ptr);
 
-	DEG_id_tag_update(&linestyle->id, 0);
+	DAG_id_tag_update(&linestyle->id, 0);
 	WM_main_add_notifier(NC_LINESTYLE, linestyle);
 }
 

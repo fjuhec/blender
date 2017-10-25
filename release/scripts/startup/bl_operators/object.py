@@ -81,18 +81,16 @@ class SelectPattern(Operator):
         # Can be pose bones or objects
         for item in items:
             if pattern_match(item.name, self.pattern):
+                item.select = True
 
                 # hrmf, perhaps there should be a utility function for this.
                 if is_ebone:
-                    item.select = True
                     item.select_head = True
                     item.select_tail = True
                     if item.use_connect:
                         item_parent = item.parent
                         if item_parent is not None:
                             item_parent.select_tail = True
-                else:
-                    item.select_set(action='SELECT')
 
         return {'FINISHED'}
 
@@ -138,7 +136,7 @@ class SelectCamera(Operator):
                 bpy.ops.object.select_all(action='DESELECT')
             scene.objects.active = camera
             camera.hide = False
-            camera.select_set(action='SELECT')
+            camera.select = True
             return {'FINISHED'}
 
         return {'CANCELLED'}
@@ -204,7 +202,7 @@ class SelectHierarchy(Operator):
                 bpy.ops.object.select_all(action='DESELECT')
 
             for obj in select_new:
-                obj.select_set(action='SELECT')
+                obj.select = True
 
             scene.objects.active = act_new
             return {'FINISHED'}
@@ -515,7 +513,7 @@ class JoinUVs(Operator):
         if is_editmode:
             bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
 
-        if not mesh.uv_layers:
+        if not mesh.uv_textures:
             self.report({'WARNING'},
                         "Object: %s, Mesh: '%s' has no UVs"
                         % (obj.name, mesh.name))
@@ -553,7 +551,7 @@ class JoinUVs(Operator):
                             else:
                                 uv_other = mesh_other.uv_layers.active
                                 if not uv_other:
-                                    mesh_other.uv_layers.new()
+                                    mesh_other.uv_textures.new()
                                     uv_other = mesh_other.uv_layers.active
                                     if not uv_other:
                                         self.report({'ERROR'}, "Could not add "
@@ -646,8 +644,8 @@ class MakeDupliFace(Operator):
             ob_new.use_dupli_faces_scale = True
             ob_new.dupli_faces_scale = 1.0 / SCALE_FAC
 
-            ob_inst.select_set(action='SELECT')
-            ob_new.select_set(action='SELECT')
+            ob_inst.select = True
+            ob_new.select = True
 
     def execute(self, context):
         self._main(context)
@@ -666,7 +664,7 @@ class IsolateTypeRender(Operator):
 
         for obj in context.visible_objects:
 
-            if obj.select_get():
+            if obj.select:
                 obj.hide_render = False
             else:
                 if obj.type == act_type:
@@ -1031,8 +1029,8 @@ class LodGenerate(Operator):
             for level in ob.lod_levels[1:]:
                 level.object.hide = level.object.hide_render = True
 
-        lod.select_set(action='DESELECT')
-        ob.select_set(action='SELECT')
+        lod.select = False
+        ob.select = True
         scene.objects.active = ob
 
         return {'FINISHED'}

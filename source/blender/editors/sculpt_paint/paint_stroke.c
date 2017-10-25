@@ -51,7 +51,6 @@
 #include "BKE_curve.h"
 #include "BKE_colortools.h"
 #include "BKE_image.h"
-#include "BKE_mesh.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -59,7 +58,7 @@
 #include "BIF_gl.h"
 #include "BIF_glutil.h"
 
-#include "GPU_immediate.h"
+#include "GPU_basic_shader.h"
 
 #include "ED_screen.h"
 #include "ED_view3d.h"
@@ -146,18 +145,9 @@ static void paint_draw_smooth_cursor(bContext *C, int x, int y, void *customdata
 	if (stroke && brush) {
 		glEnable(GL_LINE_SMOOTH);
 		glEnable(GL_BLEND);
-
-		unsigned int pos = GWN_vertformat_attr_add(immVertexFormat(), "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
-		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
-		immUniformColor4ubv(paint->paint_cursor_col);
-
-		immBegin(GWN_PRIM_LINES, 2);
-		immVertex2f(pos, x, y);
-		immVertex2f(pos, stroke->last_mouse_position[0], stroke->last_mouse_position[1]);
-		immEnd();
-
-		immUnbindProgram();
-
+		glColor4ubv(paint->paint_cursor_col);
+		sdrawline(x, y, (int)stroke->last_mouse_position[0],
+		          (int)stroke->last_mouse_position[1]);
 		glDisable(GL_BLEND);
 		glDisable(GL_LINE_SMOOTH);
 	}
@@ -169,35 +159,36 @@ static void paint_draw_line_cursor(bContext *C, int x, int y, void *customdata)
 	PaintStroke *stroke = customdata;
 
 	glEnable(GL_LINE_SMOOTH);
+	glEnable(GL_BLEND);
 
-	uint shdr_pos = GWN_vertformat_attr_add(immVertexFormat(), "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
+	GPU_basic_shader_bind_enable(GPU_SHADER_LINE | GPU_SHADER_STIPPLE);
+	GPU_basic_shader_line_stipple(3, 0xAAAA);
+	GPU_basic_shader_line_width(3.0);
 
-	immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_UNIFORM_COLOR);
-
-	float viewport_size[4];
-	glGetFloatv(GL_VIEWPORT, viewport_size);
-	immUniform2f("viewport_size", viewport_size[2], viewport_size[3]);
-
-	immUniform1i("num_colors", 2);  /* "advanced" mode */
-	const float alpha = (float)paint->paint_cursor_col[3] / 255.0f;
-	immUniformArray4fv("colors", (float *)(float[][4]){{0.0f, 0.0f, 0.0f, alpha}, {1.0f, 1.0f, 1.0f, alpha}}, 2);
-	immUniform1f("dash_width", 6.0f);
-
-	immBegin(GWN_PRIM_LINES, 2);
-
+	glColor4ub(0, 0, 0, paint->paint_cursor_col[3]);
 	if (stroke->constrain_line) {
-		immVertex2f(shdr_pos, stroke->last_mouse_position[0], stroke->last_mouse_position[1]);
-		immVertex2f(shdr_pos, stroke->constrained_pos[0], stroke->constrained_pos[1]);
+		sdrawline((int)stroke->last_mouse_position[0], (int)stroke->last_mouse_position[1],
+		        stroke->constrained_pos[0], stroke->constrained_pos[1]);
 	}
 	else {
-		immVertex2f(shdr_pos, stroke->last_mouse_position[0], stroke->last_mouse_position[1]);
-		immVertex2f(shdr_pos, x, y);
+		sdrawline((int)stroke->last_mouse_position[0], (int)stroke->last_mouse_position[1],
+		        x, y);
 	}
 
-	immEnd();
+	glColor4ub(255, 255, 255, paint->paint_cursor_col[3]);
+	GPU_basic_shader_line_width(1.0);
+	if (stroke->constrain_line) {
+		sdrawline((int)stroke->last_mouse_position[0], (int)stroke->last_mouse_position[1],
+		        stroke->constrained_pos[0], stroke->constrained_pos[1]);
+	}
+	else {
+		sdrawline((int)stroke->last_mouse_position[0], (int)stroke->last_mouse_position[1],
+		        x, y);
+	}
 
-	immUnbindProgram();
+	GPU_basic_shader_bind_disable(GPU_SHADER_LINE | GPU_SHADER_STIPPLE);
 
+	glDisable(GL_BLEND);
 	glDisable(GL_LINE_SMOOTH);
 }
 

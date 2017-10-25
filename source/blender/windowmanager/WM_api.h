@@ -64,17 +64,12 @@ struct wmDrag;
 struct ImBuf;
 struct ImageFormatData;
 struct ARegion;
-struct ScrArea;
-struct Main;
 
 #ifdef WITH_INPUT_NDOF
 struct wmNDOFMotionData;
 #endif
 
 typedef struct wmJob wmJob;
-typedef struct wmManipulator wmManipulator;
-typedef struct wmManipulatorMap wmManipulatorMap;
-typedef struct wmManipulatorMapType wmManipulatorMapType;
 
 /* general API */
 void		WM_init_state_size_set		(int stax, int stay, int sizx, int sizy);
@@ -95,27 +90,9 @@ void		WM_init_splash		(struct bContext *C);
 
 void		WM_check			(struct bContext *C);
 
-int WM_window_pixels_x(const struct wmWindow *win);
-int WM_window_pixels_y(const struct wmWindow *win);
-int WM_window_screen_pixels_x(const struct wmWindow *win);
-int WM_window_screen_pixels_y(const struct wmWindow *win);
-bool WM_window_is_fullscreen(struct wmWindow *win);
-
-void WM_windows_scene_data_sync(const ListBase *win_lb, struct Scene *scene) ATTR_NONNULL();
-struct Scene *WM_windows_scene_get_from_screen(const struct wmWindowManager *wm, const struct bScreen *screen) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
-struct WorkSpace *WM_windows_workspace_get_from_screen(const wmWindowManager *wm, const struct bScreen *screen) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
-
-struct Scene *WM_window_get_active_scene(const struct wmWindow *win) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
-void          WM_window_change_active_scene(struct Main *bmain, struct bContext *C, struct wmWindow *win,
-                                            struct Scene *scene_new) ATTR_NONNULL();
-struct WorkSpace *WM_window_get_active_workspace(const struct wmWindow *win) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
-void              WM_window_set_active_workspace(struct wmWindow *win, struct WorkSpace *workspace) ATTR_NONNULL(1);
-struct WorkSpaceLayout *WM_window_get_active_layout(const struct wmWindow *win) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
-void                    WM_window_set_active_layout(
-        struct wmWindow *win, struct WorkSpace *workspace, struct WorkSpaceLayout *layout) ATTR_NONNULL(1);
-struct bScreen *WM_window_get_active_screen(const struct wmWindow *win) ATTR_NONNULL() ATTR_WARN_UNUSED_RESULT;
-void            WM_window_set_active_screen(struct wmWindow *win, struct WorkSpace *workspace, struct bScreen *screen) ATTR_NONNULL(1);
-bool WM_window_is_temp_screen(const struct wmWindow *win) ATTR_WARN_UNUSED_RESULT;
+int			WM_window_pixels_x		(struct wmWindow *win);
+int			WM_window_pixels_y		(struct wmWindow *win);
+bool		WM_window_is_fullscreen	(struct wmWindow *win);
 
 /* defines for 'type' WM_window_open_temp */
 enum {
@@ -166,7 +143,6 @@ float		WM_cursor_pressure	(const struct wmWindow *win);
 
 			/* event map */
 int			WM_userdef_event_map(int kmitype);
-int			WM_userdef_event_type_from_keymap_type(int kmitype);
 
 			/* handlers */
 
@@ -196,9 +172,6 @@ void WM_event_free_ui_handler_all(
         wmUIHandlerFunc ui_handle, wmUIHandlerRemoveFunc ui_remove);
 
 struct wmEventHandler *WM_event_add_modal_handler(struct bContext *C, struct wmOperator *op);
-void WM_event_modal_handler_area_replace(wmWindow *win, const struct ScrArea *old_area, struct ScrArea *new_area);
-void WM_event_modal_handler_region_replace(wmWindow *win, const struct ARegion *old_region, struct ARegion *new_region);
-
 void		WM_event_remove_handlers(struct bContext *C, ListBase *handlers);
 
 /* handler flag */
@@ -257,7 +230,6 @@ void		WM_operator_view3d_unit_defaults(struct bContext *C, struct wmOperator *op
 int			WM_operator_smooth_viewtx_get(const struct wmOperator *op);
 int			WM_menu_invoke_ex(struct bContext *C, struct wmOperator *op, int opcontext);
 int			WM_menu_invoke			(struct bContext *C, struct wmOperator *op, const struct wmEvent *event);
-int         WM_enum_search_invoke_previews(struct bContext *C, struct wmOperator *op, short prv_cols, short prv_rows);
 int			WM_enum_search_invoke(struct bContext *C, struct wmOperator *op, const struct wmEvent *event);
 			/* invoke callback, confirm menu + exec */
 int			WM_operator_confirm		(struct bContext *C, struct wmOperator *op, const struct wmEvent *event);
@@ -451,7 +423,9 @@ ListBase	*WM_dropboxmap_find(const char *idname, int spaceid, int regionid);
 void		wmSubWindowSet			(struct wmWindow *win, int swinid);
 void		wmSubWindowScissorSet	(struct wmWindow *win, int swinid, const struct rcti *srct, bool srct_pad);
 
-			/* OpenGL utilities with safety check */
+			/* OpenGL utilities with safety check + working in modelview matrix mode */
+void		wmFrustum			(float x1, float x2, float y1, float y2, float n, float f);
+void		wmOrtho				(float x1, float x2, float y1, float y2, float n, float f);
 void		wmOrtho2			(float x1, float x2, float y1, float y2);
 			/* use for conventions (avoid hard-coded offsets all over) */
 void		wmOrtho2_region_pixelspace(const struct ARegion *ar);

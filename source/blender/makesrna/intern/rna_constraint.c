@@ -154,6 +154,7 @@ static const EnumPropertyItem space_object_items[] = {
 #include "BKE_action.h"
 #include "BKE_constraint.h"
 #include "BKE_context.h"
+#include "BKE_depsgraph.h"
 
 #ifdef WITH_ALEMBIC
 #  include "ABC_alembic.h"

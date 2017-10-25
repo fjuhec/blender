@@ -57,12 +57,12 @@ extern "C" {
 #include "BLI_fileops.h"
 
 #include "BKE_camera.h"
-#include "BKE_collection.h"
 #include "BKE_main.h"
 #include "BKE_lamp.h"
 #include "BKE_library.h"
 #include "BKE_texture.h"
 #include "BKE_fcurve.h"
+#include "BKE_depsgraph.h"
 #include "BKE_scene.h"
 #include "BKE_global.h"
 #include "BKE_material.h"
@@ -81,9 +81,6 @@ extern "C" {
 #include "WM_types.h"
 
 }
-
-#include "DEG_depsgraph.h"
-#include "DEG_depsgraph_build.h"
 
 #include "ExtraHandler.h"
 #include "ErrorHandler.h"
@@ -233,7 +230,7 @@ void DocumentImporter::finish()
 		}
 
 		// update scene
-		DEG_relations_tag_update(bmain);
+		DAG_relations_tag_update(bmain);
 		WM_event_add_notifier(mContext, NC_OBJECT | ND_TRANSFORM, NULL);
 
 	}
@@ -244,7 +241,7 @@ void DocumentImporter::finish()
 	armature_importer.set_tags_map(this->uid_tags_map);
 	armature_importer.make_armatures(mContext, *objects_to_scale);
 	armature_importer.make_shape_keys();
-	DEG_relations_tag_update(bmain);
+	DAG_relations_tag_update(bmain);
 
 #if 0
 	armature_importer.fix_animation();
@@ -267,7 +264,7 @@ void DocumentImporter::finish()
 		for (it = libnode_ob.begin(); it != libnode_ob.end(); it++) {
 			Object *ob = *it;
 
-			BaseLegacy *base = (BaseLegacy *)BKE_scene_base_find(sce, ob);
+			Base *base = BKE_scene_base_find(sce, ob);
 			if (base) {
 				BLI_remlink(&sce->base, base);
 				BKE_libblock_free_us(G.main, base->object);
@@ -278,7 +275,7 @@ void DocumentImporter::finish()
 		}
 		libnode_ob.clear();
 
-		DEG_relations_tag_update(bmain);
+		DAG_relations_tag_update(bmain);
 	}
 	
 	bc_match_scale(objects_to_scale, unit_converter, !this->import_settings->import_units);
@@ -416,8 +413,8 @@ Object *DocumentImporter::create_instance_node(Object *source_ob, COLLADAFW::Nod
 	fprintf(stderr, "create <instance_node> under node id=%s from node id=%s\n", instance_node ? instance_node->getOriginalId().c_str() : NULL, source_node ? source_node->getOriginalId().c_str() : NULL);
 
 	Object *obn = BKE_object_copy(G.main, source_ob);
-	DEG_id_tag_update(&obn->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
-	BKE_collection_object_add_from(sce, source_ob, obn);
+	DAG_id_tag_update(&obn->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
+	BKE_scene_base_add(sce, obn);
 
 	if (instance_node) {
 		anim_importer.read_node_transform(instance_node, obn);

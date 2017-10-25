@@ -79,13 +79,12 @@ extern "C"
 #include <vector>
 #include <algorithm> // std::find
 
-struct EvaluationContext;
+
 
 class AnimationExporter: COLLADASW::LibraryAnimations
 {
 private:
 	Scene *scene;
-	const struct EvaluationContext *eval_ctx;
 	COLLADASW::StreamWriter *sw;
 
 public:
@@ -95,7 +94,7 @@ public:
 			{ this->sw = sw; }
 	
 
-	bool exportAnimations(const struct EvaluationContext *eval_ctx, Scene *sce);
+	bool exportAnimations(Scene *sce);
 
 	// called for each exported object
 	void operator() (Object *ob); 

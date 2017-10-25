@@ -40,10 +40,8 @@
 #include "DNA_space_types.h"
 #include "DNA_view3d_types.h"
 
+#include "BIF_gl.h"
 #include "BIF_glutil.h"
-
-#include "GPU_immediate.h"
-#include "GPU_matrix.h"
 
 #include "BLI_math.h"
 #include "BLI_utildefines.h"
@@ -653,7 +651,7 @@ void setLocalConstraint(TransInfo *t, int mode, const char text[])
  */
 void setUserConstraint(TransInfo *t, short orientation, int mode, const char ftext[])
 {
-	char text[256];
+	char text[40];
 
 	switch (orientation) {
 		case V3D_MANIP_GLOBAL:
@@ -685,15 +683,10 @@ void setUserConstraint(TransInfo *t, short orientation, int mode, const char fte
 			BLI_snprintf(text, sizeof(text), ftext, IFACE_("gimbal"));
 			setConstraint(t, t->spacemtx, mode, text);
 			break;
-		case V3D_MANIP_CUSTOM:
-		{
-			char orientation_str[128];
-			BLI_snprintf(orientation_str, sizeof(orientation_str), "%s \"%s\"",
-			             IFACE_("custom orientation"), t->custom_orientation->name);
-			BLI_snprintf(text, sizeof(text), ftext, orientation_str);
+		default: /* V3D_MANIP_CUSTOM */
+			BLI_snprintf(text, sizeof(text), ftext, t->spacename);
 			setConstraint(t, t->spacemtx, mode, text);
 			break;
-		}
 	}
 
 	t->con.orientation = orientation;
@@ -711,6 +704,8 @@ void drawConstraint(TransInfo *t)
 		return;
 	if (!(tc->mode & CON_APPLY))
 		return;
+	if (t->flag & T_USES_MANIPULATOR)
+		return;
 	if (t->flag & T_NO_CONSTRAINT)
 		return;
 
@@ -720,6 +715,7 @@ void drawConstraint(TransInfo *t)
 	else {
 		if (tc->mode & CON_SELECT) {
 			float vec[3];
+			char col2[3] = {255, 255, 255};
 			int depth_test_enabled;
 
 			convertViewVec(t, vec, (t->mval[0] - t->con.imval[0]), (t->mval[1] - t->con.imval[1]));
@@ -729,29 +725,18 @@ void drawConstraint(TransInfo *t)
 			drawLine(t, t->center_global, tc->mtx[1], 'Y', 0);
 			drawLine(t, t->center_global, tc->mtx[2], 'Z', 0);
 
+			glColor3ubv((GLubyte *)col2);
+
 			depth_test_enabled = glIsEnabled(GL_DEPTH_TEST);
 			if (depth_test_enabled)
 				glDisable(GL_DEPTH_TEST);
 
-			const uint shdr_pos = GWN_vertformat_attr_add(immVertexFormat(), "pos", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
-
-			immBindBuiltinProgram(GPU_SHADER_3D_LINE_DASHED_UNIFORM_COLOR);
-
-			float viewport_size[4];
-			glGetFloatv(GL_VIEWPORT, viewport_size);
-			immUniform2f("viewport_size", viewport_size[2], viewport_size[3]);
-
-			immUniform1i("num_colors", 0);  /* "simple" mode */
-			immUniformColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-			immUniform1f("dash_width", 2.0f);
-			immUniform1f("dash_factor", 0.5f);
-
-			immBegin(GWN_PRIM_LINES, 2);
-			immVertex3fv(shdr_pos, t->center_global);
-			immVertex3fv(shdr_pos, vec);
-			immEnd();
-
-			immUnbindProgram();
+			setlinestyle(1);
+			glBegin(GL_LINES);
+			glVertex3fv(t->center_global);
+			glVertex3fv(vec);
+			glEnd();
+			setlinestyle(0);
 
 			if (depth_test_enabled)
 				glEnable(GL_DEPTH_TEST);
@@ -777,6 +762,8 @@ void drawPropCircle(const struct bContext *C, TransInfo *t)
 		float tmat[4][4], imat[4][4];
 		int depth_test_enabled;
 
+		UI_ThemeColor(TH_GRID);
+
 		if (t->spacetype == SPACE_VIEW3D && rv3d != NULL) {
 			copy_m4_m4(tmat, rv3d->viewmat);
 			invert_m4_m4(imat, tmat);
@@ -786,13 +773,13 @@ void drawPropCircle(const struct bContext *C, TransInfo *t)
 			unit_m4(imat);
 		}
 
-		gpuPushMatrix();
+		glPushMatrix();
 
 		if (t->spacetype == SPACE_VIEW3D) {
 			/* pass */
 		}
 		else if (t->spacetype == SPACE_IMAGE) {
-			gpuScale2f(1.0f / t->aspect[0], 1.0f / t->aspect[1]);
+			glScalef(1.0f / t->aspect[0], 1.0f / t->aspect[1], 1.0f);
 		}
 		else if (ELEM(t->spacetype, SPACE_IPO, SPACE_ACTION)) {
 			/* only scale y */
@@ -802,28 +789,21 @@ void drawPropCircle(const struct bContext *C, TransInfo *t)
 			float ysize = BLI_rctf_size_y(datamask);
 			float xmask = BLI_rcti_size_x(mask);
 			float ymask = BLI_rcti_size_y(mask);
-			gpuScale2f(1.0f, (ysize / xsize) * (xmask / ymask));
+			glScalef(1.0f, (ysize / xsize) * (xmask / ymask), 1.0f);
 		}
 
 		depth_test_enabled = glIsEnabled(GL_DEPTH_TEST);
 		if (depth_test_enabled)
 			glDisable(GL_DEPTH_TEST);
 
-		unsigned int pos = GWN_vertformat_attr_add(immVertexFormat(), "pos", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
-
-		immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
-		immUniformThemeColor(TH_GRID);
-
 		set_inverted_drawing(1);
-		imm_drawcircball(t->center_global, t->prop_size, imat, pos);
+		drawcircball(GL_LINE_LOOP, t->center_global, t->prop_size, imat);
 		set_inverted_drawing(0);
-
-		immUnbindProgram();
 
 		if (depth_test_enabled)
 			glEnable(GL_DEPTH_TEST);
 
-		gpuPopMatrix();
+		glPopMatrix();
 	}
 }
 

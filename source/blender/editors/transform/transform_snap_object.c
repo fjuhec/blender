@@ -51,9 +51,6 @@
 #include "BKE_editmesh.h"
 #include "BKE_main.h"
 #include "BKE_tracking.h"
-#include "BKE_context.h"
-
-#include "DEG_depsgraph.h"
 
 #include "ED_transform.h"
 #include "ED_transform_snap_object_context.h"
@@ -104,8 +101,6 @@ typedef struct SnapObjectData_EditMesh {
 struct SnapObjectContext {
 	Main *bmain;
 	Scene *scene;
-	EvaluationContext eval_ctx;
-
 	int flag;
 
 	/* Optional: when performing screen-space projection.
@@ -160,7 +155,7 @@ static void iter_snap_objects(
         IterSnapObjsCallback sob_callback,
         void *data)
 {
-	Base *base_act = sctx->eval_ctx.scene_layer->basact;
+	Base *base_act = sctx->scene->basact;
 	/* Need an exception for particle edit because the base is flagged with BA_HAS_RECALC_DATA
 	 * which makes the loop skip it, even the derived mesh will never change
 	 *
@@ -170,16 +165,17 @@ static void iter_snap_objects(
 		sob_callback(sctx, false, base_act->object, base_act->object->obmat, data);
 	}
 
-	for (Base *base = sctx->eval_ctx.scene_layer->object_bases.first; base != NULL; base = base->next) {
-		if ((BASE_VISIBLE_NEW(base)) && (base->flag_legacy & (BA_HAS_RECALC_OB | BA_HAS_RECALC_DATA)) == 0 &&
-		    !((snap_select == SNAP_NOT_SELECTED && ((base->flag & BASE_SELECTED) || (base->flag_legacy & BA_WAS_SEL))) ||
+	for (Base *base = sctx->scene->base.first; base != NULL; base = base->next) {
+		if ((BASE_VISIBLE_BGMODE(sctx->v3d_data.v3d, sctx->scene, base)) &&
+		    (base->flag & (BA_HAS_RECALC_OB | BA_HAS_RECALC_DATA)) == 0 &&
+		    !((snap_select == SNAP_NOT_SELECTED && (base->flag & (SELECT | BA_WAS_SEL))) ||
 		      (snap_select == SNAP_NOT_ACTIVE && base == base_act)))
 		{
 			bool use_obedit;
 			Object *obj = base->object;
 			if (obj->transflag & OB_DUPLI) {
 				DupliObject *dupli_ob;
-				ListBase *lb = object_duplilist(&sctx->eval_ctx, sctx->scene, obj);
+				ListBase *lb = object_duplilist(sctx->bmain->eval_ctx, sctx->scene, obj);
 				for (dupli_ob = lb->first; dupli_ob; dupli_ob = dupli_ob->next) {
 					use_obedit = obedit && dupli_ob->ob->data == obedit->data;
 					sob_callback(sctx, use_obedit, use_obedit ? obedit : dupli_ob->ob, dupli_ob->mat, data);
@@ -738,10 +734,10 @@ static bool raycastObj(
 			DerivedMesh *dm;
 			em = BKE_editmesh_from_object(ob);
 			if (em) {
-				editbmesh_get_derived_cage_and_final(&sctx->eval_ctx, sctx->scene, ob, em, CD_MASK_BAREMESH, &dm);
+				editbmesh_get_derived_cage_and_final(sctx->scene, ob, em, CD_MASK_BAREMESH, &dm);
 			}
 			else {
-				dm = mesh_get_derived_final(&sctx->eval_ctx, sctx->scene, ob, CD_MASK_BAREMESH);
+				dm = mesh_get_derived_final(sctx->scene, ob, CD_MASK_BAREMESH);
 			}
 			retval = raycastDerivedMesh(
 			        sctx,
@@ -1951,10 +1947,10 @@ static bool snapObject(
 			DerivedMesh *dm;
 			em = BKE_editmesh_from_object(ob);
 			if (em) {
-				editbmesh_get_derived_cage_and_final(&sctx->eval_ctx, sctx->scene, ob, em, CD_MASK_BAREMESH, &dm);
+				editbmesh_get_derived_cage_and_final(sctx->scene, ob, em, CD_MASK_BAREMESH, &dm);
 			}
 			else {
-				dm = mesh_get_derived_final(&sctx->eval_ctx, sctx->scene, ob, CD_MASK_BAREMESH);
+				dm = mesh_get_derived_final(sctx->scene, ob, CD_MASK_BAREMESH);
 			}
 			retval = snapDerivedMesh(
 			        sctx, snapdata, ob, dm, obmat,
@@ -2096,7 +2092,7 @@ static bool snapObjectsRay(
  * \{ */
 
 SnapObjectContext *ED_transform_snap_object_context_create(
-        Main *bmain, Scene *scene, SceneLayer *sl, RenderEngineType *engine, int flag)
+        Main *bmain, Scene *scene, int flag)
 {
 	SnapObjectContext *sctx = MEM_callocN(sizeof(*sctx), __func__);
 
@@ -2105,8 +2101,6 @@ SnapObjectContext *ED_transform_snap_object_context_create(
 	sctx->bmain = bmain;
 	sctx->scene = scene;
 
-	DEG_evaluation_context_init_from_scene(&sctx->eval_ctx, scene, sl, engine, DAG_EVAL_VIEWPORT);
-
 	sctx->cache.object_map = BLI_ghash_ptr_new(__func__);
 	sctx->cache.mem_arena = BLI_memarena_new(BLI_MEMARENA_STD_BUFSIZE, __func__);
 
@@ -2114,11 +2108,11 @@ SnapObjectContext *ED_transform_snap_object_context_create(
 }
 
 SnapObjectContext *ED_transform_snap_object_context_create_view3d(
-        Main *bmain, Scene *scene, SceneLayer *sl, RenderEngineType *engine, int flag,
+        Main *bmain, Scene *scene, int flag,
         /* extra args for view3d */
         const ARegion *ar, const View3D *v3d)
 {
-	SnapObjectContext *sctx = ED_transform_snap_object_context_create(bmain, scene, sl, engine, flag);
+	SnapObjectContext *sctx = ED_transform_snap_object_context_create(bmain, scene, flag);
 
 	sctx->use_v3d = true;
 	sctx->v3d_data.ar = ar;

@@ -98,8 +98,8 @@ static bool dependsOnTime(ModifierData *UNUSED(md))
 	return true;
 }
 
-static void deformVerts(ModifierData *md, const struct EvaluationContext *UNUSED(eval_ctx),
-                        Object *ob, DerivedMesh *derivedData,
+static void deformVerts(ModifierData *md, Object *ob,
+                        DerivedMesh *derivedData,
                         float (*vertexCos)[3],
                         int UNUSED(numVerts),
                         ModifierApplyFlag UNUSED(flag))
@@ -264,6 +264,7 @@ ModifierTypeInfo modifierType_Collision = {
 	/* requiredDataMask */  NULL,
 	/* freeData */          freeData,
 	/* isDisabled */        NULL,
+	/* updateDepgraph */    NULL,
 	/* updateDepsgraph */   NULL,
 	/* dependsOnTime */     dependsOnTime,
 	/* dependsOnNormals */	NULL,

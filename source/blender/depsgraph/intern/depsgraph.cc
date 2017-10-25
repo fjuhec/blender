@@ -46,6 +46,8 @@ extern "C" {
 #include "DNA_object_types.h"
 #include "DNA_sequence_types.h"
 
+#include "BKE_depsgraph.h"
+
 #include "RNA_access.h"
 }
 
@@ -53,26 +55,12 @@ extern "C" {
 
 #include "DEG_depsgraph.h"
 
-#include "intern/eval/deg_eval_copy_on_write.h"
-
 #include "intern/nodes/deg_node.h"
 #include "intern/nodes/deg_node_component.h"
 #include "intern/nodes/deg_node_operation.h"
 
 #include "intern/depsgraph_intern.h"
 #include "util/deg_util_foreach.h"
-
-static bool use_copy_on_write = false;
-
-bool DEG_depsgraph_use_copy_on_write(void)
-{
-	return use_copy_on_write;
-}
-
-void DEG_depsgraph_enable_copy_on_write(void)
-{
-	use_copy_on_write = true;
-}
 
 namespace DEG {
 
@@ -82,7 +70,8 @@ static DEG_EditorUpdateScenePreCb deg_editor_update_scene_pre_cb = NULL;
 
 Depsgraph::Depsgraph()
   : time_source(NULL),
-    need_update(true)
+    need_update(false),
+    layers(0)
 {
 	BLI_spin_init(&lock);
 	id_hash = BLI_ghash_ptr_new("Depsgraph id hash");
@@ -264,6 +253,12 @@ DepsNode *Depsgraph::find_node_from_pointer(const PointerRNA *ptr,
 
 /* Node Management ---------------------------- */
 
+static void id_node_deleter(void *value)
+{
+	IDDepsNode *id_node = reinterpret_cast<IDDepsNode *>(value);
+	OBJECT_GUARDED_DELETE(id_node, IDDepsNode);
+}
+
 TimeSourceDepsNode *Depsgraph::add_time_source()
 {
 	if (time_source == NULL) {
@@ -283,57 +278,22 @@ IDDepsNode *Depsgraph::find_id_node(const ID *id) const
 	return reinterpret_cast<IDDepsNode *>(BLI_ghash_lookup(id_hash, id));
 }
 
-IDDepsNode *Depsgraph::add_id_node(ID *id, bool do_tag, ID *id_cow_hint)
+IDDepsNode *Depsgraph::add_id_node(ID *id, const char *name)
 {
-	BLI_assert((id->tag & LIB_TAG_COPY_ON_WRITE) == 0);
 	IDDepsNode *id_node = find_id_node(id);
 	if (!id_node) {
 		DepsNodeFactory *factory = deg_get_node_factory(DEG_NODE_TYPE_ID_REF);
-		id_node = (IDDepsNode *)factory->create_node(id, "", id->name);
-		id_node->init_copy_on_write(id_cow_hint);
-		if (do_tag) {
-			id->tag |= LIB_TAG_DOIT;
-		}
-		/* Register node in ID hash.
-		 *
-		 * NOTE: We address ID nodes by the original ID pointer they are
-		 * referencing to.
-		 */
-		BLI_ghash_insert(id_hash, id, id_node);
-	}
-	else if (do_tag) {
+		id_node = (IDDepsNode *)factory->create_node(id, "", name);
 		id->tag |= LIB_TAG_DOIT;
+		/* register */
+		BLI_ghash_insert(id_hash, id, id_node);
 	}
 	return id_node;
 }
 
 void Depsgraph::clear_id_nodes()
 {
-	if (use_copy_on_write) {
-		/* Stupid workaround to ensure we free IDs in a proper order. */
-		GHASH_FOREACH_BEGIN(IDDepsNode *, id_node, id_hash)
-		{
-			if (id_node->id_cow == NULL) {
-				/* This means builder "stole" ownership of the copy-on-written
-				 * datablock for her own dirty needs.
-				 */
-				continue;
-			}
-			if (!deg_copy_on_write_is_expanded(id_node->id_cow)) {
-				continue;
-			}
-			const ID_Type id_type = GS(id_node->id_cow->name);
-			if (id_type != ID_PA) {
-				id_node->destroy();
-			}
-		}
-		GHASH_FOREACH_END();
-	}
-	GHASH_FOREACH_BEGIN(IDDepsNode *, id_node, id_hash)
-	{
-		OBJECT_GUARDED_DELETE(id_node, IDDepsNode);
-	}
-	GHASH_FOREACH_END();
+	BLI_ghash_clear(id_hash, NULL, id_node_deleter);
 }
 
 /* Add new relationship between two nodes. */
@@ -349,7 +309,7 @@ DepsRelation *Depsgraph::add_new_relation(OperationDepsNode *from,
 	if (comp_node->type == DEG_NODE_TYPE_GEOMETRY) {
 		IDDepsNode *id_to = to->owner->owner;
 		IDDepsNode *id_from = from->owner->owner;
-		if (id_to != id_from && (id_to->id_orig->tag & LIB_TAG_ID_RECALC_ALL)) {
+		if (id_to != id_from && (id_to->id->tag & LIB_TAG_ID_RECALC_ALL)) {
 			if ((id_from->eval_flags & DAG_EVAL_NEED_CPU) == 0) {
 				id_from->tag_update(this);
 				id_from->eval_flags |= DAG_EVAL_NEED_CPU;
@@ -428,9 +388,9 @@ DepsRelation::~DepsRelation()
 void Depsgraph::add_entry_tag(OperationDepsNode *node)
 {
 	/* Sanity check. */
-	if (node == NULL) {
+	if (!node)
 		return;
-	}
+
 	/* Add to graph-level set of directly modified nodes to start searching from.
 	 * NOTE: this is necessary since we have several thousand nodes to play with...
 	 */
@@ -445,34 +405,6 @@ void Depsgraph::clear_all_nodes()
 		OBJECT_GUARDED_DELETE(time_source, TimeSourceDepsNode);
 		time_source = NULL;
 	}
-}
-
-ID *Depsgraph::get_cow_id(const ID *id_orig) const
-{
-	IDDepsNode *id_node = find_id_node(id_orig);
-	if (id_node == NULL) {
-		/* This function is used from places where we expect ID to be either
-		 * already a copy-on-write version or have a corresponding copy-on-write
-		 * version.
-		 *
-		 * We try to enforce that in debug builds, for for release we play a bit
-		 * safer game here.
-		 */
-		if ((id_orig->tag & LIB_TAG_COPY_ON_WRITE) == 0) {
-			/* TODO(sergey): This is nice sanity check to have, but it fails
-			 * in following situations:
-			 *
-			 * - Material has link to texture, which is not needed by new
-			 *   shading system and hence can be ignored at construction.
-			 * - Object or mesh has material at a slot which is not used (for
-			 *   example, object has material slot by materials are set to
-			 *   object data).
-			 */
-			// BLI_assert(!"Request for non-existing copy-on-write ID");
-		}
-		return (ID *)id_orig;
-	}
-	return id_node->id_cow;
 }
 
 void deg_editors_id_update(Main *bmain, ID *id)

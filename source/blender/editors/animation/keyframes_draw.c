@@ -52,8 +52,7 @@
 
 #include "BKE_fcurve.h"
 
-#include "GPU_draw.h"
-#include "GPU_immediate.h"
+#include "BIF_gl.h"
 
 #include "UI_resources.h"
 #include "UI_view2d.h"
@@ -464,15 +463,49 @@ bool actkeyblock_is_valid(ActKeyBlock *ab, DLRBT_Tree *keys)
 
 /* *************************** Keyframe Drawing *************************** */
 
-void draw_keyframe_shape(float x, float y, float size, bool sel, short key_type, short mode, float alpha,
-                         unsigned int pos_id, unsigned int size_id, unsigned int color_id, unsigned int outline_color_id)
+/* coordinates for diamond shape */
+static const float _unit_diamond_shape[4][2] = {
+	{0.0f, 1.0f},   /* top vert */
+	{1.0f, 0.0f},   /* mid-right */
+	{0.0f, -1.0f},  /* bottom vert */
+	{-1.0f, 0.0f}   /* mid-left */
+}; 
+
+/* draw a simple diamond shape with OpenGL */
+void draw_keyframe_shape(float x, float y, float xscale, float hsize, short sel, short key_type, short mode, float alpha)
 {
-	bool draw_fill = ELEM(mode, KEYFRAME_SHAPE_INSIDE, KEYFRAME_SHAPE_BOTH);
-	bool draw_outline = ELEM(mode, KEYFRAME_SHAPE_FRAME, KEYFRAME_SHAPE_BOTH);
+	static GLuint displist1 = 0;
+	static GLuint displist2 = 0;
+	
+	/* initialize 2 display lists for diamond shape - one empty, one filled */
+	if (displist1 == 0) {
+		displist1 = glGenLists(1);
+		glNewList(displist1, GL_COMPILE);
+			
+		glBegin(GL_LINE_LOOP);
+		glVertex2fv(_unit_diamond_shape[0]);
+		glVertex2fv(_unit_diamond_shape[1]);
+		glVertex2fv(_unit_diamond_shape[2]);
+		glVertex2fv(_unit_diamond_shape[3]);
+		glEnd();
 
-	BLI_assert(draw_fill || draw_outline);
+		glEndList();
+	}
+	if (displist2 == 0) {
+		displist2 = glGenLists(1);
+		glNewList(displist2, GL_COMPILE);
+			
+		glBegin(GL_QUADS);
+		glVertex2fv(_unit_diamond_shape[0]);
+		glVertex2fv(_unit_diamond_shape[1]);
+		glVertex2fv(_unit_diamond_shape[2]);
+		glVertex2fv(_unit_diamond_shape[3]);
+		glEnd();
 
-	/* tweak size of keyframe shape according to type of keyframe
+		glEndList();
+	}
+	
+	/* tweak size of keyframe shape according to type of keyframe 
 	 * - 'proper' keyframes have key_type = 0, so get drawn at full size
 	 */
 	switch (key_type) {
@@ -480,93 +513,120 @@ void draw_keyframe_shape(float x, float y, float size, bool sel, short key_type,
 			break;
 		
 		case BEZT_KEYTYPE_BREAKDOWN: /* slightly smaller than normal keyframe */
-			size *= 0.85f;
+			hsize *= 0.85f;
 			break;
 		
 		case BEZT_KEYTYPE_MOVEHOLD:  /* slightly smaller than normal keyframes (but by less than for breakdowns) */
-			size *= 0.925f;
+			//hsize *= 0.72f;
+			hsize *= 0.95f;
 			break;
 			
 		case BEZT_KEYTYPE_EXTREME:   /* slightly larger */
-			size *= 1.2f;
+			hsize *= 1.2f;
 			break;
 		
 		default:
-			size -= 0.8f * key_type;
+			hsize -= 0.5f * key_type;
+			break;
 	}
-
-	unsigned char fill_col[4];
-	unsigned char outline_col[4];
-
+	
+	/* adjust view transform before starting */
+	glTranslatef(x, y, 0.0f);
+	glScalef(1.0f / xscale * hsize, hsize, 1.0f);
+	
+	/* anti-aliased lines for more consistent appearance */
+	glEnable(GL_LINE_SMOOTH);
+	
 	/* draw! */
-	if (draw_fill) {
+	if (ELEM(mode, KEYFRAME_SHAPE_INSIDE, KEYFRAME_SHAPE_BOTH)) {
+		float inner_col[4];
+		
 		/* get interior colors from theme (for selected and unselected only) */
 		switch (key_type) {
 			case BEZT_KEYTYPE_BREAKDOWN: /* bluish frames (default theme) */
-				UI_GetThemeColor4ubv(sel ? TH_KEYTYPE_BREAKDOWN_SELECT : TH_KEYTYPE_BREAKDOWN, fill_col);
+			{
+				if (sel)  UI_GetThemeColor4fv(TH_KEYTYPE_BREAKDOWN_SELECT, inner_col);
+				else UI_GetThemeColor4fv(TH_KEYTYPE_BREAKDOWN, inner_col);
 				break;
+			}
 			case BEZT_KEYTYPE_EXTREME: /* reddish frames (default theme) */
-				UI_GetThemeColor4ubv(sel ? TH_KEYTYPE_EXTREME_SELECT : TH_KEYTYPE_EXTREME, fill_col);
+			{
+				if (sel) UI_GetThemeColor4fv(TH_KEYTYPE_EXTREME_SELECT, inner_col);
+				else UI_GetThemeColor4fv(TH_KEYTYPE_EXTREME, inner_col);
 				break;
+			}
 			case BEZT_KEYTYPE_JITTER: /* greenish frames (default theme) */
-				UI_GetThemeColor4ubv(sel ? TH_KEYTYPE_JITTER_SELECT : TH_KEYTYPE_JITTER, fill_col);
+			{
+				if (sel) UI_GetThemeColor4fv(TH_KEYTYPE_JITTER_SELECT, inner_col);
+				else UI_GetThemeColor4fv(TH_KEYTYPE_JITTER, inner_col);
 				break;
+			}
 			case BEZT_KEYTYPE_MOVEHOLD: /* similar to traditional keyframes, but different... */
+			{
 				/* XXX: Should these get their own theme options instead? */
-				if (sel) UI_GetThemeColorShade3ubv(TH_STRIP_SELECT, 35, fill_col);
-				else UI_GetThemeColorShade3ubv(TH_STRIP, 50, fill_col);
-				fill_col[3] = 255; /* full opacity, to avoid problems with visual glitches */
+				if (sel) UI_GetThemeColorShade4fv(TH_STRIP_SELECT, 35, inner_col);
+				else UI_GetThemeColorShade4fv(TH_STRIP, 50, inner_col);
+				
+				inner_col[3] = 1.0f; /* full opacity, to avoid problems with visual glitches */
 				break;
+			}
 			case BEZT_KEYTYPE_KEYFRAME: /* traditional yellowish frames (default theme) */
 			default:
-				UI_GetThemeColor4ubv(sel ? TH_KEYTYPE_KEYFRAME_SELECT : TH_KEYTYPE_KEYFRAME, fill_col);
+			{
+				if (sel) UI_GetThemeColor4fv(TH_KEYTYPE_KEYFRAME_SELECT, inner_col);
+				else UI_GetThemeColor4fv(TH_KEYTYPE_KEYFRAME, inner_col);
+				break;
+			}
 		}
 		
 		/* NOTE: we don't use the straight alpha from the theme, or else effects such as 
 		 * graying out protected/muted channels doesn't work correctly!
 		 */
-		fill_col[3] *= alpha;
-
-		if (!draw_outline) {
-			/* force outline color to match */
-			outline_col[0] = fill_col[0];
-			outline_col[1] = fill_col[1];
-			outline_col[2] = fill_col[2];
-			outline_col[3] = fill_col[3];
-		}
+		inner_col[3] *= alpha;
+		glColor4fv(inner_col);
+		
+		/* draw the "filled in" interior poly now */
+		glCallList(displist2);
 	}
-
-	if (draw_outline) {
+	
+	if (ELEM(mode, KEYFRAME_SHAPE_FRAME, KEYFRAME_SHAPE_BOTH)) {
+		float border_col[4];
+		
 		/* exterior - black frame */
-		UI_GetThemeColor4ubv(sel ? TH_KEYBORDER_SELECT : TH_KEYBORDER, outline_col);
-		outline_col[3] *= alpha;
-
-		if (!draw_fill) {
-			/* fill color needs to be (outline.rgb, 0) */
-			fill_col[0] = outline_col[0];
-			fill_col[1] = outline_col[1];
-			fill_col[2] = outline_col[2];
-			fill_col[3] = 0;
-		}
+		if (sel)  UI_GetThemeColor4fv(TH_KEYBORDER_SELECT, border_col);
+		else  UI_GetThemeColor4fv(TH_KEYBORDER, border_col);
+		
+		border_col[3] *= alpha;
+		glColor4fv(border_col);
+		
+		glCallList(displist1);
 	}
-
-	immAttrib1f(size_id, size);
-	immAttrib4ubv(color_id, fill_col);
-	immAttrib4ubv(outline_color_id, outline_col);
-	immVertex2f(pos_id, x, y);
+	
+	glDisable(GL_LINE_SMOOTH);
+	
+	/* restore view transform */
+	glScalef(xscale / hsize, 1.0f / hsize, 1.0f);
+	glTranslatef(-x, -y, 0.0f);
 }
 
 static void draw_keylist(View2D *v2d, DLRBT_Tree *keys, DLRBT_Tree *blocks, float ypos, float yscale_fac, bool channelLocked)
 {
-	const float icon_sz = U.widget_unit * 0.5f * yscale_fac;
-	const float half_icon_sz = 0.5f * icon_sz;
-	const float smaller_sz = 0.35f * icon_sz;
+	ActKeyColumn *ak;
+	ActKeyBlock *ab;
+	float alpha;
+	float xscale;
+	
+	const float iconsize = (U.widget_unit / 4.0f) * yscale_fac;
+	const float mhsize   = iconsize * 0.7f;
 	
 	glEnable(GL_BLEND);
 	
+	/* get View2D scaling factor */
+	UI_view2d_scale_get(v2d, &xscale, NULL);
+	
 	/* locked channels are less strongly shown, as feedback for locked channels in DopeSheet */
 	/* TODO: allow this opacity factor to be themed? */
-	float alpha = channelLocked ? 0.25f : 1.0f;
+	alpha = (channelLocked) ? 0.25f : 1.0f;
 	
 	/* draw keyblocks */
 	if (blocks) {
@@ -584,59 +644,45 @@ static void draw_keylist(View2D *v2d, DLRBT_Tree *keys, DLRBT_Tree *blocks, floa
 		sel_mhcol[3]   *= 0.8f;
 		copy_v4_v4(unsel_mhcol, unsel_color);
 		unsel_mhcol[3] *= 0.8f;
-
-		unsigned int pos_id = GWN_vertformat_attr_add(immVertexFormat(), "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
-		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+		
 		/* NOTE: the tradeoff for changing colors between each draw is dwarfed by the cost of checking validity */
-		for (ActKeyBlock *ab = blocks->first; ab; ab = ab->next) {
+		for (ab = blocks->first; ab; ab = ab->next) {
 			if (actkeyblock_is_valid(ab, keys)) {
 				if (ab->flag & ACTKEYBLOCK_FLAG_MOVING_HOLD) {
 					/* draw "moving hold" long-keyframe block - slightly smaller */
-					immUniformColor4fv(ab->sel ? sel_mhcol : unsel_mhcol);
-					immRectf(pos_id, ab->start, ypos - smaller_sz, ab->end, ypos + smaller_sz);
+					if (ab->sel)
+						glColor4fv(sel_mhcol);
+					else
+						glColor4fv(unsel_mhcol);
+					
+					glRectf(ab->start, ypos - mhsize, ab->end, ypos + mhsize);
 				}
 				else {
 					/* draw standard long-keyframe block */
-					immUniformColor4fv(ab->sel ? sel_color : unsel_color);
-					immRectf(pos_id, ab->start, ypos - half_icon_sz, ab->end, ypos + half_icon_sz);
+					if (ab->sel)
+						glColor4fv(sel_color);
+					else
+						glColor4fv(unsel_color);
+					
+					glRectf(ab->start, ypos - iconsize, ab->end, ypos + iconsize);
 				}
 			}
 		}
-		immUnbindProgram();
 	}
 	
+	/* draw keys */
 	if (keys) {
-		/* count keys */
-		unsigned int key_ct = 0;
-		for (ActKeyColumn *ak = keys->first; ak; ak = ak->next) {
+		for (ak = keys->first; ak; ak = ak->next) {
 			/* optimization: if keyframe doesn't appear within 5 units (screenspace) in visible area, don't draw
 			 *	- this might give some improvements, since we current have to flip between view/region matrices
 			 */
-			if (IN_RANGE_INCL(ak->cfra, v2d->cur.xmin, v2d->cur.xmax))
-				key_ct++;
-		}
-
-		if (key_ct > 0) {
-			/* draw keys */
-			Gwn_VertFormat *format = immVertexFormat();
-			unsigned int pos_id = GWN_vertformat_attr_add(format, "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
-			unsigned int size_id = GWN_vertformat_attr_add(format, "size", GWN_COMP_F32, 1, GWN_FETCH_FLOAT);
-			unsigned int color_id = GWN_vertformat_attr_add(format, "color", GWN_COMP_U8, 4, GWN_FETCH_INT_TO_FLOAT_UNIT);
-			unsigned int outline_color_id = GWN_vertformat_attr_add(format, "outlineColor", GWN_COMP_U8, 4, GWN_FETCH_INT_TO_FLOAT_UNIT);
-			immBindBuiltinProgram(GPU_SHADER_KEYFRAME_DIAMOND);
-			GPU_enable_program_point_size();
-			immBegin(GWN_PRIM_POINTS, key_ct);
-
-			for (ActKeyColumn *ak = keys->first; ak; ak = ak->next) {
-				if (IN_RANGE_INCL(ak->cfra, v2d->cur.xmin, v2d->cur.xmax)) {
-					draw_keyframe_shape(ak->cfra, ypos, icon_sz, (ak->sel & SELECT), ak->key_type, KEYFRAME_SHAPE_BOTH, alpha,
-					                    pos_id, size_id, color_id, outline_color_id);
-				}
-			}
-
-			immEnd();
-			GPU_disable_program_point_size();
-			immUnbindProgram();
+			if (IN_RANGE_INCL(ak->cfra, v2d->cur.xmin, v2d->cur.xmax) == 0)
+				continue;
+			
+			/* draw using OpenGL - uglier but faster */
+			/* NOTE1: a previous version of this didn't work nice for some intel cards
+			 * NOTE2: if we wanted to go back to icons, these are  icon = (ak->sel & SELECT) ? ICON_SPACE2 : ICON_SPACE3; */
+			draw_keyframe_shape(ak->cfra, ypos, xscale, iconsize, (ak->sel & SELECT), ak->key_type, KEYFRAME_SHAPE_BOTH, alpha);
 		}
 	}
 
@@ -892,7 +938,7 @@ void ob_to_keylist(bDopeSheet *ads, Object *ob, DLRBT_Tree *keys, DLRBT_Tree *bl
 	int filter;
 	
 	bAnimListElem dummychan = {NULL};
-	BaseLegacy dummybase = {NULL};
+	Base dummybase = {NULL};
 	
 	if (ob == NULL)
 		return;

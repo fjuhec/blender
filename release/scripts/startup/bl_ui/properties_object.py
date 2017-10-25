@@ -40,7 +40,7 @@ class OBJECT_PT_context_object(ObjectButtonsPanel, Panel):
             layout.template_ID(space, "pin_id")
         else:
             row = layout.row()
-            row.template_ID(context.render_layer.objects, "active")
+            row.template_ID(context.scene.objects, "active")
 
 
 class OBJECT_PT_transform(ObjectButtonsPanel, Panel):
@@ -163,7 +163,7 @@ class OBJECT_PT_relations_extras(ObjectButtonsPanel, Panel):
 
         split = layout.split()
 
-        if context.engine != 'BLENDER_GAME':
+        if context.scene.render.engine != 'BLENDER_GAME':
             col = split.column()
             col.label(text="Tracking Axes:")
             col.prop(ob, "track_axis", text="Axis")
@@ -362,7 +362,7 @@ class OBJECT_PT_onion_skinning(OnionSkinButtonsPanel):  # , Panel): # inherit fr
 
 
 class OBJECT_PT_custom_props(ObjectButtonsPanel, PropertyPanel, Panel):
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME', 'BLENDER_CLAY', 'BLENDER_EEVEE'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME'}
     _context_path = "object"
     _property_type = bpy.types.Object
 

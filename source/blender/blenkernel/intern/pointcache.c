@@ -3509,14 +3509,13 @@ PointCache *BKE_ptcache_copy_list(ListBase *ptcaches_new, const ListBase *ptcach
  * every user action changing stuff, and then it runs a complete bake??? (ton) */
 
 /* Baking */
-void BKE_ptcache_quick_cache_all(Main *bmain, Scene *scene, SceneLayer *scene_layer)
+void BKE_ptcache_quick_cache_all(Main *bmain, Scene *scene)
 {
 	PTCacheBaker baker;
 
 	memset(&baker, 0, sizeof(baker));
 	baker.main = bmain;
 	baker.scene = scene;
-	baker.scene_layer = scene_layer;
 	baker.bake = 0;
 	baker.render = 0;
 	baker.anim_init = 0;
@@ -3542,7 +3541,6 @@ void BKE_ptcache_bake(PTCacheBaker *baker)
 {
 	Main *bmain = baker->main;
 	Scene *scene = baker->scene;
-	SceneLayer *scene_layer = baker->scene_layer;
 	Scene *sce_iter; /* SETLOOPER macro only */
 	Base *base;
 	ListBase pidlist;
@@ -3605,7 +3603,7 @@ void BKE_ptcache_bake(PTCacheBaker *baker)
 		}
 	}
 	else {
-		for (SETLOOPER_SCENE_LAYER(scene, scene_layer, sce_iter, base)) {
+		for (SETLOOPER(scene, sce_iter, base)) {
 			/* cache/bake everything in the scene */
 			BKE_ptcache_ids_from_object(&pidlist, base->object, scene, MAX_DUPLI_RECUR);
 
@@ -3661,7 +3659,7 @@ void BKE_ptcache_bake(PTCacheBaker *baker)
 	stime = ptime = PIL_check_seconds_timer();
 
 	for (int fr = CFRA; fr <= endframe; fr += baker->quick_step, CFRA = fr) {
-		BKE_scene_update_for_newframe(G.main->eval_ctx, bmain, scene);
+		BKE_scene_update_for_newframe(G.main->eval_ctx, bmain, scene, scene->lay);
 
 		if (baker->update_progress) {
 			float progress = ((float)(CFRA - startframe)/(float)(endframe - startframe));
@@ -3716,7 +3714,7 @@ void BKE_ptcache_bake(PTCacheBaker *baker)
 		}
 	}
 	else {
-		for (SETLOOPER_SCENE_LAYER(scene, scene_layer, sce_iter, base)) {
+		for (SETLOOPER(scene, sce_iter, base)) {
 			BKE_ptcache_ids_from_object(&pidlist, base->object, scene, MAX_DUPLI_RECUR);
 
 			for (pid=pidlist.first; pid; pid=pid->next) {
@@ -3747,7 +3745,7 @@ void BKE_ptcache_bake(PTCacheBaker *baker)
 	CFRA = cfrao;
 	
 	if (bake) { /* already on cfra unless baking */
-		BKE_scene_update_for_newframe(bmain->eval_ctx, bmain, scene);
+		BKE_scene_update_for_newframe(bmain->eval_ctx, bmain, scene, scene->lay);
 	}
 
 	/* TODO: call redraw all windows somehow */

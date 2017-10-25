@@ -58,29 +58,24 @@
 #include "IMB_imbuf_types.h"
 #include "IMB_imbuf.h"
 
+#include "BKE_depsgraph.h"
 #include "BKE_image.h"
 
 #include "BIF_gl.h"
 #include "BIF_glutil.h"
-
-#include "GPU_matrix.h"
-#include "GPU_immediate.h"
-#include "GPU_immediate_util.h"
 
 #include "DNA_scene_types.h"
 #include "ED_datafiles.h" /* for fonts */
 #include "GHOST_C-api.h"
 #include "BLF_api.h"
 
-#include "DEG_depsgraph.h"
-
 #include "WM_api.h"  /* only for WM_main_playanim */
 
 #ifdef WITH_AUDASPACE
-#  include <AUD_Device.h>
-#  include <AUD_Handle.h>
-#  include <AUD_Sound.h>
-#  include <AUD_Special.h>
+#  include AUD_DEVICE_H
+#  include AUD_HANDLE_H
+#  include AUD_SOUND_H
+#  include AUD_SPECIAL_H
 
 static AUD_Sound *source = NULL;
 static AUD_Handle *playback_handle = NULL;
@@ -195,7 +190,10 @@ static void playanim_window_get_size(int *r_width, int *r_height)
 static void playanim_gl_matrix(void)
 {
 	/* unified matrix, note it affects offset for drawing */
-	gpuOrtho2D(0.0f, 1.0f, 0.0f, 1.0f);
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	glOrtho(0.0f, 1.0f, 0.0f, 1.0f, -1.0f, 1.0f);
+	glMatrixMode(GL_MODELVIEW);
 }
 
 /* implementation */
@@ -310,45 +308,42 @@ static void playanim_toscreen(PlayState *ps, PlayAnimPict *picture, struct ImBuf
 
 	CLAMP(offs_x, 0.0f, 1.0f);
 	CLAMP(offs_y, 0.0f, 1.0f);
+	glRasterPos2f(offs_x, offs_y);
 
 	glClearColor(0.1, 0.1, 0.1, 0.0);
 	glClear(GL_COLOR_BUFFER_BIT);
-
+	
 	/* checkerboard for case alpha */
 	if (ibuf->planes == 32) {
 		glEnable(GL_BLEND);
 		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-		imm_draw_box_checker_2d(offs_x, offs_y, offs_x + span_x, offs_y + span_y);
+		fdrawcheckerboard(offs_x, offs_y, offs_x + span_x, offs_y + span_y);
 	}
 
-	IMMDrawPixelsTexState state = immDrawPixelsTexSetup(GPU_SHADER_2D_IMAGE_COLOR);
+	glRasterPos2f(offs_x + (ps->draw_flip[0] ? span_x : 0.0f),
+	              offs_y + (ps->draw_flip[1] ? span_y : 0.0f));
 
-	immDrawPixelsTex(
-	        &state,
-	        offs_x + (ps->draw_flip[0] ? span_x : 0.0f),
-	        offs_y + (ps->draw_flip[1] ? span_y : 0.0f),
-	        ibuf->x, ibuf->y, GL_RGBA, GL_UNSIGNED_BYTE, GL_NEAREST,
-	        ibuf->rect,
-	        ((ps->draw_flip[0] ? -1.0f : 1.0f)) * (ps->zoom / (float)ps->win_x),
-	        ((ps->draw_flip[1] ? -1.0f : 1.0f)) * (ps->zoom / (float)ps->win_y),
-	        NULL);
+	glPixelZoom(ps->zoom * (ps->draw_flip[0] ? -1.0f : 1.0f),
+	            ps->zoom * (ps->draw_flip[1] ? -1.0f : 1.0f));
+
+	glDrawPixels(ibuf->x, ibuf->y, GL_RGBA, GL_UNSIGNED_BYTE, ibuf->rect);
 
 	glDisable(GL_BLEND);
-
+	
 	pupdate_time();
 
 	if (picture && (g_WS.qual & (WS_QUAL_SHIFT | WS_QUAL_LMOUSE)) && (fontid != -1)) {
 		int sizex, sizey;
 		float fsizex_inv, fsizey_inv;
 		char str[32 + FILE_MAX];
+		cpack(-1);
 		BLI_snprintf(str, sizeof(str), "%s | %.2f frames/s", picture->name, fstep / swaptime);
 
 		playanim_window_get_size(&sizex, &sizey);
 		fsizex_inv = 1.0f / sizex;
 		fsizey_inv = 1.0f / sizey;
 
-		BLF_color4f(fontid, 1.0, 1.0, 1.0, 1.0);
 		BLF_enable(fontid, BLF_ASPECT);
 		BLF_aspect(fontid, fsizex_inv, fsizey_inv, 1.0f);
 		BLF_position(fontid, 10.0f * fsizex_inv, 10.0f * fsizey_inv, 0.0f);
@@ -359,25 +354,24 @@ static void playanim_toscreen(PlayState *ps, PlayAnimPict *picture, struct ImBuf
 		float fac = ps->picture->frame / (double)(((PlayAnimPict *)picsbase.last)->frame - ((PlayAnimPict *)picsbase.first)->frame);
 
 		fac = 2.0f * fac - 1.0f;
-		gpuPushProjectionMatrix();
-		gpuLoadIdentityProjectionMatrix();
-		gpuPushMatrix();
-		gpuLoadIdentity();
+		glMatrixMode(GL_PROJECTION);
+		glPushMatrix();
+		glLoadIdentity();
+		glMatrixMode(GL_MODELVIEW);
+		glPushMatrix();
+		glLoadIdentity();
 
-		unsigned int pos = GWN_vertformat_attr_add(immVertexFormat(), "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
+		glColor4f(0.0f, 1.0f, 0.0f, 1.0f);
 
-		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
-		immUniformColor3ub(0, 255, 0);
+		glBegin(GL_LINES);
+		glVertex2f(fac, -1.0f);
+		glVertex2f(fac, 1.0f);
+		glEnd();
 
-		immBegin(GWN_PRIM_LINES, 2);
-		immVertex2f(pos, fac, -1.0f);
-		immVertex2f(pos, fac,  1.0f);
-		immEnd();
-
-		immUnbindProgram();
-
-		gpuPopMatrix();
-		gpuPopProjectionMatrix();
+		glPopMatrix();
+		glMatrixMode(GL_PROJECTION);
+		glPopMatrix();
+		glMatrixMode(GL_MODELVIEW);
 	}
 
 	GHOST_SwapWindowBuffers(g_WS.ghost_window);
@@ -1261,9 +1255,6 @@ static char *wm_main_playanim_intern(int argc, const char **argv)
 
 	//GHOST_ActivateWindowDrawingContext(g_WS.ghost_window);
 
-	/* initialize OpenGL immediate mode */
-	immInit();
-
 	/* initialize the font */
 	BLF_init();
 	ps.fontid = BLF_load_mem("monospace", (unsigned char *)datatoc_bmonofont_ttf, datatoc_bmonofont_ttf_size);
@@ -1533,11 +1524,7 @@ static char *wm_main_playanim_intern(int argc, const char **argv)
 #endif
 	/* we still miss freeing a lot!,
 	 * but many areas could skip initialization too for anim play */
-
-	GPU_shader_free_builtin_shaders();
-
-	immDestroy();
-
+	
 	BLF_exit();
 
 	GHOST_DisposeWindow(g_WS.ghost_system, g_WS.ghost_window);
@@ -1550,7 +1537,7 @@ static char *wm_main_playanim_intern(int argc, const char **argv)
 	
 	IMB_exit();
 	BKE_images_exit();
-	DEG_free_node_types();
+	DAG_exit();
 
 	totblock = MEM_get_memory_blocks_in_use();
 	if (totblock != 0) {

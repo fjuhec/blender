@@ -56,6 +56,7 @@
 
 #include "BKE_colortools.h"
 #include "BKE_context.h"
+#include "BKE_depsgraph.h"
 #include "BKE_DerivedMesh.h"
 #include "BKE_icons.h"
 #include "BKE_image.h"
@@ -68,8 +69,6 @@
 #include "BKE_screen.h"
 #include "BKE_sound.h"
 #include "BKE_scene.h"
-
-#include "DEG_depsgraph.h"
 
 #include "GPU_draw.h"
 #include "GPU_buffers.h"
@@ -793,7 +792,6 @@ static int image_view_selected_exec(bContext *C, wmOperator *UNUSED(op))
 	SpaceImage *sima;
 	ARegion *ar;
 	Scene *scene;
-	SceneLayer *sl;
 	Object *obedit;
 	Image *ima;
 
@@ -801,7 +799,6 @@ static int image_view_selected_exec(bContext *C, wmOperator *UNUSED(op))
 	sima = CTX_wm_space_image(C);
 	ar = CTX_wm_region(C);
 	scene = CTX_data_scene(C);
-	sl = CTX_data_scene_layer(C);
 	obedit = CTX_data_edit_object(C);
 
 	ima = ED_space_image(sima);
@@ -813,7 +810,7 @@ static int image_view_selected_exec(bContext *C, wmOperator *UNUSED(op))
 			return OPERATOR_CANCELLED;
 		}
 	}
-	else if (ED_space_image_check_show_maskedit(sl, sima)) {
+	else if (ED_space_image_check_show_maskedit(scene, sima)) {
 		if (!ED_mask_selected_minmax(C, min, max)) {
 			return OPERATOR_CANCELLED;
 		}
@@ -1427,7 +1424,7 @@ static void image_open_draw(bContext *UNUSED(C), wmOperator *op)
 
 	/* main draw call */
 	RNA_pointer_create(NULL, op->type->srna, op->properties, &ptr);
-	uiDefAutoButsRNA(layout, &ptr, image_open_draw_check_prop, '\0', false);
+	uiDefAutoButsRNA(layout, &ptr, image_open_draw_check_prop, '\0');
 
 	/* image template */
 	RNA_pointer_create(NULL, &RNA_ImageFormatSettings, imf, &imf_ptr);
@@ -2150,7 +2147,7 @@ static void image_save_as_draw(bContext *UNUSED(C), wmOperator *op)
 
 	/* main draw call */
 	RNA_pointer_create(NULL, op->type->srna, op->properties, &ptr);
-	uiDefAutoButsRNA(layout, &ptr, image_save_as_draw_check_prop, '\0', false);
+	uiDefAutoButsRNA(layout, &ptr, image_save_as_draw_check_prop, '\0');
 
 	/* multiview template */
 	if (is_multiview)
@@ -2350,7 +2347,7 @@ static int image_reload_exec(bContext *C, wmOperator *UNUSED(op))
 	
 	// XXX other users?
 	BKE_image_signal(ima, (sima) ? &sima->iuser : NULL, IMA_SIGNAL_RELOAD);
-	DEG_id_tag_update(&ima->id, 0);
+	DAG_id_tag_update(&ima->id, 0);
 
 	WM_event_add_notifier(C, NC_IMAGE | NA_EDITED, ima);
 	

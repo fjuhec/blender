@@ -33,10 +33,9 @@
 
 #include "BKE_context.h"
 #include "BKE_curve.h"
+#include "BKE_depsgraph.h"
 #include "BKE_fcurve.h"
 #include "BKE_report.h"
-
-#include "DEG_depsgraph.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -47,11 +46,7 @@
 #include "ED_curve.h"
 
 #include "BIF_gl.h"
-
-#include "GPU_batch.h"
-#include "GPU_immediate.h"
-#include "GPU_immediate_util.h"
-#include "GPU_matrix.h"
+#include "BIF_glutil.h"
 
 #include "curve_intern.h"
 
@@ -133,6 +128,7 @@ struct CurveDrawData {
 	} prev;
 
 	ViewContext vc;
+	bglMats mats;
 	enum {
 		CURVE_DRAW_IDLE = 0,
 		CURVE_DRAW_PAINTING = 1,
@@ -218,7 +214,7 @@ static bool stroke_elem_project(
 		{
 			const double depth = (double)ED_view3d_depth_read_cached(&cdd->vc, mval_i);
 			if ((depth > depths->depth_range[0]) && (depth < depths->depth_range[1])) {
-				if (ED_view3d_depth_unproject(ar, mval_i, depth, r_location_world)) {
+				if (ED_view3d_depth_unproject(ar, &cdd->mats, mval_i, depth, r_location_world)) {
 					is_location_world_set = true;
 					if (r_normal_world) {
 						zero_v3(r_normal_world);
@@ -227,7 +223,7 @@ static bool stroke_elem_project(
 					if (surface_offset != 0.0f) {
 						const float offset = cdd->project.use_surface_offset_absolute ? 1.0f : radius;
 						float normal[3];
-						if (ED_view3d_depth_read_cached_normal(&cdd->vc, mval_i, normal)) {
+						if (ED_view3d_depth_read_cached_normal(&cdd->vc, &cdd->mats, mval_i, normal)) {
 							madd_v3_v3fl(r_location_world, normal, offset * surface_offset);
 							if (r_normal_world) {
 								copy_v3_v3(r_normal_world, normal);
@@ -373,43 +369,39 @@ static void curve_draw_stroke_3d(const struct bContext *UNUSED(C), ARegion *UNUS
 	Object *obedit = cdd->vc.obedit;
 	Curve *cu = obedit->data;
 
+	UI_ThemeColor(TH_WIRE);
+
 	if (cu->ext2 > 0.0f) {
+		GLUquadricObj *qobj = gluNewQuadric();
+
+		gluQuadricDrawStyle(qobj, GLU_FILL);
+
 		BLI_mempool_iter iter;
 		const struct StrokeElem *selem;
 
 		const float  location_zero[3] = {0};
 		const float *location_prev = location_zero;
 
-		float color[3];
-		UI_GetThemeColor3fv(TH_WIRE, color);
-
-		Gwn_Batch *sphere = GPU_batch_preset_sphere(0);
-		GWN_batch_program_set_builtin(sphere, GPU_SHADER_3D_UNIFORM_COLOR);
-		GWN_batch_uniform_3fv(sphere, "color", color);
-
 		/* scale to edit-mode space */
-		gpuPushMatrix();
-		gpuMultMatrix(obedit->obmat);
+		glPushMatrix();
+		glMultMatrixf(obedit->obmat);
 
 		BLI_mempool_iternew(cdd->stroke_elem_pool, &iter);
 		for (selem = BLI_mempool_iterstep(&iter); selem; selem = BLI_mempool_iterstep(&iter)) {
-			gpuTranslate3f(
+			glTranslatef(
 			        selem->location_local[0] - location_prev[0],
 			        selem->location_local[1] - location_prev[1],
 			        selem->location_local[2] - location_prev[2]);
 			location_prev = selem->location_local;
-
 			const float radius = stroke_elem_radius(cdd, selem);
-
-			gpuPushMatrix();
-			gpuScaleUniform(radius);
-			GWN_batch_draw(sphere);
-			gpuPopMatrix();
+			gluSphere(qobj, radius, 12, 8);
 
 			location_prev = selem->location_local;
 		}
 
-		gpuPopMatrix();
+		glPopMatrix();
+
+		gluDeleteQuadric(qobj);
 	}
 
 	if (stroke_len > 1) {
@@ -426,45 +418,30 @@ static void curve_draw_stroke_3d(const struct bContext *UNUSED(C), ARegion *UNUS
 		}
 
 		{
-			Gwn_VertFormat *format = immVertexFormat();
-			unsigned int pos = GWN_vertformat_attr_add(format, "pos", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
-			immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
-
 			glEnable(GL_BLEND);
 			glEnable(GL_LINE_SMOOTH);
 
-			imm_cpack(0x0);
-			immBegin(GWN_PRIM_LINE_STRIP, stroke_len);
+			glEnableClientState(GL_VERTEX_ARRAY);
+			glVertexPointer(3, GL_FLOAT, 0, coord_array);
+
+			cpack(0x0);
 			glLineWidth(3.0f);
+			glDrawArrays(GL_LINE_STRIP, 0, stroke_len);
 
-			if (v3d->zbuf) {
+			if (v3d->zbuf)
 				glDisable(GL_DEPTH_TEST);
-			}
 
-			for (int i = 0; i < stroke_len; i++) {
-				immVertex3fv(pos, coord_array[i]);
-			}
-
-			immEnd();
-
-			imm_cpack(0xffffffff);
-			immBegin(GWN_PRIM_LINE_STRIP, stroke_len);
+			cpack(0xffffffff);
 			glLineWidth(1.0f);
+			glDrawArrays(GL_LINE_STRIP, 0, stroke_len);
 
-			for (int i = 0; i < stroke_len; i++) {
-				immVertex3fv(pos, coord_array[i]);
-			}
-
-			immEnd();
-
-			if (v3d->zbuf) {
+			if (v3d->zbuf)
 				glEnable(GL_DEPTH_TEST);
-			}
+
+			glDisableClientState(GL_VERTEX_ARRAY);
 
 			glDisable(GL_BLEND);
 			glDisable(GL_LINE_SMOOTH);
-
-			immUnbindProgram();
 		}
 
 		MEM_freeN(coord_array);
@@ -554,7 +531,7 @@ static void curve_draw_event_add_first(wmOperator *op, const wmEvent *event)
 		         CURVE_PAINT_SURFACE_PLANE_NORMAL_VIEW,
 		         CURVE_PAINT_SURFACE_PLANE_NORMAL_SURFACE))
 		{
-			if (ED_view3d_depth_read_cached_normal(&cdd->vc, event->mval, normal)) {
+			if (ED_view3d_depth_read_cached_normal(&cdd->vc, &cdd->mats, event->mval, normal)) {
 				if (cps->surface_plane == CURVE_PAINT_SURFACE_PLANE_NORMAL_VIEW) {
 					float cross_a[3], cross_b[3];
 					cross_v3_v3v3(cross_a, rv3d->viewinv[2], normal);
@@ -612,9 +589,7 @@ static bool curve_draw_init(bContext *C, wmOperator *op, bool is_invoke)
 		}
 	}
 	else {
-		cdd->vc.depsgraph = CTX_data_depsgraph(C);
 		cdd->vc.scene = CTX_data_scene(C);
-		cdd->vc.scene_layer = CTX_data_scene_layer(C);
 		cdd->vc.obedit = CTX_data_edit_object(C);
 	}
 
@@ -1036,7 +1011,7 @@ static int curve_draw_exec(bContext *C, wmOperator *op)
 	cu->actvert = nu->pntsu - 1;
 
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
-	DEG_id_tag_update(obedit->data, 0);
+	DAG_id_tag_update(obedit->data, 0);
 
 	curve_draw_exit(op);
 
@@ -1091,13 +1066,12 @@ static int curve_draw_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 			if ((cps->depth_mode == CURVE_PAINT_PROJECT_SURFACE) &&
 			    (v3d->drawtype > OB_WIRE))
 			{
-				EvaluationContext eval_ctx;
-				CTX_data_eval_ctx(C, &eval_ctx);
+				view3d_get_transformation(cdd->vc.ar, cdd->vc.rv3d, NULL, &cdd->mats);
 
 				/* needed or else the draw matrix can be incorrect */
 				view3d_operator_needs_opengl(C);
 
-				ED_view3d_autodist_init(&eval_ctx, cdd->vc.depsgraph, cdd->vc.ar, cdd->vc.v3d, 0);
+				ED_view3d_autodist_init(cdd->vc.scene, cdd->vc.ar, cdd->vc.v3d, 0);
 
 				if (cdd->vc.rv3d->depths) {
 					cdd->vc.rv3d->depths->damaged = true;

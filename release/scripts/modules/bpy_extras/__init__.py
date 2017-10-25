@@ -29,6 +29,5 @@ __all__ = (
     "image_utils",
     "keyconfig_utils",
     "mesh_utils",
-    "node_utils",
     "view3d_utils",
     )

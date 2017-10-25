@@ -143,7 +143,11 @@ bool win32_chk(bool result, const char *file, int line, const char *text)
 
 void GHOST_Context::initContextGLEW()
 {
-	GLEW_CHK(glewInit());
+	mxDestroyContext(m_mxContext); // no-op if m_mxContext is NULL
+
+	mxMakeCurrentContext(mxCreateContext());
+
+	m_mxContext = mxGetCurrentContext();
 }
 
 

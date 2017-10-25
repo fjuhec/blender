@@ -47,7 +47,6 @@
 #include "BKE_camera.h"
 #include "BKE_library.h"
 #include "BKE_library_query.h"
-#include "BKE_material.h"
 #include "BKE_mesh.h"
 #include "BKE_DerivedMesh.h"
 
@@ -55,13 +54,14 @@
 
 #include "MEM_guardedalloc.h"
 
+#include "depsgraph_private.h"
 #include "DEG_depsgraph_build.h"
 
 static void initData(ModifierData *md)
 {
 	UVProjectModifierData *umd = (UVProjectModifierData *) md;
 
-
+	umd->flags = 0;
 	umd->num_projectors = 1;
 	umd->aspectx = umd->aspecty = 1.0f;
 	umd->scalex = umd->scaley = 1.0f;
@@ -84,7 +84,7 @@ static CustomDataMask requiredDataMask(Object *UNUSED(ob), ModifierData *UNUSED(
 	CustomDataMask dataMask = 0;
 
 	/* ask for UV coordinates */
-	dataMask |= CD_MLOOPUV;
+	dataMask |= CD_MLOOPUV | CD_MTEXPOLY;
 
 	return dataMask;
 }
@@ -107,6 +107,25 @@ static void foreachIDLink(ModifierData *md, Object *ob,
 	walk(userData, ob, (ID **)&umd->image, IDWALK_CB_USER);
 
 	foreachObjectLink(md, ob, (ObjectWalkFunc)walk, userData);
+}
+
+static void updateDepgraph(ModifierData *md, DagForest *forest,
+                           struct Main *UNUSED(bmain),
+                           struct Scene *UNUSED(scene),
+                           Object *UNUSED(ob),
+                           DagNode *obNode)
+{
+	UVProjectModifierData *umd = (UVProjectModifierData *) md;
+	int i;
+
+	for (i = 0; i < umd->num_projectors; ++i) {
+		if (umd->projectors[i]) {
+			DagNode *curNode = dag_get_node(forest, umd->projectors[i]);
+
+			dag_add_relation(forest, curNode, obNode,
+			                 DAG_RL_DATA_DATA | DAG_RL_OB_DATA, "UV Project Modifier");
+		}
+	}
 }
 
 static void updateDepsgraph(ModifierData *md,
@@ -136,10 +155,12 @@ static DerivedMesh *uvprojectModifier_do(UVProjectModifierData *umd,
 {
 	float (*coords)[3], (*co)[3];
 	MLoopUV *mloop_uv;
+	MTexPoly *mtexpoly, *mt = NULL;
 	int i, numVerts, numPolys, numLoops;
 	Image *image = umd->image;
 	MPoly *mpoly, *mp;
 	MLoop *mloop;
+	const bool override_image = (umd->flags & MOD_UVPROJECT_OVERRIDEIMAGE) != 0;
 	Projector projectors[MOD_UVPROJECT_MAXPROJECTORS];
 	int num_projectors = 0;
 	char uvname[MAX_CUSTOMDATA_LAYER_NAME];
@@ -224,6 +245,10 @@ static DerivedMesh *uvprojectModifier_do(UVProjectModifierData *umd,
 	mloop_uv = CustomData_duplicate_referenced_layer_named(&dm->loopData,
 	                                                       CD_MLOOPUV, uvname, numLoops);
 
+	/* can be NULL */
+	mt = mtexpoly = CustomData_duplicate_referenced_layer_named(&dm->polyData,
+	                                                            CD_MTEXPOLY, uvname, numPolys);
+
 	numVerts = dm->getNumVerts(dm);
 
 	coords = MEM_mallocN(sizeof(*coords) * numVerts,
@@ -242,14 +267,9 @@ static DerivedMesh *uvprojectModifier_do(UVProjectModifierData *umd,
 	mpoly = dm->getPolyArray(dm);
 	mloop = dm->getLoopArray(dm);
 
-	Image **ob_image_array = NULL;
-	if (image) {
-		ob_image_array = BKE_object_material_edit_image_get_array(ob);
-	}
-
 	/* apply coords as UVs, and apply image if tfaces are new */
-	for (i = 0, mp = mpoly; i < numPolys; ++i, ++mp) {
-		if (!image || (mp->mat_nr < ob->totcol ? ob_image_array[mp->mat_nr] : NULL) == image) {
+	for (i = 0, mp = mpoly; i < numPolys; ++i, ++mp, ++mt) {
+		if (override_image || !image || (mtexpoly == NULL || mt->tpage == image)) {
 			if (num_projectors == 1) {
 				if (projectors[0].uci) {
 					unsigned int fidx = mp->totloop - 1;
@@ -312,13 +332,13 @@ static DerivedMesh *uvprojectModifier_do(UVProjectModifierData *umd,
 				}
 			}
 		}
+
+		if (override_image && mtexpoly) {
+			mt->tpage = image;
+		}
 	}
 
 	MEM_freeN(coords);
-
-	if (ob_image_array) {
-		MEM_freeN(ob_image_array);
-	}
 	
 	if (free_uci) {
 		int j;
@@ -335,8 +355,8 @@ static DerivedMesh *uvprojectModifier_do(UVProjectModifierData *umd,
 	return dm;
 }
 
-static DerivedMesh *applyModifier(ModifierData *md, const struct EvaluationContext *UNUSED(eval_ctx),
-                                  Object *ob, DerivedMesh *derivedData,
+static DerivedMesh *applyModifier(ModifierData *md, Object *ob,
+                                  DerivedMesh *derivedData,
                                   ModifierApplyFlag UNUSED(flag))
 {
 	DerivedMesh *result;
@@ -369,6 +389,7 @@ ModifierTypeInfo modifierType_UVProject = {
 	/* requiredDataMask */  requiredDataMask,
 	/* freeData */          NULL,
 	/* isDisabled */        NULL,
+	/* updateDepgraph */    updateDepgraph,
 	/* updateDepsgraph */   updateDepsgraph,
 	/* dependsOnTime */     NULL,
 	/* dependsOnNormals */	NULL,

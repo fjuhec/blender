@@ -995,7 +995,7 @@ static float *give_jitter_plane(LampRen *lar, int thread, int xs, int ys)
 
 /* **************** QMC sampling *************** */
 
-static void UNUSED_FUNCTION(halton_sample)(double *ht_invprimes, double *ht_nums, double *v)
+static void halton_sample(double *ht_invprimes, double *ht_nums, double *v)
 {
 	/* incremental halton sequence generator, from:
 	 * "Instant Radiosity", Keller A. */
@@ -1022,6 +1022,26 @@ static void UNUSED_FUNCTION(halton_sample)(double *ht_invprimes, double *ht_nums
 	}
 }
 
+/* Generate Hammersley points in [0,1)^2
+ * From Lucille renderer */
+static void hammersley_create(double *out, int n)
+{
+	double p, t;
+	int k, kk;
+
+	for (k = 0; k < n; k++) {
+		t = 0;
+		for (p = 0.5, kk = k; kk; p *= 0.5, kk >>= 1) {
+			if (kk & 1) {		/* kk mod 2 = 1		*/
+				t += p;
+			}
+		}
+	
+		out[2 * k + 0] = (double)k / (double)n;
+		out[2 * k + 1] = t;
+	}
+}
+
 static struct QMCSampler *QMC_initSampler(int type, int tot)
 {	
 	QMCSampler *qsa = MEM_callocN(sizeof(QMCSampler), "qmc sampler");
@@ -1031,7 +1051,7 @@ static struct QMCSampler *QMC_initSampler(int type, int tot)
 	qsa->type = type;
 	
 	if (qsa->type==SAMP_TYPE_HAMMERSLEY) 
-		BLI_hammersley_2D_sequence(qsa->tot, qsa->samp2d);
+		hammersley_create(qsa->samp2d, qsa->tot);
 		
 	return qsa;
 }
@@ -1049,13 +1069,20 @@ static void QMC_initPixel(QMCSampler *qsa, int thread)
 		/* generate a new randomized halton sequence per pixel
 		 * to alleviate qmc artifacts and make it reproducible 
 		 * between threads/frames */
-		double ht_offset[2];
-		unsigned int ht_primes[2] = {2, 3};
+		double ht_invprimes[2], ht_nums[2];
+		double r[2];
+		int i;
 	
-		ht_offset[0] = BLI_thread_frand(thread);
-		ht_offset[1] = BLI_thread_frand(thread);
+		ht_nums[0] = BLI_thread_frand(thread);
+		ht_nums[1] = BLI_thread_frand(thread);
+		ht_invprimes[0] = 0.5;
+		ht_invprimes[1] = 1.0/3.0;
 		
-		BLI_halton_2D_sequence(ht_primes, ht_offset, qsa->tot, qsa->samp2d);
+		for (i=0; i< qsa->tot; i++) {
+			halton_sample(ht_invprimes, ht_nums, r);
+			qsa->samp2d[2*i+0] = r[0];
+			qsa->samp2d[2*i+1] = r[1];
+		}
 	}
 }
 

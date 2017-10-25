@@ -36,9 +36,8 @@ void *BKE_outliner_treehash_create_from_treestore(struct BLI_mempool *treestore)
 /* full rebuild for already allocated hashtable */
 void *BKE_outliner_treehash_rebuild_from_treestore(void *treehash, struct BLI_mempool *treestore);
 
-/* Add/remove hashtable elements */
+/* full rebuild for already allocated hashtable */
 void BKE_outliner_treehash_add_element(void *treehash, struct TreeStoreElem *elem);
-void BKE_outliner_treehash_remove_element(void *treehash, struct TreeStoreElem *elem);
 
 /* find first unused element with specific type, nr and id */
 struct TreeStoreElem *BKE_outliner_treehash_lookup_unused(void *treehash, short type, short nr, struct ID *id);

@@ -62,9 +62,9 @@
 #include "BKE_animsys.h"  /* <------ should this be here?, needed for sequencer update */
 #include "BKE_camera.h"
 #include "BKE_colortools.h"
+#include "BKE_depsgraph.h"
 #include "BKE_global.h"
 #include "BKE_image.h"
-#include "BKE_layer.h"
 #include "BKE_library.h"
 #include "BKE_library_remap.h"
 #include "BKE_main.h"
@@ -77,8 +77,6 @@
 #include "BKE_sound.h"
 #include "BKE_writeavi.h"  /* <------ should be replaced once with generic movie module */
 #include "BKE_object.h"
-
-#include "DEG_depsgraph.h"
 
 #include "PIL_time.h"
 #include "IMB_colormanagement.h"
@@ -353,15 +351,6 @@ Scene *RE_GetScene(Render *re)
 	return NULL;
 }
 
-EvaluationContext *RE_GetEvalCtx(Render *re)
-{
-	if (re) {
-		return re->eval_ctx;
-	}
-
-	return NULL;
-}
-
 /**
  * Same as #RE_AcquireResultImage but creating the necessary views to store the result
  * fill provided result struct with a copy of thew views of what is done so far the
@@ -590,7 +579,6 @@ void RE_FreeRender(Render *re)
 	/* main dbase can already be invalid now, some database-free code checks it */
 	re->main = NULL;
 	re->scene = NULL;
-	re->depsgraph = NULL;
 	
 	RE_Database_Free(re);	/* view render can still have full database */
 	free_sample_tables(re);
@@ -660,13 +648,12 @@ void RE_FreePersistentData(void)
 /* ********* initialize state ******** */
 
 /* clear full sample and tile flags if needed */
-static int check_mode_full_sample(RenderData *rd, ViewRender *view_render)
+static int check_mode_full_sample(RenderData *rd)
 {
-	const char *engine_id = view_render->engine_id;
 	int scemode = rd->scemode;
 
-	if (!STREQ(engine_id, RE_engine_id_BLENDER_RENDER) &&
-	    !STREQ(engine_id, RE_engine_id_BLENDER_GAME))
+	if (!STREQ(rd->engine, RE_engine_id_BLENDER_RENDER) &&
+	    !STREQ(rd->engine, RE_engine_id_BLENDER_GAME))
 	{
 		scemode &= ~R_FULL_SAMPLE;
 	}
@@ -739,15 +726,10 @@ void render_copy_renderdata(RenderData *to, RenderData *from)
 	curvemapping_copy_data(&to->mblur_shutter_curve, &from->mblur_shutter_curve);
 }
 
-void render_copy_viewrender(ViewRender *to, ViewRender *from)
-{
-	BKE_viewrender_copy(to, from);
-}
-
 /* what doesn't change during entire render sequence */
 /* disprect is optional, if NULL it assumes full window render */
 void RE_InitState(Render *re, Render *source, RenderData *rd,
-                  ViewRender *view_render, SceneRenderLayer *srl,
+                  SceneRenderLayer *srl,
                   int winx, int winy, rcti *disprect)
 {
 	bool had_freestyle = (re->r.mode & R_EDGE_FRS) != 0;
@@ -758,7 +740,6 @@ void RE_InitState(Render *re, Render *source, RenderData *rd,
 
 	/* copy render data and render layers for thread safety */
 	render_copy_renderdata(&re->r, rd);
-	render_copy_viewrender(&re->view_render, view_render);
 
 	if (source) {
 		/* reuse border flags from source renderer */
@@ -788,7 +769,7 @@ void RE_InitState(Render *re, Render *source, RenderData *rd,
 		return;
 	}
 
-	re->r.scemode = check_mode_full_sample(&re->r, &re->view_render);
+	re->r.scemode = check_mode_full_sample(&re->r);
 	
 	/* fullsample wants uniform osa levels */
 	if (source && (re->r.scemode & R_FULL_SAMPLE)) {
@@ -1746,7 +1727,7 @@ static void do_render_blur_3d(Render *re)
 	
 	/* make sure motion blur changes get reset to current frame */
 	if ((re->r.scemode & (R_NO_FRAME_UPDATE|R_BUTS_PREVIEW|R_VIEWPORT_PREVIEW))==0) {
-		BKE_scene_update_for_newframe(re->eval_ctx, re->main, re->scene);
+		BKE_scene_update_for_newframe(re->eval_ctx, re->main, re->scene, re->lay);
 	}
 	
 	/* weak... the display callback wants an active renderlayer pointer... */
@@ -1975,14 +1956,13 @@ static void render_scene(Render *re, Scene *sce, int cfra)
 	}
 	
 	/* initial setup */
-	RE_InitState(resc, re, &sce->r, &sce->view_render, NULL, winx, winy, &re->disprect);
+	RE_InitState(resc, re, &sce->r, NULL, winx, winy, &re->disprect);
 
 	/* We still want to use 'rendercache' setting from org (main) scene... */
 	resc->r.scemode = (resc->r.scemode & ~R_EXR_CACHE_FILE) | (re->r.scemode & R_EXR_CACHE_FILE);
 
 	/* still unsure entity this... */
 	resc->main = re->main;
-	resc->depsgraph = re->depsgraph;
 	resc->scene = sce;
 	resc->lay = sce->lay;
 	resc->scene_color_manage = BKE_scene_check_color_management_enabled(sce);
@@ -2063,10 +2043,17 @@ bool RE_allow_render_generic_object(Object *ob)
 #define DEPSGRAPH_WORKAROUND_HACK
 
 #ifdef DEPSGRAPH_WORKAROUND_HACK
-static void tag_dependend_objects_for_render(Scene *scene, int UNUSED(renderlay))
+static void tag_dependend_objects_for_render(Scene *scene, int renderlay)
 {
-	FOREACH_OBJECT_RENDERABLE(scene, object)
-	{
+	Scene *sce_iter;
+	Base *base;
+	for (SETLOOPER(scene, sce_iter, base)) {
+		Object *object = base->object;
+
+		if ((base->lay & renderlay) == 0) {
+			continue;
+		}
+
 		if (object->type == OB_MESH) {
 			if (RE_allow_render_generic_object(object)) {
 				ModifierData *md;
@@ -2083,29 +2070,28 @@ static void tag_dependend_objects_for_render(Scene *scene, int UNUSED(renderlay)
 					if (md->type == eModifierType_Boolean) {
 						BooleanModifierData *bmd = (BooleanModifierData *)md;
 						if (bmd->object && bmd->object->type == OB_MESH) {
-							DEG_id_tag_update(&bmd->object->id, OB_RECALC_DATA);
+							DAG_id_tag_update(&bmd->object->id, OB_RECALC_DATA);
 						}
 					}
 					else if (md->type == eModifierType_Array) {
 						ArrayModifierData *amd = (ArrayModifierData *)md;
 						if (amd->start_cap && amd->start_cap->type == OB_MESH) {
-							DEG_id_tag_update(&amd->start_cap->id, OB_RECALC_DATA);
+							DAG_id_tag_update(&amd->start_cap->id, OB_RECALC_DATA);
 						}
 						if (amd->end_cap && amd->end_cap->type == OB_MESH) {
-							DEG_id_tag_update(&amd->end_cap->id, OB_RECALC_DATA);
+							DAG_id_tag_update(&amd->end_cap->id, OB_RECALC_DATA);
 						}
 					}
 					else if (md->type == eModifierType_Shrinkwrap) {
 						ShrinkwrapModifierData *smd = (ShrinkwrapModifierData *)md;
 						if (smd->target  && smd->target->type == OB_MESH) {
-							DEG_id_tag_update(&smd->target->id, OB_RECALC_DATA);
+							DAG_id_tag_update(&smd->target->id, OB_RECALC_DATA);
 						}
 					}
 				}
 			}
 		}
 	}
-	FOREACH_OBJECT_RENDERABLE_END
 }
 #endif
 
@@ -2633,7 +2619,7 @@ static void do_render_composite_fields_blur_3d(Render *re)
 				R.i.cfra = re->i.cfra;
 				
 				if (update_newframe)
-					BKE_scene_update_for_newframe(re->eval_ctx, re->main, re->scene);
+					BKE_scene_update_for_newframe(re->eval_ctx, re->main, re->scene, re->lay);
 				
 				if (re->r.scemode & R_FULL_SAMPLE)
 					do_merge_fullsample(re, ntree);
@@ -2876,7 +2862,7 @@ static void do_render_all_options(Render *re)
 
 bool RE_force_single_renderlayer(Scene *scene)
 {
-	int scemode = check_mode_full_sample(&scene->r, &scene->view_render);
+	int scemode = check_mode_full_sample(&scene->r);
 	if (scemode & R_SINGLE_LAYER) {
 		SceneRenderLayer *srl = BLI_findlink(&scene->r.layers, scene->r.actlay);
 		/* force layer to be enabled */
@@ -3023,7 +3009,7 @@ static int check_composite_output(Scene *scene)
 
 bool RE_is_rendering_allowed(Scene *scene, Object *camera_override, ReportList *reports)
 {
-	int scemode = check_mode_full_sample(&scene->r, &scene->view_render);
+	int scemode = check_mode_full_sample(&scene->r);
 	
 	if (scene->r.mode & R_BORDER) {
 		if (scene->r.border.xmax <= scene->r.border.xmin ||
@@ -3136,14 +3122,13 @@ static void validate_render_settings(Render *re)
 	}
 }
 
-static void update_physics_cache(Render *re, Scene *scene, SceneLayer *scene_layer, int UNUSED(anim_init))
+static void update_physics_cache(Render *re, Scene *scene, int UNUSED(anim_init))
 {
 	PTCacheBaker baker;
 
 	memset(&baker, 0, sizeof(baker));
 	baker.main = re->main;
 	baker.scene = scene;
-	baker.scene_layer = scene_layer;
 	baker.bake = 0;
 	baker.render = 1;
 	baker.anim_init = 1;
@@ -3162,15 +3147,9 @@ const char *RE_GetActiveRenderView(Render *re)
 	return re->viewname;
 }
 
-void RE_SetEngineByID(Render *re, const char *engine_id)
-{
-	BLI_strncpy(re->view_render.engine_id, engine_id, sizeof(re->view_render.engine_id));
-}
-
 /* evaluating scene options for general Blender render */
-static int render_initialize_from_main(Render *re, RenderData *rd, Main *bmain, Scene *scene, ViewRender *view_render,
-                                       SceneRenderLayer *srl, Object *camera_override, unsigned int lay_override,
-                                       int anim, int anim_init)
+static int render_initialize_from_main(Render *re, RenderData *rd, Main *bmain, Scene *scene, SceneRenderLayer *srl,
+                                       Object *camera_override, unsigned int lay_override, int anim, int anim_init)
 {
 	int winx, winy;
 	rcti disprect;
@@ -3204,7 +3183,6 @@ static int render_initialize_from_main(Render *re, RenderData *rd, Main *bmain, 
 	re->layer_override = lay_override;
 	re->i.localview = (re->lay & 0xFF000000) != 0;
 	re->viewname[0] = '\0';
-	RE_SetEngineByID(re, view_render->engine_id);
 
 	/* not too nice, but it survives anim-border render */
 	if (anim) {
@@ -3223,8 +3201,7 @@ static int render_initialize_from_main(Render *re, RenderData *rd, Main *bmain, 
 	 */
 	if (0) {
 		/* make sure dynamics are up to date */
-		SceneLayer *scene_layer = BKE_scene_layer_from_scene_get(scene);
-		update_physics_cache(re, scene, scene_layer, anim_init);
+		update_physics_cache(re, scene, anim_init);
 	}
 	
 	if (srl || scene->r.scemode & R_SINGLE_LAYER) {
@@ -3233,7 +3210,7 @@ static int render_initialize_from_main(Render *re, RenderData *rd, Main *bmain, 
 		BLI_rw_mutex_unlock(&re->resultmutex);
 	}
 	
-	RE_InitState(re, NULL, &scene->r, &scene->view_render, srl, winx, winy, &disprect);
+	RE_InitState(re, NULL, &scene->r, srl, winx, winy, &disprect);
 	if (!re->ok)  /* if an error was printed, abort */
 		return 0;
 	
@@ -3264,9 +3241,7 @@ void RE_BlenderFrame(Render *re, Main *bmain, Scene *scene, SceneRenderLayer *sr
 	
 	scene->r.cfra = frame;
 	
-	if (render_initialize_from_main(re, &scene->r, bmain, scene, &scene->view_render, srl,
-	                                camera_override, lay_override, 0, 0))
-	{
+	if (render_initialize_from_main(re, &scene->r, bmain, scene, srl, camera_override, lay_override, 0, 0)) {
 		MEM_reset_peak_memory();
 
 		BLI_callback_exec(re->main, (ID *)scene, BLI_CB_EVT_RENDER_PRE);
@@ -3305,7 +3280,7 @@ void RE_BlenderFrame(Render *re, Main *bmain, Scene *scene, SceneRenderLayer *sr
 void RE_RenderFreestyleStrokes(Render *re, Main *bmain, Scene *scene, int render)
 {
 	re->result_ok= 0;
-	if (render_initialize_from_main(re, &scene->r, bmain, scene, &scene->view_render, NULL, NULL, scene->lay, 0, 0)) {
+	if (render_initialize_from_main(re, &scene->r, bmain, scene, NULL, NULL, scene->lay, 0, 0)) {
 		if (render)
 			do_render_fields_blur_3d(re);
 	}
@@ -3603,7 +3578,7 @@ void RE_BlenderAnim(Render *re, Main *bmain, Scene *scene, Object *camera_overri
 	BLI_callback_exec(re->main, (ID *)scene, BLI_CB_EVT_RENDER_INIT);
 
 	/* do not fully call for each frame, it initializes & pops output window */
-	if (!render_initialize_from_main(re, &rd, bmain, scene, &scene->view_render, NULL, camera_override, lay_override, 0, 1))
+	if (!render_initialize_from_main(re, &rd, bmain, scene, NULL, camera_override, lay_override, 0, 1))
 		return;
 
 	/* MULTIVIEW_TODO:
@@ -3693,12 +3668,22 @@ void RE_BlenderAnim(Render *re, Main *bmain, Scene *scene, Object *camera_overri
 			}
 
 			/* only border now, todo: camera lens. (ton) */
-			render_initialize_from_main(re, &rd, bmain, scene, &scene->view_render,
-			                            NULL, camera_override, lay_override, 1, 0);
+			render_initialize_from_main(re, &rd, bmain, scene, NULL, camera_override, lay_override, 1, 0);
 
 			if (nfra != scene->r.cfra) {
-				/* Skip this frame, but update for physics and particles system. */
-				BKE_scene_update_for_newframe(re->eval_ctx, bmain, scene);
+				/*
+				 * Skip this frame, but update for physics and particles system.
+				 * From convertblender.c:
+				 * in localview, lamps are using normal layers, objects only local bits.
+				 */
+				unsigned int updatelay;
+
+				if (re->lay & 0xFF000000)
+					updatelay = re->lay & 0xFF000000;
+				else
+					updatelay = re->lay;
+
+				BKE_scene_update_for_newframe(re->eval_ctx, bmain, scene, updatelay);
 				continue;
 			}
 			else
@@ -3844,16 +3829,15 @@ void RE_BlenderAnim(Render *re, Main *bmain, Scene *scene, Object *camera_overri
 	G.is_rendering = false;
 }
 
-void RE_PreviewRender(Render *re, Main *bmain, Scene *sce, ViewRender *view_render)
+void RE_PreviewRender(Render *re, Main *bmain, Scene *sce)
 {
 	Object *camera;
-	SceneLayer *scene_layer = BKE_scene_layer_from_scene_get(sce);
 	int winx, winy;
 
 	winx = (sce->r.size * sce->r.xsch) / 100;
 	winy = (sce->r.size * sce->r.ysch) / 100;
 
-	RE_InitState(re, NULL, &sce->r, view_render, NULL, winx, winy, NULL);
+	RE_InitState(re, NULL, &sce->r, NULL, winx, winy, NULL);
 
 	re->pool = BKE_image_pool_new();
 
@@ -3861,8 +3845,6 @@ void RE_PreviewRender(Render *re, Main *bmain, Scene *sce, ViewRender *view_rend
 	re->scene = sce;
 	re->scene_color_manage = BKE_scene_check_color_management_enabled(sce);
 	re->lay = sce->lay;
-	re->depsgraph = BKE_scene_get_depsgraph(sce, scene_layer);
-	re->eval_ctx->scene_layer = scene_layer;
 
 	camera = RE_GetCamera(re);
 	RE_SetCamera(re, camera);
@@ -3908,7 +3890,7 @@ bool RE_ReadRenderResult(Scene *scene, Scene *scenode)
 	re = RE_GetSceneRender(scene);
 	if (re == NULL)
 		re = RE_NewSceneRender(scene);
-	RE_InitState(re, NULL, &scene->r, &scene->view_render, NULL, winx, winy, &disprect);
+	RE_InitState(re, NULL, &scene->r, NULL, winx, winy, &disprect);
 	re->scene = scene;
 	re->scene_color_manage = BKE_scene_check_color_management_enabled(scene);
 	

@@ -48,6 +48,7 @@
 
 #include "BKE_context.h"
 #include "BKE_curve.h"
+#include "BKE_depsgraph.h"
 #include "BKE_fcurve.h"
 #include "BKE_main.h"
 #include "BKE_global.h"

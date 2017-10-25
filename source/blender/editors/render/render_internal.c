@@ -54,9 +54,9 @@
 #include "BKE_camera.h"
 #include "BKE_context.h"
 #include "BKE_colortools.h"
+#include "BKE_depsgraph.h"
 #include "BKE_global.h"
 #include "BKE_image.h"
-#include "BKE_layer.h"
 #include "BKE_library.h"
 #include "BKE_main.h"
 #include "BKE_node.h"
@@ -65,9 +65,6 @@
 #include "BKE_sequencer.h"
 #include "BKE_screen.h"
 #include "BKE_scene.h"
-#include "BKE_workspace.h"
-
-#include "DEG_depsgraph.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -84,7 +81,6 @@
 #include "IMB_colormanagement.h"
 #include "IMB_imbuf_types.h"
 
-#include "GPU_shader.h"
 
 #include "BIF_gl.h"
 #include "BIF_glutil.h"
@@ -310,7 +306,6 @@ static int screen_render_exec(bContext *C, wmOperator *op)
 	}
 
 	re = RE_NewSceneRender(scene);
-	RE_SetDepsgraph(re, CTX_data_depsgraph(C));
 	lay_override = (v3d && v3d->lay != scene->lay) ? v3d->lay : 0;
 
 	G.is_break = false;
@@ -494,9 +489,8 @@ static void render_image_update_pass_and_layer(RenderJob *rj, RenderResult *rr, 
 	for (wm = rj->main->wm.first; wm && matched_sa == NULL; wm = wm->id.next) { /* only 1 wm */
 		wmWindow *win;
 		for (win = wm->windows.first; win && matched_sa == NULL; win = win->next) {
-			const bScreen *screen = WM_window_get_active_screen(win);
-
-			for (ScrArea *sa = screen->areabase.first; sa; sa = sa->next) {
+			ScrArea *sa;
+			for (sa = win->screen->areabase.first; sa; sa = sa->next) {
 				if (sa->spacetype == SPACE_IMAGE) {
 					SpaceImage *sima = sa->spacedata.first;
 					// sa->spacedata might be empty when toggling fullscreen mode.
@@ -622,9 +616,8 @@ static void render_image_restore_layer(RenderJob *rj)
 	for (wm = rj->main->wm.first; wm; wm = wm->id.next) { /* only 1 wm */
 		wmWindow *win;
 		for (win = wm->windows.first; win; win = win->next) {
-			const bScreen *screen = WM_window_get_active_screen(win);
-
-			for (ScrArea *sa = screen->areabase.first; sa; sa = sa->next) {
+			ScrArea *sa;
+			for (sa = win->screen->areabase.first; sa; sa = sa->next) {
 				if (sa == rj->sa) {
 					if (sa->spacetype == SPACE_IMAGE) {
 						SpaceImage *sima = sa->spacedata.first;
@@ -725,7 +718,7 @@ static void render_endjob(void *rjv)
 			scene->lay_updated = 0;
 		}
 
-		DEG_on_visible_update(G.main, false);
+		DAG_on_visible_update(G.main, false);
 	}
 }
 
@@ -789,46 +782,33 @@ static void screen_render_cancel(bContext *C, wmOperator *op)
 	WM_jobs_kill_type(wm, scene, WM_JOB_TYPE_RENDER);
 }
 
-static void clean_viewport_memory_base(Base *base)
+static void clean_viewport_memory(Main *bmain, Scene *scene, int renderlay)
 {
-	if ((base->flag & BASE_VISIBLED) == 0) {
-		return;
-	}
-
-	Object *object = base->object;
-
-	if (object->id.tag & LIB_TAG_DOIT) {
-		return;
-	}
-
-	object->id.tag &= ~LIB_TAG_DOIT;
-	if (RE_allow_render_generic_object(object)) {
-		BKE_object_free_derived_caches(object);
-	}
-}
-
-static void clean_viewport_memory(Main *bmain, Scene *scene)
-{
+	Object *object;
 	Scene *sce_iter;
 	Base *base;
 
-	/* Tag all the available objects. */
-	BKE_main_id_tag_listbase(&bmain->object, LIB_TAG_DOIT, true);
+	for (object = bmain->object.first; object; object = object->id.next) {
+		object->id.tag |= LIB_TAG_DOIT;
+	}
 
-	/* Go over all the visible objects. */
-	for (wmWindowManager *wm = bmain->wm.first; wm; wm = wm->id.next) {
-		for (wmWindow *win = wm->windows.first; win; win = win->next) {
-			WorkSpace *workspace = BKE_workspace_active_get(win->workspace_hook);
-			SceneLayer *scene_layer = BKE_scene_layer_from_workspace_get(scene, workspace);
-
-			for (base = scene_layer->object_bases.first; base; base = base->next) {
-				clean_viewport_memory_base(base);
-			}
+	for (SETLOOPER(scene, sce_iter, base)) {
+		if ((base->lay & renderlay) == 0) {
+			continue;
+		}
+		if (RE_allow_render_generic_object(base->object)) {
+			base->object->id.tag &= ~LIB_TAG_DOIT;
 		}
 	}
 
-    for (SETLOOPER_SET_ONLY(scene, sce_iter, base)) {
-		clean_viewport_memory_base(base);
+	for (SETLOOPER(scene, sce_iter, base)) {
+		object = base->object;
+		if ((object->id.tag & LIB_TAG_DOIT) == 0) {
+			continue;
+		}
+		object->id.tag &= ~LIB_TAG_DOIT;
+
+		BKE_object_free_derived_caches(object);
 	}
 }
 
@@ -950,6 +930,8 @@ static int screen_render_invoke(bContext *C, wmOperator *op, const wmEvent *even
 
 	/* Lock the user interface depending on render settings. */
 	if (scene->r.use_lock_interface) {
+		int renderlay = rj->lay_override ? rj->lay_override : scene->lay;
+
 		WM_set_locked_interface(CTX_wm_manager(C), true);
 
 		/* Set flag interface need to be unlocked.
@@ -963,7 +945,7 @@ static int screen_render_invoke(bContext *C, wmOperator *op, const wmEvent *even
 		rj->interface_locked = true;
 
 		/* Clean memory used by viewport? */
-		clean_viewport_memory(rj->main, scene);
+		clean_viewport_memory(rj->main, scene, renderlay);
 	}
 
 	/* setup job */
@@ -989,7 +971,6 @@ static int screen_render_invoke(bContext *C, wmOperator *op, const wmEvent *even
 	RE_current_scene_update_cb(re, rj, current_scene_update);
 	RE_stats_draw_cb(re, rj, image_renderinfo_cb);
 	RE_progress_cb(re, rj, render_progress_update);
-	RE_SetDepsgraph(re, CTX_data_depsgraph(C));
 
 	rj->re = re;
 	G.is_break = false;
@@ -1271,10 +1252,10 @@ static void render_view3d_startjob(void *customdata, short *stop, short *do_upda
 		/* initalize always */
 		if (use_border) {
 			rdata.mode |= R_BORDER;
-			RE_InitState(re, NULL, &rdata, &rp->scene->view_render, NULL, rp->ar->winx, rp->ar->winy, &cliprct);
+			RE_InitState(re, NULL, &rdata, NULL, rp->ar->winx, rp->ar->winy, &cliprct);
 		}
 		else
-			RE_InitState(re, NULL, &rdata, &rp->scene->view_render, NULL, rp->ar->winx, rp->ar->winy, NULL);
+			RE_InitState(re, NULL, &rdata, NULL, rp->ar->winx, rp->ar->winy, NULL);
 	}
 
 	if (orth)
@@ -1562,10 +1543,11 @@ void render_view3d_draw(RenderEngine *engine, const bContext *C)
 		if (force_fallback == false) {
 			if (IMB_colormanagement_setup_glsl_draw(&scene->view_settings, &scene->display_settings, dither, true)) {
 				glEnable(GL_BLEND);
-				IMMDrawPixelsTexState state = immDrawPixelsTexSetup(GPU_SHADER_2D_IMAGE_COLOR);
-				immDrawPixelsTex(&state, xof, yof, rres.rectx, rres.recty,
-				                 GL_RGBA, GL_FLOAT, GL_NEAREST, rres.rectf,
-				                 scale_x, scale_y, NULL);;
+				glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+				glPixelZoom(scale_x, scale_y);
+				glaDrawPixelsTex(xof, yof, rres.rectx, rres.recty,
+				                 GL_RGBA, GL_FLOAT, GL_NEAREST, rres.rectf);
+				glPixelZoom(1.0f, 1.0f);
 				glDisable(GL_BLEND);
 
 				IMB_colormanagement_finish_glsl_draw();
@@ -1582,11 +1564,12 @@ void render_view3d_draw(RenderEngine *engine, const bContext *C)
 			                                              4, dither, &scene->view_settings, &scene->display_settings);
 
 			glEnable(GL_BLEND);
-			IMMDrawPixelsTexState state = immDrawPixelsTexSetup(GPU_SHADER_2D_IMAGE_COLOR);
-			immDrawPixelsTex(&state, xof, yof, rres.rectx, rres.recty,
-			                 GL_RGBA, GL_UNSIGNED_BYTE,
-			                 GL_NEAREST, display_buffer,
-			                 scale_x, scale_y, NULL);
+			glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+			glPixelZoom(scale_x, scale_y);
+			glaDrawPixelsAuto(xof, yof, rres.rectx, rres.recty,
+			                  GL_RGBA, GL_UNSIGNED_BYTE,
+			                  GL_NEAREST, display_buffer);
+			glPixelZoom(1.0f, 1.0f);
 			glDisable(GL_BLEND);
 
 			MEM_freeN(display_buffer);

@@ -35,10 +35,9 @@ extern "C" {
 
 #include "BLI_compiler_attrs.h"
 
-struct BaseLegacy;
+struct Base;
 struct EvaluationContext;
 struct Scene;
-struct SceneLayer;
 struct Object;
 struct BoundBox;
 struct View3D;
@@ -51,7 +50,7 @@ struct HookModifierData;
 struct ModifierData;
 
 void BKE_object_workob_clear(struct Object *workob);
-void BKE_object_workob_calc_parent(const struct EvaluationContext *eval_ctx, struct Scene *scene, struct Object *ob, struct Object *workob);
+void BKE_object_workob_calc_parent(struct Scene *scene, struct Object *ob, struct Object *workob);
 
 void BKE_object_transform_copy(struct Object *ob_tar, const struct Object *ob_src);
 struct SoftBody *copy_softbody(const struct SoftBody *sb, const int flag);
@@ -83,7 +82,6 @@ bool BKE_object_exists_check(struct Object *obtest);
 bool BKE_object_is_in_editmode(struct Object *ob);
 bool BKE_object_is_in_editmode_vgroup(struct Object *ob);
 bool BKE_object_is_in_wpaint_select_vert(struct Object *ob);
-bool BKE_object_is_visible(struct Object *ob);
 
 void BKE_object_init(struct Object *ob);
 struct Object *BKE_object_add_only_object(
@@ -91,13 +89,9 @@ struct Object *BKE_object_add_only_object(
         int type, const char *name)
         ATTR_NONNULL(1) ATTR_RETURNS_NONNULL;
 struct Object *BKE_object_add(
-        struct Main *bmain, struct Scene *scene, struct SceneLayer *scene_layer,
+        struct Main *bmain, struct Scene *scene,
         int type, const char *name)
-        ATTR_NONNULL(1, 2, 3) ATTR_RETURNS_NONNULL;
-struct Object *BKE_object_add_from(
-        struct Main *bmain, struct Scene *scene, struct SceneLayer *scene_layer,
-        int type, const char *name, struct Object *ob_src)
-        ATTR_NONNULL(1, 2, 3, 6) ATTR_RETURNS_NONNULL;
+        ATTR_NONNULL(1, 2) ATTR_RETURNS_NONNULL;
 void *BKE_object_obdata_add_from_type(
         struct Main *bmain,
         int type, const char *name)
@@ -107,9 +101,9 @@ void BKE_object_lod_add(struct Object *ob);
 void BKE_object_lod_sort(struct Object *ob);
 bool BKE_object_lod_remove(struct Object *ob, int level);
 void BKE_object_lod_update(struct Object *ob, const float camera_position[3]);
-bool BKE_object_lod_is_usable(struct Object *ob, struct SceneLayer *sl);
-struct Object *BKE_object_lod_meshob_get(struct Object *ob, struct SceneLayer *sl);
-struct Object *BKE_object_lod_matob_get(struct Object *ob, struct SceneLayer *sl);
+bool BKE_object_lod_is_usable(struct Object *ob, struct Scene *scene);
+struct Object *BKE_object_lod_meshob_get(struct Object *ob, struct Scene *scene);
+struct Object *BKE_object_lod_matob_get(struct Object *ob, struct Scene *scene);
 
 void BKE_object_copy_data(struct Main *bmain, struct Object *ob_dst, const struct Object *ob_src, const int flag);
 struct Object *BKE_object_copy(struct Main *bmain, const struct Object *ob);
@@ -131,12 +125,11 @@ void BKE_object_matrix_local_get(struct Object *ob, float mat[4][4]);
 bool BKE_object_pose_context_check(struct Object *ob);
 struct Object *BKE_object_pose_armature_get(struct Object *ob);
 
-void BKE_object_get_parent_matrix(struct Scene *scene, struct Object *ob,
-                                  struct Object *par, float parentmat[4][4]);
-void BKE_object_where_is_calc(const struct EvaluationContext *eval_ctx, struct Scene *scene, struct Object *ob);
-void BKE_object_where_is_calc_ex(const struct EvaluationContext *eval_ctx, struct Scene *scene, struct RigidBodyWorld *rbw, struct Object *ob, float r_originmat[3][3]);
-void BKE_object_where_is_calc_time(const struct EvaluationContext *eval_ctx, struct Scene *scene, struct Object *ob, float ctime);
-void BKE_object_where_is_calc_time_ex(const struct EvaluationContext *eval_ctx, struct Scene *scene, struct Object *ob, float ctime,
+void BKE_object_get_parent_matrix(struct Scene *scene, struct Object *ob, struct Object *par, float parentmat[4][4]);
+void BKE_object_where_is_calc(struct Scene *scene, struct Object *ob);
+void BKE_object_where_is_calc_ex(struct Scene *scene, struct RigidBodyWorld *rbw, struct Object *ob, float r_originmat[3][3]);
+void BKE_object_where_is_calc_time(struct Scene *scene, struct Object *ob, float ctime);
+void BKE_object_where_is_calc_time_ex(struct Scene *scene, struct Object *ob, float ctime,
                                       struct RigidBodyWorld *rbw, float r_originmat[3][3]);
 void BKE_object_where_is_calc_mat4(struct Scene *scene, struct Object *ob, float obmat[4][4]);
 
@@ -159,7 +152,8 @@ bool BKE_object_minmax_dupli(struct Scene *scene, struct Object *ob, float r_min
 void BKE_object_foreach_display_point(struct Object *ob, float obmat[4][4],
                                       void (*func_cb)(const float[3], void *), void *user_data);
 void BKE_scene_foreach_display_point(struct Scene *scene,
-                                     struct SceneLayer *sl,
+                                     struct View3D *v3d,
+                                     const short flag,
                                      void (*func_cb)(const float[3], void *), void *user_data);
 
 bool BKE_object_parent_loop_check(const struct Object *parent, const struct Object *ob);
@@ -184,43 +178,37 @@ void BKE_object_tfm_protected_restore(struct Object *ob,
                                       const short protectflag);
 
 /* Dependency graph evaluation callbacks. */
-void BKE_object_eval_local_transform(const struct EvaluationContext *eval_ctx,
+void BKE_object_eval_local_transform(struct EvaluationContext *eval_ctx,
                                      struct Scene *scene,
                                      struct Object *ob);
-void BKE_object_eval_parent(const struct EvaluationContext *eval_ctx,
+void BKE_object_eval_parent(struct EvaluationContext *eval_ctx,
                             struct Scene *scene,
                             struct Object *ob);
-void BKE_object_eval_constraints(const struct EvaluationContext *eval_ctx,
+void BKE_object_eval_constraints(struct EvaluationContext *eval_ctx,
                                  struct Scene *scene,
                                  struct Object *ob);
-void BKE_object_eval_done(const struct EvaluationContext *eval_ctx, struct Object *ob);
+void BKE_object_eval_done(struct EvaluationContext *eval_ctx, struct Object *ob);
 
-void BKE_object_eval_uber_transform(const struct EvaluationContext *eval_ctx,
+void BKE_object_eval_uber_transform(struct EvaluationContext *eval_ctx,
                                     struct Scene *scene,
                                     struct Object *ob);
-void BKE_object_eval_uber_data(const struct EvaluationContext *eval_ctx,
+void BKE_object_eval_uber_data(struct EvaluationContext *eval_ctx,
                                struct Scene *scene,
                                struct Object *ob);
 
-void BKE_object_eval_cloth(const struct EvaluationContext *eval_ctx,
+void BKE_object_eval_cloth(struct EvaluationContext *eval_ctx,
                            struct Scene *scene,
                            struct Object *object);
 
-void BKE_object_eval_update_shading(const struct EvaluationContext *eval_ctx,
-                                    struct Object *object);
 
-void BKE_object_handle_data_update(
-        const struct EvaluationContext *eval_ctx,
-        struct Scene *scene,
-        struct Object *ob);
-void BKE_object_handle_update(
-        const struct EvaluationContext *eval_ctx,
-        struct Scene *scene, struct Object *ob);
-void BKE_object_handle_update_ex(
-        const struct EvaluationContext *eval_ctx,
-        struct Scene *scene, struct Object *ob,
-        struct RigidBodyWorld *rbw,
-        const bool do_proxy_update);
+void BKE_object_handle_data_update(struct EvaluationContext *eval_ctx,
+                                   struct Scene *scene,
+                                   struct Object *ob);
+void BKE_object_handle_update(struct EvaluationContext *eval_ctx, struct Scene *scene, struct Object *ob);
+void BKE_object_handle_update_ex(struct EvaluationContext *eval_ctx,
+                                 struct Scene *scene, struct Object *ob,
+                                 struct RigidBodyWorld *rbw,
+                                 const bool do_proxy_update);
 void BKE_object_sculpt_modifiers_changed(struct Object *ob);
 
 int BKE_object_obdata_texspace_get(struct Object *ob, short **r_texflag, float **r_loc, float **r_size, float **r_rot);
@@ -263,16 +251,17 @@ typedef enum eObjectSet {
 	OB_SET_ALL       /* All Objects      */
 } eObjectSet;
 
-struct LinkNode *BKE_object_relational_superset(struct SceneLayer *scene_layer, eObjectSet objectSet, eObRelationTypes includeFilter);
+struct LinkNode *BKE_object_relational_superset(struct Scene *scene, eObjectSet objectSet, eObRelationTypes includeFilter);
 struct LinkNode *BKE_object_groups(struct Object *ob);
-void             BKE_object_groups_clear(struct Object *object);
+void             BKE_object_groups_clear(struct Scene *scene, struct Base *base, struct Object *object);
 
 struct KDTree *BKE_object_as_kdtree(struct Object *ob, int *r_tot);
 
 bool BKE_object_modifier_use_time(struct Object *ob, struct ModifierData *md);
 
-bool BKE_object_modifier_update_subframe(const struct EvaluationContext *eval_ctx, struct Scene *scene, struct Object *ob,
-                                         bool update_mesh, int parent_recursion, float frame, int type);
+bool BKE_object_modifier_update_subframe(struct Scene *scene, struct Object *ob, bool update_mesh,
+                                         int parent_recursion, float frame,
+                                         int type);
 
 #ifdef __cplusplus
 }

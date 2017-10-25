@@ -45,13 +45,12 @@
 #include "BLI_task.h"
 
 #include "BKE_context.h"
+#include "BKE_depsgraph.h"
 #include "BKE_brush.h"
 #include "BKE_image.h"
 #include "BKE_paint.h"
 #include "BKE_report.h"
 #include "BKE_texture.h"
-
-#include "DEG_depsgraph.h"
 
 #include "ED_paint.h"
 #include "ED_screen.h"
@@ -1360,7 +1359,7 @@ void paint_2d_redraw(const bContext *C, void *ps, bool final)
 
 		/* compositor listener deals with updating */
 		WM_event_add_notifier(C, NC_IMAGE | NA_EDITED, s->image);
-		DEG_id_tag_update(&s->image->id, 0);
+		DAG_id_tag_update(&s->image->id, 0);
 	}
 	else {
 		if (!s->sima || !s->sima->lock)

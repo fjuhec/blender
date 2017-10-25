@@ -37,7 +37,5 @@
 PyObject *GPU_initPython(void);
 
 PyObject *BPyInit_gpu_offscreen(void);
-PyObject *BPyInit_gpu_matrix(void);
-PyObject *BPyInit_gpu_select(void);
 
 #endif /* __GPU_H__ */

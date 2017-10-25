@@ -56,17 +56,15 @@
 #include "BKE_context.h"
 #include "BKE_customdata.h"
 #include "BKE_deform.h"
+#include "BKE_depsgraph.h"
 #include "BKE_mesh_mapping.h"
 #include "BKE_editmesh.h"
-#include "BKE_layer.h"
 #include "BKE_modifier.h"
 #include "BKE_report.h"
 #include "BKE_DerivedMesh.h"
 #include "BKE_object_deform.h"
 #include "BKE_object.h"
 #include "BKE_lattice.h"
-
-#include "DEG_depsgraph.h"
 
 #include "DNA_armature_types.h"
 #include "RNA_access.h"
@@ -1261,9 +1259,9 @@ static void dm_deform_clear(DerivedMesh *dm, Object *ob)
 }
 
 /* recalculate the deformation */
-static DerivedMesh *dm_deform_recalc(EvaluationContext *eval_ctx, Scene *scene, Object *ob)
+static DerivedMesh *dm_deform_recalc(Scene *scene, Object *ob)
 {
-	return mesh_get_derived_deform(eval_ctx, scene, ob, CD_MASK_BAREMESH);
+	return mesh_get_derived_deform(scene, ob, CD_MASK_BAREMESH);
 }
 
 /* by changing nonzero weights, try to move a vertex in me->mverts with index 'index' to
@@ -1275,7 +1273,7 @@ static DerivedMesh *dm_deform_recalc(EvaluationContext *eval_ctx, Scene *scene, 
  * norm and d are the plane's properties for the equation: ax + by + cz + d = 0
  * coord is a point on the plane
  */
-static void moveCloserToDistanceFromPlane(EvaluationContext *eval_ctx, Scene *scene, Object *ob, Mesh *me, int index, float norm[3],
+static void moveCloserToDistanceFromPlane(Scene *scene, Object *ob, Mesh *me, int index, float norm[3],
                                           float coord[3], float d, float distToBe, float strength, float cp)
 {
 	DerivedMesh *dm;
@@ -1302,7 +1300,7 @@ static void moveCloserToDistanceFromPlane(EvaluationContext *eval_ctx, Scene *sc
 	float originalDistToBe = distToBe;
 	do {
 		wasChange = false;
-		dm = dm_deform_recalc(eval_ctx, scene, ob);
+		dm = dm_deform_recalc(scene, ob);
 		dm->getVert(dm, index, &m);
 		copy_v3_v3(oldPos, m.co);
 		distToStart = dot_v3v3(norm, oldPos) + d;
@@ -1340,7 +1338,7 @@ static void moveCloserToDistanceFromPlane(EvaluationContext *eval_ctx, Scene *sc
 				if (dw->weight > 1) {
 					dw->weight = 1;
 				}
-				dm = dm_deform_recalc(eval_ctx, scene, ob);
+				dm = dm_deform_recalc(scene, ob);
 				dm->getVert(dm, index, &m);
 				getVerticalAndHorizontalChange(norm, d, coord, oldPos, distToStart, m.co, changes, dists, i);
 				dw->weight = oldw;
@@ -1450,12 +1448,9 @@ static void moveCloserToDistanceFromPlane(EvaluationContext *eval_ctx, Scene *sc
 
 /* this is used to try to smooth a surface by only adjusting the nonzero weights of a vertex 
  * but it could be used to raise or lower an existing 'bump.' */
-static void vgroup_fix(const bContext *C, Scene *scene, Object *ob, float distToBe, float strength, float cp)
+static void vgroup_fix(Scene *scene, Object *ob, float distToBe, float strength, float cp)
 {
-	EvaluationContext eval_ctx;
 	int i;
-
-	CTX_data_eval_ctx(C, &eval_ctx);
 
 	Mesh *me = ob->data;
 	MVert *mvert = me->mvert;
@@ -1470,7 +1465,7 @@ static void vgroup_fix(const bContext *C, Scene *scene, Object *ob, float distTo
 				MVert *p = MEM_callocN(sizeof(MVert) * (count), "deformedPoints");
 				int k;
 
-				DerivedMesh *dm = mesh_get_derived_deform(&eval_ctx, scene, ob, CD_MASK_BAREMESH);
+				DerivedMesh *dm = mesh_get_derived_deform(scene, ob, CD_MASK_BAREMESH);
 				k = count;
 				while (k--) {
 					dm->getVert(dm, verts[k], &m);
@@ -1488,7 +1483,7 @@ static void vgroup_fix(const bContext *C, Scene *scene, Object *ob, float distTo
 					if (mag) { /* zeros fix */
 						d = -dot_v3v3(norm, coord);
 						/* dist = (dot_v3v3(norm, m.co) + d); */ /* UNUSED */
-						moveCloserToDistanceFromPlane(&eval_ctx, scene, ob, me, i, norm, coord, d, distToBe, strength, cp);
+						moveCloserToDistanceFromPlane(scene, ob, me, i, norm, coord, d, distToBe, strength, cp);
 					}
 				}
 
@@ -2614,7 +2609,7 @@ static int vertex_group_add_exec(bContext *C, wmOperator *UNUSED(op))
 	Object *ob = ED_object_context(C);
 
 	BKE_object_defgroup_add(ob);
-	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_GEOM | ND_VERTEX_GROUP, ob->data);
 	WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
 	
@@ -2647,7 +2642,7 @@ static int vertex_group_remove_exec(bContext *C, wmOperator *op)
 	else
 		vgroup_delete_active(ob);
 
-	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_GEOM | ND_VERTEX_GROUP, ob->data);
 	WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
 	
@@ -2682,7 +2677,7 @@ static int vertex_group_assign_exec(bContext *C, wmOperator *UNUSED(op))
 	Object *ob = ED_object_context(C);
 	
 	vgroup_assign_verts(ob, ts->vgroup_weight);
-	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, ob->data);
 	
 	return OPERATOR_FINISHED;
@@ -2755,7 +2750,7 @@ static int vertex_group_remove_from_exec(bContext *C, wmOperator *op)
 		}
 	}
 
-	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, ob->data);
 
 	return OPERATOR_FINISHED;
@@ -2844,7 +2839,7 @@ static int vertex_group_copy_exec(bContext *C, wmOperator *UNUSED(op))
 	Object *ob = ED_object_context(C);
 
 	vgroup_duplicate(ob);
-	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
 	WM_event_add_notifier(C, NC_GEOM | ND_VERTEX_GROUP, ob->data);
 
@@ -2880,7 +2875,7 @@ static int vertex_group_levels_exec(bContext *C, wmOperator *op)
 	vgroup_levels_subset(ob, vgroup_validmap, vgroup_tot, subset_count, offset, gain);
 	MEM_freeN((void *)vgroup_validmap);
 	
-	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, ob->data);
 	
@@ -2914,7 +2909,7 @@ static int vertex_group_normalize_exec(bContext *C, wmOperator *UNUSED(op))
 	changed = vgroup_normalize(ob);
 
 	if (changed) {
-		DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+		DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 		WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
 		WM_event_add_notifier(C, NC_GEOM | ND_DATA, ob->data);
 
@@ -2953,7 +2948,7 @@ static int vertex_group_normalize_all_exec(bContext *C, wmOperator *op)
 	MEM_freeN((void *)vgroup_validmap);
 
 	if (changed) {
-		DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+		DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 		WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
 		WM_event_add_notifier(C, NC_GEOM | ND_DATA, ob->data);
 
@@ -3006,9 +3001,9 @@ static int vertex_group_fix_exec(bContext *C, wmOperator *op)
 		BKE_report(op->reports, RPT_ERROR_INVALID_CONTEXT, "This operator does not support an active mirror modifier");
 		return OPERATOR_CANCELLED;
 	}
-	vgroup_fix(C, scene, ob, distToBe, strength, cp);
+	vgroup_fix(scene, ob, distToBe, strength, cp);
 	
-	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, ob->data);
 	
@@ -3080,7 +3075,7 @@ static int vertex_group_invert_exec(bContext *C, wmOperator *op)
 	vgroup_invert_subset(ob, vgroup_validmap, vgroup_tot, subset_count, auto_assign, auto_remove);
 	MEM_freeN((void *)vgroup_validmap);
 
-	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, ob->data);
 
@@ -3122,7 +3117,7 @@ static int vertex_group_smooth_exec(bContext *C, wmOperator *op)
 	vgroup_smooth_subset(ob, vgroup_validmap, vgroup_tot, subset_count, fac, repeat, fac_expand);
 	MEM_freeN((void *)vgroup_validmap);
 
-	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, ob->data);
 
@@ -3164,7 +3159,7 @@ static int vertex_group_clean_exec(bContext *C, wmOperator *op)
 	vgroup_clean_subset(ob, vgroup_validmap, vgroup_tot, subset_count, limit, keep_single);
 	MEM_freeN((void *)vgroup_validmap);
 
-	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, ob->data);
 
@@ -3205,7 +3200,7 @@ static int vertex_group_quantize_exec(bContext *C, wmOperator *op)
 	vgroup_quantize_subset(ob, vgroup_validmap, vgroup_tot, subset_count, steps);
 	MEM_freeN((void *)vgroup_validmap);
 
-	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, ob->data);
 
@@ -3246,7 +3241,7 @@ static int vertex_group_limit_total_exec(bContext *C, wmOperator *op)
 	BKE_reportf(op->reports, remove_tot ? RPT_INFO : RPT_WARNING, "%d vertex weights limited", remove_tot);
 
 	if (remove_tot) {
-		DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+		DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 		WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
 		WM_event_add_notifier(C, NC_GEOM | ND_DATA, ob->data);
 
@@ -3291,7 +3286,7 @@ static int vertex_group_mirror_exec(bContext *C, wmOperator *op)
 
 	ED_mesh_report_mirror(op, totmirr, totfail);
 
-	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, ob->data);
 
@@ -3324,26 +3319,25 @@ void OBJECT_OT_vertex_group_mirror(wmOperatorType *ot)
 static int vertex_group_copy_to_linked_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	Scene *scene = CTX_data_scene(C);
-	Object *ob_active = ED_object_context(C);
+	Object *ob = ED_object_context(C);
+	Base *base;
 	int retval = OPERATOR_CANCELLED;
 
-	FOREACH_SCENE_OBJECT(scene, ob_iter)
-	{
-		if (ob_iter->type == ob_active->type) {
-			if (ob_iter != ob_active && ob_iter->data == ob_active->data) {
-				BLI_freelistN(&ob_iter->defbase);
-				BLI_duplicatelist(&ob_iter->defbase, &ob_active->defbase);
-				ob_iter->actdef = ob_active->actdef;
+	for (base = scene->base.first; base; base = base->next) {
+		if (base->object->type == ob->type) {
+			if (base->object != ob && base->object->data == ob->data) {
+				BLI_freelistN(&base->object->defbase);
+				BLI_duplicatelist(&base->object->defbase, &ob->defbase);
+				base->object->actdef = ob->actdef;
 
-				DEG_id_tag_update(&ob_iter->id, OB_RECALC_DATA);
-				WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob_iter);
-				WM_event_add_notifier(C, NC_GEOM | ND_VERTEX_GROUP, ob_iter->data);
+				DAG_id_tag_update(&base->object->id, OB_RECALC_DATA);
+				WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, base->object);
+				WM_event_add_notifier(C, NC_GEOM | ND_VERTEX_GROUP, base->object->data);
 
 				retval = OPERATOR_FINISHED;
 			}
 		}
 	}
-	FOREACH_SCENE_OBJECT_END
 
 	return retval;
 }
@@ -3373,7 +3367,7 @@ static int vertex_group_copy_to_selected_exec(bContext *C, wmOperator *op)
 	{
 		if (obact != ob) {
 			if (ED_vgroup_array_copy(ob, obact)) {
-				DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+				DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 				WM_event_add_notifier(C, NC_GEOM | ND_VERTEX_GROUP, ob);
 				changed_tot++;
 			}
@@ -3416,7 +3410,7 @@ static int set_active_group_exec(bContext *C, wmOperator *op)
 	BLI_assert(nr + 1 >= 0);
 	ob->actdef = nr + 1;
 
-	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_GEOM | ND_VERTEX_GROUP, ob);
 
 	return OPERATOR_FINISHED;
@@ -3630,7 +3624,7 @@ static int vertex_group_sort_exec(bContext *C, wmOperator *op)
 	ret = vgroup_do_remap(ob, name_array, op);
 
 	if (ret != OPERATOR_CANCELLED) {
-		DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+		DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 		WM_event_add_notifier(C, NC_GEOM | ND_VERTEX_GROUP, ob);
 	}
 
@@ -3680,7 +3674,7 @@ static int vgroup_move_exec(bContext *C, wmOperator *op)
 		ret = vgroup_do_remap(ob, name_array, op);
 
 		if (ret != OPERATOR_CANCELLED) {
-			DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+			DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 			WM_event_add_notifier(C, NC_GEOM | ND_VERTEX_GROUP, ob);
 		}
 	}
@@ -3809,7 +3803,7 @@ static int vertex_weight_paste_exec(bContext *C, wmOperator *op)
 
 	vgroup_copy_active_to_sel_single(ob, def_nr);
 
-	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
 
 	return OPERATOR_FINISHED;
@@ -3846,7 +3840,7 @@ static int vertex_weight_delete_exec(bContext *C, wmOperator *op)
 
 	vgroup_remove_weight(ob, def_nr);
 
-	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
 
 	return OPERATOR_FINISHED;
@@ -3879,7 +3873,7 @@ static int vertex_weight_set_active_exec(bContext *C, wmOperator *op)
 
 	if (wg_index != -1) {
 		ob->actdef = wg_index + 1;
-		DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+		DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 		WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
 	}
 
@@ -3916,7 +3910,7 @@ static int vertex_weight_normalize_active_vertex_exec(bContext *C, wmOperator *U
 	changed = vgroup_normalize_active_vertex(ob, subset_type);
 
 	if (changed) {
-		DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+		DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 		WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
 
 		return OPERATOR_FINISHED;
@@ -3949,7 +3943,7 @@ static int vertex_weight_copy_exec(bContext *C, wmOperator *UNUSED(op))
 
 	vgroup_copy_active_to_sel(ob, subset_type);
 
-	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
 
 	return OPERATOR_FINISHED;

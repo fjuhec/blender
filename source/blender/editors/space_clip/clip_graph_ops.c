@@ -37,8 +37,7 @@
 
 #include "BKE_context.h"
 #include "BKE_tracking.h"
-
-#include "DEG_depsgraph.h"
+#include "BKE_depsgraph.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -692,7 +691,7 @@ static int graph_disable_markers_exec(bContext *C, wmOperator *op)
 		}
 	}
 
-	DEG_id_tag_update(&clip->id, 0);
+	DAG_id_tag_update(&clip->id, 0);
 
 	WM_event_add_notifier(C, NC_MOVIECLIP | NA_EVALUATED, clip);
 

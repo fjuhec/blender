@@ -135,6 +135,7 @@ static const EnumPropertyItem part_hair_ren_as_items[] = {
 #include "BKE_cloth.h"
 #include "BKE_colortools.h"
 #include "BKE_deform.h"
+#include "BKE_depsgraph.h"
 #include "BKE_DerivedMesh.h"
 #include "BKE_cdderivedmesh.h"
 #include "BKE_effect.h"
@@ -143,9 +144,6 @@ static const EnumPropertyItem part_hair_ren_as_items[] = {
 #include "BKE_particle.h"
 #include "BKE_pointcache.h"
 #include "BKE_texture.h"
-
-#include "DEG_depsgraph.h"
-#include "DEG_depsgraph_build.h"
 
 /* use for object space hair get/set */
 static void rna_ParticleHairKey_location_object_info(PointerRNA *ptr, ParticleSystemModifierData **psmd_pt,
@@ -614,14 +612,8 @@ static void rna_ParticleSystem_mcol_on_emitter(ParticleSystem *particlesystem, R
 	}
 }
 
-static void rna_ParticleSystem_set_resolution(ParticleSystem *particlesystem, Scene *scene, SceneLayer *sl, Object *object, int resolution)
+static void rna_ParticleSystem_set_resolution(ParticleSystem *particlesystem, Scene *scene, Object *object, int resolution)
 {
-	EvaluationContext eval_ctx;
-
-	DEG_evaluation_context_init(&eval_ctx, resolution);
-	eval_ctx.ctime = (float)scene->r.cfra + scene->r.subframe;
-	eval_ctx.scene_layer = sl;
-
 	if (resolution == eModifierMode_Render) {
 		ParticleSystemModifierData *psmd = psys_get_modifier(object, particlesystem);
 		float mat[4][4];
@@ -630,7 +622,7 @@ static void rna_ParticleSystem_set_resolution(ParticleSystem *particlesystem, Sc
 
 		psys_render_set(object, particlesystem, mat, mat, 1, 1, 0.f);
 		psmd->flag &= ~eParticleSystemFlag_psys_updated;
-		particle_system_update(&eval_ctx, scene, object, particlesystem, true);
+		particle_system_update(scene, object, particlesystem, true);
 	}
 	else {
 		ParticleSystemModifierData *psmd = psys_get_modifier(object, particlesystem);
@@ -640,7 +632,7 @@ static void rna_ParticleSystem_set_resolution(ParticleSystem *particlesystem, Sc
 		}
 		
 		psmd->flag &= ~eParticleSystemFlag_psys_updated;
-		particle_system_update(&eval_ctx, scene, object, particlesystem, false);
+		particle_system_update(scene, object, particlesystem, false);
 	}
 }
 
@@ -651,10 +643,10 @@ static void particle_recalc(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRN
 		
 		psys->recalc = flag;
 
-		DEG_id_tag_update(ptr->id.data, OB_RECALC_DATA);
+		DAG_id_tag_update(ptr->id.data, OB_RECALC_DATA);
 	}
 	else
-		DEG_id_tag_update(ptr->id.data, OB_RECALC_DATA | flag);
+		DAG_id_tag_update(ptr->id.data, OB_RECALC_DATA | flag);
 
 	WM_main_add_notifier(NC_OBJECT | ND_PARTICLE | NA_EDITED, NULL);
 }
@@ -665,7 +657,7 @@ static void rna_Particle_redo(Main *bmain, Scene *scene, PointerRNA *ptr)
 
 static void rna_Particle_redo_dependency(Main *bmain, Scene *scene, PointerRNA *ptr)
 {
-	DEG_relations_tag_update(bmain);
+	DAG_relations_tag_update(bmain);
 	rna_Particle_redo(bmain, scene, ptr);
 }
 
@@ -676,7 +668,7 @@ static void rna_Particle_reset(Main *bmain, Scene *scene, PointerRNA *ptr)
 
 static void rna_Particle_reset_dependency(Main *bmain, Scene *scene, PointerRNA *ptr)
 {
-	DEG_relations_tag_update(bmain);
+	DAG_relations_tag_update(bmain);
 	rna_Particle_reset(bmain, scene, ptr);
 }
 
@@ -699,7 +691,7 @@ static void rna_Particle_cloth_update(Main *UNUSED(bmain), Scene *UNUSED(scene),
 {
 	Object *ob = (Object *)ptr->id.data;
 
-	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_main_add_notifier(NC_OBJECT | ND_MODIFIER, ob);
 }
 
@@ -744,8 +736,8 @@ static void rna_Particle_target_reset(Main *bmain, Scene *UNUSED(scene), Pointer
 		
 		psys->recalc = PSYS_RECALC_RESET;
 
-		DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
-		DEG_relations_tag_update(bmain);
+		DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
+		DAG_relations_tag_update(bmain);
 	}
 
 	WM_main_add_notifier(NC_OBJECT | ND_PARTICLE | NA_EDITED, NULL);
@@ -760,7 +752,7 @@ static void rna_Particle_target_redo(Main *UNUSED(bmain), Scene *UNUSED(scene), 
 		
 		psys->recalc = PSYS_RECALC_REDO;
 
-		DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+		DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 		WM_main_add_notifier(NC_OBJECT | ND_PARTICLE | NA_EDITED, NULL);
 	}
 }
@@ -780,7 +772,7 @@ static void rna_Particle_hair_dynamics(Main *bmain, Scene *scene, PointerRNA *pt
 	else
 		WM_main_add_notifier(NC_OBJECT | ND_PARTICLE | NA_EDITED, NULL);
 
-	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 }
 static PointerRNA rna_particle_settings_get(PointerRNA *ptr)
 {
@@ -2380,10 +2372,10 @@ static void rna_def_particle_settings(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Draw Color", "Draw additional particle data as a color");
 	RNA_def_property_update(prop, 0, "rna_Particle_redo");
 
-	prop = RNA_def_property(srna, "draw_size", PROP_FLOAT, PROP_NONE);
+	prop = RNA_def_property(srna, "draw_size", PROP_INT, PROP_PIXEL);
 	RNA_def_property_range(prop, 0, 1000);
 	RNA_def_property_ui_range(prop, 0, 100, 1, -1);
-	RNA_def_property_ui_text(prop, "Draw Size", "Size of particles on viewport in BU (0.1 = default)");
+	RNA_def_property_ui_text(prop, "Draw Size", "Size of particles on viewport in pixels (0=default)");
 	RNA_def_property_update(prop, 0, "rna_Particle_redo");
 
 	prop = RNA_def_property(srna, "child_type", PROP_ENUM, PROP_NONE);
@@ -3553,7 +3545,6 @@ static void rna_def_particle_system(BlenderRNA *brna)
 	func = RNA_def_function(srna, "set_resolution", "rna_ParticleSystem_set_resolution");
 	RNA_def_function_ui_description(func, "Set the resolution to use for the number of particles");
 	RNA_def_pointer(func, "scene", "Scene", "", "Scene");
-	RNA_def_pointer(func, "scene_layer", "SceneLayer", "", "SceneLayer");
 	RNA_def_pointer(func, "object", "Object", "", "Object");
 	RNA_def_enum(func, "resolution", resolution_items, 0, "", "Resolution settings to apply");
 

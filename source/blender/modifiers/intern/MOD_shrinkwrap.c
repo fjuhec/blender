@@ -45,6 +45,8 @@
 #include "BKE_modifier.h"
 #include "BKE_shrinkwrap.h"
 
+#include "depsgraph_private.h"
+
 #include "MOD_util.h"
 
 static bool dependsOnNormals(ModifierData *md);
@@ -103,8 +105,8 @@ static void foreachObjectLink(ModifierData *md, Object *ob, ObjectWalkFunc walk,
 	walk(userData, ob, &smd->auxTarget, IDWALK_CB_NOP);
 }
 
-static void deformVerts(ModifierData *md, const struct EvaluationContext *UNUSED(eval_ctx),
-                        Object *ob, DerivedMesh *derivedData,
+static void deformVerts(ModifierData *md, Object *ob,
+                        DerivedMesh *derivedData,
                         float (*vertexCos)[3],
                         int numVerts,
                         ModifierApplyFlag flag)
@@ -124,8 +126,7 @@ static void deformVerts(ModifierData *md, const struct EvaluationContext *UNUSED
 		dm->release(dm);
 }
 
-static void deformVertsEM(ModifierData *md, const struct EvaluationContext *UNUSED(eval_ctx), Object *ob,
-                          struct BMEditMesh *editData, DerivedMesh *derivedData,
+static void deformVertsEM(ModifierData *md, Object *ob, struct BMEditMesh *editData, DerivedMesh *derivedData,
                           float (*vertexCos)[3], int numVerts)
 {
 	DerivedMesh *dm = derivedData;
@@ -140,6 +141,23 @@ static void deformVertsEM(ModifierData *md, const struct EvaluationContext *UNUS
 
 	if (dm != derivedData)
 		dm->release(dm);
+}
+
+static void updateDepgraph(ModifierData *md, DagForest *forest,
+                           struct Main *UNUSED(bmain),
+                           struct Scene *UNUSED(scene),
+                           Object *UNUSED(ob),
+                           DagNode *obNode)
+{
+	ShrinkwrapModifierData *smd = (ShrinkwrapModifierData *) md;
+
+	if (smd->target)
+		dag_add_relation(forest, dag_get_node(forest, smd->target), obNode,
+		                 DAG_RL_OB_DATA | DAG_RL_DATA_DATA, "Shrinkwrap Modifier");
+
+	if (smd->auxTarget)
+		dag_add_relation(forest, dag_get_node(forest, smd->auxTarget), obNode,
+		                 DAG_RL_OB_DATA | DAG_RL_DATA_DATA, "Shrinkwrap Modifier");
 }
 
 static void updateDepsgraph(ModifierData *md,
@@ -191,6 +209,7 @@ ModifierTypeInfo modifierType_Shrinkwrap = {
 	/* requiredDataMask */  requiredDataMask,
 	/* freeData */          NULL,
 	/* isDisabled */        isDisabled,
+	/* updateDepgraph */    updateDepgraph,
 	/* updateDepsgraph */   updateDepsgraph,
 	/* dependsOnTime */     NULL,
 	/* dependsOnNormals */  dependsOnNormals,

@@ -22,7 +22,6 @@ set(INC
 	../include
 	../../blenkernel
 	../../blenlib
-	../../depsgraph
 	../../makesdna
 	../../makesrna
 	../../render/extern/include

@@ -35,7 +35,6 @@
 
 extern "C" {
 #include "DNA_object_types.h"
-#include "DNA_layer_types.h"
 
 #include "BLI_math.h"
 
@@ -61,15 +60,6 @@ std::string get_id_name(const ID * const id)
 	return name;
 }
 
-/**
- * @brief get_object_dag_path_name returns the name under which the object
- *  will be exported in the Alembic file. It is of the form
- *  "[../grandparent/]parent/object" if dupli_parent is NULL, or
- *  "dupli_parent/[../grandparent/]parent/object" otherwise.
- * @param ob
- * @param dupli_parent
- * @return
- */
 std::string get_object_dag_path_name(const Object * const ob, Object *dupli_parent)
 {
 	std::string name = get_id_name(ob);
@@ -88,9 +78,31 @@ std::string get_object_dag_path_name(const Object * const ob, Object *dupli_pare
 	return name;
 }
 
-bool object_selected(const Base * const ob_base)
+bool object_selected(Object *ob)
 {
-	return ob_base->flag & SELECT;
+	return ob->flag & SELECT;
+}
+
+bool parent_selected(Object *ob)
+{
+	if (object_selected(ob)) {
+		return true;
+	}
+
+	bool do_export = false;
+
+	Object *parent = ob->parent;
+
+	while (parent != NULL) {
+		if (object_selected(parent)) {
+			do_export = true;
+			break;
+		}
+
+		parent = parent->parent;
+	}
+
+	return do_export;
 }
 
 Imath::M44d convert_matrix(float mat[4][4])

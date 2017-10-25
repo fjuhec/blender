@@ -55,9 +55,9 @@ ImagesExporter::ImagesExporter(COLLADASW::StreamWriter *sw, const ExportSettings
 
 void ImagesExporter::export_UV_Image(Image *image, bool use_copies) 
 {
-	std::string name(id_name(image));
-	std::string translated_name(translate_id(name));
-	bool not_yet_exported = find(mImages.begin(), mImages.end(), translated_name) == mImages.end();
+	std::string id(id_name(image));
+	std::string translated_id(translate_id(id));
+	bool not_yet_exported = find(mImages.begin(), mImages.end(), translated_id) == mImages.end();
 
 	if (not_yet_exported) {
 
@@ -88,7 +88,7 @@ void ImagesExporter::export_UV_Image(Image *image, bool use_copies)
 
 			// make absolute destination path
 
-			BLI_strncpy(export_file, name.c_str(), sizeof(export_file));
+			BLI_strncpy(export_file, id.c_str(), sizeof(export_file));
 			BKE_image_path_ensure_ext_from_imformat(export_file, &imageFormat);
 
 			BLI_join_dirfile(export_path, sizeof(export_path), export_dir, export_file);
@@ -143,15 +143,60 @@ void ImagesExporter::export_UV_Image(Image *image, bool use_copies)
 			}
 		}
 
-		COLLADASW::Image img(COLLADABU::URI(COLLADABU::URI::nativePathToUri(export_path)), translated_name, translated_name); /* set name also to mNameNC. This helps other viewers import files exported from Blender better */
+		/* set name also to mNameNC. This helps other viewers import files exported from Blender better */
+		COLLADASW::Image img(COLLADABU::URI(COLLADABU::URI::nativePathToUri(export_path)), translated_id, translated_id); 
 		img.add(mSW);
 		fprintf(stdout, "Collada export: Added image: %s\n", export_file);
-		mImages.push_back(translated_name);
+		mImages.push_back(translated_id);
 
 		BKE_image_release_ibuf(image, imbuf, NULL);
 	}
 }
 
+void ImagesExporter::export_UV_Images()
+{
+	std::set<Image *> uv_textures;
+	LinkNode *node;
+	bool use_texture_copies = this->export_settings->use_texture_copies;
+	bool active_uv_only     = this->export_settings->active_uv_only;
+
+	for (node = this->export_settings->export_set; node; node = node->next) {
+		Object *ob = (Object *)node->link;
+		if (ob->type == OB_MESH) {
+			Mesh *me     = (Mesh *) ob->data;
+			BKE_mesh_tessface_ensure(me);
+			int active_uv_layer = CustomData_get_active_layer_index(&me->pdata, CD_MTEXPOLY);
+			for (int i = 0; i < me->pdata.totlayer; i++) {
+				if (me->pdata.layers[i].type == CD_MTEXPOLY) {
+					if (!active_uv_only || active_uv_layer == i)
+					{
+						MTexPoly *txface = (MTexPoly *)me->pdata.layers[i].data;
+						for (int j = 0; j < me->totpoly; j++, txface++) {
+
+							Image *ima = txface->tpage;
+							if (ima == NULL)
+								continue;
+
+							bool not_in_list = uv_textures.find(ima) == uv_textures.end();
+							if (not_in_list) {
+									uv_textures.insert(ima);
+									export_UV_Image(ima, use_texture_copies);
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+/* ============================================================
+ * Check if there are any images to be exported
+ * Returns true as soon as an object is detected that
+ * either has an UV Texture assigned, or has a material
+ * assigned that uses an Image Texture.
+ * ============================================================
+ */
 bool ImagesExporter::hasImages(Scene *sce)
 {
 	LinkNode *node;
@@ -171,6 +216,20 @@ bool ImagesExporter::hasImages(Scene *sce)
 			}
 
 		}
+		if (ob->type == OB_MESH) {
+			Mesh *me     = (Mesh *) ob->data;
+			BKE_mesh_tessface_ensure(me);
+			bool has_uvs = (bool)CustomData_has_layer(&me->fdata, CD_MTFACE);
+			if (has_uvs) {
+				int num_layers = CustomData_number_of_layers(&me->fdata, CD_MTFACE);
+				for (int a = 0; a < num_layers; a++) {
+					MTFace *tface = (MTFace *)CustomData_get_layer_n(&me->fdata, CD_MTFACE, a);
+					Image *img = tface->tpage;
+					if (img) return true;
+				}
+			}
+		}
+
 	}
 	return false;
 }
@@ -180,8 +239,11 @@ void ImagesExporter::exportImages(Scene *sce)
 	openLibrary();
 
 	MaterialFunctor mf;
-	if (this->export_settings->include_material_textures) {
+	if (this->export_settings->export_texture_type == BC_TEXTURE_TYPE_MAT) {
 		mf.forEachMaterialInExportSet<ImagesExporter>(sce, *this, this->export_settings->export_set);
+	}
+	else {
+		export_UV_Images();
 	}
 
 	closeLibrary();

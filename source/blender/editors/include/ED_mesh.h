@@ -36,7 +36,6 @@ extern "C" {
 #endif
 
 struct ID;
-struct EvaluationContext;
 struct View3D;
 struct ARegion;
 struct bContext;
@@ -114,8 +113,8 @@ struct UvElementMap *BM_uv_element_map_create(
 void                 BM_uv_element_map_free(struct UvElementMap *vmap);
 struct UvElement    *BM_uv_element_get(struct UvElementMap *map, struct BMFace *efa, struct BMLoop *l);
 
-bool           EDBM_uv_check(struct BMEditMesh *em);
-struct BMFace *EDBM_uv_active_face_get(struct BMEditMesh *em, const bool sloppy, const bool selected);
+bool             EDBM_mtexpoly_check(struct BMEditMesh *em);
+struct MTexPoly *EDBM_mtexpoly_active_get(struct BMEditMesh *em, struct BMFace **r_act_efa, const bool sloppy, const bool selected);
 
 void              BM_uv_vert_map_free(struct UvVertMap *vmap);
 struct UvMapVert *BM_uv_vert_map_at_index(struct UvVertMap *vmap, unsigned int v);
@@ -135,36 +134,35 @@ void EDBM_select_mirrored(
         int *r_totmirr, int *r_totfail);
 void EDBM_automerge(struct Scene *scene, struct Object *ob, bool update, const char hflag);
 
-bool EDBM_backbuf_border_init(const struct EvaluationContext *eval_ctx, struct ViewContext *vc, short xmin, short ymin, short xmax, short ymax);
+bool EDBM_backbuf_border_init(struct ViewContext *vc, short xmin, short ymin, short xmax, short ymax);
 bool EDBM_backbuf_check(unsigned int index);
 void EDBM_backbuf_free(void);
 
-bool EDBM_backbuf_border_mask_init(
-        const struct EvaluationContext *eval_ctx, struct ViewContext *vc, const int mcords[][2], short tot,
-        short xmin, short ymin, short xmax, short ymax);
-bool EDBM_backbuf_circle_init(const struct EvaluationContext *eval_ctx, struct ViewContext *vc, short xs, short ys, short rads);
+bool EDBM_backbuf_border_mask_init(struct ViewContext *vc, const int mcords[][2], short tot,
+                                   short xmin, short ymin, short xmax, short ymax);
+bool EDBM_backbuf_circle_init(struct ViewContext *vc, short xs, short ys, short rads);
 
 struct BMVert *EDBM_vert_find_nearest_ex(
-        const struct EvaluationContext *eval_ctx, struct ViewContext *vc, float *r_dist,
+        struct ViewContext *vc, float *r_dist,
         const bool use_select_bias, bool use_cycle);
 struct BMVert *EDBM_vert_find_nearest(
-        const struct EvaluationContext *eval_ctx, struct ViewContext *vc, float *r_dist);
+        struct ViewContext *vc, float *r_dist);
 
 struct BMEdge *EDBM_edge_find_nearest_ex(
-        const struct EvaluationContext *eval_ctx, struct ViewContext *vc, float *r_dist,
+        struct ViewContext *vc, float *r_dist,
         float *r_dist_center,
         const bool use_select_bias, const bool use_cycle,
         struct BMEdge **r_eed_zbuf);
 struct BMEdge *EDBM_edge_find_nearest(
-        const struct EvaluationContext *eval_ctx, struct ViewContext *vc, float *r_dist);
+        struct ViewContext *vc, float *r_dist);
 
 struct BMFace *EDBM_face_find_nearest_ex(
-        const struct EvaluationContext *eval_ctx, struct ViewContext *vc, float *r_dist,
+        struct ViewContext *vc, float *r_dist,
         float *r_dist_center,
         const bool use_select_bias, const bool use_cycle,
         struct BMFace **r_efa_zbuf);
 struct BMFace *EDBM_face_find_nearest(
-        const struct EvaluationContext *eval_ctx, struct ViewContext *vc, float *r_dist);
+        struct ViewContext *vc, float *r_dist);
 
 bool EDBM_select_pick(struct bContext *C, const int mval[2], bool extend, bool deselect, bool toggle);
 
@@ -201,7 +199,7 @@ void EMBM_project_snap_verts(struct bContext *C, struct ARegion *ar, struct BMEd
 /* editface.c */
 void paintface_flush_flags(struct Object *ob, short flag);
 bool paintface_mouse_select(struct bContext *C, struct Object *ob, const int mval[2], bool extend, bool deselect, bool toggle);
-int  do_paintface_box_select(const struct EvaluationContext *eval_ctx, struct ViewContext *vc, struct rcti *rect, bool select, bool extend);
+int  do_paintface_box_select(struct ViewContext *vc, struct rcti *rect, bool select, bool extend);
 void paintface_deselect_all_visible(struct Object *ob, int action, bool flush_flags);
 void paintface_select_linked(struct bContext *C, struct Object *ob, const int mval[2], const bool select);
 bool paintface_minmax(struct Object *ob, float r_min[3], float r_max[3]);
@@ -260,6 +258,7 @@ void                 ED_vgroup_vert_add(struct Object *ob, struct bDeformGroup *
 void                 ED_vgroup_vert_remove(struct Object *ob, struct bDeformGroup *dg, int vertnum);
 float                ED_vgroup_vert_weight(struct Object *ob, struct bDeformGroup *dg, int vertnum);
 void                 ED_vgroup_vert_active_mirror(struct Object *ob, int def_nr);
+
 
 /* mesh_data.c */
 // void ED_mesh_geometry_add(struct Mesh *mesh, struct ReportList *reports, int verts, int edges, int faces);

@@ -49,13 +49,12 @@ using Alembic::AbcGeom::kWrapExisting;
 
 /* ************************************************************************** */
 
-AbcCameraWriter::AbcCameraWriter(EvaluationContext *eval_ctx,
-                                 Scene *scene,
+AbcCameraWriter::AbcCameraWriter(Scene *scene,
                                  Object *ob,
                                  AbcTransformWriter *parent,
                                  uint32_t time_sampling,
                                  ExportSettings &settings)
-    : AbcObjectWriter(eval_ctx, scene, ob, time_sampling, settings, parent)
+    : AbcObjectWriter(scene, ob, time_sampling, settings, parent)
 {
 	OCamera camera(parent->alembicXform(), m_name, m_time_sampling);
 	m_camera_schema = camera.getSchema();

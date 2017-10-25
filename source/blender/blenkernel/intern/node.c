@@ -2023,7 +2023,7 @@ bNodeTree *ntreeLocalize(bNodeTree *ntree)
 
 		for (node = ntree->nodes.first; node; node = node->next) {
 			/* store new_node pointer to original */
-			node->new_node->original = node;
+			node->new_node->new_node = node;
 		}
 
 		if (ntree->typeinfo->localize)
@@ -3594,7 +3594,6 @@ static void registerShaderNodes(void)
 	register_node_type_sh_add_shader();
 	register_node_type_sh_uvmap();
 	register_node_type_sh_uvalongstroke();
-	register_node_type_sh_eevee_specular();
 
 	register_node_type_sh_output_lamp();
 	register_node_type_sh_output_material();
@@ -3786,64 +3785,4 @@ bool BKE_node_tree_iter_step(struct NodeTreeIterStore *ntreeiter,
 	}
 
 	return true;
-}
-
-/* -------------------------------------------------------------------- */
-/* NodeTree kernel functions */
-
-void BKE_nodetree_remove_layer_n(bNodeTree *ntree, Scene *scene, const int layer_index)
-{
-	for (bNode *node = ntree->nodes.first; node; node = node->next) {
-		if (node->type == CMP_NODE_R_LAYERS && (Scene *)node->id == scene) {
-			if (node->custom1 == layer_index) {
-				node->custom1 = 0;
-			}
-			else if (node->custom1 > layer_index) {
-				node->custom1--;
-			}
-		}
-	}
-}
-
-static void node_copy_default_values_list(ListBase *sockets_dst,
-                                          const ListBase *sockets_src)
-{
-	bNodeSocket *sock_dst = sockets_dst->first;
-	const bNodeSocket *sock_src = sockets_src->first;
-	while (sock_dst != NULL) {
-		node_socket_copy_default_value(sock_dst, sock_src);
-		sock_dst = sock_dst->next;
-		sock_src = sock_src->next;
-	}
-}
-
-static void node_copy_default_values(bNode *node_dst, const bNode *node_src)
-{
-	node_copy_default_values_list(&node_dst->inputs, &node_src->inputs);
-	node_copy_default_values_list(&node_dst->outputs, &node_src->outputs);
-}
-
-void BKE_nodetree_copy_default_values(bNodeTree *ntree_dst,
-                                      const bNodeTree *ntree_src)
-{
-	if (ntree_dst == ntree_src) {
-		return;
-	}
-	bNode *node_dst = ntree_dst->nodes.first;
-	const bNode *node_src = ntree_src->nodes.first;
-	while (node_dst != NULL) {
-		node_copy_default_values(node_dst, node_src);
-		node_dst = node_dst->next;
-		node_src = node_src->next;
-	}
-}
-
-void BKE_nodetree_shading_params_eval(const struct EvaluationContext *UNUSED(eval_ctx),
-                                      bNodeTree *ntree_dst,
-                                      const bNodeTree *ntree_src)
-{
-	if (G.debug & G_DEBUG_DEPSGRAPH) {
-		printf("%s on %s (%p)\n", __func__, ntree_src->id.name, ntree_dst);
-	}
-	BKE_nodetree_copy_default_values(ntree_dst, ntree_src);
 }

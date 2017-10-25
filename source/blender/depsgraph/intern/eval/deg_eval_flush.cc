@@ -50,7 +50,6 @@ extern "C" {
 #include "intern/nodes/deg_node_operation.h"
 
 #include "intern/depsgraph_intern.h"
-#include "intern/eval/deg_eval_copy_on_write.h"
 #include "util/deg_util_foreach.h"
 
 namespace DEG {
@@ -60,6 +59,23 @@ enum {
 	COMPONENT_STATE_SCHEDULED = 1,
 	COMPONENT_STATE_DONE      = 2,
 };
+
+namespace {
+
+// TODO(sergey): De-duplicate with depsgraph_tag,cc
+void lib_id_recalc_tag(Main *bmain, ID *id)
+{
+	id->tag |= LIB_TAG_ID_RECALC;
+	DEG_id_type_tag(bmain, GS(id->name));
+}
+
+void lib_id_recalc_data_tag(Main *bmain, ID *id)
+{
+	id->tag |= LIB_TAG_ID_RECALC_DATA;
+	DEG_id_type_tag(bmain, GS(id->name));
+}
+
+}  /* namespace */
 
 typedef std::deque<OperationDepsNode *> FlushQueue;
 
@@ -82,7 +98,6 @@ static void flush_init_func(void *data_v, int i)
  */
 void deg_graph_flush_updates(Main *bmain, Depsgraph *graph)
 {
-	const bool use_copy_on_write = DEG_depsgraph_use_copy_on_write();
 	/* Sanity check. */
 	if (graph == NULL) {
 		return;
@@ -111,10 +126,10 @@ void deg_graph_flush_updates(Main *bmain, Depsgraph *graph)
 	 * NOTE: Count how many nodes we need to handle - entry nodes may be
 	 *       component nodes which don't count for this purpose!
 	 */
-	GSET_FOREACH_BEGIN(OperationDepsNode *, op_node, graph->entry_tags)
+	GSET_FOREACH_BEGIN(OperationDepsNode *, node, graph->entry_tags)
 	{
-		queue.push_back(op_node);
-		op_node->scheduled = true;
+		queue.push_back(node);
+		node->scheduled = true;
 	}
 	GSET_FOREACH_END();
 
@@ -129,51 +144,23 @@ void deg_graph_flush_updates(Main *bmain, Depsgraph *graph)
 			ComponentDepsNode *comp_node = node->owner;
 			IDDepsNode *id_node = comp_node->owner;
 
-			/* TODO(sergey): Do we need to pass original or evaluated ID here? */
-			ID *id_orig = id_node->id_orig;
-			ID *id_cow = id_node->id_cow;
+			ID *id = id_node->id;
 			if (id_node->done == 0) {
-				/* Copy tag from original data to CoW storage.
-				 * This is because DEG_id_tag_update() sets tags on original
-				 * data.
-				 */
-				id_cow->tag |= (id_orig->tag & LIB_TAG_ID_RECALC_ALL);
-				if (deg_copy_on_write_is_expanded(id_cow)) {
-					deg_editors_id_update(bmain, id_cow);
-				}
-				lib_id_recalc_tag(bmain, id_orig);
+				deg_editors_id_update(bmain, id);
+				lib_id_recalc_tag(bmain, id);
 				/* TODO(sergey): For until we've got proper data nodes in the graph. */
-				lib_id_recalc_data_tag(bmain, id_orig);
+				lib_id_recalc_data_tag(bmain, id);
 			}
 
 			if (comp_node->done != COMPONENT_STATE_DONE) {
-				/* Currently this is needed to get ob->mesh to be replaced with
-				 * original mesh (rather than being evaluated_mesh).
-				 *
-				 * TODO(sergey): This is something we need to avoid.
-				 */
-				if (use_copy_on_write && comp_node->depends_on_cow()) {
-					ComponentDepsNode *cow_comp =
-					        id_node->find_component(DEG_NODE_TYPE_COPY_ON_WRITE);
-					cow_comp->tag_update(graph);
-				}
-
 				Object *object = NULL;
-				if (GS(id_orig->name) == ID_OB) {
-					object = (Object *)id_orig;
+				if (GS(id->name) == ID_OB) {
+					object = (Object *)id;
 					if (id_node->done == 0) {
 						++num_flushed_objects;
 					}
 				}
 				foreach (OperationDepsNode *op, comp_node->operations) {
-					/* We don't want to flush tags in "upstream" direction for
-					 * certain types of operations.
-					 *
-					 * TODO(sergey): Need a more generic solution for this.
-					 */
-					if (op->opcode == DEG_OPCODE_PARTICLE_SETTINGS_EVAL) {
-						continue;
-					}
 					op->flag |= DEPSOP_FLAG_NEEDS_UPDATE;
 				}
 				if (object != NULL) {
@@ -190,8 +177,6 @@ void deg_graph_flush_updates(Main *bmain, Depsgraph *graph)
 						case DEG_NODE_TYPE_ID_REF:
 						case DEG_NODE_TYPE_PARAMETERS:
 						case DEG_NODE_TYPE_SEQUENCER:
-						case DEG_NODE_TYPE_LAYER_COLLECTIONS:
-						case DEG_NODE_TYPE_COPY_ON_WRITE:
 							/* Ignore, does not translate to object component. */
 							break;
 						case DEG_NODE_TYPE_ANIMATION:
@@ -209,12 +194,7 @@ void deg_graph_flush_updates(Main *bmain, Depsgraph *graph)
 						case DEG_NODE_TYPE_PROXY:
 							object->recalc |= OB_RECALC_DATA;
 							break;
-						case DEG_NODE_TYPE_SHADING_PARAMETERS:
-							break;
 					}
-
-					/* TODO : replace with more granular flags */
-					object->deg_update_flag |= DEG_RUNTIME_DATA_UPDATE;
 				}
 				/* When some target changes bone, we might need to re-run the
 				 * whole IK solver, otherwise result might be unpredictable.

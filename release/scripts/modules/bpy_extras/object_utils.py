@@ -103,9 +103,9 @@ def add_object_align_init(context, operator):
     return location * rotation
 
 
-def object_data_add(context, obdata, operator=None, name=None):
+def object_data_add(context, obdata, operator=None, use_active_layer=True, name=None):
     """
-    Add an object using the view context and preference to initialize the
+    Add an object using the view context and preference to to initialize the
     location, rotation and layer.
 
     :arg context: The context to use.
@@ -117,30 +117,52 @@ def object_data_add(context, obdata, operator=None, name=None):
     :arg name: Optional name
     :type name: string
     :return: the newly created object in the scene.
-    :rtype: :class:`bpy.types.Object`
+    :rtype: :class:`bpy.types.ObjectBase`
     """
     scene = context.scene
-    layer = context.render_layer
-    layer_collection = context.layer_collection
 
-    for ob in layer.objects:
-        ob.select_set(action='DESELECT')
-
-    if not layer_collection:
-        # when there is no collection linked to this render_layer create one
-        scene_collection = scene.master_collection.collections.new("")
-        layer_collection = layer.collections.link(scene_collection)
-    else:
-        scene_collection = layer_collection.collection
+    # ugh, could be made nicer
+    for ob in scene.objects:
+        ob.select = False
 
     if name is None:
         name = "Object" if obdata is None else obdata.name
 
-    obj_act = layer.objects.active
     obj_new = bpy.data.objects.new(name, obdata)
-    scene_collection.objects.link(obj_new)
-    obj_new.select_set(action='SELECT')
+
+    base = scene.objects.link(obj_new)
+    base.select = True
+
+    v3d = None
+    if context.space_data and context.space_data.type == 'VIEW_3D':
+        v3d = context.space_data
+
+    if v3d and v3d.local_view:
+        base.layers_from_view(context.space_data)
+
+    if operator is not None and any(operator.layers):
+        base.layers = operator.layers
+    else:
+        if use_active_layer:
+            if v3d and v3d.local_view:
+                base.layers[scene.active_layer] = True
+            else:
+                if v3d and not v3d.lock_camera_and_layers:
+                    base.layers = [True if i == v3d.active_layer
+                                   else False for i in range(len(v3d.layers))]
+                else:
+                    base.layers = [True if i == scene.active_layer
+                                   else False for i in range(len(scene.layers))]
+        else:
+            if v3d:
+                base.layers_from_view(context.space_data)
+
+        if operator is not None:
+            operator.layers = base.layers
+
     obj_new.matrix_world = add_object_align_init(context, operator)
+
+    obj_act = scene.objects.active
 
     # XXX
     # caused because entering edit-mode does not add a empty undo slot!
@@ -152,8 +174,8 @@ def object_data_add(context, obdata, operator=None, name=None):
             _obdata = bpy.data.meshes.new(name)
             obj_act = bpy.data.objects.new(_obdata.name, _obdata)
             obj_act.matrix_world = obj_new.matrix_world
-            scene_collection.objects.link(obj_act)
-            layer.objects.active = obj_act
+            scene.objects.link(obj_act)
+            scene.objects.active = obj_act
             bpy.ops.object.mode_set(mode='EDIT')
             # need empty undo step
             bpy.ops.ed.undo_push(message="Enter Editmode")
@@ -161,10 +183,9 @@ def object_data_add(context, obdata, operator=None, name=None):
 
     if obj_act and obj_act.mode == 'EDIT' and obj_act.type == obj_new.type:
         bpy.ops.mesh.select_all(action='DESELECT')
-        obj_act.select_set(action='SELECT')
         bpy.ops.object.mode_set(mode='OBJECT')
 
-        obj_act.select_set(action='SELECT')
+        obj_act.select = True
         scene.update()  # apply location
         # scene.objects.active = obj_new
 
@@ -179,14 +200,16 @@ def object_data_add(context, obdata, operator=None, name=None):
         bpy.ops.object.join()  # join into the active.
         if obdata:
             bpy.data.meshes.remove(obdata)
+        # base is freed, set to active object
+        base = scene.object_bases.active
 
         bpy.ops.object.mode_set(mode='EDIT')
     else:
-        layer.objects.active = obj_new
+        scene.objects.active = obj_new
         if context.user_preferences.edit.use_enter_edit_mode:
             bpy.ops.object.mode_set(mode='EDIT')
 
-    return obj_new
+    return base
 
 
 class AddObjectHelper:
@@ -206,6 +229,12 @@ class AddObjectHelper:
     rotation = FloatVectorProperty(
             name="Rotation",
             subtype='EULER',
+            )
+    layers = BoolVectorProperty(
+            name="Layers",
+            size=20,
+            subtype='LAYER',
+            options={'HIDDEN', 'SKIP_SAVE'},
             )
 
     @classmethod

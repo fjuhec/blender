@@ -41,6 +41,7 @@
 #include "BLI_linklist.h"
 
 #include "BKE_library.h"
+#include "BKE_depsgraph.h"
 #include "BKE_context.h"
 #include "BKE_mesh.h"
 #include "BKE_scene.h"
@@ -57,8 +58,6 @@
 
 #include "recast-capi.h"
 
-#include "DEG_depsgraph.h"
-
 #include "mesh_intern.h"  /* own include */
 
 
@@ -73,13 +72,10 @@ static void createVertsTrisData(bContext *C, LinkNode *obs,
 	LinkNode *oblink, *dmlink;
 	DerivedMesh *dm;
 	Scene *scene = CTX_data_scene(C);
-	EvaluationContext eval_ctx;
 	LinkNode *dms = NULL;
 
 	int nverts, ntris, *tris;
 	float *verts;
-
-	CTX_data_eval_ctx(C, &eval_ctx);
 
 	nverts = 0;
 	ntris = 0;
@@ -87,7 +83,7 @@ static void createVertsTrisData(bContext *C, LinkNode *obs,
 	/* calculate number of verts and tris */
 	for (oblink = obs; oblink; oblink = oblink->next) {
 		ob = (Object *) oblink->link;
-		dm = mesh_create_derived_no_virtual(&eval_ctx, scene, ob, NULL, CD_MASK_MESH);
+		dm = mesh_create_derived_no_virtual(scene, ob, NULL, CD_MASK_MESH);
 		DM_ensure_tessface(dm);
 		BLI_linklist_prepend(&dms, dm);
 
@@ -330,7 +326,7 @@ static bool buildNavMesh(const RecastData *recastParams, int nverts, float *vert
 }
 
 static Object *createRepresentation(bContext *C, struct recast_polyMesh *pmesh, struct recast_polyMeshDetail *dmesh,
-                                  BaseLegacy *base, unsigned int lay)
+                                  Base *base, unsigned int lay)
 {
 	float co[3], rot[3];
 	BMEditMesh *em;
@@ -444,7 +440,7 @@ static Object *createRepresentation(bContext *C, struct recast_polyMesh *pmesh, 
 	recast_destroyPolyMesh(pmesh);
 	recast_destroyPolyMeshDetail(dmesh);
 
-	DEG_id_tag_update((ID *)obedit->data, OB_RECALC_DATA);
+	DAG_id_tag_update((ID *)obedit->data, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
 
 
@@ -465,15 +461,14 @@ static Object *createRepresentation(bContext *C, struct recast_polyMesh *pmesh, 
 static int navmesh_create_exec(bContext *C, wmOperator *op)
 {
 	Scene *scene = CTX_data_scene(C);
-	SceneLayer *sl = CTX_data_scene_layer(C);
 	LinkNode *obs = NULL;
-	BaseLegacy *navmeshBase = NULL;
+	Base *navmeshBase = NULL;
 
 	CTX_DATA_BEGIN (C, Base *, base, selected_editable_bases)
 	{
 		if (base->object->type == OB_MESH) {
 			if (base->object->body_type == OB_BODY_TYPE_NAVMESH) {
-				if (!navmeshBase || base == sl->basact) {
+				if (!navmeshBase || base == scene->basact) {
 					navmeshBase = base;
 				}
 			}
@@ -556,7 +551,7 @@ static int navmesh_face_copy_exec(bContext *C, wmOperator *op)
 		}
 	}
 
-	DEG_id_tag_update((ID *)obedit->data, OB_RECALC_DATA);
+	DAG_id_tag_update((ID *)obedit->data, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
 
 	return OPERATOR_FINISHED;
@@ -637,7 +632,7 @@ static int navmesh_face_add_exec(bContext *C, wmOperator *UNUSED(op))
 		}
 	}
 
-	DEG_id_tag_update((ID *)obedit->data, OB_RECALC_DATA);
+	DAG_id_tag_update((ID *)obedit->data, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
 
 	return OPERATOR_FINISHED;
@@ -686,7 +681,7 @@ static int navmesh_reset_exec(bContext *C, wmOperator *UNUSED(op))
 
 	BKE_mesh_ensure_navmesh(me);
 
-	DEG_id_tag_update(&me->id, OB_RECALC_DATA);
+	DAG_id_tag_update(&me->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, &me->id);
 
 	return OPERATOR_FINISHED;
@@ -714,7 +709,7 @@ static int navmesh_clear_exec(bContext *C, wmOperator *UNUSED(op))
 
 	CustomData_free_layers(&me->pdata, CD_RECAST, me->totpoly);
 
-	DEG_id_tag_update(&me->id, OB_RECALC_DATA);
+	DAG_id_tag_update(&me->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, &me->id);
 
 	return OPERATOR_FINISHED;

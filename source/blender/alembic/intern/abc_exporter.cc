@@ -131,44 +131,43 @@ static bool object_type_is_exportable(Object *ob)
 /**
  * Returns whether this object should be exported into the Alembic file.
  *
- * \param settings export settings, used for options like 'selected only'.
- * \param ob the object's base in question.
+ * \param settings: export settings, used for options like 'selected only'.
+ * \param ob: the object in question.
  * \param is_duplicated: Normally false; true when the object is instanced
  * into the scene by a dupli-object (e.g. part of a dupligroup).
  * This ignores selection and layer visibility,
  * and assumes that the dupli-object itself (e.g. the group-instantiating empty) is exported.
  */
-static bool export_object(const ExportSettings * const settings, const Base * const ob_base,
+static bool export_object(const ExportSettings * const settings, Object *ob,
                           bool is_duplicated)
 {
 	if (!is_duplicated) {
 		/* These two tests only make sense when the object isn't being instanced
 		 * into the scene. When it is, its exportability is determined by
 		 * its dupli-object and the DupliObject::no_draw property. */
-		if (settings->selected_only && !object_selected(ob_base)) {
+		if (settings->selected_only && !parent_selected(ob)) {
 			return false;
 		}
-		// FIXME Sybren: handle these cleanly (maybe just remove code), now using active scene layer instead.
-		if (settings->visible_layers_only && (ob_base->flag & BASE_VISIBLED) == 0) {
+
+		if (settings->visible_layers_only && !(settings->scene->lay & ob->lay)) {
 			return false;
 		}
 	}
 
-	//	if (settings->renderable_only && (ob->restrictflag & OB_RESTRICT_RENDER)) {
-	//		return false;
-	//	}
+	if (settings->renderable_only && (ob->restrictflag & OB_RESTRICT_RENDER)) {
+		return false;
+	}
 
 	return true;
 }
 
 /* ************************************************************************** */
 
-AbcExporter::AbcExporter(EvaluationContext *eval_ctx, Scene *scene, const char *filename, ExportSettings &settings)
+AbcExporter::AbcExporter(Scene *scene, const char *filename, ExportSettings &settings)
     : m_settings(settings)
     , m_filename(filename)
     , m_trans_sampling_index(0)
     , m_shape_sampling_index(0)
-    , m_eval_ctx(eval_ctx)
     , m_scene(scene)
     , m_writer(NULL)
 {}
@@ -354,45 +353,42 @@ void AbcExporter::operator()(Main *bmain, float &progress, bool &was_canceled)
 
 void AbcExporter::createTransformWritersHierarchy(EvaluationContext *eval_ctx)
 {
-	for (Base *base = static_cast<Base *>(m_settings.sl->object_bases.first); base; base = base->next) {
+	Base *base = static_cast<Base *>(m_scene->base.first);
+
+	while (base) {
 		Object *ob = base->object;
 
-		if (export_object(&m_settings, base, false)) {
-			switch (ob->type) {
-				case OB_LAMP:
-				case OB_LATTICE:
-				case OB_MBALL:
-				case OB_SPEAKER:
-					/* We do not export transforms for objects of these classes. */
-					break;
+		switch (ob->type) {
+			case OB_LAMP:
+			case OB_LATTICE:
+			case OB_MBALL:
+			case OB_SPEAKER:
+				/* We do not export transforms for objects of these classes. */
+				break;
 
-				default:
-					exploreTransform(eval_ctx, base, ob->parent, NULL);
-			}
+			default:
+				exploreTransform(eval_ctx, ob, ob->parent);
 		}
+
+		base = base->next;
 	}
 }
 
-void AbcExporter::exploreTransform(EvaluationContext *eval_ctx, Base *ob_base, Object *parent, Object *dupliObParent)
+void AbcExporter::exploreTransform(EvaluationContext *eval_ctx, Object *ob, Object *parent, Object *dupliObParent)
 {
-	Object *ob = ob_base->object;
-
 	/* If an object isn't exported itself, its duplilist shouldn't be
 	 * exported either. */
-	if (!export_object(&m_settings, ob_base, dupliObParent != NULL)) {
+	if (!export_object(&m_settings, ob, dupliObParent != NULL)) {
 		return;
 	}
 
 	if (object_type_is_exportable(ob)) {
-		createTransformWriter(eval_ctx, ob, parent, dupliObParent);
+		createTransformWriter(ob, parent, dupliObParent);
 	}
 
 	ListBase *lb = object_duplilist(eval_ctx, m_scene, ob);
 
 	if (lb) {
-		Base fake_base = *ob_base;  // copy flags (like selection state) from the real object.
-		fake_base.next = fake_base.prev = NULL;
-
 		DupliObject *link = static_cast<DupliObject *>(lb->first);
 		Object *dupli_ob = NULL;
 		Object *dupli_parent = NULL;
@@ -407,8 +403,7 @@ void AbcExporter::exploreTransform(EvaluationContext *eval_ctx, Base *ob_base, O
 				dupli_ob = link->ob;
 				dupli_parent = (dupli_ob->parent) ? dupli_ob->parent : ob;
 
-				fake_base.object = dupli_ob;
-				exploreTransform(eval_ctx, &fake_base, dupli_parent, ob);
+				exploreTransform(eval_ctx, dupli_ob, dupli_parent, ob);
 			}
 		}
 	}
@@ -416,7 +411,7 @@ void AbcExporter::exploreTransform(EvaluationContext *eval_ctx, Base *ob_base, O
 	free_object_duplilist(lb);
 }
 
-AbcTransformWriter * AbcExporter::createTransformWriter(EvaluationContext *eval_ctx, Object *ob, Object *parent, Object *dupliObParent)
+AbcTransformWriter * AbcExporter::createTransformWriter(Object *ob, Object *parent, Object *dupliObParent)
 {
 	/* An object should not be its own parent, or we'll get infinite loops. */
 	BLI_assert(ob != parent);
@@ -451,29 +446,29 @@ AbcTransformWriter * AbcExporter::createTransformWriter(EvaluationContext *eval_
 		 * return the parent's AbcTransformWriter pointer. */
 		if (parent->parent) {
 			if (parent == dupliObParent) {
-				parent_writer = createTransformWriter(eval_ctx, parent, parent->parent, NULL);
+				parent_writer = createTransformWriter(parent, parent->parent, NULL);
 			}
 			else {
-				parent_writer = createTransformWriter(eval_ctx, parent, parent->parent, dupliObParent);
+				parent_writer = createTransformWriter(parent, parent->parent, dupliObParent);
 			}
 		}
 		else if (parent == dupliObParent) {
 			if (dupliObParent->parent == NULL) {
-				parent_writer = createTransformWriter(eval_ctx, parent, NULL, NULL);
+				parent_writer = createTransformWriter(parent, NULL, NULL);
 			}
 			else {
-				parent_writer = createTransformWriter(eval_ctx, parent, dupliObParent->parent, dupliObParent->parent);
+				parent_writer = createTransformWriter(parent, dupliObParent->parent, dupliObParent->parent);
 			}
 		}
 		else {
-			parent_writer = createTransformWriter(eval_ctx, parent, dupliObParent, dupliObParent);
+			parent_writer = createTransformWriter(parent, dupliObParent, dupliObParent);
 		}
 
 		BLI_assert(parent_writer);
 		alembic_parent = parent_writer->alembicXform();
 	}
 
-	my_writer = new AbcTransformWriter(eval_ctx, ob, alembic_parent, parent_writer,
+	my_writer = new AbcTransformWriter(ob, alembic_parent, parent_writer,
 	                                   m_trans_sampling_index, m_settings);
 
 	/* When flattening, the matrix of the dupliobject has to be added. */
@@ -487,28 +482,29 @@ AbcTransformWriter * AbcExporter::createTransformWriter(EvaluationContext *eval_
 
 void AbcExporter::createShapeWriters(EvaluationContext *eval_ctx)
 {
-	for (Base *base = static_cast<Base *>(m_settings.sl->object_bases.first); base; base = base->next) {
-		exploreObject(eval_ctx, base, NULL);
+	Base *base = static_cast<Base *>(m_scene->base.first);
+
+	while (base) {
+		Object *ob = base->object;
+		exploreObject(eval_ctx, ob, NULL);
+
+		base = base->next;
 	}
 }
 
-void AbcExporter::exploreObject(EvaluationContext *eval_ctx, Base *ob_base, Object *dupliObParent)
+void AbcExporter::exploreObject(EvaluationContext *eval_ctx, Object *ob, Object *dupliObParent)
 {
 	/* If an object isn't exported itself, its duplilist shouldn't be
 	 * exported either. */
-	if (!export_object(&m_settings, ob_base, dupliObParent != NULL)) {
+	if (!export_object(&m_settings, ob, dupliObParent != NULL)) {
 		return;
 	}
 
-	createShapeWriter(ob_base, dupliObParent);
+	createShapeWriter(ob, dupliObParent);
 	
-	Object *ob = ob_base->object;
 	ListBase *lb = object_duplilist(eval_ctx, m_scene, ob);
 
 	if (lb) {
-		Base fake_base = *ob_base;  // copy flags (like selection state) from the real object.
-		fake_base.next = fake_base.prev = NULL;
-
 		DupliObject *link = static_cast<DupliObject *>(lb->first);
 
 		for (; link; link = link->next) {
@@ -516,9 +512,9 @@ void AbcExporter::exploreObject(EvaluationContext *eval_ctx, Base *ob_base, Obje
 			if (m_settings.renderable_only && link->no_draw) {
 				continue;
 			}
+
 			if (link->type == OB_DUPLIGROUP) {
-				fake_base.object = link->ob;
-				exploreObject(eval_ctx, &fake_base, ob);
+				exploreObject(eval_ctx, link->ob, ob);
 			}
 		}
 	}
@@ -541,18 +537,16 @@ void AbcExporter::createParticleSystemsWriters(Object *ob, AbcTransformWriter *x
 
 		if (m_settings.export_hair && psys->part->type == PART_HAIR) {
 			m_settings.export_child_hairs = true;
-			m_shapes.push_back(new AbcHairWriter(m_eval_ctx, m_scene, ob, xform, m_shape_sampling_index, m_settings, psys));
+			m_shapes.push_back(new AbcHairWriter(m_scene, ob, xform, m_shape_sampling_index, m_settings, psys));
 		}
 		else if (m_settings.export_particles && psys->part->type == PART_EMITTER) {
-			m_shapes.push_back(new AbcPointsWriter(m_eval_ctx, m_scene, ob, xform, m_shape_sampling_index, m_settings, psys));
+			m_shapes.push_back(new AbcPointsWriter(m_scene, ob, xform, m_shape_sampling_index, m_settings, psys));
 		}
 	}
 }
 
-void AbcExporter::createShapeWriter(Base *ob_base, Object *dupliObParent)
+void AbcExporter::createShapeWriter(Object *ob, Object *dupliObParent)
 {
-	Object *ob = ob_base->object;
-
 	if (!object_type_is_exportable(ob)) {
 		return;
 	}
@@ -584,7 +578,7 @@ void AbcExporter::createShapeWriter(Base *ob_base, Object *dupliObParent)
 				return;
 			}
 
-			m_shapes.push_back(new AbcMeshWriter(m_eval_ctx, m_scene, ob, xform, m_shape_sampling_index, m_settings));
+			m_shapes.push_back(new AbcMeshWriter(m_scene, ob, xform, m_shape_sampling_index, m_settings));
 			break;
 		}
 		case OB_SURF:
@@ -595,7 +589,7 @@ void AbcExporter::createShapeWriter(Base *ob_base, Object *dupliObParent)
 				return;
 			}
 
-			m_shapes.push_back(new AbcNurbsWriter(m_eval_ctx, m_scene, ob, xform, m_shape_sampling_index, m_settings));
+			m_shapes.push_back(new AbcNurbsWriter(m_scene, ob, xform, m_shape_sampling_index, m_settings));
 			break;
 		}
 		case OB_CURVE:
@@ -606,7 +600,7 @@ void AbcExporter::createShapeWriter(Base *ob_base, Object *dupliObParent)
 				return;
 			}
 
-			m_shapes.push_back(new AbcCurveWriter(m_eval_ctx, m_scene, ob, xform, m_shape_sampling_index, m_settings));
+			m_shapes.push_back(new AbcCurveWriter(m_scene, ob, xform, m_shape_sampling_index, m_settings));
 			break;
 		}
 		case OB_CAMERA:
@@ -614,7 +608,7 @@ void AbcExporter::createShapeWriter(Base *ob_base, Object *dupliObParent)
 			Camera *cam = static_cast<Camera *>(ob->data);
 
 			if (cam->type == CAM_PERSP) {
-				m_shapes.push_back(new AbcCameraWriter(m_eval_ctx, m_scene, ob, xform, m_shape_sampling_index, m_settings));
+				m_shapes.push_back(new AbcCameraWriter(m_scene, ob, xform, m_shape_sampling_index, m_settings));
 			}
 
 			break;
@@ -637,5 +631,5 @@ void AbcExporter::setCurrentFrame(Main *bmain, double t)
 {
 	m_scene->r.cfra = static_cast<int>(t);
 	m_scene->r.subframe = static_cast<float>(t) - m_scene->r.cfra;
-	BKE_scene_update_for_newframe(bmain->eval_ctx, bmain, m_scene);
+	BKE_scene_update_for_newframe(bmain->eval_ctx, bmain, m_scene, m_scene->lay);
 }

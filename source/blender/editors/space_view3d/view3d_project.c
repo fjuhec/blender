@@ -36,12 +36,13 @@
 
 #include "BLI_sys_types.h"  /* int64_t */
 
+#include "BIF_gl.h"  /* bglMats */
+#include "BIF_glutil.h"  /* bglMats */
+
 #include "BLI_math_vector.h"
 
 #include "BKE_camera.h"
 #include "BKE_screen.h"
-
-#include "GPU_matrix.h"
 
 #include "ED_view3d.h"  /* own include */
 
@@ -655,22 +656,16 @@ void ED_view3d_ob_project_mat_get_from_obmat(const RegionView3D *rv3d, float obm
 }
 
 /**
- * Convert between region relative coordinates (x,y) and depth component z and
- * a point in world space. */
-void ED_view3d_project(const struct ARegion *ar, const float world[3], float region[3])
+ * Uses window coordinates (x,y) and depth component z to find a point in
+ * modelspace */
+void ED_view3d_unproject(bglMats *mats, float out[3], const float x, const float y, const float z)
 {
-	// viewport is set up to make coordinates relative to the region, not window
-	RegionView3D *rv3d = ar->regiondata;
-	int viewport[4] = {0, 0, ar->winx, ar->winy};
+	double ux, uy, uz;
 
-	gpuProject(world, rv3d->viewmat, rv3d->winmat, viewport, region);
-}
+	gluUnProject(x, y, z, mats->modelview, mats->projection,
+	             (GLint *)mats->viewport, &ux, &uy, &uz);
 
-bool ED_view3d_unproject(const struct ARegion *ar, float regionx, float regiony, float regionz, float world[3])
-{
-	RegionView3D *rv3d = ar->regiondata;
-	int viewport[4] = {0, 0, ar->winx, ar->winy};
-	float region[3] = {regionx, regiony, regionz};
-
-	return gpuUnProject(region, rv3d->viewmat, rv3d->winmat, viewport, world);
+	out[0] = ux;
+	out[1] = uy;
+	out[2] = uz;
 }

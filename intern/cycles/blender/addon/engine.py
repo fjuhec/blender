@@ -123,13 +123,12 @@ def exit():
     _cycles.exit()
 
 
-def create(engine, data, depsgraph, scene, region=None, v3d=None, rv3d=None, preview_osl=False):
+def create(engine, data, scene, region=None, v3d=None, rv3d=None, preview_osl=False):
     import bpy
     import _cycles
 
     data = data.as_pointer()
     userpref = bpy.context.user_preferences.as_pointer()
-    depsgraph = depsgraph.as_pointer()
     scene = scene.as_pointer()
     if region:
         region = region.as_pointer()
@@ -143,8 +142,7 @@ def create(engine, data, depsgraph, scene, region=None, v3d=None, rv3d=None, pre
     else:
         _cycles.debug_flags_reset()
 
-    engine.session = _cycles.create(
-            engine.as_pointer(), userpref, data, depsgraph, scene, region, v3d, rv3d, preview_osl)
+    engine.session = _cycles.create(engine.as_pointer(), userpref, data, scene, region, v3d, rv3d, preview_osl)
 
 
 def free(engine):
@@ -155,7 +153,7 @@ def free(engine):
         del engine.session
 
 
-def render(engine, depsgraph):
+def render(engine):
     import _cycles
     if hasattr(engine, "session"):
         _cycles.render(engine.session)
@@ -180,14 +178,13 @@ def update(engine, data, scene):
     _cycles.sync(engine.session)
 
 
-def draw(engine, depsgraph, region, v3d, rv3d):
+def draw(engine, region, v3d, rv3d):
     import _cycles
-    depsgraph = depsgraph.as_pointer()
     v3d = v3d.as_pointer()
     rv3d = rv3d.as_pointer()
 
     # draw render image
-    _cycles.draw(engine.session, depsgraph, v3d, rv3d)
+    _cycles.draw(engine.session, v3d, rv3d)
 
 
 def available_devices():

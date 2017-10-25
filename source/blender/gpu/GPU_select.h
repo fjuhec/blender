@@ -56,7 +56,4 @@ void GPU_select_cache_begin(void);
 void GPU_select_cache_load_id(void);
 void GPU_select_cache_end(void);
 
-/* utilities */
-const uint *GPU_select_buffer_near(const uint *buffer, int hits);
-
 #endif

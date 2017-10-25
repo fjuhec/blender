@@ -163,7 +163,7 @@ void node_gpu_stack_from_data(struct GPUNodeStack *gs, int type, bNodeStack *ns)
 		else if (type == SOCK_RGBA)
 			gs->type = GPU_VEC4;
 		else if (type == SOCK_SHADER)
-			gs->type = GPU_CLOSURE;
+			gs->type = GPU_VEC4;
 		else
 			gs->type = GPU_NONE;
 

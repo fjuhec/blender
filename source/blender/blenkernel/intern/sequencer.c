@@ -63,9 +63,9 @@
 #include "BLT_translation.h"
 
 #include "BKE_animsys.h"
+#include "BKE_depsgraph.h"
 #include "BKE_global.h"
 #include "BKE_image.h"
-#include "BKE_layer.h"
 #include "BKE_main.h"
 #include "BKE_sequencer.h"
 #include "BKE_movieclip.h"
@@ -74,8 +74,6 @@
 #include "BKE_mask.h"
 #include "BKE_library.h"
 #include "BKE_idprop.h"
-
-#include "DEG_depsgraph.h"
 
 #include "RNA_access.h"
 
@@ -90,10 +88,8 @@
 #include "BKE_context.h"
 #include "BKE_sound.h"
 
-#include "RE_engine.h"
-
 #ifdef WITH_AUDASPACE
-#  include <AUD_Special.h>
+#  include AUD_SPECIAL_H
 #endif
 
 /* mutable state for sequencer */
@@ -3310,11 +3306,10 @@ static ImBuf *seq_render_scene_strip(const SeqRenderData *context, Sequence *seq
 			context->scene->r.seq_prev_type = 3 /* == OB_SOLID */;
 
 		/* opengl offscreen render */
-		context->eval_ctx->engine = RE_engines_find(scene->view_render.engine_id);
-		BKE_scene_update_for_newframe(context->eval_ctx, context->bmain, scene);
+		BKE_scene_update_for_newframe(context->eval_ctx, context->bmain, scene, scene->lay);
 		ibuf = sequencer_view3d_cb(
 		        /* set for OpenGL render (NULL when scrubbing) */
-		        context->eval_ctx, scene, BKE_scene_layer_from_scene_get(scene), camera, width, height, IB_rect,
+		        scene, camera, width, height, IB_rect,
 		        context->scene->r.seq_prev_type,
 		        (context->scene->r.seq_flag & R_SEQ_SOLID_TEX) != 0,
 		        use_gpencil, use_background, scene->r.alphamode,
@@ -3344,7 +3339,7 @@ static ImBuf *seq_render_scene_strip(const SeqRenderData *context, Sequence *seq
 			if (re == NULL)
 				re = RE_NewSceneRender(scene);
 
-			BKE_scene_update_for_newframe(context->eval_ctx, context->bmain, scene);
+			BKE_scene_update_for_newframe(context->eval_ctx, context->bmain, scene, scene->lay);
 			RE_BlenderFrame(re, context->bmain, scene, NULL, camera, scene->lay, frame, false);
 
 			/* restore previous state after it was toggled on & off by RE_BlenderFrame */
@@ -3404,7 +3399,7 @@ finally:
 	scene->r.subframe = orig_data.subframe;
 
 	if (is_frame_update) {
-		BKE_scene_update_for_newframe(context->eval_ctx, context->bmain, scene);
+		BKE_scene_update_for_newframe(context->eval_ctx, context->bmain, scene, scene->lay);
 	}
 
 #ifdef DURIAN_CAMERA_SWITCH

@@ -47,11 +47,10 @@
 #include "BLT_translation.h"
 
 #include "BKE_context.h"
+#include "BKE_depsgraph.h"
 #include "BKE_screen.h"
 #include "BKE_movieclip.h"
 #include "BKE_tracking.h"
-
-#include "DEG_depsgraph.h"
 
 #include "ED_gpencil.h"
 
@@ -237,7 +236,7 @@ static void marker_block_handler(bContext *C, void *arg_cb, int event)
 		marker->pos[1] = cb->marker_pos[1] / height;
 
 		/* to update position of "parented" objects */
-		DEG_id_tag_update(&cb->clip->id, 0);
+		DAG_id_tag_update(&cb->clip->id, 0);
 		WM_event_add_notifier(C, NC_SPACE | ND_SPACE_VIEW3D, NULL);
 
 		ok = true;
@@ -322,7 +321,7 @@ static void marker_block_handler(bContext *C, void *arg_cb, int event)
 			sub_v2_v2(cb->track->markers[i].pos, delta);
 
 		/* to update position of "parented" objects */
-		DEG_id_tag_update(&cb->clip->id, 0);
+		DAG_id_tag_update(&cb->clip->id, 0);
 		WM_event_add_notifier(C, NC_SPACE | ND_SPACE_VIEW3D, NULL);
 
 		ok = true;

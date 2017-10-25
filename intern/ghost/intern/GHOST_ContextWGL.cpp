@@ -40,6 +40,10 @@
 #include <vector>
 
 
+#ifdef WITH_GLEW_MX
+WGLEWContext *wglewContext = NULL;
+#endif
+
 HGLRC GHOST_ContextWGL::s_sharedHGLRC = NULL;
 int   GHOST_ContextWGL::s_sharedCount = 0;
 
@@ -78,6 +82,10 @@ GHOST_ContextWGL::GHOST_ContextWGL(
       m_alphaBackground(alphaBackground),
       m_contextResetNotificationStrategy(contextResetNotificationStrategy),
       m_hGLRC(NULL)
+#ifdef WITH_GLEW_MX
+      ,
+      m_wglewContext(NULL)
+#endif
 #ifndef NDEBUG
       ,
       m_dummyVendor(NULL),
@@ -107,6 +115,10 @@ GHOST_ContextWGL::~GHOST_ContextWGL()
 			WIN32_CHK(::wglDeleteContext(m_hGLRC));
 		}
 	}
+
+#ifdef WITH_GLEW_MX
+	delete m_wglewContext;
+#endif
 
 #ifndef NDEBUG
 	free((void*)m_dummyRenderer);
@@ -146,6 +158,7 @@ GHOST_TSuccess GHOST_ContextWGL::getSwapInterval(int &intervalOut)
 GHOST_TSuccess GHOST_ContextWGL::activateDrawingContext()
 {
 	if (WIN32_CHK(::wglMakeCurrent(m_hDC, m_hGLRC))) {
+		activateGLEW();
 		return GHOST_kSuccess;
 	}
 	else {
@@ -325,6 +338,15 @@ void GHOST_ContextWGL::initContextWGLEW(PIXELFORMATDESCRIPTOR &preferredPFD)
 
 	int iPixelFormat;
 
+
+#ifdef WITH_GLEW_MX
+	wglewContext = new WGLEWContext;
+	memset(wglewContext, 0, sizeof(WGLEWContext));
+
+	delete m_wglewContext;
+	m_wglewContext = wglewContext;
+#endif
+
 	SetLastError(NO_ERROR);
 
 	prevHDC = ::wglGetCurrentDC();
@@ -363,8 +385,13 @@ void GHOST_ContextWGL::initContextWGLEW(PIXELFORMATDESCRIPTOR &preferredPFD)
 	if (!WIN32_CHK(::wglMakeCurrent(dummyHDC, dummyHGLRC)))
 		goto finalize;
 
+#ifdef WITH_GLEW_MX
+	if (GLEW_CHK(wglewInit()) != GLEW_OK)
+		fprintf(stderr, "Warning! WGLEW failed to initialize properly.\n");
+#else
 	if (GLEW_CHK(glewInit()) != GLEW_OK)
 		fprintf(stderr, "Warning! Dummy GLEW/WGLEW failed to initialize properly.\n");
+#endif
 
 	// the following are not technially WGLEW, but they also require a context to work
 
@@ -801,6 +828,8 @@ GHOST_TSuccess GHOST_ContextWGL::initializeDrawingContext()
 		return GHOST_kFailure;
 	}
 
+	activateWGLEW();
+
 	if (WGLEW_ARB_create_context) {
 		int profileBitCore   = m_contextProfileMask & WGL_CONTEXT_CORE_PROFILE_BIT_ARB;
 		int profileBitCompat = m_contextProfileMask & WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB;
@@ -878,6 +907,21 @@ GHOST_TSuccess GHOST_ContextWGL::initializeDrawingContext()
 		else
 			m_hGLRC = s_sharedHGLRC;
 	}
+	else {
+		if (m_contextProfileMask  != 0)
+			fprintf(stderr, "Warning! Legacy WGL is unable to select between OpenGL profiles.");
+
+		if (m_contextMajorVersion != 0 || m_contextMinorVersion != 0)
+			fprintf(stderr, "Warning! Legacy WGL is unable to select between OpenGL versions.");
+
+		if (m_contextFlags != 0)
+			fprintf(stderr, "Warning! Legacy WGL is unable to set context flags.");
+
+		if (!s_singleContextMode || s_sharedHGLRC == NULL)
+			m_hGLRC = ::wglCreateContext(m_hDC);
+		else
+			m_hGLRC = s_sharedHGLRC;
+	}
 
 	if (!WIN32_CHK(m_hGLRC != NULL)) {
 		::wglMakeCurrent(prevHDC, prevHGLRC);
@@ -914,6 +958,29 @@ GHOST_TSuccess GHOST_ContextWGL::initializeDrawingContext()
 	reportContextString("Version",  m_dummyVersion,  version);
 #endif
 
+	if ((strcmp(vendor, "Microsoft Corporation") == 0 ||
+	     strcmp(renderer, "GDI Generic") == 0) && version[0] == '1' && version[2] == '1')
+	{
+		MessageBox(m_hWnd, "Your system does not use 3D hardware acceleration.\n"
+		                   "Blender requires a graphics driver with OpenGL 2.1 support.\n\n"
+		                   "This may be caused by:\n"
+		                   "* A missing or faulty graphics driver installation.\n"
+		                   "  Blender needs a graphics card driver to work correctly.\n"
+		                   "* Accessing Blender through a remote connection.\n"
+		                   "* Using Blender through a virtual machine.\n\n"
+		                   "The program will now close.",
+		           "Blender - Can't detect 3D hardware accelerated Driver!",
+		           MB_OK | MB_ICONERROR);
+		exit(0);
+	}
+	else if (version[0] < '2' || (version[0] == '2' && version[2] < '1')) {
+		MessageBox(m_hWnd, "Blender requires a graphics driver with OpenGL 2.1 support.\n\n"
+		                   "The program will now close.",
+		           "Blender - Unsupported Graphics Driver!",
+		           MB_OK | MB_ICONERROR);
+		exit(0);
+	}
+
 	return GHOST_kSuccess;
 }
 
@@ -926,98 +993,4 @@ GHOST_TSuccess GHOST_ContextWGL::releaseNativeHandles()
 	m_hDC  = NULL;
 
 	return success;
-}
-
-/**
- * For any given HDC you may call SetPixelFormat once
- *
- * So we better try to get the correct OpenGL version in a new window altogether, in case it fails.
- * (see https://msdn.microsoft.com/en-us/library/windows/desktop/dd369049(v=vs.85).aspx)
- */
-static bool TryOpenGLVersion(
-        HWND hwnd,
-        bool wantStereoVisual,
-        bool wantAlphaBackground,
-        GHOST_TUns16 wantNumOfAASamples,
-        int contextProfileMask,
-        bool debugContext,
-        int major, int minor)
-{
-	HWND dummyHWND = clone_window(hwnd, NULL);
-	if (dummyHWND == NULL) {
-		return false;
-	}
-
-	HDC dummyHDC = GetDC(dummyHWND);
-	if (dummyHDC == NULL) {
-		return false;
-	}
-
-	GHOST_ContextWGL * context = new GHOST_ContextWGL(
-	        wantStereoVisual,
-	        wantAlphaBackground,
-	        wantNumOfAASamples,
-	        dummyHWND,
-	        dummyHDC,
-	        contextProfileMask,
-	        major, minor,
-	        (debugContext ? WGL_CONTEXT_DEBUG_BIT_ARB : 0),
-	        GHOST_OPENGL_WGL_RESET_NOTIFICATION_STRATEGY);
-
-	bool result = context->initializeDrawingContext();
-	delete context;
-
-	ReleaseDC(dummyHWND, dummyHDC);
-	DestroyWindow(dummyHWND);
-
-	return result;
-}
-
-GHOST_TSuccess GHOST_ContextWGL::getMaximumSupportedOpenGLVersion(
-        HWND hwnd,
-        bool wantStereoVisual,
-        bool wantAlphaBackground,
-        GHOST_TUns16 wantNumOfAASamples,
-        int contextProfileMask,
-        bool debugContext,
-        GHOST_TUns8 *r_major_version,
-        GHOST_TUns8 *r_minor_version)
-{
-	/* - AMD and Intel give us exactly this version
-	 * - NVIDIA gives at least this version <-- desired behavior
-	 * So we ask for 4.5, 4.4 ... 3.3 in descending order to get the best version on the user's system. */
-	for (int minor = 5; minor >= 0; --minor) {
-		if (TryOpenGLVersion(
-		            hwnd,
-		            wantStereoVisual,
-		            wantAlphaBackground,
-		            wantNumOfAASamples,
-		            contextProfileMask,
-		            debugContext,
-		            4, minor))
-		{
-			*r_major_version = 4;
-			*r_minor_version = minor;
-			return GHOST_kSuccess;
-		}
-	}
-
-	/* Fallback to OpenGL 3.3 */
-	if (TryOpenGLVersion(
-	        hwnd,
-	        wantStereoVisual,
-	        wantAlphaBackground,
-	        wantNumOfAASamples,
-	        contextProfileMask,
-	        debugContext,
-	        3, 3))
-	{
-		*r_major_version = 3;
-		*r_minor_version = 3;
-		return GHOST_kSuccess;
-	}
-
-	*r_major_version = 0;
-	*r_minor_version = 0;
-	return GHOST_kFailure;
 }

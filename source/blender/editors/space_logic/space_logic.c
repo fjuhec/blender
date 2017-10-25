@@ -198,9 +198,7 @@ static void logic_refresh(const bContext *UNUSED(C), ScrArea *UNUSED(sa))
 
 }
 
-static void logic_listener(
-        bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar,
-        wmNotifier *wmn, const Scene *UNUSED(scene))
+static void logic_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar, wmNotifier *wmn)
 {
 	/* context changes */
 	switch (wmn->category) {

@@ -42,9 +42,8 @@
 
 #include "BKE_blender_undo.h"
 #include "BKE_context.h"
+#include "BKE_depsgraph.h"
 #include "BKE_global.h"
-
-#include "DEG_depsgraph.h"
 
 #include "ED_util.h"
 #include "ED_mesh.h"
@@ -270,7 +269,7 @@ void undo_editmode_step(bContext *C, int step)
 		EDBM_selectmode_to_scene(C);
 	}
 
-	DEG_id_tag_update(&obedit->id, OB_RECALC_DATA);
+	DAG_id_tag_update(&obedit->id, OB_RECALC_DATA);
 
 	/* XXX notifiers */
 }

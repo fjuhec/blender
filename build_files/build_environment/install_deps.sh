@@ -25,7 +25,7 @@
 ARGS=$( \
 getopt \
 -o s:i:t:h \
---long source:,install:,tmp:,info:,threads:,help,show-deps,no-sudo,no-build,no-confirm,\
+--long source:,install:,tmp:,info:,threads:,help,show-deps,no-sudo,no-build,no-confirm,use-cxx11,\
 with-all,with-opencollada,with-jack,\
 ver-ocio:,ver-oiio:,ver-llvm:,ver-osl:,ver-osd:,ver-openvdb:,\
 force-all,force-python,force-numpy,force-boost,\
@@ -103,6 +103,11 @@ ARGUMENTS_INFO="\"COMMAND LINE ARGUMENTS:
 
     --no-confirm
         Disable any interaction with user (suitable for automated run).
+
+    --use-cxx11
+        Build all libraries in cpp11 'mode' (will be mandatory soon in blender2.8 branch).
+        NOTE: If your compiler is gcc-6.0 or above, you probably *want* to enable this option (since it's default
+              standard starting from this version).
 
     --with-all
         By default, a number of optional and not-so-often needed libraries are not installed.
@@ -285,7 +290,7 @@ SUDO="sudo"
 
 NO_BUILD=false
 NO_CONFIRM=false
-USE_CXX11=true  # Mandatory in blender2.8
+USE_CXX11=false
 
 PYTHON_VERSION="3.6.2"
 PYTHON_VERSION_MIN="3.6"
@@ -495,6 +500,9 @@ while true; do
     ;;
     --no-confirm)
       NO_CONFIRM=true; shift; continue
+    ;;
+    --use-cxx11)
+      USE_CXX11=true; shift; continue
     ;;
     --with-all)
       WITH_ALL=true; shift; continue
@@ -796,7 +804,7 @@ FFMPEG_SOURCE=( "http://ffmpeg.org/releases/ffmpeg-$FFMPEG_VERSION.tar.bz2" )
 
 CXXFLAGS_BACK=$CXXFLAGS
 if [ "$USE_CXX11" = true ]; then
-  WARNING "C++11 is now mandatory for blender2.8, this *should* go smoothly with any very recent distribution.
+  WARNING "You are trying to use c++11, this *should* go smoothely with any very recent distribution
 However, if you are experiencing linking errors (also when building Blender itself), please try the following:
     * Re-run this script with '--build-all --force-all' options.
     * Ensure your gcc version is at the very least 4.8, if possible you should really rather use gcc-5.1 or above.
@@ -2673,10 +2681,10 @@ install_DEB() {
   install_packages_DEB $_packages
 
   PRINT""
-  LIBSNDFILE_DEV="libsndfile1-dev"
-  check_package_DEB $LIBSNDFILE_DEV
+  SNDFILE_DEV="libsndfile1-dev"
+  check_package_DEB $SNDFILE_DEV
   if [ $? -eq 0 ]; then
-    install_packages_DEB $LIBSNDFILE_DEV
+    install_packages_DEB $SNDFILE_DEV
   fi
 
   PRINT ""
@@ -3271,10 +3279,10 @@ install_RPM() {
   fi
 
   PRINT""
-  LIBSNDFILE_DEV="libsndfile-devel"
-  check_package_RPM $LIBSNDFILE_DEV
+  SNDFILE_DEV="libsndfile-devel"
+  check_package_RPM $SNDFILE_DEV
   if [ $? -eq 0 ]; then
-    install_packages_RPM $LIBSNDFILE_DEV
+    install_packages_RPM $SNDFILE_DEV
   fi
 
   if [ "$WITH_ALL" = true ]; then
@@ -3678,10 +3686,10 @@ install_ARCH() {
   install_packages_ARCH $_packages
 
   PRINT""
-  LIBSNDFILE_DEV="libsndfile"
-  check_package_ARCH $LIBSNDFILE_DEV
+  SNDFILE_DEV="libsndfile"
+  check_package_ARCH $SNDFILE_DEV
   if [ $? -eq 0 ]; then
-    install_packages_ARCH $LIBSNDFILE_DEV
+    install_packages_ARCH $SNDFILE_DEV
   fi
 
   PRINT ""

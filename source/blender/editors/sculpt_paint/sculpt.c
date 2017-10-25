@@ -56,6 +56,7 @@
 #include "BKE_brush.h"
 #include "BKE_ccg.h"
 #include "BKE_context.h"
+#include "BKE_depsgraph.h"
 #include "BKE_global.h"
 #include "BKE_image.h"
 #include "BKE_key.h"
@@ -70,8 +71,6 @@
 #include "BKE_object.h"
 #include "BKE_subsurf.h"
 #include "BKE_colortools.h"
-
-#include "DEG_depsgraph.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -492,7 +491,8 @@ bool sculpt_get_redraw_rect(ARegion *ar, RegionView3D *rv3d,
 	return 1;
 }
 
-void ED_sculpt_redraw_planes_get(float planes[4][4], ARegion *ar, Object *ob)
+void ED_sculpt_redraw_planes_get(float planes[4][4], ARegion *ar,
+                                 RegionView3D *rv3d, Object *ob)
 {
 	PBVH *pbvh = ob->sculpt->pbvh;
 	/* copy here, original will be used below */
@@ -500,7 +500,7 @@ void ED_sculpt_redraw_planes_get(float planes[4][4], ARegion *ar, Object *ob)
 
 	sculpt_extend_redraw_rect_previous(ob, &rect);
 
-	paint_calc_redraw_planes(planes, ar, ob, &rect);
+	paint_calc_redraw_planes(planes, ar, rv3d, ob, &rect);
 
 	/* we will draw this rect, so now we can set it as the previous partial rect.
 	 * Note that we don't update with the union of previous/current (rect), only with
@@ -2044,10 +2044,6 @@ static void do_draw_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int totnode)
 	mul_v3_v3fl(offset, ss->cache->sculpt_normal_symm, ss->cache->radius);
 	mul_v3_v3(offset, ss->cache->scale);
 	mul_v3_fl(offset, bstrength);
-
-	/* XXX - this shouldn't be necessary, but sculpting crashes in blender2.8 otherwise
-	 * initialize before threads so they can do curve mapping */
-	curvemapping_initialize(brush->curve);
 
 	/* threaded loop over nodes */
 	SculptThreadedTaskData data = {
@@ -4413,13 +4409,10 @@ static void sculpt_stroke_modifiers_check(const bContext *C, Object *ob)
 	SculptSession *ss = ob->sculpt;
 
 	if (ss->kb || ss->modifiers_active) {
-		EvaluationContext eval_ctx;
 		Sculpt *sd = CTX_data_tool_settings(C)->sculpt;
 		Brush *brush = BKE_paint_brush(&sd->paint);
 
-		CTX_data_eval_ctx(C, &eval_ctx);
-
-		BKE_sculpt_update_mesh_elements(&eval_ctx, CTX_data_scene(C), sd, ob,
+		BKE_sculpt_update_mesh_elements(CTX_data_scene(C), sd, ob,
 		                            sculpt_any_smooth_mode(brush, ss->cache, 0), false);
 	}
 }
@@ -4625,14 +4618,11 @@ static bool sculpt_brush_stroke_init(bContext *C, wmOperator *op)
 	Scene *scene = CTX_data_scene(C);
 	Object *ob = CTX_data_active_object(C);
 	Sculpt *sd = CTX_data_tool_settings(C)->sculpt;
-	EvaluationContext eval_ctx;
 	SculptSession *ss = CTX_data_active_object(C)->sculpt;
 	Brush *brush = BKE_paint_brush(&sd->paint);
 	int mode = RNA_enum_get(op->ptr, "mode");
 	bool is_smooth;
 	bool need_mask = false;
-
-	CTX_data_eval_ctx(C, &eval_ctx);
 
 	if (brush->sculpt_tool == SCULPT_TOOL_MASK) {
 		need_mask = true;
@@ -4642,7 +4632,7 @@ static bool sculpt_brush_stroke_init(bContext *C, wmOperator *op)
 	sculpt_brush_init_tex(scene, sd, ss);
 
 	is_smooth = sculpt_any_smooth_mode(brush, NULL, mode);
-	BKE_sculpt_update_mesh_elements(&eval_ctx, scene, sd, ob, is_smooth, need_mask);
+	BKE_sculpt_update_mesh_elements(scene, sd, ob, is_smooth, need_mask);
 
 	return 1;
 }
@@ -4686,7 +4676,7 @@ static void sculpt_flush_update(bContext *C)
 		GPU_drawobject_free(ob->derivedFinal);
 
 	if (ss->kb || ss->modifiers_active) {
-		DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+		DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 		ED_region_tag_redraw(ar);
 	}
 	else {
@@ -4716,9 +4706,6 @@ static void sculpt_flush_update(bContext *C)
 			ED_region_tag_redraw_partial(ar, &r);
 		}
 	}
-
-	/* 2.8x - avoid full mesh update! */
-	BKE_mesh_batch_cache_dirty(ob->data, BKE_MESH_BATCH_DIRTY_SCULPT_COORDS);
 }
 
 /* Returns whether the mouse/stylus is over the mesh (1)
@@ -4802,7 +4789,7 @@ static void sculpt_stroke_update_step(bContext *C, struct PaintStroke *UNUSED(st
 	 * Could be optimized later, but currently don't think it's so
 	 * much common scenario.
 	 *
-	 * Same applies to the DEG_id_tag_update() invoked from
+	 * Same applies to the DAG_id_tag_update() invoked from
 	 * sculpt_flush_update().
 	 */
 	if (ss->modifiers_active) {
@@ -4876,7 +4863,7 @@ static void sculpt_stroke_done(const bContext *C, struct PaintStroke *UNUSED(str
 
 		/* try to avoid calling this, only for e.g. linked duplicates now */
 		if (((Mesh *)ob->data)->id.us > 1)
-			DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+			DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 
 		WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
 	}
@@ -5072,13 +5059,10 @@ void sculpt_update_after_dynamic_topology_toggle(bContext *C)
 {
 	Scene *scene = CTX_data_scene(C);
 	Object *ob = CTX_data_active_object(C);
-	EvaluationContext eval_ctx;
 	Sculpt *sd = scene->toolsettings->sculpt;
 
-	CTX_data_eval_ctx(C, &eval_ctx);
-
 	/* Create the PBVH */
-	BKE_sculpt_update_mesh_elements(&eval_ctx, scene, sd, ob, false, false);
+	BKE_sculpt_update_mesh_elements(scene, sd, ob, false, false);
 	WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
 }
 
@@ -5412,15 +5396,11 @@ static void SCULPT_OT_symmetrize(wmOperatorType *ot)
 
 /**** Toggle operator for turning sculpt mode on or off ****/
 
-static void sculpt_init_session(const bContext *C, Scene *scene, Object *ob)
+static void sculpt_init_session(Scene *scene, Object *ob)
 {
-	EvaluationContext eval_ctx;
-
-	CTX_data_eval_ctx(C, &eval_ctx);
-
 	ob->sculpt = MEM_callocN(sizeof(SculptSession), "sculpt session");
 
-	BKE_sculpt_update_mesh_elements(&eval_ctx, scene, scene->toolsettings->sculpt, ob, 0, false);
+	BKE_sculpt_update_mesh_elements(scene, scene->toolsettings->sculpt, ob, 0, false);
 }
 
 
@@ -5456,7 +5436,7 @@ static int sculpt_mode_toggle_exec(bContext *C, wmOperator *op)
 		 * a consistent state.
 		 */
 		if (true || flush_recalc || (ob->sculpt && ob->sculpt->bm)) {
-			DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+			DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 		}
 
 		if (me->flag & ME_SCULPT_DYNAMIC_TOPOLOGY) {
@@ -5481,7 +5461,7 @@ static int sculpt_mode_toggle_exec(bContext *C, wmOperator *op)
 		ob->mode |= mode_flag;
 
 		if (flush_recalc)
-			DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+			DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 
 		/* Create persistent sculpt mode data */
 		if (!ts->sculpt) {
@@ -5512,7 +5492,7 @@ static int sculpt_mode_toggle_exec(bContext *C, wmOperator *op)
 		if (ob->sculpt)
 			BKE_sculptsession_free(ob);
 
-		sculpt_init_session(C, scene, ob);
+		sculpt_init_session(scene, ob);
 
 		/* Mask layer is required */
 		if (mmd) {

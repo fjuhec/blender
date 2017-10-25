@@ -47,8 +47,6 @@ extern "C" {
 #include "DNA_ID.h"
 #include "DNA_freestyle_types.h"
 #include "DNA_gpu_types.h"
-#include "DNA_layer_types.h"
-#include "DNA_material_types.h"
 #include "DNA_userdef_types.h"
 
 struct CurveMapping;
@@ -67,13 +65,18 @@ struct bGPdata;
 struct bGPDbrush;
 struct MovieClip;
 struct ColorSpace;
-struct SceneCollection;
 
 /* ************************************************************* */
 /* Scene Data */
 
 /* Base - Wrapper for referencing Objects in a Scene */
-#define BaseLegacy Base
+typedef struct Base {
+	struct Base *next, *prev;
+	unsigned int lay, selcol;
+	int flag;
+	short sx, sy;
+	struct Object *object;
+} Base;
 
 /* ************************************************************* */
 /* Output Format Data */
@@ -539,12 +542,6 @@ typedef enum eBakePassFilter {
 
 #define R_BAKE_PASS_FILTER_ALL (~0)
 
-/* RenderEngineSettingsClay.options */
-typedef enum ClayFlagSettings {
-	CLAY_USE_AO     = (1 << 0),
-	CLAY_USE_HSV    = (1 << 1),
-} ClayFlagSettings;
-
 /* *************************************************************** */
 /* Render Data */
 
@@ -749,7 +746,7 @@ typedef struct RenderData {
 	float unit_line_thickness; /* in pixels */
 
 	/* render engine */
-	char engine[32] DNA_DEPRECATED; // XXX deprecated since 2.8
+	char engine[32];
 
 	/* Cycles baking */
 	struct BakeData bake;
@@ -771,12 +768,6 @@ typedef struct RenderData {
 	/* Motion blur shutter */
 	struct CurveMapping mblur_shutter_curve;
 } RenderData;
-
-/* *************************************************************** */
-/* Settings related to viewport drawing/render, only settings used by WorkSpace and Scene. */
-typedef struct ViewRender {
-	char engine_id[32];
-} ViewRender;
 
 /* *************************************************************** */
 /* Render Conversion/Simplfication Settings */
@@ -889,6 +880,7 @@ typedef struct GameData {
 	/* Scene LoD */
 	short lodflag, pad2;
 	int scehysteresis, pad5;
+
 } GameData;
 
 #define STEREO_NOSTEREO		1
@@ -931,7 +923,7 @@ typedef struct GameData {
 #define GAME_SHOW_DEBUG_PROPS				(1 << 2)
 #define GAME_SHOW_FRAMERATE					(1 << 3)
 #define GAME_SHOW_PHYSICS					(1 << 4)
-// #define GAME_DISPLAY_LISTS					(1 << 5)   /* deprecated */
+#define GAME_DISPLAY_LISTS					(1 << 5)
 #define GAME_GLSL_NO_LIGHTS					(1 << 6)
 #define GAME_GLSL_NO_SHADERS				(1 << 7)
 #define GAME_GLSL_NO_SHADOWS				(1 << 8)
@@ -1079,7 +1071,6 @@ typedef struct ParticleEditSettings {
 	int draw_step, fade_frames;
 
 	struct Scene *scene;
-	struct SceneLayer *scene_layer;
 	struct Object *object;
 	struct Object *shape_object;
 } ParticleEditSettings;
@@ -1254,6 +1245,17 @@ typedef enum eGP_Interpolate_Type {
 	GP_IPO_QUINT = 11,
 	GP_IPO_SINE = 12,
 } eGP_Interpolate_Type;
+
+
+/* *************************************************************** */
+/* Transform Orientations */
+
+typedef struct TransformOrientation {
+	struct TransformOrientation *next, *prev;
+	char name[64];	/* MAX_NAME */
+	float mat[3][3];
+	int pad;
+} TransformOrientation;
 
 /* *************************************************************** */
 /* Unified Paint Settings
@@ -1615,7 +1617,7 @@ typedef struct Scene {
 	struct Scene *set;
 	
 	ListBase base;
-	struct BaseLegacy *basact;		/* active base */
+	struct Base *basact;		/* active base */
 	struct Object *obedit;		/* name replaces old G.obedit */
 	
 	float cursor[3];			/* 3d cursor location */
@@ -1635,17 +1637,17 @@ typedef struct Scene {
 	struct Editing *ed;								/* sequence editor data is allocated here */
 	
 	struct ToolSettings *toolsettings;		/* default allocated now */
-	void *pad2;
+	struct SceneStats *stats;				/* default allocated now */
 	struct DisplaySafeAreas safe_areas;
 
 	/* migrate or replace? depends on some internal things... */
 	/* no, is on the right place (ton) */
 	struct RenderData r;
 	struct AudioData audio;
-
+	
 	ListBase markers;
-	ListBase transform_spaces DNA_DEPRECATED;
-
+	ListBase transform_spaces;
+	
 	void *sound_scene;
 	void *playback_handle;
 	void *sound_scrub_handle;
@@ -1654,10 +1656,11 @@ typedef struct Scene {
 	void *fps_info;					/* (runtime) info/cache used for presenting playback framerate info to the user */
 	
 	/* none of the dependency graph  vars is mean to be saved */
-	struct Depsgraph *depsgraph_legacy;
-	struct GHash *depsgraph_hash;
-	void *pad3;
-	int pad7;
+	struct Depsgraph *depsgraph;
+	void *pad1;
+	struct  DagForest *theDag;
+	short dagflags;
+	short pad3;
 
 	/* User-Defined KeyingSets */
 	int active_keyingset;			/* index of the active KeyingSet. first KeyingSet has index 1, 'none' active is 0, 'add new' is -1 */
@@ -1676,13 +1679,13 @@ typedef struct Scene {
 	/* Physics simulation settings */
 	struct PhysicsSettings physics_settings;
 
-	void *pad6;
+	/* Movie Tracking */
+	struct MovieClip *clip;			/* active movie clip */
+
+	void *pad4;
 
 	uint64_t customdata_mask;	/* XXX. runtime flag for drawing, actually belongs in the window, only used by BKE_object_handle_update() */
 	uint64_t customdata_mask_modal; /* XXX. same as above but for temp operator use (gl renders) */
-
-	/* Movie Tracking */
-	struct MovieClip *clip;			/* active movie clip */
 
 	/* Color Management */
 	ColorManagedViewSettings view_settings;
@@ -1693,18 +1696,6 @@ typedef struct Scene {
 	struct RigidBodyWorld *rigidbody_world;
 
 	struct PreviewImage *preview;
-
-	ListBase render_layers;
-	struct SceneCollection *collection;
-	int active_layer;
-	int pad4;
-
-	IDProperty *collection_properties;  /* settings to be overriden by layer collections */
-	IDProperty *layer_properties;  /* settings to be override by workspaces */
-
-	int pad5[2];
-
-	ViewRender view_render;
 } Scene;
 
 /* **************** RENDERDATA ********************* */
@@ -1893,8 +1884,6 @@ enum {
 /* scene->r.engine (scene.c) */
 extern const char *RE_engine_id_BLENDER_RENDER;
 extern const char *RE_engine_id_BLENDER_GAME;
-extern const char *RE_engine_id_BLENDER_CLAY;
-extern const char *RE_engine_id_BLENDER_EEVEE;
 extern const char *RE_engine_id_CYCLES;
 
 /* **************** SCENE ********************* */
@@ -1915,38 +1904,37 @@ extern const char *RE_engine_id_CYCLES;
 
 /* depricate this! */
 #define TESTBASE(v3d, base)  (                                                \
-	((base)->flag_legacy & SELECT) &&                                         \
+	((base)->flag & SELECT) &&                                                \
 	((base)->lay & v3d->lay) &&                                               \
 	(((base)->object->restrictflag & OB_RESTRICT_VIEW) == 0))
-
-#define TESTBASE_NEW(base)  (                                                 \
-	(((base)->flag & BASE_SELECTED) != 0) &&                                  \
-	(((base)->flag & BASE_VISIBLED) != 0))
-#define TESTBASELIB_NEW(base)  (                                              \
-	(((base)->flag & BASE_SELECTED) != 0) &&                                  \
+#define TESTBASELIB(v3d, base)  (                                             \
+	((base)->flag & SELECT) &&                                                \
+	((base)->lay & v3d->lay) &&                                               \
 	((base)->object->id.lib == NULL) &&                                       \
-	(((base)->flag & BASE_VISIBLED) != 0))
-#define TESTBASELIB_BGMODE_NEW(base)  (                                       \
-	(((base)->flag & BASE_SELECTED) != 0) &&                                  \
+	(((base)->object->restrictflag & OB_RESTRICT_VIEW) == 0))
+#define TESTBASELIB_BGMODE(v3d, scene, base)  (                               \
+	((base)->flag & SELECT) &&                                                \
+	((base)->lay & (v3d ? v3d->lay : scene->lay)) &&                          \
 	((base)->object->id.lib == NULL) &&                                       \
-	(((base)->flag & BASE_VISIBLED) != 0))
-#define BASE_EDITABLE_BGMODE_NEW(base)  (                                     \
+	(((base)->object->restrictflag & OB_RESTRICT_VIEW) == 0))
+#define BASE_EDITABLE_BGMODE(v3d, scene, base)  (                             \
+	((base)->lay & (v3d ? v3d->lay : scene->lay)) &&                          \
 	((base)->object->id.lib == NULL) &&                                       \
-	(((base)->flag & BASE_VISIBLED) != 0))
-#define BASE_SELECTABLE_NEW(base)                                             \
-	(((base)->flag & BASE_SELECTABLED) != 0)
-#define BASE_VISIBLE_NEW(base)  (                                             \
-	((base)->flag & BASE_VISIBLED) != 0)
+	(((base)->object->restrictflag & OB_RESTRICT_VIEW) == 0))
+#define BASE_SELECTABLE(v3d, base)  (                                         \
+	(base->lay & v3d->lay) &&                                                 \
+	(base->object->restrictflag & (OB_RESTRICT_SELECT | OB_RESTRICT_VIEW)) == 0)
+#define BASE_VISIBLE(v3d, base)  (                                            \
+	(base->lay & v3d->lay) &&                                                 \
+	(base->object->restrictflag & OB_RESTRICT_VIEW) == 0)
+#define BASE_VISIBLE_BGMODE(v3d, scene, base)  (                              \
+	(base->lay & (v3d ? v3d->lay : scene->lay)) &&                            \
+	(base->object->restrictflag & OB_RESTRICT_VIEW) == 0)
 
 #define FIRSTBASE		scene->base.first
 #define LASTBASE		scene->base.last
 #define BASACT			(scene->basact)
 #define OBACT			(BASACT ? BASACT->object: NULL)
-
-#define FIRSTBASE_NEW(_sl)  ((_sl)->object_bases.first)
-#define LASTBASE_NEW(_sl)   ((_sl)->object_bases.last)
-#define BASACT_NEW(_sl)     ((_sl)->basact)
-#define OBACT_NEW(_sl)      (BASACT_NEW(_sl) ? BASACT_NEW(_sl)->object: NULL)
 
 #define V3D_CAMERA_LOCAL(v3d) ((!(v3d)->scenelock && (v3d)->camera) ? (v3d)->camera : NULL)
 #define V3D_CAMERA_SCENE(scene, v3d) ((!(v3d)->scenelock && (v3d)->camera) ? (v3d)->camera : (scene)->camera)
@@ -1962,7 +1950,7 @@ extern const char *RE_engine_id_CYCLES;
 #define TIME2FRA(a)     ((((double) scene->r.frs_sec) * (double)(a)) / (double)scene->r.frs_sec_base)
 #define FPS              (((double) scene->r.frs_sec) / (double)scene->r.frs_sec_base)
 
-/* base->legacy_flag is in DNA_object_types.h */
+/* base->flag is in DNA_object_types.h */
 
 /* toolsettings->snap_flag */
 #define SCE_SNAP				1

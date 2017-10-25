@@ -33,19 +33,19 @@ class PhysicButtonsPanel:
 
     @classmethod
     def poll(cls, context):
-        view_render = context.scene.view_render
-        return (context.object) and (view_render.engine in cls.COMPAT_ENGINES)
+        rd = context.scene.render
+        return (context.object) and (rd.engine in cls.COMPAT_ENGINES)
 
 
 class PHYSICS_PT_field(PhysicButtonsPanel, Panel):
     bl_label = "Force Fields"
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_CLAY', 'BLENDER_EEVEE'}
+    COMPAT_ENGINES = {'BLENDER_RENDER'}
 
     @classmethod
     def poll(cls, context):
         ob = context.object
-        view_render = context.scene.view_render
-        return (view_render.engine in cls.COMPAT_ENGINES) and (ob.field) and (ob.field.type != 'NONE')
+        rd = context.scene.render
+        return (rd.engine in cls.COMPAT_ENGINES) and (ob.field) and (ob.field.type != 'NONE')
 
     def draw(self, context):
         layout = self.layout
@@ -177,13 +177,13 @@ class PHYSICS_PT_field(PhysicButtonsPanel, Panel):
 
 class PHYSICS_PT_collision(PhysicButtonsPanel, Panel):
     bl_label = "Collision"
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_CLAY', 'BLENDER_EEVEE'}
+    COMPAT_ENGINES = {'BLENDER_RENDER'}
 
     @classmethod
     def poll(cls, context):
         ob = context.object
-        view_render = context.scene.view_render
-        return (ob and ob.type == 'MESH') and (view_render.engine in cls.COMPAT_ENGINES) and (context.collision)
+        rd = context.scene.render
+        return (ob and ob.type == 'MESH') and (rd.engine in cls.COMPAT_ENGINES) and (context.collision)
 
     def draw(self, context):
         layout = self.layout

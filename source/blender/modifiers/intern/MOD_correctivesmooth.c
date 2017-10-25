@@ -713,7 +713,7 @@ error:
 
 
 static void deformVerts(
-        ModifierData *md, const struct EvaluationContext *UNUSED(eval_ctx), Object *ob, DerivedMesh *derivedData,
+        ModifierData *md, Object *ob, DerivedMesh *derivedData,
         float (*vertexCos)[3], int numVerts, ModifierApplyFlag UNUSED(flag))
 {
 	DerivedMesh *dm = get_dm(ob, NULL, derivedData, NULL, false, false);
@@ -727,7 +727,7 @@ static void deformVerts(
 
 
 static void deformVertsEM(
-        ModifierData *md, const struct EvaluationContext *UNUSED(eval_ctx), Object *ob, struct BMEditMesh *editData,
+        ModifierData *md, Object *ob, struct BMEditMesh *editData,
         DerivedMesh *derivedData, float (*vertexCos)[3], int numVerts)
 {
 	DerivedMesh *dm = get_dm(ob, editData, derivedData, NULL, false, false);
@@ -759,6 +759,7 @@ ModifierTypeInfo modifierType_CorrectiveSmooth = {
 	/* requiredDataMask */  requiredDataMask,
 	/* freeData */          freeData,
 	/* isDisabled */        NULL,
+	/* updateDepgraph */    NULL,
 	/* updateDepsgraph */   NULL,
 	/* dependsOnTime */     NULL,
 	/* dependsOnNormals */  NULL,

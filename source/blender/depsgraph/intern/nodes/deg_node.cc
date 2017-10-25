@@ -39,20 +39,16 @@
 extern "C" {
 #include "DNA_ID.h"
 #include "DNA_anim_types.h"
-#include "DNA_object_types.h"
 
 #include "BKE_animsys.h"
-#include "BKE_library.h"
 }
 
 #include "DEG_depsgraph.h"
 
-#include "intern/eval/deg_eval_copy_on_write.h"
 #include "intern/nodes/deg_node_component.h"
 #include "intern/nodes/deg_node_operation.h"
 #include "intern/depsgraph_intern.h"
 #include "util/deg_util_foreach.h"
-#include "util/deg_util_function.h"
 
 namespace DEG {
 
@@ -128,8 +124,8 @@ IDDepsNode::ComponentIDKey::ComponentIDKey(eDepsNode_Type type,
 
 bool IDDepsNode::ComponentIDKey::operator== (const ComponentIDKey &other) const
 {
-	return type == other.type &&
-		STREQ(name, other.name);
+    return type == other.type &&
+           STREQ(name, other.name);
 }
 
 static unsigned int id_deps_node_hash_key(const void *key_v)
@@ -165,76 +161,33 @@ static void id_deps_node_hash_value_free(void *value_v)
 /* Initialize 'id' node - from pointer data given. */
 void IDDepsNode::init(const ID *id, const char *UNUSED(subdata))
 {
-	BLI_assert(id != NULL);
 	/* Store ID-pointer. */
-	id_orig = (ID *)id;
-	eval_flags = 0;
+	BLI_assert(id != NULL);
+	this->id = (ID *)id;
+	this->layers = (1 << 20) - 1;
+	this->eval_flags = 0;
+
+	/* For object we initialize layers to layer from base. */
+	if (GS(id->name) == ID_OB) {
+		this->layers = 0;
+	}
 
 	components = BLI_ghash_new(id_deps_node_hash_key,
 	                           id_deps_node_hash_key_cmp,
 	                           "Depsgraph id components hash");
-}
 
-void IDDepsNode::init_copy_on_write(ID *id_cow_hint)
-{
-	/* Early output for non-copy-on-write case: we keep CoW pointer same as
-	 * an original one.
+	/* NOTE: components themselves are created if/when needed.
+	 * This prevents problems with components getting added
+	 * twice if an ID-Ref needs to be created to house it...
 	 */
-	if (!DEG_depsgraph_use_copy_on_write()) {
-		UNUSED_VARS(id_cow_hint);
-		id_cow = id_orig;
-		return;
-	}
-	/* Create pointer as early as possible, so we can use it for function
-	 * bindings. Rest of data we'll be copying to the new datablock when
-	 * it is actually needed.
-	 */
-	if (id_cow_hint != NULL) {
-		// BLI_assert(deg_copy_on_write_is_needed(id_orig));
-		if (deg_copy_on_write_is_needed(id_orig)) {
-			id_cow = id_cow_hint;
-		}
-		else {
-			id_cow = id_orig;
-		}
-	}
-	else if (deg_copy_on_write_is_needed(id_orig)) {
-		id_cow = (ID *)BKE_libblock_alloc_notest(GS(id_orig->name));
-		DEG_COW_PRINT("Create shallow copy for %s: id_orig=%p id_cow=%p\n",
-		              id_orig->name, id_orig, id_cow);
-		deg_tag_copy_on_write_id(id_cow, id_orig);
-	}
-	else {
-		id_cow = id_orig;
-	}
 }
 
 /* Free 'id' node. */
 IDDepsNode::~IDDepsNode()
 {
-	destroy();
-}
-
-void IDDepsNode::destroy()
-{
-	if (id_orig == NULL) {
-		return;
-	}
-
 	BLI_ghash_free(components,
 	               id_deps_node_hash_key_free,
 	               id_deps_node_hash_value_free);
-
-	/* Free memory used by this CoW ID. */
-	if (id_cow != id_orig && id_cow != NULL) {
-		deg_free_copy_on_write_datablock(id_cow);
-		MEM_freeN(id_cow);
-		DEG_COW_PRINT("Destroy CoW for %s: id_orig=%p id_cow=%p\n",
-		              id_orig->name, id_orig, id_cow);
-	}
-
-	/* Tag that the node is freed. */
-	id_orig = NULL;
 }
 
 ComponentDepsNode *IDDepsNode::find_component(eDepsNode_Type type,
@@ -250,7 +203,7 @@ ComponentDepsNode *IDDepsNode::add_component(eDepsNode_Type type,
 	ComponentDepsNode *comp_node = find_component(type, name);
 	if (!comp_node) {
 		DepsNodeFactory *factory = deg_get_node_factory(type);
-		comp_node = (ComponentDepsNode *)factory->create_node(this->id_orig, "", name);
+		comp_node = (ComponentDepsNode *)factory->create_node(this->id, "", name);
 
 		/* Register. */
 		ComponentIDKey *key = OBJECT_GUARDED_NEW(ComponentIDKey, type, name);
@@ -264,31 +217,14 @@ void IDDepsNode::tag_update(Depsgraph *graph)
 {
 	GHASH_FOREACH_BEGIN(ComponentDepsNode *, comp_node, components)
 	{
-		/* TODO(sergey): What about drivers? */
+		/* TODO(sergey): What about drievrs? */
 		bool do_component_tag = comp_node->type != DEG_NODE_TYPE_ANIMATION;
 		if (comp_node->type == DEG_NODE_TYPE_ANIMATION) {
-			AnimData *adt = BKE_animdata_from_id(id_orig);
+			AnimData *adt = BKE_animdata_from_id(id);
 			/* Animation data might be null if relations are tagged for update. */
 			if (adt != NULL && (adt->recalc & ADT_RECALC_ANIM)) {
 				do_component_tag = true;
 			}
-		}
-		else if (comp_node->type == DEG_NODE_TYPE_SHADING) {
-			/* TODO(sergey): For until we properly handle granular flags for DEG_id_tag_update()
-			 * we skip flushing here to keep Luca happy.
-			 */
-			if (GS(id_orig->name) != ID_MA &&
-			    GS(id_orig->name) != ID_WO)
-			{
-				do_component_tag = false;
-			}
-		}
-		else if (comp_node->type == DEG_NODE_TYPE_SHADING_PARAMETERS) {
-			do_component_tag = false;
-		}
-		else if (comp_node->type == DEG_NODE_TYPE_EVAL_PARTICLES) {
-			/* Only do explicit particle settings tagging. */
-			do_component_tag = false;
 		}
 		if (do_component_tag) {
 			comp_node->tag_update(graph);
@@ -297,12 +233,11 @@ void IDDepsNode::tag_update(Depsgraph *graph)
 	GHASH_FOREACH_END();
 }
 
-void IDDepsNode::finalize_build(Depsgraph *graph)
+void IDDepsNode::finalize_build()
 {
-	/* Finalize build of all components. */
 	GHASH_FOREACH_BEGIN(ComponentDepsNode *, comp_node, components)
 	{
-		comp_node->finalize_build(graph);
+		comp_node->finalize_build();
 	}
 	GHASH_FOREACH_END();
 }

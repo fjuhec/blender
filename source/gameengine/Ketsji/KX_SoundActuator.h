@@ -35,8 +35,8 @@
 #include "SCA_IActuator.h"
 
 #ifdef WITH_AUDASPACE
-#  include <AUD_Sound.h>
-#  include <AUD_Handle.h>
+#  include AUD_SOUND_H
+#  include AUD_HANDLE_H
 #endif
 
 #include "BKE_sound.h"

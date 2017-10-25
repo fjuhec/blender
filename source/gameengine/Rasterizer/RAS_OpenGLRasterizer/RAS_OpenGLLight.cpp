@@ -43,7 +43,6 @@
 #include "DNA_lamp_types.h"
 #include "DNA_scene_types.h"
 
-#include "GPU_lamp.h"
 #include "GPU_material.h"
 
 RAS_OpenGLLight::RAS_OpenGLLight(RAS_OpenGLRasterizer *ras)

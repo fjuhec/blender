@@ -60,8 +60,7 @@
 
 #include "IMB_imbuf.h"
 
-#include "GPU_glew.h"
-#include "GPU_matrix.h"
+#include "BIF_gl.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -256,6 +255,13 @@ static SpaceLink *clip_new(const bContext *C)
 	ar->regiontype = RGN_TYPE_TOOLS;
 	ar->alignment = RGN_ALIGN_LEFT;
 
+	/* tool properties */
+	ar = MEM_callocN(sizeof(ARegion), "tool properties for clip");
+
+	BLI_addtail(&sc->regionbase, ar);
+	ar->regiontype = RGN_TYPE_TOOL_PROPS;
+	ar->alignment = RGN_ALIGN_BOTTOM | RGN_SPLIT_PREV;
+
 	/* properties view */
 	ar = MEM_callocN(sizeof(ARegion), "properties for clip");
 
@@ -323,8 +329,7 @@ static SpaceLink *clip_duplicate(SpaceLink *sl)
 	return (SpaceLink *)scn;
 }
 
-static void clip_listener(bScreen *UNUSED(sc), ScrArea *sa, wmNotifier *wmn, Scene *UNUSED(scene),
-                          WorkSpace *UNUSED(workspace))
+static void clip_listener(bScreen *UNUSED(sc), ScrArea *sa, wmNotifier *wmn)
 {
 	/* context changes */
 	switch (wmn->category) {
@@ -882,11 +887,12 @@ static void clip_refresh(const bContext *C, ScrArea *sa)
 	SpaceClip *sc = (SpaceClip *)sa->spacedata.first;
 	ARegion *ar_main = BKE_area_find_region_type(sa, RGN_TYPE_WINDOW);
 	ARegion *ar_tools = BKE_area_find_region_type(sa, RGN_TYPE_TOOLS);
+	ARegion *ar_tool_props = BKE_area_find_region_type(sa, RGN_TYPE_TOOL_PROPS);
 	ARegion *ar_preview = ED_clip_has_preview_region(C, sa);
 	ARegion *ar_properties = ED_clip_has_properties_region(sa);
 	ARegion *ar_channels = ED_clip_has_channels_region(sa);
 	bool main_visible = false, preview_visible = false, tools_visible = false;
-	bool properties_visible = false, channels_visible = false;
+	bool tool_props_visible = false, properties_visible = false, channels_visible = false;
 	bool view_changed = false;
 
 	switch (sc->view) {
@@ -894,6 +900,7 @@ static void clip_refresh(const bContext *C, ScrArea *sa)
 			main_visible = true;
 			preview_visible = false;
 			tools_visible = true;
+			tool_props_visible = true;
 			properties_visible = true;
 			channels_visible = false;
 			break;
@@ -901,6 +908,7 @@ static void clip_refresh(const bContext *C, ScrArea *sa)
 			main_visible = false;
 			preview_visible = true;
 			tools_visible = false;
+			tool_props_visible = false;
 			properties_visible = false;
 			channels_visible = false;
 
@@ -910,6 +918,7 @@ static void clip_refresh(const bContext *C, ScrArea *sa)
 			main_visible = false;
 			preview_visible = true;
 			tools_visible = false;
+			tool_props_visible = false;
 			properties_visible = false;
 			channels_visible = true;
 
@@ -986,6 +995,30 @@ static void clip_refresh(const bContext *C, ScrArea *sa)
 		}
 		if (ar_tools && ar_tools->alignment != RGN_ALIGN_NONE) {
 			ar_tools->alignment = RGN_ALIGN_NONE;
+			view_changed = true;
+		}
+	}
+
+	if (tool_props_visible) {
+		if (ar_tool_props && (ar_tool_props->flag & RGN_FLAG_HIDDEN)) {
+			ar_tool_props->flag &= ~RGN_FLAG_HIDDEN;
+			ar_tool_props->v2d.flag &= ~V2D_IS_INITIALISED;
+			view_changed = true;
+		}
+		if (ar_tool_props && (ar_tool_props->alignment != (RGN_ALIGN_BOTTOM | RGN_SPLIT_PREV))) {
+			ar_tool_props->alignment = RGN_ALIGN_BOTTOM | RGN_SPLIT_PREV;
+			view_changed = true;
+		}
+	}
+	else {
+		if (ar_tool_props && !(ar_tool_props->flag & RGN_FLAG_HIDDEN)) {
+			ar_tool_props->flag |= RGN_FLAG_HIDDEN;
+			ar_tool_props->v2d.flag &= ~V2D_IS_INITIALISED;
+			WM_event_remove_handlers((bContext *)C, &ar_tool_props->handlers);
+			view_changed = true;
+		}
+		if (ar_tool_props && ar_tool_props->alignment != RGN_ALIGN_NONE) {
+			ar_tool_props->alignment = RGN_ALIGN_NONE;
 			view_changed = true;
 		}
 	}
@@ -1181,13 +1214,13 @@ static void clip_main_region_draw(const bContext *C, ARegion *ar)
 	show_cursor |= sc->around == V3D_AROUND_CURSOR;
 
 	if (show_cursor) {
-		gpuPushMatrix();
-		gpuTranslate2f(x, y);
-		gpuScale2f(zoomx, zoomy);
-		gpuMultMatrix(sc->stabmat);
-		gpuScale2f(width, height);
+		glPushMatrix();
+		glTranslatef(x, y, 0);
+		glScalef(zoomx, zoomy, 0);
+		glMultMatrixf(sc->stabmat);
+		glScalef(width, height, 0);
 		ED_image_draw_cursor(ar, sc->cursor);
-		gpuPopMatrix();
+		glPopMatrix();
 	}
 
 	clip_draw_cache_and_notes(C, sc, ar);
@@ -1206,9 +1239,7 @@ static void clip_main_region_draw(const bContext *C, ARegion *ar)
 	}
 }
 
-static void clip_main_region_listener(
-        bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar,
-        wmNotifier *wmn, const Scene *UNUSED(scene))
+static void clip_main_region_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar, wmNotifier *wmn)
 {
 	/* context changes */
 	switch (wmn->category) {
@@ -1319,9 +1350,7 @@ static void clip_preview_region_draw(const bContext *C, ARegion *ar)
 		dopesheet_region_draw(C, ar);
 }
 
-static void clip_preview_region_listener(
-        bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *UNUSED(ar),
-        wmNotifier *UNUSED(wmn), const Scene *UNUSED(scene))
+static void clip_preview_region_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *UNUSED(ar), wmNotifier *UNUSED(wmn))
 {
 }
 
@@ -1362,9 +1391,7 @@ static void clip_channels_region_draw(const bContext *C, ARegion *ar)
 	UI_view2d_view_restore(C);
 }
 
-static void clip_channels_region_listener(
-        bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *UNUSED(ar),
-        wmNotifier *UNUSED(wmn), const Scene *UNUSED(scene))
+static void clip_channels_region_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *UNUSED(ar), wmNotifier *UNUSED(wmn))
 {
 }
 
@@ -1381,9 +1408,7 @@ static void clip_header_region_draw(const bContext *C, ARegion *ar)
 	ED_region_header(C, ar);
 }
 
-static void clip_header_region_listener(
-        bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar,
-        wmNotifier *wmn, const Scene *UNUSED(scene))
+static void clip_header_region_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar, wmNotifier *wmn)
 {
 	/* context changes */
 	switch (wmn->category) {
@@ -1423,9 +1448,7 @@ static void clip_tools_region_draw(const bContext *C, ARegion *ar)
 
 /****************** tool properties region ******************/
 
-static void clip_props_region_listener(
-        bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar,
-        wmNotifier *wmn, const Scene *UNUSED(scene))
+static void clip_props_region_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar, wmNotifier *wmn)
 {
 	/* context changes */
 	switch (wmn->category) {
@@ -1470,9 +1493,7 @@ static void clip_properties_region_draw(const bContext *C, ARegion *ar)
 	ED_region_panels(C, ar, NULL, -1, true);
 }
 
-static void clip_properties_region_listener(
-        bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar,
-        wmNotifier *wmn, const Scene *UNUSED(scene))
+static void clip_properties_region_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar, wmNotifier *wmn)
 {
 	/* context changes */
 	switch (wmn->category) {
@@ -1569,6 +1590,19 @@ void ED_spacetype_clip(void)
 	art->listener = clip_props_region_listener;
 	art->init = clip_tools_region_init;
 	art->draw = clip_tools_region_draw;
+
+	BLI_addhead(&st->regiontypes, art);
+
+	/* tool properties */
+	art = MEM_callocN(sizeof(ARegionType), "spacetype clip tool properties region");
+	art->regionid = RGN_TYPE_TOOL_PROPS;
+	art->prefsizex = 0;
+	art->prefsizey = 120;
+	art->keymapflag = ED_KEYMAP_FRAMES | ED_KEYMAP_UI;
+	art->listener = clip_props_region_listener;
+	art->init = clip_tools_region_init;
+	art->draw = clip_tools_region_draw;
+	ED_clip_tool_props_register(art);
 
 	BLI_addhead(&st->regiontypes, art);
 

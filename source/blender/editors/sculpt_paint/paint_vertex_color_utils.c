@@ -38,9 +38,8 @@
 #include "IMB_colormanagement.h"
 
 #include "BKE_context.h"
+#include "BKE_depsgraph.h"
 #include "BKE_mesh.h"
-
-#include "DEG_depsgraph.h"
 
 #include "ED_mesh.h"
 
@@ -88,7 +87,7 @@ bool ED_vpaint_color_transform(
 	/* remove stale me->mcol, will be added later */
 	BKE_mesh_tessface_clear(me);
 
-	DEG_id_tag_update(&me->id, 0);
+	DAG_id_tag_update(&me->id, 0);
 
 	return true;
 }

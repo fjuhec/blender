@@ -332,9 +332,6 @@ except ImportError:
 # to avoid having to match Blender's source tree.
 EXTRA_SOURCE_FILES = (
     "../../../release/scripts/templates_py/bmesh_simple.py",
-    "../../../release/scripts/templates_py/manipulator_operator.py",
-    "../../../release/scripts/templates_py/manipulator_operator_target.py",
-    "../../../release/scripts/templates_py/manipulator_simple.py",
     "../../../release/scripts/templates_py/operator_simple.py",
     "../../../release/scripts/templates_py/ui_panel_simple.py",
     "../../../release/scripts/templates_py/ui_previews_custom_icon.py",
@@ -1027,7 +1024,6 @@ context_type_map = {
     "brush": ("Brush", False),
     "camera": ("Camera", False),
     "cloth": ("ClothModifier", False),
-    "collection": ("LayerCollection", False),
     "collision": ("CollisionModifier", False),
     "curve": ("Curve", False),
     "dynamic_paint": ("DynamicPaintModifier", False),
@@ -1048,7 +1044,6 @@ context_type_map = {
     "image_paint_object": ("Object", False),
     "lamp": ("Lamp", False),
     "lattice": ("Lattice", False),
-    "lightprobe": ("LightProbe", False),
     "line_style": ("FreestyleLineStyle", False),
     "material": ("Material", False),
     "material_slot": ("MaterialSlot", False),
@@ -1060,7 +1055,6 @@ context_type_map = {
     "particle_system": ("ParticleSystem", False),
     "particle_system_editable": ("ParticleSystem", False),
     "pose_bone": ("PoseBone", False),
-    "render_layer": ("SceneLayer", False),
     "scene": ("Scene", False),
     "sculpt_object": ("Object", False),
     "selectable_bases": ("ObjectBase", True),

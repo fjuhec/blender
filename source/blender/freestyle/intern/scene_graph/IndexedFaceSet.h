@@ -150,6 +150,8 @@ public:
 		std::swap(_MISize, ioOther._MISize);
 		std::swap(_TISize, ioOther._TISize);
 
+		std::swap(_displayList, ioOther._displayList);
+
 		Rep::swap(ioOther);
 	}
 
@@ -170,6 +172,12 @@ public:
 
 	/*! Compute the Bounding Box */
 	virtual void ComputeBBox();
+
+	/*! modifiers */
+	inline void setDisplayList(unsigned int index)
+	{
+		_displayList = index;
+	}
 
 	/*! Accessors */
 	virtual const float *vertices() const
@@ -272,6 +280,11 @@ public:
 		return _TISize;
 	}
 
+	inline unsigned int displayList() const
+	{
+		return _displayList;
+	}
+
 protected:
 	float *_Vertices;
 	float *_Normals;
@@ -297,6 +310,8 @@ protected:
 	unsigned _NISize;
 	unsigned _MISize;
 	unsigned _TISize;
+
+	unsigned int _displayList;
 
 #ifdef WITH_CXX_GUARDEDALLOC
 	MEM_CXX_CLASS_ALLOC_FUNCS("Freestyle:IndexedFaceSet")

@@ -45,10 +45,9 @@
 #include "MEM_guardedalloc.h"
 
 #include "BKE_context.h"
+#include "BKE_depsgraph.h"
 #include "BKE_main.h"
 #include "BKE_texture.h"
-
-#include "DEG_depsgraph.h"
 
 #include "ED_node.h"
 #include "WM_api.h"
@@ -135,7 +134,7 @@ static void rna_Lamp_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRN
 {
 	Lamp *la = ptr->id.data;
 
-	DEG_id_tag_update(&la->id, 0);
+	DAG_id_tag_update(&la->id, 0);
 	WM_main_add_notifier(NC_LAMP | ND_LIGHTING, la);
 }
 
@@ -143,7 +142,7 @@ static void rna_Lamp_draw_update(Main *UNUSED(bmain), Scene *UNUSED(scene), Poin
 {
 	Lamp *la = ptr->id.data;
 
-	DEG_id_tag_update(&la->id, 0);
+	DAG_id_tag_update(&la->id, 0);
 	WM_main_add_notifier(NC_LAMP | ND_LIGHTING_DRAW, la);
 }
 
@@ -151,7 +150,7 @@ static void rna_Lamp_sky_update(Main *UNUSED(bmain), Scene *UNUSED(scene), Point
 {
 	Lamp *la = ptr->id.data;
 
-	DEG_id_tag_update(&la->id, 0);
+	DAG_id_tag_update(&la->id, 0);
 	WM_main_add_notifier(NC_LAMP | ND_SKY, la);
 }
 
@@ -476,7 +475,7 @@ static void rna_def_lamp_falloff(StructRNA *srna)
 	RNA_def_property_update(prop, 0, "rna_Lamp_draw_update");
 }
 
-static void rna_def_lamp_shadow(StructRNA *srna, int spot, int area, int sun)
+static void rna_def_lamp_shadow(StructRNA *srna, int spot, int area)
 {
 	PropertyRNA *prop;
 
@@ -587,21 +586,14 @@ static void rna_def_lamp_shadow(StructRNA *srna, int spot, int area, int sun)
 
 	prop = RNA_def_property(srna, "shadow_buffer_bias", PROP_FLOAT, PROP_NONE);
 	RNA_def_property_float_sdna(prop, NULL, "bias");
-	RNA_def_property_range(prop, 0.001f, 9999.0f);
-	RNA_def_property_ui_range(prop, 0.001f, 5.0f, 1.0, 3);
-	RNA_def_property_ui_text(prop, "Shadow Buffer Bias", "Bias for reducing self shadowing");
+	RNA_def_property_range(prop, 0.001f, 5.0f);
+	RNA_def_property_ui_text(prop, "Shadow Buffer Bias", "Shadow buffer sampling bias");
 	RNA_def_property_update(prop, 0, "rna_Lamp_update");
 
 	prop = RNA_def_property(srna, "shadow_buffer_bleed_bias", PROP_FLOAT, PROP_NONE);
 	RNA_def_property_float_sdna(prop, NULL, "bleedbias");
 	RNA_def_property_range(prop, 0.f, 1.f);
 	RNA_def_property_ui_text(prop, "Shadow Buffer Bleed Bias", "Bias for reducing light-bleed on variance shadow maps");
-	RNA_def_property_update(prop, 0, "rna_Lamp_update");
-
-	prop = RNA_def_property(srna, "shadow_buffer_exp", PROP_FLOAT, PROP_NONE);
-	RNA_def_property_float_sdna(prop, NULL, "bleedexp");
-	RNA_def_property_range(prop, 1.0f, 9999.0f);
-	RNA_def_property_ui_text(prop, "Shadow Buffer Exponent", "Bias for reducing light-bleed on exponential shadow maps");
 	RNA_def_property_update(prop, 0, "rna_Lamp_update");
 
 	prop = RNA_def_property(srna, "shadow_buffer_soft", PROP_FLOAT, PROP_NONE);
@@ -698,67 +690,6 @@ static void rna_def_lamp_shadow(StructRNA *srna, int spot, int area, int sun)
 	RNA_def_property_boolean_sdna(prop, NULL, "mode", LA_LAYER_SHADOW);
 	RNA_def_property_ui_text(prop, "Shadow Layer", "Objects on the same layers only cast shadows");
 	RNA_def_property_update(prop, 0, "rna_Lamp_update");
-
-	/* Eevee */
-	prop = RNA_def_property(srna, "use_contact_shadow", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "mode", LA_SHAD_CONTACT);
-	RNA_def_property_ui_text(prop, "Contact Shadow", "Use screen space raytracing to have correct shadowing "
-	                                                 "near occluder, or for small features that does not appear "
-	                                                 "in shadow maps");
-	RNA_def_property_update(prop, 0, "rna_Lamp_update");
-
-	prop = RNA_def_property(srna, "contact_shadow_distance", PROP_FLOAT, PROP_DISTANCE);
-	RNA_def_property_float_sdna(prop, NULL, "contact_dist");
-	RNA_def_property_range(prop, 0.0f, 9999.0f);
-	RNA_def_property_ui_text(prop, "Contact Shadow Distance", "World space distance in which to search for "
-	                                                          "screen space occluder");
-	RNA_def_property_update(prop, 0, "rna_Lamp_update");
-
-	prop = RNA_def_property(srna, "contact_shadow_bias", PROP_FLOAT, PROP_NONE);
-	RNA_def_property_float_sdna(prop, NULL, "contact_bias");
-	RNA_def_property_range(prop, 0.001f, 9999.0f);
-	RNA_def_property_ui_range(prop, 0.001f, 5.0f, 1.0, 3);
-	RNA_def_property_ui_text(prop, "Contact Shadow Bias", "Bias to avoid self shadowing");
-	RNA_def_property_update(prop, 0, "rna_Lamp_update");
-
-	prop = RNA_def_property(srna, "contact_shadow_soft_size", PROP_FLOAT, PROP_NONE);
-	RNA_def_property_float_sdna(prop, NULL, "contact_spread");
-	RNA_def_property_range(prop, 0.0f, 9999.0f);
-	RNA_def_property_ui_text(prop, "Contact Shadow Soft", "Control how soft the contact shadows will be");
-	RNA_def_property_update(prop, 0, "rna_Lamp_update");
-
-	prop = RNA_def_property(srna, "contact_shadow_thickness", PROP_FLOAT, PROP_DISTANCE);
-	RNA_def_property_float_sdna(prop, NULL, "contact_thickness");
-	RNA_def_property_range(prop, 0.0f, 9999.0f);
-	RNA_def_property_ui_range(prop, 0, 100, 0.1, 3);
-	RNA_def_property_ui_text(prop, "Contact Shadow Thickness", "Pixel thickness used to detect occlusion");
-	RNA_def_property_update(prop, 0, "rna_Lamp_update");
-
-	if (sun) {
-		prop = RNA_def_property(srna, "shadow_cascade_max_distance", PROP_FLOAT, PROP_DISTANCE);
-		RNA_def_property_float_sdna(prop, NULL, "cascade_max_dist");
-		RNA_def_property_range(prop, 0.0f, 9999.0f);
-		RNA_def_property_ui_text(prop, "Cascade Max Distance", "End distance of the cascaded shadow map (only in perspective view)");
-		RNA_def_property_update(prop, 0, "rna_Lamp_update");
-
-		prop = RNA_def_property(srna, "shadow_cascade_count", PROP_INT, PROP_NONE);
-		RNA_def_property_int_sdna(prop, NULL, "cascade_count");
-		RNA_def_property_range(prop, 1, 4);
-		RNA_def_property_ui_text(prop, "Cascade Count", "Number of texture used by the cascaded shadow map");
-		RNA_def_property_update(prop, 0, "rna_Lamp_update");
-
-		prop = RNA_def_property(srna, "shadow_cascade_exponent", PROP_FLOAT, PROP_FACTOR);
-		RNA_def_property_float_sdna(prop, NULL, "cascade_exponent");
-		RNA_def_property_range(prop, 0.0f, 1.0f);
-		RNA_def_property_ui_text(prop, "Exponential Distribution", "Higher value increase resolution towards the viewpoint");
-		RNA_def_property_update(prop, 0, "rna_Lamp_update");
-
-		prop = RNA_def_property(srna, "shadow_cascade_fade", PROP_FLOAT, PROP_FACTOR);
-		RNA_def_property_float_sdna(prop, NULL, "cascade_fade");
-		RNA_def_property_range(prop, 0.0f, 1.0f);
-		RNA_def_property_ui_text(prop, "Cascade Fade", "How smooth is the transition between each cascade");
-		RNA_def_property_update(prop, 0, "rna_Lamp_update");
-	}
 }
 
 static void rna_def_point_lamp(BlenderRNA *brna)
@@ -771,7 +702,7 @@ static void rna_def_point_lamp(BlenderRNA *brna)
 	RNA_def_struct_ui_icon(srna, ICON_LAMP_POINT);
 
 	rna_def_lamp_falloff(srna);
-	rna_def_lamp_shadow(srna, 0, 0, 0);
+	rna_def_lamp_shadow(srna, 0, 0);
 }
 
 static void rna_def_area_lamp(BlenderRNA *brna)
@@ -790,8 +721,7 @@ static void rna_def_area_lamp(BlenderRNA *brna)
 	RNA_def_struct_ui_text(srna, "Area Lamp", "Directional area lamp");
 	RNA_def_struct_ui_icon(srna, ICON_LAMP_AREA);
 
-	rna_def_lamp_shadow(srna, 0, 1, 0);
-	rna_def_lamp_falloff(srna);
+	rna_def_lamp_shadow(srna, 0, 1);
 
 	prop = RNA_def_property(srna, "use_umbra", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "ray_samp_type", LA_SAMP_UMBRA);
@@ -847,7 +777,7 @@ static void rna_def_spot_lamp(BlenderRNA *brna)
 	RNA_def_struct_ui_icon(srna, ICON_LAMP_SPOT);
 
 	rna_def_lamp_falloff(srna);
-	rna_def_lamp_shadow(srna, 1, 0, 0);
+	rna_def_lamp_shadow(srna, 1, 0);
 
 	prop = RNA_def_property(srna, "use_square", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "mode", LA_SQUARE);
@@ -900,7 +830,7 @@ static void rna_def_sun_lamp(BlenderRNA *brna)
 	RNA_def_struct_ui_text(srna, "Sun Lamp", "Constant direction parallel ray lamp");
 	RNA_def_struct_ui_icon(srna, ICON_LAMP_SUN);
 
-	rna_def_lamp_shadow(srna, 0, 0, 1);
+	rna_def_lamp_shadow(srna, 0, 0);
 
 	/* sky */
 	prop = RNA_def_property(srna, "sky", PROP_POINTER, PROP_NONE);

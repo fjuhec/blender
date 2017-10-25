@@ -45,7 +45,6 @@ struct SmoothView3DStore;
 struct wmTimer;
 struct Material;
 struct GPUFX;
-struct GPUViewport;
 
 /* This is needed to not let VC choke on near and far... old
  * proprietary MS extensions... */
@@ -66,12 +65,6 @@ struct GPUViewport;
 
 /* The near/far thing is a Win EXCEPTION. Thus, leave near/far in the
  * code, and patch for windows. */
-
-typedef struct View3DDebug {
-	float znear, zfar;
-	char background;
-	char pad[7];
-} View3DDebug;
  
 /* Background Picture in 3D-View */
 typedef struct BGpic {
@@ -118,12 +111,8 @@ typedef struct RegionView3D {
 	struct wmTimer *smooth_timer;
 
 
-	/* transform manipulator matrix */
+	/* transform widget matrix */
 	float twmat[4][4];
-	/* min/max dot product on twmat xyz axis. */
-	float tw_axis_min[3], tw_axis_max[3];
-	float tw_axis_matrix[3][3];
-	char _pad[4];
 
 	float viewquat[4];			/* view rotation, must be kept normalized */
 	float dist;					/* distance from 'ofs' along -viewinv[2] vector, where result is negative as is 'ofs' */
@@ -141,7 +130,7 @@ typedef struct RegionView3D {
 	char pad[3];
 	float ofs_lock[2];			/* normalized offset for locked view: (-1, -1) bottom left, (1, 1) upper right */
 
-	short twdrawflag; /* XXX can easily get rid of this (Julian) */
+	short twdrawflag;
 	short rflag;
 
 
@@ -158,7 +147,6 @@ typedef struct RegionView3D {
 	float rot_axis[3];
 
 	struct GPUFX *compositor;
-	struct GPUViewport *viewport;
 } RegionView3D;
 
 /* 3D ViewPort Struct */
@@ -214,11 +202,11 @@ typedef struct View3D {
 	short gridsubdiv;	/* Number of subdivisions in the grid between each highlighted grid line */
 	char gridflag;
 
-	/* transform manipulator info */
+	/* transform widget info */
 	char twtype, twmode, twflag;
 	
 	short flag3;
-
+	
 	/* afterdraw, for xray & transparent */
 	struct ListBase afterdraw_transp;
 	struct ListBase afterdraw_xray;
@@ -229,9 +217,8 @@ typedef struct View3D {
 
 	char multiview_eye;				/* multiview current eye - for internal use */
 
-	/* The active custom transform orientation of this 3D view. */
-	short custom_orientation_index;
-	char pad3[2];
+	/* built-in shader effects (eGPUFXFlags) */
+	char pad3[4];
 
 	/* note, 'fx_settings.dof' is currently _not_ allocated,
 	 * instead set (temporarily) from camera */
@@ -258,7 +245,6 @@ typedef struct View3D {
 	short prev_drawtype;
 	short pad1;
 	float pad2;
-	View3DDebug debug;
 } View3D;
 
 
@@ -329,18 +315,11 @@ typedef struct View3D {
 #define V3D_SOLID_MATCAP		(1 << 12)	/* user flag */
 #define V3D_SHOW_SOLID_MATCAP	(1 << 13)	/* runtime flag */
 #define V3D_OCCLUDE_WIRE		(1 << 14)
-#define V3D_SHOW_MODE_SHADE_OVERRIDE	(1 << 15)
+#define V3D_SHADELESS_TEX		(1 << 15)
 
 
 /* View3d->flag3 (short) */
 #define V3D_SHOW_WORLD			(1 << 0)
-
-/* View3d->debug.background */
-enum {
-	V3D_DEBUG_BACKGROUND_NONE     = (1 << 0),
-	V3D_DEBUG_BACKGROUND_GRADIENT = (1 << 1),
-	V3D_DEBUG_BACKGROUND_WORLD    = (1 << 2),
-};
 
 /* View3D->around */
 enum {
@@ -383,12 +362,13 @@ enum {
 #define V3D_MANIP_NORMAL		2
 #define V3D_MANIP_VIEW			3
 #define V3D_MANIP_GIMBAL		4
-#define V3D_MANIP_CUSTOM		5
+#define V3D_MANIP_CUSTOM		5 /* anything of value 5 or higher is custom */
 
-/* View3d->twflag (also) */
-enum {
-	V3D_MANIPULATOR_DRAW        = (1 << 0),
-};
+/* View3d->twflag */
+   /* USE = user setting, DRAW = based on selection */
+#define V3D_USE_MANIPULATOR		1
+#define V3D_DRAW_MANIPULATOR	2
+/* #define V3D_CALC_MANIPULATOR	4 */ /*UNUSED*/
 
 /* BGPic->flag */
 /* may want to use 1 for select ? */

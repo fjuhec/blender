@@ -59,7 +59,7 @@
 #include "BLO_readfile.h"
 
 #include "BKE_context.h"
-#include "BKE_layer.h"
+#include "BKE_depsgraph.h"
 #include "BKE_library.h"
 #include "BKE_library_remap.h"
 #include "BKE_global.h"
@@ -69,8 +69,6 @@
 
 #include "BKE_idcode.h"
 
-#include "DEG_depsgraph.h"
-#include "DEG_depsgraph_build.h"
 
 #include "IMB_colormanagement.h"
 
@@ -133,8 +131,8 @@ static short wm_link_append_flag(wmOperator *op)
 
 	if (RNA_boolean_get(op->ptr, "autoselect"))
 		flag |= FILE_AUTOSELECT;
-	if (RNA_boolean_get(op->ptr, "active_collection"))
-		flag |= FILE_ACTIVE_COLLECTION;
+	if (RNA_boolean_get(op->ptr, "active_layer"))
+		flag |= FILE_ACTIVELAY;
 	if ((prop = RNA_struct_find_property(op->ptr, "relative_path")) && RNA_property_boolean_get(op->ptr, prop))
 		flag |= FILE_RELPATH;
 	if (RNA_boolean_get(op->ptr, "link"))
@@ -214,7 +212,7 @@ static WMLinkAppendDataItem *wm_link_append_data_item_add(
 }
 
 static void wm_link_do(
-        WMLinkAppendData *lapp_data, ReportList *reports, Main *bmain, Scene *scene, SceneLayer *sl,
+        WMLinkAppendData *lapp_data, ReportList *reports, Main *bmain, Scene *scene, View3D *v3d,
         const bool use_placeholders, const bool force_indirect)
 {
 	Main *mainl;
@@ -263,7 +261,7 @@ static void wm_link_do(
 			}
 
 			new_id = BLO_library_link_named_part_ex(
-			             mainl, &bh, item->idcode, item->name, flag, scene, sl, use_placeholders, force_indirect);
+			             mainl, &bh, item->idcode, item->name, flag, scene, v3d, use_placeholders, force_indirect);
 
 			if (new_id) {
 				/* If the link is successful, clear item's libs 'todo' flags.
@@ -273,58 +271,21 @@ static void wm_link_do(
 			}
 		}
 
-		BLO_library_link_end(mainl, &bh, flag, scene, sl);
+		BLO_library_link_end(mainl, &bh, flag, scene, v3d);
 		BLO_blendhandle_close(bh);
 	}
-}
-
-/**
- * Check if an item defined by \a name and \a group can be appended/linked.
- *
- * \param reports: Optionally report an error when an item can't be appended/linked.
- */
-static bool wm_link_append_item_poll(
-        ReportList *reports, const char *path, const char *group, const char *name, const bool do_append)
-{
-	short idcode;
-
-	if (!group || !name) {
-		printf("skipping %s\n", path);
-		return false;
-	}
-
-	idcode = BKE_idcode_from_name(group);
-
-	/* XXX For now, we do a nasty exception for workspace, forbid linking them.
-	 *     Not nice, ultimately should be solved! */
-	if (!BKE_idcode_is_linkable(idcode) && (do_append || idcode != ID_WS)) {
-		if (reports) {
-			if (do_append) {
-				BKE_reportf(reports, RPT_ERROR_INVALID_INPUT, "Can't append data-block '%s' of type '%s'", name, group);
-			}
-			else {
-				BKE_reportf(reports, RPT_ERROR_INVALID_INPUT, "Can't link data-block '%s' of type '%s'", name, group);
-			}
-		}
-		return false;
-	}
-
-	return true;
 }
 
 static int wm_link_append_exec(bContext *C, wmOperator *op)
 {
 	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
-	SceneLayer *sl = CTX_data_scene_layer(C);
 	PropertyRNA *prop;
 	WMLinkAppendData *lapp_data;
 	char path[FILE_MAX_LIBEXTRA], root[FILE_MAXDIR], libname[FILE_MAX_LIBEXTRA], relname[FILE_MAX];
 	char *group, *name;
 	int totfiles = 0;
 	short flag;
-	bool has_item = false;
-	bool do_append;
 
 	RNA_string_get(op->ptr, "filename", relname);
 	RNA_string_get(op->ptr, "directory", root);
@@ -362,7 +323,6 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
 	}
 
 	flag = wm_link_append_flag(op);
-	do_append = (flag & FILE_LINK) == 0;
 
 	/* sanity checks for flag */
 	if (scene && scene->id.lib) {
@@ -374,8 +334,8 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
 
 	/* from here down, no error returns */
 
-	if (sl && RNA_boolean_get(op->ptr, "autoselect")) {
-		BKE_scene_layer_base_deselect_all(sl);
+	if (scene && RNA_boolean_get(op->ptr, "autoselect")) {
+		BKE_scene_base_deselect_all(scene);
 	}
 	
 	/* tag everything, all untagged data can be made local
@@ -398,7 +358,7 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
 			BLI_join_dirfile(path, sizeof(path), root, relname);
 
 			if (BLO_library_path_explode(path, libname, &group, &name)) {
-				if (!wm_link_append_item_poll(NULL, path, group, name, do_append)) {
+				if (!group || !name) {
 					continue;
 				}
 
@@ -406,7 +366,6 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
 					BLI_ghash_insert(libraries, BLI_strdup(libname), SET_INT_IN_POINTER(lib_idx));
 					lib_idx++;
 					wm_link_append_data_library_add(lapp_data, libname);
-					has_item = true;
 				}
 			}
 		}
@@ -420,8 +379,8 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
 
 			if (BLO_library_path_explode(path, libname, &group, &name)) {
 				WMLinkAppendDataItem *item;
-
-				if (!wm_link_append_item_poll(op->reports, path, group, name, do_append)) {
+				if (!group || !name) {
+					printf("skipping %s\n", path);
 					continue;
 				}
 
@@ -429,7 +388,6 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
 
 				item = wm_link_append_data_item_add(lapp_data, name, BKE_idcode_from_name(group), NULL);
 				BLI_BITMAP_ENABLE(item->libraries, lib_idx);
-				has_item = true;
 			}
 		}
 		RNA_END;
@@ -442,18 +400,12 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
 		wm_link_append_data_library_add(lapp_data, libname);
 		item = wm_link_append_data_item_add(lapp_data, name, BKE_idcode_from_name(group), NULL);
 		BLI_BITMAP_ENABLE(item->libraries, 0);
-		has_item = true;
-	}
-
-	if (!has_item) {
-		wm_link_append_data_free(lapp_data);
-		return OPERATOR_CANCELLED;
 	}
 
 	/* XXX We'd need re-entrant locking on Main for this to work... */
 	/* BKE_main_lock(bmain); */
 
-	wm_link_do(lapp_data, op->reports, bmain, scene, sl, false, false);
+	wm_link_do(lapp_data, op->reports, bmain, scene, CTX_wm_view3d(C), false, false);
 
 	/* BKE_main_unlock(bmain); */
 
@@ -462,7 +414,7 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
 	IMB_colormanagement_check_file_config(bmain);
 
 	/* append, rather than linking */
-	if (do_append) {
+	if ((flag & FILE_LINK) == 0) {
 		const bool set_fake = RNA_boolean_get(op->ptr, "set_fake");
 		const bool use_recursive = RNA_boolean_get(op->ptr, "use_recursive");
 
@@ -493,17 +445,11 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
 	 * link into other scenes from this blend file */
 	BKE_main_id_tag_all(bmain, LIB_TAG_PRE_EXISTING, false);
 
-	/* TODO(sergey): Use proper flag for tagging here. */
-
-	/* TODO (dalai): Temporary solution!
-	 * Ideally we only need to tag the new objects themselves, not the scene. This way we'll avoid flush of
-	 * collection properties to all objects and limit update to the particular object only.
-	 * But afraid first we need to change collection evaluation in DEG according to depsgraph manifesto.
-	 */
-	DEG_id_tag_update(&scene->id, 0);
-
 	/* recreate dependency graph to include new objects */
-	DEG_relations_tag_update(bmain);
+	DAG_scene_relations_rebuild(bmain, scene);
+	
+	/* free gpu materials, some materials depend on existing objects, such as lamps so freeing correctly refreshes */
+	GPU_materials_free();
 
 	/* XXX TODO: align G.lib with other directory storage (like last opened image etc...) */
 	BLI_strncpy(G.lib, root, FILE_MAX);
@@ -525,8 +471,8 @@ static void wm_link_append_properties_common(wmOperatorType *ot, bool is_link)
 	prop = RNA_def_boolean(ot->srna, "autoselect", true,
 	                       "Select", "Select new objects");
 	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
-	prop = RNA_def_boolean(ot->srna, "active_collection", true,
-	                       "Active Collection", "Put new objects on the active collection");
+	prop = RNA_def_boolean(ot->srna, "active_layer", true,
+	                       "Active Layer", "Put new objects on the active layer");
 	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 	prop = RNA_def_boolean(ot->srna, "instance_groups", is_link,
 	                       "Instance Groups", "Create Dupli-Group instances for each group");
@@ -606,7 +552,7 @@ static int wm_lib_relocate_invoke(bContext *C, wmOperator *op, const wmEvent *UN
 }
 
 static void lib_relocate_do(
-        Main *bmain,
+        Main *bmain, Scene *scene,
         Library *library, WMLinkAppendData *lapp_data, ReportList *reports, const bool do_reload)
 {
 	ListBase *lbarray[MAX_LIBARRAY];
@@ -614,7 +560,6 @@ static void lib_relocate_do(
 
 	LinkNode *itemlink;
 	int item_idx;
-	bool has_item = false;
 
 	/* Remove all IDs to be reloaded from Main. */
 	lba_idx = set_listbasepointers(bmain, lbarray);
@@ -636,18 +581,12 @@ static void lib_relocate_do(
 				BLI_remlink(lbarray[lba_idx], id);
 				item = wm_link_append_data_item_add(lapp_data, id->name + 2, idcode, id);
 				BLI_BITMAP_SET_ALL(item->libraries, true, lapp_data->num_libraries);
-				has_item = true;
 
 #ifdef PRINT_DEBUG
 				printf("\tdatablock to seek for: %s\n", id->name);
 #endif
 			}
 		}
-	}
-
-	if (!has_item) {
-		/* nothing to relocate */
-		return;
 	}
 
 	BKE_main_id_tag_all(bmain, LIB_TAG_PRE_EXISTING, true);
@@ -798,7 +737,10 @@ static void lib_relocate_do(
 	BKE_main_id_tag_all(bmain, LIB_TAG_PRE_EXISTING, false);
 
 	/* recreate dependency graph to include new objects */
-	DEG_relations_tag_update(bmain);
+	DAG_scene_relations_rebuild(bmain, scene);
+
+	/* free gpu materials, some materials depend on existing objects, such as lamps so freeing correctly refreshes */
+	GPU_materials_free();
 }
 
 void WM_lib_reload(Library *lib, bContext *C, ReportList *reports)
@@ -818,7 +760,7 @@ void WM_lib_reload(Library *lib, bContext *C, ReportList *reports)
 
 	wm_link_append_data_library_add(lapp_data, lib->filepath);
 
-	lib_relocate_do(CTX_data_main(C), lib, lapp_data, reports, true);
+	lib_relocate_do(CTX_data_main(C), CTX_data_scene(C), lib, lapp_data, reports, true);
 
 	wm_link_append_data_free(lapp_data);
 
@@ -835,6 +777,7 @@ static int wm_lib_relocate_exec_do(bContext *C, wmOperator *op, bool do_reload)
 
 	if (lib) {
 		Main *bmain = CTX_data_main(C);
+		Scene *scene = CTX_data_scene(C);
 		PropertyRNA *prop;
 		WMLinkAppendData *lapp_data;
 
@@ -924,7 +867,7 @@ static int wm_lib_relocate_exec_do(bContext *C, wmOperator *op, bool do_reload)
 			}
 		}
 
-		lib_relocate_do(bmain, lib, lapp_data, op->reports, do_reload);
+		lib_relocate_do(bmain, scene, lib, lapp_data, op->reports, do_reload);
 
 		wm_link_append_data_free(lapp_data);
 

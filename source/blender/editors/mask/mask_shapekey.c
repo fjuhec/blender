@@ -36,13 +36,12 @@
 #include "BLI_math.h"
 
 #include "BKE_context.h"
+#include "BKE_depsgraph.h"
 #include "BKE_mask.h"
 
 #include "DNA_object_types.h"
 #include "DNA_mask_types.h"
 #include "DNA_scene_types.h"
-
-#include "DEG_depsgraph.h"
 
 #include "RNA_access.h"
 #include "RNA_define.h"
@@ -76,7 +75,7 @@ static int mask_shape_key_insert_exec(bContext *C, wmOperator *UNUSED(op))
 
 	if (changed) {
 		WM_event_add_notifier(C, NC_MASK | ND_DATA, mask);
-		DEG_id_tag_update(&mask->id, 0);
+		DAG_id_tag_update(&mask->id, 0);
 
 		return OPERATOR_FINISHED;
 	}
@@ -125,7 +124,7 @@ static int mask_shape_key_clear_exec(bContext *C, wmOperator *UNUSED(op))
 
 	if (changed) {
 		WM_event_add_notifier(C, NC_MASK | ND_DATA, mask);
-		DEG_id_tag_update(&mask->id, OB_RECALC_DATA);
+		DAG_id_tag_update(&mask->id, OB_RECALC_DATA);
 
 		return OPERATOR_FINISHED;
 	}
@@ -217,7 +216,7 @@ static int mask_shape_key_feather_reset_exec(bContext *C, wmOperator *UNUSED(op)
 
 	if (changed) {
 		WM_event_add_notifier(C, NC_MASK | ND_DATA, mask);
-		DEG_id_tag_update(&mask->id, 0);
+		DAG_id_tag_update(&mask->id, 0);
 
 		return OPERATOR_FINISHED;
 	}
@@ -387,7 +386,7 @@ static int mask_shape_key_rekey_exec(bContext *C, wmOperator *op)
 
 	if (changed) {
 		WM_event_add_notifier(C, NC_MASK | ND_DATA, mask);
-		DEG_id_tag_update(&mask->id, 0);
+		DAG_id_tag_update(&mask->id, 0);
 
 		return OPERATOR_FINISHED;
 	}

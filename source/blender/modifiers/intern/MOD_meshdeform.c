@@ -47,6 +47,8 @@
 #include "BKE_deform.h"
 #include "BKE_editmesh.h"
 
+#include "depsgraph_private.h"
+
 #include "MEM_guardedalloc.h"
 
 #include "MOD_util.h"
@@ -118,6 +120,23 @@ static void foreachObjectLink(
 	MeshDeformModifierData *mmd = (MeshDeformModifierData *) md;
 
 	walk(userData, ob, &mmd->object, IDWALK_CB_NOP);
+}
+
+static void updateDepgraph(ModifierData *md, DagForest *forest,
+                           struct Main *UNUSED(bmain),
+                           struct Scene *UNUSED(scene),
+                           Object *UNUSED(ob),
+                           DagNode *obNode)
+{
+	MeshDeformModifierData *mmd = (MeshDeformModifierData *) md;
+
+	if (mmd->object) {
+		DagNode *curNode = dag_get_node(forest, mmd->object);
+
+		dag_add_relation(forest, curNode, obNode,
+		                 DAG_RL_DATA_DATA | DAG_RL_OB_DATA | DAG_RL_DATA_OB | DAG_RL_OB_OB,
+		                 "Mesh Deform Modifier");
+	}
 }
 
 static void updateDepsgraph(ModifierData *md,
@@ -272,7 +291,7 @@ static void meshdeform_vert_task(void *userdata, const int iter)
 }
 
 static void meshdeformModifier_do(
-        ModifierData *md, const struct EvaluationContext *eval_ctx, Object *ob, DerivedMesh *dm,
+        ModifierData *md, Object *ob, DerivedMesh *dm,
         float (*vertexCos)[3], int numVerts)
 {
 	MeshDeformModifierData *mmd = (MeshDeformModifierData *) md;
@@ -299,7 +318,7 @@ static void meshdeformModifier_do(
 	 */
 	if (mmd->object == md->scene->obedit) {
 		BMEditMesh *em = BKE_editmesh_from_object(mmd->object);
-		tmpdm = editbmesh_get_derived_cage_and_final(eval_ctx, md->scene, mmd->object, em, 0, &cagedm);
+		tmpdm = editbmesh_get_derived_cage_and_final(md->scene, mmd->object, em, 0, &cagedm);
 		if (tmpdm)
 			tmpdm->release(tmpdm);
 	}
@@ -402,7 +421,7 @@ static void meshdeformModifier_do(
 	cagedm->release(cagedm);
 }
 
-static void deformVerts(ModifierData *md, const struct EvaluationContext *eval_ctx, Object *ob,
+static void deformVerts(ModifierData *md, Object *ob,
                         DerivedMesh *derivedData,
                         float (*vertexCos)[3],
                         int numVerts,
@@ -412,13 +431,13 @@ static void deformVerts(ModifierData *md, const struct EvaluationContext *eval_c
 
 	modifier_vgroup_cache(md, vertexCos); /* if next modifier needs original vertices */
 
-	meshdeformModifier_do(md, eval_ctx, ob, dm, vertexCos, numVerts);
+	meshdeformModifier_do(md, ob, dm, vertexCos, numVerts);
 
 	if (dm && dm != derivedData)
 		dm->release(dm);
 }
 
-static void deformVertsEM(ModifierData *md, const struct EvaluationContext *eval_ctx, Object *ob,
+static void deformVertsEM(ModifierData *md, Object *ob,
                           struct BMEditMesh *UNUSED(editData),
                           DerivedMesh *derivedData,
                           float (*vertexCos)[3],
@@ -426,7 +445,7 @@ static void deformVertsEM(ModifierData *md, const struct EvaluationContext *eval
 {
 	DerivedMesh *dm = get_dm(ob, NULL, derivedData, NULL, false, false);
 
-	meshdeformModifier_do(md, eval_ctx, ob, dm, vertexCos, numVerts);
+	meshdeformModifier_do(md, ob, dm, vertexCos, numVerts);
 
 	if (dm && dm != derivedData)
 		dm->release(dm);
@@ -515,6 +534,7 @@ ModifierTypeInfo modifierType_MeshDeform = {
 	/* requiredDataMask */  requiredDataMask,
 	/* freeData */          freeData,
 	/* isDisabled */        isDisabled,
+	/* updateDepgraph */    updateDepgraph,
 	/* updateDepsgraph */   updateDepsgraph,
 	/* dependsOnTime */     NULL,
 	/* dependsOnNormals */  NULL,

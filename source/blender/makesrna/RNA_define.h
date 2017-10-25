@@ -37,14 +37,6 @@
 extern "C" {
 #endif
 
-#ifdef UNIT_TEST
-#define RNA_MAX_ARRAY_LENGTH 64
-#else
-#define RNA_MAX_ARRAY_LENGTH 32
-#endif
-
-#define RNA_MAX_ARRAY_DIMENSION 3
-
 /* Blender RNA */
 
 BlenderRNA *RNA_create(void);

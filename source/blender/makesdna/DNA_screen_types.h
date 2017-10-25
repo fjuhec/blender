@@ -30,7 +30,6 @@
 #ifndef __DNA_SCREEN_TYPES_H__
 #define __DNA_SCREEN_TYPES_H__
 
-#include "DNA_defs.h"
 #include "DNA_listBase.h"
 #include "DNA_view2d_types.h"
 #include "DNA_vec_types.h"
@@ -53,9 +52,10 @@ typedef struct bScreen {
 	ListBase edgebase;
 	ListBase areabase;
 	ListBase regionbase;				/* screen level regions (menus), runtime only */
-
-	struct Scene *scene DNA_DEPRECATED;
-
+	
+	struct Scene *scene;
+	struct Scene *newscene;				/* temporary when switching */
+	
 	short winid;						/* winid from WM, starts with 1 */
 	short redraws_flag;					/* user-setting for which editors get redrawn during anim playback (used to be time->redraws) */
 
@@ -70,15 +70,12 @@ typedef struct bScreen {
 	char skip_handling;					/* set to delay screen handling after switching back from maximized area */
 	char scrubbing;						/* set when scrubbing to avoid some costly updates */
 	char pad[6];
-
-	/* XXX mainwin is actually entire window content now, including global bars. Should be moved out of bScreen. */
+	
 	short mainwin;						/* screensize subwindow, for screenedges and global menus */
 	short subwinactive;					/* active subwindow */
 
 	struct wmTimer *animtimer;			/* if set, screen has timer handler added in window */
 	void *context;						/* context callback */
-
-	PreviewImage *preview;
 } bScreen;
 
 typedef struct ScrVert {
@@ -194,13 +191,6 @@ typedef struct uiList {           /* some list UI data need to be saved in file 
 	uiListDyn *dyn_data;
 } uiList;
 
-typedef struct TransformOrientation {
-	struct TransformOrientation *next, *prev;
-	char name[64];	/* MAX_NAME */
-	float mat[3][3];
-	int pad;
-} TransformOrientation;
-
 typedef struct uiPreview {           /* some preview UI data need to be saved in file */
 	struct uiPreview *next, *prev;
 
@@ -219,10 +209,7 @@ typedef struct ScrArea {
 
 	char spacetype, butspacetype;	/* SPACE_..., butspacetype is button arg  */
 	short winx, winy;				/* size */
-	/* Fixed height for global areas. Ignores DPI (winy and ED_area_global_size_y don't) */
-	short fixed_height;
-	short pad2[3];
-
+	
 	short headertype;				/* OLD! 0=no header, 1= down, 2= up */
 	short do_refresh;				/* private, for spacetype refresh callback */
 	short flag;
@@ -278,10 +265,9 @@ typedef struct ARegion {
 	ListBase ui_previews;		/* uiPreview */
 	ListBase handlers;			/* wmEventHandler */
 	ListBase panels_category;	/* Panel categories runtime */
-
-	struct wmManipulatorMap *manipulator_map; /* manipulator-map of this region */
+	
 	struct wmTimer *regiontimer; /* blend in/out */
-
+	
 	char *headerstr;			/* use this string to draw info */
 	void *regiondata;			/* XXX 2.50, need spacedata equivalent? */
 } ARegion;
@@ -296,11 +282,7 @@ enum {
 	HEADER_NO_PULLDOWN           = (1 << 0),
 	AREA_FLAG_DRAWJOINTO         = (1 << 1),
 	AREA_FLAG_DRAWJOINFROM       = (1 << 2),
-#ifdef DNA_DEPRECATED_ALLOW
-	AREA_TEMP_INFO               = (1 << 3), /* versioned to make slot reusable */
-#endif
-	/* update size of regions within the area */
-	AREA_FLAG_REGION_SIZE_UPDATE = (1 << 3),
+	AREA_TEMP_INFO               = (1 << 3),
 	AREA_FLAG_DRAWSPLIT_H        = (1 << 4),
 	AREA_FLAG_DRAWSPLIT_V        = (1 << 5),
 	/* used to check if we should switch back to prevspace (of a different type) */
@@ -418,19 +400,8 @@ enum {
 #define RGN_SPLIT_PREV		32
 
 /* region flag */
-enum {
-	RGN_FLAG_HIDDEN             = (1 << 0),
-	RGN_FLAG_TOO_SMALL          = (1 << 1),
-	/* Force delayed reinit of region size data, so that region size is calculated
-	 * just big enough to show all its content (if enough space is available).
-	 * Note that only ED_region_header supports this right now. */
-	RGN_FLAG_DYNAMIC_SIZE     = (1 << 2),
-	/* The region width stored in ARegion.sizex already has the DPI
-	 * factor applied, skip applying it again (in region_rect_recursive).
-	 * XXX Not nice at all. Leaving for now as temporary solution, but
-	 * it might cause issues if we change how ARegion.sizex is used... */
-	RGN_SIZEX_DPI_APPLIED       = (1 << 3),
-};
+#define RGN_FLAG_HIDDEN		1
+#define RGN_FLAG_TOO_SMALL	2
 
 /* region do_draw */
 #define RGN_DRAW			1

@@ -32,8 +32,6 @@
 
 #include "node_shader_util.h"
 
-#include "BKE_scene.h"
-
 /* **************** OUTPUT ******************** */
 static bNodeSocketTemplate sh_node_output_in[] = {
 	{	SOCK_RGBA, 1, N_("Color"),		0.0f, 0.0f, 0.0f, 1.0f},
@@ -67,7 +65,7 @@ static void node_shader_exec_output(void *data, int UNUSED(thread), bNode *node,
 	}
 }
 
-static int gpu_shader_output(GPUMaterial *mat, bNode *node, bNodeExecData *UNUSED(execdata), GPUNodeStack *in, GPUNodeStack *out)
+static int gpu_shader_output(GPUMaterial *mat, bNode *UNUSED(node), bNodeExecData *UNUSED(execdata), GPUNodeStack *in, GPUNodeStack *out)
 {
 	GPUNodeLink *outlink;
 
@@ -76,7 +74,7 @@ static int gpu_shader_output(GPUMaterial *mat, bNode *node, bNodeExecData *UNUSE
 		GPU_material_enable_alpha(mat);
 #endif
 
-	GPU_stack_link(mat, node, "output_node", in, out, &outlink);
+	GPU_stack_link(mat, "output_node", in, out, &outlink);
 	GPU_material_output_link(mat, outlink);
 
 	return 1;

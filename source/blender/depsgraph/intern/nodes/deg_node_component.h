@@ -131,7 +131,7 @@ struct ComponentDepsNode : public DepsNode {
 	OperationDepsNode *get_entry_operation();
 	OperationDepsNode *get_exit_operation();
 
-	void finalize_build(Depsgraph *graph);
+	void finalize_build();
 
 	IDDepsNode *owner;
 
@@ -151,7 +151,9 @@ struct ComponentDepsNode : public DepsNode {
 	OperationDepsNode *exit_operation;
 
 	// XXX: a poll() callback to check if component's first node can be started?
-	virtual bool depends_on_cow() { return true; }
+
+	/* Temporary bitmask, used during graph construction. */
+	unsigned int layers;
 };
 
 /* ---------------------------------------- */
@@ -201,23 +203,8 @@ struct ShadingComponentDepsNode : public ComponentDepsNode {
 	DEG_DEPSNODE_DECLARE;
 };
 
-struct ShadingParametersComponentDepsNode : public ComponentDepsNode {
-	DEG_DEPSNODE_DECLARE;
-	virtual bool depends_on_cow() { return false; }
-};
-
 struct CacheComponentDepsNode : public ComponentDepsNode {
 	DEG_DEPSNODE_DECLARE;
-};
-
-struct LayerCollectionsDepsNode : public ComponentDepsNode {
-	DEG_DEPSNODE_DECLARE;
-};
-
-struct CopyOnWriteDepsNode : public ComponentDepsNode {
-	DEG_DEPSNODE_DECLARE;
-
-	virtual bool depends_on_cow() { return false; }
 };
 
 

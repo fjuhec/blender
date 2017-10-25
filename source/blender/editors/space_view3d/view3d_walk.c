@@ -56,10 +56,6 @@
 #include "UI_interface.h"
 #include "UI_resources.h"
 
-#include "GPU_immediate.h"
-
-#include "RE_engine.h"
-
 #include "view3d_intern.h"  /* own include */
 
 #ifdef WITH_INPUT_NDOF
@@ -250,8 +246,6 @@ typedef struct WalkInfo {
 	View3D *v3d;
 	ARegion *ar;
 	Scene *scene;
-	SceneLayer *scene_layer;
-	RenderEngineType *engine;
 
 	wmTimer *timer; /* needed for redraws */
 
@@ -343,33 +337,24 @@ static void drawWalkPixel(const struct bContext *UNUSED(C), ARegion *ar, void *a
 		yoff = walk->ar->winy / 2;
 	}
 
-	Gwn_VertFormat *format = immVertexFormat();
-	unsigned int pos = GWN_vertformat_attr_add(format, "pos", GWN_COMP_I32, 2, GWN_FETCH_INT_TO_FLOAT);
-
-	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
-
-	immUniformThemeColor(TH_VIEW_OVERLAY);
-
-	immBegin(GWN_PRIM_LINES, 8);
-
+	UI_ThemeColor(TH_VIEW_OVERLAY);
+	glBegin(GL_LINES);
 	/* North */
-	immVertex2i(pos, xoff, yoff + inner_length);
-	immVertex2i(pos, xoff, yoff + outter_length);
+	glVertex2i(xoff, yoff + inner_length);
+	glVertex2i(xoff, yoff + outter_length);
 
 	/* East */
-	immVertex2i(pos, xoff + inner_length, yoff);
-	immVertex2i(pos, xoff + outter_length, yoff);
+	glVertex2i(xoff + inner_length, yoff);
+	glVertex2i(xoff + outter_length, yoff);
 
 	/* South */
-	immVertex2i(pos, xoff, yoff - inner_length);
-	immVertex2i(pos, xoff, yoff - outter_length);
+	glVertex2i(xoff, yoff - inner_length);
+	glVertex2i(xoff, yoff - outter_length);
 
 	/* West */
-	immVertex2i(pos, xoff - inner_length, yoff);
-	immVertex2i(pos, xoff - outter_length, yoff);
-
-	immEnd();
-	immUnbindProgram();
+	glVertex2i(xoff - inner_length, yoff);
+	glVertex2i(xoff - outter_length, yoff);
+	glEnd();
 }
 
 static void walk_update_header(bContext *C, wmOperator *op, WalkInfo *walk)
@@ -514,8 +499,6 @@ static bool initWalkInfo(bContext *C, WalkInfo *walk, wmOperator *op)
 	walk->v3d = CTX_wm_view3d(C);
 	walk->ar = CTX_wm_region(C);
 	walk->scene = CTX_data_scene(C);
-	walk->scene_layer = CTX_data_scene_layer(C);
-	walk->engine = CTX_data_engine(C);
 
 #ifdef NDOF_WALK_DEBUG
 	puts("\n-- walk begin --");
@@ -604,11 +587,11 @@ static bool initWalkInfo(bContext *C, WalkInfo *walk, wmOperator *op)
 	walk->rv3d->rflag |= RV3D_NAVIGATING;
 
 	walk->snap_context = ED_transform_snap_object_context_create_view3d(
-	        CTX_data_main(C), walk->scene, walk->scene_layer, walk->engine, 0,
+	        CTX_data_main(C), walk->scene, 0,
 	        walk->ar, walk->v3d);
 
 	walk->v3d_camera_control = ED_view3d_cameracontrol_acquire(
-	        C, walk->scene, walk->v3d, walk->rv3d,
+	        walk->scene, walk->v3d, walk->rv3d,
 	        (U.uiflag & USER_CAM_LOCK_NO_PARENT) == 0);
 
 	/* center the mouse */

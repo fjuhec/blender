@@ -42,15 +42,13 @@
 #include "BKE_context.h"
 #include "BKE_deform.h"
 #include "BKE_object_deform.h"
+#include "BKE_depsgraph.h"
 #include "BKE_dynamicpaint.h"
 #include "BKE_global.h"
 #include "BKE_main.h"
 #include "BKE_modifier.h"
 #include "BKE_report.h"
 #include "BKE_screen.h"
-
-#include "DEG_depsgraph.h"
-#include "DEG_depsgraph_build.h"
 
 #include "ED_mesh.h"
 #include "ED_screen.h"
@@ -137,7 +135,7 @@ static int surface_slot_remove_exec(bContext *C, wmOperator *UNUSED(op))
 	}
 
 	dynamicPaint_resetPreview(canvas);
-	DEG_id_tag_update(&obj_ctx->id, OB_RECALC_DATA);
+	DAG_id_tag_update(&obj_ctx->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, obj_ctx);
 
 	return OPERATOR_FINISHED;
@@ -183,8 +181,8 @@ static int type_toggle_exec(bContext *C, wmOperator *op)
 	}
 	
 	/* update dependency */
-	DEG_id_tag_update(&cObject->id, OB_RECALC_DATA);
-	DEG_relations_tag_update(CTX_data_main(C));
+	DAG_id_tag_update(&cObject->id, OB_RECALC_DATA);
+	DAG_relations_tag_update(CTX_data_main(C));
 	WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, cObject);
 
 	return OPERATOR_FINISHED;
@@ -288,13 +286,10 @@ typedef struct DynamicPaintBakeJob {
 
 	struct Main *bmain;
 	Scene *scene;
-	SceneLayer *scene_layer;
 	Object *ob;
 
 	DynamicPaintSurface *surface;
 	DynamicPaintCanvasSettings *canvas;
-
-	EvaluationContext *eval_ctx;
 
 	int success;
 	double start;
@@ -314,8 +309,6 @@ static void dpaint_bake_endjob(void *customdata)
 	canvas->flags &= ~MOD_DPAINT_BAKING;
 
 	dynamicPaint_freeSurfaceData(job->surface);
-
-	MEM_freeN(job->eval_ctx);
 
 	G.is_rendering = false;
 	BKE_spacedata_draw_locks(false);
@@ -391,7 +384,7 @@ static void dynamicPaint_bakeImageSequence(DynamicPaintBakeJob *job)
 		/* calculate a frame */
 		scene->r.cfra = (int)frame;
 		ED_update_for_newframe(job->bmain, scene, 1);
-		if (!dynamicPaint_calculateFrame(surface, job->eval_ctx, scene, cObject, frame)) {
+		if (!dynamicPaint_calculateFrame(surface, scene, cObject, frame)) {
 			job->success = 0;
 			return;
 		}
@@ -459,10 +452,6 @@ static int dynamicpaint_bake_exec(struct bContext *C, struct wmOperator *op)
 	DynamicPaintCanvasSettings *canvas;
 	Object *ob = ED_object_context(C);
 	Scene *scene = CTX_data_scene(C);
-	SceneLayer *sl = CTX_data_scene_layer(C);
-	EvaluationContext *eval_ctx = MEM_mallocN(sizeof(*eval_ctx), "EvaluationContext");
-
-	CTX_data_eval_ctx(C, eval_ctx);
 
 	DynamicPaintSurface *surface;
 
@@ -490,11 +479,9 @@ static int dynamicpaint_bake_exec(struct bContext *C, struct wmOperator *op)
 	DynamicPaintBakeJob *job = MEM_mallocN(sizeof(DynamicPaintBakeJob), "DynamicPaintBakeJob");
 	job->bmain = CTX_data_main(C);
 	job->scene = scene;
-	job->scene_layer = sl;
 	job->ob = ob;
 	job->canvas = canvas;
 	job->surface = surface;
-	job->eval_ctx = eval_ctx;
 
 	wmJob *wm_job = WM_jobs_get(CTX_wm_manager(C), CTX_wm_window(C), scene,
 	                            "Dynamic Paint Bake", WM_JOB_PROGRESS,

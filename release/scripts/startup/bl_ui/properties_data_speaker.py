@@ -29,14 +29,14 @@ class DataButtonsPanel:
 
     @classmethod
     def poll(cls, context):
-        engine = context.engine
+        engine = context.scene.render.engine
         return context.speaker and (engine in cls.COMPAT_ENGINES)
 
 
 class DATA_PT_context_speaker(DataButtonsPanel, Panel):
     bl_label = ""
     bl_options = {'HIDE_HEADER'}
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME', 'BLENDER_CLAY', 'BLENDER_EEVEE'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME'}
 
     def draw(self, context):
         layout = self.layout
@@ -55,7 +55,7 @@ class DATA_PT_context_speaker(DataButtonsPanel, Panel):
 
 class DATA_PT_speaker(DataButtonsPanel, Panel):
     bl_label = "Sound"
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_CLAY', 'BLENDER_EEVEE'}
+    COMPAT_ENGINES = {'BLENDER_RENDER'}
 
     def draw(self, context):
         layout = self.layout
@@ -74,7 +74,7 @@ class DATA_PT_speaker(DataButtonsPanel, Panel):
 
 class DATA_PT_distance(DataButtonsPanel, Panel):
     bl_label = "Distance"
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_CLAY', 'BLENDER_EEVEE'}
+    COMPAT_ENGINES = {'BLENDER_RENDER'}
 
     def draw(self, context):
         layout = self.layout
@@ -97,7 +97,7 @@ class DATA_PT_distance(DataButtonsPanel, Panel):
 
 class DATA_PT_cone(DataButtonsPanel, Panel):
     bl_label = "Cone"
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_CLAY', 'BLENDER_EEVEE'}
+    COMPAT_ENGINES = {'BLENDER_RENDER'}
 
     def draw(self, context):
         layout = self.layout
@@ -117,7 +117,7 @@ class DATA_PT_cone(DataButtonsPanel, Panel):
 
 
 class DATA_PT_custom_props_speaker(DataButtonsPanel, PropertyPanel, Panel):
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME', 'BLENDER_CLAY', 'BLENDER_EEVEE'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME'}
     _context_path = "object.data"
     _property_type = bpy.types.Speaker
 

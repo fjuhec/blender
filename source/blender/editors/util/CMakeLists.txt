@@ -24,7 +24,6 @@ set(INC
 	../../blenlib
 	../../blentranslation
 	../../bmesh
-	../../depsgraph
 	../../imbuf
 	../../gpu
 	../../makesdna
@@ -65,7 +64,6 @@ set(SRC
 	../include/ED_lattice.h
 	../include/ED_logic.h
 	../include/ED_markers.h
-	../include/ED_manipulator_library.h
 	../include/ED_mask.h
 	../include/ED_mball.h
 	../include/ED_mesh.h
@@ -77,7 +75,6 @@ set(SRC
 	../include/ED_particle.h
 	../include/ED_physics.h
 	../include/ED_render.h
-	../include/ED_scene.h
 	../include/ED_screen.h
 	../include/ED_screen_types.h
 	../include/ED_sculpt.h

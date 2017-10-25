@@ -50,8 +50,7 @@ class AbcMeshWriter : public AbcObjectWriter {
 	bool m_is_subd;
 
 public:
-	AbcMeshWriter(EvaluationContext *eval_ctx,
-	              Scene *scene,
+	AbcMeshWriter(Scene *scene,
 	              Object *ob,
 	              AbcTransformWriter *parent,
 	              uint32_t time_sampling,

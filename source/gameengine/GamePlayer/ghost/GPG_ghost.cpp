@@ -68,6 +68,7 @@ extern "C"
 
 #include "BKE_appdir.h"
 #include "BKE_blender.h"
+#include "BKE_depsgraph.h"
 #include "BKE_global.h"
 #include "BKE_icons.h"
 #include "BKE_image.h"
@@ -79,8 +80,6 @@ extern "C"
 #include "BKE_material.h"
 #include "BKE_text.h"
 #include "BKE_sound.h"
-
-#include "DEG_depsgraph.h"
 
 #include "IMB_imbuf.h"
 #include "IMB_moviecache.h"
@@ -510,7 +509,7 @@ int main(
 	IMB_init();
 	BKE_images_init();
 	BKE_modifier_init();
-	DEG_register_node_types();
+	DAG_init();
 
 #ifdef WITH_FFMPEG
 	IMB_ffmpeg_init();
@@ -1202,7 +1201,7 @@ int main(
 
 	IMB_exit();
 	BKE_images_exit();
-	DEG_free_node_types();
+	DAG_exit();
 	IMB_moviecache_destruct();
 
 	SYS_DeleteSystem(syshandle);

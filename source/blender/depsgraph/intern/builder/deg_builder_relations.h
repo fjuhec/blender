@@ -45,7 +45,7 @@
 #include "intern/nodes/deg_node.h"
 #include "intern/nodes/deg_node_operation.h"
 
-struct BaseLegacy;
+struct Base;
 struct bGPdata;
 struct CacheFile;
 struct ListBase;
@@ -54,7 +54,6 @@ struct ID;
 struct FCurve;
 struct Group;
 struct Key;
-struct LayerCollection;
 struct Main;
 struct Mask;
 struct Material;
@@ -70,7 +69,6 @@ struct Tex;
 struct World;
 struct EffectorWeights;
 struct ParticleSystem;
-struct ParticleSettings;
 
 struct PropertyRNA;
 
@@ -200,7 +198,6 @@ struct DepsgraphRelationBuilder
 	void build_world(World *world);
 	void build_rigidbody(Scene *scene);
 	void build_particles(Scene *scene, Object *ob);
-	void build_particle_settings(ParticleSettings *part);
 	void build_cloth(Scene *scene, Object *object, ModifierData *md);
 	void build_ik_pose(Object *ob,
 	                   bPoseChannel *pchan,
@@ -210,7 +207,7 @@ struct DepsgraphRelationBuilder
 	                         bPoseChannel *pchan,
 	                         bConstraint *con,
 	                         RootPChanMap *root_map);
-	void build_rig(Main *bmain, Scene *scene, Object *ob);
+	void build_rig(Scene *scene, Object *ob);
 	void build_proxy_rig(Object *ob);
 	void build_shapekeys(ID *obdata, Key *key);
 	void build_obdata_geom(Main *bmain, Scene *scene, Object *ob);
@@ -225,32 +222,9 @@ struct DepsgraphRelationBuilder
 	void build_cachefile(CacheFile *cache_file);
 	void build_mask(Mask *mask);
 	void build_movieclip(MovieClip *clip);
-	void build_lightprobe(Object *object);
 
-	void add_collision_relations(const OperationKey &key,
-	                             Scene *scene, Object *ob, Group *group,
-	                             bool dupli, const char *name);
-	void add_forcefield_relations(const OperationKey &key,
-	                              Scene *scene, Object *ob, ParticleSystem *psys,
-	                              EffectorWeights *eff,
-	                              bool add_absorption, const char *name);
-
-	struct LayerCollectionState {
-		int index;
-		OperationKey init_key;
-		OperationKey done_key;
-		OperationKey prev_key;
-	};
-	void build_layer_collection(Scene *scene,
-	                            LayerCollection *layer_collection,
-	                            LayerCollectionState *state);
-	void build_layer_collections(Scene *scene,
-	                             ListBase *layer_collections,
-	                             LayerCollectionState *state);
-	void build_scene_layer_collections(Scene *scene);
-
-	void build_copy_on_write_relations();
-	void build_copy_on_write_relations(IDDepsNode *id_node);
+	void add_collision_relations(const OperationKey &key, Scene *scene, Object *ob, Group *group, int layer, bool dupli, const char *name);
+	void add_forcefield_relations(const OperationKey &key, Scene *scene, Object *ob, ParticleSystem *psys, EffectorWeights *eff, bool add_absorption, const char *name);
 
 	template <typename KeyType>
 	OperationDepsNode *find_operation_node(const KeyType &key);

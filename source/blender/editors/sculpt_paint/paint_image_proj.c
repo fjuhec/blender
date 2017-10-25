@@ -64,6 +64,7 @@
 #include "BKE_camera.h"
 #include "BKE_context.h"
 #include "BKE_colortools.h"
+#include "BKE_depsgraph.h"
 #include "BKE_DerivedMesh.h"
 #include "BKE_idprop.h"
 #include "BKE_brush.h"
@@ -78,8 +79,6 @@
 #include "BKE_report.h"
 #include "BKE_scene.h"
 #include "BKE_texture.h"
-
-#include "DEG_depsgraph.h"
 
 #include "UI_interface.h"
 
@@ -3421,15 +3420,12 @@ static void project_paint_bleed_add_face_user(
 #endif
 
 /* Return true if DM can be painted on, false otherwise */
-static bool proj_paint_state_dm_init(const bContext *C, ProjPaintState *ps)
+static bool proj_paint_state_dm_init(ProjPaintState *ps)
 {
-	EvaluationContext eval_ctx;
-	CTX_data_eval_ctx(C, &eval_ctx);
-
 	/* Workaround for subsurf selection, try the display mesh first */
 	if (ps->source == PROJ_SRC_IMAGE_CAM) {
 		/* using render mesh, assume only camera was rendered from */
-		ps->dm = mesh_create_derived_render(&eval_ctx, ps->scene, ps->ob, ps->scene->customdata_mask | CD_MASK_MTFACE);
+		ps->dm = mesh_create_derived_render(ps->scene, ps->ob, ps->scene->customdata_mask | CD_MASK_MTFACE);
 		ps->dm_release = true;
 	}
 	else if (ps->ob->derivedFinal &&
@@ -3441,7 +3437,7 @@ static bool proj_paint_state_dm_init(const bContext *C, ProjPaintState *ps)
 	}
 	else {
 		ps->dm = mesh_get_derived_final(
-		        &eval_ctx, ps->scene, ps->ob,
+		        ps->scene, ps->ob,
 		        ps->scene->customdata_mask | CD_MASK_MTFACE | (ps->do_face_sel ? CD_ORIGINDEX : 0));
 		ps->dm_release = true;
 	}
@@ -3491,7 +3487,7 @@ static void proj_paint_layer_clone_init(
 
 	/* use clone mtface? */
 	if (ps->do_layer_clone) {
-		const int layer_num = CustomData_get_clone_layer(&((Mesh *)ps->ob->data)->ldata, CD_MLOOPUV);
+		const int layer_num = CustomData_get_clone_layer(&((Mesh *)ps->ob->data)->pdata, CD_MTEXPOLY);
 
 		ps->dm_mloopuv_clone = MEM_mallocN(ps->dm_totpoly * sizeof(MLoopUV *), "proj_paint_mtfaces");
 
@@ -3821,7 +3817,7 @@ static void project_paint_prepare_all_faces(
 
 /* run once per stroke before projection painting */
 static void project_paint_begin(
-        const bContext *C, ProjPaintState *ps,
+        ProjPaintState *ps,
         const bool is_multi_view, const char symmetry_flag)
 {
 	ProjPaintLayerClone layer_clone;
@@ -3844,7 +3840,7 @@ static void project_paint_begin(
 
 	/* paint onto the derived mesh */
 	if (ps->is_shared_user == false) {
-		if (!proj_paint_state_dm_init(C, ps)) {
+		if (!proj_paint_state_dm_init(ps)) {
 			return;
 		}
 	}
@@ -3854,7 +3850,7 @@ static void project_paint_begin(
 
 	if (ps->do_layer_stencil || ps->do_stencil_brush) {
 		//int layer_num = CustomData_get_stencil_layer(&ps->dm->loopData, CD_MLOOPUV);
-		int layer_num = CustomData_get_stencil_layer(&((Mesh *)ps->ob->data)->ldata, CD_MLOOPUV);
+		int layer_num = CustomData_get_stencil_layer(&((Mesh *)ps->ob->data)->pdata, CD_MTEXPOLY);
 		if (layer_num != -1)
 			ps->dm_mloopuv_stencil = CustomData_get_layer_n(&ps->dm->loopData, CD_MLOOPUV, layer_num);
 
@@ -3942,7 +3938,7 @@ static void project_paint_end(ProjPaintState *ps)
 		ProjPaintImage *projIma;
 		for (a = 0, projIma = ps->projImages; a < ps->image_tot; a++, projIma++) {
 			BKE_image_release_ibuf(projIma->ima, projIma->ibuf, NULL);
-			DEG_id_tag_update(&projIma->ima->id, 0);
+			DAG_id_tag_update(&projIma->ima->id, 0);
 		}
 	}
 
@@ -5027,9 +5023,7 @@ void paint_proj_stroke(
 
 	/* clone gets special treatment here to avoid going through image initialization */
 	if (ps_handle->is_clone_cursor_pick) {
-		EvaluationContext eval_ctx;
 		Scene *scene = ps_handle->scene;
-		struct Depsgraph *graph = CTX_data_depsgraph(C);
 		View3D *v3d = CTX_wm_view3d(C);
 		ARegion *ar = CTX_wm_region(C);
 		float *cursor = ED_view3d_cursor3d_get(scene, v3d);
@@ -5037,11 +5031,8 @@ void paint_proj_stroke(
 
 		view3d_operator_needs_opengl(C);
 
-		CTX_data_eval_ctx(C, &eval_ctx);
-
-		if (!ED_view3d_autodist(&eval_ctx, graph, ar, v3d, mval_i, cursor, false, NULL)) {
+		if (!ED_view3d_autodist(scene, ar, v3d, mval_i, cursor, false, NULL))
 			return;
-		}
 
 		ED_region_tag_redraw(ar);
 
@@ -5219,7 +5210,7 @@ void *paint_proj_new_stroke(bContext *C, Object *ob, const float mouse[2], int m
 
 		project_state_init(C, ob, ps, mode);
 
-		if (ps->ob == NULL) {
+		if (ps->ob == NULL || !(ps->ob->lay & ps->v3d->lay)) {
 			ps_handle->ps_views_tot = i + 1;
 			goto fail;
 		}
@@ -5243,7 +5234,7 @@ void *paint_proj_new_stroke(bContext *C, Object *ob, const float mouse[2], int m
 			PROJ_PAINT_STATE_SHARED_MEMCPY(ps, ps_handle->ps_views[0]);
 		}
 
-		project_paint_begin(C, ps, is_multi_view, symmetry_flag_views[i]);
+		project_paint_begin(ps, is_multi_view, symmetry_flag_views[i]);
 
 		paint_proj_begin_clone(ps, mouse);
 
@@ -5321,12 +5312,11 @@ static int texture_paint_camera_project_exec(bContext *C, wmOperator *op)
 {
 	Image *image = BLI_findlink(&CTX_data_main(C)->image, RNA_enum_get(op->ptr, "image"));
 	Scene *scene = CTX_data_scene(C);
-	SceneLayer *sl = CTX_data_scene_layer(C);
 	ProjPaintState ps = {NULL};
 	int orig_brush_size;
 	IDProperty *idgroup;
 	IDProperty *view_data = NULL;
-	Object *ob = OBACT_NEW(sl);
+	Object *ob = OBACT;
 	bool uvs, mat, tex;
 
 	if (ob == NULL || ob->type != OB_MESH) {
@@ -5397,7 +5387,7 @@ static int texture_paint_camera_project_exec(bContext *C, wmOperator *op)
 	                         ED_image_undo_restore, ED_image_undo_free, NULL);
 
 	/* allocate and initialize spatial data structures */
-	project_paint_begin(C, &ps, false, 0);
+	project_paint_begin(&ps, false, 0);
 
 	if (ps.dm == NULL) {
 		BKE_brush_size_set(scene, ps.brush, orig_brush_size);
@@ -5455,15 +5445,11 @@ static int texture_paint_image_from_view_exec(bContext *C, wmOperator *op)
 	char filename[FILE_MAX];
 
 	Scene *scene = CTX_data_scene(C);
-	SceneLayer *scene_layer = CTX_data_scene_layer(C);
-	EvaluationContext eval_ctx;
 	ToolSettings *settings = scene->toolsettings;
 	int w = settings->imapaint.screen_grab_size[0];
 	int h = settings->imapaint.screen_grab_size[1];
 	int maxsize;
 	char err_out[256] = "unknown";
-
-	CTX_data_eval_ctx(C, &eval_ctx);
 
 	RNA_string_get(op->ptr, "filepath", filename);
 
@@ -5473,7 +5459,7 @@ static int texture_paint_image_from_view_exec(bContext *C, wmOperator *op)
 	if (h > maxsize) h = maxsize;
 
 	ibuf = ED_view3d_draw_offscreen_imbuf(
-	        &eval_ctx, scene, scene_layer, CTX_wm_view3d(C), CTX_wm_region(C),
+	        scene, CTX_wm_view3d(C), CTX_wm_region(C),
 	        w, h, IB_rect, false, R_ALPHAPREMUL, 0, false, NULL,
 	        NULL, NULL, err_out);
 	if (!ibuf) {
@@ -5607,7 +5593,7 @@ bool BKE_paint_proj_mesh_data_check(Scene *scene, Object *ob, bool *uvs, bool *m
 	}
 	
 	me = BKE_mesh_from_object(ob);
-	layernum = CustomData_number_of_layers(&me->ldata, CD_MLOOPUV);
+	layernum = CustomData_number_of_layers(&me->pdata, CD_MTEXPOLY);
 
 	if (layernum == 0) {
 		hasuvs = false;
@@ -5756,7 +5742,7 @@ static bool proj_paint_add_slot(bContext *C, wmOperator *op)
 			BKE_texpaint_slot_refresh_cache(scene, ma);
 			BKE_image_signal(ima, NULL, IMA_SIGNAL_USER_NEW_IMAGE);
 			WM_event_add_notifier(C, NC_IMAGE | NA_ADDED, ima);
-			DEG_id_tag_update(&ma->id, 0);
+			DAG_id_tag_update(&ma->id, 0);
 			ED_area_tag_redraw(CTX_wm_area(C));
 			
 			BKE_paint_proj_mesh_data_check(scene, ob, NULL, NULL, NULL, NULL);
@@ -5872,7 +5858,7 @@ static int texture_paint_delete_texture_paint_slot_exec(bContext *C, wmOperator 
 	ma->mtex[slot->index] = NULL;
 	
 	BKE_texpaint_slot_refresh_cache(scene, ma);
-	DEG_id_tag_update(&ma->id, 0);
+	DAG_id_tag_update(&ma->id, 0);
 	WM_event_add_notifier(C, NC_MATERIAL, ma);
 	/* we need a notifier for data change since we change the displayed modifier uvs */
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, ob->data);
@@ -5930,7 +5916,7 @@ static int add_simple_uvs_exec(bContext *C, wmOperator *UNUSED(op))
 
 	BKE_paint_proj_mesh_data_check(scene, ob, NULL, NULL, NULL, NULL);
 	
-	DEG_id_tag_update(ob->data, 0);
+	DAG_id_tag_update(ob->data, 0);
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, ob->data);
 	WM_event_add_notifier(C, NC_SCENE | ND_TOOLSETTINGS, scene);
 	return OPERATOR_FINISHED;

@@ -49,6 +49,8 @@
 #include "BKE_scene.h"
 #include "BKE_texture.h"
 
+#include "depsgraph_private.h"
+
 #include "MEM_guardedalloc.h"
 #include "RE_shader_ext.h"
 
@@ -123,6 +125,29 @@ static void foreachTexLink(ModifierData *md, Object *ob,
                            TexWalkFunc walk, void *userData)
 {
 	walk(userData, ob, md, "texture");
+}
+
+static void updateDepgraph(ModifierData *md, DagForest *forest,
+                           struct Main *UNUSED(bmain),
+                           Scene *UNUSED(scene),
+                           Object *UNUSED(ob),
+                           DagNode *obNode)
+{
+	WaveModifierData *wmd = (WaveModifierData *) md;
+
+	if (wmd->objectcenter) {
+		DagNode *curNode = dag_get_node(forest, wmd->objectcenter);
+
+		dag_add_relation(forest, curNode, obNode, DAG_RL_OB_DATA,
+		                 "Wave Modifier");
+	}
+
+	if (wmd->map_object) {
+		DagNode *curNode = dag_get_node(forest, wmd->map_object);
+
+		dag_add_relation(forest, curNode, obNode, DAG_RL_OB_DATA,
+		                 "Wave Modifer");
+	}
 }
 
 static void updateDepsgraph(ModifierData *md,
@@ -310,8 +335,8 @@ static void waveModifier_do(WaveModifierData *md,
 	if (wmd->texture) MEM_freeN(tex_co);
 }
 
-static void deformVerts(ModifierData *md, const struct EvaluationContext *UNUSED(eval_ctx),
-                        Object *ob, DerivedMesh *derivedData,
+static void deformVerts(ModifierData *md, Object *ob,
+                        DerivedMesh *derivedData,
                         float (*vertexCos)[3],
                         int numVerts,
                         ModifierApplyFlag UNUSED(flag))
@@ -331,7 +356,7 @@ static void deformVerts(ModifierData *md, const struct EvaluationContext *UNUSED
 }
 
 static void deformVertsEM(
-        ModifierData *md, const struct EvaluationContext *UNUSED(eval_ctx), Object *ob, struct BMEditMesh *editData,
+        ModifierData *md, Object *ob, struct BMEditMesh *editData,
         DerivedMesh *derivedData, float (*vertexCos)[3], int numVerts)
 {
 	DerivedMesh *dm = derivedData;
@@ -368,6 +393,7 @@ ModifierTypeInfo modifierType_Wave = {
 	/* requiredDataMask */  requiredDataMask,
 	/* freeData */          freeData,
 	/* isDisabled */        NULL,
+	/* updateDepgraph */    updateDepgraph,
 	/* updateDepsgraph */   updateDepsgraph,
 	/* dependsOnTime */     dependsOnTime,
 	/* dependsOnNormals */	NULL,

@@ -48,7 +48,7 @@
 
 #include "BKE_action.h"
 #include "BKE_context.h"
-#include "BKE_layer.h"
+#include "BKE_depsgraph.h"
 #include "BKE_main.h"
 #include "BKE_modifier.h"
 #include "BKE_object.h"
@@ -56,9 +56,6 @@
 #include "BKE_scene.h"
 #include "BKE_deform.h"
 #include "BKE_editmesh.h"
-
-#include "DEG_depsgraph.h"
-#include "DEG_depsgraph_build.h"
 
 #include "RNA_define.h"
 #include "RNA_access.h"
@@ -321,7 +318,7 @@ static bool object_hook_index_array(Scene *scene, Object *obedit,
 			EDBM_mesh_load(obedit);
 			EDBM_mesh_make(scene->toolsettings, obedit, true);
 
-			DEG_id_tag_update(obedit->data, 0);
+			DAG_id_tag_update(obedit->data, 0);
 
 			em = me->edit_btmesh;
 
@@ -448,37 +445,34 @@ static int hook_op_edit_poll(bContext *C)
 	return 0;
 }
 
-static Object *add_hook_object_new(Main *bmain, Scene *scene, SceneLayer *sl, Object *obedit)
+static Object *add_hook_object_new(Main *bmain, Scene *scene, Object *obedit)
 {
 	Base *base, *basedit;
 	Object *ob;
 
-	ob = BKE_object_add(bmain, scene, sl, OB_EMPTY, NULL);
+	ob = BKE_object_add(bmain, scene, OB_EMPTY, NULL);
 	
-	basedit = BKE_scene_layer_base_find(sl, obedit);
-	base = sl->basact;
+	basedit = BKE_scene_base_find(scene, obedit);
+	base = scene->basact;
 	base->lay = ob->lay = obedit->lay;
-	BLI_assert(sl->basact->object == ob);
+	BLI_assert(scene->basact->object == ob);
 	
 	/* icky, BKE_object_add sets new base as active.
 	 * so set it back to the original edit object */
-	sl->basact = basedit;
+	scene->basact = basedit;
 
 	return ob;
 }
 
-static int add_hook_object(const bContext *C, Main *bmain, Scene *scene, SceneLayer *sl, Object *obedit, Object *ob, int mode, ReportList *reports)
+static int add_hook_object(Main *bmain, Scene *scene, Object *obedit, Object *ob, int mode, ReportList *reports)
 {
 	ModifierData *md = NULL;
 	HookModifierData *hmd = NULL;
-	EvaluationContext eval_ctx;
 	float cent[3];
 	float pose_mat[4][4];
 	int tot, ok, *indexar;
 	char name[MAX_NAME];
 	
-	CTX_data_eval_ctx(C, &eval_ctx);
-
 	ok = object_hook_index_array(scene, obedit, &tot, &indexar, name, cent);
 
 	if (!ok) {
@@ -488,7 +482,7 @@ static int add_hook_object(const bContext *C, Main *bmain, Scene *scene, SceneLa
 
 	if (mode == OBJECT_ADDHOOK_NEWOB && !ob) {
 		
-		ob = add_hook_object_new(bmain, scene, sl, obedit);
+		ob = add_hook_object_new(bmain, scene, obedit);
 		
 		/* transform cent to global coords for loc */
 		mul_v3_m4v3(ob->loc, obedit->obmat, cent);
@@ -547,13 +541,13 @@ static int add_hook_object(const bContext *C, Main *bmain, Scene *scene, SceneLa
 	/* matrix calculus */
 	/* vert x (obmat x hook->imat) x hook->obmat x ob->imat */
 	/*        (parentinv         )                          */
-	BKE_object_where_is_calc(&eval_ctx, scene, ob);
+	BKE_object_where_is_calc(scene, ob);
 	
 	invert_m4_m4(ob->imat, ob->obmat);
 	/* apparently this call goes from right to left... */
 	mul_m4_series(hmd->parentinv, pose_mat, ob->imat, obedit->obmat);
 	
-	DEG_relations_tag_update(bmain);
+	DAG_relations_tag_update(bmain);
 
 	return true;
 }
@@ -562,7 +556,6 @@ static int object_add_hook_selob_exec(bContext *C, wmOperator *op)
 {
 	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
-	SceneLayer *sl = CTX_data_scene_layer(C);
 	Object *obedit = CTX_data_edit_object(C);
 	Object *obsel = NULL;
 	const bool use_bone = RNA_boolean_get(op->ptr, "use_bone");
@@ -587,7 +580,7 @@ static int object_add_hook_selob_exec(bContext *C, wmOperator *op)
 		return OPERATOR_CANCELLED;
 	}
 	
-	if (add_hook_object(C, bmain, scene, sl, obedit, obsel, mode, op->reports)) {
+	if (add_hook_object(bmain, scene, obedit, obsel, mode, op->reports)) {
 		WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, obedit);
 		return OPERATOR_FINISHED;
 	}
@@ -618,10 +611,9 @@ static int object_add_hook_newob_exec(bContext *C, wmOperator *op)
 {
 	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
-	SceneLayer *sl = CTX_data_scene_layer(C);
 	Object *obedit = CTX_data_edit_object(C);
 
-	if (add_hook_object(C, bmain, scene, sl, obedit, NULL, OBJECT_ADDHOOK_NEWOB, op->reports)) {
+	if (add_hook_object(bmain, scene, obedit, NULL, OBJECT_ADDHOOK_NEWOB, op->reports)) {
 		WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, scene);
 		WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, obedit);
 		return OPERATOR_FINISHED;
@@ -663,7 +655,7 @@ static int object_hook_remove_exec(bContext *C, wmOperator *op)
 	BLI_remlink(&ob->modifiers, (ModifierData *)hmd);
 	modifier_free((ModifierData *)hmd);
 	
-	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, ob);
 	
 	return OPERATOR_FINISHED;
@@ -737,7 +729,7 @@ static int object_hook_reset_exec(bContext *C, wmOperator *op)
 
 	BKE_object_modifier_hook_reset(ob, hmd);
 
-	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, ob);
 	
 	return OPERATOR_FINISHED;
@@ -787,7 +779,7 @@ static int object_hook_recenter_exec(bContext *C, wmOperator *op)
 	sub_v3_v3v3(hmd->cent, scene->cursor, ob->obmat[3]);
 	mul_m3_v3(imat, hmd->cent);
 	
-	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, ob);
 	
 	return OPERATOR_FINISHED;
@@ -845,7 +837,7 @@ static int object_hook_assign_exec(bContext *C, wmOperator *op)
 	hmd->indexar = indexar;
 	hmd->totindex = tot;
 	
-	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, ob);
 	
 	return OPERATOR_FINISHED;

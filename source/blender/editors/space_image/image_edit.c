@@ -365,7 +365,7 @@ bool ED_space_image_show_uvedit(SpaceImage *sima, Object *obedit)
 		struct BMEditMesh *em = BKE_editmesh_from_object(obedit);
 		bool ret;
 
-		ret = EDBM_uv_check(em);
+		ret = EDBM_mtexpoly_check(em);
 
 		return ret;
 	}
@@ -374,10 +374,10 @@ bool ED_space_image_show_uvedit(SpaceImage *sima, Object *obedit)
 }
 
 /* matches clip function */
-bool ED_space_image_check_show_maskedit(SceneLayer *sl, SpaceImage *sima)
+bool ED_space_image_check_show_maskedit(Scene *scene, SpaceImage *sima)
 {
 	/* check editmode - this is reserved for UV editing */
-	Object *ob = OBACT_NEW(sl);
+	Object *ob = OBACT;
 	if (ob && ob->mode & OB_MODE_EDIT && ED_space_image_show_uvedit(sima, ob)) {
 		return false;
 	}
@@ -390,8 +390,8 @@ int ED_space_image_maskedit_poll(bContext *C)
 	SpaceImage *sima = CTX_wm_space_image(C);
 
 	if (sima) {
-		SceneLayer *sl = CTX_data_scene_layer(C);
-		return ED_space_image_check_show_maskedit(sl, sima);
+		Scene *scene = CTX_data_scene(C);
+		return ED_space_image_check_show_maskedit(scene, sima);
 	}
 
 	return false;

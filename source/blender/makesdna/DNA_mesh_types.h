@@ -66,6 +66,7 @@ typedef struct Mesh {
 /* BMESH ONLY */
 	/*new face structures*/
 	struct MPoly *mpoly;
+	struct MTexPoly *mtpoly;
 	struct MLoop *mloop;
 	struct MLoopUV *mloopuv;
 	struct MLoopCol *mloopcol;
@@ -126,7 +127,6 @@ typedef struct Mesh {
 	short totcol;
 
 	struct Multires *mr DNA_DEPRECATED; /* deprecated multiresolution modeling data, only keep for loading old files */
-	void *batch_cache;
 } Mesh;
 
 /* deprecated by MTFace, only here for file reading */

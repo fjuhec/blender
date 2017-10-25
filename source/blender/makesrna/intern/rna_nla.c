@@ -50,6 +50,7 @@
 
 /* needed for some of the validation stuff... */
 #include "BKE_animsys.h"
+#include "BKE_depsgraph.h"
 #include "BKE_fcurve.h"
 #include "BKE_nla.h"
 

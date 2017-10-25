@@ -308,9 +308,7 @@ static void action_header_region_draw(const bContext *C, ARegion *ar)
 	ED_region_header(C, ar);
 }
 
-static void action_channel_region_listener(
-        bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar,
-        wmNotifier *wmn, const Scene *UNUSED(scene))
+static void action_channel_region_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar, wmNotifier *wmn)
 {
 	/* context changes */
 	switch (wmn->category) {
@@ -353,9 +351,7 @@ static void action_channel_region_listener(
 	}
 }
 
-static void action_main_region_listener(
-        bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar,
-        wmNotifier *wmn, const Scene *UNUSED(scene))
+static void action_main_region_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar, wmNotifier *wmn)
 {
 	/* context changes */
 	switch (wmn->category) {
@@ -395,11 +391,7 @@ static void action_main_region_listener(
 			if (wmn->action == NA_RENAME)
 				ED_region_tag_redraw(ar);
 			break;
-		case NC_SCREEN:
-			if (ELEM(wmn->data, ND_LAYER)) {
-				ED_region_tag_redraw(ar);
-			}
-			break;
+				
 		default:
 			if (wmn->data == ND_KEYS)
 				ED_region_tag_redraw(ar);
@@ -408,9 +400,7 @@ static void action_main_region_listener(
 }
 
 /* editor level listener */
-static void action_listener(
-        bScreen *UNUSED(sc), ScrArea *sa, wmNotifier *wmn, Scene *UNUSED(scene),
-        WorkSpace *UNUSED(workspace))
+static void action_listener(bScreen *UNUSED(sc), ScrArea *sa, wmNotifier *wmn)
 {
 	SpaceAction *saction = (SpaceAction *)sa->spacedata.first;
 	
@@ -517,9 +507,7 @@ static void action_listener(
 	}
 }
 
-static void action_header_region_listener(
-        bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar,
-        wmNotifier *wmn, const Scene *UNUSED(scene))
+static void action_header_region_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar, wmNotifier *wmn)
 {
 	// SpaceAction *saction = (SpaceAction *)sa->spacedata.first;
 
@@ -571,9 +559,7 @@ static void action_buttons_area_draw(const bContext *C, ARegion *ar)
 	ED_region_panels(C, ar, NULL, -1, true);
 }
 
-static void action_region_listener(
-        bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar,
-        wmNotifier *wmn, const Scene *UNUSED(scene))
+static void action_region_listener(bScreen *UNUSED(sc), ScrArea *UNUSED(sa), ARegion *ar, wmNotifier *wmn)
 {
 	/* context changes */
 	switch (wmn->category) {

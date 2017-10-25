@@ -143,7 +143,6 @@ static void dualcon_add_quad(void *output_v, const int vert_indices[4])
 }
 
 static DerivedMesh *applyModifier(ModifierData *md,
-                                  const struct EvaluationContext *UNUSED(eval_ctx),
                                   Object *UNUSED(ob),
                                   DerivedMesh *dm,
                                   ModifierApplyFlag UNUSED(flag))
@@ -204,9 +203,7 @@ static DerivedMesh *applyModifier(ModifierData *md,
 
 #else /* !WITH_MOD_REMESH */
 
-static DerivedMesh *applyModifier(ModifierData *UNUSED(md),
-                                  const struct EvaluationContext *UNUSED(eval_ctx),
-                                  Object *UNUSED(ob),
+static DerivedMesh *applyModifier(ModifierData *UNUSED(md), Object *UNUSED(ob),
                                   DerivedMesh *derivedData,
                                   ModifierApplyFlag UNUSED(flag))
 {
@@ -234,6 +231,7 @@ ModifierTypeInfo modifierType_Remesh = {
 	/* requiredDataMask */  NULL,
 	/* freeData */          NULL,
 	/* isDisabled */        NULL,
+	/* updateDepgraph */    NULL,
 	/* updateDepsgraph */   NULL,
 	/* dependsOnTime */     NULL,
 	/* dependsOnNormals */	NULL,

@@ -233,6 +233,10 @@ Image *RAS_IPolyMaterial::GetBlenderImage() const
 {
 	return NULL;
 }
+MTexPoly *RAS_IPolyMaterial::GetMTexPoly() const
+{
+	return NULL;
+}
 
 unsigned int *RAS_IPolyMaterial::GetMCol() const
 {

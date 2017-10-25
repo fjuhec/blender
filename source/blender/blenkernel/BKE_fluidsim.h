@@ -36,11 +36,10 @@ struct Object;
 struct Scene;
 struct FluidsimSettings;
 struct MVert;
-struct EvaluationContext;
 
 /* old interface */
 
-void initElbeemMesh(const struct EvaluationContext *eval_ctx, struct Scene *scene, struct Object *ob,
+void initElbeemMesh(struct Scene *scene, struct Object *ob,
                     int *numVertices, float **vertices,
                     int *numTriangles, int **triangles,
                     int useGlobalCoords, int modifierIndex);

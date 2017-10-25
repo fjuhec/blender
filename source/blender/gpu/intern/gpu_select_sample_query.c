@@ -32,8 +32,6 @@
 
 #include <stdlib.h>
 
-#include "GPU_immediate.h"
-#include "GPU_draw.h"
 #include "GPU_select.h"
 #include "GPU_extensions.h"
 #include "GPU_glew.h"
@@ -96,7 +94,7 @@ void gpu_select_query_begin(
 	g_query_state.id = MEM_mallocN(g_query_state.num_of_queries * sizeof(*g_query_state.id), "gpu selection ids");
 	glGenQueries(g_query_state.num_of_queries, g_query_state.queries);
 
-	gpuPushAttrib(GPU_DEPTH_BUFFER_BIT | GPU_VIEWPORT_BIT);
+	glPushAttrib(GL_DEPTH_BUFFER_BIT | GL_VIEWPORT_BIT);
 	/* disable writing to the framebuffer */
 	glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
 
@@ -208,7 +206,7 @@ unsigned int gpu_select_query_end(void)
 	glDeleteQueries(g_query_state.num_of_queries, g_query_state.queries);
 	MEM_freeN(g_query_state.queries);
 	MEM_freeN(g_query_state.id);
-	gpuPopAttrib();
+	glPopAttrib();
 	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
 	return hits;

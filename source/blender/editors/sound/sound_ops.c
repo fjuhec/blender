@@ -67,7 +67,7 @@
 #include "WM_types.h"
 
 #ifdef WITH_AUDASPACE
-#  include <AUD_Special.h>
+#  include AUD_SPECIAL_H
 #endif
 
 #include "ED_sound.h"
@@ -318,11 +318,11 @@ static int sound_bake_animation_exec(bContext *C, wmOperator *UNUSED(op))
 
 	for (cfra = (scene->r.sfra > 0) ? (scene->r.sfra - 1) : 0; cfra <= scene->r.efra + 1; cfra++) {
 		scene->r.cfra = cfra;
-		BKE_scene_update_for_newframe(bmain->eval_ctx, bmain, scene);
+		BKE_scene_update_for_newframe(bmain->eval_ctx, bmain, scene, scene->lay);
 	}
 
 	scene->r.cfra = oldfra;
-	BKE_scene_update_for_newframe(bmain->eval_ctx, bmain, scene);
+	BKE_scene_update_for_newframe(bmain->eval_ctx, bmain, scene, scene->lay);
 
 	return OPERATOR_FINISHED;
 }
@@ -634,7 +634,7 @@ static void sound_mixdown_draw(bContext *C, wmOperator *op)
 	RNA_pointer_create(&wm->id, op->type->srna, op->properties, &ptr);
 
 	/* main draw call */
-	uiDefAutoButsRNA(layout, &ptr, sound_mixdown_draw_check_prop, '\0', false);
+	uiDefAutoButsRNA(layout, &ptr, sound_mixdown_draw_check_prop, '\0');
 }
 #endif // WITH_AUDASPACE
 

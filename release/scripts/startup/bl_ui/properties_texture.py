@@ -125,7 +125,7 @@ class TextureButtonsPanel:
     @classmethod
     def poll(cls, context):
         tex = context.texture
-        return tex and (tex.type != 'NONE' or tex.use_nodes) and (context.engine in cls.COMPAT_ENGINES)
+        return tex and (tex.type != 'NONE' or tex.use_nodes) and (context.scene.render.engine in cls.COMPAT_ENGINES)
 
 
 class TEXTURE_PT_context_texture(TextureButtonsPanel, Panel):
@@ -135,7 +135,7 @@ class TEXTURE_PT_context_texture(TextureButtonsPanel, Panel):
 
     @classmethod
     def poll(cls, context):
-        engine = context.engine
+        engine = context.scene.render.engine
         # if not (hasattr(context, "texture_slot") or hasattr(context, "texture_node")):
         #     return False
         return ((context.material or
@@ -292,7 +292,7 @@ class TextureSlotPanel(TextureButtonsPanel):
         if not hasattr(context, "texture_slot"):
             return False
 
-        engine = context.engine
+        engine = context.scene.render.engine
         return TextureButtonsPanel.poll(cls, context) and (engine in cls.COMPAT_ENGINES)
 
 
@@ -304,7 +304,7 @@ class TextureTypePanel(TextureButtonsPanel):
     @classmethod
     def poll(cls, context):
         tex = context.texture
-        engine = context.engine
+        engine = context.scene.render.engine
         return tex and ((tex.type == cls.tex_type and not tex.use_nodes) and (engine in cls.COMPAT_ENGINES))
 
 
@@ -459,7 +459,7 @@ def texture_filter_common(tex, layout):
     layout.prop(tex, "filter_type", text="")
     if tex.use_mipmap and tex.filter_type in {'AREA', 'EWA', 'FELINE'}:
         if tex.filter_type == 'FELINE':
-            layout.prop(tex, "filter_lightprobes", text="Light Probes")
+            layout.prop(tex, "filter_probes", text="Probes")
         else:
             layout.prop(tex, "filter_eccentricity", text="Eccentricity")
 
@@ -474,7 +474,7 @@ class TEXTURE_PT_image_sampling(TextureTypePanel, Panel):
     COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME'}
 
     def draw(self, context):
-        if context.engine == 'BLENDER_GAME':
+        if context.scene.render.engine == 'BLENDER_GAME':
             self.draw_bge(context)
         else:
             self.draw_bi(context)
@@ -756,7 +756,7 @@ class TEXTURE_PT_voxeldata(TextureButtonsPanel, Panel):
     @classmethod
     def poll(cls, context):
         tex = context.texture
-        engine = context.engine
+        engine = context.scene.render.engine
         return tex and (tex.type == 'VOXEL_DATA' and (engine in cls.COMPAT_ENGINES))
 
     def draw(self, context):
@@ -799,7 +799,7 @@ class TEXTURE_PT_pointdensity(TextureButtonsPanel, Panel):
     @classmethod
     def poll(cls, context):
         tex = context.texture
-        engine = context.engine
+        engine = context.scene.render.engine
         return tex and (tex.type == 'POINT_DENSITY' and (engine in cls.COMPAT_ENGINES))
 
     def draw(self, context):
@@ -874,7 +874,7 @@ class TEXTURE_PT_pointdensity_turbulence(TextureButtonsPanel, Panel):
     @classmethod
     def poll(cls, context):
         tex = context.texture
-        engine = context.engine
+        engine = context.scene.render.engine
         return tex and (tex.type == 'POINT_DENSITY' and (engine in cls.COMPAT_ENGINES))
 
     def draw_header(self, context):
@@ -933,7 +933,7 @@ class TEXTURE_PT_mapping(TextureSlotPanel, Panel):
         if not getattr(context, "texture_slot", None):
             return False
 
-        engine = context.engine
+        engine = context.scene.render.engine
         return (engine in cls.COMPAT_ENGINES)
 
     def draw(self, context):
@@ -963,7 +963,7 @@ class TEXTURE_PT_mapping(TextureSlotPanel, Panel):
                 split.label(text="Map:")
                 ob = context.object
                 if ob and ob.type == 'MESH':
-                    split.prop_search(tex, "uv_layer", ob.data, "uv_layers", text="")
+                    split.prop_search(tex, "uv_layer", ob.data, "uv_textures", text="")
                 else:
                     split.prop(tex, "uv_layer", text="")
 
@@ -1036,7 +1036,7 @@ class TEXTURE_PT_influence(TextureSlotPanel, Panel):
         if not getattr(context, "texture_slot", None):
             return False
 
-        engine = context.engine
+        engine = context.scene.render.engine
         return (engine in cls.COMPAT_ENGINES)
 
     def draw(self, context):

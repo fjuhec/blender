@@ -74,7 +74,6 @@ const EnumPropertyItem rna_enum_id_type_items[] = {
 	{ID_PC, "PAINTCURVE", ICON_CURVE_BEZCURVE, "Paint Curve", ""},
 	{ID_PAL, "PALETTE", ICON_COLOR, "Palette", ""},
 	{ID_PA, "PARTICLE", ICON_PARTICLE_DATA, "Particle", ""},
-	{ID_LT, "LIGHT_PROBE", ICON_RADIO, "Light Probe", ""},
 	{ID_SCE, "SCENE", ICON_SCENE_DATA, "Scene", ""},
 	{ID_SCR, "SCREEN", ICON_SPLITSCREEN, "Screen", ""},
 	{ID_SO, "SOUND", ICON_PLAY_AUDIO, "Sound", ""},
@@ -83,7 +82,6 @@ const EnumPropertyItem rna_enum_id_type_items[] = {
 	{ID_TE, "TEXTURE", ICON_TEXTURE_DATA, "Texture", ""},
 	{ID_WM, "WINDOWMANAGER", ICON_FULLSCREEN, "Window Manager", ""},
 	{ID_WO, "WORLD", ICON_WORLD_DATA, "World", ""},
-	{ID_WS, "WORKSPACE", ICON_NONE, "Workspace", ""},
 	{0, NULL, 0, NULL, NULL}
 };
 
@@ -100,10 +98,8 @@ const EnumPropertyItem rna_enum_id_type_items[] = {
 #include "BKE_library_remap.h"
 #include "BKE_animsys.h"
 #include "BKE_material.h"
+#include "BKE_depsgraph.h"
 #include "BKE_global.h"  /* XXX, remove me */
-
-#include "DEG_depsgraph.h"
-#include "DEG_depsgraph_build.h"
 
 #include "WM_api.h"
 
@@ -140,56 +136,48 @@ static int rna_ID_name_editable(PointerRNA *ptr, const char **UNUSED(r_info))
 	return PROP_EDITABLE;
 }
 
-short RNA_type_to_ID_code(const StructRNA *type)
+short RNA_type_to_ID_code(StructRNA *type)
 {
-	const StructRNA *base_type = RNA_struct_base_child_of(type, &RNA_ID);
-	if (UNLIKELY(base_type == NULL)) {
-		return 0;
-	}
-	if (base_type == &RNA_Action) return ID_AC;
-	if (base_type == &RNA_Armature) return ID_AR;
-	if (base_type == &RNA_Brush) return ID_BR;
-	if (base_type == &RNA_CacheFile) return ID_CF;
-	if (base_type == &RNA_Camera) return ID_CA;
-	if (base_type == &RNA_Curve) return ID_CU;
-	if (base_type == &RNA_GreasePencil) return ID_GD;
-	if (base_type == &RNA_Group) return ID_GR;
-	if (base_type == &RNA_Image) return ID_IM;
-	if (base_type == &RNA_Key) return ID_KE;
-	if (base_type == &RNA_Lamp) return ID_LA;
-	if (base_type == &RNA_Library) return ID_LI;
-	if (base_type == &RNA_FreestyleLineStyle) return ID_LS;
-	if (base_type == &RNA_Lattice) return ID_LT;
-	if (base_type == &RNA_Material) return ID_MA;
-	if (base_type == &RNA_MetaBall) return ID_MB;
-	if (base_type == &RNA_MovieClip) return ID_MC;
-	if (base_type == &RNA_Mesh) return ID_ME;
-	if (base_type == &RNA_Mask) return ID_MSK;
-	if (base_type == &RNA_NodeTree) return ID_NT;
-	if (base_type == &RNA_Object) return ID_OB;
-	if (base_type == &RNA_ParticleSettings) return ID_PA;
-	if (base_type == &RNA_Palette) return ID_PAL;
-	if (base_type == &RNA_PaintCurve) return ID_PC;
-	if (base_type == &RNA_LightProbe) return ID_LP;
-	if (base_type == &RNA_Scene) return ID_SCE;
-	if (base_type == &RNA_Screen) return ID_SCR;
-	if (base_type == &RNA_Sound) return ID_SO;
-	if (base_type == &RNA_Speaker) return ID_SPK;
-	if (base_type == &RNA_Texture) return ID_TE;
-	if (base_type == &RNA_Text) return ID_TXT;
-	if (base_type == &RNA_VectorFont) return ID_VF;
-	if (base_type == &RNA_WorkSpace) return ID_WS;
-	if (base_type == &RNA_World) return ID_WO;
-	if (base_type == &RNA_WindowManager) return ID_WM;
+	if (RNA_struct_is_a(type, &RNA_Action)) return ID_AC;
+	if (RNA_struct_is_a(type, &RNA_Armature)) return ID_AR;
+	if (RNA_struct_is_a(type, &RNA_Brush)) return ID_BR;
+	if (RNA_struct_is_a(type, &RNA_CacheFile)) return ID_CF;
+	if (RNA_struct_is_a(type, &RNA_Camera)) return ID_CA;
+	if (RNA_struct_is_a(type, &RNA_Curve)) return ID_CU;
+	if (RNA_struct_is_a(type, &RNA_GreasePencil)) return ID_GD;
+	if (RNA_struct_is_a(type, &RNA_Group)) return ID_GR;
+	if (RNA_struct_is_a(type, &RNA_Image)) return ID_IM;
+	if (RNA_struct_is_a(type, &RNA_Key)) return ID_KE;
+	if (RNA_struct_is_a(type, &RNA_Lamp)) return ID_LA;
+	if (RNA_struct_is_a(type, &RNA_Library)) return ID_LI;
+	if (RNA_struct_is_a(type, &RNA_FreestyleLineStyle)) return ID_LS;
+	if (RNA_struct_is_a(type, &RNA_Lattice)) return ID_LT;
+	if (RNA_struct_is_a(type, &RNA_Material)) return ID_MA;
+	if (RNA_struct_is_a(type, &RNA_MetaBall)) return ID_MB;
+	if (RNA_struct_is_a(type, &RNA_MovieClip)) return ID_MC;
+	if (RNA_struct_is_a(type, &RNA_Mesh)) return ID_ME;
+	if (RNA_struct_is_a(type, &RNA_Mask)) return ID_MSK;
+	if (RNA_struct_is_a(type, &RNA_NodeTree)) return ID_NT;
+	if (RNA_struct_is_a(type, &RNA_Object)) return ID_OB;
+	if (RNA_struct_is_a(type, &RNA_ParticleSettings)) return ID_PA;
+	if (RNA_struct_is_a(type, &RNA_Palette)) return ID_PAL;
+	if (RNA_struct_is_a(type, &RNA_PaintCurve)) return ID_PC;
+	if (RNA_struct_is_a(type, &RNA_Scene)) return ID_SCE;
+	if (RNA_struct_is_a(type, &RNA_Screen)) return ID_SCR;
+	if (RNA_struct_is_a(type, &RNA_Sound)) return ID_SO;
+	if (RNA_struct_is_a(type, &RNA_Speaker)) return ID_SPK;
+	if (RNA_struct_is_a(type, &RNA_Texture)) return ID_TE;
+	if (RNA_struct_is_a(type, &RNA_Text)) return ID_TXT;
+	if (RNA_struct_is_a(type, &RNA_VectorFont)) return ID_VF;
+	if (RNA_struct_is_a(type, &RNA_World)) return ID_WO;
+	if (RNA_struct_is_a(type, &RNA_WindowManager)) return ID_WM;
 
 	return 0;
 }
 
 StructRNA *ID_code_to_RNA_type(short idcode)
 {
-	/* Note, this switch doesn't use a 'default',
-	 * so adding new ID's causes a warning. */
-	switch ((ID_Type)idcode) {
+	switch (idcode) {
 		case ID_AC: return &RNA_Action;
 		case ID_AR: return &RNA_Armature;
 		case ID_BR: return &RNA_Brush;
@@ -214,7 +202,6 @@ StructRNA *ID_code_to_RNA_type(short idcode)
 		case ID_PA: return &RNA_ParticleSettings;
 		case ID_PAL: return &RNA_Palette;
 		case ID_PC: return &RNA_PaintCurve;
-		case ID_LP: return &RNA_LightProbe;
 		case ID_SCE: return &RNA_Scene;
 		case ID_SCR: return &RNA_Screen;
 		case ID_SO: return &RNA_Sound;
@@ -224,13 +211,9 @@ StructRNA *ID_code_to_RNA_type(short idcode)
 		case ID_VF: return &RNA_VectorFont;
 		case ID_WM: return &RNA_WindowManager;
 		case ID_WO: return &RNA_World;
-		case ID_WS: return &RNA_WorkSpace;
 
-		/* deprecated */
-		case ID_IP: break;
+		default: return &RNA_ID;
 	}
-
-	return &RNA_ID;
 }
 
 StructRNA *rna_ID_refine(PointerRNA *ptr)
@@ -349,7 +332,7 @@ static void rna_ID_update_tag(ID *id, ReportList *reports, int flag)
 		}
 	}
 
-	DEG_id_tag_update(id, flag);
+	DAG_id_tag_update(id, flag);
 }
 
 static void rna_ID_user_clear(ID *id)
@@ -385,23 +368,15 @@ static struct ID *rna_ID_make_local(struct ID *self, Main *bmain, int clear_prox
 static AnimData * rna_ID_animation_data_create(ID *id, Main *bmain)
 {
 	AnimData *adt = BKE_animdata_add_id(id);
-	DEG_relations_tag_update(bmain);
+	DAG_relations_tag_update(bmain);
 	return adt;
 }
 
 static void rna_ID_animation_data_free(ID *id, Main *bmain)
 {
 	BKE_animdata_free(id, true);
-	DEG_relations_tag_update(bmain);
+	DAG_relations_tag_update(bmain);
 }
-
-#ifdef WITH_PYTHON
-void **rna_ID_instance(PointerRNA *ptr)
-{
-	ID *id = (ID *)ptr->data;
-	return &id->py_instance;
-}
-#endif
 
 static void rna_IDPArray_begin(CollectionPropertyIterator *iter, PointerRNA *ptr)
 {
@@ -458,7 +433,7 @@ static Material *rna_IDMaterials_pop_id(ID *id, Main *bmain, ReportList *reports
 		return NULL;
 	}
 
-	DEG_id_tag_update(id, OB_RECALC_DATA);
+	DAG_id_tag_update(id, OB_RECALC_DATA);
 	WM_main_add_notifier(NC_OBJECT | ND_DRAW, id);
 	WM_main_add_notifier(NC_OBJECT | ND_OB_SHADING, id);
 
@@ -469,7 +444,7 @@ static void rna_IDMaterials_clear_id(ID *id, int remove_material_slot)
 {
 	BKE_material_clear_id(G.main, id, remove_material_slot);
 
-	DEG_id_tag_update(id, OB_RECALC_DATA);
+	DAG_id_tag_update(id, OB_RECALC_DATA);
 	WM_main_add_notifier(NC_OBJECT | ND_DRAW, id);
 	WM_main_add_notifier(NC_OBJECT | ND_OB_SHADING, id);
 }
@@ -1080,10 +1055,6 @@ static void rna_def_ID(BlenderRNA *brna)
 	                                "Tag the ID to update its display data, "
 	                                "e.g. when calling :class:`bpy.types.Scene.update`");
 	RNA_def_enum_flag(func, "refresh", update_flag_items, 0, "", "Type of updates to perform");
-
-#ifdef WITH_PYTHON
-	RNA_def_struct_register_funcs(srna, NULL, NULL, "rna_ID_instance");
-#endif
 }
 
 static void rna_def_library(BlenderRNA *brna)

@@ -67,11 +67,13 @@ void snode_group_offset(struct SpaceNode *snode, float *x, float *y);	/* transfo
 
 /* node_draw.c */
 int node_get_colorid(struct bNode *node);
+void node_socket_draw(
+        const struct bContext *C, struct bNodeTree *ntree, struct bNode *node,
+        struct bNodeSocket *sock, float size, bool highlight);
 int node_get_resize_cursor(int directions);
 void node_draw_shadow(struct SpaceNode *snode, struct bNode *node, float radius, float alpha);
 void node_draw_default(const struct bContext *C, struct ARegion *ar, struct SpaceNode *snode,
                        struct bNodeTree *ntree, struct bNode *node, bNodeInstanceKey key);
-void node_draw_sockets(struct View2D *v2d, const struct bContext *C, struct bNodeTree *ntree, struct bNode *node, bool draw_outputs, bool select_all);
 void node_update_default(const struct bContext *C, struct bNodeTree *ntree, struct bNode *node);
 int node_select_area_default(struct bNode *node, int x, int y);
 int node_tweak_area_default(struct bNode *node, int x, int y);
@@ -218,13 +220,6 @@ void NODE_OT_shader_script_update(struct wmOperatorType *ot);
 
 void NODE_OT_viewer_border(struct wmOperatorType *ot);
 void NODE_OT_clear_viewer_border(struct wmOperatorType *ot);
-
-/* node_widgets.c */
-void NODE_WGT_backdrop_transform(struct wmManipulatorGroupType *wgt);
-void NODE_WGT_backdrop_crop(struct wmManipulatorGroupType *wgt);
-void NODE_WGT_backdrop_sun_beams(struct wmManipulatorGroupType *wgt);
-void NODE_WGT_backdrop_corner_pin(struct wmManipulatorGroupType *wgt);
-
 
 extern const char *node_context_dir[];
 

@@ -49,6 +49,7 @@
 #include "BKE_DerivedMesh.h"
 #include "BKE_brush.h"
 #include "BKE_context.h"
+#include "BKE_depsgraph.h"
 #include "BKE_deform.h"
 #include "BKE_mesh.h"
 #include "BKE_mesh_mapping.h"
@@ -57,8 +58,6 @@
 #include "BKE_paint.h"
 #include "BKE_report.h"
 #include "BKE_colortools.h"
-
-#include "DEG_depsgraph.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -131,13 +130,9 @@ static int weight_from_bones_exec(bContext *C, wmOperator *op)
 	Mesh *me = ob->data;
 	int type = RNA_enum_get(op->ptr, "type");
 
-	EvaluationContext eval_ctx;
+	create_vgroups_from_armature(op->reports, scene, ob, armob, type, (me->editflag & ME_EDIT_MIRROR_X));
 
-	CTX_data_eval_ctx(C, &eval_ctx);
-
-	create_vgroups_from_armature(op->reports, &eval_ctx, scene, ob, armob, type, (me->editflag & ME_EDIT_MIRROR_X));
-
-	DEG_id_tag_update(&me->id, 0);
+	DAG_id_tag_update(&me->id, 0);
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, me);
 
 	return OPERATOR_FINISHED;
@@ -371,7 +366,7 @@ static int weight_sample_group_exec(bContext *C, wmOperator *op)
 	BLI_assert(type + 1 >= 0);
 	vc.obact->actdef = type + 1;
 
-	DEG_id_tag_update(&vc.obact->id, OB_RECALC_DATA);
+	DAG_id_tag_update(&vc.obact->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, vc.obact);
 	return OPERATOR_FINISHED;
 }
@@ -487,7 +482,7 @@ static bool weight_paint_set(Object *ob, float paintweight)
 
 	wpaint_prev_destroy(&wpp);
 
-	DEG_id_tag_update(&me->id, 0);
+	DAG_id_tag_update(&me->id, 0);
 
 	return true;
 }
@@ -699,7 +694,7 @@ static int paint_weight_gradient_modal(bContext *C, wmOperator *op, const wmEven
 		}
 		MEM_freeN(vert_cache);
 
-		DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+		DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 		WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
 	}
 	else if (ret & OPERATOR_FINISHED) {
@@ -725,12 +720,7 @@ static int paint_weight_gradient_exec(bContext *C, wmOperator *op)
 	float sco_start[2] = {x_start, y_start};
 	float sco_end[2] = {x_end, y_end};
 	const bool is_interactive = (gesture != NULL);
-
-	EvaluationContext eval_ctx;
-
-	CTX_data_eval_ctx(C, &eval_ctx);
-
-	DerivedMesh *dm = mesh_get_derived_final(&eval_ctx, scene, ob, scene->customdata_mask);
+	DerivedMesh *dm = mesh_get_derived_final(scene, ob, scene->customdata_mask);
 
 	DMGradient_userData data = {NULL};
 
@@ -802,7 +792,7 @@ static int paint_weight_gradient_exec(bContext *C, wmOperator *op)
 		dm->foreachMappedVert(dm, gradientVertUpdate__mapFunc, &data, DM_FOREACH_NOP);
 	}
 
-	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
 
 	if (is_interactive == false) {

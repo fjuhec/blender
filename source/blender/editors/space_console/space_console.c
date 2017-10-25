@@ -368,9 +368,7 @@ static void console_header_region_draw(const bContext *C, ARegion *ar)
 	ED_region_header(C, ar);
 }
 
-static void console_main_region_listener(
-        bScreen *UNUSED(sc), ScrArea *sa, ARegion *ar,
-        wmNotifier *wmn, const Scene *UNUSED(scene))
+static void console_main_region_listener(bScreen *UNUSED(sc), ScrArea *sa, ARegion *ar, wmNotifier *wmn)
 {
 	// SpaceInfo *sinfo = sa->spacedata.first;
 

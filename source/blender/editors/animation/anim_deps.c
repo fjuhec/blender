@@ -49,11 +49,10 @@
 #include "BKE_fcurve.h"
 #include "BKE_gpencil.h"
 #include "BKE_context.h"
+#include "BKE_depsgraph.h"
 #include "BKE_global.h"
 #include "BKE_node.h"
 #include "BKE_sequencer.h"
-
-#include "DEG_depsgraph.h"
 
 #include "RNA_access.h"
 
@@ -78,7 +77,7 @@ void ANIM_list_elem_update(Scene *scene, bAnimListElem *ale)
 	adt = BKE_animdata_from_id(id);
 	if (adt) {
 		adt->recalc |= ADT_RECALC_ANIM;
-		DEG_id_tag_update(id, OB_RECALC_TIME);
+		DAG_id_tag_update(id, OB_RECALC_TIME);
 	}
 
 	/* update data */
@@ -99,7 +98,7 @@ void ANIM_list_elem_update(Scene *scene, bAnimListElem *ale)
 	else {
 		/* in other case we do standard depsgraph update, ideally
 		 * we'd be calling property update functions here too ... */
-		DEG_id_tag_update(id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME); // XXX or do we want something more restrictive?
+		DAG_id_tag_update(id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME); // XXX or do we want something more restrictive?
 	}
 }
 
@@ -115,7 +114,7 @@ void ANIM_id_update(Scene *UNUSED(scene), ID *id)
 			adt->recalc |= ADT_RECALC_ANIM;
 			
 		/* set recalc flags */
-		DEG_id_tag_update(id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME); // XXX or do we want something more restrictive?
+		DAG_id_tag_update(id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME); // XXX or do we want something more restrictive?
 	}
 }
 

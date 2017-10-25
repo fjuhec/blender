@@ -32,6 +32,7 @@ extern "C" {
 #include "DNA_space_types.h"  /* for FILE_MAX */
 
 #include "BKE_constraint.h"
+#include "BKE_depsgraph.h"
 #include "BKE_idprop.h"
 #include "BKE_library.h"
 #include "BKE_modifier.h"
@@ -58,15 +59,13 @@ using Alembic::AbcGeom::OStringProperty;
 
 /* ************************************************************************** */
 
-AbcObjectWriter::AbcObjectWriter(EvaluationContext *eval_ctx,
-                                 Scene *scene,
+AbcObjectWriter::AbcObjectWriter(Scene *scene,
                                  Object *ob,
                                  uint32_t time_sampling,
                                  ExportSettings &settings,
                                  AbcObjectWriter *parent)
     : m_object(ob)
     , m_settings(settings)
-    , m_eval_ctx(eval_ctx)
     , m_scene(scene)
     , m_time_sampling(time_sampling)
     , m_first_frame(true)

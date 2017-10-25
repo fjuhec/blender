@@ -91,6 +91,7 @@ static const EnumPropertyItem rigidbody_mesh_source_items[] = {
 #  include "RBI_api.h"
 #endif
 
+#include "BKE_depsgraph.h"
 #include "BKE_rigidbody.h"
 
 #include "WM_api.h"

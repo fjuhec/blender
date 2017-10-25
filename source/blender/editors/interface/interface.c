@@ -56,8 +56,7 @@
 #include "BKE_screen.h"
 #include "BKE_idprop.h"
 
-#include "GPU_glew.h"
-#include "GPU_matrix.h"
+#include "BIF_gl.h"
 
 #include "BLF_api.h"
 #include "BLT_translation.h"
@@ -510,7 +509,6 @@ static int ui_but_calc_float_precision(uiBut *but, double value)
 static void ui_draw_linkline(uiLinkLine *line, int highlightActiveLines, int dashInactiveLines)
 {
 	rcti rect;
-	float color[4] = {1.0f};
 
 	if (line->from == NULL || line->to == NULL) return;
 	
@@ -520,15 +518,15 @@ static void ui_draw_linkline(uiLinkLine *line, int highlightActiveLines, int das
 	rect.ymax = BLI_rctf_cent_y(&line->to->rect);
 	
 	if (dashInactiveLines)
-		UI_GetThemeColor4fv(TH_GRID, color);
+		UI_ThemeColor(TH_GRID);
 	else if (line->flag & UI_SELECT)
-		rgba_float_args_set_ch(color, 100, 100, 100, 255);
+		glColor3ub(100, 100, 100);
 	else if (highlightActiveLines && ((line->from->flag & UI_ACTIVE) || (line->to->flag & UI_ACTIVE)))
-		UI_GetThemeColor4fv(TH_TEXT_HI, color);
+		UI_ThemeColor(TH_TEXT_HI);
 	else
-		rgba_float_args_set_ch(color, 0, 0, 0, 255);
+		glColor3ub(0, 0, 0);
 
-	ui_draw_link_bezier(&rect, color);
+	ui_draw_link_bezier(&rect);
 }
 
 static void ui_draw_links(uiBlock *block)
@@ -1279,7 +1277,7 @@ void UI_block_end_ex(const bContext *C, uiBlock *block, const int xy[2], int r_x
 	if (block->layouts.first) {
 		UI_block_layout_resolve(block, NULL, NULL);
 	}
-	ui_block_align_calc(block, CTX_wm_region(C));
+	ui_block_align_calc(block);
 	if ((block->flag & UI_BLOCK_LOOP) && (block->flag & UI_BLOCK_NUMSELECT)) {
 		ui_menu_block_set_keyaccels(block); /* could use a different flag to check */
 	}
@@ -1393,9 +1391,11 @@ void UI_block_draw(const bContext *C, uiBlock *block)
 	ui_but_to_pixelrect(&rect, ar, block, NULL);
 	
 	/* pixel space for AA widgets */
-	gpuPushProjectionMatrix();
-	gpuPushMatrix();
-	gpuLoadIdentity();
+	glMatrixMode(GL_PROJECTION);
+	glPushMatrix();
+	glMatrixMode(GL_MODELVIEW);
+	glPushMatrix();
+	glLoadIdentity();
 
 	wmOrtho2_region_pixelspace(ar);
 	
@@ -1420,8 +1420,10 @@ void UI_block_draw(const bContext *C, uiBlock *block)
 	}
 	
 	/* restore matrix */
-	gpuPopProjectionMatrix();
-	gpuPopMatrix();
+	glMatrixMode(GL_PROJECTION);
+	glPopMatrix();
+	glMatrixMode(GL_MODELVIEW);
+	glPopMatrix();
 
 	if (multisample_enabled)
 		glEnable(GL_MULTISAMPLE);
@@ -1482,18 +1484,6 @@ int ui_but_is_pushed_ex(uiBut *but, double *value)
 				}
 				else {
 					if (*value == (double)but->hardmax) is_push = true;
-				}
-				break;
-			case UI_BTYPE_TAB:
-				if (but->rnaprop && but->custom_data) {
-					/* uiBut.custom_data points to data this tab represents (e.g. workspace).
-					 * uiBut.rnapoin/prop store an active value (e.g. active workspace). */
-					if (RNA_property_type(but->rnaprop) == PROP_POINTER) {
-						PointerRNA active_ptr = RNA_property_pointer_get(&but->rnapoin, but->rnaprop);
-						if (active_ptr.data == but->custom_data) {
-							is_push = true;
-						}
-					}
 				}
 				break;
 			default:
@@ -2024,7 +2014,7 @@ static bool ui_but_icon_extra_is_visible_text_clear(const uiBut *but)
 
 static bool ui_but_icon_extra_is_visible_search_unlink(const uiBut *but)
 {
-	BLI_assert(ELEM(but->type, UI_BTYPE_SEARCH_MENU, UI_BTYPE_TAB));
+	BLI_assert(but->type == UI_BTYPE_SEARCH_MENU);
 	return ((but->editstr == NULL) &&
 	        (but->drawstr[0] != '\0') &&
 	        (but->flag & UI_BUT_VALUE_CLEAR));
@@ -2065,11 +2055,6 @@ uiButExtraIconType ui_but_icon_extra_get(uiBut *but)
 			}
 			else if (ui_but_icon_extra_is_visible_search_eyedropper(but)) {
 				return UI_BUT_ICONEXTRA_EYEDROPPER;
-			}
-			break;
-		case UI_BTYPE_TAB:
-			if (ui_but_icon_extra_is_visible_search_unlink(but)) {
-				return UI_BUT_ICONEXTRA_CLEAR;
 			}
 			break;
 		default:
@@ -2185,23 +2170,14 @@ void ui_but_string_get_ex(uiBut *but, char *str, const size_t maxlen, const int 
 		*r_use_exp_float = false;
 	}
 
-	if (but->rnaprop && ELEM(but->type, UI_BTYPE_TEXT, UI_BTYPE_SEARCH_MENU, UI_BTYPE_TAB)) {
+	if (but->rnaprop && ELEM(but->type, UI_BTYPE_TEXT, UI_BTYPE_SEARCH_MENU)) {
 		PropertyType type;
 		const char *buf = NULL;
 		int buf_len;
 
 		type = RNA_property_type(but->rnaprop);
 
-		if ((but->type == UI_BTYPE_TAB) && (but->custom_data)) {
-			StructRNA *ptr_type = RNA_property_pointer_type(&but->rnapoin, but->rnaprop);
-			PointerRNA ptr;
-
-			/* uiBut.custom_data points to data this tab represents (e.g. workspace).
-			 * uiBut.rnapoin/prop store an active value (e.g. active workspace). */
-			RNA_pointer_create(but->rnapoin.id.data, ptr_type, but->custom_data, &ptr);
-			buf = RNA_struct_name_get_alloc(&ptr, str, maxlen, &buf_len);
-		}
-		else if (type == PROP_STRING) {
+		if (type == PROP_STRING) {
 			/* RNA string */
 			buf = RNA_property_string_get_alloc(&but->rnapoin, but->rnaprop, str, maxlen, &buf_len);
 		}
@@ -2237,7 +2213,12 @@ void ui_but_string_get_ex(uiBut *but, char *str, const size_t maxlen, const int 
 			MEM_freeN((void *)buf);
 		}
 	}
-	else if (ELEM(but->type, UI_BTYPE_TEXT, UI_BTYPE_SEARCH_MENU)) {
+	else if (but->type == UI_BTYPE_TEXT) {
+		/* string */
+		BLI_strncpy(str, but->poin, maxlen);
+		return;
+	}
+	else if (but->type == UI_BTYPE_SEARCH_MENU) {
 		/* string */
 		BLI_strncpy(str, but->poin, maxlen);
 		return;
@@ -2435,7 +2416,7 @@ static void ui_but_string_free_internal(uiBut *but)
 
 bool ui_but_string_set(bContext *C, uiBut *but, const char *str)
 {
-	if (but->rnaprop && but->rnapoin.data && ELEM(but->type, UI_BTYPE_TEXT, UI_BTYPE_SEARCH_MENU)) {
+	if (but->rnaprop && ELEM(but->type, UI_BTYPE_TEXT, UI_BTYPE_SEARCH_MENU)) {
 		if (RNA_property_editable(&but->rnapoin, but->rnaprop)) {
 			PropertyType type;
 
@@ -2447,16 +2428,18 @@ bool ui_but_string_set(bContext *C, uiBut *but, const char *str)
 				return true;
 			}
 			else if (type == PROP_POINTER) {
+				/* RNA pointer */
+				PointerRNA ptr, rptr;
+				PropertyRNA *prop;
+
 				if (str[0] == '\0') {
 					RNA_property_pointer_set(&but->rnapoin, but->rnaprop, PointerRNA_NULL);
 					return true;
 				}
 				else {
-					/* RNA pointer */
-					PointerRNA rptr;
-					PointerRNA ptr = but->rnasearchpoin;
-					PropertyRNA *prop = but->rnasearchprop;
-
+					ptr = but->rnasearchpoin;
+					prop = but->rnasearchprop;
+					
 					if (prop && RNA_property_collection_lookup_string(&ptr, prop, str, &rptr))
 						RNA_property_pointer_set(&but->rnapoin, but->rnaprop, rptr);
 
@@ -2478,32 +2461,10 @@ bool ui_but_string_set(bContext *C, uiBut *but, const char *str)
 			}
 		}
 	}
-	else if (but->type == UI_BTYPE_TAB) {
-		if (but->rnaprop && but->custom_data) {
-			StructRNA *ptr_type = RNA_property_pointer_type(&but->rnapoin, but->rnaprop);
-			PointerRNA ptr;
-			PropertyRNA *prop;
-
-			/* uiBut.custom_data points to data this tab represents (e.g. workspace).
-			 * uiBut.rnapoin/prop store an active value (e.g. active workspace). */
-			RNA_pointer_create(but->rnapoin.id.data, ptr_type, but->custom_data, &ptr);
-			prop = RNA_struct_name_property(ptr_type);
-			if (RNA_property_editable(&ptr, prop)) {
-				RNA_property_string_set(&ptr, prop, str);
-			}
-		}
-	}
 	else if (but->type == UI_BTYPE_TEXT) {
 		/* string */
-		if (!but->poin || (str[0] == '\0')) {
-			str = "";
-		}
-		else if (ui_but_is_utf8(but)) {
-			BLI_strncpy_utf8(but->poin, str, but->hardmax);
-		}
-		else {
-			BLI_strncpy(but->poin, str, but->hardmax);
-		}
+		if (ui_but_is_utf8(but)) BLI_strncpy_utf8(but->poin, str, but->hardmax);
+		else BLI_strncpy(but->poin, str, but->hardmax);
 
 		return true;
 	}
@@ -2711,10 +2672,6 @@ static void ui_but_free(const bContext *C, uiBut *but)
 		MEM_freeN(but->tip_argN);
 	}
 
-	if (!but->editstr && but->free_search_arg) {
-		MEM_SAFE_FREE(but->search_arg);
-	}
-
 	if (but->active) {
 		/* XXX solve later, buttons should be free-able without context ideally,
 		 * however they may have open tooltips or popup windows, which need to
@@ -2867,13 +2824,11 @@ uiBlock *UI_block_begin(const bContext *C, ARegion *region, const char *name, sh
 		block->aspect = 2.0f / fabsf(getsizex * block->winmat[0][0]);
 	}
 	else {
-		const bScreen *screen = WM_window_get_active_screen(window);
-
 		/* no subwindow created yet, for menus for example, so we
 		 * use the main window instead, since buttons are created
 		 * there anyway */
-		wm_subwindow_matrix_get(window, screen->mainwin, block->winmat);
-		wm_subwindow_size_get(window, screen->mainwin, &getsizex, &getsizey);
+		wm_subwindow_matrix_get(window, window->screen->mainwin, block->winmat);
+		wm_subwindow_size_get(window, window->screen->mainwin, &getsizex, &getsizey);
 
 		block->aspect = 2.0f / fabsf(getsizex * block->winmat[0][0]);
 		block->auto_open = true;
@@ -3044,7 +2999,6 @@ void ui_but_update_ex(uiBut *but, const bool validate)
 
 		case UI_BTYPE_TEXT:
 		case UI_BTYPE_SEARCH_MENU:
-		case UI_BTYPE_TAB:
 			if (!but->editstr) {
 				char str[UI_MAX_DRAW_STR];
 
@@ -3168,16 +3122,6 @@ void ui_block_cm_to_display_space_range(uiBlock *block, float *min, float *max)
 	*max = max_fff(UNPACK3(pixel));
 }
 
-static uiBut *ui_but_alloc(const eButType type)
-{
-	switch (type) {
-		case UI_BTYPE_TAB:
-			return MEM_callocN(sizeof(uiButTab), "uiButTab");
-		default:
-			return MEM_callocN(sizeof(uiBut), "uiBut");
-	}
-}
-
 /**
  * \brief ui_def_but is the function that draws many button types
  *
@@ -3211,7 +3155,7 @@ static uiBut *ui_def_but(
 		}
 	}
 
-	but = ui_but_alloc(type & BUTTYPE);
+	but = MEM_callocN(sizeof(uiBut), "uiBut");
 
 	but->type = type & BUTTYPE;
 	but->pointype = type & UI_BUT_POIN_TYPES;
@@ -3601,7 +3545,7 @@ static uiBut *ui_def_but_rna(
 	}
 
 	const char *info;
-	if (but->rnapoin.data && !RNA_property_editable_info(&but->rnapoin, prop, &info)) {
+	if (!RNA_property_editable_info(&but->rnapoin, prop, &info)) {
 		ui_def_but_rna__disable(but, info);
 	}
 
@@ -4500,7 +4444,7 @@ static void operator_enum_search_cb(const struct bContext *C, void *but, const c
 		for (item = item_array; item->identifier; item++) {
 			/* note: need to give the index rather than the identifier because the enum can be freed */
 			if (BLI_strcasestr(item->name, str)) {
-				if (false == UI_search_item_add(items, item->name, SET_INT_IN_POINTER(item->value), item->icon))
+				if (false == UI_search_item_add(items, item->name, SET_INT_IN_POINTER(item->value), 0))
 					break;
 			}
 		}
@@ -4625,7 +4569,7 @@ void UI_but_string_info_get(bContext *C, uiBut *but, ...)
 				tmp = BLI_strdup(RNA_property_identifier(but->rnaprop));
 		}
 		else if (type == BUT_GET_RNASTRUCT_IDENTIFIER) {
-			if (but->rnaprop && but->rnapoin.data)
+			if (but->rnaprop)
 				tmp = BLI_strdup(RNA_struct_identifier(but->rnapoin.type));
 			else if (but->optype)
 				tmp = BLI_strdup(but->optype->idname);
@@ -4720,10 +4664,7 @@ void UI_but_string_info_get(bContext *C, uiBut *but, ...)
 			if (ptr && prop) {
 				if (!item) {
 					int i;
-
-					/* so the context is passed to itemf functions */
-					WM_operator_properties_sanitize(ptr, false);
-
+					
 					RNA_property_enum_items_gettexted(C, ptr, prop, &items, &totitems, &free_items);
 					for (i = 0, item = items; i < totitems; i++, item++) {
 						if (item->identifier[0] && item->value == value)

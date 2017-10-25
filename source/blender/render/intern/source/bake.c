@@ -669,12 +669,11 @@ static int get_next_bake_face(BakeShade *bs)
 					const float disp_solid[4] = {0.5f, 0.5f, 0.5f, 1.0f};
 
 					tface = RE_vlakren_get_tface(obr, vlr, obr->bakemtface, NULL, 0);
-					/* should use 'BKE_object_material_edit_image_get' but in this case simpler not to  */
-					ima = vlr->mat ? vlr->mat->edit_image : NULL;
 
-					if (!tface || !ima)
+					if (!tface || !tface->tpage)
 						continue;
 
+					ima = tface->tpage;
 					ibuf = BKE_image_acquire_ibuf(ima, NULL, NULL);
 
 					if (ibuf == NULL)
@@ -815,7 +814,7 @@ static void shade_tface(BakeShade *bs)
 	ObjectInstanceRen *obi = bs->obi;
 	ObjectRen *obr = obi->obr;
 	MTFace *tface = RE_vlakren_get_tface(obr, vlr, obr->bakemtface, NULL, 0);
-	Image *ima = vlr->mat->edit_image;
+	Image *ima = tface->tpage;
 	float vec[4][2];
 	int a, i1, i2, i3;
 

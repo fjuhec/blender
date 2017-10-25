@@ -47,7 +47,7 @@ static void rna_Meta_transform(struct MetaBall *mb, float *mat)
 {
 	BKE_mball_transform(mb, (float (*)[4])mat, true);
 
-	DEG_id_tag_update(&mb->id, 0);
+	DAG_id_tag_update(&mb->id, 0);
 }
 #else
 

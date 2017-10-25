@@ -38,9 +38,8 @@
 #ifdef RNA_RUNTIME
 
 #include "BKE_font.h"
+#include "BKE_depsgraph.h"
 #include "DNA_object_types.h"
-
-#include "DEG_depsgraph.h"
 
 #include "WM_api.h"
 
@@ -61,7 +60,7 @@ static void rna_VectorFont_reload_update(Main *UNUSED(bmain), Scene *UNUSED(scen
 
 	/* update */
 	WM_main_add_notifier(NC_GEOM | ND_DATA, NULL);
-	DEG_id_tag_update(&vf->id, OB_RECALC_OB | OB_RECALC_DATA);
+	DAG_id_tag_update(&vf->id, OB_RECALC_OB | OB_RECALC_DATA);
 }
 
 #else

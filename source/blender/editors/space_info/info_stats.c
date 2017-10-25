@@ -49,7 +49,6 @@
 #include "BKE_displist.h"
 #include "BKE_DerivedMesh.h"
 #include "BKE_key.h"
-#include "BKE_layer.h"
 #include "BKE_paint.h"
 #include "BKE_particle.h"
 #include "BKE_editmesh.h"
@@ -272,7 +271,7 @@ static void stats_object_sculpt_dynamic_topology(Object *ob, SceneStats *stats)
 
 static void stats_dupli_object(Base *base, Object *ob, SceneStats *stats)
 {
-	if (base->flag & BASE_SELECTED) stats->totobjsel++;
+	if (base->flag & SELECT) stats->totobjsel++;
 
 	if (ob->transflag & OB_DUPLIPARTS) {
 		/* Dupli Particles */
@@ -301,7 +300,7 @@ static void stats_dupli_object(Base *base, Object *ob, SceneStats *stats)
 			}
 		}
 		
-		stats_object(ob, base->flag & BASE_SELECTED, 1, stats);
+		stats_object(ob, base->flag & SELECT, 1, stats);
 		stats->totobj++;
 	}
 	else if (ob->parent && (ob->parent->transflag & (OB_DUPLIVERTS | OB_DUPLIFACES))) {
@@ -317,23 +316,23 @@ static void stats_dupli_object(Base *base, Object *ob, SceneStats *stats)
 		}
 
 		stats->totobj += tot;
-		stats_object(ob, base->flag & BASE_SELECTED, tot, stats);
+		stats_object(ob, base->flag & SELECT, tot, stats);
 	}
 	else if (ob->transflag & OB_DUPLIFRAMES) {
 		/* Dupli Frames */
 		int tot = count_duplilist(ob);
 		stats->totobj += tot;
-		stats_object(ob, base->flag & BASE_SELECTED, tot, stats);
+		stats_object(ob, base->flag & SELECT, tot, stats);
 	}
 	else if ((ob->transflag & OB_DUPLIGROUP) && ob->dup_group) {
 		/* Dupli Group */
 		int tot = count_duplilist(ob);
 		stats->totobj += tot;
-		stats_object(ob, base->flag & BASE_SELECTED, tot, stats);
+		stats_object(ob, base->flag & SELECT, tot, stats);
 	}
 	else {
 		/* No Dupli */
-		stats_object(ob, base->flag & BASE_SELECTED, 1, stats);
+		stats_object(ob, base->flag & SELECT, 1, stats);
 		stats->totobj++;
 	}
 }
@@ -345,10 +344,10 @@ static bool stats_is_object_dynamic_topology_sculpt(Object *ob)
 }
 
 /* Statistics displayed in info header. Called regularly on scene changes. */
-static void stats_update(Scene *scene, SceneLayer *sl)
+static void stats_update(Scene *scene)
 {
 	SceneStats stats = {0};
-	Object *ob = (sl->basact) ? sl->basact->object : NULL;
+	Object *ob = (scene->basact) ? scene->basact->object : NULL;
 	Base *base;
 	
 	if (scene->obedit) {
@@ -365,25 +364,23 @@ static void stats_update(Scene *scene, SceneLayer *sl)
 	}
 	else {
 		/* Objects */
-		for (base = sl->object_bases.first; base; base = base->next)
-			if (base->flag & BASE_VISIBLED) {
+		for (base = scene->base.first; base; base = base->next)
+			if (scene->lay & base->lay)
 				stats_dupli_object(base, base->object, &stats);
-			}
 	}
 
-	if (!sl->stats) {
-		sl->stats = MEM_callocN(sizeof(SceneStats), "SceneStats");
-	}
+	if (!scene->stats)
+		scene->stats = MEM_callocN(sizeof(SceneStats), "SceneStats");
 
-	*(sl->stats) = stats;
+	*(scene->stats) = stats;
 }
 
-static void stats_string(Scene *scene, SceneLayer *sl)
+static void stats_string(Scene *scene)
 {
 #define MAX_INFO_MEM_LEN  64
-	SceneStats *stats = sl->stats;
+	SceneStats *stats = scene->stats;
 	SceneStatsFmt stats_fmt;
-	Object *ob = (sl->basact) ? sl->basact->object : NULL;
+	Object *ob = (scene->basact) ? scene->basact->object : NULL;
 	uintptr_t mem_in_use, mmap_in_use;
 	char memstr[MAX_INFO_MEM_LEN];
 	char gpumemstr[MAX_INFO_MEM_LEN] = "";
@@ -490,20 +487,19 @@ static void stats_string(Scene *scene, SceneLayer *sl)
 
 #undef MAX_INFO_LEN
 
-void ED_info_stats_clear(SceneLayer *sl)
+void ED_info_stats_clear(Scene *scene)
 {
-	if (sl->stats) {
-		MEM_freeN(sl->stats);
-		sl->stats = NULL;
+	if (scene->stats) {
+		MEM_freeN(scene->stats);
+		scene->stats = NULL;
 	}
 }
 
-const char *ED_info_stats_string(Scene *scene, SceneLayer *sl)
+const char *ED_info_stats_string(Scene *scene)
 {
-	if (!sl->stats) {
-		stats_update(scene, sl);
-	}
-	stats_string(scene, sl);
+	if (!scene->stats)
+		stats_update(scene);
+	stats_string(scene);
 
-	return sl->stats->infostr;
+	return scene->stats->infostr;
 }

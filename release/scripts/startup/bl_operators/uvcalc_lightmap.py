@@ -275,12 +275,12 @@ def lightmap_uvpack(meshes,
             face_groups.append(faces)
 
         if PREF_NEW_UVLAYER:
-            me.uv_layers.new()
+            me.uv_textures.new()
 
         # Add face UV if it does not exist.
         # All new faces are selected.
-        if not me.uv_layers:
-            me.uv_layers.new()
+        if not me.uv_textures:
+            me.uv_textures.new()
 
     for face_sel in face_groups:
         print("\nStarting unwrap")
@@ -538,9 +538,6 @@ def lightmap_uvpack(meshes,
         print("done")
 
         if PREF_APPLY_IMAGE:
-            pass
-            # removed with texface
-            '''
             if not PREF_PACK_IN_ONE:
                 image = bpy.data.images.new(name="lightmap",
                                             width=PREF_IMG_PX_SIZE,
@@ -548,8 +545,8 @@ def lightmap_uvpack(meshes,
                                             )
 
             for f in face_sel:
-                f.image = image
-            '''
+                # f.image = image
+                f.id_data.uv_textures.active.data[f.index].image = image  # XXX25
 
     for me in meshes:
         me.update()

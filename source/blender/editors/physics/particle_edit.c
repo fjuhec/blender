@@ -53,6 +53,7 @@
 #include "BLI_utildefines.h"
 
 #include "BKE_context.h"
+#include "BKE_depsgraph.h"
 #include "BKE_DerivedMesh.h"
 #include "BKE_global.h"
 #include "BKE_object.h"
@@ -63,18 +64,14 @@
 #include "BKE_bvhutils.h"
 #include "BKE_pointcache.h"
 
-#include "DEG_depsgraph.h"
-
 #include "BIF_gl.h"
+#include "BIF_glutil.h"
 
 #include "ED_object.h"
 #include "ED_physics.h"
 #include "ED_mesh.h"
 #include "ED_particle.h"
 #include "ED_view3d.h"
-
-#include "GPU_immediate.h"
-#include "GPU_immediate_util.h"
 
 #include "UI_resources.h"
 
@@ -86,9 +83,7 @@
 
 #include "physics_intern.h"
 
-void PE_create_particle_edit(
-        const EvaluationContext *eval_ctx, Scene *scene, SceneLayer *sl, Object *ob,
-        PointCache *cache, ParticleSystem *psys);
+void PE_create_particle_edit(Scene *scene, Object *ob, PointCache *cache, ParticleSystem *psys);
 void PTCacheUndo_clear(PTCacheEdit *edit);
 void recalc_lengths(PTCacheEdit *edit);
 void recalc_emitter_field(Object *ob, ParticleSystem *psys);
@@ -114,26 +109,24 @@ void update_world_cos(Object *ob, PTCacheEdit *edit);
 int PE_poll(bContext *C)
 {
 	Scene *scene= CTX_data_scene(C);
-	SceneLayer *sl = CTX_data_scene_layer(C);
 	Object *ob= CTX_data_active_object(C);
 
-	if (!scene || !sl || !ob || !(ob->mode & OB_MODE_PARTICLE_EDIT))
+	if (!scene || !ob || !(ob->mode & OB_MODE_PARTICLE_EDIT))
 		return 0;
 	
-	return (PE_get_current(scene, sl, ob) != NULL);
+	return (PE_get_current(scene, ob) != NULL);
 }
 
 int PE_hair_poll(bContext *C)
 {
 	Scene *scene= CTX_data_scene(C);
-	SceneLayer *sl = CTX_data_scene_layer(C);
 	Object *ob= CTX_data_active_object(C);
 	PTCacheEdit *edit;
 
 	if (!scene || !ob || !(ob->mode & OB_MODE_PARTICLE_EDIT))
 		return 0;
 	
-	edit= PE_get_current(scene, sl, ob);
+	edit= PE_get_current(scene, ob);
 
 	return (edit && edit->psys);
 }
@@ -218,8 +211,7 @@ static float pe_brush_size_get(const Scene *UNUSED(scene), ParticleBrushData *br
  *
  * note: this function runs on poll, therefor it can runs many times a second
  * keep it fast! */
-static PTCacheEdit *pe_get_current(
-        const EvaluationContext *eval_ctx, Scene *scene, SceneLayer *sl, Object *ob, int create)
+static PTCacheEdit *pe_get_current(Scene *scene, Object *ob, int create)
 {
 	ParticleEditSettings *pset= PE_settings(scene);
 	PTCacheEdit *edit = NULL;
@@ -230,7 +222,6 @@ static PTCacheEdit *pe_get_current(
 		return NULL;
 
 	pset->scene = scene;
-	pset->scene_layer = sl;
 	pset->object = ob;
 
 	BKE_ptcache_ids_from_object(&pidlist, ob, NULL, 0);
@@ -259,18 +250,18 @@ static PTCacheEdit *pe_get_current(
 				if (psys->part && psys->part->type == PART_HAIR) {
 					if (psys->flag & PSYS_HAIR_DYNAMICS && psys->pointcache->flag & PTCACHE_BAKED) {
 						if (create && !psys->pointcache->edit)
-							PE_create_particle_edit(eval_ctx, scene, sl, ob, pid->cache, NULL);
+							PE_create_particle_edit(scene, ob, pid->cache, NULL);
 						edit = pid->cache->edit;
 					}
 					else {
 						if (create && !psys->edit && psys->flag & PSYS_HAIR_DONE)
-							PE_create_particle_edit(eval_ctx, scene, sl, ob, NULL, psys);
+							PE_create_particle_edit(scene, ob, NULL, psys);
 						edit = psys->edit;
 					}
 				}
 				else {
 					if (create && pid->cache->flag & PTCACHE_BAKED && !pid->cache->edit)
-						PE_create_particle_edit(eval_ctx, scene, sl, ob, pid->cache, psys);
+						PE_create_particle_edit(scene, ob, pid->cache, psys);
 					edit = pid->cache->edit;
 				}
 
@@ -281,7 +272,7 @@ static PTCacheEdit *pe_get_current(
 			if (create && pid->cache->flag & PTCACHE_BAKED && !pid->cache->edit) {
 				pset->flag |= PE_FADE_TIME;
 				// NICE TO HAVE but doesn't work: pset->brushtype = PE_BRUSH_COMB;
-				PE_create_particle_edit(eval_ctx, scene, sl, ob, pid->cache, NULL);
+				PE_create_particle_edit(scene, ob, pid->cache, NULL);
 			}
 			edit = pid->cache->edit;
 			break;
@@ -290,7 +281,7 @@ static PTCacheEdit *pe_get_current(
 			if (create && pid->cache->flag & PTCACHE_BAKED && !pid->cache->edit) {
 				pset->flag |= PE_FADE_TIME;
 				// NICE TO HAVE but doesn't work: pset->brushtype = PE_BRUSH_COMB;
-				PE_create_particle_edit(eval_ctx, scene, sl, ob, pid->cache, NULL);
+				PE_create_particle_edit(scene, ob, pid->cache, NULL);
 			}
 			edit = pid->cache->edit;
 			break;
@@ -305,21 +296,20 @@ static PTCacheEdit *pe_get_current(
 	return edit;
 }
 
-PTCacheEdit *PE_get_current(Scene *scene, SceneLayer *sl, Object *ob)
+PTCacheEdit *PE_get_current(Scene *scene, Object *ob)
 {
-	return pe_get_current(NULL, scene, sl, ob, 0);
+	return pe_get_current(scene, ob, 0);
 }
 
-PTCacheEdit *PE_create_current(const EvaluationContext *eval_ctx, Scene *scene, Object *ob)
+PTCacheEdit *PE_create_current(Scene *scene, Object *ob)
 {
-	return pe_get_current(eval_ctx, scene, NULL, ob, 1);
+	return pe_get_current(scene, ob, 1);
 }
 
-void PE_current_changed(const EvaluationContext *eval_ctx, Scene *scene, Object *ob)
+void PE_current_changed(Scene *scene, Object *ob)
 {
-	if (ob->mode == OB_MODE_PARTICLE_EDIT) {
-		PE_create_current(eval_ctx, scene, ob);
-	}
+	if (ob->mode == OB_MODE_PARTICLE_EDIT)
+		PE_create_current(scene, ob);
 }
 
 void PE_hide_keys_time(Scene *scene, PTCacheEdit *edit, float cfra)
@@ -361,10 +351,9 @@ static int pe_x_mirror(Object *ob)
 
 typedef struct PEData {
 	ViewContext vc;
+	bglMats mats;
 	
-	const bContext *context;
 	Scene *scene;
-	SceneLayer *scene_layer;
 	Object *ob;
 	DerivedMesh *dm;
 	PTCacheEdit *edit;
@@ -398,10 +387,9 @@ static void PE_set_data(bContext *C, PEData *data)
 {
 	memset(data, 0, sizeof(*data));
 
-	data->scene = CTX_data_scene(C);
-	data->scene_layer = CTX_data_scene_layer(C);
-	data->ob = CTX_data_active_object(C);
-	data->edit = PE_get_current(data->scene, data->scene_layer, data->ob);
+	data->scene= CTX_data_scene(C);
+	data->ob= CTX_data_active_object(C);
+	data->edit= PE_get_current(data->scene, data->ob);
 }
 
 static void PE_set_view3d_data(bContext *C, PEData *data)
@@ -409,16 +397,15 @@ static void PE_set_view3d_data(bContext *C, PEData *data)
 	PE_set_data(C, data);
 
 	view3d_set_viewcontext(C, &data->vc);
+	/* note, the object argument means the modelview matrix does not account for the objects matrix, use viewmat rather than (obmat * viewmat) */
+	view3d_get_transformation(data->vc.ar, data->vc.rv3d, NULL, &data->mats);
 
 	if (V3D_IS_ZBUF(data->vc.v3d)) {
 		if (data->vc.v3d->flag & V3D_INVALID_BACKBUF) {
-			EvaluationContext eval_ctx;
-			CTX_data_eval_ctx(C, &eval_ctx);
-
 			/* needed or else the draw matrix can be incorrect */
 			view3d_operator_needs_opengl(C);
 
-			ED_view3d_backbuf_validate(&eval_ctx, &data->vc);
+			ED_view3d_backbuf_validate(&data->vc);
 			/* we may need to force an update here by setting the rv3d as dirty
 			 * for now it seems ok, but take care!:
 			 * rv3d->depths->dirty = 1; */
@@ -451,6 +438,7 @@ static bool key_test_depth(PEData *data, const float co[3], const int screen_co[
 {
 	View3D *v3d= data->vc.v3d;
 	ViewDepths *vd = data->vc.rv3d->depths;
+	double ux, uy, uz;
 	float depth;
 
 	/* nothing to do */
@@ -466,6 +454,9 @@ static bool key_test_depth(PEData *data, const float co[3], const int screen_co[
 	}
 #endif
 
+	gluProject(co[0], co[1], co[2], data->mats.modelview, data->mats.projection,
+	           (GLint *)data->mats.viewport, &ux, &uy, &uz);
+
 	/* check if screen_co is within bounds because brush_cut uses out of screen coords */
 	if (screen_co[0] >= 0 && screen_co[0] < vd->w && screen_co[1] >= 0 && screen_co[1] < vd->h) {
 		BLI_assert(vd && vd->depths);
@@ -475,10 +466,7 @@ static bool key_test_depth(PEData *data, const float co[3], const int screen_co[
 	else
 		return 0;
 
-	float win[3];
-	ED_view3d_project(data->vc.ar, co, win);
-
-	if (win[2] - 0.00001f > depth)
+	if ((float)uz - 0.00001f > depth)
 		return 0;
 	else
 		return 1;
@@ -1163,14 +1151,11 @@ void recalc_emitter_field(Object *ob, ParticleSystem *psys)
 	BLI_kdtree_balance(edit->emitter_field);
 }
 
-static void PE_update_selection(const bContext *C, Scene *scene, SceneLayer *sl, Object *ob, int useflag)
+static void PE_update_selection(Scene *scene, Object *ob, int useflag)
 {
-	PTCacheEdit *edit = PE_get_current(scene, sl, ob);
+	PTCacheEdit *edit= PE_get_current(scene, ob);
 	HairKey *hkey;
-	EvaluationContext eval_ctx;
 	POINT_P; KEY_K;
-
-	CTX_data_eval_ctx(C, &eval_ctx);
 
 	/* flag all particles to be updated if not using flag */
 	if (!useflag)
@@ -1187,7 +1172,7 @@ static void PE_update_selection(const bContext *C, Scene *scene, SceneLayer *sl,
 		}
 	}
 
-	psys_cache_edit_paths(&eval_ctx, scene, ob, edit, CFRA, G.is_rendering);
+	psys_cache_edit_paths(scene, ob, edit, CFRA, G.is_rendering);
 
 
 	/* disable update flag */
@@ -1273,12 +1258,12 @@ static void update_velocities(PTCacheEdit *edit)
 	}
 }
 
-void PE_update_object(const EvaluationContext *eval_ctx, Scene *scene, SceneLayer *sl, Object *ob, int useflag)
+void PE_update_object(Scene *scene, Object *ob, int useflag)
 {
 	/* use this to do partial particle updates, not usable when adding or
 	 * removing, then a full redo is necessary and calling this may crash */
 	ParticleEditSettings *pset= PE_settings(scene);
-	PTCacheEdit *edit = PE_get_current(scene, sl, ob);
+	PTCacheEdit *edit = PE_get_current(scene, ob);
 	POINT_P;
 
 	if (!edit)
@@ -1303,7 +1288,7 @@ void PE_update_object(const EvaluationContext *eval_ctx, Scene *scene, SceneLaye
 	PE_hide_keys_time(scene, edit, CFRA);
 
 	/* regenerate path caches */
-	psys_cache_edit_paths(eval_ctx, scene, ob, edit, CFRA, G.is_rendering);
+	psys_cache_edit_paths(scene, ob, edit, CFRA, G.is_rendering);
 
 	/* disable update flag */
 	LOOP_POINTS {
@@ -1413,9 +1398,8 @@ static void select_action_apply(PTCacheEditPoint *point, PTCacheEditKey *key, in
 static int pe_select_all_exec(bContext *C, wmOperator *op)
 {
 	Scene *scene= CTX_data_scene(C);
-	SceneLayer *sl = CTX_data_scene_layer(C);
 	Object *ob= CTX_data_active_object(C);
-	PTCacheEdit *edit= PE_get_current(scene, sl, ob);
+	PTCacheEdit *edit= PE_get_current(scene, ob);
 	POINT_P; KEY_K;
 	int action = RNA_enum_get(op->ptr, "action");
 
@@ -1438,7 +1422,7 @@ static int pe_select_all_exec(bContext *C, wmOperator *op)
 		}
 	}
 
-	PE_update_selection(C, scene, sl, ob, 1);
+	PE_update_selection(scene, ob, 1);
 	WM_event_add_notifier(C, NC_OBJECT|ND_PARTICLE|NA_SELECTED, ob);
 
 	return OPERATOR_FINISHED;
@@ -1467,11 +1451,10 @@ int PE_mouse_particles(bContext *C, const int mval[2], bool extend, bool deselec
 {
 	PEData data;
 	Scene *scene= CTX_data_scene(C);
-	SceneLayer *sl = CTX_data_scene_layer(C);
 	Object *ob= CTX_data_active_object(C);
-	PTCacheEdit *edit= PE_get_current(scene, sl, ob);
+	PTCacheEdit *edit= PE_get_current(scene, ob);
 	POINT_P; KEY_K;
-
+	
 	if (!PE_start_edit(edit))
 		return OPERATOR_CANCELLED;
 
@@ -1496,7 +1479,7 @@ int PE_mouse_particles(bContext *C, const int mval[2], bool extend, bool deselec
 	else
 		for_mouse_hit_keys(&data, toggle_key_select, 1);
 
-	PE_update_selection(C, scene, sl, ob, 1);
+	PE_update_selection(scene, ob, 1);
 	WM_event_add_notifier(C, NC_OBJECT|ND_PARTICLE|NA_SELECTED, data.ob);
 
 	return OPERATOR_FINISHED;
@@ -1537,7 +1520,7 @@ static int select_roots_exec(bContext *C, wmOperator *op)
 	data.select_action = action;
 	foreach_point(&data, select_root);
 
-	PE_update_selection(C, data.scene, data.scene_layer, data.ob, 1);
+	PE_update_selection(data.scene, data.ob, 1);
 	WM_event_add_notifier(C, NC_OBJECT|ND_PARTICLE|NA_SELECTED, data.ob);
 
 	return OPERATOR_FINISHED;
@@ -1602,7 +1585,7 @@ static int select_tips_exec(bContext *C, wmOperator *op)
 	data.select_action = action;
 	foreach_point(&data, select_tip);
 
-	PE_update_selection(C, data.scene, data.scene_layer, data.ob, 1);
+	PE_update_selection(data.scene, data.ob, 1);
 	WM_event_add_notifier(C, NC_OBJECT|ND_PARTICLE|NA_SELECTED, data.ob);
 
 	return OPERATOR_FINISHED;
@@ -1641,7 +1624,6 @@ static int select_random_exec(bContext *C, wmOperator *op)
 	PEData data;
 	int type;
 	Scene *scene;
-	SceneLayer *sl;
 	Object *ob;
 
 	/* used by LOOP_VISIBLE_POINTS, LOOP_VISIBLE_KEYS and LOOP_KEYS */
@@ -1661,9 +1643,8 @@ static int select_random_exec(bContext *C, wmOperator *op)
 	PE_set_data(C, &data);
 	data.select_action = SEL_SELECT;
 	scene = CTX_data_scene(C);
-	sl = CTX_data_scene_layer(C);
 	ob = CTX_data_active_object(C);
-	edit = PE_get_current(scene, sl, ob);
+	edit = PE_get_current(scene, ob);
 
 	rng = BLI_rng_new_srandom(seed);
 
@@ -1688,7 +1669,7 @@ static int select_random_exec(bContext *C, wmOperator *op)
 
 	BLI_rng_free(rng);
 
-	PE_update_selection(C, data.scene, data.scene_layer, data.ob, 1);
+	PE_update_selection(data.scene, data.ob, 1);
 	WM_event_add_notifier(C, NC_OBJECT|ND_PARTICLE|NA_SELECTED, data.ob);
 
 	return OPERATOR_FINISHED;
@@ -1732,7 +1713,7 @@ static int select_linked_exec(bContext *C, wmOperator *op)
 	data.select= !RNA_boolean_get(op->ptr, "deselect");
 
 	for_mouse_hit_keys(&data, select_keys, 1);  /* nearest only */
-	PE_update_selection(C, data.scene, data.scene_layer, data.ob, 1);
+	PE_update_selection(data.scene, data.ob, 1);
 	WM_event_add_notifier(C, NC_OBJECT|ND_PARTICLE|NA_SELECTED, data.ob);
 
 	return OPERATOR_FINISHED;
@@ -1780,9 +1761,8 @@ void PE_deselect_all_visible(PTCacheEdit *edit)
 int PE_border_select(bContext *C, rcti *rect, bool select, bool extend)
 {
 	Scene *scene= CTX_data_scene(C);
-	SceneLayer *sl = CTX_data_scene_layer(C);
 	Object *ob= CTX_data_active_object(C);
-	PTCacheEdit *edit= PE_get_current(scene, sl, ob);
+	PTCacheEdit *edit= PE_get_current(scene, ob);
 	PEData data;
 
 	if (!PE_start_edit(edit))
@@ -1797,7 +1777,7 @@ int PE_border_select(bContext *C, rcti *rect, bool select, bool extend)
 
 	for_mouse_hit_keys(&data, select_key, 0);
 
-	PE_update_selection(C, scene, sl, ob, 1);
+	PE_update_selection(scene, ob, 1);
 	WM_event_add_notifier(C, NC_OBJECT|ND_PARTICLE|NA_SELECTED, ob);
 
 	return OPERATOR_FINISHED;
@@ -1808,9 +1788,8 @@ int PE_border_select(bContext *C, rcti *rect, bool select, bool extend)
 int PE_circle_select(bContext *C, int selecting, const int mval[2], float rad)
 {
 	Scene *scene= CTX_data_scene(C);
-	SceneLayer *sl = CTX_data_scene_layer(C);
 	Object *ob= CTX_data_active_object(C);
-	PTCacheEdit *edit= PE_get_current(scene, sl, ob);
+	PTCacheEdit *edit= PE_get_current(scene, ob);
 	PEData data;
 
 	if (!PE_start_edit(edit))
@@ -1823,7 +1802,7 @@ int PE_circle_select(bContext *C, int selecting, const int mval[2], float rad)
 
 	for_mouse_hit_keys(&data, select_key, 0);
 
-	PE_update_selection(C, scene, sl, ob, 1);
+	PE_update_selection(scene, ob, 1);
 	WM_event_add_notifier(C, NC_OBJECT|ND_PARTICLE|NA_SELECTED, ob);
 
 	return OPERATOR_FINISHED;
@@ -1834,11 +1813,10 @@ int PE_circle_select(bContext *C, int selecting, const int mval[2], float rad)
 int PE_lasso_select(bContext *C, const int mcords[][2], const short moves, bool extend, bool select)
 {
 	Scene *scene= CTX_data_scene(C);
-	SceneLayer *sl = CTX_data_scene_layer(C);
 	Object *ob= CTX_data_active_object(C);
 	ARegion *ar= CTX_wm_region(C);
 	ParticleEditSettings *pset= PE_settings(scene);
-	PTCacheEdit *edit = PE_get_current(scene, sl, ob);
+	PTCacheEdit *edit = PE_get_current(scene, ob);
 	ParticleSystem *psys = edit->psys;
 	ParticleSystemModifierData *psmd = psys_get_modifier(ob, psys);
 	POINT_P; KEY_K;
@@ -1912,7 +1890,7 @@ int PE_lasso_select(bContext *C, const int mcords[][2], const short moves, bool 
 		}
 	}
 
-	PE_update_selection(C, scene, sl, ob, 1);
+	PE_update_selection(scene, ob, 1);
 	WM_event_add_notifier(C, NC_OBJECT|ND_PARTICLE|NA_SELECTED, ob);
 
 	return OPERATOR_FINISHED;
@@ -1924,8 +1902,7 @@ static int hide_exec(bContext *C, wmOperator *op)
 {
 	Object *ob= CTX_data_active_object(C);
 	Scene *scene= CTX_data_scene(C);
-	SceneLayer *sl = CTX_data_scene_layer(C);
-	PTCacheEdit *edit= PE_get_current(scene, sl, ob);
+	PTCacheEdit *edit= PE_get_current(scene, ob);
 	POINT_P; KEY_K;
 	
 	if (RNA_enum_get(op->ptr, "unselected")) {
@@ -1947,7 +1924,7 @@ static int hide_exec(bContext *C, wmOperator *op)
 		}
 	}
 
-	PE_update_selection(C, scene, sl, ob, 1);
+	PE_update_selection(scene, ob, 1);
 	WM_event_add_notifier(C, NC_OBJECT|ND_PARTICLE|NA_SELECTED, ob);
 
 	return OPERATOR_FINISHED;
@@ -1977,8 +1954,7 @@ static int reveal_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	Object *ob= CTX_data_active_object(C);
 	Scene *scene= CTX_data_scene(C);
-	SceneLayer *sl = CTX_data_scene_layer(C);
-	PTCacheEdit *edit= PE_get_current(scene, sl, ob);
+	PTCacheEdit *edit= PE_get_current(scene, ob);
 	POINT_P; KEY_K;
 
 	LOOP_POINTS {
@@ -1991,7 +1967,7 @@ static int reveal_exec(bContext *C, wmOperator *UNUSED(op))
 		}
 	}
 
-	PE_update_selection(C, scene, sl, ob, 1);
+	PE_update_selection(scene, ob, 1);
 	WM_event_add_notifier(C, NC_OBJECT|ND_PARTICLE|NA_SELECTED, ob);
 
 	return OPERATOR_FINISHED;
@@ -2050,7 +2026,7 @@ static int select_less_exec(bContext *C, wmOperator *UNUSED(op))
 	PE_set_data(C, &data);
 	foreach_point(&data, select_less_keys);
 
-	PE_update_selection(C, data.scene, data.scene_layer, data.ob, 1);
+	PE_update_selection(data.scene, data.ob, 1);
 	WM_event_add_notifier(C, NC_OBJECT|ND_PARTICLE|NA_SELECTED, data.ob);
 
 	return OPERATOR_FINISHED;
@@ -2112,7 +2088,7 @@ static int select_more_exec(bContext *C, wmOperator *UNUSED(op))
 	PE_set_data(C, &data);
 	foreach_point(&data, select_more_keys);
 
-	PE_update_selection(C, data.scene, data.scene_layer, data.ob, 1);
+	PE_update_selection(data.scene, data.ob, 1);
 	WM_event_add_notifier(C, NC_OBJECT|ND_PARTICLE|NA_SELECTED, data.ob);
 
 	return OPERATOR_FINISHED;
@@ -2145,15 +2121,12 @@ static void rekey_particle(PEData *data, int pa_index)
 	ParticleKey state;
 	HairKey *key, *new_keys, *okey;
 	PTCacheEditKey *ekey;
-	EvaluationContext eval_ctx;
 	float dval, sta, end;
 	int k;
 
-	CTX_data_eval_ctx(data->context, &eval_ctx);
-	sim.eval_ctx = &eval_ctx;
-	sim.scene = data->scene;
-	sim.ob = data->ob;
-	sim.psys = edit->psys;
+	sim.scene= data->scene;
+	sim.ob= data->ob;
+	sim.psys= edit->psys;
 
 	pa->flag |= PARS_REKEY;
 
@@ -2204,9 +2177,6 @@ static int rekey_exec(bContext *C, wmOperator *op)
 {
 	PEData data;
 
-	EvaluationContext eval_ctx;
-	CTX_data_eval_ctx(C, &eval_ctx);
-
 	PE_set_data(C, &data);
 
 	data.dval= 1.0f / (float)(data.totrekey-1);
@@ -2215,7 +2185,7 @@ static int rekey_exec(bContext *C, wmOperator *op)
 	foreach_selected_point(&data, rekey_particle);
 	
 	recalc_lengths(data.edit);
-	PE_update_object(&eval_ctx, data.scene, data.scene_layer, data.ob, 1);
+	PE_update_object(data.scene, data.ob, 1);
 	WM_event_add_notifier(C, NC_OBJECT|ND_PARTICLE|NA_EDITED, data.ob);
 
 	return OPERATOR_FINISHED;
@@ -2240,28 +2210,24 @@ void PARTICLE_OT_rekey(wmOperatorType *ot)
 	RNA_def_int(ot->srna, "keys_number", 2, 2, INT_MAX, "Number of Keys", "", 2, 100);
 }
 
-static void rekey_particle_to_time(const bContext *C, Scene *scene, SceneLayer *sl, Object *ob, int pa_index, float path_time)
+static void rekey_particle_to_time(Scene *scene, Object *ob, int pa_index, float path_time)
 {
-	PTCacheEdit *edit= PE_get_current(scene, sl, ob);
+	PTCacheEdit *edit= PE_get_current(scene, ob);
 	ParticleSystem *psys;
-	ParticleSimulationData sim = {0};
+	ParticleSimulationData sim= {0};
 	ParticleData *pa;
 	ParticleKey state;
 	HairKey *new_keys, *key;
 	PTCacheEditKey *ekey;
-	EvaluationContext eval_ctx;
 	int k;
-
-	CTX_data_eval_ctx(C, &eval_ctx);
 
 	if (!edit || !edit->psys) return;
 
 	psys = edit->psys;
 
-	sim.eval_ctx = &eval_ctx;
-	sim.scene = scene;
-	sim.ob = ob;
-	sim.psys = psys;
+	sim.scene= scene;
+	sim.ob= ob;
+	sim.psys= psys;
 
 	pa= psys->particles + pa_index;
 
@@ -2471,17 +2437,14 @@ static void subdivide_particle(PEData *data, int pa_index)
 	ParticleKey state;
 	HairKey *key, *nkey, *new_keys;
 	PTCacheEditKey *ekey, *nekey, *new_ekeys;
-	EvaluationContext eval_ctx;
 
 	int k;
 	short totnewkey=0;
 	float endtime;
 
-	CTX_data_eval_ctx(data->context, &eval_ctx);
-	sim.eval_ctx = &eval_ctx;
-	sim.scene = data->scene;
-	sim.ob = data->ob;
-	sim.psys = edit->psys;
+	sim.scene= data->scene;
+	sim.ob= data->ob;
+	sim.psys= edit->psys;
 
 	for (k=0, ekey=point->keys; k<pa->totkey-1; k++, ekey++) {
 		if (ekey->flag&PEK_SELECT && (ekey+1)->flag&PEK_SELECT)
@@ -2549,14 +2512,11 @@ static int subdivide_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	PEData data;
 
-	EvaluationContext eval_ctx;
-	CTX_data_eval_ctx(C, &eval_ctx);
-
 	PE_set_data(C, &data);
 	foreach_point(&data, subdivide_particle);
 	
 	recalc_lengths(data.edit);
-	PE_update_object(&eval_ctx, data.scene, data.scene_layer, data.ob, 1);
+	PE_update_object(data.scene, data.ob, 1);
 	WM_event_add_notifier(C, NC_OBJECT|ND_PARTICLE|NA_EDITED, data.ob);
 
 	return OPERATOR_FINISHED;
@@ -2582,9 +2542,8 @@ void PARTICLE_OT_subdivide(wmOperatorType *ot)
 static int remove_doubles_exec(bContext *C, wmOperator *op)
 {
 	Scene *scene= CTX_data_scene(C);
-	SceneLayer *sl = CTX_data_scene_layer(C);
 	Object *ob= CTX_data_active_object(C);
-	PTCacheEdit *edit= PE_get_current(scene, sl, ob);
+	PTCacheEdit *edit= PE_get_current(scene, ob);
 	ParticleSystem *psys = edit->psys;
 	ParticleSystemModifierData *psmd;
 	KDTree *tree;
@@ -2646,7 +2605,7 @@ static int remove_doubles_exec(bContext *C, wmOperator *op)
 
 	BKE_reportf(op->reports, RPT_INFO, "Removed %d double particles", totremoved);
 
-	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_OBJECT|ND_PARTICLE|NA_EDITED, ob);
 
 	return OPERATOR_FINISHED;
@@ -2675,10 +2634,9 @@ void PARTICLE_OT_remove_doubles(wmOperatorType *ot)
 static int weight_set_exec(bContext *C, wmOperator *op)
 {
 	Scene *scene= CTX_data_scene(C);
-	SceneLayer *sl = CTX_data_scene_layer(C);
 	ParticleEditSettings *pset= PE_settings(scene);
 	Object *ob= CTX_data_active_object(C);
-	PTCacheEdit *edit= PE_get_current(scene, sl, ob);
+	PTCacheEdit *edit= PE_get_current(scene, ob);
 	ParticleSystem *psys = edit->psys;
 	POINT_P;
 	KEY_K;
@@ -2699,7 +2657,7 @@ static int weight_set_exec(bContext *C, wmOperator *op)
 		}
 	}
 
-	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_OBJECT|ND_PARTICLE|NA_EDITED, ob);
 
 	return OPERATOR_FINISHED;
@@ -2731,27 +2689,24 @@ static void brush_drawcursor(bContext *C, int x, int y, void *UNUSED(customdata)
 	ParticleEditSettings *pset= PE_settings(scene);
 	ParticleBrushData *brush;
 
-	if (pset->brushtype < 0) {
+	if (pset->brushtype < 0)
 		return;
-	}
 
-	brush = &pset->brush[pset->brushtype];
+	brush= &pset->brush[pset->brushtype];
 
 	if (brush) {
-		unsigned int pos = GWN_vertformat_attr_add(immVertexFormat(), "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
-		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+		glPushMatrix();
 
-		immUniformColor4ub(255, 255, 255, 128);
+		glTranslatef((float)x, (float)y, 0.0f);
 
+		glColor4ub(255, 255, 255, 128);
 		glEnable(GL_LINE_SMOOTH);
 		glEnable(GL_BLEND);
-
-		imm_draw_circle_wire_2d(pos, (float)x, (float)y, pe_brush_size_get(scene, brush), 40);
-
+		glutil_draw_lined_arc(0.0, M_PI*2.0, pe_brush_size_get(scene, brush), 40);
 		glDisable(GL_BLEND);
 		glDisable(GL_LINE_SMOOTH);
-
-		immUnbindProgram();
+		
+		glPopMatrix();
 	}
 }
 
@@ -2808,7 +2763,7 @@ static int delete_exec(bContext *C, wmOperator *op)
 		recalc_lengths(data.edit);
 	}
 
-	DEG_id_tag_update(&data.ob->id, OB_RECALC_DATA);
+	DAG_id_tag_update(&data.ob->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_OBJECT|ND_PARTICLE|NA_EDITED, data.ob);
 
 	return OPERATOR_FINISHED;
@@ -2835,11 +2790,11 @@ void PARTICLE_OT_delete(wmOperatorType *ot)
 
 /*************************** mirror operator **************************/
 
-static void PE_mirror_x(Scene *scene, SceneLayer *sl, Object *ob, int tagged)
+static void PE_mirror_x(Scene *scene, Object *ob, int tagged)
 {
 	Mesh *me= (Mesh *)(ob->data);
 	ParticleSystemModifierData *psmd;
-	PTCacheEdit *edit = PE_get_current(scene, sl, ob);
+	PTCacheEdit *edit= PE_get_current(scene, ob);
 	ParticleSystem *psys = edit->psys;
 	ParticleData *pa, *newpa, *new_pars;
 	PTCacheEditPoint *newpoint, *new_points;
@@ -2986,15 +2941,14 @@ static void PE_mirror_x(Scene *scene, SceneLayer *sl, Object *ob, int tagged)
 static int mirror_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	Scene *scene= CTX_data_scene(C);
-	SceneLayer *sl = CTX_data_scene_layer(C);
 	Object *ob= CTX_data_active_object(C);
-	PTCacheEdit *edit= PE_get_current(scene, sl, ob);
+	PTCacheEdit *edit= PE_get_current(scene, ob);
 	
-	PE_mirror_x(scene, sl, ob, 0);
+	PE_mirror_x(scene, ob, 0);
 
 	update_world_cos(ob, edit);
 	WM_event_add_notifier(C, NC_OBJECT|ND_PARTICLE|NA_EDITED, ob);
-	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 
 	return OPERATOR_FINISHED;
 }
@@ -3127,7 +3081,7 @@ static void brush_cut(PEData *data, int pa_index)
 			edit->points[pa_index].flag |= PEP_TAG;
 		}
 		else {
-			rekey_particle_to_time(data->context, data->scene, data->scene_layer, ob, pa_index, cut_time);
+			rekey_particle_to_time(data->scene, ob, pa_index, cut_time);
 			edit->points[pa_index].flag |= PEP_EDIT_RECALC;
 		}
 	}
@@ -3375,28 +3329,25 @@ static void intersect_dm_quad_weights(const float v1[3], const float v2[3], cons
 }
 
 /* check intersection with a derivedmesh */
-static int particle_intersect_dm(const bContext *C, Scene *scene, Object *ob, DerivedMesh *dm,
+static int particle_intersect_dm(Scene *scene, Object *ob, DerivedMesh *dm,
                                  float *vert_cos,
                                  const float co1[3], const float co2[3],
                                  float *min_d, int *min_face, float *min_w,
                                  float *face_minmax, float *pa_minmax,
                                  float radius, float *ipoint)
 {
-	EvaluationContext eval_ctx;
 	MFace *mface= NULL;
 	MVert *mvert= NULL;
 	int i, totface, intersect=0;
 	float cur_d, cur_uv[2], v1[3], v2[3], v3[3], v4[3], min[3], max[3], p_min[3], p_max[3];
 	float cur_ipoint[3];
 	
-	CTX_data_eval_ctx(C, &eval_ctx);
-
 	if (dm == NULL) {
 		psys_disable_all(ob);
 
-		dm = mesh_get_derived_final(&eval_ctx, scene, ob, 0);
+		dm=mesh_get_derived_final(scene, ob, 0);
 		if (dm == NULL)
-			dm = mesh_get_derived_deform(&eval_ctx, scene, ob, 0);
+			dm=mesh_get_derived_deform(scene, ob, 0);
 
 		psys_enable_all(ob);
 
@@ -3509,9 +3460,8 @@ static int particle_intersect_dm(const bContext *C, Scene *scene, Object *ob, De
 	return intersect;
 }
 
-static int brush_add(const bContext *C, PEData *data, short number)
+static int brush_add(PEData *data, short number)
 {
-	EvaluationContext eval_ctx;
 	Scene *scene= data->scene;
 	Object *ob= data->ob;
 	DerivedMesh *dm;
@@ -3539,9 +3489,6 @@ static int brush_add(const bContext *C, PEData *data, short number)
 
 	rng = BLI_rng_new_srandom(psys->seed+data->mval[0]+data->mval[1]);
 
-	CTX_data_eval_ctx(C, &eval_ctx);
-
-	sim.eval_ctx = &eval_ctx;
 	sim.scene= scene;
 	sim.ob= ob;
 	sim.psys= psys;
@@ -3582,7 +3529,7 @@ static int brush_add(const bContext *C, PEData *data, short number)
 		min_d=2.0;
 		
 		/* warning, returns the derived mesh face */
-		if (particle_intersect_dm(C, scene, ob, dm, 0, co1, co2, &min_d, &add_pars[n].num_dmcache, add_pars[n].fuv, 0, 0, 0, 0)) {
+		if (particle_intersect_dm(scene, ob, dm, 0, co1, co2, &min_d, &add_pars[n].num_dmcache, add_pars[n].fuv, 0, 0, 0, 0)) {
 			if (psys->part->use_modifier_stack && !psmd->dm_final->deformedOnly) {
 				add_pars[n].num = add_pars[n].num_dmcache;
 				add_pars[n].num_dmcache = DMCACHE_ISCHILD;
@@ -3763,7 +3710,6 @@ static int brush_add(const bContext *C, PEData *data, short number)
 
 typedef struct BrushEdit {
 	Scene *scene;
-	SceneLayer *sl;
 	Object *ob;
 	PTCacheEdit *edit;
 
@@ -3778,10 +3724,9 @@ typedef struct BrushEdit {
 static int brush_edit_init(bContext *C, wmOperator *op)
 {
 	Scene *scene= CTX_data_scene(C);
-	SceneLayer *sl = CTX_data_scene_layer(C);
 	Object *ob= CTX_data_active_object(C);
 	ParticleEditSettings *pset= PE_settings(scene);
-	PTCacheEdit *edit= PE_get_current(scene, sl, ob);
+	PTCacheEdit *edit= PE_get_current(scene, ob);
 	ARegion *ar= CTX_wm_region(C);
 	BrushEdit *bedit;
 	float min[3], max[3];
@@ -3791,7 +3736,7 @@ static int brush_edit_init(bContext *C, wmOperator *op)
 
 	/* set the 'distance factor' for grabbing (used in comb etc) */
 	INIT_MINMAX(min, max);
-	PE_minmax(scene, sl, min, max);
+	PE_minmax(scene, min, max);
 	mid_v3_v3v3(min, min, max);
 
 	bedit= MEM_callocN(sizeof(BrushEdit), "BrushEdit");
@@ -3799,7 +3744,6 @@ static int brush_edit_init(bContext *C, wmOperator *op)
 	op->customdata= bedit;
 
 	bedit->scene= scene;
-	bedit->sl = sl;
 	bedit->ob= ob;
 	bedit->edit= edit;
 
@@ -3815,7 +3759,6 @@ static void brush_edit_apply(bContext *C, wmOperator *op, PointerRNA *itemptr)
 {
 	BrushEdit *bedit= op->customdata;
 	Scene *scene= bedit->scene;
-	SceneLayer *sl = bedit->sl;
 	Object *ob= bedit->ob;
 	PTCacheEdit *edit= bedit->edit;
 	ParticleEditSettings *pset= PE_settings(scene);
@@ -3830,9 +3773,6 @@ static void brush_edit_apply(bContext *C, wmOperator *op, PointerRNA *itemptr)
 
 	if (!PE_start_edit(edit))
 		return;
-
-	EvaluationContext eval_ctx;
-	CTX_data_eval_ctx(C, &eval_ctx);
 
 	RNA_float_get_array(itemptr, "mouse", mousef);
 	mouse[0] = mousef[0];
@@ -3959,7 +3899,7 @@ static void brush_edit_apply(bContext *C, wmOperator *op, PointerRNA *itemptr)
 					if (edit->psys && edit->psys->part->from==PART_FROM_FACE) {
 						data.mval= mval;
 
-						added= brush_add(C, &data, brush->count);
+						added= brush_add(&data, brush->count);
 
 						if (pset->flag & PE_KEEP_LENGTHS)
 							recalc_lengths(edit);
@@ -4009,22 +3949,21 @@ static void brush_edit_apply(bContext *C, wmOperator *op, PointerRNA *itemptr)
 
 			if (ELEM(pset->brushtype, PE_BRUSH_ADD, PE_BRUSH_CUT) && (added || removed)) {
 				if (pset->brushtype == PE_BRUSH_ADD && pe_x_mirror(ob))
-					PE_mirror_x(scene, sl, ob, 1);
+					PE_mirror_x(scene, ob, 1);
 
 				update_world_cos(ob, edit);
 				psys_free_path_cache(NULL, edit);
-				DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+				DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 			}
-			else {
-				PE_update_object(&eval_ctx, scene, sl, ob, 1);
-			}
+			else
+				PE_update_object(scene, ob, 1);
 		}
 
 		if (edit->psys) {
 			WM_event_add_notifier(C, NC_OBJECT|ND_PARTICLE|NA_EDITED, ob);
 		}
 		else {
-			DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+			DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 			WM_event_add_notifier(C, NC_OBJECT|ND_MODIFIER, ob);
 		}
 
@@ -4232,7 +4171,7 @@ static void shape_cut(PEData *data, int pa_index)
 			edit->points[pa_index].flag |= PEP_TAG;
 		}
 		else {
-			rekey_particle_to_time(data->context, data->scene, data->scene_layer, ob, pa_index, cut_time);
+			rekey_particle_to_time(data->scene, ob, pa_index, cut_time);
 			edit->points[pa_index].flag |= PEP_EDIT_RECALC;
 		}
 	}
@@ -4241,10 +4180,9 @@ static void shape_cut(PEData *data, int pa_index)
 static int shape_cut_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	Scene *scene = CTX_data_scene(C);
-	SceneLayer *sl = CTX_data_scene_layer(C);
 	Object *ob = CTX_data_active_object(C);
 	ParticleEditSettings *pset = PE_settings(scene);
-	PTCacheEdit *edit = PE_get_current(scene, sl, ob);
+	PTCacheEdit *edit = PE_get_current(scene, ob);
 	Object *shapeob = pset->shape_object;
 	int selected = count_selected_keys(scene, edit);
 	int lock_root = pset->flag & PE_LOCK_FIRST;
@@ -4252,9 +4190,6 @@ static int shape_cut_exec(bContext *C, wmOperator *UNUSED(op))
 	if (!PE_start_edit(edit))
 		return OPERATOR_CANCELLED;
 	
-	EvaluationContext eval_ctx;
-	CTX_data_eval_ctx(C, &eval_ctx);
-
 	/* disable locking temporatily for disconnected hair */
 	if (edit->psys && edit->psys->flag & PSYS_GLOBAL_HAIR)
 		pset->flag &= ~PE_LOCK_FIRST;
@@ -4280,17 +4215,16 @@ static int shape_cut_exec(bContext *C, wmOperator *UNUSED(op))
 		if (removed) {
 			update_world_cos(ob, edit);
 			psys_free_path_cache(NULL, edit);
-			DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+			DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 		}
-		else {
-			PE_update_object(&eval_ctx, scene, sl, ob, 1);
-		}
+		else
+			PE_update_object(scene, ob, 1);
 		
 		if (edit->psys) {
 			WM_event_add_notifier(C, NC_OBJECT|ND_PARTICLE|NA_EDITED, ob);
 		}
 		else {
-			DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+			DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 			WM_event_add_notifier(C, NC_OBJECT|ND_MODIFIER, ob);
 		}
 		
@@ -4456,9 +4390,9 @@ static void get_PTCacheUndo(PTCacheEdit *edit, PTCacheUndo *undo)
 	}
 }
 
-void PE_undo_push(Scene *scene, SceneLayer *sl, const char *str)
+void PE_undo_push(Scene *scene, const char *str)
 {
-	PTCacheEdit *edit= PE_get_current(scene, sl, OBACT_NEW(sl));
+	PTCacheEdit *edit= PE_get_current(scene, OBACT);
 	PTCacheUndo *undo;
 	int nr;
 
@@ -4498,9 +4432,9 @@ void PE_undo_push(Scene *scene, SceneLayer *sl, const char *str)
 	make_PTCacheUndo(edit, edit->curundo);
 }
 
-void PE_undo_step(Scene *scene, SceneLayer *sl, int step)
+void PE_undo_step(Scene *scene, int step)
 {	
-	PTCacheEdit *edit= PE_get_current(scene, sl, OBACT_NEW(sl));
+	PTCacheEdit *edit= PE_get_current(scene, OBACT);
 
 	if (!edit) return;
 
@@ -4531,12 +4465,12 @@ void PE_undo_step(Scene *scene, SceneLayer *sl, int step)
 		}
 	}
 
-	DEG_id_tag_update(&OBACT_NEW(sl)->id, OB_RECALC_DATA);
+	DAG_id_tag_update(&OBACT->id, OB_RECALC_DATA);
 }
 
-bool PE_undo_is_valid(Scene *scene, SceneLayer *sl)
+bool PE_undo_is_valid(Scene *scene)
 {
-	PTCacheEdit *edit= PE_get_current(scene, sl, OBACT_NEW(sl));
+	PTCacheEdit *edit= PE_get_current(scene, OBACT);
 	
 	if (edit) {
 		return (edit->undo.last != edit->undo.first);
@@ -4559,19 +4493,19 @@ void PTCacheUndo_clear(PTCacheEdit *edit)
 	edit->curundo= NULL;
 }
 
-void PE_undo(Scene *scene, SceneLayer *sl)
+void PE_undo(Scene *scene)
 {
-	PE_undo_step(scene, sl, 1);
+	PE_undo_step(scene, 1);
 }
 
-void PE_redo(Scene *scene, SceneLayer *sl)
+void PE_redo(Scene *scene)
 {
-	PE_undo_step(scene, sl, -1);
+	PE_undo_step(scene, -1);
 }
 
-void PE_undo_number(Scene *scene, SceneLayer *sl, int nr)
+void PE_undo_number(Scene *scene, int nr)
 {
-	PTCacheEdit *edit= PE_get_current(scene, sl, OBACT_NEW(sl));
+	PTCacheEdit *edit= PE_get_current(scene, OBACT);
 	PTCacheUndo *undo;
 	int a=0;
 	
@@ -4579,15 +4513,15 @@ void PE_undo_number(Scene *scene, SceneLayer *sl, int nr)
 		if (a==nr) break;
 	}
 	edit->curundo= undo;
-	PE_undo_step(scene, sl, 0);
+	PE_undo_step(scene, 0);
 }
 
 
 /* get name of undo item, return null if no item with this index */
 /* if active pointer, set it to 1 if true */
-const char *PE_undo_get_name(Scene *scene, SceneLayer *sl, int nr, bool *r_active)
+const char *PE_undo_get_name(Scene *scene, int nr, bool *r_active)
 {
-	PTCacheEdit *edit= PE_get_current(scene, sl, OBACT_NEW(sl));
+	PTCacheEdit *edit= PE_get_current(scene, OBACT);
 	PTCacheUndo *undo;
 	
 	if (r_active) *r_active = false;
@@ -4606,10 +4540,10 @@ const char *PE_undo_get_name(Scene *scene, SceneLayer *sl, int nr, bool *r_activ
 
 /************************ utilities ******************************/
 
-int PE_minmax(Scene *scene, SceneLayer *sl, float min[3], float max[3])
+int PE_minmax(Scene *scene, float min[3], float max[3])
 {
-	Object *ob= OBACT_NEW(sl);
-	PTCacheEdit *edit= PE_get_current(scene, sl, ob);
+	Object *ob= OBACT;
+	PTCacheEdit *edit= PE_get_current(scene, ob);
 	ParticleSystem *psys;
 	ParticleSystemModifierData *psmd = NULL;
 	POINT_P; KEY_K;
@@ -4646,8 +4580,7 @@ int PE_minmax(Scene *scene, SceneLayer *sl, float min[3], float max[3])
 /************************ particle edit toggle operator ************************/
 
 /* initialize needed data for bake edit */
-void PE_create_particle_edit(
-        const EvaluationContext *eval_ctx, Scene *scene, SceneLayer *sl, Object *ob, PointCache *cache, ParticleSystem *psys)
+void PE_create_particle_edit(Scene *scene, Object *ob, PointCache *cache, ParticleSystem *psys)
 {
 	PTCacheEdit *edit;
 	ParticleSystemModifierData *psmd = (psys) ? psys_get_modifier(ob, psys) : NULL;
@@ -4748,10 +4681,10 @@ void PE_create_particle_edit(
 		recalc_lengths(edit);
 		if (psys && !cache)
 			recalc_emitter_field(ob, psys);
-		PE_update_object(eval_ctx, scene, sl, ob, 1);
+		PE_update_object(scene, ob, 1);
 
 		PTCacheUndo_clear(edit);
-		PE_undo_push(scene, sl, "Original");
+		PE_undo_push(scene, "Original");
 	}
 }
 
@@ -4778,9 +4711,6 @@ static int particle_edit_toggle_exec(bContext *C, wmOperator *op)
 	const int mode_flag = OB_MODE_PARTICLE_EDIT;
 	const bool is_mode_set = (ob->mode & mode_flag) != 0;
 
-	BKE_report(op->reports, RPT_INFO, "Particles are changing, editing is not possible");
-	return OPERATOR_CANCELLED;
-
 	if (!is_mode_set) {
 		if (!ED_object_mode_compat_set(C, ob, mode_flag, op->reports)) {
 			return OPERATOR_CANCELLED;
@@ -4789,11 +4719,8 @@ static int particle_edit_toggle_exec(bContext *C, wmOperator *op)
 
 	if (!is_mode_set) {
 		PTCacheEdit *edit;
-		EvaluationContext eval_ctx;
-		CTX_data_eval_ctx(C, &eval_ctx);
-
 		ob->mode |= mode_flag;
-		edit= PE_create_current(&eval_ctx, scene, ob);
+		edit= PE_create_current(scene, ob);
 	
 		/* mesh may have changed since last entering editmode.
 		 * note, this may have run before if the edit data was just created, so could avoid this and speed up a little */
@@ -4809,7 +4736,7 @@ static int particle_edit_toggle_exec(bContext *C, wmOperator *op)
 		WM_event_add_notifier(C, NC_SCENE|ND_MODE|NS_MODE_OBJECT, NULL);
 	}
 
-	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 
 	return OPERATOR_FINISHED;
 }
@@ -4850,7 +4777,7 @@ static int clear_edited_exec(bContext *C, wmOperator *UNUSED(op))
 
 			psys_reset(psys, PSYS_RESET_DEPSGRAPH);
 			WM_event_add_notifier(C, NC_OBJECT|ND_PARTICLE|NA_EDITED, ob);
-			DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+			DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 		}
 	}
 	else { /* some operation might have protected hair from editing so let's clear the flag */
@@ -4858,7 +4785,7 @@ static int clear_edited_exec(bContext *C, wmOperator *UNUSED(op))
 		psys->flag &= ~PSYS_GLOBAL_HAIR;
 		psys->flag &= ~PSYS_EDITED;
 		WM_event_add_notifier(C, NC_OBJECT|ND_PARTICLE|NA_EDITED, ob);
-		DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+		DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	}
 
 	return OPERATOR_FINISHED;
@@ -4961,24 +4888,19 @@ static int unify_length_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	Object *ob = CTX_data_active_object(C);
 	Scene *scene = CTX_data_scene(C);
-	SceneLayer *sl = CTX_data_scene_layer(C);
-	PTCacheEdit *edit = PE_get_current(scene, sl, ob);
+	PTCacheEdit *edit = PE_get_current(scene, ob);
 	float average_length = calculate_average_length(edit);
-
 	if (average_length == 0.0f) {
 		return OPERATOR_CANCELLED;
 	}
 	scale_points_to_length(edit, average_length);
 
-	EvaluationContext eval_ctx;
-	CTX_data_eval_ctx(C, &eval_ctx);
-
-	PE_update_object(&eval_ctx, scene, sl, ob, 1);
+	PE_update_object(scene, ob, 1);
 	if (edit->psys) {
 		WM_event_add_notifier(C, NC_OBJECT|ND_PARTICLE|NA_EDITED, ob);
 	}
 	else {
-		DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+		DAG_id_tag_update(&ob->id, OB_RECALC_DATA);
 		WM_event_add_notifier(C, NC_OBJECT|ND_MODIFIER, ob);
 	}
 

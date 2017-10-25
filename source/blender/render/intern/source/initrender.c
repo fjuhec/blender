@@ -48,8 +48,6 @@
 
 #include "BKE_camera.h"
 
-#include "DEG_depsgraph.h"
-
 /* this module */
 #include "renderpipeline.h"
 #include "render_types.h"
@@ -499,11 +497,6 @@ void RE_SetCamera(Render *re, Object *cam_ob)
 
 	/* extract results */
 	re_camera_params_get(re, &params, cam_ob);
-}
-
-void RE_SetDepsgraph(Render *re, Depsgraph *graph)
-{
-	re->depsgraph = graph;
 }
 
 void RE_SetPixelSize(Render *re, float pixsize)

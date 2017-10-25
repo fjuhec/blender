@@ -34,8 +34,4 @@
 
 #include "glew-mx.h"
 
-#ifndef WITH_LEGACY_OPENGL
-#include "GPU_legacy_stubs.h"
-#endif
-
 #endif /* __GPU_GLEW_H__ */

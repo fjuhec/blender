@@ -50,13 +50,15 @@ public:
 	 */
 	GHOST_Context(bool stereoVisual, GHOST_TUns16 numOfAASamples)
 	    : m_stereoVisual(stereoVisual),
-	      m_numOfAASamples(numOfAASamples)
+	      m_numOfAASamples(numOfAASamples),
+	      m_mxContext(NULL)
 	{}
 
 	/**
 	 * Destructor.
 	 */
 	virtual ~GHOST_Context() {
+		mxDestroyContext(m_mxContext);
 	}
 
 	/**
@@ -126,11 +128,18 @@ public:
 protected:
 	void initContextGLEW();
 
+	inline void activateGLEW() const {
+		mxMakeCurrentContext(m_mxContext);
+	}
+
 	bool m_stereoVisual;
 
 	GHOST_TUns16 m_numOfAASamples;
 
 	static void initClearGL();
+
+private:
+	MXContext *m_mxContext;
 
 #ifdef WITH_CXX_GUARDEDALLOC
 	MEM_CXX_CLASS_ALLOC_FUNCS("GHOST:GHOST_Context")

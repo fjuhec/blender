@@ -138,9 +138,7 @@ struct IDDepsNode : public DepsNode {
 	};
 
 	void init(const ID *id, const char *subdata);
-	void init_copy_on_write(ID *id_cow_hint = NULL);
 	~IDDepsNode();
-	void destroy();
 
 	ComponentDepsNode *find_component(eDepsNode_Type type,
 	                                  const char *name = "") const;
@@ -149,14 +147,16 @@ struct IDDepsNode : public DepsNode {
 
 	void tag_update(Depsgraph *graph);
 
-	void finalize_build(Depsgraph *graph);
+	void finalize_build();
 
 	/* ID Block referenced. */
-	ID *id_orig;
-	ID *id_cow;
+	ID *id;
 
 	/* Hash to make it faster to look up components. */
 	GHash *components;
+
+	/* Layers of this node with accumulated layers of it's output relations. */
+	unsigned int layers;
 
 	/* Additional flags needed for scene evaluation.
 	 * TODO(sergey): Only needed for until really granular updates

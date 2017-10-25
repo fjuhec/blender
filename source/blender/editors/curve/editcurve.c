@@ -45,20 +45,17 @@
 
 #include "BKE_context.h"
 #include "BKE_curve.h"
+#include "BKE_depsgraph.h"
 #include "BKE_displist.h"
 #include "BKE_fcurve.h"
 #include "BKE_global.h"
 #include "BKE_key.h"
-#include "BKE_layer.h"
 #include "BKE_library.h"
 #include "BKE_main.h"
 #include "BKE_report.h"
 #include "BKE_animsys.h"
 #include "BKE_action.h"
 #include "BKE_modifier.h"
-
-#include "DEG_depsgraph.h"
-#include "DEG_depsgraph_build.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -1288,7 +1285,6 @@ static int separate_exec(bContext *C, wmOperator *op)
 {
 	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
-	SceneLayer *sl = CTX_data_scene_layer(C);
 	Object *oldob, *newob;
 	Base *oldbase, *newbase;
 	Curve *oldcu, *newcu;
@@ -1316,8 +1312,8 @@ static int separate_exec(bContext *C, wmOperator *op)
 	}
 
 	/* 2. duplicate the object and data */
-	newbase = ED_object_add_duplicate(bmain, scene, sl, oldbase, 0); /* 0 = fully linked */
-	DEG_relations_tag_update(bmain);
+	newbase = ED_object_add_duplicate(bmain, scene, oldbase, 0); /* 0 = fully linked */
+	DAG_relations_tag_update(bmain);
 
 	newob = newbase->object;
 	newcu = newob->data = BKE_curve_copy(bmain, oldcu);
@@ -1336,8 +1332,8 @@ static int separate_exec(bContext *C, wmOperator *op)
 	ED_curve_editnurb_free(newob);
 	curve_delete_segments(oldob, true);
 
-	DEG_id_tag_update(&oldob->id, OB_RECALC_DATA);  /* this is the original one */
-	DEG_id_tag_update(&newob->id, OB_RECALC_DATA);  /* this is the separated one */
+	DAG_id_tag_update(&oldob->id, OB_RECALC_DATA);  /* this is the original one */
+	DAG_id_tag_update(&newob->id, OB_RECALC_DATA);  /* this is the separated one */
 
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, oldob->data);
 	WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, newob);
@@ -1385,7 +1381,7 @@ static int curve_split_exec(bContext *C, wmOperator *op)
 			WM_event_add_notifier(C, NC_OBJECT | ND_KEYS, obedit);
 
 		WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
-		DEG_id_tag_update(obedit->data, 0);
+		DAG_id_tag_update(obedit->data, 0);
 	}
 	else {
 		BKE_report(op->reports, RPT_ERROR, "Cannot split current selection");
@@ -2331,7 +2327,7 @@ static int switch_direction_exec(bContext *C, wmOperator *UNUSED(op))
 	if (ED_curve_updateAnimPaths(obedit->data))
 		WM_event_add_notifier(C, NC_OBJECT | ND_KEYS, obedit);
 
-	DEG_id_tag_update(obedit->data, 0);
+	DAG_id_tag_update(obedit->data, 0);
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
 
 	return OPERATOR_FINISHED;
@@ -2379,7 +2375,7 @@ static int set_goal_weight_exec(bContext *C, wmOperator *op)
 		}
 	}
 
-	DEG_id_tag_update(obedit->data, 0);
+	DAG_id_tag_update(obedit->data, 0);
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
 
 	return OPERATOR_FINISHED;
@@ -2432,7 +2428,7 @@ static int set_radius_exec(bContext *C, wmOperator *op)
 	}
 
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
-	DEG_id_tag_update(obedit->data, 0);
+	DAG_id_tag_update(obedit->data, 0);
 
 	return OPERATOR_FINISHED;
 }
@@ -2584,7 +2580,7 @@ static int smooth_exec(bContext *C, wmOperator *UNUSED(op))
 	}
 
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
-	DEG_id_tag_update(obedit->data, 0);
+	DAG_id_tag_update(obedit->data, 0);
 
 	return OPERATOR_FINISHED;
 }
@@ -2775,7 +2771,7 @@ static int curve_smooth_weight_exec(bContext *C, wmOperator *UNUSED(op))
 	curve_smooth_value(editnurb, offsetof(BezTriple, weight), offsetof(BPoint, weight));
 
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
-	DEG_id_tag_update(obedit->data, 0);
+	DAG_id_tag_update(obedit->data, 0);
 
 	return OPERATOR_FINISHED;
 }
@@ -2803,7 +2799,7 @@ static int curve_smooth_radius_exec(bContext *C, wmOperator *UNUSED(op))
 	curve_smooth_value(editnurb, offsetof(BezTriple, radius), offsetof(BPoint, radius));
 
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
-	DEG_id_tag_update(obedit->data, 0);
+	DAG_id_tag_update(obedit->data, 0);
 
 	return OPERATOR_FINISHED;
 }
@@ -2831,7 +2827,7 @@ static int curve_smooth_tilt_exec(bContext *C, wmOperator *UNUSED(op))
 	curve_smooth_value(editnurb, offsetof(BezTriple, alfa), offsetof(BPoint, alfa));
 
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
-	DEG_id_tag_update(obedit->data, 0);
+	DAG_id_tag_update(obedit->data, 0);
 
 	return OPERATOR_FINISHED;
 }
@@ -2903,7 +2899,7 @@ static int hide_exec(bContext *C, wmOperator *op)
 		}
 	}
 
-	DEG_id_tag_update(obedit->data, 0);
+	DAG_id_tag_update(obedit->data, 0);
 	WM_event_add_notifier(C, NC_GEOM | ND_SELECT, obedit->data);
 	BKE_curve_nurb_vert_active_validate(obedit->data);
 
@@ -2965,7 +2961,7 @@ static int reveal_exec(bContext *C, wmOperator *UNUSED(op))
 		}
 	}
 
-	DEG_id_tag_update(obedit->data, 0);
+	DAG_id_tag_update(obedit->data, 0);
 	WM_event_add_notifier(C, NC_GEOM | ND_SELECT, obedit->data);
 
 	return OPERATOR_FINISHED;
@@ -3384,7 +3380,7 @@ static int subdivide_exec(bContext *C, wmOperator *op)
 		WM_event_add_notifier(C, NC_OBJECT | ND_KEYS, obedit);
 
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
-	DEG_id_tag_update(obedit->data, 0);
+	DAG_id_tag_update(obedit->data, 0);
 
 	return OPERATOR_FINISHED;
 }
@@ -3579,7 +3575,7 @@ static int set_spline_type_exec(bContext *C, wmOperator *op)
 		if (ED_curve_updateAnimPaths(obedit->data))
 			WM_event_add_notifier(C, NC_OBJECT | ND_KEYS, obedit);
 
-		DEG_id_tag_update(obedit->data, 0);
+		DAG_id_tag_update(obedit->data, 0);
 		WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
 
 		if (changed_size) {
@@ -3633,7 +3629,7 @@ static int set_handle_type_exec(bContext *C, wmOperator *op)
 	BKE_nurbList_handles_set(editnurb, RNA_enum_get(op->ptr, "type"));
 
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
-	DEG_id_tag_update(obedit->data, 0);
+	DAG_id_tag_update(obedit->data, 0);
 
 	return OPERATOR_FINISHED;
 }
@@ -3678,7 +3674,7 @@ static int curve_normals_make_consistent_exec(bContext *C, wmOperator *op)
 	BKE_nurbList_handles_recalculate(editnurb, calc_length, SELECT);
 
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
-	DEG_id_tag_update(obedit->data, 0);
+	DAG_id_tag_update(obedit->data, 0);
 
 	return OPERATOR_FINISHED;
 }
@@ -4066,7 +4062,7 @@ static int merge_nurb(bContext *C, wmOperator *op)
 	BKE_curve_nurb_active_set(obedit->data, NULL);
 
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
-	DEG_id_tag_update(obedit->data, 0);
+	DAG_id_tag_update(obedit->data, 0);
 	
 	return OPERATOR_FINISHED;
 }
@@ -4273,7 +4269,7 @@ static int make_segment_exec(bContext *C, wmOperator *op)
 		WM_event_add_notifier(C, NC_OBJECT | ND_KEYS, obedit);
 
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
-	DEG_id_tag_update(obedit->data, 0);
+	DAG_id_tag_update(obedit->data, 0);
 
 	return OPERATOR_FINISHED;
 }
@@ -4517,7 +4513,7 @@ static int spin_exec(bContext *C, wmOperator *op)
 		WM_event_add_notifier(C, NC_OBJECT | ND_KEYS, obedit);
 
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
-	DEG_id_tag_update(obedit->data, 0);
+	DAG_id_tag_update(obedit->data, 0);
 
 	return OPERATOR_FINISHED;
 }
@@ -4972,7 +4968,7 @@ static int add_vertex_exec(bContext *C, wmOperator *op)
 		}
 
 		WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
-		DEG_id_tag_update(obedit->data, 0);
+		DAG_id_tag_update(obedit->data, 0);
 
 		return OPERATOR_FINISHED;
 	}
@@ -5017,7 +5013,7 @@ static int add_vertex_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 			const float mval[2] = {UNPACK2(event->mval)};
 
 			struct SnapObjectContext *snap_context = ED_transform_snap_object_context_create_view3d(
-			        CTX_data_main(C), vc.scene, vc.scene_layer, vc.engine, 0,
+			        CTX_data_main(C), vc.scene, 0,
 			        vc.ar, vc.v3d);
 
 			ED_transform_snap_object_project_view3d_mixed(
@@ -5127,7 +5123,7 @@ static int curve_extrude_exec(bContext *C, wmOperator *UNUSED(op))
 		}
 
 		WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
-		DEG_id_tag_update(obedit->data, 0);
+		DAG_id_tag_update(obedit->data, 0);
 	}
 
 	return OPERATOR_FINISHED;
@@ -5226,7 +5222,7 @@ static int toggle_cyclic_exec(bContext *C, wmOperator *op)
 	}
 
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
-	DEG_id_tag_update(obedit->data, 0);
+	DAG_id_tag_update(obedit->data, 0);
 
 	return OPERATOR_FINISHED;
 }
@@ -5744,7 +5740,7 @@ static int curve_delete_exec(bContext *C, wmOperator *op)
 		if (ED_curve_updateAnimPaths(obedit->data)) WM_event_add_notifier(C, NC_OBJECT | ND_KEYS, obedit);
 
 		WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
-		DEG_id_tag_update(obedit->data, 0);
+		DAG_id_tag_update(obedit->data, 0);
 
 		return retval;
 	}
@@ -5888,7 +5884,7 @@ static int curve_dissolve_exec(bContext *C, wmOperator *UNUSED(op))
 		if (ED_curve_updateAnimPaths(obedit->data)) WM_event_add_notifier(C, NC_OBJECT | ND_KEYS, obedit);
 
 		WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
-		DEG_id_tag_update(obedit->data, 0);
+		DAG_id_tag_update(obedit->data, 0);
 	}
 
 	return OPERATOR_FINISHED;
@@ -5929,7 +5925,7 @@ static int shade_smooth_exec(bContext *C, wmOperator *op)
 	}
 	
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
-	DEG_id_tag_update(obedit->data, 0);
+	DAG_id_tag_update(obedit->data, 0);
 
 	return OPERATOR_FINISHED;
 }
@@ -6043,7 +6039,7 @@ int join_curve_exec(bContext *C, wmOperator *op)
 					}
 				}
 			
-				ED_base_object_free_and_unlink(bmain, scene, base->object);
+				ED_base_object_free_and_unlink(bmain, scene, base);
 			}
 		}
 	}
@@ -6055,9 +6051,9 @@ int join_curve_exec(bContext *C, wmOperator *op)
 	/* Account for mixed 2D/3D curves when joining */
 	BKE_curve_curve_dimension_update(cu);
 
-	DEG_relations_tag_update(bmain);   // because we removed object(s), call before editmode!
+	DAG_relations_tag_update(bmain);   // because we removed object(s), call before editmode!
 
-	DEG_id_tag_update(&ob->id, OB_RECALC_OB | OB_RECALC_DATA);
+	DAG_id_tag_update(&ob->id, OB_RECALC_OB | OB_RECALC_DATA);
 
 	WM_event_add_notifier(C, NC_SCENE | ND_OB_ACTIVE, scene);
 
@@ -6097,7 +6093,7 @@ static int clear_tilt_exec(bContext *C, wmOperator *UNUSED(op))
 	}
 
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
-	DEG_id_tag_update(obedit->data, 0);
+	DAG_id_tag_update(obedit->data, 0);
 
 	return OPERATOR_FINISHED;
 }
@@ -6275,15 +6271,12 @@ static int match_texture_space_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	Scene *scene = CTX_data_scene(C);
 	Object *object = CTX_data_active_object(C);
-	EvaluationContext eval_ctx;
 	Curve *curve = (Curve *) object->data;
 	float min[3], max[3], size[3], loc[3];
 	int a;
 
-	CTX_data_eval_ctx(C, &eval_ctx);
-
 	if (object->curve_cache == NULL) {
-		BKE_displist_make_curveTypes(&eval_ctx, scene, object, false);
+		BKE_displist_make_curveTypes(scene, object, false);
 	}
 
 	INIT_MINMAX(min, max);

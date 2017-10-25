@@ -392,7 +392,7 @@ static void ui_layer_but_cb(bContext *C, void *arg_but, void *arg_index)
 static void ui_item_array(
         uiLayout *layout, uiBlock *block, const char *name, int icon,
         PointerRNA *ptr, PropertyRNA *prop, int len, int x, int y, int w, int UNUSED(h),
-        bool expand, bool slider, bool toggle, bool icon_only, bool compact)
+        bool expand, bool slider, bool toggle, bool icon_only)
 {
 	uiStyle *style = layout->root->style;
 	uiBut *but;
@@ -541,18 +541,9 @@ static void ui_item_array(
 			}
 
 			for (a = 0; a < len; a++) {
-				int width_item;
-
-				if (!icon_only) {
-					str[0] = RNA_property_array_item_char(prop, a);
-				}
-				if (boolarr) {
-					icon = boolarr[a] ? ICON_CHECKBOX_HLT : ICON_CHECKBOX_DEHLT;
-				}
-				width_item = (compact && type == PROP_BOOLEAN) ?
-				                 min_ii(w, ui_text_icon_width(layout, str, icon, false)) : w;
-
-				but = uiDefAutoButR(block, ptr, prop, a, str, icon, 0, 0, width_item, UI_UNIT_Y);
+				if (!icon_only) str[0] = RNA_property_array_item_char(prop, a);
+				if (boolarr) icon = boolarr[a] ? ICON_CHECKBOX_HLT : ICON_CHECKBOX_DEHLT;
+				but = uiDefAutoButR(block, ptr, prop, a, str, icon, 0, 0, w, UI_UNIT_Y);
 				if (slider && but->type == UI_BTYPE_NUM)
 					but->type = UI_BTYPE_NUM_SLIDER;
 				if (toggle && but->type == UI_BTYPE_CHECKBOX)
@@ -1248,10 +1239,8 @@ void uiItemO(uiLayout *layout, const char *name, int icon, const char *opname)
 /* RNA property items */
 
 static void ui_item_rna_size(
-        uiLayout *layout, const char *name, int icon,
-        PointerRNA *ptr, PropertyRNA *prop,
-        int index, bool icon_only, bool compact,
-        int *r_w, int *r_h)
+        uiLayout *layout, const char *name, int icon, PointerRNA *ptr, PropertyRNA *prop,
+        int index, bool icon_only, int *r_w, int *r_h)
 {
 	PropertyType type;
 	PropertySubType subtype;
@@ -1277,7 +1266,7 @@ static void ui_item_rna_size(
 			RNA_property_enum_items_gettexted(layout->root->block->evil_C, ptr, prop, &item_array, NULL, &free);
 			for (item = item_array; item->identifier; item++) {
 				if (item->identifier[0]) {
-					w = max_ii(w, ui_text_icon_width(layout, item->name, item->icon, compact));
+					w = max_ii(w, ui_text_icon_width(layout, item->name, item->icon, 0));
 				}
 			}
 			if (free) {
@@ -1288,13 +1277,12 @@ static void ui_item_rna_size(
 
 	if (!w) {
 		if (type == PROP_ENUM && icon_only) {
-			w = ui_text_icon_width(layout, "", ICON_BLANK1, compact);
+			w = ui_text_icon_width(layout, "", ICON_BLANK1, 0);
 			if (index != RNA_ENUM_VALUE)
 				w += 0.6f * UI_UNIT_X;
 		}
 		else {
-			/* not compact for float/int buttons, looks too squashed */
-			w = ui_text_icon_width(layout, name, icon, ELEM(type, PROP_FLOAT, PROP_INT) ? false : compact);
+			w = ui_text_icon_width(layout, name, icon, 0);
 		}
 	}
 	h = UI_UNIT_Y;
@@ -1331,7 +1319,7 @@ void uiItemFullR(uiLayout *layout, PointerRNA *ptr, PropertyRNA *prop, int index
 	PropertyType type;
 	char namestr[UI_MAX_NAME_STR];
 	int len, w, h;
-	bool slider, toggle, expand, icon_only, no_bg, compact;
+	bool slider, toggle, expand, icon_only, no_bg;
 	bool is_array;
 
 	UI_block_layout_set_current(block, layout);
@@ -1364,12 +1352,7 @@ void uiItemFullR(uiLayout *layout, PointerRNA *ptr, PropertyRNA *prop, int index
 		name = ui_item_name_add_colon(name, namestr);
 	}
 	else if (type == PROP_ENUM && index != RNA_ENUM_VALUE) {
-		if (flag & UI_ITEM_R_COMPACT) {
-			name = "";
-		}
-		else {
-			name = ui_item_name_add_colon(name, namestr);
-		}
+		name = ui_item_name_add_colon(name, namestr);
 	}
 
 	/* menus and pie-menus don't show checkbox without this */
@@ -1397,19 +1380,16 @@ void uiItemFullR(uiLayout *layout, PointerRNA *ptr, PropertyRNA *prop, int index
 	expand = (flag & UI_ITEM_R_EXPAND) != 0;
 	icon_only = (flag & UI_ITEM_R_ICON_ONLY) != 0;
 	no_bg = (flag & UI_ITEM_R_NO_BG) != 0;
-	compact = (flag & UI_ITEM_R_COMPACT) != 0;
 
 	/* get size */
-	ui_item_rna_size(layout, name, icon, ptr, prop, index, icon_only, compact, &w, &h);
+	ui_item_rna_size(layout, name, icon, ptr, prop, index, icon_only, &w, &h);
 
 	if (no_bg)
 		UI_block_emboss_set(block, UI_EMBOSS_NONE);
 	
 	/* array property */
 	if (index == RNA_NO_INDEX && is_array)
-		ui_item_array(
-		            layout, block, name, icon, ptr, prop, len, 0, 0, w, h,
-		            expand, slider, toggle, icon_only, compact);
+		ui_item_array(layout, block, name, icon, ptr, prop, len, 0, 0, w, h, expand, slider, toggle, icon_only);
 	/* enum item */
 	else if (type == PROP_ENUM && index == RNA_ENUM_VALUE) {
 		if (icon && name[0] && !icon_only)
@@ -1598,6 +1578,94 @@ void uiItemsEnumR(uiLayout *layout, struct PointerRNA *ptr, const char *propname
 
 /* Pointer RNA button with search */
 
+typedef struct CollItemSearch {
+	struct CollItemSearch *next, *prev;
+	char *name;
+	int index;
+	int iconid;
+} CollItemSearch;
+
+static int sort_search_items_list(const void *a, const void *b)
+{
+	const CollItemSearch *cis1 = a;
+	const CollItemSearch *cis2 = b;
+	
+	if (BLI_strcasecmp(cis1->name, cis2->name) > 0)
+		return 1;
+	else
+		return 0;
+}
+
+static void rna_search_cb(const struct bContext *C, void *arg_but, const char *str, uiSearchItems *items)
+{
+	uiBut *but = arg_but;
+	char *name;
+	int i = 0, iconid = 0, flag = RNA_property_flag(but->rnaprop);
+	ListBase *items_list = MEM_callocN(sizeof(ListBase), "items_list");
+	CollItemSearch *cis;
+	const bool skip_filter = !but->changed;
+
+	/* build a temporary list of relevant items first */
+	RNA_PROP_BEGIN (&but->rnasearchpoin, itemptr, but->rnasearchprop)
+	{
+		if (flag & PROP_ID_SELF_CHECK)
+			if (itemptr.data == but->rnapoin.id.data)
+				continue;
+
+		/* use filter */
+		if (RNA_property_type(but->rnaprop) == PROP_POINTER) {
+			if (RNA_property_pointer_poll(&but->rnapoin, but->rnaprop, &itemptr) == 0)
+				continue;
+		}
+
+		if (itemptr.type && RNA_struct_is_ID(itemptr.type)) {
+			ID *id = itemptr.data;
+			char name_ui[MAX_ID_NAME];
+
+#if 0       /* this name is used for a string comparison and can't be modified, TODO */
+			/* if ever enabled, make name_ui be MAX_ID_NAME+1 */
+			BKE_id_ui_prefix(name_ui, id);
+#else
+			BLI_strncpy(name_ui, id->name + 2, sizeof(name_ui));
+#endif
+			name = BLI_strdup(name_ui);
+			iconid = ui_id_icon_get(C, id, false);
+		}
+		else {
+			name = RNA_struct_name_get_alloc(&itemptr, NULL, 0, NULL); /* could use the string length here */
+			iconid = 0;
+		}
+
+		if (name) {
+			if (skip_filter || BLI_strcasestr(name, str)) {
+				cis = MEM_callocN(sizeof(CollItemSearch), "CollectionItemSearch");
+				cis->name = MEM_dupallocN(name);
+				cis->index = i;
+				cis->iconid = iconid;
+				BLI_addtail(items_list, cis);
+			}
+			MEM_freeN(name);
+		}
+
+		i++;
+	}
+	RNA_PROP_END;
+	
+	BLI_listbase_sort(items_list, sort_search_items_list);
+	
+	/* add search items from temporary list */
+	for (cis = items_list->first; cis; cis = cis->next) {
+		if (false == UI_search_item_add(items, cis->name, SET_INT_IN_POINTER(cis->index), cis->iconid)) {
+			break;
+		}
+	}
+
+	for (cis = items_list->first; cis; cis = cis->next) {
+		MEM_freeN(cis->name);
+	}
+	BLI_freelistN(items_list);
+	MEM_freeN(items_list);
+}
 
 static void search_id_collection(StructRNA *ptype, PointerRNA *ptr, PropertyRNA **prop)
 {
@@ -1639,8 +1707,6 @@ void ui_but_add_search(uiBut *but, PointerRNA *ptr, PropertyRNA *prop, PointerRN
 
 	/* turn button into search button */
 	if (searchprop) {
-		uiRNACollectionSearch *coll_search = MEM_mallocN(sizeof(*coll_search), __func__);
-
 		but->type = UI_BTYPE_SEARCH_MENU;
 		but->hardmax = MAX2(but->hardmax, 256.0f);
 		but->rnasearchpoin = *searchptr;
@@ -1650,22 +1716,13 @@ void ui_but_add_search(uiBut *but, PointerRNA *ptr, PropertyRNA *prop, PointerRN
 			but->flag |= UI_BUT_VALUE_CLEAR;
 		}
 
-		coll_search->target_ptr = *ptr;
-		coll_search->target_prop = prop;
-		coll_search->search_ptr = *searchptr;
-		coll_search->search_prop = searchprop;
-		coll_search->but_changed = &but->changed;
-
 		if (RNA_property_type(prop) == PROP_ENUM) {
 			/* XXX, this will have a menu string,
 			 * but in this case we just want the text */
 			but->str[0] = 0;
 		}
 
-		UI_but_func_search_set(
-		            but, ui_searchbox_create_generic, ui_rna_collection_search_cb,
-		            coll_search, NULL, NULL);
-		but->free_search_arg = true;
+		UI_but_func_search_set(but, ui_searchbox_create_generic, rna_search_cb, but, NULL, NULL);
 	}
 	else if (but->type == UI_BTYPE_SEARCH_MENU) {
 		/* In case we fail to find proper searchprop, so other code might have already set but->type to search menu... */
@@ -1729,7 +1786,7 @@ void uiItemPointerR(uiLayout *layout, struct PointerRNA *ptr, const char *propna
 	/* create button */
 	block = uiLayoutGetBlock(layout);
 
-	ui_item_rna_size(layout, name, icon, ptr, prop, 0, 0, false, &w, &h);
+	ui_item_rna_size(layout, name, icon, ptr, prop, 0, 0, &w, &h);
 	w += UI_UNIT_X; /* X icon needs more space */
 	but = ui_item_with_label(layout, block, name, icon, ptr, prop, 0, 0, 0, w, h, 0);
 

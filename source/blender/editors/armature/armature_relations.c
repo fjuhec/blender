@@ -47,14 +47,11 @@
 #include "BKE_animsys.h"
 #include "BKE_constraint.h"
 #include "BKE_context.h"
+#include "BKE_depsgraph.h"
 #include "BKE_fcurve.h"
 #include "BKE_global.h"
-#include "BKE_layer.h"
 #include "BKE_main.h"
 #include "BKE_report.h"
-
-#include "DEG_depsgraph.h"
-#include "DEG_depsgraph_build.h"
 
 #include "RNA_access.h"
 #include "RNA_define.h"
@@ -403,12 +400,12 @@ int join_armature_exec(bContext *C, wmOperator *op)
 			}
 			
 			/* Free the old object data */
-			ED_base_object_free_and_unlink(bmain, scene, base->object);
+			ED_base_object_free_and_unlink(bmain, scene, base);
 		}
 	}
 	CTX_DATA_END;
 	
-	DEG_relations_tag_update(bmain);  /* because we removed object(s) */
+	DAG_relations_tag_update(bmain);  /* because we removed object(s) */
 
 	ED_armature_from_edit(arm);
 	ED_armature_edit_free(arm);
@@ -582,7 +579,6 @@ static int separate_armature_exec(bContext *C, wmOperator *op)
 {
 	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
-	SceneLayer *sl = CTX_data_scene_layer(C);
 	Object *obedit = CTX_data_edit_object(C);
 	Object *oldob, *newob;
 	Base *oldbase, *newbase;
@@ -606,18 +602,14 @@ static int separate_armature_exec(bContext *C, wmOperator *op)
 	/* TODO: use context iterators for this? */
 	CTX_DATA_BEGIN(C, Base *, base, visible_bases)
 	{
-		if (base->object == obedit) {
-			ED_object_base_select(base, BA_SELECT);
-		}
-		else {
-			ED_object_base_select(base, BA_DESELECT);
-		}
+		if (base->object == obedit) base->flag |= SELECT;
+		else base->flag &= ~SELECT;
 	}
 	CTX_DATA_END;
 	
 	/* 1) store starting settings and exit editmode */
 	oldob = obedit;
-	oldbase = sl->basact;
+	oldbase = BASACT;
 	oldob->mode &= ~OB_MODE_POSE;
 	//oldbase->flag &= ~OB_POSEMODE;
 	
@@ -625,13 +617,13 @@ static int separate_armature_exec(bContext *C, wmOperator *op)
 	ED_armature_edit_free(obedit->data);
 	
 	/* 2) duplicate base */
-	newbase = ED_object_add_duplicate(bmain, scene, sl, oldbase, USER_DUP_ARM); /* only duplicate linked armature */
-	DEG_relations_tag_update(bmain);
+	newbase = ED_object_add_duplicate(bmain, scene, oldbase, USER_DUP_ARM); /* only duplicate linked armature */
+	DAG_relations_tag_update(bmain);
 
 	newob = newbase->object;
-	newbase->flag &= ~BASE_SELECTED;
-
-
+	newbase->flag &= ~SELECT;
+	
+	
 	/* 3) remove bones that shouldn't still be around on both armatures */
 	separate_armature_bones(oldob, 1);
 	separate_armature_bones(newob, 0);
@@ -640,8 +632,8 @@ static int separate_armature_exec(bContext *C, wmOperator *op)
 	/* 4) fix links before depsgraph flushes */ // err... or after?
 	separated_armature_fix_links(oldob, newob);
 	
-	DEG_id_tag_update(&oldob->id, OB_RECALC_DATA);  /* this is the original one */
-	DEG_id_tag_update(&newob->id, OB_RECALC_DATA);  /* this is the separated one */
+	DAG_id_tag_update(&oldob->id, OB_RECALC_DATA);  /* this is the original one */
+	DAG_id_tag_update(&newob->id, OB_RECALC_DATA);  /* this is the separated one */
 	
 	
 	/* 5) restore original conditions */

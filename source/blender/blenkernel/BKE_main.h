@@ -108,7 +108,6 @@ typedef struct Main {
 	ListBase vfont;
 	ListBase text;
 	ListBase speaker;
-	ListBase lightprobe;
 	ListBase sound;
 	ListBase group;
 	ListBase armature;
@@ -124,7 +123,6 @@ typedef struct Main {
 	ListBase mask;
 	ListBase linestyle;
 	ListBase cachefiles;
-	ListBase workspaces;
 
 	char id_tag_update[MAX_LIBARRAY];
 

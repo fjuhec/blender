@@ -48,6 +48,7 @@
 
 #include "BIF_gl.h"
 
+#include "GPU_debug.h"
 #include "GPU_shader.h"
 #include "GPU_texture.h"
 
@@ -159,7 +160,7 @@ static GPUTexture *create_field_texture(SmokeDomainSettings *sds)
 		default: return NULL;
 	}
 
-	return GPU_texture_create_3D_custom(sds->res[0], sds->res[1], sds->res[2], 1, GPU_R8, field, NULL);
+	return GPU_texture_create_3D(sds->res[0], sds->res[1], sds->res[2], 1, field);
 }
 
 typedef struct VolumeSlicer {
