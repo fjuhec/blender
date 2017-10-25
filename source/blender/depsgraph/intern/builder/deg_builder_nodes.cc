@@ -86,6 +86,7 @@ extern "C" {
 #include "BKE_mesh.h"
 #include "BKE_mball.h"
 #include "BKE_modifier.h"
+#include "BKE_movieclip.h"
 #include "BKE_node.h"
 #include "BKE_object.h"
 #include "BKE_particle.h"
@@ -833,25 +834,23 @@ void DepsgraphNodeBuilder::build_cloth(Scene *scene, Object *object)
 {
 	Scene *scene_cow = get_cow_datablock(scene);
 	Object *object_cow = get_cow_datablock(object);
-
-	ComponentDepsNode *cache_comp = add_component_node(&object->id,
-	                                                   DEG_NODE_TYPE_CACHE);
-	add_operation_node(cache_comp,
+	add_operation_node(&object->id,
+	                   DEG_NODE_TYPE_CACHE,
 	                   function_bind(BKE_object_eval_cloth,
 	                                 _1,
 	                                 scene_cow,
 	                                 object_cow),
-	                   DEG_OPCODE_PLACEHOLDER,
-	                   "Cloth Modifier");
+	                   DEG_OPCODE_GEOMETRY_CLOTH_MODIFIER);
 }
 
 /* Shapekeys */
 void DepsgraphNodeBuilder::build_shapekeys(Key *key)
 {
 	build_animdata(&key->id);
-
-	add_operation_node(&key->id, DEG_NODE_TYPE_GEOMETRY, NULL,
-	                   DEG_OPCODE_PLACEHOLDER, "Shapekey Eval");
+	add_operation_node(&key->id,
+	                   DEG_NODE_TYPE_GEOMETRY,
+	                   NULL,
+	                   DEG_OPCODE_GEOMETRY_SHAPEKEY);
 }
 
 /* ObData Geometry Evaluation */
@@ -1086,7 +1085,6 @@ void DepsgraphNodeBuilder::build_lamp(Object *ob)
 
 	build_animdata(&la->id);
 
-	/* node for obdata */
 	add_operation_node(lamp_id,
 	                   DEG_NODE_TYPE_PARAMETERS,
 	                   NULL,
@@ -1211,8 +1209,6 @@ void DepsgraphNodeBuilder::build_image(Image *image) {
 		return;
 	}
 	image_id->tag |= LIB_TAG_DOIT;
-	/* Image ID node itself. */
-	add_id_node(image_id);
 	/* Placeholder so we can add relations and tag ID node for update. */
 	add_operation_node(image_id,
 	                   DEG_NODE_TYPE_PARAMETERS,
@@ -1237,12 +1233,12 @@ void DepsgraphNodeBuilder::build_gpencil(bGPdata *gpd)
 {
 	ID *gpd_id = &gpd->id;
 
-	/* gpencil itself */
-	// XXX: what about multiple users of same datablock? This should only get added once
-	add_id_node(gpd_id);
+	/* TODO(sergey): what about multiple users of same datablock? This should
+	 * only get added once.
+	 */
 
-	/* The main reason Grease Pencil is included here is because the animation (and drivers)
-	 * need to be hosted somewhere...
+	/* The main reason Grease Pencil is included here is because the animation
+	 * (and drivers) need to be hosted somewhere.
 	 */
 	build_animdata(gpd_id);
 }
@@ -1250,20 +1246,17 @@ void DepsgraphNodeBuilder::build_gpencil(bGPdata *gpd)
 void DepsgraphNodeBuilder::build_cachefile(CacheFile *cache_file)
 {
 	ID *cache_file_id = &cache_file->id;
-
-	add_component_node(cache_file_id, DEG_NODE_TYPE_CACHE);
+	/* Animation, */
+	build_animdata(cache_file_id);
+	/* Cache evaluation itself. */
 	add_operation_node(cache_file_id, DEG_NODE_TYPE_CACHE, NULL,
 	                   DEG_OPCODE_PLACEHOLDER, "Cache File Update");
-
-	add_id_node(cache_file_id);
-	build_animdata(cache_file_id);
 }
 
 void DepsgraphNodeBuilder::build_mask(Mask *mask)
 {
 	ID *mask_id = &mask->id;
-	add_id_node(mask_id);
-	/* F-Curve based animation/ */
+	/* F-Curve based animation. */
 	build_animdata(mask_id);
 	/* Animation based on mask's shapes. */
 	add_operation_node(mask_id,
@@ -1280,8 +1273,13 @@ void DepsgraphNodeBuilder::build_mask(Mask *mask)
 void DepsgraphNodeBuilder::build_movieclip(MovieClip *clip)
 {
 	ID *clip_id = &clip->id;
-	add_id_node(clip_id);
+	/* Animation. */
 	build_animdata(clip_id);
+	/* Movie clip evaluation. */
+	add_operation_node(clip_id,
+	                   DEG_NODE_TYPE_PARAMETERS,
+	                   function_bind(BKE_movieclip_eval_update, _1, clip),
+	                   DEG_OPCODE_MOVIECLIP_EVAL);
 }
 
 void DepsgraphNodeBuilder::build_lightprobe(Object *object)
