@@ -2471,7 +2471,8 @@ static int screen_maximize_area_poll(bContext *C)
 {
 	const bScreen *screen = CTX_wm_screen(C);
 	const ScrArea *area = CTX_wm_area(C);
-	return (screen->state != SCREENNORMAL) || (area->spacetype != SPACE_TOPBAR);
+	return ED_operator_areaactive(C) &&
+	       ((screen->state != SCREENNORMAL) || (area->spacetype != SPACE_TOPBAR));
 }
 
 static void SCREEN_OT_screen_full_area(wmOperatorType *ot)
