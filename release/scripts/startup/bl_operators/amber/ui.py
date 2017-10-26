@@ -174,16 +174,74 @@ class AMBER_UL_asset_tags(UIList):
 
 
 class AMBER_UL_tags(UIList):
+    use_filter_name_reverse = bpy.props.BoolProperty(name="Reverse Name", default=False, options=set(),
+                                                     description="Reverse name filtering")
+
+    def _gen_order_update(name1, name2):
+        def _u(self, ctxt):
+            if (getattr(self, name1)):
+                setattr(self, name2, False)
+        return _u
+    use_order_name = bpy.props.BoolProperty(name="Name", default=False, options=set(),
+                                            description="Sort tags by their name (case-insensitive)",
+                                            update=_gen_order_update("use_order_name", "use_order_importance"))
+    use_order_importance = bpy.props.BoolProperty(name="Importance", default=False, options=set(),
+                                                  description="Sort tags by their weight",
+                                                  update=_gen_order_update("use_order_importance", "use_order_name"))
+
+    use_filter_orderby_invert= bpy.props.BoolProperty(name="Invert Ordering", default=False, options=set(),
+                                                      description="Reverse tag ordering")
+
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         # assert(isinstance(item, bpy.types.AmberDataTagPG))
         tag = item
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
-            split = layout.split(0.66, False)
+            split = layout.split(0.5, False)
             split.prop(tag, "name", text="", emboss=False, icon_value=icon)
             split.prop(tag, "priority", text="", emboss=False)
         elif self.layout_type == 'GRID':
             layout.alignment = 'CENTER'
             layout.label(text="", icon_value=icon)
+
+    def draw_filter(self, context, layout):
+        # Nothing much to say here, it's usual UI code...
+        row = layout.row()
+
+        subrow = row.row(align=True)
+        subrow.prop(self, "filter_name", text="")
+        icon = 'ZOOM_OUT' if self.use_filter_name_reverse else 'ZOOM_IN'
+        subrow.prop(self, "use_filter_name_reverse", text="", icon=icon)
+
+        row = layout.row(align=True)
+        row.label("Order by:")
+        row.prop(self, "use_order_name", toggle=True)
+        row.prop(self, "use_order_importance", toggle=True)
+        icon = 'TRIA_UP' if self.use_filter_orderby_invert else 'TRIA_DOWN'
+        row.prop(self, "use_filter_orderby_invert", text="", icon=icon)
+
+    def filter_items(self, context, data, propname):
+        tags = getattr(data, propname)
+        helper_funcs = bpy.types.UI_UL_list
+
+        # Default return values.
+        flt_flags = []
+        flt_neworder = []
+
+        # Filtering by name
+        if self.filter_name:
+            flt_flags = helper_funcs.filter_items_by_name(self.filter_name, self.bitflag_filter_item, tags, "name",
+                                                          reverse=self.use_filter_name_reverse)
+        if not flt_flags:
+            flt_flags = [self.bitflag_filter_item] * len(tags)
+
+        # Reorder by name or weight.
+        if self.use_order_name:
+            flt_neworder = helper_funcs.sort_items_by_name(tags, "name")
+        elif self.use_order_importance:
+            _sort = [(idx, -tag.priority if self.use_filter_orderby_invert else tag.priority) for idx, tag in enumerate(tags)]
+            flt_neworder = helper_funcs.sort_items_helper(_sort, lambda e: e[1], True)
+
+        return flt_flags, flt_neworder
 
 
 class AMBER_PT_datablocks(Panel, AmberPanelEditing):
@@ -211,11 +269,14 @@ class AMBER_PT_assets(Panel, AmberPanelEditing):
 
         row = self.layout.row()
         row.template_list("AMBER_UL_assets", "", ae.repository_pg, "assets", ae.repository_pg, "asset_index_active",
-                          rows=3)
+                          rows=4)
 
         col = row.column()
+        col.operator_context = 'EXEC_DEFAULT'
         col.operator("AMBER_OT_asset_add", text="", icon='OBJECT_DATA').active_type = 'OBJECT'
         col.operator("AMBER_OT_asset_add", text="", icon='MATERIAL_DATA').active_type = 'MATERIAL'
+        col.operator_context = 'INVOKE_DEFAULT'
+        col.operator("AMBER_OT_asset_add", text="", icon='ZOOMIN')
         col.operator("AMBER_OT_asset_delete", text="", icon='ZOOMOUT')
 
         row = self.layout.row()
