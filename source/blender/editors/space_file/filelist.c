@@ -1297,7 +1297,7 @@ static void filelist_cache_previews_push(FileList *filelist, FileDirEntry *entry
 
 			filelist_cache_preview_ensure_running(cache, filelist->ae);
 			BLI_task_pool_push_ex(cache->previews_pool, filelist_cache_preview_runf, preview,
-								  true, filelist_cache_preview_freef, TASK_PRIORITY_LOW);
+			                      true, filelist_cache_preview_freef, TASK_PRIORITY_LOW);
 		}
 	}
 }

@@ -617,12 +617,18 @@ void file_draw_list(const bContext *C, ARegion *ar)
 			BLI_strncpy(drag_data->path, path, sizeof(drag_data->path));
 			memcpy(drag_data->uuid.uuid_repository, file->uuid_repository, sizeof(drag_data->uuid.uuid_repository));
 			memcpy(drag_data->uuid.uuid_asset, file->uuid, sizeof(drag_data->uuid.uuid_asset));
+			FileDirEntryView *vw;
 			FileDirEntryVariant *var = BLI_findlink(&file->variants, file->act_variant);
-			memcpy(drag_data->uuid.uuid_variant, var->uuid, sizeof(drag_data->uuid.uuid_variant));
-			FileDirEntryRevision *rev = BLI_findlink(&var->revisions, var->act_revision);
-			memcpy(drag_data->uuid.uuid_revision, rev->uuid, sizeof(drag_data->uuid.uuid_revision));
-			FileDirEntryView *vw = BLI_findlink(&rev->views, rev->act_view);
-			BLI_assert(vw == file->entry);
+			if (var != NULL) {
+				memcpy(drag_data->uuid.uuid_variant, var->uuid, sizeof(drag_data->uuid.uuid_variant));
+				FileDirEntryRevision *rev = BLI_findlink(&var->revisions, var->act_revision);
+				memcpy(drag_data->uuid.uuid_revision, rev->uuid, sizeof(drag_data->uuid.uuid_revision));
+				vw = BLI_findlink(&rev->views, rev->act_view);
+				BLI_assert(vw == file->entry);
+			}
+			else {
+				vw = file->entry;
+			}
 			memcpy(drag_data->uuid.uuid_view, vw->uuid, sizeof(drag_data->uuid.uuid_view));
 		}
 
