@@ -3178,6 +3178,18 @@ static int region_flip_exec(bContext *C, wmOperator *UNUSED(op))
 	return OPERATOR_FINISHED;
 }
 
+static int region_flip_poll(bContext *C)
+{
+	ScrArea *area = CTX_wm_area(C);
+
+	/* don't flip anything around in topbar */
+	if (area->spacetype == SPACE_TOPBAR) {
+		CTX_wm_operator_poll_msg_set(C, "Flipping regions in the Top-bar is not allowed");
+		return 0;
+	}
+
+	return ED_operator_areaactive(C);
+}
 
 static void SCREEN_OT_region_flip(wmOperatorType *ot)
 {
@@ -3188,7 +3200,7 @@ static void SCREEN_OT_region_flip(wmOperatorType *ot)
 	
 	/* api callbacks */
 	ot->exec = region_flip_exec;
-	ot->poll = ED_operator_areaactive;
+	ot->poll = region_flip_poll;
 	ot->flag = 0;
 }
 
