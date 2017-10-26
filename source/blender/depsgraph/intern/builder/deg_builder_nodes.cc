@@ -497,6 +497,25 @@ void DepsgraphNodeBuilder::build_object(Scene *scene, Object *ob)
 	/* Grease pencil. */
 	if (ob->gpd != NULL) {
 		build_gpencil(ob->gpd);
+		
+		/* Temporary uber-update node, which does everything.
+		 * It is for the being we're porting old dependencies into the new system.
+		 * We'll get rid of this node as soon as all the granular update functions
+		 * are filled in.
+		 *
+		 * TODO(sergey): Get rid of this node.
+		 * XXX: This code should go as soon as gp object stores its data in obdata
+		 */
+		OperationDepsNode *op_node;
+		op_node = add_operation_node(&ob->id,
+		                             DEG_NODE_TYPE_GEOMETRY,
+		                             function_bind(BKE_object_eval_uber_data,
+		                                           _1,
+		                                           scene,
+		                                           ob),
+		                             DEG_OPCODE_GEOMETRY_UBEREVAL);
+		op_node->set_as_exit();
+
 	}
 
 	/* Object that this is a proxy for. */
@@ -1024,6 +1043,18 @@ void DepsgraphNodeBuilder::build_obdata_geom(Scene *scene, Object *ob)
 			                                           (Lattice *)obdata_cow),
 			                                           DEG_OPCODE_PLACEHOLDER,
 			                                           "Geometry Eval");
+			op_node->set_as_entry();
+			break;
+		}
+		
+		case OB_GPENCIL:
+		{
+			/* GPencil evaluation operations. */
+			bGPdata *gpd = ob->gpd; /* FIXME */
+			ID *gpd_id = &gpd->id; /* No COW for now, as GP uses its own cache system. See gpencil_engine.c */
+			
+			op_node = add_operation_node(gpd_id, DEG_NODE_TYPE_GEOMETRY, NULL,
+	                             DEG_OPCODE_PLACEHOLDER, "GP Geometry Eval");
 			op_node->set_as_entry();
 			break;
 		}
