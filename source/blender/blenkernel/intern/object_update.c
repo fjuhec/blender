@@ -323,6 +323,9 @@ void BKE_object_eval_uber_data(const EvaluationContext *eval_ctx,
 		case OB_SURF:
 			BKE_curve_batch_cache_dirty(ob->data, BKE_CURVE_BATCH_DIRTY_ALL);
 			break;
+		case OB_GPENCIL:
+			BKE_gpencil_batch_cache_dirty(ob->gpd);
+			break;
 	}
 
 	if (DEG_depsgraph_use_copy_on_write()) {
