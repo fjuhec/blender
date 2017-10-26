@@ -301,15 +301,6 @@ void BKE_object_eval_uber_transform(const EvaluationContext *UNUSED(eval_ctx),
 	if (ob->data == NULL) {
 		ob->recalc &= ~OB_RECALC_DATA;
 	}
-
-	/* additional updates */
-	switch (ob->type) {
-		case OB_LATTICE:
-		{
-			BKE_gpencil_batch_cache_alldirty();
-			break;
-		}
-	}
 }
 
 void BKE_object_eval_uber_data(const EvaluationContext *eval_ctx,

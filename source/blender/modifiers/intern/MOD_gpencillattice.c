@@ -49,6 +49,7 @@
 #include "MOD_modifiertypes.h"
 
 #include "DEG_depsgraph.h"
+#include "DEG_depsgraph_build.h"
 
 static void initData(ModifierData *md)
 {
@@ -129,6 +130,20 @@ static bool isDisabled(ModifierData *md, int UNUSED(userRenderParams))
 	return !mmd->object;
 }
 
+static void updateDepsgraph(ModifierData *md,
+                            struct Main *UNUSED(bmain),
+                            struct Scene *UNUSED(scene),
+                            Object *object,
+                            struct DepsNodeHandle *node)
+{
+	GpencilLatticeModifierData *lmd = (GpencilLatticeModifierData *)md;
+	if (lmd->object != NULL) {
+		DEG_add_object_relation(node, lmd->object, DEG_OB_COMP_GEOMETRY, "Lattice Modifier");
+		DEG_add_object_relation(node, lmd->object, DEG_OB_COMP_TRANSFORM, "Lattice Modifier");
+	}
+	DEG_add_object_relation(node, object, DEG_OB_COMP_TRANSFORM, "Lattice Modifier");
+}
+
 static void foreachObjectLink(
 	ModifierData *md, Object *ob,
 	ObjectWalkFunc walk, void *userData)
@@ -156,7 +171,7 @@ ModifierTypeInfo modifierType_GpencilLattice = {
 	/* requiredDataMask */  NULL,
 	/* freeData */          freeData,
 	/* isDisabled */        isDisabled,
-	/* updateDepsgraph */   NULL,
+	/* updateDepsgraph */   updateDepsgraph,
 	/* dependsOnTime */     NULL,
 	/* dependsOnNormals */	NULL,
 	/* foreachObjectLink */ foreachObjectLink,
