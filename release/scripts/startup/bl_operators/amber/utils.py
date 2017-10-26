@@ -121,3 +121,27 @@ def uuid_unpack(uuid_hexstr):
 
 def uuid_pack(uuid_iv4):
     return binascii.hexlify(struct.pack("!iiii", *uuid_iv4)).decode()
+
+
+# Colors & previews (probably only temp solution until something better is found...
+# Note: ideally should use directly .blend previews, and be able to read usual image files... later!
+def color_4f_to_i32(colors):
+    """Converts rgba floats (in flat array) to single 32bits integers, returns an iterator of those."""
+    return (int(r * 255.0) << 24 + int(g * 255.0) << 16 + int(b * 255.0) << 8 + int(a * 255.0) for r, g, b, a in zip((iter(colors),) * 4))
+
+
+def preview_write_dat(path, w, h, col_i32):
+    """Dummy format, 8 bytes of header, 4 bytes for width, 4 bytes for height, and raw data dump of 32bits integers."""
+    with open(path, 'wb') as f:
+        f.write(b"AMBERPRV" + struct.pack("!ii", w, h))
+        f.write(struct.pack("!" + "i" * len(col_i32), *col_i32))
+
+
+def preview_read_dat(path):
+    """Dummy format, 8 bytes of header, 4 bytes for width, 4 bytes for height, and raw data dump of 32bits integers."""
+    with open(path, 'rb') as f:
+        if f.read(8) != b"AMBERPRV":
+            return 0, 0, []
+        w, h = struct.unpack("!ii", f.read(8))
+        dat = struct.unpack("!" + "i" * (w * h), f.read(w * h * 4))
+        return w, h, dat

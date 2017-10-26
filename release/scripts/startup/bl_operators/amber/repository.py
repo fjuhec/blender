@@ -432,6 +432,7 @@ class AmberDataAssetPG(PropertyGroup):
     blender_type = EnumProperty(items=[(e.identifier, e.name, e.description, e.value) for e in AssetEntry.bl_rna.properties["blender_type"].enum_items],
                                 name="Blender Type", description="Blender data-block type of the asset", update=asset_data_update)
 
+    preview_path = StringProperty(name="Preview Path", description="File path of the preview of this item", subtype='FILE_PATH')
     tags = CollectionProperty(name="Tags", type=AmberDataTagPG, description="Tags of the asset")
     tag_index_active = IntProperty(name="Active Tag", options={'HIDDEN'})
 
@@ -739,15 +740,21 @@ class AmberDataRepositoryList:
 
     def __new__(cls, path=...):
         if cls.singleton is None:
-            cls.singleton = super().__new__(cls)
+            return super().__new__(cls)
         return cls.singleton
 
     def __init__(self, path=...):
-        if path is ...:
-            path = os.path.join(bpy.utils.user_resource('CONFIG', create=True), utils.AMBER_LIST_FILENAME)
-        self._path = ""
-        self.repositories = {}
-        self.path = path
+        if self != self.__class__.singleton:
+            if path is ...:
+                path = os.path.join(bpy.utils.user_resource('CONFIG', create=True), utils.AMBER_LIST_FILENAME)
+            self._path = ""
+            self.repositories = {}
+            self.path = path
+            self.__class__.singleton = self
+        elif path is not ...:
+            self._path = ""
+            self.repositories = {}
+            self.path = path
 
     def load(self):
         if not os.path.exists(self.path):

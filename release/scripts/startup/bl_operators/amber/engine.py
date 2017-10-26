@@ -138,14 +138,28 @@ class AmberJobList(AmberJob):
 class AmberJobPreviews(AmberJob):
     @staticmethod
     def preview(uuid):
-        time.sleep(0.1)  # 100% Artificial Lag (c)
-        w = random.randint(2, 8)
-        h = random.randint(2, 8)
+        repo_uuid = uuid[0]
+        repo_path = AmberDataRepositoryList().repositories.get(repo_uuid, (None, None))[1]
+        if repo_path is None:
+            return [0, 0, []]
+
+        repo = AmberDataRepository()
+        repo.from_dict(repo.ls_repo(os.path.join(repo_path, utils.AMBER_DB_NAME)), repo_path)
+
+        preview_path = os.path.join(repo_path, repo.assets[uuid[1]].preview_path)
+
+        if preview_path and preview_path.endswith(".dat"):
+            w, h, pixels = utils.preview_read_dat(preview_path)
+            return [w, h, list(pixels)]
+
+        #~ time.sleep(0.1)  # 100% Artificial Lag (c)
+        w = random.randint(8, 32)
+        h = random.randint(8, 32)
         return [w, h, [random.getrandbits(32) for i in range(w * h)]]
 
     def start(self, uuids):
         self.nbr = 0
-        self.preview_tasks = {uuid.uuid_asset[:]: self.executor.submit(self.preview, uuid.uuid_asset[:]) for uuid in uuids.uuids}
+        self.preview_tasks = {uuid.uuid_asset[:]: self.executor.submit(self.preview, (uuid.uuid_repository[:], uuid.uuid_asset[:])) for uuid in uuids.uuids}
         self.tot = len(self.preview_tasks)
         self.status = {'VALID', 'RUNNING'}
 
@@ -159,27 +173,28 @@ class AmberJobPreviews(AmberJob):
         del_uuids = old_uuids - new_uuids
         new_uuids -= old_uuids
 
-        for uuid in del_uuids:
-            self.preview_tasks[uuid].cancel()
-            del self.preview_tasks[uuid]
+        for uuid_asset in del_uuids:
+            self.preview_tasks[uuid_asset].cancel()
+            del self.preview_tasks[uuid_asset]
 
-        for uuid in new_uuids:
-            self.preview_tasks[uuid] = self.executor.submit(self.preview, uuid)
+        for uuid_asset in new_uuids:
+            uuid = uuids[uuid_asset]
+            self.preview_tasks[uuid_asset] = self.executor.submit(self.preview, (uuid.uuid_repository[:], uuid_asset))
 
         self.tot = len(self.preview_tasks)
         self.nbr = 0
 
         done_uuids = set()
-        for uuid, tsk in self.preview_tasks.items():
+        for uuid_asset, tsk in self.preview_tasks.items():
             if tsk.done():
                 w, h, pixels = tsk.result()
-                uuids[uuid].preview_size = (w, h)
-                uuids[uuid].preview_pixels = pixels
+                uuids[uuid_asset].preview_size = (w, h)
+                uuids[uuid_asset].preview_pixels = pixels
                 self.nbr += 1
-                done_uuids.add(uuid)
+                done_uuids.add(uuid_asset)
 
-        for uuid in done_uuids:
-            del self.preview_tasks[uuid]
+        for uuid_asset in done_uuids:
+            del self.preview_tasks[uuid_asset]
 
         self.progress = self.nbr / self.tot
         if not self.preview_tasks:

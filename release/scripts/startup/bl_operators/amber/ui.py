@@ -70,6 +70,7 @@ class AMBER_PT_repositories(Panel, AmberPanel):
         col = row.column()
         col.operator("AMBER_OT_repository_add", text="", icon='ZOOMIN')
         col.operator("AMBER_OT_repository_remove", text="", icon='ZOOMOUT')
+        col.operator("AMBER_OT_repository_remove", text="", icon='PANEL_CLOSE').do_erase = True
 
         repo = ae.repositories_pg.repositories[ae.repositories_pg.repository_index_active]
         row = self.layout.row()

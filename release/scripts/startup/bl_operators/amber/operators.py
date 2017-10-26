@@ -102,52 +102,59 @@ class AmberOpsRepositoryAdd(Operator, AmberOpsEditing):
 
 
 class AmberOpsRepositoryRemove(Operator, AmberOpsEditing):
-    """Remove an Amber repository from this listing, and delete its db and preview files (*not* the data itself) """
-    """(WARNING! No undo!)"""
+    """Remove an Amber repository from this listing, and optionally delete its db and preview files """
+    """(*not* the data itself) (WARNING! No undo!)"""
     bl_idname = "amber.repository_remove"
     bl_label = "Remove Repository"
     bl_options = set()
 
+    do_erase = BoolProperty(name="Erase", description="Actually erase active repository")
+
     def execute(self, context):
         ae = context.space_data.asset_engine
-        repo_pg = ae.repositories_pg.repositories[ae.repositories_pg.repository_index_active]
-        repo_path = repo_pg.path
-        repo_uuid = repo_pg.uuid[:]
-        db_path = os.path.join(repo_path, utils.AMBER_DB_NAME)
-        preview_path = os.path.join(repo_path, utils.AMBER_PREVIEW_STORAGE)
-        data_path = os.path.join(repo_path, utils.AMBER_LOCAL_STORAGE)
 
-        if not os.path.exists(db_path):
-            self.report({'INFO'}, "No Amber repository found at '%s'" % repo_path)
-            return {'CANCELLED'}
+        if self.do_erase:
+            repo_pg = ae.repositories_pg.repositories[ae.repositories_pg.repository_index_active]
+            repo_path = repo_pg.path
+            repo_uuid = repo_pg.uuid[:]
+            db_path = os.path.join(repo_path, utils.AMBER_DB_NAME)
+            preview_path = os.path.join(repo_path, utils.AMBER_PREVIEW_STORAGE)
+            data_path = os.path.join(repo_path, utils.AMBER_LOCAL_STORAGE)
 
-        repo = AmberDataRepository.ls_repo(db_path)
+            if not os.path.exists(db_path):
+                self.report({'INFO'}, "No Amber repository found at '%s'" % repo_path)
+                return {'CANCELLED'}
 
-        if os.path.isdir(preview_path):
-            for asset in repo.assets.items:
-                if asset.preview_path:
-                    asset_preview_path = os.abspath(os.path.join(repo_path, asset.preview_path))
-                    if os.path.isfile(asset_preview_path) and os.path.commonpath((preview_path, asset_preview_path)) == preview_path:
-                        os.remove(asset_preview_path)
-                # TODO allow also removing of asset .blend files? would rather not, dangerous option imho...
+            repo = AmberDataRepository.ls_repo(db_path)
 
-            if not os.listdir(preview_path):
-                os.rmdir(preview_path)
+            if os.path.isdir(preview_path):
+                for asset in repo.assets.items:
+                    if asset.preview_path:
+                        asset_preview_path = os.abspath(os.path.join(repo_path, asset.preview_path))
+                        if os.path.isfile(asset_preview_path) and os.path.commonpath((preview_path, asset_preview_path)) == preview_path:
+                            os.remove(asset_preview_path)
+                    # TODO allow also removing of asset .blend files? would rather not, dangerous option imho...
 
-        if os.path.isdir(data_path):
-            if not os.listdir(data_path):
-                os.rmdir(data_path)
+                if not os.listdir(preview_path):
+                    os.rmdir(preview_path)
+
+            if os.path.isdir(data_path):
+                if not os.listdir(data_path):
+                    os.rmdir(data_path)
 
         ae.repositories_pg.repositories.remove(ae.repositories_pg.repository_index_active)
 
-        os.remove(db_path)
+        if self.do_erase:
+            os.remove(db_path)
 
         bpy.ops.file.refresh()
 
         return {'FINISHED'}
 
     def invoke(self, context, event):
-        return context.window_manager.invoke_confirm(self, event)
+        if self.do_erase:
+            return context.window_manager.invoke_confirm(self, event)
+        return self.execute(context)
 
 
 class AmberOpsAssetAdd(Operator, AmberOpsEditing):
@@ -201,6 +208,16 @@ class AmberOpsAssetAdd(Operator, AmberOpsEditing):
         asset.file_type = 'BLENLIB'
         asset.blender_type = utils.BLENDER_TYPES_TO_ENUMVAL[type(datablock)]
         asset.uuid = utils.uuid_asset_gen(set(repository.assets.keys()), ae.repository_pg.uuid, path_sublib, asset.name, [])
+
+        if datablock.preview:
+            w, h = datablock.preview.image_size
+            if 0 not in {w, h}:
+                path_dir = os.path.join(repository.path, utils.AMBER_PREVIEW_STORAGE)
+                if not os.path.exists(path_dir):
+                    os.mkdir(path_dir)
+                path_preview = os.path.join(path_dir, asset.name + "_" + utils.uuid_pack(asset.uuid) + ".dat")
+                utils.preview_write_dat(path_preview, w, h, datablock.preview.image_pixels)
+                asset.preview_path = path_preview
 
         if self.copy_local:
             path_dir = os.path.join(repository.path, utils.AMBER_LOCAL_STORAGE)
