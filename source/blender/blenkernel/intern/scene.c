@@ -99,6 +99,7 @@
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_build.h"
+#include "DEG_depsgraph_debug.h"
 #include "DEG_depsgraph_query.h"
 
 #include "RE_engine.h"
@@ -1126,7 +1127,6 @@ BaseLegacy *BKE_scene_base_find(Scene *scene, Object *ob)
  */
 void BKE_scene_set_background(Main *bmain, Scene *scene)
 {
-	Scene *sce;
 	BaseLegacy *base;
 	Object *ob;
 	Group *group;
@@ -1151,10 +1151,6 @@ void BKE_scene_set_background(Main *bmain, Scene *scene)
 			}
 		}
 	}
-
-	/* sort baselist for scene and sets */
-	for (sce = scene; sce; sce = sce->set)
-		DEG_scene_relations_rebuild(bmain, sce);
 
 	/* copy layers and flags from bases to objects */
 	for (base = scene->base.first; base; base = base->next) {
@@ -1611,109 +1607,106 @@ static void prepare_mesh_for_viewport_render(Main *bmain, Scene *scene)
 	}
 }
 
-void BKE_scene_update_tagged(EvaluationContext *eval_ctx, Main *bmain, Scene *scene)
+void BKE_scene_graph_update_tagged(EvaluationContext *eval_ctx,
+                                   Depsgraph *depsgraph,
+                                   Main *bmain,
+                                   Scene *scene)
 {
-	Scene *sce_iter;
-
-	/* (re-)build dependency graph if needed */
-	for (sce_iter = scene; sce_iter; sce_iter = sce_iter->set) {
-		DEG_scene_relations_update(bmain, sce_iter);
-		/* Uncomment this to check if graph was properly tagged for update. */
-#if 0
-		DEG_scene_relations_validate(bmain, sce_iter);
-#endif
-	}
-
-	/* flush editing data if needed */
-	prepare_mesh_for_viewport_render(bmain, scene);
-
-	/* flush recalc flags to dependencies */
-	DEG_graph_flush_update(bmain, scene->depsgraph_legacy);
-
-	/* removed calls to quick_cache, see pointcache.c */
-	
-	/* clear "LIB_TAG_DOIT" flag from all materials, to prevent infinite recursion problems later
-	 * when trying to find materials with drivers that need evaluating [#32017] 
+	/* TODO(sergey): Some functions here are changing global state,
+	 * for example, clearing update tags from bmain.
 	 */
-	BKE_main_id_tag_idcode(bmain, ID_MA, LIB_TAG_DOIT, false);
-	BKE_main_id_tag_idcode(bmain, ID_LA, LIB_TAG_DOIT, false);
-
-	/* update all objects: drivers, matrices, displists, etc. flags set
-	 * by depgraph or manual, no layer check here, gets correct flushed
-	 *
-	 * in the future this should handle updates for all datablocks, not
-	 * only objects and scenes. - brecht */
-	DEG_evaluate_on_refresh(eval_ctx, scene->depsgraph_legacy);
-
-	/* update sound system animation (TODO, move to depsgraph) */
+	/* (Re-)build dependency graph if needed. */
+	DEG_graph_relations_update(depsgraph, bmain, scene);
+	/* Uncomment this to check if graph was properly tagged for update. */
+	// DEG_debug_graph_relations_validate(depsgraph, bmain, scene);
+	/* Flush editing data if needed. */
+	prepare_mesh_for_viewport_render(bmain, scene);
+	/* Flush recalc flags to dependencies. */
+	DEG_graph_flush_update(bmain, depsgraph);
+	/* Update all objects: drivers, matrices, displists, etc. flags set
+	 * by depgraph or manual, no layer check here, gets correct flushed.
+	 */
+	DEG_evaluate_on_refresh(eval_ctx, depsgraph);
+	/* Update sound system animation (TODO, move to depsgraph). */
 	BKE_sound_update_scene(bmain, scene);
-
-	/* extra call here to recalc scene animation (for sequencer) */
-	{
-		AnimData *adt = BKE_animdata_from_id(&scene->id);
-		float ctime = BKE_scene_frame_get(scene);
-		
-		if (adt && (adt->recalc & ADT_RECALC_ANIM))
-			BKE_animsys_evaluate_animdata(scene, &scene->id, adt, ctime, 0);
-	}
-
 	/* Inform editors about possible changes. */
 	DEG_ids_check_recalc(bmain, scene, false);
-
-	/* clear recalc flags */
+	/* Clear recalc flags. */
 	DEG_ids_clear_recalc(bmain);
 }
 
 /* applies changes right away, does all sets too */
-void BKE_scene_update_for_newframe(EvaluationContext *eval_ctx, Main *bmain, Scene *sce)
+void BKE_scene_graph_update_for_newframe(EvaluationContext *eval_ctx,
+                                         Depsgraph *depsgraph,
+                                         Main *bmain,
+                                         Scene *scene)
 {
-	float ctime = BKE_scene_frame_get(sce);
-	Scene *sce_iter;
-
-	DEG_editors_update_pre(bmain, sce, true);
-
-	/* keep this first */
-	BLI_callback_exec(bmain, &sce->id, BLI_CB_EVT_FRAME_CHANGE_PRE);
-
-	/* update animated image textures for particles, modifiers, gpu, etc,
-	 * call this at the start so modifiers with textures don't lag 1 frame */
-	BKE_image_update_frame(bmain, sce->r.cfra);
-
-	BKE_sound_set_cfra(sce->r.cfra);
-	
-	/* clear animation overrides */
-	/* XXX TODO... */
-
-	for (sce_iter = sce; sce_iter; sce_iter = sce_iter->set)
-		DEG_scene_relations_update(bmain, sce_iter);
-
-	/* Update animated cache files for modifiers. */
-	BKE_cachefile_update_frame(bmain, sce, ctime, (((double)sce->r.frs_sec) / (double)sce->r.frs_sec_base));
-
+	/* TODO(sergey): Some functions here are changing global state,
+	 * for example, clearing update tags from bmain.
+	 */
+	const float ctime = BKE_scene_frame_get(scene);
+	/* Inform editors we are starting scene update. */
+	DEG_editors_update_pre(bmain, scene, true);
+	/* Keep this first.
+	 * TODO(sergey): Should it be after the editors update?
+	 */
+	BLI_callback_exec(bmain, &scene->id, BLI_CB_EVT_FRAME_CHANGE_PRE);
+	/* Update animated image textures for particles, modifiers, gpu, etc,
+	 * call this at the start so modifiers with textures don't lag 1 frame.
+	 */
+	BKE_image_update_frame(bmain, scene->r.cfra);
+	BKE_sound_set_cfra(scene->r.cfra);
+	DEG_graph_relations_update(depsgraph, bmain, scene);
+	/* Update animated cache files for modifiers.
+	 *
+	 * TODO(sergey): Make this a depsgraph node?
+	 */
+	BKE_cachefile_update_frame(bmain, scene, ctime,
+	                           (((double)scene->r.frs_sec) / (double)scene->r.frs_sec_base));
 #ifdef POSE_ANIMATION_WORKAROUND
 	scene_armature_depsgraph_workaround(bmain);
 #endif
-
-	/* clear "LIB_TAG_DOIT" flag from all materials, to prevent infinite recursion problems later
-	 * when trying to find materials with drivers that need evaluating [#32017] 
+	/* Update all objects: drivers, matrices, displists, etc. flags set
+	 * by depgraph or manual, no layer check here, gets correct flushed.
 	 */
-	BKE_main_id_tag_idcode(bmain, ID_MA, LIB_TAG_DOIT, false);
-	BKE_main_id_tag_idcode(bmain, ID_LA, LIB_TAG_DOIT, false);
-
-	/* BKE_object_handle_update() on all objects, groups and sets */
-	DEG_evaluate_on_framechange(eval_ctx, bmain, sce->depsgraph_legacy, ctime);
-
-	/* update sound system animation (TODO, move to depsgraph) */
-	BKE_sound_update_scene(bmain, sce);
-
-	/* notify editors and python about recalc */
-	BLI_callback_exec(bmain, &sce->id, BLI_CB_EVT_FRAME_CHANGE_POST);
-
+	DEG_evaluate_on_framechange(eval_ctx, bmain, depsgraph, ctime);
+	/* Update sound system animation (TODO, move to depsgraph). */
+	BKE_sound_update_scene(bmain, scene);
+	/* Notify editors and python about recalc. */
+	BLI_callback_exec(bmain, &scene->id, BLI_CB_EVT_FRAME_CHANGE_POST);
 	/* Inform editors about possible changes. */
-	DEG_ids_check_recalc(bmain, sce, true);
-
+	DEG_ids_check_recalc(bmain, scene, true);
 	/* clear recalc flags */
 	DEG_ids_clear_recalc(bmain);
+}
+
+static void scene_ensure_legacy_depsgraph(Main *bmain, Scene *scene)
+{
+	if (scene->depsgraph_legacy == NULL) {
+		scene->depsgraph_legacy = DEG_graph_new();
+		DEG_graph_build_from_scene(scene->depsgraph_legacy, bmain, scene);
+		/* TODO(sergey): When we first create dependency graph we consider
+		 * it is first time became visible. This is true for viewports, but
+		 * will fail when render engines will start having their own graphs.
+		 */
+		DEG_graph_on_visible_update(bmain, scene->depsgraph_legacy);
+	}
+}
+
+void BKE_scene_update_tagged(EvaluationContext *eval_ctx, Main *bmain, Scene *scene)
+{
+	/* Make sure graph is allocated. This is not always guaranteed now. */
+	scene_ensure_legacy_depsgraph(bmain, scene);
+	/* Do actual graph evaluation. */
+	BKE_scene_graph_update_tagged(eval_ctx, scene->depsgraph_legacy, bmain, scene);
+}
+
+void BKE_scene_update_for_newframe(EvaluationContext *eval_ctx, Main *bmain, Scene *scene)
+{
+	/* Make sure graph is allocated. This is not always guaranteed now. */
+	scene_ensure_legacy_depsgraph(bmain, scene);
+	/* Do actual graph evaluation. */
+	BKE_scene_graph_update_for_newframe(eval_ctx, scene->depsgraph_legacy, bmain, scene);
 }
 
 /* return default layer, also used to patch old files */
