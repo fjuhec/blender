@@ -2461,6 +2461,13 @@ static int screen_maximize_area_exec(bContext *C, wmOperator *op)
 	return OPERATOR_FINISHED;
 }
 
+static int screen_maximize_area_poll(bContext *C)
+{
+	const bScreen *screen = CTX_wm_screen(C);
+	const ScrArea *area = CTX_wm_area(C);
+	return (screen->state != SCREENNORMAL) || (area->spacetype != SPACE_TOPBAR);
+}
+
 static void SCREEN_OT_screen_full_area(wmOperatorType *ot)
 {
 	PropertyRNA *prop;
@@ -2470,7 +2477,7 @@ static void SCREEN_OT_screen_full_area(wmOperatorType *ot)
 	ot->idname = "SCREEN_OT_screen_full_area";
 	
 	ot->exec = screen_maximize_area_exec;
-	ot->poll = ED_operator_areaactive;
+	ot->poll = screen_maximize_area_poll;
 	ot->flag = 0;
 
 	prop = RNA_def_boolean(ot->srna, "use_hide_panels", false, "Hide Panels", "Hide all the panels");
@@ -3301,12 +3308,11 @@ void ED_screens_header_tools_menu_create(bContext *C, uiLayout *layout, void *UN
 
 	uiItemS(layout);
 
-	/* file browser should be fullscreen all the time, but other regions can be maximized/restored... */
-	if (sa->spacetype != SPACE_FILE) {
-		if (sa->full) 
-			uiItemO(layout, IFACE_("Tile Area"), ICON_NONE, "SCREEN_OT_screen_full_area");
-		else
-			uiItemO(layout, IFACE_("Maximize Area"), ICON_NONE, "SCREEN_OT_screen_full_area");
+	/* file browser should be fullscreen all the time, topbar should
+	 * never be. But other regions can be maximized/restored... */
+	if (!ELEM(sa->spacetype, SPACE_FILE, SPACE_TOPBAR)) {
+		const char *but_str = sa->full ? IFACE_("Tile Area") : IFACE_("Maximize Area");
+		uiItemO(layout, but_str, ICON_NONE, "SCREEN_OT_screen_full_area");
 	}
 }
 
