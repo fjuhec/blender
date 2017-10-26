@@ -84,24 +84,31 @@ void BKE_gpencil_batch_cache_free(bGPdata *gpd)
 }
 
 /* Change draw manager status in all gpd datablocks */
+/* TODO: Remove and deprecate completely */
 void BKE_gpencil_batch_cache_alldirty()
 {
+#if 0 /* XXX: disabled so we can see how much is broken without this */
 	bGPdata *gpd;
 	Main *bmain = G.main; /* XXX: supply as arg? */
 
 	for (gpd = bmain->gpencil.first; gpd; gpd = gpd->id.next) {
 		BKE_gpencil_batch_cache_dirty(gpd);
 	}
+#endif
 }
 
 /* Change draw manager status in all gpd datablocks */
+/* TODO: Remove completely? */
 void BKE_gpencil_batch_cache_alldirty_main(Main *bmain)
 {
+#if 0 /* XXX: disabled so we can see how much is broken without this */
 	bGPdata *gpd;
 
 	for (gpd = bmain->gpencil.first; gpd; gpd = gpd->id.next) {
 		BKE_gpencil_batch_cache_dirty(gpd);
 	}
+#endif
+	(void)bmain;
 }
 
 /* ************************************************** */
