@@ -217,7 +217,7 @@ class AmberOpsAssetAdd(Operator, AmberOpsEditing):
                     os.mkdir(path_dir)
                 path_preview = os.path.join(path_dir, asset.name + "_" + utils.uuid_pack(asset.uuid) + ".dat")
                 utils.preview_write_dat(path_preview, w, h, datablock.preview.image_pixels)
-                asset.preview_path = path_preview
+                asset.preview_path = os.path.relpath(path_preview, repository.path)
 
         if self.copy_local:
             path_dir = os.path.join(repository.path, utils.AMBER_LOCAL_STORAGE)
@@ -240,7 +240,7 @@ class AmberOpsAssetAdd(Operator, AmberOpsEditing):
         view.name = "default"
         view.size = os.stat(path_lib).st_size
         view.timestamp = revision.timestamp
-        view.path = os.path.join(path_lib, path_sublib)
+        view.path = os.path.relpath(os.path.join(path_lib, path_sublib), repository.path)
         view.uuid = utils.uuid_view_gen(set(), revision.uuid, view.name, view.size, view.timestamp)
         revision.view_default = view.uuid
 
