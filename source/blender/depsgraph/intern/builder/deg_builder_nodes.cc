@@ -87,6 +87,7 @@ extern "C" {
 #include "BKE_mesh.h"
 #include "BKE_mball.h"
 #include "BKE_modifier.h"
+#include "BKE_movieclip.h"
 #include "BKE_node.h"
 #include "BKE_object.h"
 #include "BKE_particle.h"
@@ -304,11 +305,13 @@ void DepsgraphNodeBuilder::begin_build(Main *bmain) {
 	/* XXX nested node trees are not included in tag-clearing above,
 	 * so we need to do this manually.
 	 */
-	FOREACH_NODETREE(bmain, nodetree, id) {
+	FOREACH_NODETREE(bmain, nodetree, id)
+	{
 		if (id != (ID *)nodetree) {
 			nodetree->id.tag &= ~LIB_TAG_DOIT;
 		}
-	} FOREACH_NODETREE_END
+	}
+	FOREACH_NODETREE_END;
 }
 
 void DepsgraphNodeBuilder::build_group(Scene *scene,
@@ -483,7 +486,7 @@ void DepsgraphNodeBuilder::build_object_transform(Scene *scene, Object *ob)
 	 */
 	add_operation_node(&ob->id, DEG_NODE_TYPE_TRANSFORM,
 	                   function_bind(BKE_object_eval_uber_transform, _1, scene, ob),
-	                   DEG_OPCODE_OBJECT_UBEREVAL);
+	                   DEG_OPCODE_TRANSFORM_OBJECT_UBEREVAL);
 
 	/* object transform is done */
 	op_node = add_operation_node(&ob->id, DEG_NODE_TYPE_TRANSFORM,
@@ -558,8 +561,6 @@ void DepsgraphNodeBuilder::build_animdata(ID *id)
  */
 OperationDepsNode *DepsgraphNodeBuilder::build_driver(ID *id, FCurve *fcu)
 {
-	ChannelDriver *driver = fcu->driver;
-
 	/* Create data node for this driver */
 	/* TODO(sergey): Avoid creating same operation multiple times,
 	 * in the future we need to avoid lookup of the operation as well
@@ -580,11 +581,6 @@ OperationDepsNode *DepsgraphNodeBuilder::build_driver(ID *id, FCurve *fcu)
 		                               fcu->array_index);
 	}
 
-	/* tag "scripted expression" drivers as needing Python (due to GIL issues, etc.) */
-	if (driver->type == DRIVER_TYPE_PYTHON) {
-		driver_op->flag |= DEPSOP_FLAG_USES_PYTHON;
-	}
-
 	/* return driver node created */
 	return driver_op;
 }
@@ -600,10 +596,10 @@ void DepsgraphNodeBuilder::build_world(World *world)
 	build_animdata(world_id);
 
 	/* world itself */
-	add_component_node(world_id, DEG_NODE_TYPE_PARAMETERS);
-
-	add_operation_node(world_id, DEG_NODE_TYPE_PARAMETERS, NULL,
-	                   DEG_OPCODE_PLACEHOLDER, "Parameters Eval");
+	add_operation_node(world_id,
+	                   DEG_NODE_TYPE_PARAMETERS,
+	                   NULL,
+	                   DEG_OPCODE_PARAMETERS_EVAL);
 
 	/* textures */
 	build_texture_stack(world->mtex);
@@ -667,7 +663,7 @@ void DepsgraphNodeBuilder::build_rigidbody(Scene *scene)
 			/* object's transform component - where the rigidbody operation lives */
 			add_operation_node(&ob->id, DEG_NODE_TYPE_TRANSFORM,
 			                   function_bind(BKE_rigidbody_object_sync_transforms, _1, scene, ob),
-			                   DEG_OPCODE_TRANSFORM_RIGIDBODY);
+			                   DEG_OPCODE_RIGIDBODY_TRANSFORM_COPY);
 		}
 	}
 }
@@ -698,7 +694,7 @@ void DepsgraphNodeBuilder::build_particles(Scene *scene, Object *ob)
 	                                 _1,
 	                                 scene,
 	                                 ob),
-	                   DEG_OPCODE_PSYS_EVAL_INIT);
+	                   DEG_OPCODE_PARTICLE_SYSTEM_EVAL_INIT);
 
 	/* particle systems */
 	LINKLIST_FOREACH (ParticleSystem *, psys, &ob->particlesystem) {
@@ -712,7 +708,7 @@ void DepsgraphNodeBuilder::build_particles(Scene *scene, Object *ob)
 		// TODO: for now, this will just be a placeholder "ubereval" node
 		add_operation_node(psys_comp,
 		                   NULL,
-		                   DEG_OPCODE_PSYS_EVAL,
+		                   DEG_OPCODE_PARTICLE_SYSTEM_EVAL,
 		                   psys->name);
 	}
 
@@ -722,24 +718,23 @@ void DepsgraphNodeBuilder::build_particles(Scene *scene, Object *ob)
 
 void DepsgraphNodeBuilder::build_cloth(Scene *scene, Object *object)
 {
-	ComponentDepsNode *cache_comp = add_component_node(&object->id,
-	                                                   DEG_NODE_TYPE_CACHE);
-	add_operation_node(cache_comp,
+	add_operation_node(&object->id,
+	                   DEG_NODE_TYPE_CACHE,
 	                   function_bind(BKE_object_eval_cloth,
 	                                 _1,
 	                                 scene,
 	                                 object),
-	                   DEG_OPCODE_PLACEHOLDER,
-	                   "Cloth Modifier");
+	                   DEG_OPCODE_GEOMETRY_CLOTH_MODIFIER);
 }
 
 /* Shapekeys */
 void DepsgraphNodeBuilder::build_shapekeys(Key *key)
 {
 	build_animdata(&key->id);
-
-	add_operation_node(&key->id, DEG_NODE_TYPE_GEOMETRY, NULL,
-	                   DEG_OPCODE_PLACEHOLDER, "Shapekey Eval");
+	add_operation_node(&key->id,
+	                   DEG_NODE_TYPE_GEOMETRY,
+	                   NULL,
+	                   DEG_OPCODE_GEOMETRY_SHAPEKEY);
 }
 
 /* ObData Geometry Evaluation */
@@ -757,8 +752,7 @@ void DepsgraphNodeBuilder::build_obdata_geom(Scene *scene, Object *ob)
 	op_node = add_operation_node(&ob->id,
 	                             DEG_NODE_TYPE_PARAMETERS,
 	                             NULL,
-	                             DEG_OPCODE_PLACEHOLDER,
-	                             "Parameters Eval");
+	                             DEG_OPCODE_PARAMETERS_EVAL);
 	op_node->set_as_exit();
 
 	/* Temporary uber-update node, which does everything.
@@ -906,8 +900,10 @@ void DepsgraphNodeBuilder::build_obdata_geom(Scene *scene, Object *ob)
 	op_node->set_as_exit();
 
 	/* Parameters for driver sources. */
-	add_operation_node(obdata, DEG_NODE_TYPE_PARAMETERS, NULL,
-	                   DEG_OPCODE_PLACEHOLDER, "Parameters Eval");
+	add_operation_node(obdata,
+	                   DEG_NODE_TYPE_PARAMETERS,
+	                   NULL,
+	                   DEG_OPCODE_PARAMETERS_EVAL);
 }
 
 /* Cameras */
@@ -922,8 +918,10 @@ void DepsgraphNodeBuilder::build_camera(Object *ob)
 
 	build_animdata(&cam->id);
 
-	add_operation_node(camera_id, DEG_NODE_TYPE_PARAMETERS, NULL,
-	                   DEG_OPCODE_PLACEHOLDER, "Parameters Eval");
+	add_operation_node(camera_id,
+	                   DEG_NODE_TYPE_PARAMETERS,
+	                   NULL,
+	                   DEG_OPCODE_PARAMETERS_EVAL);
 
 	if (cam->dof_ob != NULL) {
 		/* TODO(sergey): For now parametrs are on object level. */
@@ -943,12 +941,11 @@ void DepsgraphNodeBuilder::build_lamp(Object *ob)
 
 	build_animdata(&la->id);
 
-	/* node for obdata */
-	add_component_node(lamp_id, DEG_NODE_TYPE_PARAMETERS);
-
 	/* TODO(sergey): Is it really how we're supposed to work with drivers? */
-	add_operation_node(lamp_id, DEG_NODE_TYPE_PARAMETERS, NULL,
-	                   DEG_OPCODE_PLACEHOLDER, "Parameters Eval");
+	add_operation_node(lamp_id,
+	                   DEG_NODE_TYPE_PARAMETERS,
+	                   NULL,
+	                   DEG_OPCODE_PARAMETERS_EVAL);
 
 	/* lamp's nodetree */
 	if (la->nodetree) {
@@ -971,8 +968,10 @@ void DepsgraphNodeBuilder::build_nodetree(bNodeTree *ntree)
 	build_animdata(ntree_id);
 
 	/* Parameters for drivers. */
-	op_node = add_operation_node(ntree_id, DEG_NODE_TYPE_PARAMETERS, NULL,
-	                             DEG_OPCODE_PLACEHOLDER, "Parameters Eval");
+	op_node = add_operation_node(ntree_id,
+	                             DEG_NODE_TYPE_PARAMETERS,
+	                             NULL,
+	                             DEG_OPCODE_PARAMETERS_EVAL);
 	op_node->set_as_exit();
 
 	/* nodetree's nodes... */
@@ -1008,9 +1007,6 @@ void DepsgraphNodeBuilder::build_material(Material *ma)
 	if (ma_id->tag & LIB_TAG_DOIT) {
 		return;
 	}
-
-	/* material itself */
-	add_id_node(ma_id);
 
 	add_operation_node(ma_id, DEG_NODE_TYPE_SHADING, NULL,
 	                   DEG_OPCODE_PLACEHOLDER, "Material Update");
@@ -1064,8 +1060,6 @@ void DepsgraphNodeBuilder::build_image(Image *image) {
 		return;
 	}
 	image_id->tag |= LIB_TAG_DOIT;
-	/* Image ID node itself. */
-	add_id_node(image_id);
 	/* Placeholder so we can add relations and tag ID node for update. */
 	add_operation_node(image_id,
 	                   DEG_NODE_TYPE_PARAMETERS,
@@ -1090,12 +1084,12 @@ void DepsgraphNodeBuilder::build_gpencil(bGPdata *gpd)
 {
 	ID *gpd_id = &gpd->id;
 
-	/* gpencil itself */
-	// XXX: what about multiple users of same datablock? This should only get added once
-	add_id_node(gpd_id);
+	/* TODO(sergey): what about multiple users of same datablock? This should
+	 * only get added once.
+	 */
 
-	/* The main reason Grease Pencil is included here is because the animation (and drivers)
-	 * need to be hosted somewhere...
+	/* The main reason Grease Pencil is included here is because the animation
+	 * (and drivers) need to be hosted somewhere.
 	 */
 	build_animdata(gpd_id);
 }
@@ -1103,20 +1097,17 @@ void DepsgraphNodeBuilder::build_gpencil(bGPdata *gpd)
 void DepsgraphNodeBuilder::build_cachefile(CacheFile *cache_file)
 {
 	ID *cache_file_id = &cache_file->id;
-
-	add_component_node(cache_file_id, DEG_NODE_TYPE_CACHE);
+	/* Animation, */
+	build_animdata(cache_file_id);
+	/* Cache evaluation itself. */
 	add_operation_node(cache_file_id, DEG_NODE_TYPE_CACHE, NULL,
 	                   DEG_OPCODE_PLACEHOLDER, "Cache File Update");
-
-	add_id_node(cache_file_id);
-	build_animdata(cache_file_id);
 }
 
 void DepsgraphNodeBuilder::build_mask(Mask *mask)
 {
 	ID *mask_id = &mask->id;
-	add_id_node(mask_id);
-	/* F-Curve based animation/ */
+	/* F-Curve based animation. */
 	build_animdata(mask_id);
 	/* Animation based on mask's shapes. */
 	add_operation_node(mask_id,
@@ -1132,8 +1123,13 @@ void DepsgraphNodeBuilder::build_mask(Mask *mask)
 
 void DepsgraphNodeBuilder::build_movieclip(MovieClip *clip) {
 	ID *clip_id = &clip->id;
-	add_id_node(clip_id);
+	/* Animation. */
 	build_animdata(clip_id);
+	/* Movie clip evaluation. */
+	add_operation_node(clip_id,
+	                   DEG_NODE_TYPE_PARAMETERS,
+	                   function_bind(BKE_movieclip_eval_update, _1, clip),
+	                   DEG_OPCODE_MOVIECLIP_EVAL);
 }
 
 }  // namespace DEG
