@@ -2138,6 +2138,12 @@ void ED_region_header(const bContext *C, ARegion *ar)
 	xco = maxco = start_ofs;
 	yco = headery - floor(0.2f * UI_UNIT_Y);
 
+	/* XXX workaround for 1 px alignment issue. Not sure what causes it... Would prefer a proper fix - Julian */
+	if (CTX_wm_area(C)->spacetype == SPACE_TOPBAR) {
+		xco += 1;
+		yco += 1;
+	}
+
 	/* draw all headers types */
 	for (ht = ar->type->headertypes.first; ht; ht = ht->next) {
 		block = UI_block_begin(C, ar, ht->idname, UI_EMBOSS);
