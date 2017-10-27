@@ -185,7 +185,7 @@ class AMBER_UL_tags(UIList):
     use_order_name = bpy.props.BoolProperty(name="Name", default=False, options=set(),
                                             description="Sort tags by their name (case-insensitive)",
                                             update=_gen_order_update("use_order_name", "use_order_importance"))
-    use_order_importance = bpy.props.BoolProperty(name="Importance", default=False, options=set(),
+    use_order_importance = bpy.props.BoolProperty(name="Importance", default=True, options=set(),
                                                   description="Sort tags by their weight",
                                                   update=_gen_order_update("use_order_importance", "use_order_name"))
 
@@ -276,7 +276,7 @@ class AMBER_PT_assets(Panel, AmberPanelEditing):
         col.operator("AMBER_OT_asset_add", text="", icon='OBJECT_DATA').active_type = 'OBJECT'
         col.operator("AMBER_OT_asset_add", text="", icon='MATERIAL_DATA').active_type = 'MATERIAL'
         col.operator_context = 'INVOKE_DEFAULT'
-        col.operator("AMBER_OT_asset_add", text="", icon='ZOOMIN')
+        col.operator_menu_enum("AMBER_OT_asset_add", "datablock_name", text="", icon='ZOOMIN')
         col.operator("AMBER_OT_asset_delete", text="", icon='ZOOMOUT')
 
         row = self.layout.row()
