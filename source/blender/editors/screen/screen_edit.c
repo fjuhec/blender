@@ -523,7 +523,7 @@ static void screen_vertices_scale(
 	const int headery_init = ED_area_headersize();
 	ScrVert *sv = NULL;
 	ScrArea *sa;
-	int winsize_x_prev, winsize_y_prev;
+	int screen_size_x_prev, screen_size_y_prev;
 	float facx, facy, tempf, min[2], max[2];
 	
 	/* calculate size */
@@ -541,8 +541,8 @@ static void screen_vertices_scale(
 		sv->vec.y -= min[1];
 	}
 	
-	winsize_x_prev = (max[0] - min[0]) + 1;
-	winsize_y_prev = (max[1] - min[1]) + 1;
+	screen_size_x_prev = (max[0] - min[0]) + 1;
+	screen_size_y_prev = (max[1] - min[1]) + 1;
 
 
 #ifdef USE_HEADER_SIZE_CLAMP
@@ -550,14 +550,14 @@ static void screen_vertices_scale(
 #define TEMP_TOP 2
 
 	/* if the window's Y axis grows, clamp header sized areas */
-	if (winsize_y_prev < screen_size_y) {  /* growing? */
+	if (screen_size_y_prev < screen_size_y) {  /* growing? */
 		const int headery_margin_max = headery_init + 4;
 		for (sa = sc->areabase.first; sa; sa = sa->next) {
 			ARegion *ar = BKE_area_find_region_type(sa, RGN_TYPE_HEADER);
 			sa->temp = 0;
 
 			if (ar && !(ar->flag & RGN_FLAG_HIDDEN)) {
-				if (sa->v2->vec.y == winsize_y_prev - 1) {
+				if (sa->v2->vec.y == screen_size_y_prev) {
 					if ((sa->v2->vec.y - sa->v1->vec.y) < headery_margin_max) {
 						sa->temp = TEMP_TOP;
 					}
@@ -573,9 +573,9 @@ static void screen_vertices_scale(
 #endif
 
 
-	if (winsize_x_prev != screen_size_x || winsize_y_prev != screen_size_y) {
-		facx = ((float)screen_size_x - 1) / ((float)winsize_x_prev - 1);
-		facy = ((float)screen_size_y - 1) / ((float)winsize_y_prev - 1);
+	if (screen_size_x_prev != screen_size_x || screen_size_y_prev != screen_size_y) {
+		facx = ((float)screen_size_x - 1) / ((float)screen_size_x_prev - 1);
+		facy = ((float)screen_size_y) / ((float)screen_size_y_prev);
 		
 		/* make sure it fits! */
 		for (sv = sc->vertbase.first; sv; sv = sv->next) {
@@ -593,13 +593,13 @@ static void screen_vertices_scale(
 			//sv->vec.y += AREAGRID - 1;
 			//sv->vec.y -=  (sv->vec.y % AREAGRID);
 
-			CLAMP(sv->vec.y, 0, screen_size_y - 1);
+			CLAMP(sv->vec.y, 0, screen_size_y);
 		}
 	}
 
 
 #ifdef USE_HEADER_SIZE_CLAMP
-	if (winsize_y_prev < screen_size_y) {  /* growing? */
+	if (screen_size_y_prev < screen_size_y) {  /* growing? */
 		for (sa = sc->areabase.first; sa; sa = sa->next) {
 			ScrEdge *se = NULL;
 
@@ -659,7 +659,7 @@ static void screen_vertices_scale(
 		/* adjust headery if verts are along the edge of window */
 		if (sa->v1->vec.y > 0)
 			headery += U.pixelsize;
-		if (sa->v2->vec.y < screen_size_y - 1)
+		if (sa->v2->vec.y < screen_size_y)
 			headery += U.pixelsize;
 		
 		if (sa->v2->vec.y - sa->v1->vec.y + 1 < headery) {
@@ -689,10 +689,10 @@ static void screen_vertices_scale(
 	for (ScrArea *area = win->global_areas.first; area; area = area->next) {
 		/* width */
 		area->v1->vec.x = area->v2->vec.x = 0;
-		area->v3->vec.x = area->v4->vec.x = window_size_x;
+		area->v3->vec.x = area->v4->vec.x = window_size_x - 1;
 		/* height */
-		area->v1->vec.y = area->v4->vec.y = window_size_y - ED_area_global_size_y(win, area) - U.pixelsize;
-		area->v2->vec.y = area->v3->vec.y = window_size_y;
+		area->v2->vec.y = area->v3->vec.y = window_size_y - 1;
+		area->v1->vec.y = area->v4->vec.y = area->v2->vec.y - ED_area_global_size_y(win, area);
 	}
 }
 
