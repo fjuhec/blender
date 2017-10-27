@@ -1436,10 +1436,9 @@ void uiTemplateOperatorRedo(uiLayout *layout, bContext *C)
 		uiItemFullO(layout, "SCREEN_OT_repeat_last", RNA_struct_ui_name(op->type->srna),
 		            ICON_NONE, NULL, WM_OP_INVOKE_DEFAULT, 0);
 
-		template_operator_redo_property_buts_draw(C, op, layout, layout_flags);
-
-		/* TODO check whether there are hidden advanced properties at all */
 		if (WM_operator_repeat_check(C, op)) {
+			template_operator_redo_property_buts_draw(C, op, layout, layout_flags);
+			/* TODO check whether there are hidden advanced properties at all */
 			uiItemO(layout, IFACE_("More..."), ICON_NONE, "SCREEN_OT_redo_last");
 		}
 
