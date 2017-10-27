@@ -840,14 +840,10 @@ void UI_exit(void);
 /* uiLayoutOperatorButs flags */
 enum {
 	UI_TEMPLATE_OP_PROPS_SHOW_TITLE       = (1 << 0),
-	UI_TEMPLATE_OP_PROPS_SHOW_REDO_BUT    = (UI_TEMPLATE_OP_PROPS_SHOW_TITLE | (1 << 1)),
-	UI_TEMPLATE_OP_PROPS_SHOW_EMPTY       = (1 << 2),
-	UI_TEMPLATE_OP_PROPS_COMPACT          = (1 << 3),
-	/* Don't show the "Redo Unsupported" label */
-	UI_TEMPLATE_OP_PROPS_HIDE_UNSUPPORTED = (1 << 4),
-	/* Only show non-advanced op-properties by default and add a "More" button invoking
-	 * redo popup with all properties. If all properties are advanced, show the first 2. */
-	UI_TEMPLATE_OP_PROPS_SPLIT_ADVANCED   = (1 << 5),
+	UI_TEMPLATE_OP_PROPS_SHOW_EMPTY       = (1 << 1),
+	UI_TEMPLATE_OP_PROPS_COMPACT          = (1 << 2),
+	/* Don't show advanced properties */
+	UI_TEMPLATE_OP_PROPS_SKIP_ADVANCED    = (1 << 3),
 };
 
 /* used for transp checkers */

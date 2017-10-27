@@ -1411,16 +1411,38 @@ uiLayout *uiTemplateModifier(uiLayout *layout, bContext *C, PointerRNA *ptr)
 
 /************************ Redo Buttons Template *************************/
 
+static void template_operator_redo_property_buts_draw(
+        const bContext *C, wmOperator *op,
+        uiLayout *layout, int layout_flags)
+{
+	if (op->type->flag & OPTYPE_MACRO) {
+		for (wmOperator *macro_op = op->macro.first; macro_op; macro_op = macro_op->next) {
+			template_operator_redo_property_buts_draw(C, macro_op, layout, layout_flags);
+		}
+	}
+	else {
+		uiTemplateOperatorPropertyButs(C, layout, op, NULL, '\0', layout_flags);
+	}
+}
+
 void uiTemplateOperatorRedo(uiLayout *layout, bContext *C)
 {
 	wmOperator *op = WM_operator_last_redo(C);
+	uiBlock *block = uiLayoutGetBlock(layout);
+	const int layout_flags = (UI_TEMPLATE_OP_PROPS_COMPACT | UI_TEMPLATE_OP_PROPS_SKIP_ADVANCED);
 
 	if (op) {
-		uiBlock *block = uiLayoutGetBlock(layout);
-		int layout_flags = (UI_TEMPLATE_OP_PROPS_SHOW_REDO_BUT | UI_TEMPLATE_OP_PROPS_COMPACT |
-		                    UI_TEMPLATE_OP_PROPS_HIDE_UNSUPPORTED | UI_TEMPLATE_OP_PROPS_SPLIT_ADVANCED);
+		/* Repeat button with operator name as text. */
+		uiItemFullO(layout, "SCREEN_OT_repeat_last", RNA_struct_ui_name(op->type->srna),
+		            ICON_NONE, NULL, WM_OP_INVOKE_DEFAULT, 0);
 
-		uiTemplateOperatorPropertyButs(C, layout, op, NULL, '\0', layout_flags);
+		template_operator_redo_property_buts_draw(C, op, layout, layout_flags);
+
+		/* TODO check whether there are hidden advanced properties at all */
+		if (WM_operator_repeat_check(C, op)) {
+			uiItemO(layout, IFACE_("More..."), ICON_NONE, "SCREEN_OT_redo_last");
+		}
+
 		UI_block_func_handle_set(block, ED_undo_operator_repeat_cb_evt, op);
 	}
 }
@@ -3784,24 +3806,14 @@ void uiTemplateOperatorPropertyButs(
         const char label_align, const short flag)
 {
 	uiBlock *block = uiLayoutGetBlock(layout);
-	const char *op_title = RNA_struct_ui_name(op->type->srna);
-	bool can_repeat;
 
 	if (!op->properties) {
 		IDPropertyTemplate val = {0};
 		op->properties = IDP_New(IDP_GROUP, &val, "wmOperatorProperties");
 	}
 
-	can_repeat = WM_operator_repeat_check(C, op);
-	if (!can_repeat && (flag & UI_TEMPLATE_OP_PROPS_HIDE_UNSUPPORTED)) {
-		return;
-	}
-
-	if ((flag & UI_TEMPLATE_OP_PROPS_SHOW_REDO_BUT) == UI_TEMPLATE_OP_PROPS_SHOW_REDO_BUT) {
-		uiItemFullO(layout, "SCREEN_OT_repeat_last", op_title, ICON_NONE, NULL, WM_OP_INVOKE_DEFAULT, 0);
-	}
-	else if (flag & UI_TEMPLATE_OP_PROPS_SHOW_TITLE) {
-		uiItemL(layout, op_title, ICON_NONE);
+	if (flag & UI_TEMPLATE_OP_PROPS_SHOW_TITLE) {
+		uiItemL(layout, RNA_struct_ui_name(op->type->srna), ICON_NONE);
 	}
 
 	/* poll() on this operator may still fail, at the moment there is no nice feedback when this happens
@@ -3894,10 +3906,6 @@ void uiTemplateOperatorPropertyButs(
 				}
 			}
 		}
-	}
-
-	if (flag & UI_TEMPLATE_OP_PROPS_SPLIT_ADVANCED) {
-		uiItemO(layout, IFACE_("More..."), ICON_NONE, "SCREEN_OT_redo_last");
 	}
 }
 
