@@ -445,7 +445,7 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 		}
 		
 		/* Handle object-linked grease pencil datablocks */
-		for (Object *ob = main->scene.first; ob; ob = ob->id.next) {
+		for (Object *ob = main->object.first; ob; ob = ob->id.next) {
 			if (ob->gpd) {
 				if (ob->type == OB_GPENCIL) {
 					/* GP Object - remap the links */
@@ -458,7 +458,7 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 					 */
 					ob->data = ob->gpd;
 					ob->gpd = NULL;
-					ob->type = OB_EMPTY;
+					ob->type = OB_GPENCIL;
 				}
 				else {
 					/* FIXME: What to do in this case?
