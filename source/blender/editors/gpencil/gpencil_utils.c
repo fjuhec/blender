@@ -226,7 +226,7 @@ bGPdata *ED_gpencil_data_get_active_v3d(Scene *scene, View3D *v3d)
 /* Check whether there's an active GP keyframe on the current frame */
 bool ED_gpencil_has_keyframe_v3d(Scene *UNUSED(scene), Object *ob, int cfra)
 {
-	if (ob && ob->data) {
+	if (ob && ob->data && (ob->type == OB_GPENCIL)) {
 		bGPDlayer *gpl = BKE_gpencil_layer_getactive(ob->data);
 		if (gpl) {
 			if (gpl->actframe) {
