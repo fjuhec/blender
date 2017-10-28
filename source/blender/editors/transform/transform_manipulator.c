@@ -584,7 +584,9 @@ bool gimbal_axis(Object *ob, float gmat[3][3])
 
 /* centroid, boundbox, of selection */
 /* returns total items selected */
-static int calc_manipulator_stats(const bContext *C, struct TransformBounds *tbounds)
+static int calc_manipulator_stats(
+        const bContext *C, bool use_only_center,
+        struct TransformBounds *tbounds)
 {
 	ScrArea *sa = CTX_wm_area(C);
 	ARegion *ar = CTX_wm_region(C);
@@ -1002,7 +1004,16 @@ static int calc_manipulator_stats(const bContext *C, struct TransformBounds *tbo
 			if (TESTBASELIB_NEW(base)) {
 				if (ob == NULL)
 					ob = base->object;
-				calc_tw_center(tbounds, base->object->obmat[3]);
+				if (use_only_center || base->object->bb == NULL) {
+					calc_tw_center(tbounds, base->object->obmat[3]);
+				}
+				else {
+					for (uint j = 0; j < 8; j++) {
+						float co[3];
+						mul_v3_m4v3(co, base->object->obmat, base->object->bb->vec[j]);
+						calc_tw_center(tbounds, co);
+					}
+				}
 				protectflag_to_drawflags(base->object->protectflag, &rv3d->twdrawflag);
 				totsel++;
 			}
@@ -1179,7 +1190,7 @@ static int manipulator_modal(
 	struct TransformBounds tbounds;
 
 
-	if (calc_manipulator_stats(C, &tbounds)) {
+	if (calc_manipulator_stats(C, true, &tbounds)) {
 		manipulator_prepare_mat(C, v3d, rv3d, &tbounds);
 		WM_manipulator_set_matrix_location(widget, rv3d->twmat[3]);
 	}
@@ -1315,7 +1326,7 @@ static void WIDGETGROUP_manipulator_refresh(const bContext *C, wmManipulatorGrou
 	struct TransformBounds tbounds;
 
 	/* skip, we don't draw anything anyway */
-	if ((man->all_hidden = (calc_manipulator_stats(C, &tbounds) == 0)))
+	if ((man->all_hidden = (calc_manipulator_stats(C, true, &tbounds) == 0)))
 		return;
 
 	manipulator_prepare_mat(C, v3d, rv3d, &tbounds);
@@ -1428,8 +1439,16 @@ static bool WIDGETGROUP_manipulator_poll(const struct bContext *C, struct wmMani
 	const ScrArea *sa = CTX_wm_area(C);
 	const View3D *v3d = sa->spacedata.first;
 
-	return (((v3d->twflag & V3D_MANIPULATOR_DRAW) != 0) &&
-	        ((v3d->twtype & (V3D_MANIP_TRANSLATE | V3D_MANIP_ROTATE | V3D_MANIP_SCALE)) != 0));
+	if (((v3d->twflag & V3D_MANIPULATOR_DRAW) != 0) &&
+	        ((v3d->twtype & (V3D_MANIP_TRANSLATE | V3D_MANIP_ROTATE | V3D_MANIP_SCALE)) != 0))
+	{
+		/* Don't show when tools have a manipulator. */
+		WorkSpace *workspace = CTX_wm_workspace(C);
+		if (workspace->tool.manipulator_group[0] == '\0') {
+			return true;
+		}
+	}
+	return false;
 }
 
 void TRANSFORM_WGT_manipulator(wmManipulatorGroupType *wgt)
@@ -1522,7 +1541,7 @@ static void WIDGETGROUP_xform_cage_refresh(const bContext *C, wmManipulatorGroup
 
 	struct TransformBounds tbounds;
 
-	if ((calc_manipulator_stats(C, &tbounds) == 0) ||
+	if ((calc_manipulator_stats(C, false, &tbounds) == 0) ||
 	    equals_v3v3(rv3d->tw_axis_min, rv3d->tw_axis_max))
 	{
 		WM_manipulator_set_flag(mpr, WM_MANIPULATOR_HIDDEN, true);

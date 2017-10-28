@@ -303,6 +303,17 @@ float get_view_z_from_depth(float depth)
 	}
 }
 
+float get_depth_from_view_z(float z)
+{
+	if (ProjectionMatrix[3][3] == 0.0) {
+		float d = (-ProjectionMatrix[3][2] / z) - ProjectionMatrix[2][2];
+		return d * 0.5 + 0.5;
+	}
+	else {
+		return (z - viewvecs[0].z) / viewvecs[1].z;
+	}
+}
+
 vec2 get_uvs_from_view(vec3 view)
 {
 	vec3 ndc = project_point(ProjectionMatrix, view);
@@ -563,7 +574,8 @@ Closure closure_add(Closure cl1, Closure cl2)
 	cl.anisotropy = (cl1.anisotropy + cl2.anisotropy) / 2.0; /* Average phase (no multi lobe) */
 	return cl;
 }
-#else
+
+#else /* VOLUMETRICS */
 
 struct Closure {
 	vec3 radiance;
@@ -620,11 +632,24 @@ layout(location = 2) out vec4 ssrData;
 
 Closure nodetree_exec(void); /* Prototype */
 
+#if defined(USE_ALPHA_BLEND_VOLUMETRICS)
+/* Prototype because this file is included before volumetric_lib.glsl */
+vec4 volumetric_resolve(vec4 scene_color, vec2 frag_uvs, float frag_depth);
+#endif
+
 #define NODETREE_EXEC
 void main()
 {
 	Closure cl = nodetree_exec();
+
+#if defined(USE_ALPHA_BLEND_VOLUMETRICS)
+	/* XXX fragile, better use real viewport resolution */
+	vec2 uvs = gl_FragCoord.xy / vec2(2 * textureSize(maxzBuffer, 0).xy);
+	fragColor = volumetric_resolve(vec4(cl.radiance, cl.opacity), uvs, gl_FragCoord.z);
+#else
 	fragColor = vec4(cl.radiance, cl.opacity);
+#endif
+
 	ssrNormals = cl.ssr_normal.xyyy;
 	ssrData = cl.ssr_data;
 }

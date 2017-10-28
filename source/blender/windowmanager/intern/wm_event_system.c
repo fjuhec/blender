@@ -399,7 +399,7 @@ void wm_event_do_notifiers(bContext *C)
 			if (G.is_rendering == false) {
 
 				/* depsgraph gets called, might send more notifiers */
-				ED_update_for_newframe(CTX_data_main(C), scene, 1);
+				ED_update_for_newframe(CTX_data_main(C), scene);
 			}
 		}
 	}
@@ -2398,19 +2398,24 @@ static int wm_handlers_do(bContext *C, wmEvent *event, ListBase *handlers)
 				
 				if ((event->val == KM_RELEASE) &&
 				    (win->eventstate->prevval == KM_PRESS) &&
-				    (win->eventstate->check_click == true) &&
-				    ((abs(event->x - win->eventstate->prevclickx)) <= WM_EVENT_CLICK_WIGGLE_ROOM &&
-				     (abs(event->y - win->eventstate->prevclicky)) <= WM_EVENT_CLICK_WIGGLE_ROOM))
+				    (win->eventstate->check_click == true))
 				{
-					event->val = KM_CLICK;
-					
-					if (G.debug & (G_DEBUG_HANDLERS)) {
-						printf("%s: handling CLICK\n", __func__);
+					if ((abs(event->x - win->eventstate->prevclickx)) <= WM_EVENT_CLICK_WIGGLE_ROOM &&
+					    (abs(event->y - win->eventstate->prevclicky)) <= WM_EVENT_CLICK_WIGGLE_ROOM)
+					{
+						event->val = KM_CLICK;
+
+						if (G.debug & (G_DEBUG_HANDLERS)) {
+							printf("%s: handling CLICK\n", __func__);
+						}
+
+						action |= wm_handlers_do_intern(C, event, handlers);
+
+						event->val = KM_RELEASE;
 					}
-
-					action |= wm_handlers_do_intern(C, event, handlers);
-
-					event->val = KM_RELEASE;
+					else {
+						win->eventstate->check_click = 0;
+					}
 				}
 				else if (event->val == KM_DBL_CLICK) {
 					event->val = KM_PRESS;
@@ -2614,7 +2619,7 @@ void wm_event_do_handlers(bContext *C)
 							int ncfra = time * (float)FPS + 0.5f;
 							if (ncfra != scene->r.cfra) {
 								scene->r.cfra = ncfra;
-								ED_update_for_newframe(CTX_data_main(C), scene, 1);
+								ED_update_for_newframe(CTX_data_main(C), scene);
 								WM_event_add_notifier(C, NC_WINDOW, NULL);
 							}
 						}

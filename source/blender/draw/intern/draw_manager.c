@@ -500,6 +500,20 @@ GPUTexture *DRW_texture_create_2D_array(
 	return tex;
 }
 
+GPUTexture *DRW_texture_create_3D(
+        int w, int h, int d, DRWTextureFormat format, DRWTextureFlag flags, const float *fpixels)
+{
+	GPUTexture *tex;
+	GPUTextureFormat data_type;
+	int channels;
+
+	drw_texture_get_format(format, &data_type, &channels);
+	tex = GPU_texture_create_3D_custom(w, h, d, channels, data_type, fpixels, NULL);
+	drw_texture_set_parameters(tex, flags);
+
+	return tex;
+}
+
 GPUTexture *DRW_texture_create_cube(int w, DRWTextureFormat format, DRWTextureFlag flags, const float *fpixels)
 {
 	GPUTexture *tex;
@@ -859,6 +873,20 @@ DRWShadingGroup *DRW_shgroup_material_instance_create(
 		shgroup->type = DRW_SHG_INSTANCE;
 		shgroup->instance_geom = geom;
 		shgroup->instance_data = ob->data;
+	}
+
+	return shgroup;
+}
+
+DRWShadingGroup *DRW_shgroup_material_empty_tri_batch_create(
+        struct GPUMaterial *material, DRWPass *pass, int size)
+{
+	DRWShadingGroup *shgroup = DRW_shgroup_material_create(material, pass);
+
+	if (shgroup) {
+		shgroup->type = DRW_SHG_TRIANGLE_BATCH;
+		shgroup->interface->instance_count = size * 3;
+		DRW_interface_attrib(shgroup, "dummy", DRW_ATTRIB_FLOAT, 1, true);
 	}
 
 	return shgroup;
@@ -3282,6 +3310,25 @@ void DRW_draw_render_loop_ex(
 	DRW_state_reset();
 	DRW_engines_draw_background();
 
+	/* WIP, single image drawn over the camera view (replace) */
+	bool do_bg_image = false;
+	if (rv3d->persp == RV3D_CAMOB) {
+		Object *cam_ob = v3d->camera;
+		if (cam_ob && cam_ob->type == OB_CAMERA) {
+			Camera *cam = cam_ob->data;
+			if (!BLI_listbase_is_empty(&cam->bg_images)) {
+				do_bg_image = true;
+			}
+		}
+	}
+
+	extern void view3d_draw_bgpic_test(Scene *scene, ARegion *ar, View3D *v3d,
+									   const bool do_foreground, const bool do_camera_frame);
+	if (do_bg_image) {
+		view3d_draw_bgpic_test(scene, ar, v3d, false, true);
+	}
+
+
 	DRW_draw_callbacks_pre_scene();
 	if (DST.draw_ctx.evil_C) {
 		ED_region_draw_cb_draw(DST.draw_ctx.evil_C, DST.draw_ctx.ar, REGION_DRAW_PRE_VIEW);
@@ -3308,6 +3355,10 @@ void DRW_draw_render_loop_ex(
 	}
 
 	DRW_stats_reset();
+
+	if (do_bg_image) {
+		view3d_draw_bgpic_test(scene, ar, v3d, true, true);
+	}
 
 	if (G.debug_value > 20) {
 		DRW_debug_cpu_stats();
