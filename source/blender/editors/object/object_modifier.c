@@ -174,9 +174,11 @@ ModifierData *ED_object_modifier_add(ReportList *reports, Main *bmain, Scene *sc
 		}
 	}
 
+#if 0 // XXX: Review this (aligorith)
 	if (ob->type == OB_GPENCIL) {
 		BKE_gpencil_batch_cache_dirty(ob->data);
 	}
+#endif
 
 	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	DEG_relations_tag_update(bmain);
@@ -334,9 +336,11 @@ static bool object_modifier_remove(Main *bmain, Object *ob, ModifierData *md,
 	BKE_object_free_derived_caches(ob);
 
 	/* if grease pencil, need refresh cache */
+#if 0 // XXX: Review this (aligorith)
 	if (ob->type == OB_GPENCIL) {
 		BKE_gpencil_batch_cache_dirty(ob->gpd);
 	}
+#endif
 
 	return 1;
 }
@@ -664,6 +668,7 @@ static int modifier_apply_obdata(ReportList *reports, const bContext *C, Scene *
 		DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	}
 	else if (ELEM(ob->type, OB_GPENCIL)) {
+#if 0 // FIXME: This code uses all the wrong callbacks! To be recoded!
 		/* some modifier need to have bContext */
 		if (md->type == eModifierType_GpencilArray) {
 			GpencilArrayModifierData *mmd = (GpencilArrayModifierData *)md;
@@ -678,6 +683,7 @@ static int modifier_apply_obdata(ReportList *reports, const bContext *C, Scene *
 			BKE_gpencil_batch_cache_dirty(ob->data);
 		}
 		return 1;
+#endif
 	}
 	else {
 		BKE_report(reports, RPT_ERROR, "Cannot apply modifier for this object type");
@@ -720,6 +726,7 @@ int ED_object_modifier_apply(ReportList *reports, const bContext *C, Scene *scen
 			return 0;
 		}
 
+		// XXX: Review this!
 		modifier_apply_obdata(reports, C, scene, ob, md);
 		BLI_remlink(&ob->modifiers, md);
 		modifier_free(md);
@@ -941,9 +948,11 @@ static int modifier_remove_exec(bContext *C, wmOperator *op)
 				WM_event_add_notifier(C, NC_SCENE | ND_MODE | NS_MODE_OBJECT, NULL);
 	
 	/* if grease pencil, need refresh cache */
+#if 0 // XXX: Review this (aligorith)
 	if (ob->type == OB_GPENCIL) {
 		BKE_gpencil_batch_cache_dirty(ob->data);
 	}
+#endif
 
 	return OPERATOR_FINISHED;
 }
@@ -985,9 +994,11 @@ static int modifier_move_up_exec(bContext *C, wmOperator *op)
 	WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, ob);
 
 	/* if grease pencil, need refresh cache */
+#if 0 // XXX: Review this (aligorith)
 	if (ob->type == OB_GPENCIL) {
 		BKE_gpencil_batch_cache_dirty(ob->data);
 	}
+#endif
 
 	return OPERATOR_FINISHED;
 }
@@ -1029,9 +1040,11 @@ static int modifier_move_down_exec(bContext *C, wmOperator *op)
 	WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, ob);
 
 	/* if grease pencil, need refresh cache */
+#if 0 // XXX: Review this (aligorith)
 	if (ob->type == OB_GPENCIL) {
 		BKE_gpencil_batch_cache_dirty(ob->data);
 	}
+#endif
 
 	return OPERATOR_FINISHED;
 }
@@ -1165,9 +1178,11 @@ static int modifier_copy_exec(bContext *C, wmOperator *op)
 	WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, ob);
 
 	/* if grease pencil, need refresh cache */
+#if 0 // XXX: Review this (aligorith)
 	if (ob->type == OB_GPENCIL) {
 		BKE_gpencil_batch_cache_dirty(ob->data);
 	}
+#endif
 
 	return OPERATOR_FINISHED;
 }
