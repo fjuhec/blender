@@ -445,6 +445,7 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 		}
 		
 		/* Handle object-linked grease pencil datablocks */
+		printf("version patching objects\n");
 		for (Object *ob = main->object.first; ob; ob = ob->id.next) {
 			if (ob->gpd) {
 				if (ob->type == OB_GPENCIL) {
@@ -466,11 +467,13 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 					 * We cannot create new objects for these, as we don't have a scene & scene layer
 					 * to put them into from here...
 					 */
-					printf("WARNING: Old Grease Pencil data ('%s') still exists on Object '%s'\n",
-					       ob->gpd->id.name+2, ob->id.name+2);
+					//printf("WARNING: Old Grease Pencil data ('%s') still exists on Object '%s'\n",
+					//       ob->gpd->id.name+2, ob->id.name+2);
+					printf("Convert GP object\n");
 				}
 			}
 		}
+		printf("done\n");
 
 		/* Convert grease pencil palettes to blender palettes */
 		if (!DNA_struct_elem_find(fd->filesdna, "bGPDstroke", "Palette", "*palette")) {

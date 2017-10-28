@@ -1267,7 +1267,8 @@ void BKE_object_copy_data(Main *UNUSED(bmain), Object *ob_dst, const Object *ob_
 	BLI_listbase_clear(&ob_dst->pc_ids);
 
 	/* grease pencil: clean derived data */
-	BKE_gpencil_free_derived_frames(ob_dst->gpd);
+	if (ob_dst->type == OB_GPENCIL)
+		BKE_gpencil_free_derived_frames(ob_dst->data);
 
 	ob_dst->mpath = NULL;
 

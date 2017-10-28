@@ -1710,7 +1710,7 @@ static size_t animdata_filter_gpencil(bAnimContext *ac, ListBase *anim_data, voi
 		/* Objects in the scene */
 		for (base = sl->object_bases.first; base; base = base->next) {
 			/* Only consider this object if it has got some GP data (saving on all the other tests) */
-			if (base->object && base->object->gpd) {
+			if (base->object && (base->object->type == OB_GPENCIL)) {
 				Object *ob = base->object;
 				
 				/* firstly, check if object can be included, by the following factors:
@@ -1747,7 +1747,7 @@ static size_t animdata_filter_gpencil(bAnimContext *ac, ListBase *anim_data, voi
 				
 				/* finally, include this object's grease pencil datablock */
 				/* XXX: Should we store these under expanders per item? */
-				items += animdata_filter_gpencil_data(anim_data, ads, ob->gpd, filter_mode);
+				items += animdata_filter_gpencil_data(anim_data, ads, ob->data, filter_mode);
 			}
 		}
 	}

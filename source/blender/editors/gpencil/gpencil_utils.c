@@ -952,7 +952,7 @@ void ED_gpencil_parent_location(Object *obact, bGPdata *gpd, bGPDlayer *gpl, flo
 	if (obparent == NULL) {
 		if (obact != NULL) {
 			/* the gpd can be scene, but a gpobject can be active, so need check gpd */
-			if ((obact->type == OB_GPENCIL) && (obact->gpd == gpd)) {
+			if ((obact->type == OB_GPENCIL) && (obact->data == gpd)) {
 				copy_m4_m4(diff_mat, obact->obmat);
 				return;
 			}

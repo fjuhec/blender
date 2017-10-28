@@ -791,7 +791,7 @@ void DRW_gpencil_populate_buffer_strokes(GPENCIL_e_data *e_data, void *vedata, T
 	GPENCIL_PassList *psl = ((GPENCIL_Data *)vedata)->psl;
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 	bGPDbrush *brush = BKE_gpencil_brush_getactive(ts);
-	bGPdata *gpd = ob->gpd;
+	bGPdata *gpd = ob->data;
 	float obscale = (ob->size[0] + ob->size[1] + ob->size[2]) / 3.0f;
 
 	bGPDpaletteref *palslot = BKE_gpencil_paletteslot_get_active(gpd);

@@ -270,11 +270,15 @@ static void GPENCIL_cache_init(void *vedata)
 			}
 		}
 		/* detect if painting session */
-		if ((obact) && (obact->gpd) && (obact->gpd->flag & GP_DATA_STROKE_PAINTMODE) &&
+		bGPdata *obact_gpd = NULL;
+		if ((obact) && (obact->type == OB_GPENCIL) && (obact->data))
+			obact_gpd = ob->data;
+		
+		if ((obact_gpd) && (obact_gpd->flag & GP_DATA_STROKE_PAINTMODE) &&
 		    (stl->storage->playing == 0) &&
 		    ((ts->gpencil_simplify & GP_TOOL_FLAG_DISABLE_FAST_DRAWING) == 0))
 		{
-			if (((obact->gpd->sbuffer_sflag & GP_STROKE_ERASER) == 0) && (obact->gpd->sbuffer_size > 0)) {
+			if (((obact_gpd->sbuffer_sflag & GP_STROKE_ERASER) == 0) && (obact_gpd->sbuffer_size > 0)) {
 				stl->g_data->session_flag = GP_DRW_PAINT_PAINTING;
 			}
 			else {

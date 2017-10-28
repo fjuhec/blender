@@ -1027,7 +1027,7 @@ void DepsgraphNodeBuilder::build_obdata_geom(Scene *scene, Object *ob)
 		case OB_GPENCIL:
 		{
 			/* GPencil evaluation operations. */
-			bGPdata *gpd = ob->gpd; /* FIXME */
+			bGPdata *gpd = (bGPdata *)obdata;
 			ID *gpd_id = &gpd->id; /* No COW for now, as GP uses its own cache system. See gpencil_engine.c */
 			
 			op_node = add_operation_node(gpd_id, DEG_NODE_TYPE_GEOMETRY, NULL,

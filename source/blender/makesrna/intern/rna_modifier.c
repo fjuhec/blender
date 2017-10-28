@@ -512,10 +512,11 @@ static void rna_Modifier_update(Main *UNUSED(bmain), Scene *UNUSED(scene), Point
 	 * repeat this process in any blender area, when only is needed here. This approach can be less
 	 * cleaner, but faster.
 	 */
+	// XXX: Review this (aligorith)
 	Object *obj = (Object *)ptr->id.data;
 	if ((obj) && (obj->type == OB_GPENCIL)) {
-		if (obj->gpd) {
-			BKE_gpencil_batch_cache_dirty(obj->gpd);
+		if (obj->data) {
+			BKE_gpencil_batch_cache_dirty(obj->data);
 		}
 	}
 	WM_main_add_notifier(NC_OBJECT | ND_MODIFIER, ptr->id.data);

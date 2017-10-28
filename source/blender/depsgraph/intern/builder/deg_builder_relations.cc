@@ -1719,6 +1719,11 @@ void DepsgraphRelationBuilder::build_obdata_geom(Main *bmain, Scene *scene, Obje
 		{
 			break;
 		}
+		
+		case OB_GPENCIL: /* Grease Pencil */
+		{
+			break;
+		}
 	}
 
 	/* ShapeKeys */
