@@ -65,10 +65,10 @@ static DerivedMesh *applyModifier(ModifierData *md, const struct EvaluationConte
 	GpencilColorModifierData *mmd = (GpencilColorModifierData *)md;
 	bGPdata *gpd;
 	Palette *newpalette = NULL;
-	if ((!ob) || (!ob->gpd)) {
+	if ((!ob) || (!ob->data)) {
 		return NULL;
 	}
-	gpd = ob->gpd;
+	gpd = ob->data;
 	GHash *gh_layer = BLI_ghash_str_new("GP_Color Layer modifier");
 	GHash *gh_color;
 

@@ -1869,7 +1869,7 @@ void ED_gpencil_draw_view3d_object(wmWindowManager *wm, Scene *scene, Object *ob
 	int offsx, offsy, winx, winy;
 
 	/* check that we have grease-pencil stuff to draw */
-	bGPdata *gpd = ob->gpd;
+	bGPdata *gpd = ob->data;
 	if (gpd == NULL) return;
 
 	/* when rendering to the offscreen buffer we don't want to

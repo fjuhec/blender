@@ -67,10 +67,10 @@ static DerivedMesh *applyModifier(ModifierData *md, const struct EvaluationConte
 	ModifierApplyFlag UNUSED(flag))
 {
 	bGPdata *gpd;
-	if ((!ob) || (!ob->gpd)) {
+	if ((!ob) || (!ob->data)) {
 		return NULL;
 	}
-	gpd = ob->gpd;
+	gpd = ob->data;
 
 	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
 		for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {

@@ -2466,7 +2466,7 @@ static int vertex_group_poll(bContext *C)
 
 	if ((ob) && (ob->type == OB_GPENCIL)) {
 		return (ob && !ID_IS_LINKED_DATABLOCK(ob) &&
-			!ID_IS_LINKED_DATABLOCK(ob->gpd) &&
+			!ID_IS_LINKED_DATABLOCK(ob->data) &&
 			OB_TYPE_SUPPORT_VGROUP(ob->type) &&
 			ob->defbase.first);
 	}
@@ -2484,7 +2484,7 @@ static int vertex_group_supported_poll(bContext *C)
 	ID *data = (ob) ? ob->data : NULL;
 	if ((ob) && (ob->type == OB_GPENCIL)) {
 		return (ob && !ID_IS_LINKED_DATABLOCK(ob) && OB_TYPE_SUPPORT_VGROUP(ob->type) &&
-			!ID_IS_LINKED_DATABLOCK(ob->gpd));
+			!ID_IS_LINKED_DATABLOCK(ob->data));
 	}
 	else {
 		return (ob && !ID_IS_LINKED_DATABLOCK(ob) && OB_TYPE_SUPPORT_VGROUP(ob->type) &&

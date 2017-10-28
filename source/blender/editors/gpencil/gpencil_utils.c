@@ -98,9 +98,9 @@ bGPdata **ED_gpencil_data_get_pointers_direct(ID *screen_id, Scene *scene, ScrAr
 			case SPACE_INFO: /* header info (needed after workspaces merge) */
 			{
 				/* return obgpencil datablock */
-				if (ob && ob->type == OB_GPENCIL) {
+				if (ob && (ob->type == OB_GPENCIL)) {
 					if (ptr) RNA_id_pointer_create(&ob->id, ptr);
-					return &ob->gpd;
+					return (bGPdata **)&ob->data;
 				}
 				else {
 					return NULL;
@@ -224,26 +224,10 @@ bGPdata *ED_gpencil_data_get_active_v3d(Scene *scene, View3D *v3d)
 /* Keyframe Indicator Checks */
 
 /* Check whether there's an active GP keyframe on the current frame */
-bool ED_gpencil_has_keyframe_v3d(Scene *scene, Object *ob, int cfra)
+bool ED_gpencil_has_keyframe_v3d(Scene *UNUSED(scene), Object *ob, int cfra)
 {
-	/* just check both for now... */
-	// XXX: this could get confusing (e.g. if only on the object, but other places don't show this)
-	if (scene->gpd) {
-		bGPDlayer *gpl = BKE_gpencil_layer_getactive(scene->gpd);
-		if (gpl) {
-			if (gpl->actframe) {
-				// XXX: assumes that frame has been fetched already
-				return (gpl->actframe->framenum == cfra);
-			}
-			else {
-				/* XXX: disabled as could be too much of a penalty */
-				/* return BKE_gpencil_layer_find_frame(gpl, cfra); */
-			}
-		}
-	}
-	
-	if (ob && ob->gpd) {
-		bGPDlayer *gpl = BKE_gpencil_layer_getactive(ob->gpd);
+	if (ob && ob->data) {
+		bGPDlayer *gpl = BKE_gpencil_layer_getactive(ob->data);
 		if (gpl) {
 			if (gpl->actframe) {
 				// XXX: assumes that frame has been fetched already

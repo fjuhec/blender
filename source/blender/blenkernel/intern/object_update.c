@@ -324,7 +324,7 @@ void BKE_object_eval_uber_data(const EvaluationContext *eval_ctx,
 			BKE_curve_batch_cache_dirty(ob->data, BKE_CURVE_BATCH_DIRTY_ALL);
 			break;
 		case OB_GPENCIL:
-			BKE_gpencil_batch_cache_dirty(ob->gpd);
+			BKE_gpencil_batch_cache_dirty(ob->data);
 			break;
 	}
 

@@ -1562,7 +1562,7 @@ static int object_mode_set_exec(bContext *C, wmOperator *op)
 
 	/* if type is OB_GPENCIL, select mode for grease pencil strokes */	
 	if ((ob) && (ob->type == OB_GPENCIL)) {
-		if ((ob->gpd) && (ob->gpd == gpd)) {
+		if ((ob->data) && (ob->data == gpd)) {
 			if (ELEM(mode, OB_MODE_OBJECT, OB_MODE_EDIT, OB_MODE_POSE)) {
 				ob->restore_mode = OB_MODE_OBJECT;
 				if (ELEM(ob->mode, OB_MODE_OBJECT, OB_MODE_EDIT, OB_MODE_GPENCIL_EDIT)) {

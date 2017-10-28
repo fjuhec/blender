@@ -434,14 +434,42 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 
 				ob = BKE_object_add(main, scene, sl, OB_GPENCIL, "GP_Scene");
 				zero_v3(ob->loc);
-				ob->gpd = scene->gpd;
+				ob->data = scene->gpd;
 				scene->gpd = NULL;
 
 				/* set cache as dirty */
-				BKE_gpencil_batch_cache_dirty(ob->gpd);
+				BKE_gpencil_batch_cache_dirty(ob->data);
 			}
 			/* set default mode as object */
 			scene->toolsettings->gpencil_src = GP_TOOL_SOURCE_OBJECT;
+		}
+		
+		/* Handle object-linked grease pencil datablocks */
+		for (Object *ob = main->scene.first; ob; ob = ob->id.next) {
+			if (ob->gpd) {
+				if (ob->type == OB_GPENCIL) {
+					/* GP Object - remap the links */
+					ob->data = ob->gpd;
+					ob->gpd = NULL;
+				}
+				else if (ob->type == OB_EMPTY) {
+					/* Empty with GP data - This should be able to be converted
+					 * to a GP object with little data loss
+					 */
+					ob->data = ob->gpd;
+					ob->gpd = NULL;
+					ob->type = OB_EMPTY;
+				}
+				else {
+					/* FIXME: What to do in this case?
+					 *
+					 * We cannot create new objects for these, as we don't have a scene & scene layer
+					 * to put them into from here...
+					 */
+					printf("WARNING: Old Grease Pencil data ('%s') still exists on Object '%s'\n",
+					       ob->gpd->id.name+2, ob->id.name+2);
+				}
+			}
 		}
 
 		/* Convert grease pencil palettes to blender palettes */

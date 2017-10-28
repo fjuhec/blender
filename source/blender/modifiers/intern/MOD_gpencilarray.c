@@ -115,7 +115,7 @@ static DerivedMesh *applyModifier(
 	float mat[4][4], finalmat[4][4];
 	float rot[3];
 
-	if ((!ob) || (!ob->gpd)) {
+	if ((!ob) || (!ob->data)) {
 		return NULL;
 	}
 
@@ -133,8 +133,8 @@ static DerivedMesh *applyModifier(
 
 				/* create a new object and new gp datablock */
 				newob = object_add_type(C, OB_GPENCIL, md->name, ob);
-				id_us_min((ID *)ob->gpd);
-				newob->gpd = BKE_gpencil_data_duplicate(bmain, ob->gpd, false);
+				id_us_min((ID *)ob->data);
+				newob->data = BKE_gpencil_data_duplicate(bmain, ob->data, false);
 				/* remove array on destination object */
 				fmd = (ModifierData *) BLI_findstring(&newob->modifiers, md->name, offsetof(ModifierData, name));
 				if (fmd) {

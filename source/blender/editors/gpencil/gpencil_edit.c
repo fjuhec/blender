@@ -165,7 +165,7 @@ static int gpencil_editmode_toggle_poll(bContext *C)
 	/* if using gpencil object, use this gpd */
 	Object *ob = CTX_data_active_object(C);
 	if ((ob) && (ob->type == OB_GPENCIL)) {
-		return ob->gpd != NULL;
+		return ob->data != NULL;
 	}
 	return ED_gpencil_data_get_active(C) != NULL;
 }
@@ -181,7 +181,7 @@ static int gpencil_editmode_toggle_exec(bContext *C, wmOperator *op)
 	/* if using a gpencil object, use this datablock */
 	Object *ob = CTX_data_active_object(C);
 	if ((ob) && (ob->type == OB_GPENCIL)) {
-		gpd = ob->gpd;
+		gpd = ob->data;
 		is_object = true;
 	}
 	
@@ -248,7 +248,7 @@ static int gpencil_paintmode_toggle_poll(bContext *C)
 	/* if using gpencil object, use this gpd */
 	Object *ob = CTX_data_active_object(C);
 	if ((ob) && (ob->type == OB_GPENCIL)) {
-		return ob->gpd != NULL;
+		return ob->data != NULL;
 	}
 	return ED_gpencil_data_get_active(C) != NULL;
 }
@@ -264,7 +264,7 @@ static int gpencil_paintmode_toggle_exec(bContext *C, wmOperator *op)
 	/* if using a gpencil object, use this datablock */
 	Object *ob = CTX_data_active_object(C);
 	if ((ob) && (ob->type == OB_GPENCIL)) {
-		gpd = ob->gpd;
+		gpd = ob->data;
 		is_object = true;
 	}
 
@@ -327,7 +327,7 @@ static int gpencil_sculptmode_toggle_poll(bContext *C)
 	/* if using gpencil object, use this gpd */
 	Object *ob = CTX_data_active_object(C);
 	if ((ob) && (ob->type == OB_GPENCIL)) {
-		return ob->gpd != NULL;
+		return ob->data != NULL;
 	}
 	return ED_gpencil_data_get_active(C) != NULL;
 }
@@ -343,7 +343,7 @@ static int gpencil_sculptmode_toggle_exec(bContext *C, wmOperator *op)
 	/* if using a gpencil object, use this datablock */
 	Object *ob = CTX_data_active_object(C);
 	if ((ob) && (ob->type == OB_GPENCIL)) {
-		gpd = ob->gpd;
+		gpd = ob->data;
 		is_object = true;
 	}
 
@@ -406,7 +406,7 @@ static int gpencil_weightmode_toggle_poll(bContext *C)
 	/* if using gpencil object, use this gpd */
 	Object *ob = CTX_data_active_object(C);
 	if ((ob) && (ob->type == OB_GPENCIL)) {
-		return ob->gpd != NULL;
+		return ob->data != NULL;
 	}
 	return ED_gpencil_data_get_active(C) != NULL;
 }
@@ -422,7 +422,7 @@ static int gpencil_weightmode_toggle_exec(bContext *C, wmOperator *op)
 	/* if using a gpencil object, use this datablock */
 	Object *ob = CTX_data_active_object(C);
 	if ((ob) && (ob->type == OB_GPENCIL)) {
-		gpd = ob->gpd;
+		gpd = ob->data;
 		is_object = true;
 	}
 

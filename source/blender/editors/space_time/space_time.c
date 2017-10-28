@@ -435,8 +435,8 @@ static void time_draw_keyframes(const bContext *C, ARegion *ar)
 	if (scene->gpd) {
 		time_draw_idblock_keyframes(v2d, (ID *)scene->gpd, onlysel, color);
 	}
-	if (ob && ob->gpd) {
-		time_draw_idblock_keyframes(v2d, (ID *)ob->gpd, onlysel, color);
+	if (ob && ob->data) {
+		time_draw_idblock_keyframes(v2d, (ID *)ob->data, onlysel, color);
 	}
 
 	/* draw keyframes for all palettes */

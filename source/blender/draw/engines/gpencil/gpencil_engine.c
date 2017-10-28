@@ -288,7 +288,7 @@ static void GPENCIL_cache_init(void *vedata)
 
 		ob = draw_ctx->obact;
 		if ((ob) && (ob->type == OB_GPENCIL)) {
-			gpd = ob->gpd;
+			gpd = ob->data;
 		}
 		bGPDpaletteref *palslot = BKE_gpencil_paletteslot_get_active(gpd);
 		PaletteColor *palcolor = BKE_palette_color_get_active((palslot) ? palslot->palette : NULL);
@@ -395,7 +395,7 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 	bool playing = (bool)stl->storage->playing;
 
 	/* object datablock (this is not draw now) */
-	if (ob->type == OB_GPENCIL && ob->gpd) {
+	if (ob->type == OB_GPENCIL && ob->data) {
 		if ((stl->g_data->session_flag & GP_DRW_PAINT_READY) == 0) {
 			if (G.debug_value == 665) {
 				printf("GPENCIL_cache_populate: %s\n", ob->id.name);
@@ -433,16 +433,18 @@ static void GPENCIL_cache_finish(void *vedata)
 	if (stl->g_data->gp_cache_used > 0) {
 		for (int i = 0; i < stl->g_data->gp_cache_used; i++) {
 			Object *ob = stl->g_data->gp_object_cache[i].ob;
+			bGPdata *gpd = ob->data;
+			
 			/* save init shading group */
 			stl->g_data->gp_object_cache[i].init_grp = stl->storage->shgroup_id;
 
 			/* fill shading groups */
-			is_multiedit = (bool)GPENCIL_MULTIEDIT_SESSIONS_ON(ob->gpd);
+			is_multiedit = (bool)GPENCIL_MULTIEDIT_SESSIONS_ON(gpd);
 			if (!is_multiedit) {
-				DRW_gpencil_populate_datablock(&e_data, vedata, scene, ob, ts, ob->gpd);
+				DRW_gpencil_populate_datablock(&e_data, vedata, scene, ob, ts, gpd);
 			}
 			else {
-				DRW_gpencil_populate_multiedit(&e_data, vedata, scene, ob, ts, ob->gpd);
+				DRW_gpencil_populate_multiedit(&e_data, vedata, scene, ob, ts, gpd);
 			}
 
 			/* save end shading group */
@@ -661,6 +663,7 @@ static void GPENCIL_draw_scene(void *vedata)
 			for (int i = 0; i < stl->g_data->gp_cache_used; i++) {
 				cache = &stl->g_data->gp_object_cache[i];
 				Object *ob = cache->ob;
+				bGPdata *gpd = ob->data;
 				init_grp = cache->init_grp;
 				end_grp = cache->end_grp;
 				/* Render stroke in separated framebuffer */
@@ -684,7 +687,7 @@ static void GPENCIL_draw_scene(void *vedata)
 					MULTISAMPLE_GP_SYNC_DISABLE(dfbl, fbl);
 				}
 				/* Current buffer drawing */
-				if (ob->gpd->sbuffer_size > 0) {
+				if (gpd->sbuffer_size > 0) {
 					DRW_draw_pass(psl->drawing_pass);
 				}
 

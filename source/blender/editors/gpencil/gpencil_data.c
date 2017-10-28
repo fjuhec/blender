@@ -1650,7 +1650,7 @@ static int gp_convert_scene_to_object_exec(bContext *C, wmOperator *UNUSED(op))
 	float loc[3] = { 0.0f, 0.0f, 0.0f };
 
 	Object *ob = ED_add_gpencil_object(C, scene, loc); /* always in origin */
-	ob->gpd = gpd;
+	ob->data = gpd;
 	scene->gpd = NULL;
 
 	/* set grease pencil mode to object */
@@ -1685,7 +1685,7 @@ static int gpencil_vertex_group_poll(bContext *C)
 
 	if ((ob) && (ob->type == OB_GPENCIL)) {
 		return (!ID_IS_LINKED_DATABLOCK(ob) &&
-			!ID_IS_LINKED_DATABLOCK(ob->gpd) &&
+			!ID_IS_LINKED_DATABLOCK(ob->data) &&
 			ob->defbase.first && 
 			((ob->mode == OB_MODE_GPENCIL_EDIT) || (ob->mode == OB_MODE_GPENCIL_SCULPT)));
 	}
@@ -1700,13 +1700,13 @@ static int gpencil_vertex_group_assign_exec(bContext *C, wmOperator *UNUSED(op))
 	Object *ob = CTX_data_active_object(C);
 
 	/* sanity checks */
-	if (ELEM(NULL, ts, ob, ob->gpd))
+	if (ELEM(NULL, ts, ob, ob->data))
 		return OPERATOR_CANCELLED;
 
 	ED_gpencil_vgroup_assign(C, ob, ts->vgroup_weight);
 
 	/* notifiers */
-	BKE_gpencil_batch_cache_dirty(ob->gpd);
+	BKE_gpencil_batch_cache_dirty(ob->data);
 	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED | ND_SPACE_PROPERTIES, NULL);
 
 	return OPERATOR_FINISHED;
@@ -1733,13 +1733,13 @@ static int gpencil_vertex_group_remove_from_exec(bContext *C, wmOperator *UNUSED
 	Object *ob = CTX_data_active_object(C);
 
 	/* sanity checks */
-	if (ELEM(NULL, ob, ob->gpd))
+	if (ELEM(NULL, ob, ob->data))
 		return OPERATOR_CANCELLED;
 
 	ED_gpencil_vgroup_remove(C, ob);
 
 	/* notifiers */
-	BKE_gpencil_batch_cache_dirty(ob->gpd);
+	BKE_gpencil_batch_cache_dirty(ob->data); // XXX: Review this (aligorith)
 	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED | ND_SPACE_PROPERTIES, NULL);
 
 	return OPERATOR_FINISHED;
@@ -1766,13 +1766,13 @@ static int gpencil_vertex_group_select_exec(bContext *C, wmOperator *UNUSED(op))
 	Object *ob = CTX_data_active_object(C);
 
 	/* sanity checks */
-	if (ELEM(NULL, ob, ob->gpd))
+	if (ELEM(NULL, ob, ob->data))
 		return OPERATOR_CANCELLED;
 
 	ED_gpencil_vgroup_select(C, ob);
 
 	/* notifiers */
-	BKE_gpencil_batch_cache_dirty(ob->gpd);
+	BKE_gpencil_batch_cache_dirty(ob->data);
 	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED | ND_SPACE_PROPERTIES, NULL);
 
 	return OPERATOR_FINISHED;
@@ -1798,13 +1798,13 @@ static int gpencil_vertex_group_deselect_exec(bContext *C, wmOperator *UNUSED(op
 	Object *ob = CTX_data_active_object(C);
 
 	/* sanity checks */
-	if (ELEM(NULL, ob, ob->gpd))
+	if (ELEM(NULL, ob, ob->data))
 		return OPERATOR_CANCELLED;
 
 	ED_gpencil_vgroup_deselect(C, ob);
 
 	/* notifiers */
-	BKE_gpencil_batch_cache_dirty(ob->gpd);
+	BKE_gpencil_batch_cache_dirty(ob->data);
 	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED | ND_SPACE_PROPERTIES, NULL);
 
 	return OPERATOR_FINISHED;

@@ -102,7 +102,7 @@ void gpencil_object_cache_add(tGPencilObjectCache *cache_array, Object *ob, int 
 
 static GpencilBatchCache *gpencil_batch_get_element(Object *ob)
 {
-	bGPdata *gpd = ob->gpd;
+	bGPdata *gpd = ob->data;
 	if (gpd->batch_cache_data == NULL) {
 		gpd->batch_cache_data = BLI_ghash_str_new("GP batch cache data");
 		return NULL;
@@ -166,7 +166,7 @@ static void gpencil_batch_cache_check_free_slots(Object *ob, bGPdata *UNUSED(gpd
 static void gpencil_batch_cache_init(Object *ob, int cfra)
 {
 	GpencilBatchCache *cache = gpencil_batch_get_element(ob);
-	bGPdata *gpd = ob->gpd;
+	bGPdata *gpd = ob->data;
 
 	if (G.debug_value >= 664) {
 		printf("gpencil_batch_cache_init: %s\n", ob->id.name);
@@ -228,7 +228,7 @@ static void gpencil_batch_cache_clear(GpencilBatchCache *cache, bGPdata *gpd)
 /* get cache */
 static GpencilBatchCache *gpencil_batch_cache_get(Object *ob, int cfra)
 {
-	bGPdata *gpd = ob->gpd;
+	bGPdata *gpd = ob->data;
 
 	if (!gpencil_batch_cache_valid(ob, gpd, cfra)) {
 		if (G.debug_value >= 664) {
@@ -1208,8 +1208,8 @@ void gpencil_array_modifiers(GPENCIL_StorageList *stl, Object *ob)
 	int sh;
 	float mat[4][4];
 
-	if ((ob) && (ob->gpd)) {
-		gpd = ob->gpd;
+	if ((ob) && (ob->data)) {
+		gpd = ob->data;
 		if (GPENCIL_ANY_EDIT_MODE(gpd)) {
 			return;
 		}

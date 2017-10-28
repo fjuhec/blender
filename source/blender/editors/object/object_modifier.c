@@ -175,7 +175,7 @@ ModifierData *ED_object_modifier_add(ReportList *reports, Main *bmain, Scene *sc
 	}
 
 	if (ob->type == OB_GPENCIL) {
-		BKE_gpencil_batch_cache_dirty(ob->gpd);
+		BKE_gpencil_batch_cache_dirty(ob->data);
 	}
 
 	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
@@ -674,8 +674,8 @@ static int modifier_apply_obdata(ReportList *reports, const bContext *C, Scene *
 			mmd->C = (void *)C;
 		}
 		mti->applyModifier(md, &eval_ctx, ob, NULL, 0);
-		if (ob->gpd) {
-			BKE_gpencil_batch_cache_dirty(ob->gpd);
+		if (ob->data) {
+			BKE_gpencil_batch_cache_dirty(ob->data);
 		}
 		return 1;
 	}
@@ -715,7 +715,7 @@ int ED_object_modifier_apply(ReportList *reports, const bContext *C, Scene *scen
 			return 0;
 		}
 
-		if (((ID *)ob->gpd)->us > 1) {
+		if (((ID *)ob->data)->us > 1) {
 			BKE_report(reports, RPT_ERROR, "Modifiers cannot be applied to multi-user data");
 			return 0;
 		}
@@ -942,7 +942,7 @@ static int modifier_remove_exec(bContext *C, wmOperator *op)
 	
 	/* if grease pencil, need refresh cache */
 	if (ob->type == OB_GPENCIL) {
-		BKE_gpencil_batch_cache_dirty(ob->gpd);
+		BKE_gpencil_batch_cache_dirty(ob->data);
 	}
 
 	return OPERATOR_FINISHED;
@@ -986,7 +986,7 @@ static int modifier_move_up_exec(bContext *C, wmOperator *op)
 
 	/* if grease pencil, need refresh cache */
 	if (ob->type == OB_GPENCIL) {
-		BKE_gpencil_batch_cache_dirty(ob->gpd);
+		BKE_gpencil_batch_cache_dirty(ob->data);
 	}
 
 	return OPERATOR_FINISHED;
@@ -1030,7 +1030,7 @@ static int modifier_move_down_exec(bContext *C, wmOperator *op)
 
 	/* if grease pencil, need refresh cache */
 	if (ob->type == OB_GPENCIL) {
-		BKE_gpencil_batch_cache_dirty(ob->gpd);
+		BKE_gpencil_batch_cache_dirty(ob->data);
 	}
 
 	return OPERATOR_FINISHED;
@@ -1166,7 +1166,7 @@ static int modifier_copy_exec(bContext *C, wmOperator *op)
 
 	/* if grease pencil, need refresh cache */
 	if (ob->type == OB_GPENCIL) {
-		BKE_gpencil_batch_cache_dirty(ob->gpd);
+		BKE_gpencil_batch_cache_dirty(ob->data);
 	}
 
 	return OPERATOR_FINISHED;

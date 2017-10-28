@@ -447,7 +447,7 @@ static void outliner_add_object_contents(SpaceOops *soops, TreeElement *te, Tree
 	if (ob->proxy && !ID_IS_LINKED_DATABLOCK(ob))
 		outliner_add_element(soops, &te->subtree, ob->proxy, te, TSE_PROXY, 0);
 		
-	outliner_add_element(soops, &te->subtree, ob->gpd, te, 0, 0);
+	outliner_add_element(soops, &te->subtree, ob->gpd, te, 0, 0); /* FIXME: Kept for now to make it easier to identify these objects for fixing */
 	
 	outliner_add_element(soops, &te->subtree, ob->data, te, 0, 0);
 	

@@ -506,7 +506,7 @@ static bool find_prev_next_keyframes(struct bContext *C, int *nextfra, int *prev
 
 	if (ob) {
 		ob_to_keylist(&ads, ob, &keys, NULL);
-		gpencil_to_keylist(&ads, ob->gpd, &keys);
+		gpencil_to_keylist(&ads, ob->data, &keys);
 	}
 
 	if (mask) {

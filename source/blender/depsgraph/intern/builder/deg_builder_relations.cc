@@ -511,6 +511,7 @@ void DepsgraphRelationBuilder::build_object(Main *bmain, Scene *scene, Object *o
 			case OB_SURF:
 			case OB_MBALL:
 			case OB_LATTICE:
+			case OB_GPENCIL:
 			{
 				build_obdata_geom(bmain, scene, ob);
 				break;
@@ -549,48 +550,6 @@ void DepsgraphRelationBuilder::build_object(Main *bmain, Scene *scene, Object *o
 	/* Particle systems. */
 	if (ob->particlesystem.first != NULL) {
 		build_particles(scene, ob);
-	}
-
-	/* Grease pencil. */
-	if (ob->gpd != NULL) {
-		build_gpencil(ob->gpd);
-		
-		// XXX: Remove duplicated code... quick hack for now
-		if (ob->modifiers.first != NULL) {
-			OperationKey obdata_ubereval_key(&ob->id,
-	                                 DEG_NODE_TYPE_GEOMETRY,
-	                                 DEG_OPCODE_GEOMETRY_UBEREVAL);
-			
-			LINKLIST_FOREACH (ModifierData *, md, &ob->modifiers) {
-				const ModifierTypeInfo *mti = modifierType_getInfo((ModifierType)md->type);
-
-				if (mti->updateDepsgraph) {
-					DepsNodeHandle handle = create_node_handle(obdata_ubereval_key);
-					mti->updateDepsgraph(
-					        md,
-					        bmain,
-					        scene,
-					        ob,
-					        reinterpret_cast< ::DepsNodeHandle* >(&handle));
-				}
-
-				if (BKE_object_modifier_use_time(ob, md)) {
-					TimeSourceKey time_src_key;
-					add_relation(time_src_key, obdata_ubereval_key, "Time Source");
-
-					/* Hacky fix for T45633 (Animated modifiers aren't updated)
-					 *
-					 * This check works because BKE_object_modifier_use_time() tests
-					 * for either the modifier needing time, or that it is animated.
-					 */
-					/* XXX: Remove this hack when these links are added as part of build_animdata() instead */
-					if (modifier_dependsOnTime(md) == false && needs_animdata_node(&ob->id)) {
-						ComponentKey animation_key(&ob->id, DEG_NODE_TYPE_ANIMATION);
-						add_relation(animation_key, obdata_ubereval_key, "Modifier Animation");
-					}
-				}
-			}
-		}
 	}
 
 	/* Object that this is a proxy for. */

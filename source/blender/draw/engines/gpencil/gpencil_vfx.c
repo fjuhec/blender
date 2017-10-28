@@ -46,7 +46,7 @@ static ModifierData *modifier_available(Object *ob, ModifierType type)
 		return NULL;
 	}
 
-	bGPdata *gpd = ob->gpd;
+	bGPdata *gpd = ob->data;
 	if (gpd == NULL) {
 		return NULL;
 	}
@@ -71,7 +71,7 @@ static bool modifier_is_active(Object *ob, ModifierData *md)
 		return false;
 	}
 
-	bGPdata *gpd = ob->gpd;
+	bGPdata *gpd = ob->data;
 	if (gpd == NULL) {
 		return false;
 	}

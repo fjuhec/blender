@@ -437,6 +437,7 @@ void DepsgraphNodeBuilder::build_object(Scene *scene, Object *ob)
 			case OB_SURF:
 			case OB_MBALL:
 			case OB_LATTICE:
+			case OB_GPENCIL:
 				build_obdata_geom(scene, ob);
 				/* TODO(sergey): Only for until we support granular
 				 * update of curves.
@@ -492,30 +493,6 @@ void DepsgraphNodeBuilder::build_object(Scene *scene, Object *ob)
 	/* particle systems */
 	if (ob->particlesystem.first != NULL) {
 		build_particles(scene, ob);
-	}
-
-	/* Grease pencil. */
-	if (ob->gpd != NULL) {
-		build_gpencil(ob->gpd);
-		
-		/* Temporary uber-update node, which does everything.
-		 * It is for the being we're porting old dependencies into the new system.
-		 * We'll get rid of this node as soon as all the granular update functions
-		 * are filled in.
-		 *
-		 * TODO(sergey): Get rid of this node.
-		 * XXX: This code should go as soon as gp object stores its data in obdata
-		 */
-		OperationDepsNode *op_node;
-		op_node = add_operation_node(&ob->id,
-		                             DEG_NODE_TYPE_GEOMETRY,
-		                             function_bind(BKE_object_eval_uber_data,
-		                                           _1,
-		                                           scene,
-		                                           ob),
-		                             DEG_OPCODE_GEOMETRY_UBEREVAL);
-		op_node->set_as_exit();
-
 	}
 
 	/* Object that this is a proxy for. */

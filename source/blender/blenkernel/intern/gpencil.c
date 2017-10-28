@@ -2142,7 +2142,7 @@ static void boundbox_gpencil(Object *ob)
 	}
 
 	bb  = ob->bb;
-	gpd = ob->gpd;
+	gpd = ob->data;
 
 	gpencil_minmax(gpd, min, max);
 	BKE_boundbox_init_from_minmax(bb, min, max);
@@ -2153,11 +2153,17 @@ static void boundbox_gpencil(Object *ob)
 /* get bounding box */
 BoundBox *BKE_gpencil_boundbox_get(Object *ob)
 {
-	if ((!ob) || (ob->gpd == NULL))
+	bGPdata *gpd;
+	
+	if (ELEM(NULL, ob, ob->data))
 		return NULL;
-
-	if ((ob->bb) && ((ob->bb->flag & BOUNDBOX_DIRTY) == 0) && ((ob->gpd->flag & GP_DATA_CACHE_IS_DIRTY) == 0))
+	
+	gpd = ob->data;
+	if ((ob->bb) && ((ob->bb->flag & BOUNDBOX_DIRTY) == 0) && 
+	    ((gpd->flag & GP_DATA_CACHE_IS_DIRTY) == 0))
+	{
 		return ob->bb;
+	}
 
 	boundbox_gpencil(ob);
 
@@ -2170,7 +2176,7 @@ BoundBox *BKE_gpencil_boundbox_get(Object *ob)
 /* remove a vertex group */
 void BKE_gpencil_vgroup_remove(Object *ob, bDeformGroup *defgroup)
 {
-	bGPdata *gpd = ob->gpd;
+	bGPdata *gpd = ob->data;
 	bGPDspoint *pt = NULL;
 	bGPDweight *gpw = NULL;
 	const int def_nr = BLI_findindex(&ob->defbase, defgroup);
@@ -2217,7 +2223,7 @@ bGPDweight *BKE_gpencil_vgroup_add_point_weight(bGPDspoint *pt, int index, float
 		}
 	}
 
-	++pt->totweight;
+	pt->totweight++;
 	if (pt->totweight == 1) {
 		pt->weights = MEM_callocN(sizeof(bGPDweight), "gp_weight");
 	}

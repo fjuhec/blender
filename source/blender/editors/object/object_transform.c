@@ -1036,7 +1036,7 @@ static int object_origin_set_exec(bContext *C, wmOperator *op)
 				do_inverse_offset = true;
 			}
 			else if (ob->type == OB_GPENCIL) {
-				bGPdata *gpd = ob->gpd;
+				bGPdata *gpd = ob->data;
 				float gpcenter[3];
 				if (gpd) {
 					if (centermode == ORIGIN_TO_GEOMETRY) {

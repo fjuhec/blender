@@ -79,10 +79,10 @@ static DerivedMesh *applyModifier(ModifierData *md, const struct EvaluationConte
 	Object *latob = NULL;
 	int oldframe = CFRA;
 
-	if ((!ob) || (!ob->gpd)) {
+	if ((!ob) || (!ob->data)) {
 		return NULL;
 	}
-	gpd = ob->gpd;
+	gpd = ob->data;
 	latob = mmd->object;
 	if ((!latob) || (latob->type != OB_LATTICE)) {
 		return NULL;
