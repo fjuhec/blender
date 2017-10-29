@@ -965,7 +965,6 @@ static void outliner_item_activate(
 		}
 		else if (ELEM(te->idcode, ID_GD)) {
 			/* set grease pencil to object mode */
-			scene->toolsettings->gpencil_src = GP_TOOL_SOURCE_OBJECT;
 			WM_operator_name_call(C, "GPENCIL_OT_editmode_toggle", WM_OP_INVOKE_REGION_WIN, NULL);
 		}
 		else {  // rest of types

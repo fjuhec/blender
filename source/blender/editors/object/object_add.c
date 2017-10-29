@@ -1010,11 +1010,7 @@ static int object_gpencil_add_exec(bContext *C, wmOperator *op)
 
 	ob = ED_object_add_type(C, OB_GPENCIL, NULL, loc, rot, false, layer);
 	BKE_object_obdata_size_init(ob, GP_OBGPENCIL_DEFAULT_SIZE);
-
-	/* set grease pencil mode to object */
-	ToolSettings *ts = CTX_data_tool_settings(C);
-	ts->gpencil_src = GP_TOOL_SOURCE_OBJECT;
-	
+		
 	/* if type is monkey, create a 2D Suzanne */
 	// TODO: create with offset to cursor?
 	switch (type) {
@@ -1045,7 +1041,7 @@ void OBJECT_OT_gpencil_add(wmOperatorType *ot)
 {
 
 	/* identifiers */
-	ot->name = "Add Gpencil";
+	ot->name = "Add GPencil";
 	ot->description = "Add a grease pencil object to the scene";
 	ot->idname = "OBJECT_OT_gpencil_add";
 
@@ -2343,7 +2339,7 @@ static Base *object_add_duplicate_internal(Main *bmain, Scene *scene, SceneLayer
 					ID_NEW_REMAP_US2(obn->data)
 					else {
 						obn->data = ID_NEW_SET(obn->data, BKE_gpencil_copy(bmain, obn->data));
-						didit = 1
+						didit = 1;
 					}
 					id_us_min(id);
 				}

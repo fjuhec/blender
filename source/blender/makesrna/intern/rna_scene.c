@@ -2563,16 +2563,6 @@ static void rna_def_tool_settings(BlenderRNA  *brna)
 		{0, NULL, 0, NULL, NULL}
 	};
 	
-	static const EnumPropertyItem gpencil_source_3d_items[] = {
-		{GP_TOOL_SOURCE_SCENE, "SCENE", 0, "Scene",
-		 "Grease Pencil data attached to the current scene is used, "
-		 "unless the active object already has Grease Pencil data (i.e. for old files)"},
-		{GP_TOOL_SOURCE_OBJECT, "OBJECT", 0, "Object",
-		 "Grease Pencil data-blocks attached to the active object are used "
-		 "(required when using pre 2.73 add-ons, e.g. BSurfaces)"},
-		{0, NULL, 0, NULL, NULL}
-	};
-	
 	static const EnumPropertyItem gpencil_stroke_placement_items[] = {
 		{GP_PROJECT_VIEWSPACE, "ORIGIN", ICON_OBJECT_ORIGIN, "Origin", "Draw stroke at Object origin"},
 		{GP_PROJECT_VIEWSPACE | GP_PROJECT_CURSOR, "CURSOR", ICON_CURSOR, "3D Cursor", "Draw stroke at 3D cursor location" },
@@ -2813,13 +2803,6 @@ static void rna_def_tool_settings(BlenderRNA  *brna)
 		"When draw new strokes, the new stroke is drawn below of all strokes in the layer");
 	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
 
-	prop = RNA_def_property(srna, "grease_pencil_source", PROP_ENUM, PROP_NONE);
-	RNA_def_property_enum_bitflag_sdna(prop, NULL, "gpencil_src");
-	RNA_def_property_enum_items(prop, gpencil_source_3d_items);
-	RNA_def_property_ui_text(prop, "Grease Pencil Source",
-	                         "Data-block where active Grease Pencil data is found from");
-	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS | NC_GPENCIL | ND_DATA | ND_SPACE_PROPERTIES, NULL);
-	
 	prop = RNA_def_property(srna, "gpencil_sculpt", PROP_POINTER, PROP_NONE);
 	RNA_def_property_pointer_sdna(prop, NULL, "gp_sculpt");
 	RNA_def_property_struct_type(prop, "GPencilSculptSettings");

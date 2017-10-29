@@ -1197,11 +1197,10 @@ void ED_gp_project_stroke_to_plane(Object *ob, RegionView3D *rv3d, bGPDstroke *g
 	/* normal vector for a plane locked to axis */
 	zero_v3(plane_normal);
 	plane_normal[axis] = 1.0f;
+	
 	/* if object, apply object rotation */
-	if (type & GP_TOOL_SOURCE_OBJECT) {
-		if (ob && ob->type == OB_GPENCIL) {
-			mul_mat3_m4_v3(ob->obmat, plane_normal);
-		}
+	if (ob && (ob->type == OB_GPENCIL)) {
+		mul_mat3_m4_v3(ob->obmat, plane_normal);
 	}
 
 	/* Reproject the points in the plane */
@@ -1239,11 +1238,10 @@ void ED_gp_project_point_to_plane(Object *ob, RegionView3D *rv3d, const float or
 	/* normal vector for a plane locked to axis */
 	zero_v3(plane_normal);
 	plane_normal[axis] = 1.0f;
+	
 	/* if object, apply object rotation */
-	if (type & GP_TOOL_SOURCE_OBJECT) {
-		if (ob && ob->type == OB_GPENCIL) {
-			mul_mat3_m4_v3(ob->obmat, plane_normal);
-		}
+	if (ob && (ob->type == OB_GPENCIL)) {
+		mul_mat3_m4_v3(ob->obmat, plane_normal);
 	}
 
 	/* Reproject the points in the plane */
@@ -1261,37 +1259,36 @@ void ED_gp_project_point_to_plane(Object *ob, RegionView3D *rv3d, const float or
 }
 
 /* get drawing reference for conversion or projection of the stroke */
-void ED_gp_get_drawing_reference(ToolSettings *ts, View3D *v3d, Scene *scene, Object *ob, bGPDlayer *gpl, char align_flag, float vec[3])
+// FIXME: Remove ts arg
+void ED_gp_get_drawing_reference(ToolSettings *UNUSED(ts), View3D *v3d, Scene *scene, Object *ob, bGPDlayer *gpl, char align_flag, float vec[3])
 {
 	const float *fp = ED_view3d_cursor3d_get(scene, v3d);
 
 	/* if using a gpencil object at cursor mode, can use the location of the object */
-	if ((ts->gpencil_src & GP_TOOL_SOURCE_OBJECT) && (align_flag & GP_PROJECT_VIEWSPACE)) {
-		if (ob) {
-			if (ob->type == OB_GPENCIL) {
-				/* use last stroke position for layer */
-				if (gpl && gpl->flag & GP_LAYER_USE_LOCATION) {
-					if (gpl->actframe) {
-						bGPDframe *gpf = gpl->actframe;
-						if (gpf->strokes.last) {
-							bGPDstroke *gps = gpf->strokes.last;
-							if (gps->totpoints > 0) {
-								copy_v3_v3(vec, &gps->points[gps->totpoints - 1].x);
-								mul_m4_v3(ob->obmat, vec);
-								return;
-							}
+	if (align_flag & GP_PROJECT_VIEWSPACE) {
+		if (ob && (ob->type == OB_GPENCIL)) {
+			/* use last stroke position for layer */
+			if (gpl && gpl->flag & GP_LAYER_USE_LOCATION) {
+				if (gpl->actframe) {
+					bGPDframe *gpf = gpl->actframe;
+					if (gpf->strokes.last) {
+						bGPDstroke *gps = gpf->strokes.last;
+						if (gps->totpoints > 0) {
+							copy_v3_v3(vec, &gps->points[gps->totpoints - 1].x);
+							mul_m4_v3(ob->obmat, vec);
+							return;
 						}
 					}
 				}
-				/* use cursor */
-				if (align_flag & GP_PROJECT_CURSOR) {
-					/* use 3D-cursor */
-					copy_v3_v3(vec, fp);
-				}
-				else {
-					/* use object location */
-					copy_v3_v3(vec, ob->obmat[3]);
-				}
+			}
+			/* use cursor */
+			if (align_flag & GP_PROJECT_CURSOR) {
+				/* use 3D-cursor */
+				copy_v3_v3(vec, fp);
+			}
+			else {
+				/* use object location */
+				copy_v3_v3(vec, ob->obmat[3]);
 			}
 		}
 	}

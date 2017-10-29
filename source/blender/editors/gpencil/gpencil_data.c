@@ -1643,16 +1643,14 @@ static int gp_convert_scene_to_object_poll(bContext *C)
 static int gp_convert_scene_to_object_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	Scene *scene = CTX_data_scene(C);
-	ToolSettings *ts = CTX_data_tool_settings(C);
 	bGPdata *gpd = scene->gpd;
 	float loc[3] = { 0.0f, 0.0f, 0.0f };
 
 	Object *ob = ED_add_gpencil_object(C, scene, loc); /* always in origin */
+	
+	// FIXME: This loses the datablock created above...
 	ob->data = gpd;
 	scene->gpd = NULL;
-
-	/* set grease pencil mode to object */
-	ts->gpencil_src = GP_TOOL_SOURCE_OBJECT;
 
 	/* notifiers */
 	BKE_gpencil_batch_cache_dirty(gpd);

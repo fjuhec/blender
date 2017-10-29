@@ -1445,9 +1445,6 @@ static bool gp_session_initdata(bContext *C, tGPsdata *p)
 					p->scene->gp_object = obact;
 				}
 			}
-			
-			/* set grease pencil mode to object */
-			ts->gpencil_src = GP_TOOL_SOURCE_OBJECT;
 			break;
 		}
 		case SPACE_NODE:

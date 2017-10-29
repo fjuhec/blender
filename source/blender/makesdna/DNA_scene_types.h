@@ -1469,7 +1469,7 @@ typedef struct ToolSettings {
 
 	/* Grease Pencil */
 	char gpencil_flags;		/* flags/options for how the tool works */
-	char gpencil_src;		/* for main 3D view Grease Pencil, where data comes from */
+	char gpencil_src;		/* for main 3D view Grease Pencil, where data comes from */ /* DEPRECATED */
 
 	char gpencil_v3d_align; /* stroke placement settings: 3D View */
 	char gpencil_v2d_align; /*                          : General 2D Editor */
@@ -2234,12 +2234,6 @@ typedef enum eGPencil_SimplifyFlags {
 	/* Disable fast drawing */
 	GP_TOOL_FLAG_DISABLE_FAST_DRAWING = (1 << 9),
 } eGPencil_SimplifyFlags;
-
-/* toolsettings->gpencil_src */
-typedef enum eGPencil_Source_3D {
-	GP_TOOL_SOURCE_SCENE    = 0,
-	GP_TOOL_SOURCE_OBJECT   = 1
-} eGPencil_Source_3d;
 
 /* toolsettings->gpencil_*_align - Stroke Placement mode flags */
 typedef enum eGPencil_Placement_Flags {

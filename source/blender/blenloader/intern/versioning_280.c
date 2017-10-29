@@ -434,14 +434,14 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 
 				ob = BKE_object_add(main, scene, sl, OB_GPENCIL, "GP_Scene");
 				zero_v3(ob->loc);
+				
+				// FIXME: function above actually initialises a new db already, which we throw away...
 				ob->data = scene->gpd;
 				scene->gpd = NULL;
 
 				/* set cache as dirty */
 				BKE_gpencil_batch_cache_dirty(ob->data);
 			}
-			/* set default mode as object */
-			scene->toolsettings->gpencil_src = GP_TOOL_SOURCE_OBJECT;
 		}
 		
 		/* Handle object-linked grease pencil datablocks */
