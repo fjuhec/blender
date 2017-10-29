@@ -1802,7 +1802,6 @@ void RNA_def_main_gpencil(BlenderRNA *brna, PropertyRNA *cprop)
 	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 
 	func = RNA_def_function(srna, "new", "BKE_gpencil_data_addnew");
-	RNA_def_function_flag(func, FUNC_NO_SELF);
 	parm = RNA_def_string(func, "name", "GreasePencil", 0, "", "New name for the data-block");
 	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	/* return type */

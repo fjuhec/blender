@@ -39,6 +39,7 @@
 #include "BLT_translation.h"
 
 #include "BKE_context.h"
+#include "BKE_main.h"
 #include "BKE_unit.h"
 #include "BKE_gpencil.h"
 #include "BKE_paint.h"
@@ -298,6 +299,7 @@ static void ruler_state_set(bContext *C, RulerInfo *ruler_info, int state)
 static bool view3d_ruler_to_gpencil(bContext *C, RulerInfo *ruler_info)
 {
 	Scene *scene = CTX_data_scene(C);
+	Main *bmain = CTX_data_main(C);
 	bGPDlayer *gpl;
 	bGPDframe *gpf;
 	bGPDstroke *gps;
@@ -308,8 +310,9 @@ static bool view3d_ruler_to_gpencil(bContext *C, RulerInfo *ruler_info)
 	const char *ruler_name = RULER_ID;
 	bool changed = false;
 
+	/* FIXME: This needs to be reviewed. Should it keep being done like this? */
 	if (scene->gpd == NULL) {
-		scene->gpd = BKE_gpencil_data_addnew("GPencil");
+		scene->gpd = BKE_gpencil_data_addnew(bmain, "Ruler GPencil");
 	}
 
 	gpl = BLI_findstring(&scene->gpd->layers, ruler_name, offsetof(bGPDlayer, info));
@@ -320,7 +323,7 @@ static bool view3d_ruler_to_gpencil(bContext *C, RulerInfo *ruler_info)
 	}
 
 	/* try to get active palette or create a new one */
-	palslot  = BKE_gpencil_paletteslot_validate(CTX_data_main(C), scene->gpd);
+	palslot  = BKE_gpencil_paletteslot_validate(bmain, scene->gpd);
 	palette  = palslot->palette;
 	
 	/* try to get color with the ruler name or create a new one */

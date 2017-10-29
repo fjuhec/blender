@@ -1015,7 +1015,8 @@ static int object_gpencil_add_exec(bContext *C, wmOperator *op)
 	ToolSettings *ts = CTX_data_tool_settings(C);
 	ts->gpencil_src = GP_TOOL_SOURCE_OBJECT;
 	/* add a grease pencil datablock */	
-	ob->data = BKE_gpencil_data_addnew("GPencil");
+	// XXX: This initialisation should be handled when initialising the object...
+	ob->data = BKE_gpencil_data_addnew(CTX_data_main(C), DATA_("GPencil"));
 	
 	/* if type is monkey, create a 2D Suzanne */
 	// TODO: create with offset to cursor?

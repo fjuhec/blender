@@ -1555,7 +1555,7 @@ static bool gp_session_initdata(bContext *C, tGPsdata *p)
 	else {
 		/* if no existing GPencil block exists, add one */
 		if (*gpd_ptr == NULL)
-			*gpd_ptr = BKE_gpencil_data_addnew("GPencil");
+			*gpd_ptr = BKE_gpencil_data_addnew(CTX_data_main(C), "GPencil");
 		p->gpd = *gpd_ptr;
 	}
 	

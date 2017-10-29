@@ -96,10 +96,12 @@ static int gp_data_add_exec(bContext *C, wmOperator *op)
 	}
 	else {
 		/* decrement user count and add new datablock */
+		/* TODO: if a datablock exists, we should make a copy of it instead of starting fresh (as in other areas) */
+		Main *bmain = CTX_data_main(C);
 		bGPdata *gpd = (*gpd_ptr);
 		
-		id_us_min(&gpd->id);
-		*gpd_ptr = BKE_gpencil_data_addnew(DATA_("GPencil"));
+		id_us_min((ID *)gpd);
+		*gpd_ptr = BKE_gpencil_data_addnew(bmain, DATA_("GPencil"));
 
 		/* add default sets of colors and brushes */
 		ED_gpencil_add_defaults(C);
@@ -188,8 +190,9 @@ static int gp_layer_add_exec(bContext *C, wmOperator *op)
 		BKE_report(op->reports, RPT_ERROR, "Nowhere for grease pencil data to go");
 		return OPERATOR_CANCELLED;
 	}
-	if (*gpd_ptr == NULL)
-		*gpd_ptr = BKE_gpencil_data_addnew(DATA_("GPencil"));
+	if (*gpd_ptr == NULL) {
+		*gpd_ptr = BKE_gpencil_data_addnew(CTX_data_main(C), DATA_("GPencil"));
+	}
 	
 	/* add default sets of colors and brushes */
 	ED_gpencil_add_defaults(C);
@@ -1591,14 +1594,9 @@ void GPENCIL_OT_sculpt_select(wmOperatorType *ot)
 
 static int gp_convert_old_palettes_poll(bContext *C)
 {
-	/* TODO: need better poll*/
+	/* TODO: need better poll */
 	Main *bmain = CTX_data_main(C);
-	if (bmain->gpencil.first) {
-		return true;
-	}
-	else { 
-		return false; 
-	}
+	return bmain->gpencil.first != NULL;
 }
 
 /* convert old animation data to new format */
