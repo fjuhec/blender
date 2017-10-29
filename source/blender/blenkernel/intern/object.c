@@ -778,7 +778,7 @@ Object *BKE_object_add(
 /**
  * Add a new object, using another one as a reference
  *
- * /param ob_src object to use to determine the collections of the new object.
+ * \param ob_src object to use to determine the collections of the new object.
  */
 Object *BKE_object_add_from(
         Main *bmain, Scene *scene, SceneLayer *scene_layer,
@@ -795,6 +795,41 @@ Object *BKE_object_add_from(
 
 	return ob;
 }
+
+/**
+ * Add a new object, but assign the given datablock as the ob->data
+ * for the newly created object.
+ *
+ * \param data The datablock to assign as ob->data for the new object.
+ *             This is assumed to be of the correct type.
+ * \param add_user If true, id_us_plus() will be called on data when
+ *                 assigning it to the object.
+ */
+Object *BKE_object_add_for_data(
+        Main *bmain, Scene *scene, SceneLayer *scene_layer,
+        int type, const char *name, ID *data, bool add_user)
+{
+	Object *ob;
+	Base *base;
+	LayerCollection *layer_collection;
+
+	/* same as object_add_common, except we don't create new ob->data */
+	ob = BKE_object_add_only_object(bmain, type, name);
+	ob->data = data;
+	if (add_user) id_us_plus(data);
+	
+	BKE_scene_layer_base_deselect_all(scene_layer);
+	DEG_id_tag_update_ex(bmain, &ob->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
+
+	layer_collection = BKE_layer_collection_get_active_ensure(scene, scene_layer);
+	BKE_collection_object_add(scene, layer_collection->scene_collection, ob);
+
+	base = BKE_scene_layer_base_find(scene_layer, ob);
+	BKE_scene_layer_base_select(scene_layer, base);
+
+	return ob;
+}
+
 
 #ifdef WITH_GAMEENGINE
 

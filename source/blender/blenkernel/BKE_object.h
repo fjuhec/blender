@@ -39,6 +39,7 @@ struct BaseLegacy;
 struct EvaluationContext;
 struct Scene;
 struct SceneLayer;
+struct ID;
 struct Object;
 struct BoundBox;
 struct View3D;
@@ -98,6 +99,9 @@ struct Object *BKE_object_add_from(
         struct Main *bmain, struct Scene *scene, struct SceneLayer *scene_layer,
         int type, const char *name, struct Object *ob_src)
         ATTR_NONNULL(1, 2, 3, 6) ATTR_RETURNS_NONNULL;
+struct Object *BKE_object_add_for_data(
+        struct Main *bmain, struct Scene *scene, struct SceneLayer *scene_layer,
+        int type, const char *name, struct ID *data, bool add_user) ATTR_RETURNS_NONNULL;
 void *BKE_object_obdata_add_from_type(
         struct Main *bmain,
         int type, const char *name)

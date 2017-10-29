@@ -431,12 +431,9 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 			if (scene->gpd) {
 				Object *ob;
 				SceneLayer *sl = scene->render_layers.first;
-
-				ob = BKE_object_add(main, scene, sl, OB_GPENCIL, "GP_Scene");
-				zero_v3(ob->loc);
 				
-				// FIXME: function above actually initialises a new db already, which we throw away...
-				ob->data = scene->gpd;
+				ob = BKE_object_add_for_data(main, scene, sl, OB_GPENCIL, "GP_Scene", &scene->gpd->id, false);
+				zero_v3(ob->loc);
 				scene->gpd = NULL;
 
 				/* set cache as dirty */
