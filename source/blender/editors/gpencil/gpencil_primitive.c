@@ -288,7 +288,7 @@ static void gp_primitive_rectangle(tGPDprimitive *tgpi, bGPDstroke *gps)
 	if (tgpi->lock_axis > GP_LOCKAXIS_NONE) {
 		float origin[3];
 		bGPDspoint *tpt = gps->points;
-		ED_gp_get_drawing_reference(ts, tgpi->v3d, tgpi->scene, tgpi->ob, tgpi->gpl, 
+		ED_gp_get_drawing_reference(tgpi->v3d, tgpi->scene, tgpi->ob, tgpi->gpl, 
 			                        ts->gpencil_v3d_align, origin);
 
 		for (int i = 0; i < gps->totpoints; i++, tpt++) {
@@ -344,13 +344,13 @@ static void gp_primitive_circle(tGPDprimitive *tgpi, bGPDstroke *gps)
 	if (tgpi->lock_axis > GP_LOCKAXIS_NONE) {
 		float origin[3];
 		bGPDspoint *tpt = gps->points;
-		ED_gp_get_drawing_reference(ts, tgpi->v3d, tgpi->scene, tgpi->ob, tgpi->gpl,
-			ts->gpencil_v3d_align, origin);
+		ED_gp_get_drawing_reference(tgpi->v3d, tgpi->scene, tgpi->ob, tgpi->gpl,
+		                            ts->gpencil_v3d_align, origin);
 
 		for (int i = 0; i < gps->totpoints; i++, tpt++) {
 			ED_gp_project_point_to_plane(tgpi->ob, tgpi->rv3d, origin,
-				ts->gp_sculpt.lock_axis - 1,
-				ts->gpencil_src, tpt);
+			                             ts->gp_sculpt.lock_axis - 1,
+			                             ts->gpencil_src, tpt);
 		}
 	}
 

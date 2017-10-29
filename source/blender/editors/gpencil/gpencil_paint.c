@@ -265,12 +265,11 @@ static bool gpencil_project_check(tGPsdata *p)
 static void gp_get_3d_reference(tGPsdata *p, float vec[3])
 {
 	View3D *v3d = p->sa->spacedata.first;
-	ToolSettings *ts = p->scene->toolsettings;
 	Object *ob = NULL;
 	if (p->ownerPtr.type == &RNA_Object) {
 		ob = (Object *)p->ownerPtr.data;
 	}
-	ED_gp_get_drawing_reference(ts, v3d, p->scene, ob, p->gpl, *p->align_flag, vec);
+	ED_gp_get_drawing_reference(v3d, p->scene, ob, p->gpl, *p->align_flag, vec);
 }
 
 /* Stroke Editing ---------------------------- */

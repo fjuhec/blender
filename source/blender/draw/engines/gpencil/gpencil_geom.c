@@ -237,7 +237,7 @@ Gwn_Batch *DRW_gpencil_get_buffer_stroke_geom(bGPdata *gpd, float matrix[4][4], 
 	/* get origin to reproject point */
 	float origin[3];
 	bGPDlayer *gpl = BKE_gpencil_layer_getactive(gpd);
-	ED_gp_get_drawing_reference(ts, v3d, scene, ob, gpl, ts->gpencil_v3d_align, origin);
+	ED_gp_get_drawing_reference(v3d, scene, ob, gpl, ts->gpencil_v3d_align, origin);
 
 	for (int i = 0; i < totpoints; i++, tpt++) {
 		gpencil_tpoint_to_point(scene, ar, v3d, tpt, &pt);
@@ -292,7 +292,7 @@ Gwn_Batch *DRW_gpencil_get_buffer_point_geom(bGPdata *gpd, float matrix[4][4], s
 	/* get origin to reproject point */
 	float origin[3];
 	bGPDlayer *gpl = BKE_gpencil_layer_getactive(gpd);
-	ED_gp_get_drawing_reference(ts, v3d, scene, ob, gpl, ts->gpencil_v3d_align, origin);
+	ED_gp_get_drawing_reference(v3d, scene, ob, gpl, ts->gpencil_v3d_align, origin);
 
 	for (int i = 0; i < totpoints; i++, tpt++) {
 		gpencil_tpoint_to_point(scene, ar, v3d, tpt, &pt);
