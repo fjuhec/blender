@@ -2229,11 +2229,6 @@ static Base *object_add_duplicate_internal(Main *bmain, Scene *scene, SceneLayer
 				}
 			}
 		}
-		/* duplicate grease pencil data for OB_GPENCIL */
-		// XXX: Review this (aligorith)
-		if ((dupflag != 0) && (obn->type == OB_GPENCIL)) {
-			obn->data = BKE_gpencil_data_duplicate(bmain, obn->data, false);
-		}
 
 		id = obn->data;
 		didit = 0;
@@ -2339,6 +2334,16 @@ static Base *object_add_duplicate_internal(Main *bmain, Scene *scene, SceneLayer
 					else {
 						obn->data = ID_NEW_SET(obn->data, BKE_speaker_copy(bmain, obn->data));
 						didit = 1;
+					}
+					id_us_min(id);
+				}
+				break;
+			case OB_GPENCIL:
+				if (dupflag != 0) {
+					ID_NEW_REMAP_US2(obn->data)
+					else {
+						obn->data = ID_NEW_SET(obn->data, BKE_gpencil_copy(bmain, obn->data));
+						didit = 1
 					}
 					id_us_min(id);
 				}
