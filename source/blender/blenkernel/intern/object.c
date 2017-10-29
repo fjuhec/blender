@@ -611,7 +611,7 @@ static const char *get_obdata_defname(int type)
 		case OB_ARMATURE: return DATA_("Armature");
 		case OB_SPEAKER: return DATA_("Speaker");
 		case OB_EMPTY: return DATA_("Empty");
-		case OB_GPENCIL: return DATA_("Gpencil");
+		case OB_GPENCIL: return DATA_("GPencil");
 		default:
 			printf("get_obdata_defname: Internal error, bad type: %d\n", type);
 			return DATA_("Empty");
@@ -636,8 +636,8 @@ void *BKE_object_obdata_add_from_type(Main *bmain, int type, const char *name)
 		case OB_ARMATURE:  return BKE_armature_add(bmain, name);
 		case OB_SPEAKER:   return BKE_speaker_add(bmain, name);
 		case OB_LIGHTPROBE:return BKE_lightprobe_add(bmain, name);
+		case OB_GPENCIL:   return BKE_gpencil_data_addnew(bmain, name);
 		case OB_EMPTY:     return NULL;
-		case OB_GPENCIL:   return NULL;
 		default:
 			printf("%s: Internal error, bad type: %d\n", __func__, type);
 			return NULL;
