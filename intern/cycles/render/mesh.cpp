@@ -1067,7 +1067,7 @@ void Mesh::compute_bvh(Device *device,
 			bparams.use_spatial_split = params->use_bvh_spatial_split;
 			bparams.use_qbvh = params->use_qbvh && device->info.has_qbvh;
 			bparams.bvh_type = params->bvh_type;
-			bparams.use_bvh_embree = params->use_bvh_embree;
+			bparams.use_bvh_embree = params->use_bvh_embree && device->info.has_embree;
 			bparams.curve_flags = dscene->data.curve.curveflags;
 			bparams.curve_subdivisions = dscene->data.curve.subdivisions;
 			bparams.use_unaligned_nodes = dscene->data.bvh.have_curves &&
@@ -1835,7 +1835,7 @@ void MeshManager::device_update_bvh(Device *device, DeviceScene *dscene, Scene *
 	bparams.num_motion_triangle_steps = scene->params.num_bvh_time_steps;
 	bparams.num_motion_curve_steps = scene->params.num_bvh_time_steps;
 	bparams.bvh_type = scene->params.bvh_type;
-	bparams.use_bvh_embree = scene->params.use_bvh_embree;
+	bparams.use_bvh_embree = scene->params.use_bvh_embree && device->info.has_embree;
 	bparams.curve_flags = dscene->data.curve.curveflags;
 	bparams.curve_subdivisions = dscene->data.curve.subdivisions;
 

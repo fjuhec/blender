@@ -364,6 +364,7 @@ DeviceInfo Device::get_multi_device(const vector<DeviceInfo>& subdevices, int th
 	info.has_half_images = true;
 	info.has_volume_decoupled = true;
 	info.has_qbvh = true;
+	info.has_embree = true;
 	info.has_osl = true;
 
 	foreach(const DeviceInfo &device, subdevices) {
@@ -401,6 +402,7 @@ DeviceInfo Device::get_multi_device(const vector<DeviceInfo>& subdevices, int th
 		info.has_half_images &= device.has_half_images;
 		info.has_volume_decoupled &= device.has_volume_decoupled;
 		info.has_qbvh &= device.has_qbvh;
+		info.has_embree &= device.has_embree;
 		info.has_osl &= device.has_osl;
 	}
 

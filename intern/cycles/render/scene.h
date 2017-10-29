@@ -145,6 +145,7 @@ public:
 		use_bvh_unaligned_nodes = true;
 		num_bvh_time_steps = 0;
 		use_qbvh = true;
+		use_bvh_embree = true;
 		persistent_data = false;
 		texture_limit = 0;
 	}
@@ -156,6 +157,7 @@ public:
 		&& use_bvh_unaligned_nodes == params.use_bvh_unaligned_nodes
 		&& num_bvh_time_steps == params.num_bvh_time_steps
 		&& use_qbvh == params.use_qbvh
+		&& use_bvh_embree == params.use_bvh_embree
 		&& persistent_data == params.persistent_data
 		&& texture_limit == params.texture_limit
 		&& use_bvh_embree == params.use_bvh_embree); }

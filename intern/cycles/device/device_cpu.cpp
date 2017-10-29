@@ -1053,6 +1053,11 @@ void device_cpu_info(vector<DeviceInfo>& devices)
 	info.num = 0;
 	info.advanced_shading = true;
 	info.has_qbvh = system_cpu_support_sse2();
+#ifdef WITH_EMBREE
+	info.has_embree = true;
+#else
+	info.has_embree = false;
+#endif
 	info.has_volume_decoupled = true;
 	info.has_osl = true;
 	info.has_half_images = true;

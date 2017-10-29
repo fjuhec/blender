@@ -58,6 +58,7 @@ public:
 	bool has_half_images;        /* Support half-float textures. */
 	bool has_volume_decoupled;   /* Decoupled volume shading. */
 	bool has_qbvh;               /* Supports both BVH2 and BVH4 raytracing. */
+	bool has_embree;             /* Can use Embree as raytracing kernel. */
 	bool has_osl;                /* Support Open Shading Language. */
 	bool use_split_kernel;       /* Use split or mega kernel. */
 	int cpu_threads;
@@ -75,6 +76,7 @@ public:
 		has_half_images = false;
 		has_volume_decoupled = false;
 		has_qbvh = false;
+		has_embree = false;
 		has_osl = false;
 		use_split_kernel = false;
 	}
