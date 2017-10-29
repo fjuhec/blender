@@ -1259,7 +1259,6 @@ void ED_gp_project_point_to_plane(Object *ob, RegionView3D *rv3d, const float or
 }
 
 /* get drawing reference for conversion or projection of the stroke */
-// FIXME: Remove ts arg
 void ED_gp_get_drawing_reference(View3D *v3d, Scene *scene, Object *ob, bGPDlayer *gpl, char align_flag, float vec[3])
 {
 	const float *fp = ED_view3d_cursor3d_get(scene, v3d);

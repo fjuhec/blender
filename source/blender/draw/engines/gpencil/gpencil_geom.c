@@ -246,11 +246,11 @@ Gwn_Batch *DRW_gpencil_get_buffer_stroke_geom(bGPdata *gpd, float matrix[4][4], 
 		/* first point for adjacency (not drawn) */
 		if (i == 0) {
 			gpencil_set_stroke_point(vbo, matrix, &pt, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor);
-			++idx;
+			idx++;
 		}
 		/* set point */
 		gpencil_set_stroke_point(vbo, matrix, &pt, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor);
-		++idx;
+		idx++;
 	}
 
 	/* last adjacency point (not drawn) */

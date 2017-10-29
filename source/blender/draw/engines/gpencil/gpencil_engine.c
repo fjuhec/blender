@@ -318,7 +318,7 @@ static void GPENCIL_cache_init(void *vedata)
 		struct Gwn_Batch *quad = DRW_cache_fullscreen_quad_get();
 		psl->mix_pass = DRW_pass_create("GPencil Mix Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
 		DRWShadingGroup *mix_shgrp = DRW_shgroup_create(e_data.gpencil_fullscreen_sh, psl->mix_pass);
-		++stl->g_data->tot_sh;
+		stl->g_data->tot_sh++;
 		DRW_shgroup_call_add(mix_shgrp, quad, NULL);
 		DRW_shgroup_uniform_buffer(mix_shgrp, "strokeColor", &e_data.temp_fbcolor_color_tx);
 		DRW_shgroup_uniform_buffer(mix_shgrp, "strokeDepth", &e_data.temp_fbcolor_depth_tx);
@@ -327,7 +327,7 @@ static void GPENCIL_cache_init(void *vedata)
 		struct Gwn_Batch *vfxquad = DRW_cache_fullscreen_quad_get();
 		psl->mix_vfx_pass = DRW_pass_create("GPencil Mix VFX Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
 		DRWShadingGroup *mix_vfx_shgrp = DRW_shgroup_create(e_data.gpencil_fullscreen_sh, psl->mix_vfx_pass);
-		++stl->g_data->tot_sh;
+		stl->g_data->tot_sh++;
 		DRW_shgroup_call_add(mix_vfx_shgrp, vfxquad, NULL);
 		DRW_shgroup_uniform_buffer(mix_vfx_shgrp, "strokeColor", &e_data.vfx_fbcolor_color_tx_a);
 		DRW_shgroup_uniform_buffer(mix_vfx_shgrp, "strokeDepth", &e_data.vfx_fbcolor_depth_tx_a);
@@ -336,7 +336,7 @@ static void GPENCIL_cache_init(void *vedata)
 		struct Gwn_Batch *quad_noblend = DRW_cache_fullscreen_quad_get();
 		psl->mix_pass_noblend = DRW_pass_create("GPencil Mix Pass no blend", DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
 		DRWShadingGroup *mix_shgrp_noblend = DRW_shgroup_create(e_data.gpencil_fullscreen_sh, psl->mix_pass_noblend);
-		++stl->g_data->tot_sh;
+		stl->g_data->tot_sh++;
 		DRW_shgroup_call_add(mix_shgrp_noblend, quad_noblend, NULL);
 		DRW_shgroup_uniform_buffer(mix_shgrp_noblend, "strokeColor", &e_data.temp_fbcolor_color_tx);
 		DRW_shgroup_uniform_buffer(mix_shgrp_noblend, "strokeDepth", &e_data.temp_fbcolor_depth_tx);
@@ -345,7 +345,7 @@ static void GPENCIL_cache_init(void *vedata)
 		struct Gwn_Batch *vfxquad_noblend = DRW_cache_fullscreen_quad_get();
 		psl->mix_vfx_pass_noblend = DRW_pass_create("GPencil Mix VFX Pass no blend", DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
 		DRWShadingGroup *mix_vfx_shgrp_noblend = DRW_shgroup_create(e_data.gpencil_fullscreen_sh, psl->mix_vfx_pass_noblend);
-		++stl->g_data->tot_sh;
+		stl->g_data->tot_sh++;
 		DRW_shgroup_call_add(mix_vfx_shgrp_noblend, vfxquad_noblend, NULL);
 		DRW_shgroup_uniform_buffer(mix_vfx_shgrp_noblend, "strokeColor", &e_data.vfx_fbcolor_color_tx_a);
 		DRW_shgroup_uniform_buffer(mix_vfx_shgrp_noblend, "strokeDepth", &e_data.vfx_fbcolor_depth_tx_a);
@@ -354,7 +354,7 @@ static void GPENCIL_cache_init(void *vedata)
 		vfxquad = DRW_cache_fullscreen_quad_get();
 		psl->vfx_copy_pass = DRW_pass_create("GPencil VFX Copy b to a Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
 		DRWShadingGroup *vfx_copy_shgrp = DRW_shgroup_create(e_data.gpencil_fullscreen_sh, psl->vfx_copy_pass);
-		++stl->g_data->tot_sh;
+		stl->g_data->tot_sh++;
 		DRW_shgroup_call_add(vfx_copy_shgrp, vfxquad, NULL);
 		DRW_shgroup_uniform_buffer(vfx_copy_shgrp, "strokeColor", &e_data.vfx_fbcolor_color_tx_b);
 		DRW_shgroup_uniform_buffer(vfx_copy_shgrp, "strokeDepth", &e_data.vfx_fbcolor_depth_tx_b);
@@ -375,7 +375,7 @@ static void GPENCIL_cache_init(void *vedata)
 		struct Gwn_Batch *paintquad = DRW_cache_fullscreen_quad_get();
 		psl->painting_pass = DRW_pass_create("GPencil Painting Session Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
 		DRWShadingGroup *painting_shgrp = DRW_shgroup_create(e_data.gpencil_painting_sh, psl->painting_pass);
-		++stl->g_data->tot_sh;
+		stl->g_data->tot_sh++;
 		DRW_shgroup_call_add(painting_shgrp, paintquad, NULL);
 		DRW_shgroup_uniform_buffer(painting_shgrp, "strokeColor", &e_data.painting_color_tx);
 		DRW_shgroup_uniform_buffer(painting_shgrp, "strokeDepth", &e_data.painting_depth_tx);
@@ -384,7 +384,7 @@ static void GPENCIL_cache_init(void *vedata)
 		struct Gwn_Batch *frontquad = DRW_cache_fullscreen_quad_get();
 		psl->mix_pass_front = DRW_pass_create("GPencil Mix Front Depth Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
 		DRWShadingGroup *mix_front_shgrp = DRW_shgroup_create(e_data.gpencil_front_depth_sh, psl->mix_pass_front);
-		++stl->g_data->tot_sh;
+		stl->g_data->tot_sh++;
 		DRW_shgroup_call_add(mix_front_shgrp, frontquad, NULL);
 		DRW_shgroup_uniform_buffer(mix_front_shgrp, "strokeColor", &e_data.temp_fbcolor_color_tx);
 	}
