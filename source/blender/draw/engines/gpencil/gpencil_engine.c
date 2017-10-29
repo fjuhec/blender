@@ -272,7 +272,7 @@ static void GPENCIL_cache_init(void *vedata)
 		/* detect if painting session */
 		bGPdata *obact_gpd = NULL;
 		if ((obact) && (obact->type == OB_GPENCIL) && (obact->data))
-			obact_gpd = ob->data;
+			obact_gpd = obact->data;
 		
 		if ((obact_gpd) && (obact_gpd->flag & GP_DATA_STROKE_PAINTMODE) &&
 		    (stl->storage->playing == 0) &&
