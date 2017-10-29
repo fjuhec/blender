@@ -433,9 +433,10 @@ static void time_draw_keyframes(const bContext *C, ARegion *ar)
 	UI_GetThemeColor3ubv(TH_TIME_GP_KEYFRAME, color);
 
 	if (scene->gpd) {
+		// XXX: Review this (aligorith)
 		time_draw_idblock_keyframes(v2d, (ID *)scene->gpd, onlysel, color);
 	}
-	if (ob && ob->data) {
+	if (ob && ob->data && (ob->type == OB_GPENCIL)) {
 		time_draw_idblock_keyframes(v2d, (ID *)ob->data, onlysel, color);
 	}
 

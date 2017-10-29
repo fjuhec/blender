@@ -2273,7 +2273,10 @@ static int keyframe_jump_exec(bContext *C, wmOperator *op)
 
 	if (ob) {
 		ob_to_keylist(&ads, ob, &keys, NULL);
-		gpencil_to_keylist(&ads, ob->data, &keys);
+		
+		if (ob->type == OB_GPENCIL) {
+			gpencil_to_keylist(&ads, ob->data, &keys);
+		}
 	}
 	
 	{
