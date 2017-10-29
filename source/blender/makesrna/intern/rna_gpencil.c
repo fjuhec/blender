@@ -81,11 +81,13 @@ static EnumPropertyItem rna_enum_gpencil_onion_modes_items[] = {
 #include "BKE_gpencil.h"
 #include "BKE_action.h"
 
+#include "DEG_depsgraph.h"
+
 
 static void rna_GPencil_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)
 {
 	bGPdata *gpd = (bGPdata *)ptr->id.data;
-	BKE_gpencil_batch_cache_dirty(gpd);
+	DEG_id_tag_update(ptr->id.data, OB_RECALC_DATA);
 	WM_main_add_notifier(NC_GPENCIL | NA_EDITED, NULL);
 }
 

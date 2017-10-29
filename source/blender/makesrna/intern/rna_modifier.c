@@ -508,17 +508,6 @@ static char *rna_Modifier_path(PointerRNA *ptr)
 static void rna_Modifier_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)
 {
 	DEG_id_tag_update(ptr->id.data, OB_RECALC_DATA);
-	/* update grease pencil cache. This could be moved to desgraph, but it has no sense to
-	 * repeat this process in any blender area, when only is needed here. This approach can be less
-	 * cleaner, but faster.
-	 */
-	// XXX: Review this (aligorith)
-	Object *obj = (Object *)ptr->id.data;
-	if ((obj) && (obj->type == OB_GPENCIL)) {
-		if (obj->data) {
-			BKE_gpencil_batch_cache_dirty(obj->data);
-		}
-	}
 	WM_main_add_notifier(NC_OBJECT | ND_MODIFIER, ptr->id.data);
 }
 
