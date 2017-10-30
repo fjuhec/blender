@@ -175,9 +175,14 @@ class AmberOpsAssetAdd(Operator, AmberOpsEditing):
                                           "local to the repository (mandatory when current .blend file is not saved)")
 
     def datablock_name_enum_itemf(self, context):
-        return ([(".".join(("objects", ob.name)), ob.name, "") for ob in bpy.data.objects if ob.library is None] +
-                [(".".join(("materials", mat.name)), mat.name, "") for mat in bpy.data.materials if mat.library is None] + 
-                [(".".join(("textures", tex.name)), tex.name, "") for tex in bpy.data.textures if tex.library is None])
+        ret = [(".".join(("objects", ob.name)), ob.name, "", 'OBJECT_DATA', idx)
+                        for idx, ob in enumerate(ob for ob in bpy.data.objects if ob.library is None)]
+        off_idx = len(ret)
+        ret += [(".".join(("materials", mat.name)), mat.name, "", 'MATERIAL_DATA', off_idx + idx)
+                        for idx, mat in enumerate(mat for mat in bpy.data.materials if mat.library is None)]
+        off_idx = len(ret)
+        ret += [(".".join(("textures", tex.name)), tex.name, "", 'TEXTURE_DATA', off_idx + idx)
+                        for idx, tex in enumerate(tex for tex in bpy.data.textures if tex.library is None)]
     datablock_name = EnumProperty(items=datablock_name_enum_itemf,
                                   name="ID Name", description="Name of the local datablock to create asset from")
 
