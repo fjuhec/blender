@@ -337,10 +337,14 @@ class AmberOpsAssetTagRemove(Operator, AmberOpsEditing):
         ae = context.space_data.asset_engine
         asset = ae.repository_pg.assets[ae.repository_pg.asset_index_active]
         asset.tags.remove(asset.tag_index_active)
+        print(asset.tag_index_active, asset.tags[:])
 
         AmberDataRepository.update_from_asset_engine(ae)
 
         bpy.ops.file.refresh()
+
+        asset = ae.repository_pg.assets[ae.repository_pg.asset_index_active]
+        print(asset.tag_index_active, asset.tags[:])
 
         return {'FINISHED'}
 

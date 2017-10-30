@@ -124,8 +124,8 @@ class AmberDataTagPG(PropertyGroup):
                 tag_pg.name_prev = tag_pg.name = tag_name
                 tag_pg.priority = tag_priority
         else:
-            removed_tags = set(t.name for t in pg) - set(subset or tags)
-            added_tags = set(subset or tags) - set(t.name for t in pg)
+            removed_tags = set(t.name for t in pg) - set(subset if subset is not None else tags)
+            added_tags = set(subset if subset is not None else tags) - set(t.name for t in pg)
             for tag_name in removed_tags:
                 pg.remove(pg.find(tag_name))
             for tag_pg in pg:
