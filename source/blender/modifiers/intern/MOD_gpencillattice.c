@@ -66,7 +66,7 @@ static void copyData(ModifierData *md, ModifierData *target)
 	modifier_copyData_generic(md, target);
 }
 
-static void bakeModifierGP(bContext *C, const EvaluationContext *eval_ctx,
+static void bakeModifierGP(const bContext *C, const EvaluationContext *eval_ctx,
                            ModifierData *md, Object *ob)
 {
 	GpencilLatticeModifierData *mmd = (GpencilLatticeModifierData *)md;

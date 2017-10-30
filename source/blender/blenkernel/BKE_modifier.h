@@ -265,7 +265,7 @@ typedef struct ModifierTypeInfo {
 	 * As such, this callback needs to go through all layers/frames in the
 	 * datablock, mutating the geometry and/or creating new datablocks/objects
 	 */
-	void (*bakeModifierGP)(struct bContext *C, const struct EvaluationContext *eval_ctx,
+	void (*bakeModifierGP)(const struct bContext *C, const struct EvaluationContext *eval_ctx,
                            struct ModifierData *md, struct Object *ob);
 
 	/********************* Optional functions *********************/

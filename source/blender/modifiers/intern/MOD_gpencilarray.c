@@ -79,7 +79,7 @@ static void copyData(ModifierData *md, ModifierData *target)
 }
 
 /* helper to create a new object */
-static Object *object_add_type(bContext *C,	int UNUSED(type), const char *UNUSED(name), Object *from_ob)
+static Object *object_add_type(const bContext *C,	int UNUSED(type), const char *UNUSED(name), Object *from_ob)
 {
 	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
@@ -100,7 +100,7 @@ static Object *object_add_type(bContext *C,	int UNUSED(type), const char *UNUSED
 	return ob;
 }
 
-static void bakeModifierGP(bContext *C, const EvaluationContext *UNUSED(eval_ctx),
+static void bakeModifierGP(const bContext *C, const EvaluationContext *UNUSED(eval_ctx),
                            ModifierData *md, Object *ob)
 {
 	GpencilArrayModifierData *mmd = (GpencilArrayModifierData *)md;

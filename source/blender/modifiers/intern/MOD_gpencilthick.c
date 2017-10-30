@@ -80,7 +80,7 @@ static void copyData(ModifierData *md, ModifierData *target)
 	tgmd->cur_thickness = curvemapping_copy(gmd->cur_thickness);
 }
 
-static void bakeModifierGP(bContext *C, const EvaluationContext *UNUSED(eval_ctx),
+static void bakeModifierGP(const bContext *C, const EvaluationContext *UNUSED(eval_ctx),
                            ModifierData *md, Object *ob)
 {
 	bGPdata *gpd;
