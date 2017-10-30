@@ -323,7 +323,7 @@ class AssetEngineAmber(AssetEngine):
         variants_gen(entry, e, vuuid, ruuid, wuuid)
 
         if act_view:
-            entry.relpath = os.path.relpath(act_view.path, self.repository.path)
+            entry.relpath = os.path.relpath(os.path.join(self.repository.path, act_view.path), self.repository.path)
 #        print("added entry for", entry.relpath)
 
     def pretty_version(self, v=None):

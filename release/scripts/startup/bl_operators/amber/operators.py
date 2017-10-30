@@ -183,6 +183,7 @@ class AmberOpsAssetAdd(Operator, AmberOpsEditing):
         off_idx = len(ret)
         ret += [(".".join(("textures", tex.name)), tex.name, "", 'TEXTURE_DATA', off_idx + idx)
                         for idx, tex in enumerate(tex for tex in bpy.data.textures if tex.library is None)]
+        return ret
     datablock_name = EnumProperty(items=datablock_name_enum_itemf,
                                   name="ID Name", description="Name of the local datablock to create asset from")
 
@@ -342,14 +343,10 @@ class AmberOpsAssetTagRemove(Operator, AmberOpsEditing):
         ae = context.space_data.asset_engine
         asset = ae.repository_pg.assets[ae.repository_pg.asset_index_active]
         asset.tags.remove(asset.tag_index_active)
-        print(asset.tag_index_active, asset.tags[:])
 
         AmberDataRepository.update_from_asset_engine(ae)
 
         bpy.ops.file.refresh()
-
-        asset = ae.repository_pg.assets[ae.repository_pg.asset_index_active]
-        print(asset.tag_index_active, asset.tags[:])
 
         return {'FINISHED'}
 
