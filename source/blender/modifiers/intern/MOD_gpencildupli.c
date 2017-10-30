@@ -35,8 +35,10 @@
 #include "DNA_gpencil_types.h"
 
 #include "BLI_utildefines.h"
-#include "BKE_DerivedMesh.h"
+#include "BKE_context.h"
 #include "BKE_gpencil.h"
+
+#include "DEG_depsgraph.h"
 
 #include "MOD_modifiertypes.h"
 
@@ -62,13 +64,12 @@ static void copyData(ModifierData *md, ModifierData *target)
 	modifier_copyData_generic(md, target);
 }
 
-static DerivedMesh *applyModifier(ModifierData *md, const struct EvaluationContext *UNUSED(eval_ctx), Object *ob,
-	DerivedMesh *UNUSED(dm),
-	ModifierApplyFlag UNUSED(flag))
+static void bakeModifierGP(bContext *C, const EvaluationContext *UNUSED(eval_ctx),
+                           ModifierData *md, Object *ob)
 {
 	bGPdata *gpd;
 	if ((!ob) || (!ob->data)) {
-		return NULL;
+		return;
 	}
 	gpd = ob->data;
 
@@ -77,8 +78,6 @@ static DerivedMesh *applyModifier(ModifierData *md, const struct EvaluationConte
 			BKE_gpencil_dupli_modifier(-1, (GpencilDupliModifierData *)md, ob, gpl, gpf);
 		}
 	}
-
-	return NULL;
 }
 
 ModifierTypeInfo modifierType_GpencilDupli = {
@@ -93,11 +92,11 @@ ModifierTypeInfo modifierType_GpencilDupli = {
 	/* deformMatrices */    NULL,
 	/* deformVertsEM */     NULL,
 	/* deformMatricesEM */  NULL,
-	/* applyModifier */     applyModifier,
+	/* applyModifier */     NULL,
 	/* applyModifierEM */   NULL,
 	/* deformStrokes */     NULL,
 	/* generateStrokes */   NULL,
-	/* bakeModifierGP */    NULL,
+	/* bakeModifierGP */    bakeModifierGP,
 	/* initData */          initData,
 	/* requiredDataMask */  NULL,
 	/* freeData */          NULL,

@@ -35,8 +35,6 @@
 #include "DNA_gpencil_types.h"
 
 #include "BLI_utildefines.h"
-#include "BKE_DerivedMesh.h"
-#include "BKE_gpencil.h"
 
 #include "MOD_modifiertypes.h"
 

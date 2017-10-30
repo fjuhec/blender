@@ -37,7 +37,6 @@
 #include "BLI_utildefines.h"
 
 #include "BKE_context.h"
-#include "BKE_DerivedMesh.h"
 #include "BKE_gpencil.h"
 #include "BKE_lattice.h"
 #include "BKE_library_query.h"
@@ -67,9 +66,8 @@ static void copyData(ModifierData *md, ModifierData *target)
 	modifier_copyData_generic(md, target);
 }
 
-static DerivedMesh *applyModifier(ModifierData *md, const struct EvaluationContext *eval_ctx, Object *ob,
-	DerivedMesh *UNUSED(dm),
-	ModifierApplyFlag UNUSED(flag))
+static void bakeModifierGP(bContext *C, const EvaluationContext *eval_ctx,
+                           ModifierData *md, Object *ob)
 {
 	GpencilLatticeModifierData *mmd = (GpencilLatticeModifierData *)md;
 	LatticeDeformData *ldata = NULL;
@@ -80,12 +78,12 @@ static DerivedMesh *applyModifier(ModifierData *md, const struct EvaluationConte
 	int oldframe = CFRA;
 
 	if ((!ob) || (!ob->data)) {
-		return NULL;
+		return;
 	}
 	gpd = ob->data;
 	latob = mmd->object;
 	if ((!latob) || (latob->type != OB_LATTICE)) {
-		return NULL;
+		return;
 	}
 
 	struct EvaluationContext eval_ctx_copy = *eval_ctx;
@@ -109,8 +107,8 @@ static DerivedMesh *applyModifier(ModifierData *md, const struct EvaluationConte
 		mmd->cache_data = NULL;
 	}
 
+	// XXX: needs an extra update?
 	CFRA = oldframe;
-	return NULL;
 }
 
 static void freeData(ModifierData *md)
@@ -165,11 +163,11 @@ ModifierTypeInfo modifierType_GpencilLattice = {
 	/* deformMatrices */    NULL,
 	/* deformVertsEM */     NULL,
 	/* deformMatricesEM */  NULL,
-	/* applyModifier */     applyModifier,
+	/* applyModifier */     NULL,
 	/* applyModifierEM */   NULL,
 	/* deformStrokes */     NULL,
 	/* generateStrokes */   NULL,
-	/* bakeModifierGP */    NULL,
+	/* bakeModifierGP */    bakeModifierGP,
 	/* initData */          initData,
 	/* requiredDataMask */  NULL,
 	/* freeData */          freeData,

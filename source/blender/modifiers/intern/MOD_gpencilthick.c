@@ -36,9 +36,11 @@
 
 #include "BLI_utildefines.h"
 
-#include "BKE_DerivedMesh.h"
+#include "BKE_context.h"
 #include "BKE_gpencil.h"
 #include "BKE_colortools.h"
+
+#include "DEG_depsgraph.h"
 
 #include "MOD_modifiertypes.h"
 
@@ -78,14 +80,12 @@ static void copyData(ModifierData *md, ModifierData *target)
 	tgmd->cur_thickness = curvemapping_copy(gmd->cur_thickness);
 }
 
-static DerivedMesh *applyModifier(
-        ModifierData *md, const struct EvaluationContext *UNUSED(eval_ctx), Object *ob,
-        DerivedMesh *UNUSED(dm),
-        ModifierApplyFlag UNUSED(flag))
+static void bakeModifierGP(bContext *C, const EvaluationContext *UNUSED(eval_ctx),
+                           ModifierData *md, Object *ob)
 {
 	bGPdata *gpd;
 	if ((!ob) || (!ob->data)) {
-		return NULL;
+		return;
 	}
 	gpd = ob->data;
 
@@ -96,8 +96,6 @@ static DerivedMesh *applyModifier(
 			}
 		}
 	}
-
-	return NULL;
 }
 
 ModifierTypeInfo modifierType_GpencilThick = {
@@ -112,11 +110,11 @@ ModifierTypeInfo modifierType_GpencilThick = {
 	/* deformMatrices */    NULL,
 	/* deformVertsEM */     NULL,
 	/* deformMatricesEM */  NULL,
-	/* applyModifier */     applyModifier,
+	/* applyModifier */     NULL,
 	/* applyModifierEM */   NULL,
 	/* deformStrokes */     NULL,
 	/* generateStrokes */   NULL,
-	/* bakeModifierGP */    NULL,
+	/* bakeModifierGP */    bakeModifierGP,
 	/* initData */          initData,
 	/* requiredDataMask */  NULL,
 	/* freeData */          freeData,

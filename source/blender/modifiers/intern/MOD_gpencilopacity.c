@@ -36,10 +36,12 @@
 
 #include "BLI_utildefines.h"
 
+#include "BKE_context.h"
 #include "BKE_global.h"
-#include "BKE_DerivedMesh.h"
 #include "BKE_gpencil.h"
 #include "BKE_paint.h"
+
+#include "DEG_depsgraph.h"
 
 #include "MOD_modifiertypes.h"
 
@@ -57,14 +59,13 @@ static void copyData(ModifierData *md, ModifierData *target)
 	modifier_copyData_generic(md, target);
 }
 
-static DerivedMesh *applyModifier(ModifierData *md, const struct EvaluationContext *UNUSED(eval_ctx), Object *ob,
-	DerivedMesh *UNUSED(dm),
-	ModifierApplyFlag UNUSED(flag))
+static void bakeModifierGP(bContext *C, const EvaluationContext *UNUSED(eval_ctx),
+                           ModifierData *md, Object *ob)
 {
 	bGPdata *gpd;
 
 	if ((!ob) || (!ob->data)) {
-		return NULL;
+		return;
 	}
 	gpd = ob->data;
 	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
@@ -74,7 +75,6 @@ static DerivedMesh *applyModifier(ModifierData *md, const struct EvaluationConte
 			}
 		}
 	}
-	return NULL;
 }
 
 ModifierTypeInfo modifierType_GpencilOpacity = {
@@ -89,11 +89,11 @@ ModifierTypeInfo modifierType_GpencilOpacity = {
 	/* deformMatrices */    NULL,
 	/* deformVertsEM */     NULL,
 	/* deformMatricesEM */  NULL,
-	/* applyModifier */     applyModifier,
+	/* applyModifier */     NULL,
 	/* applyModifierEM */   NULL,
 	/* deformStrokes */     NULL,
 	/* generateStrokes */   NULL,
-	/* bakeModifierGP */    NULL,
+	/* bakeModifierGP */    bakeModifierGP,
 	/* initData */          initData,
 	/* requiredDataMask */  NULL,
 	/* freeData */          NULL,

@@ -38,9 +38,11 @@
 #include "BLI_ghash.h"
 
 #include "BKE_global.h"
-#include "BKE_DerivedMesh.h"
+#include "BKE_context.h"
 #include "BKE_gpencil.h"
 #include "BKE_paint.h"
+
+#include "DEG_depsgraph.h"
 
 #include "MOD_modifiertypes.h"
 
@@ -58,15 +60,14 @@ static void copyData(ModifierData *md, ModifierData *target)
 	modifier_copyData_generic(md, target);
 }
 
-static DerivedMesh *applyModifier(ModifierData *md, const struct EvaluationContext *UNUSED(eval_ctx), Object *ob,
-	DerivedMesh *UNUSED(dm),
-	ModifierApplyFlag UNUSED(flag))
+static void bakeModifierGP(bContext *C, const EvaluationContext *UNUSED(eval_ctx),
+                           ModifierData *md, Object *ob)
 {
 	GpencilColorModifierData *mmd = (GpencilColorModifierData *)md;
 	bGPdata *gpd;
 	Palette *newpalette = NULL;
 	if ((!ob) || (!ob->data)) {
-		return NULL;
+		return;
 	}
 	gpd = ob->data;
 	GHash *gh_layer = BLI_ghash_str_new("GP_Color Layer modifier");
@@ -121,8 +122,6 @@ static DerivedMesh *applyModifier(ModifierData *md, const struct EvaluationConte
 		BLI_ghash_free(gh_layer, NULL, NULL);
 		gh_layer = NULL;
 	}
-
-	return NULL;
 }
 
 ModifierTypeInfo modifierType_GpencilColor = {
@@ -137,11 +136,11 @@ ModifierTypeInfo modifierType_GpencilColor = {
 	/* deformMatrices */    NULL,
 	/* deformVertsEM */     NULL,
 	/* deformMatricesEM */  NULL,
-	/* applyModifier */     applyModifier,
+	/* applyModifier */     NULL,
 	/* applyModifierEM */   NULL,
 	/* deformStrokes */     NULL,
 	/* generateStrokes */   NULL,
-	/* bakeModifierGP */    NULL,
+	/* bakeModifierGP */    bakeModifierGP,
 	/* initData */          initData,
 	/* requiredDataMask */  NULL,
 	/* freeData */          NULL,

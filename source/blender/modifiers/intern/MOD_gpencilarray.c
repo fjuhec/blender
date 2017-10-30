@@ -37,7 +37,6 @@
 #include "BLI_utildefines.h"
 #include "BLI_math_vector.h"
 
-#include "BKE_DerivedMesh.h"
 #include "BKE_gpencil.h"
 #include "BKE_context.h"
 #include "BKE_object.h"
@@ -101,14 +100,11 @@ static Object *object_add_type(bContext *C,	int UNUSED(type), const char *UNUSED
 	return ob;
 }
 
-static DerivedMesh *applyModifier(
-        ModifierData *md, const struct EvaluationContext *UNUSED(eval_ctx), Object *ob,
-        DerivedMesh *UNUSED(dm),
-        ModifierApplyFlag UNUSED(flag))
+static void bakeModifierGP(bContext *C, const EvaluationContext *UNUSED(eval_ctx),
+                           ModifierData *md, Object *ob)
 {
 	GpencilArrayModifierData *mmd = (GpencilArrayModifierData *)md;
 	ModifierData *fmd;
-	bContext *C = (bContext *)mmd->C;
 	Main *bmain = CTX_data_main(C);
 	Object *newob = NULL;
 	int xyz[3], sh;
@@ -116,7 +112,7 @@ static DerivedMesh *applyModifier(
 	float rot[3];
 
 	if ((!ob) || (!ob->data)) {
-		return NULL;
+		return;
 	}
 
 	/* reset random */
@@ -132,6 +128,7 @@ static DerivedMesh *applyModifier(
 				mul_m4_m4m4(finalmat, mat, ob->obmat);
 
 				/* create a new object and new gp datablock */
+				// XXX (aligorith): Whether this creates and discards and extra GP datablock instance
 				newob = object_add_type(C, OB_GPENCIL, md->name, ob);
 				id_us_min((ID *)ob->data);
 				newob->data = BKE_gpencil_data_duplicate(bmain, ob->data, false);
@@ -159,7 +156,6 @@ static DerivedMesh *applyModifier(
 			}
 		}
 	}
-	return NULL;
 }
 
 ModifierTypeInfo modifierType_GpencilArray = {
@@ -174,11 +170,11 @@ ModifierTypeInfo modifierType_GpencilArray = {
 	/* deformMatrices */    NULL,
 	/* deformVertsEM */     NULL,
 	/* deformMatricesEM */  NULL,
-	/* applyModifier */     applyModifier,
+	/* applyModifier */     NULL,
 	/* applyModifierEM */   NULL,
 	/* deformStrokes */     NULL,
 	/* generateStrokes */   NULL,
-	/* bakeModifierGP */    NULL,
+	/* bakeModifierGP */    bakeModifierGP,
 	/* initData */          initData,
 	/* requiredDataMask */  NULL,
 	/* freeData */          NULL,
