@@ -667,23 +667,12 @@ static int modifier_apply_obdata(ReportList *reports, const bContext *C, Scene *
 
 		DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	}
-	else if (ELEM(ob->type, OB_GPENCIL)) {
-#if 0 // FIXME: This code uses all the wrong callbacks! To be recoded!
-		/* some modifier need to have bContext */
-		if (md->type == eModifierType_GpencilArray) {
-			GpencilArrayModifierData *mmd = (GpencilArrayModifierData *)md;
-			mmd->C = (void *) C;
-		}
-		if (md->type == eModifierType_GpencilLattice) {
-			GpencilLatticeModifierData *mmd = (GpencilLatticeModifierData *)md;
-			mmd->C = (void *)C;
-		}
-		mti->applyModifier(md, &eval_ctx, ob, NULL, 0);
-		if (ob->data) {
-			BKE_gpencil_batch_cache_dirty(ob->data);
-		}
-		return 1;
-#endif
+	else if (ob->type == OB_GPENCIL) {
+		if (mti->bakeModifierGP == NULL)
+			return 0;
+		
+		mti->bakeModifierGP(C, &eval_ctx, md, ob);
+		DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	}
 	else {
 		BKE_report(reports, RPT_ERROR, "Cannot apply modifier for this object type");
@@ -725,13 +714,6 @@ int ED_object_modifier_apply(ReportList *reports, const bContext *C, Scene *scen
 			BKE_report(reports, RPT_ERROR, "Modifiers cannot be applied to multi-user data");
 			return 0;
 		}
-
-		// XXX: Review this!
-		modifier_apply_obdata(reports, C, scene, ob, md);
-		BLI_remlink(&ob->modifiers, md);
-		modifier_free(md);
-		BKE_object_free_derived_caches(ob);
-		return 1;
 	}
 	else if (((ID *) ob->data)->us > 1) {
 		BKE_report(reports, RPT_ERROR, "Modifiers cannot be applied to multi-user data");
