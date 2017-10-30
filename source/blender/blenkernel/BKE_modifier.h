@@ -37,6 +37,7 @@ struct DerivedMesh;
 struct DagForest;
 struct DagNode;
 struct EvaluationContext;
+struct bContext;
 struct Object;
 struct Scene;
 struct SceneLayer;
@@ -46,6 +47,8 @@ struct Main;
 struct ModifierData;
 struct BMEditMesh;
 struct DepsNodeHandle;
+struct bGPDlayer;
+struct bGPDframe;
 
 typedef enum {
 	/* Should not be used, only for None modifier type */
@@ -224,6 +227,46 @@ typedef struct ModifierTypeInfo {
 	                                       struct Object *ob, struct BMEditMesh *editData,
 	                                       struct DerivedMesh *derivedData, ModifierApplyFlag flag);
 
+
+	/******************* GP modifier functions *********************/
+
+	/* Callback for GP "stroke" modifiers that operate on the
+	 * geometry of the provided strokes (e.g. Thickness, Noise, etc.)
+	 * without adding/removing any points.
+	 *
+	 * The gpl parameter contains the GP layer that the strokes come from.
+	 * While access is provided to this data, you should not directly access
+	 * the gpl->frames data from the modifier. Instead, use the gpf parameter
+	 * instead.
+	 *
+	 * The gpf parameter contains the GP frame/strokes to operate on. This is
+	 * usually a copy of the original (unmodified and saved to files) stroke data.
+	 * Modifiers should perform their operations on the strokes referenced from here
+	 * only.
+	 */
+	void (*deformStrokes)(struct ModifierData *md, const struct EvaluationContext *eval_ctx,
+	                      struct Object *ob, struct bGPDlayer *gpl, struct bGPDframe *gpf);
+
+	/* Callback for GP "geometry" modifiers that create extra geometry
+	 * in the frame (e.g. Array)
+	 *
+	 * All parameters function in the same ways as in the deformStrokes() callback.
+	 *
+	 * The modifier_index parameter indicates where the modifier is
+	 * in the modifier stack in relation to other modifiers.
+	 */
+	void (*generateStrokes)(struct ModifierData *md, const struct EvaluationContext *eval_ctx,
+	                        struct Object *ob, struct bGPDlayer *gpl, struct bGPDframe *gpf,
+	                        int modifier_index);
+
+	/* Bake-down GP modifier's effects into the GP datablock.
+	 *
+	 * This gets called when the user clicks the "Apply" button in the UI.
+	 * As such, this callback needs to go through all layers/frames in the
+	 * datablock, mutating the geometry and/or creating new datablocks/objects
+	 */
+	void (*bakeModifierGP)(struct bContext *C, const struct EvaluationContext *eval_ctx,
+                           struct ModifierData *md, struct Object *ob);
 
 	/********************* Optional functions *********************/
 
