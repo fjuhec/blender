@@ -73,7 +73,6 @@ void BKE_gpencil_free(struct bGPdata *gpd, bool free_all);
 
 void BKE_gpencil_batch_cache_dirty(struct bGPdata *gpd);
 void BKE_gpencil_batch_cache_free(struct bGPdata *gpd);
-void BKE_gpencil_batch_cache_alldirty(void);
 void BKE_gpencil_batch_cache_alldirty_main(struct Main *bmain);
 
 void BKE_gpencil_stroke_sync_selection(struct bGPDstroke *gps);

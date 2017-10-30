@@ -346,12 +346,9 @@ static void recalcData_actedit(TransInfo *t)
 	if (ELEM(ac.datatype, ANIMCONT_GPENCIL, ANIMCONT_MASK)) {
 		/* flush transform values back to actual coordinates */
 		flushTransIntFrameActionData(t);
-		/* refresh gpencil cache */
-		if (ac.datatype == ANIMCONT_GPENCIL) {
-			BKE_gpencil_batch_cache_alldirty();
-		}
 	}
-	else {
+	
+	if (ac.datatype != ANIMCONT_MASK) {
 		/* get animdata blocks visible in editor, assuming that these will be the ones where things changed */
 		filter = (ANIMFILTER_DATA_VISIBLE | ANIMFILTER_ANIMDATA);
 		ANIM_animdata_filter(&ac, &anim_data, filter, ac.data, ac.datatype);

@@ -255,17 +255,19 @@ static void GPENCIL_cache_init(void *vedata)
 		psl->edit_pass = DRW_pass_create("GPencil Edit Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND);
 		
 		/* detect if playing animation */
+		// XXX: Why? Can this be done in a simpler way (covering less of the main DB)?
 		int oldsts = stl->storage->playing;
 		stl->storage->playing = 0;
 		if (draw_ctx->evil_C) {
+			struct Main *bmain = CTX_data_main(draw_ctx->evil_C);
 			if (ED_screen_animation_playing(CTX_wm_manager(draw_ctx->evil_C))) {
 				stl->storage->playing = 1;
-				BKE_gpencil_batch_cache_alldirty();
+				BKE_gpencil_batch_cache_alldirty_main(bmain);
 			}
 			else {
 				/* if change animation status, cache is dirty */
 				if (oldsts != stl->storage->playing) {
-					BKE_gpencil_batch_cache_alldirty();
+					BKE_gpencil_batch_cache_alldirty_main(bmain);
 				}
 			}
 		}
