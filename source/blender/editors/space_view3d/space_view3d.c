@@ -588,7 +588,7 @@ static void view3d_main_region_exit(wmWindowManager *wm, ARegion *ar)
 	}
 }
 
-static int view3d_path_link_drop_poll(bContext *UNUSED(C), wmDrag *drag, const wmEvent *event)
+static int view3d_path_link_drop_poll(bContext *C, wmDrag *drag, const wmEvent *event)
 {
 	if (event->shift == false) {
 		if (drag->type == WM_DRAG_LIBRARY) {
@@ -601,6 +601,11 @@ static int view3d_path_link_drop_poll(bContext *UNUSED(C), wmDrag *drag, const w
 			switch (BKE_idcode_from_name(group)) {
 				case ID_OB:
 					return 1;
+				case ID_MA:
+				{
+					Base *base = ED_view3d_give_base_under_cursor(C, event->mval);
+					return (base != NULL && base->object->id.lib == NULL);
+				}
 			}
 		}
 	}
@@ -691,6 +696,7 @@ static void view3d_path_link_drop_copy(wmDrag *drag, wmDropBox *drop)
 	RNA_string_set(drop->ptr, "asset_engine", drag_data->ae_idname);
 	RNA_string_set(drop->ptr, "directory", "");
 	RNA_string_set(drop->ptr, "filename", drag_data->path);
+	RNA_string_set(drop->ptr, "filepath", drag_data->path);  /* Needed only to avoid invoke to open filebrowser. */
 	RNA_int_set_array(drop->ptr, "uuid_repository", drag_data->uuid.uuid_repository);
 	RNA_int_set_array(drop->ptr, "uuid_asset", drag_data->uuid.uuid_asset);
 	RNA_int_set_array(drop->ptr, "uuid_variant", drag_data->uuid.uuid_variant);
@@ -738,11 +744,9 @@ static void view3d_id_path_drop_copy(wmDrag *drag, wmDropBox *drop)
 /* region dropbox definition */
 static void view3d_dropboxes(void)
 {
-	wmDropBox *drop;
 	ListBase *lb = WM_dropboxmap_find("View3D", SPACE_VIEW3D, RGN_TYPE_WINDOW);
 	
-	drop = WM_dropbox_add(lb, "WM_OT_link", view3d_path_link_drop_poll, view3d_path_link_drop_copy);
-	drop->opcontext = WM_OP_EXEC_DEFAULT;
+	WM_dropbox_add(lb, "WM_OT_link", view3d_path_link_drop_poll, view3d_path_link_drop_copy);
 	WM_dropbox_add(lb, "OBJECT_OT_add_named", view3d_ob_drop_poll, view3d_ob_drop_copy);
 	WM_dropbox_add(lb, "OBJECT_OT_drop_named_material", view3d_mat_drop_poll, view3d_id_drop_copy);
 	WM_dropbox_add(lb, "MESH_OT_drop_named_image", view3d_ima_mesh_drop_poll, view3d_id_path_drop_copy);

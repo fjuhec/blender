@@ -42,6 +42,8 @@
 #include "MEM_guardedalloc.h"
 
 #include "DNA_ID.h"
+#include "DNA_material_types.h"
+#include "DNA_object_types.h"
 #include "DNA_screen_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_space_types.h"
@@ -68,6 +70,7 @@
 #include "BKE_library.h"
 #include "BKE_library_override.h"
 #include "BKE_library_remap.h"
+#include "BKE_material.h"
 #include "BKE_global.h"
 #include "BKE_image.h"
 #include "BKE_main.h"
@@ -82,6 +85,7 @@
 
 #include "ED_screen.h"
 #include "ED_fileselect.h"
+#include "ED_view3d.h"
 
 #include "GPU_material.h"
 
@@ -108,8 +112,10 @@ static int wm_link_append_poll(bContext *C)
 	return 0;
 }
 
-static int wm_link_append_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
+static int wm_link_append_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
+	RNA_int_set_array(op->ptr, "mouse_coordinates", event->mval);
+
 	if (RNA_struct_property_is_set(op->ptr, "filepath")) {
 		return WM_operator_call_notest(C, op);
 	}
@@ -564,6 +570,25 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
 
 	/* BKE_main_unlock(bmain); */
 
+	/* Try to do smart things from context in some cases (like drag'n'drop of material over object...) */
+	prop = RNA_struct_find_property(op->ptr, "mouse_coordinates");
+	if (prop && RNA_property_is_set(op->ptr, prop)) {
+		int mval[2];
+		RNA_property_int_get_array(op->ptr, prop, mval);
+		Base *obbase = ED_view3d_give_base_under_cursor(C, mval);
+		if (obbase) {
+			LinkNode *itemlink;
+			for (itemlink = lapp_data->items.list; itemlink; itemlink = itemlink->next) {
+				ID *new_id = ((WMLinkAppendDataItem *)(itemlink->link))->new_id;
+
+				if (new_id && GS(new_id->name) == ID_MA) {
+					assign_material(obbase->object, (Material *)new_id, obbase->object->actcol, BKE_MAT_ASSIGN_USERPREF);
+				}
+			}
+		}
+		printf("%s\n", obbase ? obbase->object->id.name : "<NULL>");
+	}
+
 	/* mark all library linked objects to be updated */
 	BKE_main_lib_objects_recalc_all(bmain);
 	IMB_colormanagement_check_file_config(bmain);
@@ -636,6 +661,11 @@ static void wm_link_append_properties_common(wmOperatorType *ot, bool is_link)
 	prop = RNA_def_boolean(ot->srna, "instance_groups", is_link,
 	                       "Instance Groups", "Create Dupli-Group instances for each group");
 	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
+
+	prop = RNA_def_int_vector(ot->srna, "mouse_coordinates", 2, (const int [2]){0, 0}, INT_MIN, INT_MAX, "Mouse Coordinates",
+	                          "Store sompe mouse coordinates (e.g. to get object on which linked material was dropped...)",
+	                          INT_MIN, INT_MAX);
+	RNA_def_property_flag(prop, PROP_SKIP_SAVE | PROP_HIDDEN);
 }
 
 void WM_OT_link(wmOperatorType *ot)
