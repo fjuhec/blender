@@ -1643,7 +1643,7 @@ static void rna_FileBrowser_AE_type_enum_set(PointerRNA *ptr, const int value)
 	}
 }
 
-static EnumPropertyItem *rna_FileBrowser_AE_type_enum_itemf(
+static const EnumPropertyItem *rna_FileBrowser_AE_type_enum_itemf(
         bContext *UNUSED(C), PointerRNA *UNUSED(ptr), PropertyRNA *UNUSED(prop), bool *r_free)
 {
 	EnumPropertyItem *items = NULL;
