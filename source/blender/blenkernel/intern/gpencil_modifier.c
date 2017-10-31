@@ -764,6 +764,13 @@ bool BKE_gpencil_has_geometry_modifiers(Object *ob)
 {
 	ModifierData *md;
 	for (md = ob->modifiers.first; md; md = md->next) {
+		const ModifierTypeInfo *mti = modifierType_getInfo(md->type);
+		
+		if (mti->generateStrokes) {
+			return true;
+		}
+			
+		// XXX: Remove
 		if (md->type == eModifierType_GpencilDupli) {
 			return true;
 		}
@@ -778,7 +785,7 @@ void BKE_gpencil_stroke_modifiers(Object *ob, bGPDlayer *gpl, bGPDframe *UNUSED(
 	bGPdata *gpd = ob->data;
 	bool is_edit = GPENCIL_ANY_EDIT_MODE(gpd);
 
-	int id = 0;
+	int id = 0; // XXX: Remove
 	for (md = ob->modifiers.first; md; md = md->next) {
 		if (((md->mode & eModifierMode_Realtime) && ((G.f & G_RENDER_OGL) == 0)) ||
 		    ((md->mode & eModifierMode_Render) && (G.f & G_RENDER_OGL)))
@@ -842,10 +849,18 @@ void BKE_gpencil_geometry_modifiers(Object *ob, bGPDlayer *gpl, bGPDframe *gpf)
 		if (((md->mode & eModifierMode_Realtime) && ((G.f & G_RENDER_OGL) == 0)) ||
 		    ((md->mode & eModifierMode_Render) && (G.f & G_RENDER_OGL)))
 		{
+			const ModifierTypeInfo *mti = modifierType_getInfo(md->type);
+			
 			if (((md->mode & eModifierMode_Editmode) == 0) && (is_edit)) {
 				continue;
 			}
 
+			if (mti->generateStrokes) {
+				EvaluationContext eval_ctx = {0}; /* XXX */
+				mti->generateStrokes(md, &eval_ctx, ob, gpl, gpf, id);
+			}
+
+			// XXX: The following lines need to all be converted to modifier callbacks...
 			switch (md->type) {
 				// Array
 				case eModifierType_GpencilDupli:
