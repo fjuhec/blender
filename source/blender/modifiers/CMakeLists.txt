@@ -109,10 +109,12 @@ set(SRC
 	MOD_modifiertypes.h
 	intern/MOD_boolean_util.h
 	intern/MOD_fluidsim_util.h
+	intern/MOD_gpencil_util.h
 	intern/MOD_meshcache_util.h
 	intern/MOD_util.h
 	intern/MOD_weightvg_util.h
 
+	intern/MOD_gpencil_util.c
 	intern/MOD_gpencilnoise.c
 	intern/MOD_gpencilsubdiv.c
 	intern/MOD_gpencilsimplify.c

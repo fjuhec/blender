@@ -198,7 +198,7 @@ void BKE_gpencil_reset_modifiers(struct Object *ob);
 bool BKE_gpencil_has_geometry_modifiers(struct Object *ob);
 void BKE_gpencil_stroke_modifiers(struct Object *ob, struct bGPDlayer *gpl, struct bGPDframe *gpf, struct bGPDstroke *gps);
 void BKE_gpencil_geometry_modifiers(struct Object *ob, struct bGPDlayer *gpl, struct bGPDframe *gpf);
-void BKE_gpencil_fill_random_array(float *ar, int count);
+
 void BKE_gpencil_stroke_normal(const struct bGPDstroke *gps, float r_normal[3]);
 void BKE_gpencil_noise_modifier(int id, struct GpencilNoiseModifierData *mmd, struct Object *ob, struct bGPDlayer *gpl, struct bGPDstroke *gps);
 void BKE_gpencil_subdiv_modifier(int id, struct GpencilSubdivModifierData *mmd, struct Object *ob, struct bGPDlayer *gpl, struct bGPDstroke *gps);

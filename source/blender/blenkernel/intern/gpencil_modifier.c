@@ -49,6 +49,9 @@
 #include "BKE_gpencil.h"
 #include "BKE_modifier.h"
 #include "BKE_colortools.h"
+ 
+// XXX: temp transitional code
+#include "../../modifiers/intern/MOD_gpencil_util.h"
 
 #define GPENCIL_ANY_EDIT_MODE(gpd) \
 	((gpd) && ((gpd)->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE)))
@@ -63,78 +66,6 @@ typedef struct tGPencilStrokeCache {
 typedef struct tbGPDspoint {
 	float p2d[2];
 } tbGPDspoint;
-
-/* fill an array with random numbers */
-void BKE_gpencil_fill_random_array(float *ar, int count)
-{
-	for (int i = 0; i < count; i++) {
-		ar[i] = BLI_frand();
-	}
-}
-
-/* verify if valid layer and pass index */
-static bool is_stroke_affected_by_modifier(
-        char *mlayername, int mpassindex, int minpoints,
-        bGPDlayer *gpl, bGPDstroke *gps, bool inv1, bool inv2)
-{
-	/* omit if filter by layer */
-	if (mlayername[0] != '\0') {
-		if (inv1 == false) {
-			if (!STREQ(mlayername, gpl->info)) {
-				return false;
-			}
-		}
-		else {
-			if (STREQ(mlayername, gpl->info)) {
-				return false;
-			}
-		}
-	}
-	/* verify pass */
-	if (mpassindex > 0) {
-		if (inv2 == false) {
-			if (gps->palcolor->index != mpassindex) {
-				return false;
-			}
-		}
-		else {
-			if (gps->palcolor->index == mpassindex) {
-				return false;
-			}
-		}
-	}
-	/* need to have a minimum number of points */
-	if ((minpoints > 0) && (gps->totpoints < minpoints)) {
-		return false;
-	}
-
-	return true;
-}
-
-/* verify if valid vertex group *and return weight */
-static float is_point_affected_by_modifier(bGPDspoint *pt, int inverse, int vindex)
-{
-	float weight = 1.0f;
-
-	if (vindex >= 0) {
-		weight = BKE_gpencil_vgroup_use_index(pt, vindex);
-		if ((weight >= 0.0f) && (inverse == 1)) {
-			return -1.0f;
-		}
-
-		if ((weight < 0.0f) && (inverse == 0)) {
-			return -1.0f;
-		}
-
-		/* if inverse, weight is always 1 */
-		if ((weight < 0.0f) && (inverse == 1)) {
-			return 1.0f;
-		}
-
-	}
-
-	return weight;
-}
 
 /* get the vertex group index or -1 if empty */
 static int get_vertex_group_index(Object *ob, char *vgname)

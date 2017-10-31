@@ -41,6 +41,7 @@
 #include "DEG_depsgraph.h"
 
 #include "MOD_modifiertypes.h"
+#include "MOD_gpencil_util.h"
 
 static void initData(ModifierData *md)
 {
@@ -54,8 +55,9 @@ static void initData(ModifierData *md)
 	gpmd->scale[2] = 1.0f;
 	gpmd->rnd_rot = 0.5f;
 	gpmd->rnd_size = 0.5f;
+	
 	/* fill random values */
-	BKE_gpencil_fill_random_array(gpmd->rnd, 20);
+	gp_mod_fill_random_array(gpmd->rnd, 20);
 	gpmd->rnd[0] = 1;
 }
 
