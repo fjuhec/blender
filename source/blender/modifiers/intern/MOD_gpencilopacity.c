@@ -30,20 +30,23 @@
 
 #include <stdio.h>
 
+#include "BLI_blenlib.h"
+#include "BLI_utildefines.h"
+
 #include "DNA_scene_types.h"
 #include "DNA_object_types.h"
 #include "DNA_gpencil_types.h"
-
-#include "BLI_utildefines.h"
+#include "DNA_modifier_types.h"
 
 #include "BKE_context.h"
-#include "BKE_global.h"
+#include "BKE_deform.h"
 #include "BKE_gpencil.h"
-#include "BKE_paint.h"
+#include "BKE_modifier.h"
 
 #include "DEG_depsgraph.h"
 
 #include "MOD_modifiertypes.h"
+#include "MOD_gpencil_util.h"
 
 static void initData(ModifierData *md)
 {
@@ -59,7 +62,54 @@ static void copyData(ModifierData *md, ModifierData *target)
 	modifier_copyData_generic(md, target);
 }
 
-static void bakeModifierGP(const bContext *C, const EvaluationContext *UNUSED(eval_ctx),
+/* opacity strokes */
+static void deformStroke(ModifierData *md, const EvaluationContext *UNUSED(eval_ctx),
+                         Object *ob, bGPDlayer *gpl, bGPDstroke *gps)
+{
+	GpencilOpacityModifierData *mmd = (GpencilOpacityModifierData *)md;
+	int vindex = defgroup_name_index(ob, mmd->vgname);
+
+	if (!is_stroke_affected_by_modifier(
+	        mmd->layername, mmd->pass_index, 3, gpl, gps,
+	        mmd->flag & GP_OPACITY_INVERSE_LAYER, mmd->flag & GP_OPACITY_INVERSE_PASS))
+	{
+		return;
+	}
+
+	gps->palcolor->rgb[3] = gps->palcolor->rgb[3] * mmd->factor;
+	gps->palcolor->fill[3] = gps->palcolor->fill[3] * mmd->factor;
+
+	/* if factor is > 1, then force opacity */
+	if (mmd->factor > 1.0f) {
+		gps->palcolor->rgb[3] += mmd->factor - 1.0f;
+		if (gps->palcolor->fill[3] > 1e-5) {
+			gps->palcolor->fill[3] += mmd->factor - 1.0f;
+		}
+	}
+
+
+	CLAMP(gps->palcolor->rgb[3], 0.0f, 1.0f);
+	CLAMP(gps->palcolor->fill[3], 0.0f, 1.0f);
+
+	/* if opacity > 1.0, affect the strength of the stroke */
+	if (mmd->factor > 1.0f) {
+		for (int i = 0; i < gps->totpoints; i++) {
+			bGPDspoint *pt = &gps->points[i];
+			
+			/* verify vertex group */
+			float weight = is_point_affected_by_modifier(pt, (int)(!(mmd->flag & GP_OPACITY_INVERSE_VGROUP) == 0), vindex);
+			if (weight < 0) {
+				pt->strength += mmd->factor - 1.0f;
+			}
+			else {
+				pt->strength += ((mmd->factor * weight) - 1.0f);
+			}
+			CLAMP(pt->strength, 0.0f, 1.0f);
+		}
+	}
+}
+
+static void bakeModifierGP(const bContext *UNUSED(C), const EvaluationContext *eval_ctx,
                            ModifierData *md, Object *ob)
 {
 	bGPdata *gpd = ob->data;
@@ -67,7 +117,7 @@ static void bakeModifierGP(const bContext *C, const EvaluationContext *UNUSED(ev
 	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
 		for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
 			for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
-				BKE_gpencil_opacity_modifier(-1, (GpencilOpacityModifierData *)md, ob, gpl, gps);
+				deformStroke(md, eval_ctx, ob, gpl, gps);
 			}
 		}
 	}
@@ -87,7 +137,7 @@ ModifierTypeInfo modifierType_GpencilOpacity = {
 	/* deformMatricesEM */  NULL,
 	/* applyModifier */     NULL,
 	/* applyModifierEM */   NULL,
-	/* deformStroke */      NULL,
+	/* deformStroke */      deformStroke,
 	/* generateStrokes */   NULL,
 	/* bakeModifierGP */    bakeModifierGP,
 	/* initData */          initData,

@@ -209,7 +209,7 @@ static void deformStroke(ModifierData *md, const EvaluationContext *UNUSED(eval_
 	}
 }
 
-static void bakeModifierGP(const bContext *C, const EvaluationContext *eval_ctx,
+static void bakeModifierGP(const bContext *UNUSED(C), const EvaluationContext *eval_ctx,
                            ModifierData *md, Object *ob)
 {
 	bGPdata *gpd = ob->data;

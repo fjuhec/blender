@@ -36,13 +36,15 @@
 
 #include "BLI_utildefines.h"
 
-#include "BKE_context.h"
-#include "BKE_gpencil.h"
 #include "BKE_colortools.h"
+#include "BKE_context.h"
+#include "BKE_deform.h"
+#include "BKE_gpencil.h"
 
 #include "DEG_depsgraph.h"
 
 #include "MOD_modifiertypes.h"
+#include "MOD_gpencil_util.h"
 
 static void initData(ModifierData *md)
 {
@@ -80,7 +82,42 @@ static void copyData(ModifierData *md, ModifierData *target)
 	tgmd->cur_thickness = curvemapping_copy(gmd->cur_thickness);
 }
 
-static void bakeModifierGP(const bContext *C, const EvaluationContext *UNUSED(eval_ctx),
+/* change stroke thickness */
+static void deformStroke(ModifierData *md, const EvaluationContext *UNUSED(eval_ctx),
+                         Object *ob, bGPDlayer *gpl, bGPDstroke *gps)
+{
+	GpencilThickModifierData *mmd = (GpencilThickModifierData *)md;
+	int vindex = defgroup_name_index(ob, mmd->vgname);
+
+	if (!is_stroke_affected_by_modifier(
+	        mmd->layername, mmd->pass_index, 3, gpl, gps,
+	        mmd->flag & GP_THICK_INVERSE_LAYER, mmd->flag & GP_THICK_INVERSE_PASS))
+	{
+		return;
+	}
+
+	for (int i = 0; i < gps->totpoints; i++) {
+		bGPDspoint *pt = &gps->points[i];
+		float curvef = 1.0f;
+		
+		/* verify vertex group */
+		float weight = is_point_affected_by_modifier(pt, (int)(!(mmd->flag & GP_THICK_INVERSE_VGROUP) == 0), vindex);
+		if (weight < 0) {
+			continue;
+		}
+
+		if ((mmd->flag & GP_THICK_CUSTOM_CURVE) && (mmd->cur_thickness)) {
+			/* nomalize value */
+			float value = (float)i / (gps->totpoints - 1);
+			curvef = curvemapping_evaluateF(mmd->cur_thickness, 0, value);
+		}
+
+		pt->pressure += mmd->thickness * weight * curvef;
+		CLAMP(pt->strength, 0.0f, 1.0f);
+	}
+}
+
+static void bakeModifierGP(const bContext *UNUSED(C), const EvaluationContext *eval_ctx,
                            ModifierData *md, Object *ob)
 {
 	bGPdata *gpd = ob->data;
@@ -88,7 +125,7 @@ static void bakeModifierGP(const bContext *C, const EvaluationContext *UNUSED(ev
 	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
 		for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
 			for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
-				BKE_gpencil_thick_modifier(-1, (GpencilThickModifierData *)md, ob, gpl, gps);
+				deformStroke(md, eval_ctx, ob, gpl, gps);
 			}
 		}
 	}
@@ -108,7 +145,7 @@ ModifierTypeInfo modifierType_GpencilThick = {
 	/* deformMatricesEM */  NULL,
 	/* applyModifier */     NULL,
 	/* applyModifierEM */   NULL,
-	/* deformStroke */      NULL,
+	/* deformStroke */      deformStroke,
 	/* generateStrokes */   NULL,
 	/* bakeModifierGP */    bakeModifierGP,
 	/* initData */          initData,

@@ -34,8 +34,9 @@
 #include "DNA_object_types.h"
 #include "DNA_gpencil_types.h"
 
-#include "BLI_utildefines.h"
 #include "BLI_ghash.h"
+#include "BLI_math_vector.h"
+#include "BLI_utildefines.h"
 
 #include "BKE_context.h"
 #include "BKE_global.h"
@@ -46,6 +47,7 @@
 #include "DEG_depsgraph.h"
 
 #include "MOD_modifiertypes.h"
+#include "MOD_gpencil_util.h"
 
 static void initData(ModifierData *md)
 {
@@ -61,7 +63,44 @@ static void copyData(ModifierData *md, ModifierData *target)
 	modifier_copyData_generic(md, target);
 }
 
-static void bakeModifierGP(const bContext *C, const EvaluationContext *UNUSED(eval_ctx),
+/* tint strokes */
+static void deformStroke(ModifierData *md, const EvaluationContext *UNUSED(eval_ctx),
+                         Object *UNUSED(ob), bGPDlayer *gpl, bGPDstroke *gps)
+{
+	GpencilTintModifierData *mmd = (GpencilTintModifierData *)md;
+
+	if (!is_stroke_affected_by_modifier(
+	        mmd->layername, mmd->pass_index, 1, gpl, gps,
+	        mmd->flag & GP_TINT_INVERSE_LAYER, mmd->flag & GP_TINT_INVERSE_PASS))
+	{
+		return;
+	}
+
+	interp_v3_v3v3(gps->palcolor->rgb, gps->palcolor->rgb, mmd->rgb, mmd->factor);
+	interp_v3_v3v3(gps->palcolor->fill, gps->palcolor->fill, mmd->rgb, mmd->factor);
+
+	/* if factor is > 1, the alpha must be changed to get full tint */
+	if (mmd->factor > 1.0f) {
+		gps->palcolor->rgb[3] += mmd->factor - 1.0f;
+		if (gps->palcolor->fill[3] > 1e-5) {
+			gps->palcolor->fill[3] += mmd->factor - 1.0f;
+		}
+	}
+
+	CLAMP4(gps->palcolor->rgb, 0.0f, 1.0f);
+	CLAMP4(gps->palcolor->fill, 0.0f, 1.0f);
+	
+	/* if factor > 1.0, affect the strength of the stroke */
+	if (mmd->factor > 1.0f) {
+		for (int i = 0; i < gps->totpoints; i++) {
+			bGPDspoint *pt = &gps->points[i];
+			pt->strength += mmd->factor - 1.0f;
+			CLAMP(pt->strength, 0.0f, 1.0f);
+		}
+	}
+}
+
+static void bakeModifierGP(const bContext *C, const EvaluationContext *eval_ctx,
                            ModifierData *md, Object *ob)
 {
 	GpencilTintModifierData *mmd = (GpencilTintModifierData *)md;
@@ -98,7 +137,8 @@ static void bakeModifierGP(const bContext *C, const EvaluationContext *UNUSED(ev
 						newpalcolor = gps->palcolor;
 					}
 					BLI_ghash_insert(gh_color, gps->palcolor->info, newpalcolor);
-					BKE_gpencil_tint_modifier(-1, (GpencilTintModifierData *)md, ob, gpl, gps);
+
+					deformStroke(md, eval_ctx, ob, gpl, gps);
 				}
 				else {
 					gps->palcolor = newpalcolor;
@@ -138,7 +178,7 @@ ModifierTypeInfo modifierType_GpencilTint = {
 	/* deformMatricesEM */  NULL,
 	/* applyModifier */     NULL,
 	/* applyModifierEM */   NULL,
-	/* deformStroke */      NULL,
+	/* deformStroke */      deformStroke,
 	/* generateStrokes */   NULL,
 	/* bakeModifierGP */    bakeModifierGP,
 	/* initData */          initData,

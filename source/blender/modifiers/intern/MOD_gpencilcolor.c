@@ -34,8 +34,10 @@
 #include "DNA_object_types.h"
 #include "DNA_gpencil_types.h"
 
-#include "BLI_utildefines.h"
 #include "BLI_ghash.h"
+#include "BLI_math_color.h"
+#include "BLI_math_vector.h"
+#include "BLI_utildefines.h"
 
 #include "BKE_global.h"
 #include "BKE_context.h"
@@ -45,6 +47,7 @@
 #include "DEG_depsgraph.h"
 
 #include "MOD_modifiertypes.h"
+#include "MOD_gpencil_util.h"
 
 static void initData(ModifierData *md)
 {
@@ -60,7 +63,38 @@ static void copyData(ModifierData *md, ModifierData *target)
 	modifier_copyData_generic(md, target);
 }
 
-static void bakeModifierGP(const bContext *C, const EvaluationContext *UNUSED(eval_ctx),
+/* color correction strokes */
+static void deformStroke(ModifierData *md, const EvaluationContext *UNUSED(eval_ctx),
+                         Object *UNUSED(ob), bGPDlayer *gpl, bGPDstroke *gps)
+{
+	GpencilColorModifierData *mmd = (GpencilColorModifierData *)md;
+	PaletteColor *palcolor;
+	float hsv[3], factor[3];
+
+	if (!is_stroke_affected_by_modifier(
+	        mmd->layername, mmd->pass_index, 1, gpl, gps,
+	        mmd->flag & GP_COLOR_INVERSE_LAYER, mmd->flag & GP_COLOR_INVERSE_PASS))
+	{
+		return;
+	}
+
+	palcolor = gps->palcolor;
+	copy_v3_v3(factor, mmd->hsv);
+	add_v3_fl(factor, -1.0f);
+
+	rgb_to_hsv_v(palcolor->rgb, hsv);
+	add_v3_v3(hsv, factor);
+	CLAMP3(hsv, 0.0f, 1.0f);
+	hsv_to_rgb_v(hsv, palcolor->rgb);
+
+	rgb_to_hsv_v(palcolor->fill, hsv);
+	add_v3_v3(hsv, factor);
+	CLAMP3(hsv, 0.0f, 1.0f);
+	hsv_to_rgb_v(hsv, palcolor->fill);
+
+}
+
+static void bakeModifierGP(const bContext *UNUSED(C), const EvaluationContext *eval_ctx,
                            ModifierData *md, Object *ob)
 {
 	GpencilColorModifierData *mmd = (GpencilColorModifierData *)md;
@@ -95,7 +129,8 @@ static void bakeModifierGP(const bContext *C, const EvaluationContext *UNUSED(ev
 						newpalcolor = gps->palcolor;
 					}
 					BLI_ghash_insert(gh_color, gps->palcolor->info, newpalcolor);
-					BKE_gpencil_color_modifier(-1, (GpencilColorModifierData *)md, ob, gpl, gps);
+					
+					deformStroke(md, eval_ctx, ob, gpl, gps);
 				}
 				else {
 					gps->palcolor = newpalcolor;
@@ -135,7 +170,7 @@ ModifierTypeInfo modifierType_GpencilColor = {
 	/* deformMatricesEM */  NULL,
 	/* applyModifier */     NULL,
 	/* applyModifierEM */   NULL,
-	/* deformStroke */      NULL,
+	/* deformStroke */      deformStroke,
 	/* generateStrokes */   NULL,
 	/* bakeModifierGP */    bakeModifierGP,
 	/* initData */          initData,

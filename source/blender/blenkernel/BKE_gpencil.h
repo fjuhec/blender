@@ -203,12 +203,8 @@ void BKE_gpencil_stroke_normal(const struct bGPDstroke *gps, float r_normal[3]);
 
 void BKE_gpencil_subdiv_modifier(int id, struct GpencilSubdivModifierData *mmd, struct Object *ob, struct bGPDlayer *gpl, struct bGPDstroke *gps);
 void BKE_gpencil_simplify_modifier(int id, struct GpencilSimplifyModifierData *mmd, struct Object *ob, struct bGPDlayer *gpl, struct bGPDstroke *gps);
-void BKE_gpencil_thick_modifier(int id, struct GpencilThickModifierData *mmd, struct Object *ob, struct bGPDlayer *gpl, struct bGPDstroke *gps);
-void BKE_gpencil_tint_modifier(int id, struct GpencilTintModifierData *mmd, struct Object *ob, struct bGPDlayer *gpl, struct bGPDstroke *gps);
-void BKE_gpencil_color_modifier(int id, struct GpencilColorModifierData *mmd, struct Object *ob, struct bGPDlayer *gpl, struct bGPDstroke *gps);
 void BKE_gpencil_array_modifier(int id, struct GpencilArrayModifierData *mmd, struct Object *ob, int elem_idx[3], float r_mat[4][4]);
 void BKE_gpencil_dupli_modifier(int id, struct GpencilDupliModifierData *mmd, struct Object *ob, struct bGPDlayer *gpl, struct bGPDframe *gpf);
-void BKE_gpencil_opacity_modifier(int id, struct GpencilOpacityModifierData *mmd, struct Object *ob, struct bGPDlayer *gpl, struct bGPDstroke *gps);
 
 /* (wrapper api) simplify stroke using Ramer-Douglas-Peucker algorithm */
 void BKE_gpencil_simplify_stroke(struct bGPDlayer *gpl, struct bGPDstroke *gps, float factor);
