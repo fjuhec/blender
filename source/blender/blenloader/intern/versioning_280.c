@@ -440,34 +440,6 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 				BKE_gpencil_batch_cache_dirty(ob->data);
 			}
 		}
-		
-		/* Handle object-linked grease pencil datablocks */
-		for (Object *ob = main->object.first; ob; ob = ob->id.next) {
-			if (ob->gpd) {
-				if (ob->type == OB_GPENCIL) {
-					/* GP Object - remap the links */
-					ob->data = ob->gpd;
-					ob->gpd = NULL;
-				}
-				else if (ob->type == OB_EMPTY) {
-					/* Empty with GP data - This should be able to be converted
-					 * to a GP object with little data loss
-					 */
-					ob->data = ob->gpd;
-					ob->gpd = NULL;
-					ob->type = OB_GPENCIL;
-				}
-				else {
-					/* FIXME: What to do in this case?
-					 *
-					 * We cannot create new objects for these, as we don't have a scene & scene layer
-					 * to put them into from here...
-					 */
-					printf("WARNING: Old Grease Pencil data ('%s') still exists on Object '%s'\n",
-					       ob->gpd->id.name+2, ob->id.name+2);
-				}
-			}
-		}
 
 		/* Convert grease pencil palettes to blender palettes */
 		if (!DNA_struct_elem_find(fd->filesdna, "bGPDstroke", "Palette", "*palette")) {
@@ -577,6 +549,37 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 		if (!DNA_struct_elem_find(fd->filesdna, "bGPDdata", "int", "pixfactor")) {
 			for (bGPdata *gpd = main->gpencil.first; gpd; gpd = gpd->id.next) {
 				gpd->pixfactor = GP_DEFAULT_PIX_FACTOR;
+			}
+		}
+	}
+	
+	/* XXX: Merge back into previous case... leaving like this so the Hero animatic/production files so far don't break */
+	if (!MAIN_VERSION_ATLEAST(main, 280, 3)) {
+		/* Handle object-linked grease pencil datablocks */
+		for (Object *ob = main->object.first; ob; ob = ob->id.next) {
+			if (ob->gpd) {
+				if (ob->type == OB_GPENCIL) {
+					/* GP Object - remap the links */
+					ob->data = ob->gpd;
+					ob->gpd = NULL;
+				}
+				else if (ob->type == OB_EMPTY) {
+					/* Empty with GP data - This should be able to be converted
+					 * to a GP object with little data loss
+					 */
+					ob->data = ob->gpd;
+					ob->gpd = NULL;
+					ob->type = OB_GPENCIL;
+				}
+				else {
+					/* FIXME: What to do in this case?
+					 *
+					 * We cannot create new objects for these, as we don't have a scene & scene layer
+					 * to put them into from here...
+					 */
+					printf("WARNING: Old Grease Pencil data ('%s') still exists on Object '%s'\n",
+					       ob->gpd->id.name+2, ob->id.name+2);
+				}
 			}
 		}
 	}
