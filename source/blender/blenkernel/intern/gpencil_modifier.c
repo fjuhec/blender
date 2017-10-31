@@ -98,90 +98,6 @@ void BKE_gpencil_stroke_normal(const bGPDstroke *gps, float r_normal[3])
 	normalize_v3(r_normal);
 }
 
-/* subdivide stroke to get more control points */
-void BKE_gpencil_subdiv_modifier(
-        int UNUSED(id), GpencilSubdivModifierData *mmd, Object *UNUSED(ob), bGPDlayer *gpl, bGPDstroke *gps)
-{
-	bGPDspoint *temp_points;
-	int totnewpoints, oldtotpoints;
-	int i2;
-
-	if (!is_stroke_affected_by_modifier(
-	        mmd->layername, mmd->pass_index, 3, gpl, gps,
-	        mmd->flag & GP_SUBDIV_INVERSE_LAYER, mmd->flag & GP_SUBDIV_INVERSE_PASS))
-	{
-		return;
-	}
-
-	/* loop as many times as levels */
-	for (int s = 0; s < mmd->level; s++) {
-		totnewpoints = gps->totpoints - 1;
-		/* duplicate points in a temp area */
-		temp_points = MEM_dupallocN(gps->points);
-		oldtotpoints = gps->totpoints;
-
-		/* resize the points arrys */
-		gps->totpoints += totnewpoints;
-		gps->points = MEM_recallocN(gps->points, sizeof(*gps->points) * gps->totpoints);
-		gps->flag |= GP_STROKE_RECALC_CACHES;
-
-		/* move points from last to first to new place */
-		i2 = gps->totpoints - 1;
-		for (int i = oldtotpoints - 1; i > 0; i--) {
-			bGPDspoint *pt = &temp_points[i];
-			bGPDspoint *pt_final = &gps->points[i2];
-
-			copy_v3_v3(&pt_final->x, &pt->x);
-			pt_final->pressure = pt->pressure;
-			pt_final->strength = pt->strength;
-			pt_final->time = pt->time;
-			pt_final->flag = pt->flag;
-			pt_final->totweight = pt->totweight;
-			pt_final->weights = pt->weights;
-			i2 -= 2;
-		}
-		/* interpolate mid points */
-		i2 = 1;
-		for (int i = 0; i < oldtotpoints - 1; i++) {
-			bGPDspoint *pt = &temp_points[i];
-			bGPDspoint *next = &temp_points[i + 1];
-			bGPDspoint *pt_final = &gps->points[i2];
-
-			/* add a half way point */
-			interp_v3_v3v3(&pt_final->x, &pt->x, &next->x, 0.5f);
-			pt_final->pressure = interpf(pt->pressure, next->pressure, 0.5f);
-			pt_final->strength = interpf(pt->strength, next->strength, 0.5f);
-			CLAMP(pt_final->strength, GPENCIL_STRENGTH_MIN, 1.0f);
-			pt_final->time = interpf(pt->time, next->time, 0.5f);
-			pt_final->totweight = 0;
-			pt_final->weights = NULL;
-			i2 += 2;
-		}
-
-		MEM_SAFE_FREE(temp_points);
-
-		/* move points to smooth stroke (not simple flag )*/
-		if ((mmd->flag & GP_SUBDIV_SIMPLE) == 0) {
-			/* duplicate points in a temp area with the new subdivide data */
-			temp_points = MEM_dupallocN(gps->points);
-
-			/* extreme points are not changed */
-			for (int i = 0; i < gps->totpoints - 2; i++) {
-				bGPDspoint *pt = &temp_points[i];
-				bGPDspoint *next = &temp_points[i + 1];
-				bGPDspoint *pt_final = &gps->points[i + 1];
-
-				/* move point */
-				interp_v3_v3v3(&pt_final->x, &pt->x, &next->x, 0.5f);
-			}
-			/* free temp memory */
-			MEM_SAFE_FREE(temp_points);
-		}
-	}
-}
-
-
-
 /* helper function to sort strokes using qsort */
 static int gpencil_stroke_cache_compare(const void *a1, const void *a2)
 {
@@ -644,10 +560,6 @@ void BKE_gpencil_stroke_modifiers(Object *ob, bGPDlayer *gpl, bGPDframe *UNUSED(
 
 			// XXX: The following lines need to all be converted to modifier callbacks...
 			switch (md->type) {
-					// Subdiv Modifier
-				case eModifierType_GpencilSubdiv:
-					BKE_gpencil_subdiv_modifier(id, (GpencilSubdivModifierData *)md, ob, gpl, gps);
-					break;
 					// Simplify Modifier
 				case eModifierType_GpencilSimplify:
 					BKE_gpencil_simplify_modifier(id, (GpencilSimplifyModifierData *)md, ob, gpl, gps);
