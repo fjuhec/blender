@@ -6738,16 +6738,15 @@ static void ui_but_menu_add_path_operators(uiLayout *layout, PointerRNA *ptr, Pr
 
 	if (file[0]) {
 		BLI_assert(subtype == PROP_FILEPATH);
-
-		props_ptr = uiItemFullO_ptr(
-		                layout, ot, CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Open File Externally"),
-		                ICON_NONE, NULL, WM_OP_INVOKE_DEFAULT, UI_ITEM_O_RETURN_PROPS);
+		uiItemFullO_ptr(
+		        layout, ot, CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Open File Externally"),
+		        ICON_NONE, NULL, WM_OP_INVOKE_DEFAULT, 0, &props_ptr);
 		RNA_string_set(&props_ptr, "filepath", filepath);
 	}
 
-	props_ptr = uiItemFullO_ptr(
-	                layout, ot, CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Open Location Externally"),
-	                ICON_NONE, NULL, WM_OP_INVOKE_DEFAULT, UI_ITEM_O_RETURN_PROPS);
+	uiItemFullO_ptr(
+	        layout, ot, CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Open Location Externally"),
+	        ICON_NONE, NULL, WM_OP_INVOKE_DEFAULT, 0, &props_ptr);
 	RNA_string_set(&props_ptr, "filepath", dir);
 }
 
@@ -6933,11 +6932,11 @@ static bool ui_but_menu(bContext *C, uiBut *but)
 			if (but->flag & UI_BUT_OVERRIDEN) {
 				if (is_array_component) {
 					ot = WM_operatortype_find("UI_OT_override_type_set_button", false);
-					op_ptr = uiItemFullO_ptr(layout, ot, "Overrides Type", ICON_NONE,
-					                         NULL, WM_OP_INVOKE_DEFAULT, UI_ITEM_O_RETURN_PROPS);
+					uiItemFullO_ptr(layout, ot, "Overrides Type", ICON_NONE,
+					                NULL, WM_OP_INVOKE_DEFAULT, 0, &op_ptr);
 					RNA_boolean_set(&op_ptr, "all", true);
-					op_ptr = uiItemFullO_ptr(layout, ot, "Single Override Type", ICON_NONE,
-					                         NULL, WM_OP_INVOKE_DEFAULT, UI_ITEM_O_RETURN_PROPS);
+					uiItemFullO_ptr(layout, ot, "Single Override Type", ICON_NONE,
+					                NULL, WM_OP_INVOKE_DEFAULT, 0, &op_ptr);
 					RNA_boolean_set(&op_ptr, "all", false);
 
 					uiItemBooleanO(layout, CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Remove Overrides"),
@@ -6946,8 +6945,8 @@ static bool ui_but_menu(bContext *C, uiBut *but)
 					               ICON_X, "UI_OT_override_remove_button", "all", false);
 				}
 				else {
-					op_ptr = uiItemFullO(layout, "UI_OT_override_type_set_button", "Override Type", ICON_NONE,
-					                     NULL, WM_OP_INVOKE_DEFAULT, UI_ITEM_O_RETURN_PROPS);
+					uiItemFullO(layout, "UI_OT_override_type_set_button", "Override Type", ICON_NONE,
+					            NULL, WM_OP_INVOKE_DEFAULT, 0, &op_ptr);
 					RNA_boolean_set(&op_ptr, "all", false);
 
 					uiItemBooleanO(layout, CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Remove Override"),
@@ -6957,16 +6956,16 @@ static bool ui_but_menu(bContext *C, uiBut *but)
 			else {
 				if (is_array_component) {
 					ot = WM_operatortype_find("UI_OT_override_type_set_button", false);
-					op_ptr = uiItemFullO_ptr(layout, ot, "Define Overrides", ICON_NONE,
-					                         NULL, WM_OP_INVOKE_DEFAULT, UI_ITEM_O_RETURN_PROPS);
+					uiItemFullO_ptr(layout, ot, "Define Overrides", ICON_NONE,
+					                NULL, WM_OP_INVOKE_DEFAULT, 0, &op_ptr);
 					RNA_boolean_set(&op_ptr, "all", true);
-					op_ptr = uiItemFullO_ptr(layout, ot, "Define Single Override", ICON_NONE,
-					                         NULL, WM_OP_INVOKE_DEFAULT, UI_ITEM_O_RETURN_PROPS);
+					uiItemFullO_ptr(layout, ot, "Define Single Override", ICON_NONE,
+					                NULL, WM_OP_INVOKE_DEFAULT, 0, &op_ptr);
 					RNA_boolean_set(&op_ptr, "all", false);
 				}
 				else {
-					op_ptr = uiItemFullO(layout, "UI_OT_override_type_set_button", "Define Override", ICON_NONE,
-					                     NULL, WM_OP_INVOKE_DEFAULT, UI_ITEM_O_RETURN_PROPS);
+					uiItemFullO(layout, "UI_OT_override_type_set_button", "Define Override", ICON_NONE,
+					            NULL, WM_OP_INVOKE_DEFAULT, 0, &op_ptr);
 					RNA_boolean_set(&op_ptr, "all", false);
 				}
 			}
@@ -7079,21 +7078,23 @@ static bool ui_but_menu(bContext *C, uiBut *but)
 
 	{   /* Docs */
 		char buf[512];
-		PointerRNA ptr_props;
 
 		if (UI_but_online_manual_id(but, buf, sizeof(buf))) {
+			PointerRNA ptr_props;
 			uiItemO(layout, CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Online Manual"),
 			        ICON_URL, "WM_OT_doc_view_manual_ui_context");
 
-			ptr_props = uiItemFullO(layout, "WM_OT_doc_view",
-			                            CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Online Python Reference"),
-			                            ICON_NONE, NULL, WM_OP_EXEC_DEFAULT, UI_ITEM_O_RETURN_PROPS);
+			uiItemFullO(
+			        layout, "WM_OT_doc_view",
+			        CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Online Python Reference"),
+			        ICON_NONE, NULL, WM_OP_EXEC_DEFAULT, 0, &ptr_props);
 			RNA_string_set(&ptr_props, "doc_id", buf);
 
 			/* XXX inactive option, not for public! */
 #if 0
-			ptr_props = uiItemFullO(layout, "WM_OT_doc_edit",
-			                            "Submit Description", ICON_NONE, NULL, WM_OP_INVOKE_DEFAULT, UI_ITEM_O_RETURN_PROPS);
+			uiItemFullO(
+			        layout, "WM_OT_doc_edit", "Submit Description", ICON_NONE,
+			        NULL, WM_OP_INVOKE_DEFAULT, 0, &ptr_props);
 			RNA_string_set(&ptr_props, "doc_id", buf);
 			RNA_string_set(&ptr_props, "doc_new", RNA_property_description(but->rnaprop));
 #endif
@@ -7107,9 +7108,9 @@ static bool ui_but_menu(bContext *C, uiBut *but)
 
 	/* perhaps we should move this into (G.debug & G_DEBUG) - campbell */
 	if (ui_block_is_menu(but->block) == false) {
-		uiItemFullO(layout, "UI_OT_editsource", NULL, ICON_NONE, NULL, WM_OP_INVOKE_DEFAULT, 0);
+		uiItemFullO(layout, "UI_OT_editsource", NULL, ICON_NONE, NULL, WM_OP_INVOKE_DEFAULT, 0, NULL);
 	}
-	uiItemFullO(layout, "UI_OT_edittranslation_init", NULL, ICON_NONE, NULL, WM_OP_INVOKE_DEFAULT, 0);
+	uiItemFullO(layout, "UI_OT_edittranslation_init", NULL, ICON_NONE, NULL, WM_OP_INVOKE_DEFAULT, 0, NULL);
 
 	mt = WM_menutype_find("WM_MT_button_context", true);
 	if (mt) {
