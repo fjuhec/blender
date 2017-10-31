@@ -508,5 +508,20 @@ typedef enum eGP_DepthOrdering {
 	GP_XRAY_BACK  = 2
 } eGP_DepthOrdering;
 
+/* ***************************************** */
+/* Mode Checking Macros */
+
+/* Check if 'sketching sessions' are enabled */
+#define GPENCIL_SKETCH_SESSIONS_ON(scene) ((scene)->toolsettings->gpencil_flags & GP_TOOL_FLAG_PAINTSESSIONS_ON)
+
+/* Check if 'multiedit sessions' is enabled */
+#define GPENCIL_MULTIEDIT_SESSIONS_ON(gpd) ((gpd) && (gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE)) && (gpd->flag & GP_DATA_STROKE_MULTIEDIT)) 
+
+/* Macros to check grease pencil modes */
+#define GPENCIL_ANY_MODE(gpd) ((gpd) && (gpd->flag & (GP_DATA_STROKE_PAINTMODE | GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE))) 
+#define GPENCIL_ANY_EDIT_MODE(gpd) ((gpd) && (gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE))) 
+#define GPENCIL_SCULPT_OR_WEIGHT_MODE(gpd) ((gpd) && (gpd->flag & (GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE))) 
+#define GPENCIL_NONE_EDIT_MODE(gpd) ((gpd) && ((gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE)) == 0))
+
 
 #endif /*  __DNA_GPENCIL_TYPES_H__ */

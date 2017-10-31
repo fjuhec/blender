@@ -54,9 +54,6 @@
 // XXX: temp transitional code
 #include "../../modifiers/intern/MOD_gpencil_util.h"
 
-#define GPENCIL_ANY_EDIT_MODE(gpd) \
-	((gpd) && ((gpd)->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE)))
-
 /* used to save temp strokes */
 typedef struct tGPencilStrokeCache {
 	struct bGPDstroke *gps;
