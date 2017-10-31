@@ -44,11 +44,12 @@
 #include "DNA_modifier_types.h"
 
 #include "BKE_global.h"
-#include "BKE_object.h"
-#include "BKE_lattice.h"
-#include "BKE_gpencil.h"
-#include "BKE_modifier.h"
 #include "BKE_colortools.h"
+#include "BKE_deform.h"
+#include "BKE_gpencil.h"
+#include "BKE_lattice.h"
+#include "BKE_modifier.h"
+#include "BKE_object.h"
  
 // XXX: temp transitional code
 #include "../../modifiers/intern/MOD_gpencil_util.h"
@@ -66,21 +67,6 @@ typedef struct tGPencilStrokeCache {
 typedef struct tbGPDspoint {
 	float p2d[2];
 } tbGPDspoint;
-
-/* get the vertex group index or -1 if empty */
-static int get_vertex_group_index(Object *ob, char *vgname)
-{
-	int vindex = -1;
-	/* get vertex group index */
-	if (vgname[0] != '\0') {
-		bDeformGroup *defgrp = BLI_findstring(&ob->defbase, vgname, offsetof(bDeformGroup, name));
-		if (defgrp) {
-			vindex = BLI_findindex(&ob->defbase, defgrp);
-		}
-	}
-	
-	return vindex;
-}
 
 /* calculate stroke normal using some points */
 void BKE_gpencil_stroke_normal(const bGPDstroke *gps, float r_normal[3])
@@ -124,7 +110,7 @@ void BKE_gpencil_noise_modifier(
 	Scene *scene = NULL;
 	int sc_frame = 0;
 	int sc_diff = 0;
-	int vindex = get_vertex_group_index(ob, mmd->vgname);
+	int vindex = defgroup_name_index(ob, mmd->vgname);
 	float weight = 1.0f;
 
 	if (!is_stroke_affected_by_modifier(
@@ -327,7 +313,7 @@ void BKE_gpencil_thick_modifier(
         int UNUSED(id), GpencilThickModifierData *mmd, Object *ob, bGPDlayer *gpl, bGPDstroke *gps)
 {
 	bGPDspoint *pt;
-	int vindex = get_vertex_group_index(ob, mmd->vgname);
+	int vindex = defgroup_name_index(ob, mmd->vgname);
 	float weight = 1.0f;
 	float curvef = 1.0;
 
@@ -431,7 +417,7 @@ void BKE_gpencil_opacity_modifier(
         int UNUSED(id), GpencilOpacityModifierData *mmd, Object *ob, bGPDlayer *gpl, bGPDstroke *gps)
 {
 	bGPDspoint *pt;
-	int vindex = get_vertex_group_index(ob, mmd->vgname);
+	int vindex = defgroup_name_index(ob, mmd->vgname);
 	float weight = 1.0f;
 
 	if (!is_stroke_affected_by_modifier(
@@ -675,7 +661,7 @@ void BKE_gpencil_lattice_modifier(
         int UNUSED(id), GpencilLatticeModifierData *mmd, Object *ob, bGPDlayer *gpl, bGPDstroke *gps)
 {
 	bGPDspoint *pt;
-	int vindex = get_vertex_group_index(ob, mmd->vgname);
+	int vindex = defgroup_name_index(ob, mmd->vgname);
 	float weight = 1.0f;
 
 	if (!is_stroke_affected_by_modifier(
