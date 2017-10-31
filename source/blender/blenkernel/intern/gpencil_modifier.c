@@ -51,6 +51,8 @@
 #include "BKE_modifier.h"
 #include "BKE_object.h"
  
+#include "DEG_depsgraph.h"
+ 
 // XXX: temp transitional code
 #include "../../modifiers/intern/MOD_gpencil_util.h"
 
@@ -94,133 +96,6 @@ void BKE_gpencil_stroke_normal(const bGPDstroke *gps, float r_normal[3])
 
 	/* Normalize vector */
 	normalize_v3(r_normal);
-}
-
-/* calculate a noise base on stroke direction */
-void BKE_gpencil_noise_modifier(
-        int UNUSED(id), GpencilNoiseModifierData *mmd, Object *ob, bGPDlayer *gpl, bGPDstroke *gps)
-{
-	bGPDspoint *pt0, *pt1;
-	float shift, vran, vdir;
-	float normal[3];
-	float vec1[3], vec2[3];
-	Scene *scene = NULL;
-	int sc_frame = 0;
-	int sc_diff = 0;
-	int vindex = defgroup_name_index(ob, mmd->vgname);
-	float weight = 1.0f;
-
-	if (!is_stroke_affected_by_modifier(
-	        mmd->layername, mmd->pass_index, 3, gpl, gps,
-	         mmd->flag & GP_NOISE_INVERSE_LAYER, mmd->flag & GP_NOISE_INVERSE_PASS))
-	{
-		return;
-	}
-
-	scene = mmd->modifier.scene;
-	sc_frame = (scene) ? CFRA : 0;
-
-	zero_v3(vec2);
-
-	/* calculate stroke normal*/
-	BKE_gpencil_stroke_normal(gps, normal);
-
-	/* move points */
-	for (int i = 0; i < gps->totpoints; i++) {
-		if (((i == 0) || (i == gps->totpoints - 1)) && ((mmd->flag & GP_NOISE_MOVE_EXTREME) == 0)) {
-			continue;
-		}
-
-		/* last point is special */
-		if (i == gps->totpoints) {
-			pt0 = &gps->points[i - 2];
-			pt1 = &gps->points[i - 1];
-		}
-		else {
-			pt0 = &gps->points[i - 1];
-			pt1 = &gps->points[i];
-		}
-		/* verify vertex group */
-		weight = is_point_affected_by_modifier(pt0, (int)(!(mmd->flag & GP_NOISE_INVERSE_VGROUP) == 0), vindex);
-		if (weight < 0) {
-			continue;
-		}
-
-		/* initial vector (p0 -> p1) */
-		sub_v3_v3v3(vec1, &pt1->x, &pt0->x);
-		vran = len_v3(vec1);
-		/* vector orthogonal to normal */
-		cross_v3_v3v3(vec2, vec1, normal);
-		normalize_v3(vec2);
-		/* use random noise */
-		if (mmd->flag & GP_NOISE_USE_RANDOM) {
-			sc_diff = abs(mmd->scene_frame - sc_frame);
-			/* only recalc if the gp frame change or the number of scene frames is bigger than step */
-			if ((!gpl->actframe) || (mmd->gp_frame != gpl->actframe->framenum) || 
-			    (sc_diff >= mmd->step))
-			{
-				vran = mmd->vrand1 = BLI_frand();
-				vdir = mmd->vrand2 = BLI_frand();
-				mmd->gp_frame = gpl->actframe->framenum;
-				mmd->scene_frame = sc_frame;
-			}
-			else {
-				vran = mmd->vrand1;
-				if (mmd->flag & GP_NOISE_FULL_STROKE) {
-					vdir = mmd->vrand2;
-				}
-				else {
-					int f = (mmd->vrand2 * 10.0f) + i;
-					vdir = f % 2;
-				}
-			}
-		}
-		else {
-			vran = 1.0f;
-			if (mmd->flag & GP_NOISE_FULL_STROKE) {
-				vdir = gps->totpoints % 2;
-			}
-			else {
-				vdir = i % 2;
-			}
-			mmd->gp_frame = -999999;
-		}
-
-		/* apply randomness to location of the point */
-		if (mmd->flag & GP_NOISE_MOD_LOCATION) {
-			/* factor is too sensitive, so need divide */
-			shift = (vran * mmd->factor / 10.0f) * weight;
-			if (vdir > 0.5f) {
-				mul_v3_fl(vec2, shift);
-			}
-			else {
-				mul_v3_fl(vec2, shift * -1.0f);
-			}
-			add_v3_v3(&pt1->x, vec2);
-		}
-
-		/* apply randomness to thickness */
-		if (mmd->flag & GP_NOISE_MOD_THICKNESS) {
-			if (vdir > 0.5f) {
-				pt1->pressure -= pt1->pressure * vran * mmd->factor;
-			}
-			else {
-				pt1->pressure += pt1->pressure * vran * mmd->factor;
-			}
-			CLAMP_MIN(pt1->pressure, GPENCIL_STRENGTH_MIN);
-		}
-
-		/* apply randomness to color strength */
-		if (mmd->flag & GP_NOISE_MOD_STRENGTH) {
-			if (vdir > 0.5f) {
-				pt1->strength -= pt1->strength * vran * mmd->factor;
-			}
-			else {
-				pt1->strength += pt1->strength * vran * mmd->factor;
-			}
-			CLAMP_MIN(pt1->strength, GPENCIL_STRENGTH_MIN);
-		}
-	}
 }
 
 /* subdivide stroke to get more control points */
@@ -908,16 +783,19 @@ void BKE_gpencil_stroke_modifiers(Object *ob, bGPDlayer *gpl, bGPDframe *UNUSED(
 		if (((md->mode & eModifierMode_Realtime) && ((G.f & G_RENDER_OGL) == 0)) ||
 		    ((md->mode & eModifierMode_Render) && (G.f & G_RENDER_OGL)))
 		{
-
+			const ModifierTypeInfo *mti = modifierType_getInfo(md->type);
+			
 			if (((md->mode & eModifierMode_Editmode) == 0) && (is_edit)) {
 				continue;
 			}
+			
+			if (mti->deformStroke) {
+				EvaluationContext eval_ctx = {0}; /* XXX */
+				mti->deformStroke(md, &eval_ctx, ob, gpl, gps);
+			}
 
+			// XXX: The following lines need to all be converted to modifier callbacks...
 			switch (md->type) {
-				// Noise Modifier
-				case eModifierType_GpencilNoise:
-					BKE_gpencil_noise_modifier(id, (GpencilNoiseModifierData *)md, ob, gpl, gps);
-					break;
 					// Subdiv Modifier
 				case eModifierType_GpencilSubdiv:
 					BKE_gpencil_subdiv_modifier(id, (GpencilSubdivModifierData *)md, ob, gpl, gps);
