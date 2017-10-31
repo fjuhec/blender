@@ -6932,11 +6932,11 @@ static bool ui_but_menu(bContext *C, uiBut *but)
 			if (but->flag & UI_BUT_OVERRIDEN) {
 				if (is_array_component) {
 					ot = WM_operatortype_find("UI_OT_override_type_set_button", false);
-					op_ptr = uiItemFullO_ptr(layout, ot, "Overrides Type", ICON_NONE,
-					                         NULL, WM_OP_INVOKE_DEFAULT, UI_ITEM_O_RETURN_PROPS);
+					uiItemFullO_ptr(layout, ot, "Overrides Type", ICON_NONE,
+					                NULL, WM_OP_INVOKE_DEFAULT, 0, &op_ptr);
 					RNA_boolean_set(&op_ptr, "all", true);
-					op_ptr = uiItemFullO_ptr(layout, ot, "Single Override Type", ICON_NONE,
-					                         NULL, WM_OP_INVOKE_DEFAULT, UI_ITEM_O_RETURN_PROPS);
+					uiItemFullO_ptr(layout, ot, "Single Override Type", ICON_NONE,
+					                NULL, WM_OP_INVOKE_DEFAULT, 0, &op_ptr);
 					RNA_boolean_set(&op_ptr, "all", false);
 
 					uiItemBooleanO(layout, CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Remove Overrides"),
@@ -6945,8 +6945,8 @@ static bool ui_but_menu(bContext *C, uiBut *but)
 					               ICON_X, "UI_OT_override_remove_button", "all", false);
 				}
 				else {
-					op_ptr = uiItemFullO(layout, "UI_OT_override_type_set_button", "Override Type", ICON_NONE,
-					                     NULL, WM_OP_INVOKE_DEFAULT, UI_ITEM_O_RETURN_PROPS);
+					uiItemFullO(layout, "UI_OT_override_type_set_button", "Override Type", ICON_NONE,
+					            NULL, WM_OP_INVOKE_DEFAULT, 0, &op_ptr);
 					RNA_boolean_set(&op_ptr, "all", false);
 
 					uiItemBooleanO(layout, CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Remove Override"),
@@ -6956,16 +6956,16 @@ static bool ui_but_menu(bContext *C, uiBut *but)
 			else {
 				if (is_array_component) {
 					ot = WM_operatortype_find("UI_OT_override_type_set_button", false);
-					op_ptr = uiItemFullO_ptr(layout, ot, "Define Overrides", ICON_NONE,
-					                         NULL, WM_OP_INVOKE_DEFAULT, UI_ITEM_O_RETURN_PROPS);
+					uiItemFullO_ptr(layout, ot, "Define Overrides", ICON_NONE,
+					                NULL, WM_OP_INVOKE_DEFAULT, 0, &op_ptr);
 					RNA_boolean_set(&op_ptr, "all", true);
-					op_ptr = uiItemFullO_ptr(layout, ot, "Define Single Override", ICON_NONE,
-					                         NULL, WM_OP_INVOKE_DEFAULT, UI_ITEM_O_RETURN_PROPS);
+					uiItemFullO_ptr(layout, ot, "Define Single Override", ICON_NONE,
+					                NULL, WM_OP_INVOKE_DEFAULT, 0, &op_ptr);
 					RNA_boolean_set(&op_ptr, "all", false);
 				}
 				else {
-					op_ptr = uiItemFullO(layout, "UI_OT_override_type_set_button", "Define Override", ICON_NONE,
-					                     NULL, WM_OP_INVOKE_DEFAULT, UI_ITEM_O_RETURN_PROPS);
+					uiItemFullO(layout, "UI_OT_override_type_set_button", "Define Override", ICON_NONE,
+					            NULL, WM_OP_INVOKE_DEFAULT, 0, &op_ptr);
 					RNA_boolean_set(&op_ptr, "all", false);
 				}
 			}
