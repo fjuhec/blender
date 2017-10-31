@@ -160,7 +160,7 @@ ModifierTypeInfo modifierType_GpencilLattice = {
 	/* deformMatricesEM */  NULL,
 	/* applyModifier */     NULL,
 	/* applyModifierEM */   NULL,
-	/* deformStrokes */     NULL,
+	/* deformStroke */      NULL,
 	/* generateStrokes */   NULL,
 	/* bakeModifierGP */    bakeModifierGP,
 	/* initData */          initData,

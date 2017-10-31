@@ -231,26 +231,26 @@ typedef struct ModifierTypeInfo {
 	/******************* GP modifier functions *********************/
 
 	/* Callback for GP "stroke" modifiers that operate on the
-	 * geometry of the provided strokes (e.g. Thickness, Noise, etc.)
-	 * without adding/removing any points.
+	 * shape and parameters of the provided strokes (e.g. Thickness, Noise, etc.)
 	 *
 	 * The gpl parameter contains the GP layer that the strokes come from.
 	 * While access is provided to this data, you should not directly access
 	 * the gpl->frames data from the modifier. Instead, use the gpf parameter
 	 * instead.
 	 *
-	 * The gpf parameter contains the GP frame/strokes to operate on. This is
-	 * usually a copy of the original (unmodified and saved to files) stroke data.
-	 * Modifiers should perform their operations on the strokes referenced from here
-	 * only.
+	 * The gps parameter contains the GP stroke to operate on. This is usually a copy
+	 * of the original (unmodified and saved to files) stroke data.
 	 */
-	void (*deformStrokes)(struct ModifierData *md, const struct EvaluationContext *eval_ctx,
-	                      struct Object *ob, struct bGPDlayer *gpl, struct bGPDframe *gpf);
+	void (*deformStroke)(struct ModifierData *md, const struct EvaluationContext *eval_ctx,
+	                     struct Object *ob, struct bGPDlayer *gpl, struct bGPDstroke *gps);
 
 	/* Callback for GP "geometry" modifiers that create extra geometry
 	 * in the frame (e.g. Array)
 	 *
-	 * All parameters function in the same ways as in the deformStrokes() callback.
+	 * The gpf parameter contains the GP frame/strokes to operate on. This is
+	 * usually a copy of the original (unmodified and saved to files) stroke data.
+	 * Modifiers should only add any generated strokes to this frame (and not one accessed
+	 * via the gpl parameter).
 	 *
 	 * The modifier_index parameter indicates where the modifier is
 	 * in the modifier stack in relation to other modifiers.

@@ -969,7 +969,7 @@ ModifierTypeInfo modifierType_Solidify = {
 	/* deformMatricesEM */  NULL,
 	/* applyModifier */     applyModifier,
 	/* applyModifierEM */   NULL,
-	/* deformStrokes */     NULL,
+	/* deformStroke */      NULL,
 	/* generateStrokes */   NULL,
 	/* bakeModifierGP */    NULL,
 	/* initData */          initData,

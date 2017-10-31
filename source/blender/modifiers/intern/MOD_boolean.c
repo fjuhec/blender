@@ -461,7 +461,7 @@ ModifierTypeInfo modifierType_Boolean = {
 	/* deformMatricesEM */  NULL,
 	/* applyModifier */     applyModifier,
 	/* applyModifierEM */   NULL,
-	/* deformStrokes */     NULL,
+	/* deformStroke */      NULL,
 	/* generateStrokes */   NULL,
 	/* bakeModifierGP */    NULL,
 	/* initData */          initData,

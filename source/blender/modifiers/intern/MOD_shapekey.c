@@ -134,7 +134,7 @@ ModifierTypeInfo modifierType_ShapeKey = {
 	/* deformMatricesEM */  deformMatricesEM,
 	/* applyModifier */     NULL,
 	/* applyModifierEM */   NULL,
-	/* deformStrokes */     NULL,
+	/* deformStroke */      NULL,
 	/* generateStrokes */   NULL,
 	/* bakeModifierGP */    NULL,
 	/* initData */          NULL,

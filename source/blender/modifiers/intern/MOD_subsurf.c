@@ -215,7 +215,7 @@ ModifierTypeInfo modifierType_Subsurf = {
 	/* deformMatricesEM */  NULL,
 	/* applyModifier */     applyModifier,
 	/* applyModifierEM */   applyModifierEM,
-	/* deformStrokes */     NULL,
+	/* deformStroke */      NULL,
 	/* generateStrokes */   NULL,
 	/* bakeModifierGP */    NULL,
 	/* initData */          initData,

@@ -755,7 +755,7 @@ ModifierTypeInfo modifierType_CorrectiveSmooth = {
 	/* deformMatricesEM */  NULL,
 	/* applyModifier */     NULL,
 	/* applyModifierEM */   NULL,
-	/* deformStrokes */     NULL,
+	/* deformStroke */      NULL,
 	/* generateStrokes */   NULL,
 	/* bakeModifierGP */    NULL,
 	/* initData */          initData,
