@@ -15,8 +15,8 @@
  * along with this program; if not, write to the Free Software  Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * The Original Code is Copyright (C) 2005 by the Blender Foundation.
- * All rights reserved.
+ * The Original Code is Copyright (C) 2017, Blender Foundation
+ * This is a new part of Blender
  *
  * Contributor(s): Antonio Vazquez
  *
@@ -73,15 +73,10 @@ static void bakeModifierGP(const bContext *C, const EvaluationContext *eval_ctx,
 	LatticeDeformData *ldata = NULL;
 	Scene *scene = md->scene;
 	Main *bmain = CTX_data_main(mmd->C);
-	bGPdata *gpd;
-	Object *latob = NULL;
+	bGPdata *gpd = ob->data;
+	Object *latob = mmd->object;
 	int oldframe = CFRA;
 
-	if ((!ob) || (!ob->data)) {
-		return;
-	}
-	gpd = ob->data;
-	latob = mmd->object;
 	if ((!latob) || (latob->type != OB_LATTICE)) {
 		return;
 	}

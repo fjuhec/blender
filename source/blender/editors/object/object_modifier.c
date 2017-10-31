@@ -668,7 +668,7 @@ static int modifier_apply_obdata(ReportList *reports, const bContext *C, Scene *
 		DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	}
 	else if (ob->type == OB_GPENCIL) {
-		if (mti->bakeModifierGP == NULL)
+		if (ELEM(NULL, mti->bakeModifierGP, ob, ob->data))
 			return 0;
 		
 		mti->bakeModifierGP(C, &eval_ctx, md, ob);

@@ -15,8 +15,8 @@
  * along with this program; if not, write to the Free Software  Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * The Original Code is Copyright (C) 2005 by the Blender Foundation.
- * All rights reserved.
+ * The Original Code is Copyright (C) 2017, Blender Foundation
+ * This is a new part of Blender
  *
  * Contributor(s): Antonio Vazquez
  *
@@ -34,6 +34,7 @@
 #include "DNA_object_types.h"
 #include "DNA_gpencil_types.h"
 
+#include "BLI_math_base.h"
 #include "BLI_utildefines.h"
 
 #include "MOD_modifiertypes.h"
@@ -43,7 +44,7 @@ static void initData(ModifierData *md)
 	GpencilSwirlModifierData *gpmd = (GpencilSwirlModifierData *)md;
 	gpmd->radius = 100;
 	ARRAY_SET_ITEMS(gpmd->center, 600, 600);
-	gpmd->angle = 1.57079f; // PI/2
+	gpmd->angle = M_PI_2;
 	gpmd->flag |= GP_SWIRL_USE_OB_LOC;
 }
 

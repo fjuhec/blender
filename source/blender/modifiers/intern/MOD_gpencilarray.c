@@ -15,8 +15,8 @@
  * along with this program; if not, write to the Free Software  Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * The Original Code is Copyright (C) 2005 by the Blender Foundation.
- * All rights reserved.
+ * The Original Code is Copyright (C) 2017, Blender Foundation
+ * This is a new part of Blender
  *
  * Contributor(s): Antonio Vazquez
  *
@@ -113,15 +113,11 @@ static void bakeModifierGP(const bContext *C, const EvaluationContext *UNUSED(ev
 	float mat[4][4], finalmat[4][4];
 	float rot[3];
 
-	if ((!ob) || (!ob->data)) {
-		return;
-	}
-
 	/* reset random */
 	mmd->rnd[0] = 1;
-	for (int x = 0; x < mmd->count[0]; ++x) {
-		for (int y = 0; y < mmd->count[1]; ++y) {
-			for (int z = 0; z < mmd->count[2]; ++z) {
+	for (int x = 0; x < mmd->count[0]; x++) {
+		for (int y = 0; y < mmd->count[1]; y++) {
+			for (int z = 0; z < mmd->count[2]; z++) {
 				ARRAY_SET_ITEMS(xyz, x, y, z);
 				if ((x == 0) && (y == 0) && (z == 0)) {
 					continue;

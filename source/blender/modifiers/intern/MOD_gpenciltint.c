@@ -15,8 +15,8 @@
  * along with this program; if not, write to the Free Software  Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * The Original Code is Copyright (C) 2005 by the Blender Foundation.
- * All rights reserved.
+ * The Original Code is Copyright (C) 2017, Blender Foundation
+ * This is a new part of Blender
  *
  * Contributor(s): Antonio Vazquez
  *
@@ -41,6 +41,7 @@
 #include "BKE_global.h"
 #include "BKE_gpencil.h"
 #include "BKE_paint.h"
+#include "BKE_main.h"
 
 #include "DEG_depsgraph.h"
 
@@ -64,12 +65,10 @@ static void bakeModifierGP(const bContext *C, const EvaluationContext *UNUSED(ev
                            ModifierData *md, Object *ob)
 {
 	GpencilTintModifierData *mmd = (GpencilTintModifierData *)md;
-	bGPdata *gpd;
+	Main *bmain = CTX_data_main(C);
+	bGPdata *gpd = ob->data;
 	Palette *newpalette = NULL;
-	if ((!ob) || (!ob->data)) {
-		return;
-	}
-	gpd = ob->data;
+	
 	GHash *gh_layer = BLI_ghash_str_new("GP_Tint Layer modifier");
 	GHash *gh_color;
 
@@ -88,7 +87,8 @@ static void bakeModifierGP(const bContext *C, const EvaluationContext *UNUSED(ev
 				if (newpalcolor == NULL) {
 					if (mmd->flag & GP_TINT_CREATE_COLORS) {
 						if (!newpalette) {
-							newpalette = BKE_palette_add(G.main, "Palette");
+							bGPDpaletteref *palslot = BKE_gpencil_paletteslot_addnew(bmain, gpd, "Tinted Colors");
+							newpalette = palslot->palette;
 						}
 						newpalcolor = BKE_palette_color_copy(newpalette, gps->palcolor);
 						BLI_strncpy(gps->colorname, newpalcolor->info, sizeof(gps->colorname));

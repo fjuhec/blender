@@ -15,8 +15,8 @@
  * along with this program; if not, write to the Free Software  Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
- * The Original Code is Copyright (C) 2005 by the Blender Foundation.
- * All rights reserved.
+ * The Original Code is Copyright (C) 2017, Blender Foundation
+ * This is a new part of Blender
  *
  * Contributor(s): Antonio Vazquez
  *
@@ -64,12 +64,9 @@ static void bakeModifierGP(const bContext *C, const EvaluationContext *UNUSED(ev
                            ModifierData *md, Object *ob)
 {
 	GpencilColorModifierData *mmd = (GpencilColorModifierData *)md;
-	bGPdata *gpd;
+	bGPdata *gpd = ob->data;
 	Palette *newpalette = NULL;
-	if ((!ob) || (!ob->data)) {
-		return;
-	}
-	gpd = ob->data;
+	
 	GHash *gh_layer = BLI_ghash_str_new("GP_Color Layer modifier");
 	GHash *gh_color;
 
