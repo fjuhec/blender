@@ -480,16 +480,6 @@ void BKE_gpencil_array_modifier(
 
 }
 
-/* verify if use this lattice */
-bool BKE_gpencil_use_this_lattice(Object *ob, Object *UNUSED(lattice))
-{
-	ModifierData *md = modifiers_findByType(ob, eModifierType_GpencilLattice);
-	if (md) {
-		return true;
-	}
-	return false;
-}
-
 /* init lattice deform data */
 void BKE_gpencil_lattice_init(Object *ob)
 {
