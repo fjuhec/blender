@@ -174,11 +174,10 @@ ModifierData *ED_object_modifier_add(ReportList *reports, Main *bmain, Scene *sc
 		}
 	}
 
-#if 0 // XXX: Review this (aligorith)
 	if (ob->type == OB_GPENCIL) {
+		/* FIXME: Shouldn't the depsgraph tagging handle this? */
 		BKE_gpencil_batch_cache_dirty(ob->data);
 	}
-#endif
 
 	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	DEG_relations_tag_update(bmain);
