@@ -119,8 +119,8 @@ enum {
 	UI_SCROLLED     = (1 << 1),  /* temp hidden, scrolled away */
 	UI_ACTIVE       = (1 << 2),
 	UI_HAS_ICON     = (1 << 3),
-	UI_TEXTINPUT    = (1 << 4),
-	UI_HIDDEN       = (1 << 5),
+	UI_HIDDEN       = (1 << 4),
+	UI_SELECT_DRAW  = (1 << 5),  /* Display selected, doesn't impact interaction. */
 	/* warn: rest of uiBut->flag in UI_interface.h */
 };
 
@@ -265,6 +265,10 @@ struct uiBut {
 	uiButHandleRenameFunc rename_func;
 	void *rename_arg1;
 	void *rename_orig;
+
+	/* Run an action when holding the button down. */
+	uiButHandleHoldFunc hold_func;
+	void *hold_argN;
 
 	uiLink *link;
 	short linkto[2];  /* region relative coords */

@@ -136,6 +136,7 @@ enum {
 
 /* block->flag bits 14-17 are identical to but->drawflag bits */
 
+#define UI_BLOCK_POPUP_HOLD  (1 << 18)
 #define UI_BLOCK_LIST_ITEM   (1 << 19)
 #define UI_BLOCK_RADIAL      (1 << 20)
 
@@ -200,12 +201,15 @@ enum {
 	UI_BUT_TEXT_RIGHT        = (1 << 3),
 	/* Prevent the button to show any tooltip. */
 	UI_BUT_NO_TOOLTIP        = (1 << 4),
-	/* button align flag, for drawing groups together (also used in uiBlock->flag!) */
+
+	/* Button align flag, for drawing groups together.
+	 * Used in 'uiBlock.flag', take care! */
 	UI_BUT_ALIGN_TOP         = (1 << 14),
 	UI_BUT_ALIGN_LEFT        = (1 << 15),
 	UI_BUT_ALIGN_RIGHT       = (1 << 16),
 	UI_BUT_ALIGN_DOWN        = (1 << 17),
 	UI_BUT_ALIGN             = (UI_BUT_ALIGN_TOP | UI_BUT_ALIGN_LEFT | UI_BUT_ALIGN_RIGHT | UI_BUT_ALIGN_DOWN),
+	/* end bits shared with 'uiBlock.flag' */
 
 	/* Warning - HACK! Needed for buttons which are not TOP/LEFT aligned, but have some top/left corner stitched to some
 	 *                 other TOP/LEFT-aligned button, because of 'corrective' hack in widget_roundbox_set()... */
@@ -359,6 +363,7 @@ typedef struct uiSearchItems uiSearchItems;
 typedef void (*uiButHandleFunc)(struct bContext *C, void *arg1, void *arg2);
 typedef void (*uiButHandleRenameFunc)(struct bContext *C, void *arg, char *origstr);
 typedef void (*uiButHandleNFunc)(struct bContext *C, void *argN, void *arg2);
+typedef void (*uiButHandleHoldFunc)(struct bContext *C, struct ARegion *butregion, uiBut *but);
 typedef int (*uiButCompleteFunc)(struct bContext *C, char *str, void *arg);
 typedef struct ARegion *(*uiButSearchCreateFunc)(struct bContext *C, struct ARegion *butregion, uiBut *but);
 typedef void (*uiButSearchFunc)(const struct bContext *C, void *arg, const char *str, uiSearchItems *items);
@@ -400,6 +405,7 @@ void UI_popup_menu_reports(struct bContext *C, struct ReportList *reports) ATTR_
 int UI_popup_menu_invoke(struct bContext *C, const char *idname, struct ReportList *reports) ATTR_NONNULL(1, 2);
 
 void UI_popup_menu_retval_set(const uiBlock *block, const int retval, const bool enable);
+void UI_popup_menu_but_set(uiPopupMenu *pup, struct ARegion *butregion, uiBut *but);
 
 /* Pie menus */
 typedef struct uiPieMenu uiPieMenu;
@@ -731,6 +737,8 @@ bool UI_textbutton_activate_but(const struct bContext *C, uiBut *but);
 
 void UI_but_focus_on_enter_event(struct wmWindow *win, uiBut *but);
 
+void UI_but_func_hold_set(uiBut *but, uiButHandleHoldFunc func, void *argN);
+
 /* Autocomplete
  *
  * Tab complete helper functions, for use in uiButCompleteFunc callbacks.
@@ -831,6 +839,7 @@ void UI_exit(void);
 #define UI_ITEM_R_FULL_EVENT    (1 << 6)
 #define UI_ITEM_R_NO_BG         (1 << 7)
 #define UI_ITEM_R_IMMEDIATE     (1 << 8)
+#define UI_ITEM_O_DEPRESS       (1 << 9)
 
 /* uiTemplateOperatorPropertyButs flags */
 #define UI_TEMPLATE_OP_PROPS_SHOW_TITLE 1
@@ -867,6 +876,10 @@ void uiLayoutSetContextPointer(uiLayout *layout, const char *name, struct Pointe
 void uiLayoutContextCopy(uiLayout *layout, struct bContextStore *context);
 const char *uiLayoutIntrospect(uiLayout *layout); // XXX - testing
 struct MenuType *UI_but_menutype_get(uiBut *but);
+void UI_menutype_draw(struct bContext *C, struct MenuType *mt, struct uiLayout *layout);
+
+/* Only for convenience. */
+void uiLayoutSetContextFromBut(uiLayout *layout, uiBut *but);
 
 void uiLayoutSetOperatorContext(uiLayout *layout, int opcontext);
 void uiLayoutSetActive(uiLayout *layout, bool active);
@@ -1004,6 +1017,11 @@ void uiItemFullO_ptr(
 void uiItemFullO(
         uiLayout *layout, const char *idname, const char *name, int icon,
         struct IDProperty *properties, int context, int flag,
+        PointerRNA *r_opptr);
+void uiItemFullOMenuHold_ptr(
+        uiLayout *layout, struct wmOperatorType *ot, const char *name, int icon,
+        struct IDProperty *properties, int context, int flag,
+        const char *menu_id,  /* extra menu arg. */
         PointerRNA *r_opptr);
 
 void uiItemR(uiLayout *layout, struct PointerRNA *ptr, const char *propname, int flag, const char *name, int icon);

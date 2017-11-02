@@ -18,6 +18,9 @@
 
 # <pep8 compliant>
 import bpy
+from bpy.types import (
+    Menu,
+)
 
 __all__ = (
     "ToolSelectPanelHelper",
@@ -47,6 +50,19 @@ class ToolSelectPanelHelper:
       ``keymap_actions``
         an optional triple of: ``(operator_id, operator_properties, keymap_item_args)``
     """
+
+    @staticmethod
+    def _tool_is_group(tool):
+        return type(tool[0]) is not str
+
+    @staticmethod
+    def _tools_flatten(tools):
+        for item in tools:
+            if ToolSelectPanelHelper._tool_is_group(item):
+                for sub_item in item:
+                    yield sub_item
+            else:
+                yield item
 
     @classmethod
     def _km_actionmouse_simple(cls, kc, text, actions):
@@ -81,11 +97,14 @@ class ToolSelectPanelHelper:
         # {tool_name: (keymap, keymap_idname, manipulator_group_idname), ...}
         cls._tool_keymap = {}
 
+        # {tool_name_first: index_in_group, ...}
+        cls._tool_group_active = {}
+
         # ignore in background mode
         if kc is None:
             return
 
-        for t in cls.tools_all():
+        for t in ToolSelectPanelHelper._tools_flatten(cls.tools_all()):
             text, mp_idname, actions = t
             if actions is not None:
                 km, km_idname = cls._km_actionmouse_simple(kc, text, actions)
@@ -101,31 +120,142 @@ class ToolSelectPanelHelper:
         workspace = context.workspace
         km_idname_active = workspace.tool_keymap or None
         mp_idname_active = workspace.tool_manipulator_group or None
+        index_active = workspace.tool_index
         layout = self.layout
 
         for tool_items in self.tools_from_context(context):
             if tool_items:
-                col = layout.box().column()
+                col = layout.column(align=True)
                 for item in tool_items:
                     if item is None:
-                        col = layout.box().column()
+                        col = layout.column(align=True)
                         continue
-                    text, mp_idname, actions = item
 
-                    if actions is not None:
-                        km, km_idname = self._tool_keymap[text]
+                    if self._tool_is_group(item):
+                        is_active = False
+                        i = 0
+                        for sub_item in item:
+                            if item is None:
+                                continue
+                            text, mp_idname, actions = sub_item
+                            km, km_idname = (None, None) if actions is None else self._tool_keymap[text]
+                            is_active = (
+                                km_idname_active == km_idname and
+                                mp_idname_active == mp_idname
+                            )
+                            if is_active:
+                                index = i
+                                break
+                            i += 1
+                        del i, sub_item
+
+                        if is_active:
+                            # not ideal, write this every time :S
+                            self._tool_group_active[item[0][0]] = index
+                        else:
+                            index = self._tool_group_active.get(item[0][0], 0)
+
+                        item = item[index]
+                        use_menu = True
                     else:
-                        km = None
-                        km_idname = None
+                        index = -1
+                        use_menu = False
 
-                    props = col.operator(
-                        "wm.tool_set",
-                        text=text,
-                        emboss=(
-                            km_idname_active == km_idname and
-                            mp_idname_active == mp_idname
-                        ),
+                    text, mp_idname, actions = item
+                    km, km_idname = (None, None) if actions is None else self._tool_keymap[text]
+                    is_active = (
+                        km_idname_active == km_idname and
+                        mp_idname_active == mp_idname
                     )
+
+                    if use_menu:
+                        props = col.operator_menu_hold(
+                            "wm.tool_set",
+                            text=text,
+                            depress=is_active,
+                            menu="WM_MT_toolsystem_submenu",
+                        )
+                    else:
+                        props = col.operator(
+                            "wm.tool_set",
+                            text=text,
+                            depress=is_active,
+                        )
 
                     props.keymap = km_idname or ""
                     props.manipulator_group = mp_idname or ""
+                    props.index = index
+
+    def tools_from_context(cls, context):
+        return (cls._tools[None], cls._tools.get(context.mode, ()))
+
+
+# The purpose of this menu is to be a generic popup to select between tools
+# in cases when a single tool allows to select alternative tools.
+class WM_MT_toolsystem_submenu(Menu):
+    bl_label = ""
+
+    @staticmethod
+    def _tool_group_from_button(context):
+        # Lookup the tool definitions based on the space-type.
+        space_type = context.space_data.type
+        cls = next(
+            (cls for cls in ToolSelectPanelHelper.__subclasses__()
+             if cls.bl_space_type == space_type),
+            None
+        )
+        if cls is not None:
+            props = context.button_operator
+            km_idname_button = props.keymap or None
+            mp_idname_button = props.manipulator_group or None
+            index_button = props.index
+
+            for item_items in cls.tools_from_context(context):
+                for item_group in item_items:
+                    if (item_group is not None) and ToolSelectPanelHelper._tool_is_group(item_group):
+                        if index_button < len(item_group):
+                            item = item_group[index_button]
+                            text, mp_idname, actions = item
+                            km, km_idname = (None, None) if actions is None else cls._tool_keymap[text]
+                            is_active = (
+                                km_idname_button == km_idname and
+                                mp_idname_button == mp_idname
+                            )
+                            if is_active:
+                                return cls, item_group, index_button
+        return None, None, -1
+
+    def draw(self, context):
+        layout = self.layout
+        cls, item_group, index_active = self._tool_group_from_button(context)
+        if item_group is None:
+            # Should never happen, just in case
+            layout.label(f"Unable to find toolbar group")
+            return
+
+        index = 0
+        for item in item_group:
+            if item is None:
+                layout.separator()
+                continue
+            text, mp_idname, actions = item
+            km, km_idname = (None, None) if actions is None else cls._tool_keymap[text]
+
+            props = layout.operator(
+                "wm.tool_set",
+                text=text,
+            )
+            props.keymap = km_idname or ""
+            props.manipulator_group = mp_idname or ""
+            props.index = index
+            index += 1
+
+
+classes = (
+    WM_MT_toolsystem_submenu,
+)
+
+if __name__ == "__main__":  # only for live edit.
+    from bpy.utils import register_class
+    for cls in classes:
+        register_class(cls)

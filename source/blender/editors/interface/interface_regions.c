@@ -2635,6 +2635,7 @@ struct uiPopupMenu {
 	uiBlock *block;
 	uiLayout *layout;
 	uiBut *but;
+	ARegion *butregion;
 
 	int mx, my;
 	bool popup, slideout;
@@ -2881,17 +2882,33 @@ uiPopupMenu *UI_popup_menu_begin(bContext *C, const char *title, int icon)
 	return UI_popup_menu_begin_ex(C, title, __func__, icon);
 }
 
+/**
+ * Setting the button makes the popup open from the button instead of the cursor.
+ */
+void UI_popup_menu_but_set(uiPopupMenu *pup, struct ARegion *butregion, uiBut *but)
+{
+	pup->but = but;
+	pup->butregion = butregion;
+}
+
 /* set the whole structure to work */
 void UI_popup_menu_end(bContext *C, uiPopupMenu *pup)
 {
 	wmWindow *window = CTX_wm_window(C);
 	uiPopupBlockHandle *menu;
+	uiBut *but = NULL;
+	ARegion *butregion = NULL;
 	
 	pup->popup = true;
 	pup->mx = window->eventstate->x;
 	pup->my = window->eventstate->y;
-	
-	menu = ui_popup_block_create(C, NULL, NULL, NULL, ui_block_func_POPUP, pup);
+
+	if (pup->but) {
+		but = pup->but;
+		butregion = pup->butregion;
+	}
+
+	menu = ui_popup_block_create(C, butregion, but, NULL, ui_block_func_POPUP, pup);
 	menu->popup = true;
 	
 	UI_popup_handlers_add(C, &window->modalhandlers, menu, 0);
@@ -3041,7 +3058,6 @@ int UI_pie_menu_invoke(struct bContext *C, const char *idname, const wmEvent *ev
 {
 	uiPieMenu *pie;
 	uiLayout *layout;
-	Menu menu;
 	MenuType *mt = WM_menutype_find(idname, true);
 
 	if (mt == NULL) {
@@ -3056,14 +3072,7 @@ int UI_pie_menu_invoke(struct bContext *C, const char *idname, const wmEvent *ev
 	pie = UI_pie_menu_begin(C, IFACE_(mt->label), ICON_NONE, event);
 	layout = UI_pie_menu_layout(pie);
 
-	menu.layout = layout;
-	menu.type = mt;
-
-	if (G.debug & G_DEBUG_WM) {
-		printf("%s: opening menu \"%s\"\n", __func__, idname);
-	}
-
-	mt->draw(C, &menu);
+	UI_menutype_draw(C, mt, layout);
 
 	UI_pie_menu_end(C, pie);
 
@@ -3274,7 +3283,6 @@ int UI_popup_menu_invoke(bContext *C, const char *idname, ReportList *reports)
 {
 	uiPopupMenu *pup;
 	uiLayout *layout;
-	Menu menu;
 	MenuType *mt = WM_menutype_find(idname, true);
 
 	if (mt == NULL) {
@@ -3289,14 +3297,7 @@ int UI_popup_menu_invoke(bContext *C, const char *idname, ReportList *reports)
 	pup = UI_popup_menu_begin(C, IFACE_(mt->label), ICON_NONE);
 	layout = UI_popup_menu_layout(pup);
 
-	menu.layout = layout;
-	menu.type = mt;
-
-	if (G.debug & G_DEBUG_WM) {
-		printf("%s: opening menu \"%s\"\n", __func__, idname);
-	}
-
-	mt->draw(C, &menu);
+	UI_menutype_draw(C, mt, layout);
 
 	UI_popup_menu_end(C, pup);
 
