@@ -1754,13 +1754,17 @@ typedef struct GpencilArrayModifierData {
 	float scale[3];              /* Scale changes */
 	float rnd[20];               /* (first element is the index) random values */
 	int  lock_axis;              /* lock shift to one axis */
-	char pad[4];
-	void *C;                     /* bContext used only for apply */
+	
+	int pass_index;              /* custom index for passes */
+	char layername[64];          /* layer name */
 } GpencilArrayModifierData;
 
 typedef enum eGpencilArray_Flag {
 	GP_ARRAY_RANDOM_SIZE = (1 << 0),
 	GP_ARRAY_RANDOM_ROT = (1 << 1),
+	GP_ARRAY_INVERSE_LAYER  = (1 << 2),
+	GP_ARRAY_INVERSE_PASS   = (1 << 3),
+	GP_ARRAY_MAKE_OBJECTS = (1 << 4),
 } eGpencilArray_Flag;
 
 typedef struct GpencilDupliModifierData {

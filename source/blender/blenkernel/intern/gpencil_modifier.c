@@ -56,11 +56,6 @@
 // XXX: temp transitional code
 #include "../../modifiers/intern/MOD_gpencil_util.h"
 
-/* used to save temp strokes */
-typedef struct tGPencilStrokeCache {
-	struct bGPDstroke *gps;
-	int idx;
-} tGPencilStrokeCache;
 
 /* temp data for simplify modifier */
 typedef struct tbGPDspoint {
@@ -98,154 +93,7 @@ void BKE_gpencil_stroke_normal(const bGPDstroke *gps, float r_normal[3])
 	normalize_v3(r_normal);
 }
 
-/* helper function to sort strokes using qsort */
-static int gpencil_stroke_cache_compare(const void *a1, const void *a2)
-{
-	const tGPencilStrokeCache *ps1 = a1, *ps2 = a2;
 
-	if (ps1->idx < ps2->idx) return -1;
-	else if (ps1->idx > ps2->idx) return 1;
-
-	return 0;
-}
-
-/* dupli modifier */
-void BKE_gpencil_dupli_modifier(
-        int id, GpencilDupliModifierData *mmd, Object *UNUSED(ob), bGPDlayer *gpl, bGPDframe *gpf)
-{
-	bGPDspoint *pt;
-	bGPDstroke *gps_dst;
-	struct tGPencilStrokeCache *stroke_cache, *p = NULL;
-	float offset[3], rot[3], scale[3];
-	float mat[4][4];
-	float factor;
-	int ri;
-
-	/* create cache for sorting */
-	int totstrokes = BLI_listbase_count(&gpf->strokes);
-	int cachesize =  totstrokes * mmd->count;
-	p = MEM_callocN(sizeof(struct tGPencilStrokeCache) * cachesize, "tGPencilStrokeCache");
-	if (p) {
-		stroke_cache = p;
-	}
-	else {
-		return;
-	}
-
-	int stroke = 0;
-	int idx = 0;
-	for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
-		stroke++;
-		if (!is_stroke_affected_by_modifier(
-		        mmd->layername, mmd->pass_index, 1, gpl, gps,
-		        mmd->flag & GP_DUPLI_INVERSE_LAYER, mmd->flag & GP_DUPLI_INVERSE_PASS))
-		{
-			continue;
-		}
-
-		for (int e = 0; e < mmd->count; e++) {
-			/* duplicate stroke */
-			gps_dst = MEM_dupallocN(gps);
-			if (id > -1) {
-				gps_dst->palcolor = MEM_dupallocN(gps->palcolor);
-			}
-			gps_dst->points = MEM_dupallocN(gps->points);
-			BKE_gpencil_stroke_weights_duplicate(gps, gps_dst);
-
-			gps_dst->triangles = MEM_dupallocN(gps->triangles);
-
-			/* add to array for sorting later */
-			stroke_cache[idx].gps = gps_dst;
-			stroke_cache[idx].idx = (e * 100000) + stroke;
-
-			mul_v3_v3fl(offset, mmd->offset, e + 1);
-			ri = mmd->rnd[0];
-			/* rotation */
-			if (mmd->flag & GP_DUPLI_RANDOM_ROT) {
-				factor = mmd->rnd_rot * mmd->rnd[ri];
-				mul_v3_v3fl(rot, mmd->rot, factor);
-				add_v3_v3(rot, mmd->rot);
-			}
-			else {
-				copy_v3_v3(rot, mmd->rot);
-			}
-			/* scale */
-			if (mmd->flag & GP_DUPLI_RANDOM_SIZE) {
-				factor = mmd->rnd_size * mmd->rnd[ri];
-				mul_v3_v3fl(scale, mmd->scale, factor);
-				add_v3_v3(scale, mmd->scale);
-			}
-			else {
-				copy_v3_v3(scale, mmd->scale);
-			}
-			/* move random index */
-			mmd->rnd[0]++;
-			if (mmd->rnd[0] > 19) {
-				mmd->rnd[0] = 1;
-			}
-
-			loc_eul_size_to_mat4(mat, offset, rot, scale);
-
-			/* move points */
-			for (int i = 0; i < gps->totpoints; i++) {
-				pt = &gps_dst->points[i];
-				mul_m4_v3(mat, &pt->x);
-			}
-			idx++;
-		}
-	}
-	/* sort by idx */
-	qsort(stroke_cache, idx, sizeof(tGPencilStrokeCache), gpencil_stroke_cache_compare);
-	
-	/* add to listbase */
-	for (int i = 0; i < idx; i++) {
-		BLI_addtail(&gpf->strokes, stroke_cache[i].gps);
-	}
-
-	/* free memory */
-	MEM_SAFE_FREE(stroke_cache);
-}
-
-/* array modifier */
-void BKE_gpencil_array_modifier(
-        int UNUSED(id), GpencilArrayModifierData *mmd, Object *UNUSED(ob), int elem_idx[3], float r_mat[4][4])
-{
-	float offset[3], rot[3], scale[3];
-	float factor;
-	int ri;
-
-	offset[0] = mmd->offset[0] * elem_idx[0];
-	offset[1] = mmd->offset[1] * elem_idx[1];
-	offset[2] = mmd->offset[2] * elem_idx[2];
-
-	ri = mmd->rnd[0];
-	/* rotation */
-	if (mmd->flag & GP_ARRAY_RANDOM_ROT) {
-		factor = mmd->rnd_rot * mmd->rnd[ri];
-		mul_v3_v3fl(rot, mmd->rot, factor);
-		add_v3_v3(rot, mmd->rot);
-	}
-	else {
-		copy_v3_v3(rot, mmd->rot);
-	}
-	/* scale */
-	if (mmd->flag & GP_ARRAY_RANDOM_SIZE) {
-		factor = mmd->rnd_size * mmd->rnd[ri];
-		mul_v3_v3fl(scale, mmd->scale, factor);
-		add_v3_v3(scale, mmd->scale);
-	}
-	else {
-		copy_v3_v3(scale, mmd->scale);
-	}
-	/* move random index */
-	mmd->rnd[0]++;
-	if (mmd->rnd[0] > 19) {
-		mmd->rnd[0] = 1;
-	}
-	/* calculate matrix */
-	loc_eul_size_to_mat4(r_mat, offset, rot, scale);
-
-}
 
 /* init lattice deform data */
 void BKE_gpencil_lattice_init(Object *ob)
@@ -526,11 +374,6 @@ bool BKE_gpencil_has_geometry_modifiers(Object *ob)
 		if (mti->generateStrokes) {
 			return true;
 		}
-			
-		// XXX: Remove
-		if (md->type == eModifierType_GpencilDupli) {
-			return true;
-		}
 	}
 	return false;
 }
@@ -595,14 +438,6 @@ void BKE_gpencil_geometry_modifiers(Object *ob, bGPDlayer *gpl, bGPDframe *gpf)
 			if (mti->generateStrokes) {
 				EvaluationContext eval_ctx = {0}; /* XXX */
 				mti->generateStrokes(md, &eval_ctx, ob, gpl, gpf, id);
-			}
-
-			// XXX: The following lines need to all be converted to modifier callbacks...
-			switch (md->type) {
-				// Array
-				case eModifierType_GpencilDupli:
-					BKE_gpencil_dupli_modifier(id, (GpencilDupliModifierData *)md, ob, gpl, gpf);
-					break;
 			}
 		}
 		id++;

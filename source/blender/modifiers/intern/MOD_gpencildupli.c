@@ -73,7 +73,7 @@ static void bakeModifierGP(const bContext *C, const EvaluationContext *UNUSED(ev
 
 	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
 		for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
-			BKE_gpencil_dupli_modifier(-1, (GpencilDupliModifierData *)md, ob, gpl, gpf);
+			//BKE_gpencil_dupli_modifier(-1, (GpencilDupliModifierData *)md, ob, gpl, gpf);
 		}
 	}
 }

@@ -5319,6 +5319,22 @@ static void rna_def_modifier_gpencilarray(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Scale Factor", "Random factor for scale");
 	RNA_def_property_range(prop, -10.0, 10.0);
 	RNA_def_property_update(prop, 0, "rna_Modifier_gpencil_update");
+	
+	prop = RNA_def_property(srna, "inverse_layers", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_ARRAY_INVERSE_LAYER);
+	RNA_def_property_ui_text(prop, "Inverse Layers", "Inverse filter");
+	RNA_def_property_update(prop, 0, "rna_Modifier_gpencil_update");
+
+	prop = RNA_def_property(srna, "inverse_pass", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_ARRAY_INVERSE_PASS);
+	RNA_def_property_ui_text(prop, "Inverse Pass", "Inverse filter");
+	RNA_def_property_update(prop, 0, "rna_Modifier_gpencil_update");
+	
+	prop = RNA_def_property(srna, "use_make_objects", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_ARRAY_MAKE_OBJECTS);
+	RNA_def_property_ui_text(prop, "Make As Objects", 
+		"When applying this modifier, instances get created as separate objects");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }
 
 static void rna_def_modifier_gpencildupli(BlenderRNA *brna)
