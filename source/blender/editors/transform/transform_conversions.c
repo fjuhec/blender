@@ -5538,7 +5538,11 @@ static void ObjectToTransData(TransInfo *t, TransData *td, Object *ob)
 /* it deselects Bases, so we have to call the clear function always after */
 static void set_trans_object_base_flags(TransInfo *t)
 {
+	/* TODO(sergey): Get rid of global, use explicit main. */
+	Main *bmain = G.main;
 	SceneLayer *sl = t->scene_layer;
+	Scene *scene = t->scene;
+	Depsgraph *depsgraph = BKE_scene_get_depsgraph(scene, sl);
 
 	/*
 	 * if Base selected and has parent selected:
@@ -5554,7 +5558,7 @@ static void set_trans_object_base_flags(TransInfo *t)
 	BKE_scene_base_flag_to_objects(t->scene_layer);
 
 	/* Make sure depsgraph is here. */
-	DEG_scene_relations_update(G.main, t->scene);
+	DEG_graph_relations_update(depsgraph, bmain, scene);
 
 	/* handle pending update events, otherwise they got copied below */
 	EvaluationContext eval_ctx;
@@ -5605,7 +5609,7 @@ static void set_trans_object_base_flags(TransInfo *t)
 	}
 
 	/* all recalc flags get flushed to all layers, so a layer flip later on works fine */
-	DEG_graph_flush_update(G.main, t->scene->depsgraph_legacy);
+	DEG_graph_flush_update(bmain, depsgraph);
 
 	/* and we store them temporal in base (only used for transform code) */
 	/* this because after doing updates, the object->recalc is cleared */
@@ -5635,7 +5639,11 @@ static bool mark_children(Object *ob)
 static int count_proportional_objects(TransInfo *t)
 {
 	int total = 0;
+	/* TODO(sergey): Get rid of global, use explicit main. */
+	Main *bmain = G.main;
 	SceneLayer *sl = t->scene_layer;
+	Scene *scene = t->scene;
+	Depsgraph *depsgraph = BKE_scene_get_depsgraph(scene, sl);
 	Base *base;
 
 	/* rotations around local centers are allowed to propagate, so we take all objects */
@@ -5684,8 +5692,8 @@ static int count_proportional_objects(TransInfo *t)
 	
 
 	/* all recalc flags get flushed to all layers, so a layer flip later on works fine */
-	DEG_scene_relations_update(G.main, t->scene);
-	DEG_graph_flush_update(G.main, t->scene->depsgraph_legacy);
+	DEG_graph_relations_update(depsgraph, bmain, scene);
+	DEG_graph_flush_update(bmain, depsgraph);
 
 	/* and we store them temporal in base (only used for transform code) */
 	/* this because after doing updates, the object->recalc is cleared */

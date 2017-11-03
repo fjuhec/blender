@@ -300,7 +300,7 @@ void RE_engine_end_result(RenderEngine *engine, RenderResult *result, int cancel
 		RenderPart *pa = get_part_from_result(re, result);
 
 		if (pa) {
-			pa->status = (merge_results)? PART_STATUS_MERGED: PART_STATUS_RENDERED;
+			pa->status = (!cancel && merge_results)? PART_STATUS_MERGED: PART_STATUS_RENDERED;
 		}
 		else if (re->result->do_exr_tile) {
 			/* if written result does not match any tile and we are using save
@@ -622,7 +622,7 @@ void RE_engine_frame_set(RenderEngine *engine, int frame, float subframe)
 	BPy_BEGIN_ALLOW_THREADS;
 #endif
 
-	BKE_scene_update_for_newframe(re->eval_ctx, re->main, scene);
+	BKE_scene_graph_update_for_newframe(re->eval_ctx, re->depsgraph, re->main, scene);
 
 #ifdef WITH_PYTHON
 	BPy_END_ALLOW_THREADS;
@@ -657,7 +657,7 @@ int RE_engine_render(Render *re, int do_all)
 	/* update animation here so any render layer animation is applied before
 	 * creating the render result */
 	if ((re->r.scemode & (R_NO_FRAME_UPDATE | R_BUTS_PREVIEW)) == 0) {
-		BKE_scene_update_for_newframe(re->eval_ctx, re->main, re->scene);
+		BKE_scene_graph_update_for_newframe(re->eval_ctx, re->depsgraph, re->main, re->scene);
 		render_update_anim_renderdata(re, &re->scene->r);
 	}
 
