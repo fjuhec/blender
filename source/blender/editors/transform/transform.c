@@ -51,7 +51,7 @@
 #include "BLI_listbase.h"
 #include "BLI_string.h"
 #include "BLI_ghash.h"
-#include "BLI_stackdefines.h"
+#include "BLI_utildefines_stack.h"
 #include "BLI_memarena.h"
 
 #include "BKE_nla.h"
@@ -801,7 +801,7 @@ enum {
 /* called in transform_ops.c, on each regeneration of keymaps */
 wmKeyMap *transform_modal_keymap(wmKeyConfig *keyconf)
 {
-	static EnumPropertyItem modal_items[] = {
+	static const EnumPropertyItem modal_items[] = {
 		{TFM_MODAL_CANCEL, "CANCEL", 0, "Cancel", ""},
 		{TFM_MODAL_CONFIRM, "CONFIRM", 0, "Confirm", ""},
 		{TFM_MODAL_TRANSLATE, "TRANSLATE", 0, "Translate", ""},
@@ -2878,7 +2878,9 @@ static void initBend(TransInfo *t)
 	t->flag |= T_NO_CONSTRAINT;
 
 	//copy_v3_v3(t->center, ED_view3d_cursor3d_get(t->scene, t->view));
-	calculateCenterCursor(t, t->center);
+	if ((t->flag & T_OVERRIDE_CENTER) == 0) {
+		calculateCenterCursor(t, t->center);
+	}
 	calculateCenterGlobal(t, t->center, t->center_global);
 
 	t->val = 0.0f;
@@ -4067,13 +4069,15 @@ static void initTrackball(TransInfo *t)
 static void applyTrackballValue(TransInfo *t, const float axis1[3], const float axis2[3], float angles[2])
 {
 	TransData *td = t->data;
-	float mat[3][3], smat[3][3], totmat[3][3];
+	float mat[3][3];
+	float axis[3];
+	float angle;
 	int i;
 
-	axis_angle_normalized_to_mat3(smat, axis1, angles[0]);
-	axis_angle_normalized_to_mat3(totmat, axis2, angles[1]);
-
-	mul_m3_m3m3(mat, smat, totmat);
+	mul_v3_v3fl(axis, axis1, angles[0]);
+	madd_v3_v3fl(axis, axis2, angles[1]);
+	angle = normalize_v3(axis);
+	axis_angle_normalized_to_mat3(mat, axis, angle);
 
 	for (i = 0; i < t->total; i++, td++) {
 		if (td->flag & TD_NOACTION)
@@ -4083,10 +4087,7 @@ static void applyTrackballValue(TransInfo *t, const float axis1[3], const float 
 			continue;
 
 		if (t->flag & T_PROP_EDIT) {
-			axis_angle_normalized_to_mat3(smat, axis1, td->factor * angles[0]);
-			axis_angle_normalized_to_mat3(totmat, axis2, td->factor * angles[1]);
-
-			mul_m3_m3m3(mat, smat, totmat);
+			axis_angle_normalized_to_mat3(mat, axis, td->factor * angle);
 		}
 
 		ElementRotation(t, td, mat, t->around);
@@ -8361,8 +8362,15 @@ static void initTimeSlide(TransInfo *t)
 
 		TransData  *td = t->data;
 		for (i = 0; i < t->total; i++, td++) {
-			if (min > *(td->val)) min = *(td->val);
-			if (max < *(td->val)) max = *(td->val);
+			AnimData *adt = (t->spacetype != SPACE_NLA) ? td->extra : NULL;
+			float val = *(td->val);
+			
+			/* strip/action time to global (mapped) time */
+			if (adt)
+				val = BKE_nla_tweakedit_remap(adt, val, NLATIME_CONVERT_MAP);
+			
+			if (min > val) min = val;
+			if (max < val) max = val;
 		}
 
 		if (min == max) {
@@ -8437,24 +8445,37 @@ static void applyTimeSlideValue(TransInfo *t, float sval)
 		 */
 		AnimData *adt = (t->spacetype != SPACE_NLA) ? td->extra : NULL;
 		float cval = t->values[0];
-
-		/* apply NLA-mapping to necessary values */
-		if (adt)
-			cval = BKE_nla_tweakedit_remap(adt, cval, NLATIME_CONVERT_UNMAP);
-
+		
 		/* only apply to data if in range */
 		if ((sval > minx) && (sval < maxx)) {
 			float cvalc = CLAMPIS(cval, minx, maxx);
+			float ival = td->ival;
 			float timefac;
-
+			
+			/* NLA mapping magic here works as follows:
+			 * - "ival" goes from strip time to global time
+			 * - calculation is performed into td->val in global time
+			 *   (since sval and min/max are all in global time)
+			 * - "td->val" then gets put back into strip time
+			 */
+			if (adt) {
+				/* strip to global */
+				ival = BKE_nla_tweakedit_remap(adt, ival, NLATIME_CONVERT_MAP);
+			}
+			
 			/* left half? */
-			if (td->ival < sval) {
-				timefac = (sval - td->ival) / (sval - minx);
+			if (ival < sval) {
+				timefac = (sval - ival) / (sval - minx);
 				*(td->val) = cvalc - timefac * (cvalc - minx);
 			}
 			else {
-				timefac = (td->ival - sval) / (maxx - sval);
+				timefac = (ival - sval) / (maxx - sval);
 				*(td->val) = cvalc + timefac * (maxx - cvalc);
+			}
+			
+			if (adt) {
+				/* global to strip */
+				*(td->val) = BKE_nla_tweakedit_remap(adt, *(td->val), NLATIME_CONVERT_UNMAP);
 			}
 		}
 	}
@@ -8514,9 +8535,11 @@ static void initTimeScale(TransInfo *t)
 
 	/* recalculate center2d to use CFRA and mouse Y, since that's
 	 * what is used in time scale */
-	t->center[0] = t->scene->r.cfra;
-	projectFloatView(t, t->center, center);
-	center[1] = t->mouse.imval[1];
+	if ((t->flag & T_OVERRIDE_CENTER) == 0) {
+		t->center[0] = t->scene->r.cfra;
+		projectFloatView(t, t->center, center);
+		center[1] = t->mouse.imval[1];
+	}
 
 	/* force a reinit with the center2d used here */
 	initMouseInput(t, &t->mouse, center, t->mouse.imval, false);

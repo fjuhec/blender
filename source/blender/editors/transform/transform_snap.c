@@ -105,7 +105,7 @@ static float ResizeBetween(TransInfo *t, const float p1[3], const float p2[3]);
 
 /****************** IMPLEMENTATIONS *********************/
 
-static bool snapNodeTest(View2D *v2d, bNode *node, SnapSelect snap_select);
+static bool snapNodeTest(View2D *v2d, bNode *node, eSnapSelect snap_select);
 static NodeBorder snapNodeBorder(int snap_node_mode);
 
 #if 0
@@ -1017,7 +1017,7 @@ static void CalcSnapGeometry(TransInfo *t, float *UNUSED(vec))
 		float dist_px = SNAP_MIN_DISTANCE; // Use a user defined value here
 		char node_border;
 		
-		if (snapNodesTransform(t, t->mval, t->tsnap.modeSelect, loc, &dist_px, &node_border)) {
+		if (snapNodesTransform(t, t->mval, loc, &dist_px, &node_border)) {
 			copy_v2_v2(t->tsnap.snapPoint, loc);
 			t->tsnap.snapNodeBorder = node_border;
 			
@@ -1315,7 +1315,7 @@ bool peelObjectsTransform(
 
 /******************** NODES ***********************************/
 
-static bool snapNodeTest(View2D *v2d, bNode *node, SnapSelect snap_select)
+static bool snapNodeTest(View2D *v2d, bNode *node, eSnapSelect snap_select)
 {
 	/* node is use for snapping only if a) snap mode matches and b) node is inside the view */
 	return ((snap_select == SNAP_NOT_SELECTED && !(node->flag & NODE_SELECT)) ||
@@ -1394,7 +1394,7 @@ static bool snapNode(
 
 static bool snapNodes(
         ToolSettings *ts, SpaceNode *snode, ARegion *ar,
-        const int mval[2], SnapSelect snap_select,
+        const int mval[2], eSnapSelect snap_select,
         float r_loc[2], float *r_dist_px, char *r_node_border)
 {
 	bNodeTree *ntree = snode->edittree;
@@ -1413,22 +1413,11 @@ static bool snapNodes(
 }
 
 bool snapNodesTransform(
-        TransInfo *t, const int mval[2], SnapSelect snap_select,
+        TransInfo *t, const int mval[2],
         float r_loc[2], float *r_dist_px, char *r_node_border)
 {
 	return snapNodes(
-	        t->settings, t->sa->spacedata.first, t->ar, mval, snap_select,
-	        r_loc, r_dist_px, r_node_border);
-}
-
-bool snapNodesContext(
-        bContext *C, const int mval[2], SnapSelect snap_select,
-        float r_loc[2], float *r_dist_px, char *r_node_border)
-{
-	Scene *scene = CTX_data_scene(C);
-	ARegion *ar = CTX_wm_region(C);
-	return snapNodes(
-	        scene->toolsettings, CTX_wm_space_node(C), ar, mval, snap_select,
+	        t->settings, t->sa->spacedata.first, t->ar, mval, t->tsnap.modeSelect,
 	        r_loc, r_dist_px, r_node_border);
 }
 
@@ -1478,7 +1467,7 @@ void snapSequenceBounds(TransInfo *t, const int mval[2])
 
 	/* convert to frame range */
 	UI_view2d_region_to_view(&t->ar->v2d, mval[0], mval[1], &xmouse, &ymouse);
-	mframe = iroundf(xmouse);
+	mframe = round_fl_to_int(xmouse);
 	/* now find the closest sequence */
 	frame = BKE_sequencer_find_next_prev_edit(t->scene, mframe, SEQ_SIDE_BOTH, true, false, true);
 

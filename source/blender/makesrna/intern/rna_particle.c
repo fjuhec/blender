@@ -55,7 +55,7 @@
 #include "WM_api.h"
 
 #ifdef RNA_RUNTIME
-static EnumPropertyItem part_from_items[] = {
+static const EnumPropertyItem part_from_items[] = {
 	{PART_FROM_VERT, "VERT", 0, "Verts", ""},
 	{PART_FROM_FACE, "FACE", 0, "Faces", ""},
 	{PART_FROM_VOLUME, "VOLUME", 0, "Volume", ""},
@@ -64,7 +64,7 @@ static EnumPropertyItem part_from_items[] = {
 #endif
 
 #ifndef RNA_RUNTIME
-static EnumPropertyItem part_reactor_from_items[] = {
+static const EnumPropertyItem part_reactor_from_items[] = {
 	{PART_FROM_VERT, "VERT", 0, "Verts", ""},
 	{PART_FROM_FACE, "FACE", 0, "Faces", ""},
 	{PART_FROM_VOLUME, "VOLUME", 0, "Volume", ""},
@@ -72,7 +72,7 @@ static EnumPropertyItem part_reactor_from_items[] = {
 };
 #endif
 
-static EnumPropertyItem part_dist_items[] = {
+static const EnumPropertyItem part_dist_items[] = {
 	{PART_DISTR_JIT, "JIT", 0, "Jittered", ""},
 	{PART_DISTR_RAND, "RAND", 0, "Random", ""},
 	{PART_DISTR_GRID, "GRID", 0, "Grid", ""},
@@ -80,14 +80,14 @@ static EnumPropertyItem part_dist_items[] = {
 };
 
 #ifdef RNA_RUNTIME
-static EnumPropertyItem part_hair_dist_items[] = {
+static const EnumPropertyItem part_hair_dist_items[] = {
 	{PART_DISTR_JIT, "JIT", 0, "Jittered", ""},
 	{PART_DISTR_RAND, "RAND", 0, "Random", ""},
 	{0, NULL, 0, NULL, NULL}
 };
 #endif
 
-static EnumPropertyItem part_draw_as_items[] = {
+static const EnumPropertyItem part_draw_as_items[] = {
 	{PART_DRAW_NOT, "NONE", 0, "None", ""},
 	{PART_DRAW_REND, "RENDER", 0, "Rendered", ""},
 	{PART_DRAW_DOT, "DOT", 0, "Point", ""},
@@ -98,7 +98,7 @@ static EnumPropertyItem part_draw_as_items[] = {
 };
 
 #ifdef RNA_RUNTIME
-static EnumPropertyItem part_hair_draw_as_items[] = {
+static const EnumPropertyItem part_hair_draw_as_items[] = {
 	{PART_DRAW_NOT, "NONE", 0, "None", ""},
 	{PART_DRAW_REND, "RENDER", 0, "Rendered", ""},
 	{PART_DRAW_PATH, "PATH", 0, "Path", ""},
@@ -106,7 +106,7 @@ static EnumPropertyItem part_hair_draw_as_items[] = {
 };
 #endif
 
-static EnumPropertyItem part_ren_as_items[] = {
+static const EnumPropertyItem part_ren_as_items[] = {
 	{PART_DRAW_NOT, "NONE", 0, "None", ""},
 	{PART_DRAW_HALO, "HALO", 0, "Halo", ""},
 	{PART_DRAW_LINE, "LINE", 0, "Line", ""},
@@ -118,7 +118,7 @@ static EnumPropertyItem part_ren_as_items[] = {
 };
 
 #ifdef RNA_RUNTIME
-static EnumPropertyItem part_hair_ren_as_items[] = {
+static const EnumPropertyItem part_hair_ren_as_items[] = {
 	{PART_DRAW_NOT, "NONE", 0, "None", ""},
 	{PART_DRAW_PATH, "PATH", 0, "Path", ""},
 	{PART_DRAW_OB, "OBJECT", 0, "Object", ""},
@@ -397,7 +397,7 @@ static void rna_ParticleSystem_co_hair(ParticleSystem *particlesystem, Object *o
 }
 
 
-static EnumPropertyItem *rna_Particle_Material_itemf(bContext *C, PointerRNA *UNUSED(ptr),
+static const EnumPropertyItem *rna_Particle_Material_itemf(bContext *C, PointerRNA *UNUSED(ptr),
                                                       PropertyRNA *UNUSED(prop), bool *r_free)
 {
 	Object *ob = CTX_data_pointer_get(C, "object").data;
@@ -446,10 +446,12 @@ static int rna_ParticleSystem_tessfaceidx_on_emitter(ParticleSystem *particlesys
 	int totpart;
 	int totchild = 0;
 	int totface;
+	int totvert;
 	int num = -1;
 
 	DM_ensure_tessface(modifier->dm_final); /* BMESH - UNTIL MODIFIER IS UPDATED FOR MPoly */
 	totface = modifier->dm_final->getNumTessFaces(modifier->dm_final);
+	totvert = modifier->dm_final->getNumVerts(modifier->dm_final);
 
 	/* 1. check that everything is ok & updated */
 	if (!particlesystem || !totface) {
@@ -484,13 +486,29 @@ static int rna_ParticleSystem_tessfaceidx_on_emitter(ParticleSystem *particlesys
 				return num;
 			}
 		}
+		else if (part->from == PART_FROM_VERT) {
+			if (num != DMCACHE_NOTFOUND && num < totvert) {
+				MFace *mface = modifier->dm_final->getTessFaceDataArray(modifier->dm_final, CD_MFACE);
+
+				*r_fuv = &particle->fuv;
+
+				/* This finds the first face to contain the emitting vertex,
+				 * this is not ideal, but is mostly fine as UV seams generally
+				 * map to equal-colored parts of a texture */
+				for (int i = 0; i < totface; i++, mface++) {
+					if (ELEM(num, mface->v1, mface->v2, mface->v3, mface->v4)) {
+						return i;
+					}
+				}
+			}
+		}
 	}
 	else {
 		ChildParticle *cpa = particlesystem->child + particle_no - totpart;
 		num = cpa->num;
 
 		if (part->childtype == PART_CHILD_FACES) {
-			if (ELEM(part->from, PART_FROM_FACE, PART_FROM_VOLUME)) {
+			if (ELEM(part->from, PART_FROM_FACE, PART_FROM_VOLUME, PART_FROM_VERT)) {
 				if (num != DMCACHE_NOTFOUND && num < totface) {
 					*r_fuv = &cpa->fuv;
 					return num;
@@ -508,6 +526,22 @@ static int rna_ParticleSystem_tessfaceidx_on_emitter(ParticleSystem *particlesys
 				if (num != DMCACHE_NOTFOUND && num < totface) {
 					*r_fuv = &parent->fuv;
 					return num;
+				}
+			}
+			else if (part->from == PART_FROM_VERT) {
+				if (num != DMCACHE_NOTFOUND && num < totvert) {
+					MFace *mface = modifier->dm_final->getTessFaceDataArray(modifier->dm_final, CD_MFACE);
+
+					*r_fuv = &parent->fuv;
+
+					/* This finds the first face to contain the emitting vertex,
+					 * this is not ideal, but is mostly fine as UV seams generally
+					 * map to equal-colored parts of a texture */
+					for (int i = 0; i < totface; i++, mface++) {
+						if (ELEM(num, mface->v1, mface->v2, mface->v3, mface->v4)) {
+							return i;
+						}
+					}
 				}
 			}
 		}
@@ -1107,7 +1141,7 @@ static int rna_ParticleDupliWeight_name_length(PointerRNA *ptr)
 	return strlen(tstr);
 }
 
-static EnumPropertyItem *rna_Particle_from_itemf(bContext *UNUSED(C), PointerRNA *UNUSED(ptr),
+static const EnumPropertyItem *rna_Particle_from_itemf(bContext *UNUSED(C), PointerRNA *UNUSED(ptr),
                                                  PropertyRNA *UNUSED(prop), bool *UNUSED(r_free))
 {
 	/*if (part->type==PART_REACTOR) */
@@ -1116,7 +1150,7 @@ static EnumPropertyItem *rna_Particle_from_itemf(bContext *UNUSED(C), PointerRNA
 	return part_from_items;
 }
 
-static EnumPropertyItem *rna_Particle_dist_itemf(bContext *UNUSED(C), PointerRNA *ptr,
+static const EnumPropertyItem *rna_Particle_dist_itemf(bContext *UNUSED(C), PointerRNA *ptr,
                                                  PropertyRNA *UNUSED(prop), bool *UNUSED(r_free))
 {
 	ParticleSettings *part = ptr->id.data;
@@ -1127,7 +1161,7 @@ static EnumPropertyItem *rna_Particle_dist_itemf(bContext *UNUSED(C), PointerRNA
 		return part_dist_items;
 }
 
-static EnumPropertyItem *rna_Particle_draw_as_itemf(bContext *UNUSED(C), PointerRNA *ptr,
+static const EnumPropertyItem *rna_Particle_draw_as_itemf(bContext *UNUSED(C), PointerRNA *ptr,
                                                     PropertyRNA *UNUSED(prop), bool *UNUSED(r_free))
 {
 	ParticleSettings *part = ptr->id.data;
@@ -1138,7 +1172,7 @@ static EnumPropertyItem *rna_Particle_draw_as_itemf(bContext *UNUSED(C), Pointer
 		return part_draw_as_items;
 }
 
-static EnumPropertyItem *rna_Particle_ren_as_itemf(bContext *UNUSED(C), PointerRNA *ptr,
+static const EnumPropertyItem *rna_Particle_ren_as_itemf(bContext *UNUSED(C), PointerRNA *ptr,
                                                    PropertyRNA *UNUSED(prop), bool *UNUSED(r_free))
 {
 	ParticleSettings *part = ptr->id.data;
@@ -1392,7 +1426,7 @@ static void rna_def_particle(BlenderRNA *brna)
 	FunctionRNA *func;
 	PropertyRNA *parm;
 
-	static EnumPropertyItem alive_items[] = {
+	static const EnumPropertyItem alive_items[] = {
 		/*{PARS_KILLED, "KILLED", 0, "Killed", ""}, */
 		{PARS_DEAD, "DEAD", 0, "Dead", ""},
 		{PARS_UNBORN, "UNBORN", 0, "Unborn", ""},
@@ -1536,7 +1570,7 @@ static void rna_def_fluid_settings(BlenderRNA *brna)
 	StructRNA *srna;
 	PropertyRNA *prop;
 
-	static EnumPropertyItem sph_solver_items[] = {
+	static const EnumPropertyItem sph_solver_items[] = {
 		{SPH_SOLVER_DDR, "DDR", 0, "Double-Density", "An artistic solver with strong surface tension effects (original)"},
 		{SPH_SOLVER_CLASSICAL, "CLASSICAL", 0, "Classical", "A more physically-accurate solver"},
 		{0, NULL, 0, NULL, NULL}
@@ -1686,7 +1720,7 @@ static void rna_def_particle_settings_mtex(BlenderRNA *brna)
 	StructRNA *srna;
 	PropertyRNA *prop;
 
-	static EnumPropertyItem texco_items[] = {
+	static const EnumPropertyItem texco_items[] = {
 		{TEXCO_GLOB, "GLOBAL", 0, "Global", "Use global coordinates for the texture coordinates"},
 		{TEXCO_OBJECT, "OBJECT", 0, "Object", "Use linked object's coordinates for texture coordinates"},
 		{TEXCO_UV, "UV", 0, "UV", "Use UV coordinates for texture coordinates"},
@@ -1696,7 +1730,7 @@ static void rna_def_particle_settings_mtex(BlenderRNA *brna)
 		{0, NULL, 0, NULL, NULL}
 	};
 
-	static EnumPropertyItem prop_mapping_items[] = {
+	static const EnumPropertyItem prop_mapping_items[] = {
 		{MTEX_FLAT, "FLAT", 0, "Flat", "Map X and Y coordinates directly"},
 		{MTEX_CUBE, "CUBE", 0, "Cube", "Map using the normal vector"},
 		{MTEX_TUBE, "TUBE", 0, "Tube", "Map with Z as central axis"},
@@ -1704,7 +1738,7 @@ static void rna_def_particle_settings_mtex(BlenderRNA *brna)
 		{0, NULL, 0, NULL, NULL}
 	};
 		
-	static EnumPropertyItem prop_x_mapping_items[] = {
+	static const EnumPropertyItem prop_x_mapping_items[] = {
 		{0, "NONE", 0, "None", ""},
 		{1, "X", 0, "X", ""},
 		{2, "Y", 0, "Y", ""},
@@ -1712,7 +1746,7 @@ static void rna_def_particle_settings_mtex(BlenderRNA *brna)
 		{0, NULL, 0, NULL, NULL}
 	};
 		
-	static EnumPropertyItem prop_y_mapping_items[] = {
+	static const EnumPropertyItem prop_y_mapping_items[] = {
 		{0, "NONE", 0, "None", ""},
 		{1, "X", 0, "X", ""},
 		{2, "Y", 0, "Y", ""},
@@ -1720,7 +1754,7 @@ static void rna_def_particle_settings_mtex(BlenderRNA *brna)
 		{0, NULL, 0, NULL, NULL}
 	};
 		
-	static EnumPropertyItem prop_z_mapping_items[] = {
+	static const EnumPropertyItem prop_z_mapping_items[] = {
 		{0, "NONE", 0, "None", ""},
 		{1, "X", 0, "X", ""},
 		{2, "Y", 0, "Y", ""},
@@ -1929,14 +1963,14 @@ static void rna_def_particle_settings(BlenderRNA *brna)
 	StructRNA *srna;
 	PropertyRNA *prop;
 
-	static EnumPropertyItem type_items[] = {
+	static const EnumPropertyItem type_items[] = {
 		{PART_EMITTER, "EMITTER", 0, "Emitter", ""},
 		/*{PART_REACTOR, "REACTOR", 0, "Reactor", ""}, */
 		{PART_HAIR, "HAIR", 0, "Hair", ""},
 		{0, NULL, 0, NULL, NULL}
 	};
 
-	static EnumPropertyItem phys_type_items[] = {
+	static const EnumPropertyItem phys_type_items[] = {
 		{PART_PHYS_NO, "NO", 0, "No", ""},
 		{PART_PHYS_NEWTON, "NEWTON", 0, "Newtonian", ""},
 		{PART_PHYS_KEYED, "KEYED", 0, "Keyed", ""},
@@ -1945,7 +1979,7 @@ static void rna_def_particle_settings(BlenderRNA *brna)
 		{0, NULL, 0, NULL, NULL}
 	};
 
-	static EnumPropertyItem rot_mode_items[] = {
+	static const EnumPropertyItem rot_mode_items[] = {
 		{0, "NONE", 0, "None", ""},
 		{PART_ROT_NOR, "NOR", 0, "Normal", ""},
 		{PART_ROT_NOR_TAN, "NOR_TAN", 0, "Normal-Tangent", ""},
@@ -1959,7 +1993,7 @@ static void rna_def_particle_settings(BlenderRNA *brna)
 		{0, NULL, 0, NULL, NULL}
 	};
 
-	static EnumPropertyItem ave_mode_items[] = {
+	static const EnumPropertyItem ave_mode_items[] = {
 		{0, "NONE", 0, "None", ""},
 		{PART_AVE_VELOCITY, "VELOCITY", 0, "Velocity", ""},
 		{PART_AVE_HORIZONTAL, "HORIZONTAL", 0, "Horizontal", ""},
@@ -1971,14 +2005,14 @@ static void rna_def_particle_settings(BlenderRNA *brna)
 		{0, NULL, 0, NULL, NULL}
 	};
 
-	static EnumPropertyItem react_event_items[] = {
+	static const EnumPropertyItem react_event_items[] = {
 		{PART_EVENT_DEATH, "DEATH", 0, "Death", ""},
 		{PART_EVENT_COLLIDE, "COLLIDE", 0, "Collision", ""},
 		{PART_EVENT_NEAR, "NEAR", 0, "Near", ""},
 		{0, NULL, 0, NULL, NULL}
 	};
 
-	static EnumPropertyItem child_type_items[] = {
+	static const EnumPropertyItem child_type_items[] = {
 		{0, "NONE", 0, "None", ""},
 		{PART_CHILD_PARTICLES, "SIMPLE", 0, "Simple", ""},
 		{PART_CHILD_FACES, "INTERPOLATED", 0, "Interpolated", ""},
@@ -1986,7 +2020,7 @@ static void rna_def_particle_settings(BlenderRNA *brna)
 	};
 
 	/*TODO: names, tooltips */
-	static EnumPropertyItem integrator_type_items[] = {
+	static const EnumPropertyItem integrator_type_items[] = {
 		{PART_INT_EULER, "EULER", 0, "Euler", ""},
 		{PART_INT_VERLET, "VERLET", 0, "Verlet", ""},
 		{PART_INT_MIDPOINT, "MIDPOINT", 0, "Midpoint", ""},
@@ -1994,7 +2028,7 @@ static void rna_def_particle_settings(BlenderRNA *brna)
 		{0, NULL, 0, NULL, NULL}
 	};
 
-	static EnumPropertyItem kink_type_items[] = {
+	static const EnumPropertyItem kink_type_items[] = {
 		{PART_KINK_NO, "NO", 0, "Nothing", ""},
 		{PART_KINK_CURL, "CURL", 0, "Curl", ""},
 		{PART_KINK_RADIAL, "RADIAL", 0, "Radial", ""},
@@ -2004,7 +2038,7 @@ static void rna_def_particle_settings(BlenderRNA *brna)
 		{0, NULL, 0, NULL, NULL}
 	};
 
-	static EnumPropertyItem bb_align_items[] = {
+	static const EnumPropertyItem bb_align_items[] = {
 		{PART_BB_X, "X", 0, "X", ""},
 		{PART_BB_Y, "Y", 0, "Y", ""},
 		{PART_BB_Z, "Z", 0, "Z", ""},
@@ -2013,7 +2047,7 @@ static void rna_def_particle_settings(BlenderRNA *brna)
 		{0, NULL, 0, NULL, NULL}
 	};
 
-	static EnumPropertyItem bb_anim_items[] = {
+	static const EnumPropertyItem bb_anim_items[] = {
 		{PART_BB_ANIM_NONE, "NONE", 0, "None", ""},
 		{PART_BB_ANIM_AGE, "AGE", 0, "Age", ""},
 		{PART_BB_ANIM_FRAME, "FRAME", 0, "Frame", ""},
@@ -2021,14 +2055,14 @@ static void rna_def_particle_settings(BlenderRNA *brna)
 		{0, NULL, 0, NULL, NULL}
 	};
 
-	static EnumPropertyItem bb_split_offset_items[] = {
+	static const EnumPropertyItem bb_split_offset_items[] = {
 		{PART_BB_OFF_NONE, "NONE", 0, "None", ""},
 		{PART_BB_OFF_LINEAR, "LINEAR", 0, "Linear", ""},
 		{PART_BB_OFF_RANDOM, "RANDOM", 0, "Random", ""},
 		{0, NULL, 0, NULL, NULL}
 	};
 
-	static EnumPropertyItem draw_col_items[] = {
+	static const EnumPropertyItem draw_col_items[] = {
 		{PART_DRAW_COL_NONE, "NONE", 0, "None", ""},
 		{PART_DRAW_COL_MAT, "MATERIAL", 0, "Material", ""},
 		{PART_DRAW_COL_VEL, "VELOCITY", 0, "Velocity", ""},
@@ -2036,7 +2070,7 @@ static void rna_def_particle_settings(BlenderRNA *brna)
 		{0, NULL, 0, NULL, NULL}
 	};
 
-	static EnumPropertyItem part_mat_items[] = {
+	static const EnumPropertyItem part_mat_items[] = {
 		{0, "DUMMY", 0, "Dummy", ""},
 		{0, NULL, 0, NULL, NULL}
 	};
@@ -3140,7 +3174,7 @@ static void rna_def_particle_target(BlenderRNA *brna)
 	StructRNA *srna;
 	PropertyRNA *prop;
 
-	static EnumPropertyItem mode_items[] = {
+	static const EnumPropertyItem mode_items[] = {
 		{PTARGET_MODE_FRIEND, "FRIEND", 0, "Friend", ""},
 		{PTARGET_MODE_NEUTRAL, "NEUTRAL", 0, "Neutral", ""},
 		{PTARGET_MODE_ENEMY, "ENEMY", 0, "Enemy", ""},
@@ -3203,7 +3237,7 @@ static void rna_def_particle_system(BlenderRNA *brna)
 	FunctionRNA *func;
 	PropertyRNA *parm;
 
-	static EnumPropertyItem resolution_items[] = {
+	static const EnumPropertyItem resolution_items[] = {
 		{eModifierMode_Realtime, "PREVIEW", 0, "Preview", "Apply modifier preview settings"},
 		{eModifierMode_Render, "RENDER", 0, "Render", "Apply modifier render settings"},
 		{0, NULL, 0, NULL, NULL}

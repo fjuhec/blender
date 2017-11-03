@@ -118,7 +118,8 @@ typedef struct RenderPart {
 enum {
 	PART_STATUS_NONE        = 0,
 	PART_STATUS_IN_PROGRESS = 1,
-	PART_STATUS_READY       = 2
+	PART_STATUS_RENDERED    = 2,
+	PART_STATUS_MERGED      = 3
 };
 
 /* controls state of render, everything that's read-only during render stage */
@@ -335,7 +336,7 @@ typedef struct ObjectRen {
 	char (*mcol)[MAX_CUSTOMDATA_LAYER_NAME];
 	int  actmtface, actmcol, bakemtface;
 
-	char tangent_mask; /* which tangent layer should be calculated */
+	short tangent_mask; /* which tangent layer should be calculated */
 
 	float obmat[4][4];	/* only used in convertblender.c, for instancing */
 

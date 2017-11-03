@@ -107,7 +107,7 @@ EnumPropertyItem prop_side_types[] = {
 	{0, NULL, 0, NULL, NULL}
 };
 
-static EnumPropertyItem prop_side_lr_types[] = {
+static const EnumPropertyItem prop_side_lr_types[] = {
 	{SEQ_SIDE_LEFT, "LEFT", 0, "Left", ""},
 	{SEQ_SIDE_RIGHT, "RIGHT", 0, "Right", ""},
 	{0, NULL, 0, NULL, NULL}
@@ -727,7 +727,7 @@ static Sequence *cut_seq_hard(Scene *scene, Sequence *seq, int cutframe)
 
 	if (!skip_dup) {
 		/* Duplicate AFTER the first change */
-		seqn = BKE_sequence_dupli_recursive(scene, NULL, seq, SEQ_DUPE_UNIQUE_NAME | SEQ_DUPE_ANIM);
+		seqn = BKE_sequence_dupli_recursive(scene, scene, seq, SEQ_DUPE_UNIQUE_NAME | SEQ_DUPE_ANIM);
 	}
 	
 	if (seqn) {
@@ -820,7 +820,7 @@ static Sequence *cut_seq_soft(Scene *scene, Sequence *seq, int cutframe)
 
 	if (!skip_dup) {
 		/* Duplicate AFTER the first change */
-		seqn = BKE_sequence_dupli_recursive(scene, NULL, seq, SEQ_DUPE_UNIQUE_NAME | SEQ_DUPE_ANIM);
+		seqn = BKE_sequence_dupli_recursive(scene, scene, seq, SEQ_DUPE_UNIQUE_NAME | SEQ_DUPE_ANIM);
 	}
 	
 	if (seqn) {
@@ -1232,7 +1232,7 @@ static int sequencer_snap_invoke(bContext *C, wmOperator *op, const wmEvent *UNU
 void SEQUENCER_OT_snap(struct wmOperatorType *ot)
 {
 	/* identifiers */
-	ot->name = "Snap Strips";
+	ot->name = "Snap Strips to Frame";
 	ot->idname = "SEQUENCER_OT_snap";
 	ot->description = "Frame where selected strips will be snapped";
 	
@@ -2033,7 +2033,7 @@ void SEQUENCER_OT_swap_inputs(struct wmOperatorType *ot)
 
 
 /* cut operator */
-static EnumPropertyItem prop_cut_types[] = {
+static const EnumPropertyItem prop_cut_types[] = {
 	{SEQ_CUT_SOFT, "SOFT", 0, "Soft", ""},
 	{SEQ_CUT_HARD, "HARD", 0, "Hard", ""},
 	{0, NULL, 0, NULL, NULL}
@@ -2162,7 +2162,7 @@ static int sequencer_add_duplicate_exec(bContext *C, wmOperator *UNUSED(op))
 	if (ed == NULL)
 		return OPERATOR_CANCELLED;
 
-	BKE_sequence_base_dupli_recursive(scene, NULL, &nseqbase, ed->seqbasep, SEQ_DUPE_CONTEXT);
+	BKE_sequence_base_dupli_recursive(scene, scene, &nseqbase, ed->seqbasep, SEQ_DUPE_CONTEXT, 0);
 
 	if (nseqbase.first) {
 		Sequence *seq = nseqbase.first;
@@ -2823,7 +2823,7 @@ void SEQUENCER_OT_view_zoom_ratio(wmOperatorType *ot)
 
 
 #if 0
-static EnumPropertyItem view_type_items[] = {
+static const EnumPropertyItem view_type_items[] = {
 	{SEQ_VIEW_SEQUENCE, "SEQUENCER", ICON_SEQ_SEQUENCER, "Sequencer", ""},
 	{SEQ_VIEW_PREVIEW,  "PREVIEW", ICON_SEQ_PREVIEW, "Image Preview", ""},
 	{SEQ_VIEW_SEQUENCE_PREVIEW,  "SEQUENCER_PREVIEW", ICON_SEQ_SEQUENCER, "Sequencer and Image Preview", ""},
@@ -3200,7 +3200,7 @@ static int sequencer_copy_exec(bContext *C, wmOperator *op)
 		return OPERATOR_CANCELLED;
 	}
 
-	BKE_sequence_base_dupli_recursive(scene, NULL, &nseqbase, ed->seqbasep, SEQ_DUPE_UNIQUE_NAME);
+	BKE_sequence_base_dupli_recursive(scene, scene, &nseqbase, ed->seqbasep, SEQ_DUPE_UNIQUE_NAME, 0);
 
 	/* To make sure the copied strips have unique names between each other add
 	 * them temporarily to the end of the original seqbase. (bug 25932)
@@ -3267,7 +3267,7 @@ static int sequencer_paste_exec(bContext *C, wmOperator *UNUSED(op))
 	ED_sequencer_deselect_all(scene);
 	ofs = scene->r.cfra - seqbase_clipboard_frame;
 
-	BKE_sequence_base_dupli_recursive(scene, NULL, &nseqbase, &seqbase_clipboard, SEQ_DUPE_UNIQUE_NAME);
+	BKE_sequence_base_dupli_recursive(scene, scene, &nseqbase, &seqbase_clipboard, SEQ_DUPE_UNIQUE_NAME, 0);
 
 	/* transform pasted strips before adding */
 	if (ofs) {
@@ -3421,17 +3421,17 @@ void SEQUENCER_OT_view_ghost_border(wmOperatorType *ot)
 	ot->description = "Set the boundaries of the border used for offset-view";
 
 	/* api callbacks */
-	ot->invoke = WM_border_select_invoke;
+	ot->invoke = WM_gesture_border_invoke;
 	ot->exec = view_ghost_border_exec;
-	ot->modal = WM_border_select_modal;
+	ot->modal = WM_gesture_border_modal;
 	ot->poll = sequencer_view_preview_poll;
-	ot->cancel = WM_border_select_cancel;
+	ot->cancel = WM_gesture_border_cancel;
 
 	/* flags */
 	ot->flag = 0;
 
 	/* rna */
-	WM_operator_properties_gesture_border(ot, false);
+	WM_operator_properties_gesture_border(ot);
 }
 
 /* rebuild_proxy operator */
@@ -3512,7 +3512,7 @@ static int sequencer_enable_proxies_exec(bContext *C, wmOperator *op)
 	bool proxy_50 = RNA_boolean_get(op->ptr, "proxy_50");
 	bool proxy_75 = RNA_boolean_get(op->ptr, "proxy_75");
 	bool proxy_100 = RNA_boolean_get(op->ptr, "proxy_100");
-	bool override = RNA_boolean_get(op->ptr, "override");
+	bool overwrite = RNA_boolean_get(op->ptr, "overwrite");
 	bool turnon = true;
 
 	if (ed == NULL || !(proxy_25 || proxy_50 || proxy_75 || proxy_100)) {
@@ -3548,7 +3548,7 @@ static int sequencer_enable_proxies_exec(bContext *C, wmOperator *op)
 				else 
 					seq->strip->proxy->build_size_flags &= ~SEQ_PROXY_IMAGE_SIZE_100;
 				
-				if (!override)
+				if (!overwrite)
 					seq->strip->proxy->build_flags |= SEQ_PROXY_SKIP_EXISTING;
 				else 
 					seq->strip->proxy->build_flags &= ~SEQ_PROXY_SKIP_EXISTING;
@@ -3580,12 +3580,12 @@ void SEQUENCER_OT_enable_proxies(wmOperatorType *ot)
 	RNA_def_boolean(ot->srna, "proxy_50", false, "50%", "");
 	RNA_def_boolean(ot->srna, "proxy_75", false, "75%", "");
 	RNA_def_boolean(ot->srna, "proxy_100", false, "100%", "");
-	RNA_def_boolean(ot->srna, "override", false, "Override", "");
+	RNA_def_boolean(ot->srna, "overwrite", false, "Overwrite", "");
 }
 
 /* change ops */
 
-static EnumPropertyItem prop_change_effect_input_types[] = {
+static const EnumPropertyItem prop_change_effect_input_types[] = {
 	{0, "A_B", 0, "A -> B", ""},
 	{1, "B_C", 0, "B -> C", ""},
 	{2, "A_C", 0, "A -> C", ""},

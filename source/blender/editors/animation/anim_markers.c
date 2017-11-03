@@ -149,7 +149,7 @@ int ED_markers_post_apply_transform(ListBase *markers, Scene *scene, int mode, f
 					    (side == 'L' && marker->frame < cfra) ||
 					    (side == 'R' && marker->frame >= cfra))
 					{
-						marker->frame += iroundf(value);
+						marker->frame += round_fl_to_int(value);
 						changed_tot++;
 					}
 					break;
@@ -157,7 +157,7 @@ int ED_markers_post_apply_transform(ListBase *markers, Scene *scene, int mode, f
 				case TFM_TIME_SCALE:
 				{
 					/* rescale the distance between the marker and the current frame */
-					marker->frame = cfra + iroundf((float)(marker->frame - cfra) * value);
+					marker->frame = cfra + round_fl_to_int((float)(marker->frame - cfra) * value);
 					changed_tot++;
 					break;
 				}
@@ -195,7 +195,7 @@ TimeMarker *ED_markers_find_nearest_marker(ListBase *markers, float x)
 int ED_markers_find_nearest_marker_time(ListBase *markers, float x)
 {
 	TimeMarker *nearest = ED_markers_find_nearest_marker(markers, x);
-	return (nearest) ? (nearest->frame) : iroundf(x);
+	return (nearest) ? (nearest->frame) : round_fl_to_int(x);
 }
 
 
@@ -895,7 +895,7 @@ static int ed_marker_move_modal(bContext *C, wmOperator *op, const wmEvent *even
 			case PADENTER:
 			case LEFTMOUSE:
 			case MIDDLEMOUSE:
-				if (WM_modal_tweak_exit(event, mm->event_type)) {
+				if (WM_event_is_modal_tweak_exit(event, mm->event_type)) {
 					ed_marker_move_exit(C, op);
 					WM_event_add_notifier(C, NC_SCENE | ND_MARKERS, NULL);
 					WM_event_add_notifier(C, NC_ANIMATION | ND_MARKERS, NULL);
@@ -1230,7 +1230,7 @@ static int ed_marker_border_select_exec(bContext *C, wmOperator *op)
 	View2D *v2d = UI_view2d_fromcontext(C);
 	ListBase *markers = ED_context_get_markers(C);
 	TimeMarker *marker;
-	int gesture_mode = RNA_int_get(op->ptr, "gesture_mode");
+	bool select = !RNA_boolean_get(op->ptr, "deselect");
 	bool extend = RNA_boolean_get(op->ptr, "extend");
 	rctf rect;
 	
@@ -1243,13 +1243,11 @@ static int ed_marker_border_select_exec(bContext *C, wmOperator *op)
 	/* XXX marker context */
 	for (marker = markers->first; marker; marker = marker->next) {
 		if (BLI_rctf_isect_x(&rect, marker->frame)) {
-			switch (gesture_mode) {
-				case GESTURE_MODAL_SELECT:
-					marker->flag |= SELECT;
-					break;
-				case GESTURE_MODAL_DESELECT:
-					marker->flag &= ~SELECT;
-					break;
+			if (select) {
+				marker->flag |= SELECT;
+			}
+			else {
+				marker->flag &= ~SELECT;
 			}
 		}
 		else if (!extend) {
@@ -1265,7 +1263,7 @@ static int ed_marker_border_select_exec(bContext *C, wmOperator *op)
 
 static int ed_marker_select_border_invoke_wrapper(bContext *C, wmOperator *op, const wmEvent *event)
 {
-	return ed_markers_opwrap_invoke_custom(C, op, event, WM_border_select_invoke);
+	return ed_markers_opwrap_invoke_custom(C, op, event, WM_gesture_border_invoke);
 }
 
 static void MARKER_OT_select_border(wmOperatorType *ot)
@@ -1278,8 +1276,8 @@ static void MARKER_OT_select_border(wmOperatorType *ot)
 	/* api callbacks */
 	ot->exec = ed_marker_border_select_exec;
 	ot->invoke = ed_marker_select_border_invoke_wrapper;
-	ot->modal = WM_border_select_modal;
-	ot->cancel = WM_border_select_cancel;
+	ot->modal = WM_gesture_border_modal;
+	ot->cancel = WM_gesture_border_cancel;
 	
 	ot->poll = ed_markers_poll_markers_exist;
 	
@@ -1287,7 +1285,7 @@ static void MARKER_OT_select_border(wmOperatorType *ot)
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 	
 	/* rna */
-	WM_operator_properties_gesture_border(ot, true);
+	WM_operator_properties_gesture_border_select(ot);
 }
 
 /* *********************** (de)select all ***************** */

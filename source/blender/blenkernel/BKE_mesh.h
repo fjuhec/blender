@@ -87,6 +87,7 @@ int BKE_mesh_edge_other_vert(const struct MEdge *e, int v);
 void BKE_mesh_free(struct Mesh *me);
 void BKE_mesh_init(struct Mesh *me);
 struct Mesh *BKE_mesh_add(struct Main *bmain, const char *name);
+void BKE_mesh_copy_data(struct Main *bmain, struct Mesh *me_dst, const struct Mesh *me_src, const int flag);
 struct Mesh *BKE_mesh_copy(struct Main *bmain, const struct Mesh *me);
 void BKE_mesh_update_customdata_pointers(struct Mesh *me, const bool do_ensure_tess_cd);
 void BKE_mesh_ensure_skin_customdata(struct Mesh *me);
@@ -110,7 +111,8 @@ int BKE_mesh_nurbs_displist_to_mdata(
         struct MEdge **r_alledge, int *r_totedge,
         struct MLoop **r_allloop, struct MPoly **r_allpoly,
         struct MLoopUV **r_alluv, int *r_totloop, int *r_totpoly);
-void BKE_mesh_from_nurbs_displist(struct Object *ob, struct ListBase *dispbase, const bool use_orco_uv);
+void BKE_mesh_from_nurbs_displist(
+        struct Object *ob, struct ListBase *dispbase, const bool use_orco_uv, const char *obdata_name);
 void BKE_mesh_from_nurbs(struct Object *ob);
 void BKE_mesh_to_curve_nurblist(struct DerivedMesh *dm, struct ListBase *nurblist, const int edge_users_test);
 void BKE_mesh_to_curve(struct Scene *scene, struct Object *ob);
@@ -278,7 +280,8 @@ void BKE_mesh_poly_edgebitmap_insert(
 
 bool BKE_mesh_center_median(const struct Mesh *me, float r_cent[3]);
 bool BKE_mesh_center_bounds(const struct Mesh *me, float r_cent[3]);
-bool BKE_mesh_center_centroid(const struct Mesh *me, float r_cent[3]);
+bool BKE_mesh_center_of_surface(const struct Mesh *me, float r_cent[3]);
+bool BKE_mesh_center_of_volume(const struct Mesh *me, float r_cent[3]);
 
 void BKE_mesh_calc_volume(
         const struct MVert *mverts, const int mverts_num,

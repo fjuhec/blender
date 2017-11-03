@@ -41,6 +41,8 @@
  * is likely to be a little slow.
  */
 
+#include "atomic_ops.h"
+
 #include "BLI_math.h"
 #include "BLI_jitter.h"
 #include "BLI_bitmap.h"
@@ -489,8 +491,6 @@ static void emDM_calc_loop_tangents(
 	EditDerivedBMesh *bmdm = (EditDerivedBMesh *)dm;
 	BMEditMesh *em = bmdm->em;
 	BMesh *bm = bmdm->em->bm;
-	if (CustomData_number_of_layers(&bm->ldata, CD_MLOOPUV) == 0)
-		return;
 
 	int act_uv_n = -1;
 	int ren_uv_n = -1;
@@ -498,7 +498,7 @@ static void emDM_calc_loop_tangents(
 	bool calc_ren = false;
 	char act_uv_name[MAX_NAME];
 	char ren_uv_name[MAX_NAME];
-	char tangent_mask = 0;
+	short tangent_mask = 0;
 
 	DM_calc_loop_tangents_step_0(
 	        &bm->ldata, calc_active_tangent, tangent_names, tangent_names_count,
@@ -508,6 +508,8 @@ static void emDM_calc_loop_tangents(
 		for (int i = 0; i < tangent_names_count; i++)
 			if (tangent_names[i][0])
 				DM_add_named_tangent_layer_for_uv(&bm->ldata, &dm->loopData, dm->numLoopData, tangent_names[i]);
+		if ((tangent_mask & DM_TANGENT_MASK_ORCO) && CustomData_get_named_layer_index(&dm->loopData, CD_TANGENT, "") == -1)
+			CustomData_add_layer_named(&dm->loopData, CD_TANGENT, CD_CALLOC, NULL, dm->numLoopData, "");
 		if (calc_act && act_uv_name[0])
 			DM_add_named_tangent_layer_for_uv(&bm->ldata, &dm->loopData, dm->numLoopData, act_uv_name);
 		if (calc_ren && ren_uv_name[0])
@@ -574,7 +576,17 @@ static void emDM_calc_loop_tangents(
 						continue;
 					/* needed for orco lookups */
 					htype_index |= BM_VERT;
+					dm->tangent_mask |= DM_TANGENT_MASK_ORCO;
 				}
+				else {
+					/* Fill the resulting tangent_mask */
+					int uv_ind = CustomData_get_named_layer_index(&bm->ldata, CD_MLOOPUV, dm->loopData.layers[index].name);
+					int uv_start = CustomData_get_layer_index(&bm->ldata, CD_MLOOPUV);
+					BLI_assert(uv_ind != -1 && uv_start != -1);
+					BLI_assert(uv_ind - uv_start < MAX_MTFACE);
+					dm->tangent_mask |= 1 << (uv_ind - uv_start);
+				}
+
 				if (mesh2tangent->precomputedFaceNormals) {
 					/* needed for face normal lookups */
 					htype_index |= BM_FACE;
@@ -584,12 +596,6 @@ static void emDM_calc_loop_tangents(
 				mesh2tangent->looptris = (const BMLoop *(*)[3])em->looptris;
 				mesh2tangent->tangent = dm->loopData.layers[index].data;
 
-				/* Fill the resulting tangent_mask */
-				int uv_ind = CustomData_get_named_layer_index(&bm->ldata, CD_MLOOPUV, dm->loopData.layers[index].name);
-				int uv_start = CustomData_get_layer_index(&bm->ldata, CD_MLOOPUV);
-				BLI_assert(uv_ind != -1 && uv_start != -1);
-				BLI_assert(uv_ind - uv_start < MAX_MTFACE);
-				dm->tangent_mask |= 1 << (uv_ind - uv_start);
 				BLI_task_pool_push(task_pool, emDM_calc_loop_tangents_thread, mesh2tangent, false, TASK_PRIORITY_LOW);
 			}
 
@@ -604,15 +610,20 @@ static void emDM_calc_loop_tangents(
 #undef USE_LOOPTRI_DETECT_QUADS
 #endif
 	}
+
 	/* Update active layer index */
-	int uv_index = CustomData_get_layer_index_n(&bm->ldata, CD_MLOOPUV, act_uv_n);
-	int tan_index = CustomData_get_named_layer_index(&dm->loopData, CD_TANGENT, bm->ldata.layers[uv_index].name);
-	CustomData_set_layer_active_index(&dm->loopData, CD_TANGENT, tan_index);
+	int act_uv_index = CustomData_get_layer_index_n(&bm->ldata, CD_MLOOPUV, act_uv_n);
+	if (act_uv_index >= 0) {
+		int tan_index = CustomData_get_named_layer_index(&dm->loopData, CD_TANGENT, bm->ldata.layers[act_uv_index].name);
+		CustomData_set_layer_active_index(&dm->loopData, CD_TANGENT, tan_index);
+	} /* else tangent has been built from orco */
 
 	/* Update render layer index */
-	uv_index = CustomData_get_layer_index_n(&bm->ldata, CD_MLOOPUV, ren_uv_n);
-	tan_index = CustomData_get_named_layer_index(&dm->loopData, CD_TANGENT, bm->ldata.layers[uv_index].name);
-	CustomData_set_layer_render_index(&dm->loopData, CD_TANGENT, tan_index);
+	int ren_uv_index = CustomData_get_layer_index_n(&bm->ldata, CD_MLOOPUV, ren_uv_n);
+	if (ren_uv_index >= 0) {
+		int tan_index = CustomData_get_named_layer_index(&dm->loopData, CD_TANGENT, bm->ldata.layers[ren_uv_index].name);
+		CustomData_set_layer_render_index(&dm->loopData, CD_TANGENT, tan_index);
+	} /* else tangent has been built from orco */
 }
 
 /** \} */
@@ -632,8 +643,9 @@ static void emDM_recalcLoopTri(DerivedMesh *dm)
 	int i;
 
 	DM_ensure_looptri_data(dm);
-	mlooptri = dm->looptris.array;
+	mlooptri = dm->looptris.array_wip;
 
+	BLI_assert(tottri == 0 || mlooptri != NULL);
 	BLI_assert(poly_to_tri_count(dm->numPolyData, dm->numLoopData) == dm->looptris.num);
 	BLI_assert(tottri == dm->looptris.num);
 
@@ -650,18 +662,10 @@ static void emDM_recalcLoopTri(DerivedMesh *dm)
 		        BM_elem_index_get(ltri[2]));
 		lt->poly = BM_elem_index_get(ltri[0]->f);
 	}
-}
 
-static const MLoopTri *emDM_getLoopTriArray(DerivedMesh *dm)
-{
-	if (dm->looptris.array) {
-		BLI_assert(poly_to_tri_count(dm->numPolyData, dm->numLoopData) == dm->looptris.num);
-	}
-	else {
-		dm->recalcLoopTri(dm);
-	}
-
-	return dm->looptris.array;
+	BLI_assert(dm->looptris.array == NULL);
+	atomic_cas_ptr((void **)&dm->looptris.array, dm->looptris.array, dm->looptris.array_wip);
+	dm->looptris.array_wip = NULL;
 }
 
 static void emDM_foreachMappedVert(
@@ -1032,11 +1036,11 @@ static void emDM_drawMappedFaces(
 						if (poly_prev != GL_ZERO) glEnd();
 						glBegin((poly_prev = poly_type)); /* BMesh: will always be GL_TRIANGLES */
 					}
-					if (has_vcol_any) glColor3ubv((const GLubyte *)&(lcol[0]->r));
+					if (has_vcol_any) glColor4ubv((const GLubyte *)&(lcol[0]->r));
 					glVertex3fv(vertexCos[BM_elem_index_get(ltri[0]->v)]);
-					if (has_vcol_any) glColor3ubv((const GLubyte *)&(lcol[1]->r));
+					if (has_vcol_any) glColor4ubv((const GLubyte *)&(lcol[1]->r));
 					glVertex3fv(vertexCos[BM_elem_index_get(ltri[1]->v)]);
-					if (has_vcol_any) glColor3ubv((const GLubyte *)&(lcol[2]->r));
+					if (has_vcol_any) glColor4ubv((const GLubyte *)&(lcol[2]->r));
 					glVertex3fv(vertexCos[BM_elem_index_get(ltri[2]->v)]);
 				}
 				else {
@@ -1053,23 +1057,23 @@ static void emDM_drawMappedFaces(
 
 					if (!drawSmooth) {
 						glNormal3fv(polyNos[BM_elem_index_get(efa)]);
-						if (has_vcol_any) glColor3ubv((const GLubyte *)&(lcol[0]->r));
+						if (has_vcol_any) glColor4ubv((const GLubyte *)&(lcol[0]->r));
 						glVertex3fv(vertexCos[BM_elem_index_get(ltri[0]->v)]);
-						if (has_vcol_any) glColor3ubv((const GLubyte *)&(lcol[1]->r));
+						if (has_vcol_any) glColor4ubv((const GLubyte *)&(lcol[1]->r));
 						glVertex3fv(vertexCos[BM_elem_index_get(ltri[1]->v)]);
-						if (has_vcol_any) glColor3ubv((const GLubyte *)&(lcol[2]->r));
+						if (has_vcol_any) glColor4ubv((const GLubyte *)&(lcol[2]->r));
 						glVertex3fv(vertexCos[BM_elem_index_get(ltri[2]->v)]);
 					}
 					else {
-						if (has_vcol_any) glColor3ubv((const GLubyte *)&(lcol[0]->r));
+						if (has_vcol_any) glColor4ubv((const GLubyte *)&(lcol[0]->r));
 						if (lnors) glNormal3fv(lnors[BM_elem_index_get(ltri[0])]);
 						else glNormal3fv(vertexNos[BM_elem_index_get(ltri[0]->v)]);
 						glVertex3fv(vertexCos[BM_elem_index_get(ltri[0]->v)]);
-						if (has_vcol_any) glColor3ubv((const GLubyte *)&(lcol[1]->r));
+						if (has_vcol_any) glColor4ubv((const GLubyte *)&(lcol[1]->r));
 						if (lnors) glNormal3fv(lnors[BM_elem_index_get(ltri[1])]);
 						else glNormal3fv(vertexNos[BM_elem_index_get(ltri[1]->v)]);
 						glVertex3fv(vertexCos[BM_elem_index_get(ltri[1]->v)]);
-						if (has_vcol_any) glColor3ubv((const GLubyte *)&(lcol[2]->r));
+						if (has_vcol_any) glColor4ubv((const GLubyte *)&(lcol[2]->r));
 						if (lnors) glNormal3fv(lnors[BM_elem_index_get(ltri[2])]);
 						else glNormal3fv(vertexNos[BM_elem_index_get(ltri[2]->v)]);
 						glVertex3fv(vertexCos[BM_elem_index_get(ltri[2]->v)]);
@@ -1134,11 +1138,11 @@ static void emDM_drawMappedFaces(
 						if (poly_prev != GL_ZERO) glEnd();
 						glBegin((poly_prev = poly_type)); /* BMesh: will always be GL_TRIANGLES */
 					}
-					if (has_vcol_any) glColor3ubv((const GLubyte *)&(lcol[0]->r));
+					if (has_vcol_any) glColor4ubv((const GLubyte *)&(lcol[0]->r));
 					glVertex3fv(ltri[0]->v->co);
-					if (has_vcol_any) glColor3ubv((const GLubyte *)&(lcol[1]->r));
+					if (has_vcol_any) glColor4ubv((const GLubyte *)&(lcol[1]->r));
 					glVertex3fv(ltri[1]->v->co);
-					if (has_vcol_any) glColor3ubv((const GLubyte *)&(lcol[2]->r));
+					if (has_vcol_any) glColor4ubv((const GLubyte *)&(lcol[2]->r));
 					glVertex3fv(ltri[2]->v->co);
 				}
 				else {
@@ -1155,23 +1159,23 @@ static void emDM_drawMappedFaces(
 
 					if (!drawSmooth) {
 						glNormal3fv(efa->no);
-						if (has_vcol_any) glColor3ubv((const GLubyte *)&(lcol[0]->r));
+						if (has_vcol_any) glColor4ubv((const GLubyte *)&(lcol[0]->r));
 						glVertex3fv(ltri[0]->v->co);
-						if (has_vcol_any) glColor3ubv((const GLubyte *)&(lcol[1]->r));
+						if (has_vcol_any) glColor4ubv((const GLubyte *)&(lcol[1]->r));
 						glVertex3fv(ltri[1]->v->co);
-						if (has_vcol_any) glColor3ubv((const GLubyte *)&(lcol[2]->r));
+						if (has_vcol_any) glColor4ubv((const GLubyte *)&(lcol[2]->r));
 						glVertex3fv(ltri[2]->v->co);
 					}
 					else {
-						if (has_vcol_any) glColor3ubv((const GLubyte *)&(lcol[0]->r));
+						if (has_vcol_any) glColor4ubv((const GLubyte *)&(lcol[0]->r));
 						if (lnors) glNormal3fv(lnors[BM_elem_index_get(ltri[0])]);
 						else glNormal3fv(ltri[0]->v->no);
 						glVertex3fv(ltri[0]->v->co);
-						if (has_vcol_any) glColor3ubv((const GLubyte *)&(lcol[1]->r));
+						if (has_vcol_any) glColor4ubv((const GLubyte *)&(lcol[1]->r));
 						if (lnors) glNormal3fv(lnors[BM_elem_index_get(ltri[1])]);
 						else glNormal3fv(ltri[1]->v->no);
 						glVertex3fv(ltri[1]->v->co);
-						if (has_vcol_any) glColor3ubv((const GLubyte *)&(lcol[2]->r));
+						if (has_vcol_any) glColor4ubv((const GLubyte *)&(lcol[2]->r));
 						if (lnors) glNormal3fv(lnors[BM_elem_index_get(ltri[2])]);
 						else glNormal3fv(ltri[2]->v->no);
 						glVertex3fv(ltri[2]->v->co);
@@ -1294,32 +1298,32 @@ static void emDM_drawFacesTex_common(
 					glNormal3fv(polyNos[BM_elem_index_get(efa)]);
 
 					glTexCoord2fv(luv[0]->uv);
-					if (has_vcol_any) glColor3ubv((const GLubyte *)&(lcol[0]->r));
+					if (has_vcol_any) glColor4ubv((const GLubyte *)&(lcol[0]->r));
 					glVertex3fv(vertexCos[BM_elem_index_get(ltri[0]->v)]);
 
 					glTexCoord2fv(luv[1]->uv);
-					if (has_vcol_any) glColor3ubv((const GLubyte *)&(lcol[1]->r));
+					if (has_vcol_any) glColor4ubv((const GLubyte *)&(lcol[1]->r));
 					glVertex3fv(vertexCos[BM_elem_index_get(ltri[1]->v)]);
 
 					glTexCoord2fv(luv[2]->uv);
-					if (has_vcol_any) glColor3ubv((const GLubyte *)&(lcol[2]->r));
+					if (has_vcol_any) glColor4ubv((const GLubyte *)&(lcol[2]->r));
 					glVertex3fv(vertexCos[BM_elem_index_get(ltri[2]->v)]);
 				}
 				else {
 					glTexCoord2fv(luv[0]->uv);
-					if (has_vcol_any) glColor3ubv((const GLubyte *)&(lcol[0]->r));
+					if (has_vcol_any) glColor4ubv((const GLubyte *)&(lcol[0]->r));
 					if (lnors) glNormal3fv(lnors[BM_elem_index_get(ltri[0])]);
 					else glNormal3fv(vertexNos[BM_elem_index_get(ltri[0]->v)]);
 					glVertex3fv(vertexCos[BM_elem_index_get(ltri[0]->v)]);
 
 					glTexCoord2fv(luv[1]->uv);
-					if (has_vcol_any) glColor3ubv((const GLubyte *)&(lcol[1]->r));
+					if (has_vcol_any) glColor4ubv((const GLubyte *)&(lcol[1]->r));
 					if (lnors) glNormal3fv(lnors[BM_elem_index_get(ltri[1])]);
 					else glNormal3fv(vertexNos[BM_elem_index_get(ltri[1]->v)]);
 					glVertex3fv(vertexCos[BM_elem_index_get(ltri[1]->v)]);
 
 					glTexCoord2fv(luv[2]->uv);
-					if (has_vcol_any) glColor3ubv((const GLubyte *)&(lcol[2]->r));
+					if (has_vcol_any) glColor4ubv((const GLubyte *)&(lcol[2]->r));
 					if (lnors) glNormal3fv(lnors[BM_elem_index_get(ltri[2])]);
 					else glNormal3fv(vertexNos[BM_elem_index_get(ltri[2]->v)]);
 					glVertex3fv(vertexCos[BM_elem_index_get(ltri[2]->v)]);
@@ -1358,32 +1362,32 @@ static void emDM_drawFacesTex_common(
 					glNormal3fv(efa->no);
 
 					glTexCoord2fv(luv[0]->uv);
-					if (has_vcol_any) glColor3ubv((const GLubyte *)&(lcol[0]->r));
+					if (has_vcol_any) glColor4ubv((const GLubyte *)&(lcol[0]->r));
 					glVertex3fv(ltri[0]->v->co);
 
 					glTexCoord2fv(luv[1]->uv);
-					if (has_vcol_any) glColor3ubv((const GLubyte *)&(lcol[1]->r));
+					if (has_vcol_any) glColor4ubv((const GLubyte *)&(lcol[1]->r));
 					glVertex3fv(ltri[1]->v->co);
 
 					glTexCoord2fv(luv[2]->uv);
-					if (has_vcol_any) glColor3ubv((const GLubyte *)&(lcol[2]->r));
+					if (has_vcol_any) glColor4ubv((const GLubyte *)&(lcol[2]->r));
 					glVertex3fv(ltri[2]->v->co);
 				}
 				else {
 					glTexCoord2fv(luv[0]->uv);
-					if (has_vcol_any) glColor3ubv((const GLubyte *)&(lcol[0]->r));
+					if (has_vcol_any) glColor4ubv((const GLubyte *)&(lcol[0]->r));
 					if (lnors) glNormal3fv(lnors[BM_elem_index_get(ltri[0])]);
 					else glNormal3fv(ltri[0]->v->no);
 					glVertex3fv(ltri[0]->v->co);
 
 					glTexCoord2fv(luv[1]->uv);
-					if (has_vcol_any) glColor3ubv((const GLubyte *)&(lcol[1]->r));
+					if (has_vcol_any) glColor4ubv((const GLubyte *)&(lcol[1]->r));
 					if (lnors) glNormal3fv(lnors[BM_elem_index_get(ltri[1])]);
 					else glNormal3fv(ltri[1]->v->no);
 					glVertex3fv(ltri[1]->v->co);
 
 					glTexCoord2fv(luv[2]->uv);
-					if (has_vcol_any) glColor3ubv((const GLubyte *)&(lcol[2]->r));
+					if (has_vcol_any) glColor4ubv((const GLubyte *)&(lcol[2]->r));
 					if (lnors) glNormal3fv(lnors[BM_elem_index_get(ltri[2])]);
 					else glNormal3fv(ltri[2]->v->no);
 					glVertex3fv(ltri[2]->v->co);
@@ -2250,8 +2254,6 @@ DerivedMesh *getEditDerivedBMesh(
 	bmdm->dm.getNumLoops = emDM_getNumLoops;
 	bmdm->dm.getNumPolys = emDM_getNumPolys;
 
-	bmdm->dm.getLoopTriArray = emDM_getLoopTriArray;
-
 	bmdm->dm.getVert = emDM_getVert;
 	bmdm->dm.getVertCo = emDM_getVertCo;
 	bmdm->dm.getVertNo = emDM_getVertNo;
@@ -2632,7 +2634,7 @@ static void statvis_calc_distort(
 					              vertexCos[BM_elem_index_get(l_iter->next->v)]);
 				}
 				else {
-					BM_loop_calc_face_normal(l_iter, no_corner);
+					BM_loop_calc_face_normal_safe(l_iter, no_corner);
 				}
 				/* simple way to detect (what is most likely) concave */
 				if (dot_v3v3(f_no, no_corner) < 0.0f) {

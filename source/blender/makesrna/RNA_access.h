@@ -488,7 +488,6 @@ extern StructRNA RNA_PropertyGroupItem;
 extern StructRNA RNA_PropertySensor;
 extern StructRNA RNA_PythonConstraint;
 extern StructRNA RNA_PythonController;
-extern StructRNA RNA_QuickTimeSettings;
 extern StructRNA RNA_RadarSensor;
 extern StructRNA RNA_RandomSensor;
 extern StructRNA RNA_RaySensor;
@@ -784,6 +783,9 @@ const struct ListBase *RNA_struct_type_functions(StructRNA *srna);
 
 char *RNA_struct_name_get_alloc(PointerRNA *ptr, char *fixedbuf, int fixedlen, int *r_len);
 
+bool RNA_struct_available_or_report(struct ReportList *reports, const char *identifier);
+bool RNA_struct_bl_idname_ok_or_report(struct ReportList *reports, const char *identifier, const char *sep);
+
 /* Properties
  *
  * Access to struct properties. All this works with RNA pointers rather than
@@ -828,22 +830,25 @@ void RNA_property_float_ui_range(PointerRNA *ptr, PropertyRNA *prop, float *soft
 int RNA_property_float_clamp(PointerRNA *ptr, PropertyRNA *prop, float *value);
 int RNA_property_int_clamp(PointerRNA *ptr, PropertyRNA *prop, int *value);
 
-bool RNA_enum_identifier(EnumPropertyItem *item, const int value, const char **identifier);
-int  RNA_enum_bitflag_identifiers(EnumPropertyItem *item, const int value, const char **identifier);
-bool RNA_enum_name(EnumPropertyItem *item, const int value, const char **r_name);
-bool RNA_enum_description(EnumPropertyItem *item, const int value, const char **description);
-int  RNA_enum_from_value(EnumPropertyItem *item, const int value);
-int  RNA_enum_from_identifier(EnumPropertyItem *item, const char *identifier);
+bool RNA_enum_identifier(const EnumPropertyItem *item, const int value, const char **identifier);
+int  RNA_enum_bitflag_identifiers(const EnumPropertyItem *item, const int value, const char **identifier);
+bool RNA_enum_name(const EnumPropertyItem *item, const int value, const char **r_name);
+bool RNA_enum_description(const EnumPropertyItem *item, const int value, const char **description);
+int  RNA_enum_from_value(const EnumPropertyItem *item, const int value);
+int  RNA_enum_from_identifier(const EnumPropertyItem *item, const char *identifier);
 
 void RNA_property_enum_items_ex(
         struct bContext *C, PointerRNA *ptr, PropertyRNA *prop, const bool use_static,
-        EnumPropertyItem **item, int *r_totitem, bool *r_free);
-void RNA_property_enum_items(struct bContext *C, PointerRNA *ptr, PropertyRNA *prop,
-                             EnumPropertyItem **item, int *r_totitem, bool *r_free);
-void RNA_property_enum_items_gettexted(struct bContext *C, PointerRNA *ptr, PropertyRNA *prop,
-                                       EnumPropertyItem **r_item, int *r_totitem, bool *r_free);
-void RNA_property_enum_items_gettexted_all(struct bContext *C, PointerRNA *ptr, PropertyRNA *prop,
-                                       EnumPropertyItem **r_item, int *r_totitem, bool *r_free);
+        const EnumPropertyItem **r_item, int *r_totitem, bool *r_free);
+void RNA_property_enum_items(
+        struct bContext *C, PointerRNA *ptr, PropertyRNA *prop,
+        const EnumPropertyItem **r_item, int *r_totitem, bool *r_free);
+void RNA_property_enum_items_gettexted(
+        struct bContext *C, PointerRNA *ptr, PropertyRNA *prop,
+        const EnumPropertyItem **r_item, int *r_totitem, bool *r_free);
+void RNA_property_enum_items_gettexted_all(
+        struct bContext *C, PointerRNA *ptr, PropertyRNA *prop,
+        const EnumPropertyItem **r_item, int *r_totitem, bool *r_free);
 bool RNA_property_enum_value(struct bContext *C, PointerRNA *ptr, PropertyRNA *prop, const char *identifier, int *r_value);
 bool RNA_property_enum_identifier(struct bContext *C, PointerRNA *ptr, PropertyRNA *prop, const int value, const char **identifier);
 bool RNA_property_enum_name(struct bContext *C, PointerRNA *ptr, PropertyRNA *prop, const int value, const char **name);
@@ -1041,10 +1046,10 @@ void RNA_enum_set_identifier(struct bContext *C, PointerRNA *ptr, const char *na
 bool RNA_enum_is_equal(struct bContext *C, PointerRNA *ptr, const char *name, const char *enumname);
 
 /* lower level functions that don't use a PointerRNA */
-bool RNA_enum_value_from_id(EnumPropertyItem *item, const char *identifier, int *r_value);
-bool RNA_enum_id_from_value(EnumPropertyItem *item, int value, const char **r_identifier);
-bool RNA_enum_icon_from_value(EnumPropertyItem *item, int value, int *r_icon);
-bool RNA_enum_name_from_value(EnumPropertyItem *item, int value, const char **r_name);
+bool RNA_enum_value_from_id(const EnumPropertyItem *item, const char *identifier, int *r_value);
+bool RNA_enum_id_from_value(const EnumPropertyItem *item, int value, const char **r_identifier);
+bool RNA_enum_icon_from_value(const EnumPropertyItem *item, int value, int *r_icon);
+bool RNA_enum_name_from_value(const EnumPropertyItem *item, int value, const char **r_name);
 
 void  RNA_string_get(PointerRNA *ptr, const char *name, char *value);
 char *RNA_string_get_alloc(PointerRNA *ptr, const char *name, char *fixedbuf, int fixedlen);
@@ -1198,7 +1203,7 @@ StructRNA *ID_code_to_RNA_type(short idcode);
 } (void)0
 
 /* macro which inserts the function name */
-#if defined __GNUC__ || defined __sun
+#if defined __GNUC__
 #  define RNA_warning(format, args ...) _RNA_warning("%s: " format "\n", __func__, ##args)
 #else
 #  define RNA_warning(format, ...) _RNA_warning("%s: " format "\n", __FUNCTION__, __VA_ARGS__)

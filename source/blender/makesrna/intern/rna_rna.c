@@ -36,7 +36,7 @@
 
 #include "rna_internal.h"
 
-EnumPropertyItem rna_enum_property_type_items[] = {
+const EnumPropertyItem rna_enum_property_type_items[] = {
 	{PROP_BOOLEAN, "BOOLEAN", 0, "Boolean", ""},
 	{PROP_INT, "INT", 0, "Integer", ""},
 	{PROP_FLOAT, "FLOAT", 0, "Float", ""},
@@ -50,7 +50,7 @@ EnumPropertyItem rna_enum_property_type_items[] = {
 /* XXX Keep in sync with bpy_props.c's property_subtype_xxx_items ???
  *     Currently it is not...
  */
-EnumPropertyItem rna_enum_property_subtype_items[] = {
+const EnumPropertyItem rna_enum_property_subtype_items[] = {
 	{PROP_NONE, "NONE", 0, "None", ""},
 
 	/* strings */
@@ -90,7 +90,7 @@ EnumPropertyItem rna_enum_property_subtype_items[] = {
 	{0, NULL, 0, NULL, NULL}
 };
 
-EnumPropertyItem rna_enum_property_unit_items[] = {
+const EnumPropertyItem rna_enum_property_unit_items[] = {
 	{PROP_UNIT_NONE, "NONE", 0, "None", ""},
 	{PROP_UNIT_LENGTH, "LENGTH", 0, "Length", ""},
 	{PROP_UNIT_AREA, "AREA", 0, "Area", ""},
@@ -610,6 +610,22 @@ static int rna_Property_array_length_get(PointerRNA *ptr)
 	return prop->totarraylength;
 }
 
+static void rna_Property_array_dimensions_get(PointerRNA *ptr, int dimensions[RNA_MAX_ARRAY_DIMENSION])
+{
+	PropertyRNA *prop = (PropertyRNA *)ptr->data;
+	rna_idproperty_check(&prop, ptr);
+
+	if (prop->arraydimension > 1) {
+		for (int i = RNA_MAX_ARRAY_DIMENSION; i--; ) {
+			dimensions[i] = (i >= prop->arraydimension) ? 0 : prop->arraylength[i];
+		}
+	}
+	else {
+		memset(dimensions, 0, sizeof(*dimensions) * RNA_MAX_ARRAY_DIMENSION);
+		dimensions[0] = prop->totarraylength;
+	}
+}
+
 static int rna_Property_is_registered_get(PointerRNA *ptr)
 {
 	PropertyRNA *prop = (PropertyRNA *)ptr->data;
@@ -808,7 +824,7 @@ static int rna_StringProperty_max_length_get(PointerRNA *ptr)
 	return ((StringPropertyRNA *)prop)->maxlength;
 }
 
-static EnumPropertyItem *rna_EnumProperty_default_itemf(bContext *C, PointerRNA *ptr,
+static const EnumPropertyItem *rna_EnumProperty_default_itemf(bContext *C, PointerRNA *ptr,
                                                         PropertyRNA *prop_parent, bool *r_free)
 {
 	PropertyRNA *prop = (PropertyRNA *)ptr->data;
@@ -854,7 +870,7 @@ static void rna_EnumProperty_items_begin(CollectionPropertyIterator *iter, Point
 {
 	PropertyRNA *prop = (PropertyRNA *)ptr->data;
 	/* EnumPropertyRNA *eprop;  *//* UNUSED */
-	EnumPropertyItem *item = NULL;
+	const EnumPropertyItem *item = NULL;
 	int totitem;
 	bool free;
 	
@@ -983,21 +999,32 @@ static int rna_Function_use_self_type_get(PointerRNA *ptr)
 
 /* Blender RNA */
 
+static int rna_struct_is_publc(CollectionPropertyIterator *UNUSED(iter), void *data)
+{
+	StructRNA *srna = data;
+
+	return !(srna->flag & STRUCT_PUBLIC_NAMESPACE);
+}
+
+
 static void rna_BlenderRNA_structs_begin(CollectionPropertyIterator *iter, PointerRNA *ptr)
 {
-	rna_iterator_listbase_begin(iter, &((BlenderRNA *)ptr->data)->structs, NULL);
+	BlenderRNA *brna = ptr->data;
+	rna_iterator_listbase_begin(iter, &brna->structs, rna_struct_is_publc);
 }
 
 /* optional, for faster lookups */
 static int rna_BlenderRNA_structs_length(PointerRNA *ptr)
 {
-	return BLI_listbase_count(&((BlenderRNA *)ptr->data)->structs);
+	BlenderRNA *brna = ptr->data;
+	BLI_assert(brna->structs_len == BLI_listbase_count(&brna->structs));
+	return brna->structs_len;
 }
 static int rna_BlenderRNA_structs_lookup_int(PointerRNA *ptr, int index, PointerRNA *r_ptr)
 {
-	StructRNA *srna = BLI_findlink(&((BlenderRNA *)ptr->data)->structs, index);
-
-	if (srna) {
+	BlenderRNA *brna = ptr->data;
+	StructRNA *srna = index < brna->structs_len ? BLI_findlink(&brna->structs, index) : NULL;
+	if (srna != NULL) {
 		RNA_pointer_create(NULL, &RNA_Struct, srna, r_ptr);
 		return true;
 	}
@@ -1007,12 +1034,11 @@ static int rna_BlenderRNA_structs_lookup_int(PointerRNA *ptr, int index, Pointer
 }
 static int rna_BlenderRNA_structs_lookup_string(PointerRNA *ptr, const char *key, PointerRNA *r_ptr)
 {
-	StructRNA *srna = ((BlenderRNA *)ptr->data)->structs.first;
-	for (; srna; srna = srna->cont.next) {
-		if (key[0] == srna->identifier[0] && STREQ(key, srna->identifier)) {
-			RNA_pointer_create(NULL, &RNA_Struct, srna, r_ptr);
-			return true;
-		}
+	BlenderRNA *brna = ptr->data;
+	StructRNA *srna = BLI_ghash_lookup(brna->structs_map, (void *)key);
+	if (srna != NULL) {
+		RNA_pointer_create(NULL, &RNA_Struct, srna, r_ptr);
+		return true;
 	}
 
 	return false;
@@ -1092,7 +1118,7 @@ static void rna_def_property(BlenderRNA *brna)
 {
 	StructRNA *srna;
 	PropertyRNA *prop;
-	static EnumPropertyItem subtype_items[] = {
+	static const EnumPropertyItem subtype_items[] = {
 		{PROP_NONE, "NONE", 0, "None", ""},
 		{PROP_FILEPATH, "FILE_PATH", 0, "File Path", ""},
 		{PROP_DIRPATH, "DIR_PATH", 0, "Directory Path", ""},
@@ -1344,6 +1370,12 @@ static void rna_def_number_property(StructRNA *srna, PropertyType type)
 	RNA_def_property_int_funcs(prop, "rna_Property_array_length_get", NULL, NULL);
 	RNA_def_property_ui_text(prop, "Array Length", "Maximum length of the array, 0 means unlimited");
 
+	prop = RNA_def_property(srna, "array_dimensions", PROP_INT, PROP_UNSIGNED);
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+	RNA_def_property_array(prop, RNA_MAX_ARRAY_DIMENSION);
+	RNA_def_property_int_funcs(prop, "rna_Property_array_dimensions_get", NULL, NULL);
+	RNA_def_property_ui_text(prop, "Array Dimensions", "Length of each dimension of the array");
+
 	prop = RNA_def_property(srna, "is_array", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 	RNA_def_property_boolean_funcs(prop, "rna_NumberProperty_is_array_get", NULL);
@@ -1410,7 +1442,7 @@ static void rna_def_enum_property(BlenderRNA *brna, StructRNA *srna)
 	PropertyRNA *prop;
 
 	/* the itemf func is used instead, keep blender happy */
-	static EnumPropertyItem default_dummy_items[] = {
+	static const EnumPropertyItem default_dummy_items[] = {
 		{PROP_NONE, "DUMMY", 0, "Dummy", ""},
 		{0, NULL, 0, NULL, NULL}
 	};

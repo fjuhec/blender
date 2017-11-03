@@ -380,7 +380,7 @@ int join_armature_exec(bContext *C, wmOperator *op)
 			if (base->object->adt) {
 				if (ob->adt == NULL) {
 					/* no animdata, so just use a copy of the whole thing */
-					ob->adt = BKE_animdata_copy(base->object->adt, false);
+					ob->adt = BKE_animdata_copy(bmain, base->object->adt, false);
 				}
 				else {
 					/* merge in data - we'll fix the drivers manually */
@@ -391,7 +391,7 @@ int join_armature_exec(bContext *C, wmOperator *op)
 			if (curarm->adt) {
 				if (arm->adt == NULL) {
 					/* no animdata, so just use a copy of the whole thing */
-					arm->adt = BKE_animdata_copy(curarm->adt, false);
+					arm->adt = BKE_animdata_copy(bmain, curarm->adt, false);
 				}
 				else {
 					/* merge in data - we'll fix the drivers manually */
@@ -735,7 +735,7 @@ static void bone_connect_to_new_parent(ListBase *edbo, EditBone *selbone, EditBo
 }
 
 
-static EnumPropertyItem prop_editarm_make_parent_types[] = {
+static const EnumPropertyItem prop_editarm_make_parent_types[] = {
 	{ARM_PAR_CONNECT, "CONNECTED", 0, "Connected", ""},
 	{ARM_PAR_OFFSET, "OFFSET", 0, "Keep Offset", ""},
 	{0, NULL, 0, NULL, NULL}
@@ -856,7 +856,7 @@ void ARMATURE_OT_parent_set(wmOperatorType *ot)
 
 
 
-static EnumPropertyItem prop_editarm_clear_parent_types[] = {
+static const EnumPropertyItem prop_editarm_clear_parent_types[] = {
 	{1, "CLEAR", 0, "Clear Parent", ""},
 	{2, "DISCONNECT", 0, "Disconnect Bone", ""},
 	{0, NULL, 0, NULL, NULL}

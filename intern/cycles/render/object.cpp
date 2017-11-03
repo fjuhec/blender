@@ -263,6 +263,17 @@ bool Object::is_traceable()
 	return true;
 }
 
+uint Object::visibility_for_tracing() const {
+	uint trace_visibility = visibility;
+	if (is_shadow_catcher) {
+		trace_visibility &= ~PATH_RAY_SHADOW_NON_CATCHER;
+	}
+	else {
+		trace_visibility &= ~PATH_RAY_SHADOW_CATCHER;
+	}
+	return trace_visibility;
+}
+
 /* Object Manager */
 
 ObjectManager::ObjectManager()
@@ -357,6 +368,13 @@ void ObjectManager::device_update_object_transform(UpdateObejctTransformState *s
 	/* OBJECT_PROPERTIES */
 	objects[offset+8] = make_float4(surface_area, pass_id, random_number, __int_as_float(particle_index));
 
+	if(mesh->use_motion_blur) {
+		state->have_motion = true;
+	}
+	if(mesh->attributes.find(ATTR_STD_MOTION_VERTEX_POSITION)) {
+		flag |= SD_OBJECT_HAS_VERTEX_MOTION;
+	}
+
 	if(state->need_motion == Scene::MOTION_PASS) {
 		/* Motion transformations, is world/object space depending if mesh
 		 * comes with deformed position in object space, or if we transform
@@ -377,9 +395,6 @@ void ObjectManager::device_update_object_transform(UpdateObejctTransformState *s
 			mtfm.pre = mtfm.pre * itfm;
 			mtfm.post = mtfm.post * itfm;
 		}
-		else {
-			flag |= SD_OBJECT_HAS_VERTEX_MOTION;
-		}
 
 		memcpy(&objects_vector[object_index*OBJECT_VECTOR_SIZE+0], &mtfm.pre, sizeof(float4)*3);
 		memcpy(&objects_vector[object_index*OBJECT_VECTOR_SIZE+3], &mtfm.post, sizeof(float4)*3);
@@ -397,10 +412,6 @@ void ObjectManager::device_update_object_transform(UpdateObejctTransformState *s
 		}
 	}
 #endif
-
-	if(mesh->use_motion_blur) {
-		state->have_motion = true;
-	}
 
 	/* Dupli object coords and motion info. */
 	int totalsteps = mesh->motion_steps;
@@ -485,9 +496,9 @@ void ObjectManager::device_update_transforms(Device *device,
 	state.queue_start_object = 0;
 
 	state.object_flag = object_flag;
-	state.objects = dscene->objects.resize(OBJECT_SIZE*scene->objects.size());
+	state.objects = dscene->objects.alloc(OBJECT_SIZE*scene->objects.size());
 	if(state.need_motion == Scene::MOTION_PASS) {
-		state.objects_vector = dscene->objects_vector.resize(OBJECT_VECTOR_SIZE*scene->objects.size());
+		state.objects_vector = dscene->objects_vector.alloc(OBJECT_VECTOR_SIZE*scene->objects.size());
 	}
 	else {
 		state.objects_vector = NULL;
@@ -531,9 +542,9 @@ void ObjectManager::device_update_transforms(Device *device,
 		}
 	}
 
-	device->tex_alloc("__objects", dscene->objects);
+	dscene->objects.copy_to_device();
 	if(state.need_motion == Scene::MOTION_PASS) {
-		device->tex_alloc("__objects_vector", dscene->objects_vector);
+		dscene->objects_vector.copy_to_device();
 	}
 
 	dscene->data.bvh.have_motion = state.have_motion;
@@ -554,7 +565,7 @@ void ObjectManager::device_update(Device *device, DeviceScene *dscene, Scene *sc
 		return;
 
 	/* object info flag */
-	uint *object_flag = dscene->object_flag.resize(scene->objects.size());
+	uint *object_flag = dscene->object_flag.alloc(scene->objects.size());
 
 	/* set object transform matrices, before applying static transforms */
 	progress.set_status("Updating Objects", "Copying Transformations to device");
@@ -570,7 +581,7 @@ void ObjectManager::device_update(Device *device, DeviceScene *dscene, Scene *sc
 	}
 }
 
-void ObjectManager::device_update_flags(Device *device,
+void ObjectManager::device_update_flags(Device *,
                                         DeviceScene *dscene,
                                         Scene *scene,
                                         Progress& /*progress*/,
@@ -635,10 +646,10 @@ void ObjectManager::device_update_flags(Device *device,
 	}
 
 	/* allocate object flag */
-	device->tex_alloc("__object_flag", dscene->object_flag);
+	dscene->object_flag.copy_to_device();
 }
 
-void ObjectManager::device_update_patch_map_offsets(Device *device, DeviceScene *dscene, Scene *scene)
+void ObjectManager::device_update_patch_map_offsets(Device *, DeviceScene *dscene, Scene *scene)
 {
 	if(scene->objects.size() == 0) {
 		return;
@@ -668,21 +679,15 @@ void ObjectManager::device_update_patch_map_offsets(Device *device, DeviceScene 
 	}
 
 	if(update) {
-		device->tex_free(dscene->objects);
-		device->tex_alloc("__objects", dscene->objects);
+		dscene->objects.copy_to_device();
 	}
 }
 
-void ObjectManager::device_free(Device *device, DeviceScene *dscene)
+void ObjectManager::device_free(Device *, DeviceScene *dscene)
 {
-	device->tex_free(dscene->objects);
-	dscene->objects.clear();
-
-	device->tex_free(dscene->objects_vector);
-	dscene->objects_vector.clear();
-
-	device->tex_free(dscene->object_flag);
-	dscene->object_flag.clear();
+	dscene->objects.free();
+	dscene->objects_vector.free();
+	dscene->object_flag.free();
 }
 
 void ObjectManager::apply_static_transforms(DeviceScene *dscene, Scene *scene, uint *object_flag, Progress& progress)

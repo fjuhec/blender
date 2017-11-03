@@ -2777,7 +2777,7 @@ static void project_paint_face_init(
 						interp_v3_v3v3(edge_verts_inset_clip[1], insetCos[fidx1], insetCos[fidx2], fac2);
 
 
-						if (pixel_bounds_uv((const float (*)[2])seam_subsection, &bounds_px, ibuf->x, ibuf->y)) {
+						if (pixel_bounds_uv(seam_subsection, &bounds_px, ibuf->x, ibuf->y)) {
 							/* bounds between the seam rect and the uvspace bucket pixels */
 
 							has_isect = 0;
@@ -3712,8 +3712,12 @@ static void project_paint_prepare_all_faces(
 				}
 
 				/* don't allow using the same inage for painting and stencilling */
-				if (slot->ima == ps->stencil_ima)
+				if (slot->ima == ps->stencil_ima) {
+					/* While this shouldn't be used, face-winding reads all polys.
+					 * It's less trouble to set all faces to valid UV's, avoiding NULL checks all over. */
+					ps->dm_mloopuv[lt->poly] = mloopuv_base;
 					continue;
+				}
 				
 				tpage = slot->ima;
 			}
@@ -4291,7 +4295,7 @@ static void do_projectpaint_soften_f(ProjPaintState *ps, ProjPixel *projPixel, f
 				return;
 		}
 		else {
-			blend_color_interpolate_float(rgba, rgba, projPixel->pixel.f_pt, mask);
+			blend_color_interpolate_float(rgba, projPixel->pixel.f_pt, rgba, mask);
 		}
 
 		BLI_linklist_prepend_arena(softenPixels, (void *)projPixel, softenArena);
@@ -4749,6 +4753,9 @@ static void *do_projectpaint_thread(void *ph_v)
 
 							copy_v3_v3(texrgb, texrgba);
 							mask *= texrgba[3];
+						}
+						else {
+							zero_v3(texrgb);
 						}
 
 						/* extra mask for normal, layer stencil, .. */
@@ -5624,7 +5631,7 @@ bool BKE_paint_proj_mesh_data_check(Scene *scene, Object *ob, bool *uvs, bool *m
 
 /* Add layer operator */
 
-static EnumPropertyItem layer_type_items[] = {
+static const EnumPropertyItem layer_type_items[] = {
 	{MAP_COL, "DIFFUSE_COLOR", 0, "Diffuse Color", ""},
 	{MAP_REF, "DIFFUSE_INTENSITY", 0, "Diffuse Intensity", ""},
 	{MAP_ALPHA, "ALPHA", 0, "Alpha", ""},

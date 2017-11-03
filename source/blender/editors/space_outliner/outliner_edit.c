@@ -482,7 +482,7 @@ static int outliner_id_remap_invoke(bContext *C, wmOperator *op, const wmEvent *
 	return WM_operator_props_dialog_popup(C, op, 200, 100);
 }
 
-static EnumPropertyItem *outliner_id_itemf(bContext *C, PointerRNA *ptr, PropertyRNA *UNUSED(prop), bool *r_free)
+static const EnumPropertyItem *outliner_id_itemf(bContext *C, PointerRNA *ptr, PropertyRNA *UNUSED(prop), bool *r_free)
 {
 	EnumPropertyItem item_tmp = {0}, *item = NULL;
 	int totitem = 0;
@@ -1092,7 +1092,7 @@ static int outliner_show_active_exec(bContext *C, wmOperator *UNUSED(op))
 
 	te = outliner_find_id(so, &so->tree, &obact->id);
 
-	if (obact->type == OB_ARMATURE) {
+	if (te != NULL && obact->type == OB_ARMATURE) {
 		/* traverse down the bone hierarchy in case of armature */
 		TreeElement *te_obact = te;
 
@@ -1944,7 +1944,7 @@ static int outliner_orphans_purge_invoke(bContext *C, wmOperator *op, const wmEv
 {
 	/* present a prompt to informing users that this change is irreversible */
 	return WM_operator_confirm_message(C, op,
-	                                   "Purging unused data-blocks cannot be undone. "
+	                                   "Purging unused data-blocks cannot be undone and saves to current .blend file. "
 	                                   "Click here to proceed...");
 }
 
@@ -1966,7 +1966,8 @@ void OUTLINER_OT_orphans_purge(wmOperatorType *ot)
 	/* identifiers */
 	ot->idname = "OUTLINER_OT_orphans_purge";
 	ot->name = "Purge All";
-	ot->description = "Clear all orphaned data-blocks without any users from the file (cannot be undone)";
+	ot->description = "Clear all orphaned data-blocks without any users from the file "
+	                  "(cannot be undone, saves to current .blend file)";
 	
 	/* callbacks */
 	ot->invoke = outliner_orphans_purge_invoke;
@@ -2075,56 +2076,56 @@ static int parent_drop_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 			PointerRNA ptr;
 			
 			/* Cannot use uiItemEnumO()... have multiple properties to set. */
-			ptr = uiItemFullO_ptr(layout, ot, IFACE_("Object"), 0, NULL, WM_OP_EXEC_DEFAULT, UI_ITEM_O_RETURN_PROPS);
+			uiItemFullO_ptr(layout, ot, IFACE_("Object"), 0, NULL, WM_OP_EXEC_DEFAULT, 0, &ptr);
 			RNA_string_set(&ptr, "parent", parname);
 			RNA_string_set(&ptr, "child", childname);
 			RNA_enum_set(&ptr, "type", PAR_OBJECT);
 
 			/* par becomes parent, make the associated menus */
 			if (par->type == OB_ARMATURE) {
-				ptr = uiItemFullO_ptr(layout, ot, IFACE_("Armature Deform"), 0, NULL, WM_OP_EXEC_DEFAULT, UI_ITEM_O_RETURN_PROPS);
+				uiItemFullO_ptr(layout, ot, IFACE_("Armature Deform"), 0, NULL, WM_OP_EXEC_DEFAULT, 0, &ptr);
 				RNA_string_set(&ptr, "parent", parname);
 				RNA_string_set(&ptr, "child", childname);
 				RNA_enum_set(&ptr, "type", PAR_ARMATURE);
 
-				ptr = uiItemFullO_ptr(layout, ot, IFACE_("   With Empty Groups"), 0, NULL, WM_OP_EXEC_DEFAULT, UI_ITEM_O_RETURN_PROPS);
+				uiItemFullO_ptr(layout, ot, IFACE_("   With Empty Groups"), 0, NULL, WM_OP_EXEC_DEFAULT, 0, &ptr);
 				RNA_string_set(&ptr, "parent", parname);
 				RNA_string_set(&ptr, "child", childname);
 				RNA_enum_set(&ptr, "type", PAR_ARMATURE_NAME);
 
-				ptr = uiItemFullO_ptr(layout, ot, IFACE_("   With Envelope Weights"), 0, NULL, WM_OP_EXEC_DEFAULT, UI_ITEM_O_RETURN_PROPS);
+				uiItemFullO_ptr(layout, ot, IFACE_("   With Envelope Weights"), 0, NULL, WM_OP_EXEC_DEFAULT, 0, &ptr);
 				RNA_string_set(&ptr, "parent", parname);
 				RNA_string_set(&ptr, "child", childname);
 				RNA_enum_set(&ptr, "type", PAR_ARMATURE_ENVELOPE);
 
-				ptr = uiItemFullO_ptr(layout, ot, IFACE_("   With Automatic Weights"), 0, NULL, WM_OP_EXEC_DEFAULT, UI_ITEM_O_RETURN_PROPS);
+				uiItemFullO_ptr(layout, ot, IFACE_("   With Automatic Weights"), 0, NULL, WM_OP_EXEC_DEFAULT, 0, &ptr);
 				RNA_string_set(&ptr, "parent", parname);
 				RNA_string_set(&ptr, "child", childname);
 				RNA_enum_set(&ptr, "type", PAR_ARMATURE_AUTO);
 
-				ptr = uiItemFullO_ptr(layout, ot, IFACE_("Bone"), 0, NULL, WM_OP_EXEC_DEFAULT, UI_ITEM_O_RETURN_PROPS);
+				uiItemFullO_ptr(layout, ot, IFACE_("Bone"), 0, NULL, WM_OP_EXEC_DEFAULT, 0, &ptr);
 				RNA_string_set(&ptr, "parent", parname);
 				RNA_string_set(&ptr, "child", childname);
 				RNA_enum_set(&ptr, "type", PAR_BONE);
 			}
 			else if (par->type == OB_CURVE) {
-				ptr = uiItemFullO_ptr(layout, ot, IFACE_("Curve Deform"), 0, NULL, WM_OP_EXEC_DEFAULT, UI_ITEM_O_RETURN_PROPS);
+				uiItemFullO_ptr(layout, ot, IFACE_("Curve Deform"), 0, NULL, WM_OP_EXEC_DEFAULT, 0, &ptr);
 				RNA_string_set(&ptr, "parent", parname);
 				RNA_string_set(&ptr, "child", childname);
 				RNA_enum_set(&ptr, "type", PAR_CURVE);
 
-				ptr = uiItemFullO_ptr(layout, ot, IFACE_("Follow Path"), 0, NULL, WM_OP_EXEC_DEFAULT, UI_ITEM_O_RETURN_PROPS);
+				uiItemFullO_ptr(layout, ot, IFACE_("Follow Path"), 0, NULL, WM_OP_EXEC_DEFAULT, 0, &ptr);
 				RNA_string_set(&ptr, "parent", parname);
 				RNA_string_set(&ptr, "child", childname);
 				RNA_enum_set(&ptr, "type", PAR_FOLLOW);
 
-				ptr = uiItemFullO_ptr(layout, ot, IFACE_("Path Constraint"), 0, NULL, WM_OP_EXEC_DEFAULT, UI_ITEM_O_RETURN_PROPS);
+				uiItemFullO_ptr(layout, ot, IFACE_("Path Constraint"), 0, NULL, WM_OP_EXEC_DEFAULT, 0, &ptr);
 				RNA_string_set(&ptr, "parent", parname);
 				RNA_string_set(&ptr, "child", childname);
 				RNA_enum_set(&ptr, "type", PAR_PATH_CONST);
 			}
 			else if (par->type == OB_LATTICE) {
-				ptr = uiItemFullO_ptr(layout, ot, IFACE_("Lattice Deform"), 0, NULL, WM_OP_EXEC_DEFAULT, UI_ITEM_O_RETURN_PROPS);
+				uiItemFullO_ptr(layout, ot, IFACE_("Lattice Deform"), 0, NULL, WM_OP_EXEC_DEFAULT, 0, &ptr);
 				RNA_string_set(&ptr, "parent", parname);
 				RNA_string_set(&ptr, "child", childname);
 				RNA_enum_set(&ptr, "type", PAR_LATTICE);

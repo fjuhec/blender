@@ -1395,9 +1395,9 @@ void UI_view2d_grid_draw(View2D *v2d, View2DGrid *grid, int flag)
 }
 
 /* Draw a constant grid in given 2d-region */
-void UI_view2d_constant_grid_draw(View2D *v2d)
+void UI_view2d_constant_grid_draw(View2D *v2d, float step)
 {
-	float start, step = 25.0f;
+	float start;
 
 	UI_ThemeColorShade(TH_BACK, -10);
 	
@@ -2136,6 +2136,14 @@ void UI_view2d_view_to_region_rcti(View2D *v2d, const rctf *rect_src, rcti *rect
 	rect_tmp.ymax = v2d->mask.ymin + (rect_tmp.ymax * mask_size[1]);
 
 	clamp_rctf_to_rcti(rect_dst, &rect_tmp);
+}
+
+void UI_view2d_view_to_region_m4(View2D *v2d, float matrix[4][4])
+{
+	rctf mask;
+	unit_m4(matrix);
+	BLI_rctf_rcti_copy(&mask, &v2d->mask);
+	BLI_rctf_transform_calc_m4_pivot_min(&v2d->cur, &mask, matrix);
 }
 
 bool UI_view2d_view_to_region_rcti_clip(View2D *v2d, const rctf *rect_src, rcti *rect_dst)

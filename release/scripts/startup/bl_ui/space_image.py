@@ -20,21 +20,21 @@
 import bpy
 import math
 from bpy.types import Header, Menu, Panel
-from bl_ui.properties_paint_common import (
-        UnifiedPaintPanel,
-        brush_texture_settings,
-        brush_texpaint_common,
-        brush_mask_texture_settings,
-        )
-from bl_ui.properties_grease_pencil_common import (
-        GreasePencilDrawingToolsPanel,
-        GreasePencilStrokeEditPanel,
-        GreasePencilStrokeSculptPanel,
-        GreasePencilBrushPanel,
-        GreasePencilBrushCurvesPanel,
-        GreasePencilDataPanel,
-        GreasePencilPaletteColorPanel
-        )
+from .properties_paint_common import (
+    UnifiedPaintPanel,
+    brush_texture_settings,
+    brush_texpaint_common,
+    brush_mask_texture_settings,
+)
+from .properties_grease_pencil_common import (
+    GreasePencilDrawingToolsPanel,
+    GreasePencilStrokeEditPanel,
+    GreasePencilStrokeSculptPanel,
+    GreasePencilBrushPanel,
+    GreasePencilBrushCurvesPanel,
+    GreasePencilDataPanel,
+    GreasePencilPaletteColorPanel,
+)
 from bpy.app.translations import pgettext_iface as iface_
 
 
@@ -545,14 +545,14 @@ class MASK_MT_editor_menus(Menu):
 # Mask (similar code in space_clip.py, keep in sync)
 # note! - panel placement does _not_ fit well with image panels... need to fix
 
-from bl_ui.properties_mask_common import (
-        MASK_PT_mask,
-        MASK_PT_layers,
-        MASK_PT_spline,
-        MASK_PT_point,
-        MASK_PT_display,
-        MASK_PT_tools,
-        )
+from .properties_mask_common import (
+    MASK_PT_mask,
+    MASK_PT_layers,
+    MASK_PT_spline,
+    MASK_PT_point,
+    MASK_PT_display,
+    MASK_PT_tools,
+)
 
 
 class IMAGE_PT_mask(MASK_PT_mask, Panel):
@@ -1086,7 +1086,7 @@ class IMAGE_PT_tools_paint_options(BrushButtonsPanel, Panel):
         col.prop(ups, "use_unified_color", text="Color")
 
 
-class IMAGE_UV_sculpt_curve(Panel):
+class IMAGE_PT_uv_sculpt_curve(Panel):
     bl_space_type = 'IMAGE_EDITOR'
     bl_region_type = 'TOOLS'
     bl_label = "UV Sculpt Curve"
@@ -1117,7 +1117,7 @@ class IMAGE_UV_sculpt_curve(Panel):
         row.operator("brush.curve_preset", icon='NOCURVE', text="").shape = 'MAX'
 
 
-class IMAGE_UV_sculpt(Panel, ImagePaintPanel):
+class IMAGE_PT_uv_sculpt(Panel, ImagePaintPanel):
     bl_space_type = 'IMAGE_EDITOR'
     bl_region_type = 'TOOLS'
     bl_category = "Tools"
@@ -1370,8 +1370,8 @@ classes = (
     IMAGE_PT_tools_imagepaint_symmetry,
     IMAGE_PT_tools_brush_appearance,
     IMAGE_PT_tools_paint_options,
-    IMAGE_UV_sculpt,
-    IMAGE_UV_sculpt_curve,
+    IMAGE_PT_uv_sculpt,
+    IMAGE_PT_uv_sculpt_curve,
     IMAGE_PT_view_histogram,
     IMAGE_PT_view_waveform,
     IMAGE_PT_view_vectorscope,

@@ -677,7 +677,7 @@ void smokeModifier_copy(struct SmokeModifierData *smd, struct SmokeModifierData 
 
 		tsmd->flow->texture_size = smd->flow->texture_size;
 		tsmd->flow->texture_offset = smd->flow->texture_offset;
-		BLI_strncpy(tsmd->flow->uvlayer_name, tsmd->flow->uvlayer_name, sizeof(tsmd->flow->uvlayer_name));
+		BLI_strncpy(tsmd->flow->uvlayer_name, smd->flow->uvlayer_name, sizeof(tsmd->flow->uvlayer_name));
 		tsmd->flow->vgroup_density = smd->flow->vgroup_density;
 
 		tsmd->flow->type = smd->flow->type;
@@ -2692,7 +2692,6 @@ static void smokeModifier_process(SmokeModifierData *smd, Scene *scene, Object *
 
 		if (smd->flow->dm) smd->flow->dm->release(smd->flow->dm);
 		smd->flow->dm = CDDM_copy(dm);
-		DM_ensure_looptri(smd->flow->dm);
 
 		if (scene->r.cfra > smd->time)
 		{
@@ -2715,7 +2714,6 @@ static void smokeModifier_process(SmokeModifierData *smd, Scene *scene, Object *
 				smd->coll->dm->release(smd->coll->dm);
 
 			smd->coll->dm = CDDM_copy(dm);
-			DM_ensure_looptri(smd->coll->dm);
 		}
 
 		smd->time = scene->r.cfra;

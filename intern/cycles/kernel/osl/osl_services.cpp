@@ -825,7 +825,7 @@ bool OSLRenderServices::get_background_attribute(KernelGlobals *kg, ShaderData *
 bool OSLRenderServices::get_attribute(OSL::ShaderGlobals *sg, bool derivatives, ustring object_name,
                                       TypeDesc type, ustring name, void *val)
 {
-	if(sg->renderstate == NULL)
+	if(sg == NULL || sg->renderstate == NULL)
 		return false;
 
 	ShaderData *sd = (ShaderData *)(sg->renderstate);
@@ -963,7 +963,7 @@ bool OSLRenderServices::texture(ustring filename,
 
 	if(filename.length() && filename[0] == '@') {
 		int slot = atoi(filename.c_str() + 1);
-		float4 rgba = kernel_tex_image_interp(slot, s, 1.0f - t);
+		float4 rgba = kernel_tex_image_interp(kg, slot, s, 1.0f - t);
 
 		result[0] = rgba[0];
 		if(nchannels > 1)
@@ -1044,7 +1044,7 @@ bool OSLRenderServices::texture3d(ustring filename,
 	bool status;
 	if(filename.length() && filename[0] == '@') {
 		int slot = atoi(filename.c_str() + 1);
-		float4 rgba = kernel_tex_image_interp_3d(slot, P.x, P.y, P.z);
+		float4 rgba = kernel_tex_image_interp_3d(kg, slot, P.x, P.y, P.z, INTERPOLATION_NONE);
 
 		result[0] = rgba[0];
 		if(nchannels > 1)
@@ -1198,8 +1198,9 @@ bool OSLRenderServices::trace(TraceOpt &options, OSL::ShaderGlobals *sg,
 	tracedata->init = true;
 	tracedata->sd.osl_globals = sd->osl_globals;
 
-	/* raytrace */
-	return scene_intersect(sd->osl_globals, ray, PATH_RAY_ALL_VISIBILITY, &tracedata->isect, NULL, 0.0f, 0.0f);
+	/* Raytrace, leaving out shadow opaque to avoid early exit. */
+	uint visibility = PATH_RAY_ALL_VISIBILITY - PATH_RAY_SHADOW_OPAQUE;
+	return scene_intersect(sd->osl_globals, ray, visibility, &tracedata->isect, NULL, 0.0f, 0.0f);
 }
 
 

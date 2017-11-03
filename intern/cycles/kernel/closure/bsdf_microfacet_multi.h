@@ -40,20 +40,20 @@ ccl_device_forceinline float D_ggx_aniso(const float3 wm, const float2 alpha)
 }
 
 /* Sample slope distribution (based on page 14 of the supplemental implementation). */
-ccl_device_forceinline float2 mf_sampleP22_11(const float cosI, const float2 randU)
+ccl_device_forceinline float2 mf_sampleP22_11(const float cosI, const float randx, const float randy)
 {
 	if(cosI > 0.9999f || fabsf(cosI) < 1e-6f) {
-		const float r = sqrtf(randU.x / max(1.0f - randU.x, 1e-7f));
-		const float phi = M_2PI_F * randU.y;
+		const float r = sqrtf(randx / max(1.0f - randx, 1e-7f));
+		const float phi = M_2PI_F * randy;
 		return make_float2(r*cosf(phi), r*sinf(phi));
 	}
 
-	const float sinI = sqrtf(1.0f - cosI*cosI);
+	const float sinI = safe_sqrtf(1.0f - cosI*cosI);
 	const float tanI = sinI/cosI;
 	const float projA = 0.5f * (cosI + 1.0f);
 	if(projA < 0.0001f)
 		return make_float2(0.0f, 0.0f);
-	const float A = 2.0f*randU.x*projA / cosI - 1.0f;
+	const float A = 2.0f*randx*projA / cosI - 1.0f;
 	float tmp = A*A-1.0f;
 	if(fabsf(tmp) < 1e-7f)
 		return make_float2(0.0f, 0.0f);
@@ -64,24 +64,24 @@ ccl_device_forceinline float2 mf_sampleP22_11(const float cosI, const float2 ran
 	const float slopeX = (A < 0.0f || slopeX2 > 1.0f/tanI)? (tanI*tmp - D) : slopeX2;
 
 	float U2;
-	if(randU.y >= 0.5f)
-		U2 = 2.0f*(randU.y - 0.5f);
+	if(randy >= 0.5f)
+		U2 = 2.0f*(randy - 0.5f);
 	else
-		U2 = 2.0f*(0.5f - randU.y);
+		U2 = 2.0f*(0.5f - randy);
 	const float z = (U2*(U2*(U2*0.27385f-0.73369f)+0.46341f)) / (U2*(U2*(U2*0.093073f+0.309420f)-1.0f)+0.597999f);
 	const float slopeY = z * sqrtf(1.0f + slopeX*slopeX);
 
-	if(randU.y >= 0.5f)
+	if(randy >= 0.5f)
 		return make_float2(slopeX, slopeY);
 	else
 		return make_float2(slopeX, -slopeY);
 }
 
 /* Visible normal sampling for the GGX distribution (based on page 7 of the supplemental implementation). */
-ccl_device_forceinline float3 mf_sample_vndf(const float3 wi, const float2 alpha, const float2 randU)
+ccl_device_forceinline float3 mf_sample_vndf(const float3 wi, const float2 alpha, const float randx, const float randy)
 {
 	const float3 wi_11 = normalize(make_float3(alpha.x*wi.x, alpha.y*wi.y, wi.z));
-	const float2 slope_11 = mf_sampleP22_11(wi_11.z, randU);
+	const float2 slope_11 = mf_sampleP22_11(wi_11.z, randx, randy);
 
 	const float3 cossin_phi = safe_normalize(make_float3(wi_11.x, wi_11.y, 0.0f));
 	const float slope_x = alpha.x*(cossin_phi.x * slope_11.x - cossin_phi.y * slope_11.y);
@@ -245,35 +245,69 @@ ccl_device_forceinline float mf_ggx_albedo(float r)
 	return saturate(albedo);
 }
 
+ccl_device_inline float mf_ggx_transmission_albedo(float a, float ior)
+{
+	if(ior < 1.0f) {
+		ior = 1.0f/ior;
+	}
+	a = saturate(a);
+	ior = clamp(ior, 1.0f, 3.0f);
+	float I_1 = 0.0476898f*expf(-0.978352f*(ior-0.65657f)*(ior-0.65657f)) - 0.033756f*ior + 0.993261f;
+	float R_1 = (((0.116991f*a - 0.270369f)*a + 0.0501366f)*a - 0.00411511f)*a + 1.00008f;
+	float I_2 = (((-2.08704f*ior + 26.3298f)*ior - 127.906f)*ior + 292.958f)*ior - 287.946f + 199.803f/(ior*ior) - 101.668f/(ior*ior*ior);
+	float R_2 = ((((5.3725f*a -24.9307f)*a + 22.7437f)*a - 3.40751f)*a + 0.0986325f)*a + 0.00493504f;
+
+	return saturate(1.0f + I_2*R_2*0.0019127f - (1.0f - I_1)*(1.0f - R_1)*9.3205f);
+}
+
 ccl_device_forceinline float mf_ggx_pdf(const float3 wi, const float3 wo, const float alpha)
 {
 	float D = D_ggx(normalize(wi+wo), alpha);
 	float lambda = mf_lambda(wi, make_float2(alpha, alpha));
+	float singlescatter = 0.25f * D / max((1.0f + lambda) * wi.z, 1e-7f);
+
+	float multiscatter = wo.z * M_1_PI_F;
+
 	float albedo = mf_ggx_albedo(alpha);
-	return 0.25f * D / max((1.0f + lambda) * wi.z, 1e-7f) + (1.0f - albedo) * wo.z;
+	return albedo*singlescatter + (1.0f - albedo)*multiscatter;
 }
 
 ccl_device_forceinline float mf_ggx_aniso_pdf(const float3 wi, const float3 wo, const float2 alpha)
 {
-	return 0.25f * D_ggx_aniso(normalize(wi+wo), alpha) / ((1.0f + mf_lambda(wi, alpha)) * wi.z) + (1.0f - mf_ggx_albedo(sqrtf(alpha.x*alpha.y))) * wo.z;
+	float D = D_ggx_aniso(normalize(wi+wo), alpha);
+	float lambda = mf_lambda(wi, alpha);
+	float singlescatter = 0.25f * D / max((1.0f + lambda) * wi.z, 1e-7f);
+
+	float multiscatter = wo.z * M_1_PI_F;
+
+	float albedo = mf_ggx_albedo(sqrtf(alpha.x*alpha.y));
+	return albedo*singlescatter + (1.0f - albedo)*multiscatter;
 }
 
 ccl_device_forceinline float mf_glass_pdf(const float3 wi, const float3 wo, const float alpha, const float eta)
 {
-	float3 wh;
-	float fresnel;
-	if(wi.z*wo.z > 0.0f) {
-		wh = normalize(wi + wo);
-		fresnel = fresnel_dielectric_cos(dot(wi, wh), eta);
-	}
-	else {
-		wh = normalize(wi + wo*eta);
-		fresnel = 1.0f - fresnel_dielectric_cos(dot(wi, wh), eta);
-	}
+	bool reflective = (wi.z*wo.z > 0.0f);
+
+	float wh_len;
+	float3 wh = normalize_len(wi + (reflective? wo : (wo*eta)), &wh_len);
 	if(wh.z < 0.0f)
 		wh = -wh;
 	float3 r_wi = (wi.z < 0.0f)? -wi: wi;
-	return fresnel * max(0.0f, dot(r_wi, wh)) * D_ggx(wh, alpha) / ((1.0f + mf_lambda(r_wi, make_float2(alpha, alpha))) * r_wi.z) + fabsf(wo.z);
+	float lambda = mf_lambda(r_wi, make_float2(alpha, alpha));
+	float D = D_ggx(wh, alpha);
+	float fresnel = fresnel_dielectric_cos(dot(r_wi, wh), eta);
+
+	float multiscatter = fabsf(wo.z * M_1_PI_F);
+	if(reflective) {
+		float singlescatter = 0.25f * D / max((1.0f + lambda) * r_wi.z, 1e-7f);
+		float albedo = mf_ggx_albedo(alpha);
+		return fresnel * (albedo*singlescatter + (1.0f - albedo)*multiscatter);
+	}
+	else {
+		float singlescatter = fabsf(dot(r_wi, wh)*dot(wo, wh) * D * eta*eta / max((1.0f + lambda) * r_wi.z * wh_len*wh_len, 1e-7f));
+		float albedo = mf_ggx_transmission_albedo(alpha, eta);
+		return (1.0f - fresnel) * (albedo*singlescatter + (1.0f - albedo)*multiscatter);
+	}
 }
 
 /* === Actual random walk implementations, one version of mf_eval and mf_sample per phase function. === */
@@ -326,12 +360,16 @@ ccl_device int bsdf_microfacet_multi_ggx_aniso_setup(MicrofacetBsdf *bsdf)
 	return bsdf_microfacet_multi_ggx_common_setup(bsdf);
 }
 
-ccl_device int bsdf_microfacet_multi_ggx_aniso_fresnel_setup(MicrofacetBsdf *bsdf)
+ccl_device int bsdf_microfacet_multi_ggx_aniso_fresnel_setup(MicrofacetBsdf *bsdf, const ShaderData *sd)
 {
 	if(is_zero(bsdf->T))
 		bsdf->T = make_float3(1.0f, 0.0f, 0.0f);
 
 	bsdf->type = CLOSURE_BSDF_MICROFACET_MULTI_GGX_FRESNEL_ID;
+
+	float F0 = fresnel_dielectric_cos(1.0f, bsdf->ior);
+	float F = average(interpolate_fresnel_color(sd->I, bsdf->N, bsdf->ior, F0, bsdf->extra->cspec0));
+	bsdf->sample_weight *= F;
 
 	return bsdf_microfacet_multi_ggx_common_setup(bsdf);
 }
@@ -345,11 +383,15 @@ ccl_device int bsdf_microfacet_multi_ggx_setup(MicrofacetBsdf *bsdf)
 	return bsdf_microfacet_multi_ggx_common_setup(bsdf);
 }
 
-ccl_device int bsdf_microfacet_multi_ggx_fresnel_setup(MicrofacetBsdf *bsdf)
+ccl_device int bsdf_microfacet_multi_ggx_fresnel_setup(MicrofacetBsdf *bsdf, const ShaderData *sd)
 {
 	bsdf->alpha_y = bsdf->alpha_x;
 
 	bsdf->type = CLOSURE_BSDF_MICROFACET_MULTI_GGX_FRESNEL_ID;
+
+	float F0 = fresnel_dielectric_cos(1.0f, bsdf->ior);
+	float F = average(interpolate_fresnel_color(sd->I, bsdf->N, bsdf->ior, F0, bsdf->extra->cspec0));
+	bsdf->sample_weight *= F;
 
 	return bsdf_microfacet_multi_ggx_common_setup(bsdf);
 }
@@ -432,6 +474,7 @@ ccl_device int bsdf_microfacet_multi_ggx_sample(KernelGlobals *kg, const ShaderC
 	*eval *= *pdf;
 
 	*omega_in = X*localO.x + Y*localO.y + Z*localO.z;
+
 #ifdef __RAY_DIFFERENTIALS__
 	*domega_in_dx = (2 * dot(Z, dIdx)) * Z - dIdx;
 	*domega_in_dy = (2 * dot(Z, dIdy)) * Z - dIdy;
@@ -455,7 +498,7 @@ ccl_device int bsdf_microfacet_multi_ggx_glass_setup(MicrofacetBsdf *bsdf)
 	return SD_BSDF|SD_BSDF_HAS_EVAL|SD_BSDF_NEEDS_LCG;
 }
 
-ccl_device int bsdf_microfacet_multi_ggx_glass_fresnel_setup(MicrofacetBsdf *bsdf)
+ccl_device int bsdf_microfacet_multi_ggx_glass_fresnel_setup(MicrofacetBsdf *bsdf, const ShaderData *sd)
 {
 	bsdf->alpha_x = clamp(bsdf->alpha_x, 1e-4f, 1.0f);
 	bsdf->alpha_y = bsdf->alpha_x;
@@ -468,6 +511,10 @@ ccl_device int bsdf_microfacet_multi_ggx_glass_fresnel_setup(MicrofacetBsdf *bsd
 	bsdf->extra->cspec0.z = saturate(bsdf->extra->cspec0.z);
 
 	bsdf->type = CLOSURE_BSDF_MICROFACET_MULTI_GGX_GLASS_FRESNEL_ID;
+
+	float F0 = fresnel_dielectric_cos(1.0f, bsdf->ior);
+	float F = average(interpolate_fresnel_color(sd->I, bsdf->N, bsdf->ior, F0, bsdf->extra->cspec0));
+	bsdf->sample_weight *= F;
 
 	return SD_BSDF|SD_BSDF_HAS_EVAL|SD_BSDF_NEEDS_LCG;
 }

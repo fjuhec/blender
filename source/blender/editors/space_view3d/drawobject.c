@@ -631,7 +631,7 @@ void drawaxes(const float viewmat_local[4][4], float size, char drawtype)
 
 
 /* Function to draw an Image on an empty Object */
-static void draw_empty_image(Object *ob, const short dflag, const unsigned char ob_wire_col[4], StereoViews sview)
+static void draw_empty_image(Object *ob, const short dflag, const unsigned char ob_wire_col[4], eStereoViews sview)
 {
 	Image *ima = ob->data;
 	ImBuf *ibuf;
@@ -7347,7 +7347,7 @@ static void draw_object_wire_color(Scene *scene, Base *base, unsigned char r_ob_
 					theme_id = TH_GROUP_ACTIVE;
 
 					if (scene->basact != base) {
-						theme_shade = -16;
+						theme_shade = -32;
 					}
 				}
 				else {
@@ -8378,9 +8378,13 @@ static void bbs_mesh_solid_verts(Scene *scene, Object *ob)
 
 	DM_update_materials(dm, ob);
 
-	dm->drawMappedFaces(dm, bbs_mesh_solid_hide2__setDrawOpts, GPU_object_material_bind, NULL, me, DM_DRAW_SKIP_HIDDEN);
+	/* Only draw faces to mask out verts, we don't want their selection ID's. */
+	const int G_f_orig = G.f;
+	G.f &= ~G_BACKBUFSEL;
 
-	GPU_object_material_unbind();
+	dm->drawMappedFaces(dm, bbs_mesh_solid_hide2__setDrawOpts, NULL, NULL, me, DM_DRAW_SKIP_HIDDEN);
+
+	G.f |= (G_f_orig & G_BACKBUFSEL);
 
 	bbs_obmode_mesh_verts(ob, dm, 1);
 	bm_vertoffs = me->totvert + 1;
@@ -8453,8 +8457,8 @@ void draw_object_backbufsel(Scene *scene, View3D *v3d, RegionView3D *rv3d, Objec
 			else {
 				Mesh *me = ob->data;
 				if ((me->editflag & ME_EDIT_PAINT_VERT_SEL) &&
-				    /* currently vertex select only supports weight paint */
-				    (ob->mode & OB_MODE_WEIGHT_PAINT))
+				    /* currently vertex select supports weight paint and vertex paint*/
+				    ((ob->mode & OB_MODE_WEIGHT_PAINT) || (ob->mode & OB_MODE_VERTEX_PAINT)))
 				{
 					bbs_mesh_solid_verts(scene, ob);
 				}

@@ -37,16 +37,14 @@ ccl_device_noinline float3 direct_emissive_eval(KernelGlobals *kg,
 		ray.D = ls->D;
 		ray.P = ls->P;
 		ray.t = 1.0f;
-#  ifdef __OBJECT_MOTION__
 		ray.time = time;
-#  endif
 		ray.dP = differential3_zero();
 		ray.dD = dI;
 
 		shader_setup_from_background(kg, emission_sd, &ray);
 
 		path_state_modify_bounce(state, true);
-		eval = shader_eval_background(kg, emission_sd, state, 0, SHADER_CONTEXT_EMISSION, NULL, 0);
+		eval = shader_eval_background(kg, emission_sd, state, 0, NULL);
 		path_state_modify_bounce(state, false);
 	}
 	else
@@ -72,7 +70,7 @@ ccl_device_noinline float3 direct_emissive_eval(KernelGlobals *kg,
 		/* no path flag, we're evaluating this for all closures. that's weak but
 		 * we'd have to do multiple evaluations otherwise */
 		path_state_modify_bounce(state, true);
-		shader_eval_surface(kg, emission_sd, NULL, state, 0.0f, 0, SHADER_CONTEXT_EMISSION, NULL, 0);
+		shader_eval_surface(kg, emission_sd, state, 0, NULL);
 		path_state_modify_bounce(state, false);
 
 		/* evaluate emissive closure */
@@ -216,7 +214,7 @@ ccl_device_noinline float3 indirect_primitive_emission(KernelGlobals *kg, Shader
 	{
 		/* multiple importance sampling, get triangle light pdf,
 		 * and compute weight with respect to BSDF pdf */
-		float pdf = triangle_light_pdf(kg, sd->Ng, sd->I, t);
+		float pdf = triangle_light_pdf(kg, sd, t);
 		float mis_weight = power_heuristic(bsdf_pdf, pdf);
 
 		return L*mis_weight;
@@ -295,8 +293,7 @@ ccl_device_noinline float3 indirect_background(KernelGlobals *kg,
                                                ShaderData *emission_sd,
                                                ccl_addr_space PathState *state,
                                                ccl_addr_space Ray *ray,
-                                               ccl_global float *buffer,
-                                               int sample)
+                                               ccl_global float *buffer)
 {
 #ifdef __BACKGROUND__
 	int shader = kernel_data.background.surface_shader;
@@ -321,7 +318,7 @@ ccl_device_noinline float3 indirect_background(KernelGlobals *kg,
 #  endif
 
 	path_state_modify_bounce(state, true);
-	float3 L = shader_eval_background(kg, emission_sd, state, state->flag, SHADER_CONTEXT_EMISSION, buffer, sample);
+	float3 L = shader_eval_background(kg, emission_sd, state, state->flag, buffer);
 	path_state_modify_bounce(state, false);
 
 #ifdef __BACKGROUND_MIS__

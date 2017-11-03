@@ -638,7 +638,7 @@ static Main *blo_find_main(FileData *fd, const char *filepath, const char *relab
 	
 	/* Add library datablock itself to 'main' Main, since libraries are **never** linked data.
 	 * Fixes bug where you could end with all ID_LI datablocks having the same name... */
-	lib = BKE_libblock_alloc(mainlist->first, ID_LI, "Lib");
+	lib = BKE_libblock_alloc(mainlist->first, ID_LI, "Lib", 0);
 	lib->id.us = ID_FAKE_USERS(lib);  /* Important, consistency with main ID reading code from read_libblock(). */
 	BLI_strncpy(lib->name, filepath, sizeof(lib->name));
 	BLI_strncpy(lib->filepath, name1, sizeof(lib->filepath));
@@ -2441,13 +2441,14 @@ static void lib_link_fcurves(FileData *fd, ID *id, ListBase *list)
 
 
 /* NOTE: this assumes that link_list has already been called on the list */
-static void direct_link_fmodifiers(FileData *fd, ListBase *list)
+static void direct_link_fmodifiers(FileData *fd, ListBase *list, FCurve *curve)
 {
 	FModifier *fcm;
 	
 	for (fcm = list->first; fcm; fcm = fcm->next) {
 		/* relink general data */
 		fcm->data  = newdataadr(fd, fcm->data);
+		fcm->curve = curve;
 		
 		/* do relinking of data for specific types */
 		switch (fcm->type) {
@@ -2537,7 +2538,7 @@ static void direct_link_fcurves(FileData *fd, ListBase *list)
 		
 		/* modifiers */
 		link_list(fd, &fcu->modifiers);
-		direct_link_fmodifiers(fd, &fcu->modifiers);
+		direct_link_fmodifiers(fd, &fcu->modifiers, fcu);
 	}
 }
 
@@ -2642,7 +2643,7 @@ static void direct_link_nladata_strips(FileData *fd, ListBase *list)
 		
 		/* strip's F-Modifiers */
 		link_list(fd, &strip->modifiers);
-		direct_link_fmodifiers(fd, &strip->modifiers);
+		direct_link_fmodifiers(fd, &strip->modifiers, NULL);
 	}
 }
 
@@ -6003,16 +6004,6 @@ static void direct_link_scene(FileData *fd, Scene *sce)
 		sce->toolsettings->particle.scene = NULL;
 		sce->toolsettings->particle.object = NULL;
 		sce->toolsettings->gp_sculpt.paintcursor = NULL;
-
-		/* in rare cases this is needed, see [#33806] */
-		if (sce->toolsettings->vpaint) {
-			sce->toolsettings->vpaint->vpaint_prev = NULL;
-			sce->toolsettings->vpaint->tot = 0;
-		}
-		if (sce->toolsettings->wpaint) {
-			sce->toolsettings->wpaint->wpaint_prev = NULL;
-			sce->toolsettings->wpaint->tot = 0;
-		}
 		
 		/* relink grease pencil drawing brushes */
 		link_list(fd, &sce->toolsettings->gp_brushes);
@@ -6161,11 +6152,6 @@ static void direct_link_scene(FileData *fd, Scene *sce)
 	if (sce->r.avicodecdata) {
 		sce->r.avicodecdata->lpFormat = newdataadr(fd, sce->r.avicodecdata->lpFormat);
 		sce->r.avicodecdata->lpParms = newdataadr(fd, sce->r.avicodecdata->lpParms);
-	}
-	
-	sce->r.qtcodecdata = newdataadr(fd, sce->r.qtcodecdata);
-	if (sce->r.qtcodecdata) {
-		sce->r.qtcodecdata->cdParms = newdataadr(fd, sce->r.qtcodecdata->cdParms);
 	}
 	if (sce->r.ffcodecdata.properties) {
 		sce->r.ffcodecdata.properties = newdataadr(fd, sce->r.ffcodecdata.properties);
@@ -9911,6 +9897,8 @@ void BLO_expand_main(void *fdhandle, Main *mainvar)
 						break;
 					case ID_CF:
 						expand_cachefile(fd, mainvar, (CacheFile *)id);
+						break;
+					default:
 						break;
 					}
 					

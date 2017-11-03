@@ -32,6 +32,7 @@
  *  \author Sergey Sharybin
  */
 
+struct EvaluationContext;
 struct ImBuf;
 struct Main;
 struct MovieClip;
@@ -41,6 +42,7 @@ struct MovieDistortion;
 
 void BKE_movieclip_free(struct MovieClip *clip);
 
+void BKE_movieclip_copy_data(struct Main *bmain, struct MovieClip *clip_dst, const struct MovieClip *clip_src, const int flag);
 struct MovieClip *BKE_movieclip_copy(struct Main *bmain, const struct MovieClip *clip);
 void BKE_movieclip_make_local(struct Main *bmain, struct MovieClip *clip, const bool lib_local);
 
@@ -80,6 +82,9 @@ struct ImBuf *BKE_movieclip_anim_ibuf_for_frame(struct MovieClip *clip, struct M
 
 bool BKE_movieclip_has_cached_frame(struct MovieClip *clip, struct MovieClipUser *user);
 bool BKE_movieclip_put_frame_if_possible(struct MovieClip *clip, struct MovieClipUser *user, struct ImBuf *ibuf);
+
+/* Evaluaiton. */
+void BKE_movieclip_eval_update(struct EvaluationContext *eval_ctx, struct MovieClip *clip);
 
 /* cacheing flags */
 #define MOVIECLIP_CACHE_SKIP        (1 << 0)

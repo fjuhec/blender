@@ -2583,17 +2583,23 @@ static void rna_generate_blender(BlenderRNA *brna, FILE *f)
 {
 	StructRNA *srna;
 
-	fprintf(f, "BlenderRNA BLENDER_RNA = {");
-
+	fprintf(f,
+	        "BlenderRNA BLENDER_RNA = {\n"
+	        "\t.structs = {"
+	);
 	srna = brna->structs.first;
-	if (srna) fprintf(f, "{&RNA_%s, ", srna->identifier);
-	else fprintf(f, "{NULL, ");
+	if (srna) fprintf(f, "&RNA_%s, ", srna->identifier);
+	else      fprintf(f, "NULL, ");
 
 	srna = brna->structs.last;
-	if (srna) fprintf(f, "&RNA_%s}", srna->identifier);
-	else fprintf(f, "NULL}");
+	if (srna) fprintf(f, "&RNA_%s},\n", srna->identifier);
+	else      fprintf(f, "NULL},\n");
 
-	fprintf(f, "};\n\n");
+	fprintf(f,
+	        "\t.structs_map = NULL,\n"
+	        "\t.structs_len = 0,\n"
+	        "};\n\n"
+	);
 }
 
 static void rna_generate_property_prototypes(BlenderRNA *UNUSED(brna), StructRNA *srna, FILE *f)
@@ -2866,7 +2872,7 @@ static void rna_generate_property(FILE *f, StructRNA *srna, const char *nest, Pr
 			int i, defaultfound = 0, totflag = 0;
 
 			if (eprop->item) {
-				fprintf(f, "static EnumPropertyItem rna_%s%s_%s_items[%d] = {\n\t", srna->identifier,
+				fprintf(f, "static const EnumPropertyItem rna_%s%s_%s_items[%d] = {\n\t", srna->identifier,
 				        strnest, prop->identifier, eprop->totitem + 1);
 
 				for (i = 0; i < eprop->totitem; i++) {

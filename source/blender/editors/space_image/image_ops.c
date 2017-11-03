@@ -1000,7 +1000,7 @@ static int image_view_zoom_border_exec(bContext *C, wmOperator *op)
 	SpaceImage *sima = CTX_wm_space_image(C);
 	ARegion *ar = CTX_wm_region(C);
 	rctf bounds;
-	const int gesture_mode = RNA_int_get(op->ptr, "gesture_mode");
+	const bool zoom_in = !RNA_boolean_get(op->ptr, "zoom_out");
 
 	WM_operator_properties_border_to_rctf(op, &bounds);
 
@@ -1019,7 +1019,7 @@ static int image_view_zoom_border_exec(bContext *C, wmOperator *op)
 	sima_zoom_set_from_bounds(sima, ar, &bounds);
 
 	/* zoom out */
-	if (gesture_mode == GESTURE_MODAL_OUT) {
+	if (!zoom_in) {
 		sima->xof = sima_view_prev.xof + (sima->xof - sima_view_prev.xof);
 		sima->yof = sima_view_prev.yof + (sima->yof - sima_view_prev.yof);
 		sima->zoom = sima_view_prev.zoom * (sima_view_prev.zoom / sima->zoom);
@@ -1038,15 +1038,15 @@ void IMAGE_OT_view_zoom_border(wmOperatorType *ot)
 	ot->idname = "IMAGE_OT_view_zoom_border";
 
 	/* api callbacks */
-	ot->invoke = WM_border_select_invoke;
+	ot->invoke = WM_gesture_border_invoke;
 	ot->exec = image_view_zoom_border_exec;
-	ot->modal = WM_border_select_modal;
-	ot->cancel = WM_border_select_cancel;
+	ot->modal = WM_gesture_border_modal;
+	ot->cancel = WM_gesture_border_cancel;
 
 	ot->poll = space_image_main_region_poll;
 
 	/* rna */
-	WM_operator_properties_gesture_border(ot, false);
+	WM_operator_properties_gesture_border_zoom(ot);
 }
 
 /**************** load/replace/save callbacks ******************/
@@ -1098,6 +1098,7 @@ static void image_open_cancel(bContext *UNUSED(C), wmOperator *op)
 static void image_sequence_get_frame_ranges(PointerRNA *ptr, ListBase *frames_all)
 {
 	char dir[FILE_MAXDIR];
+	const bool do_frame_range = RNA_boolean_get(ptr, "use_sequence_detection");
 	ImageFrameRange *frame_range = NULL;
 
 	RNA_string_get(ptr, "directory", dir);
@@ -1113,7 +1114,8 @@ static void image_sequence_get_frame_ranges(PointerRNA *ptr, ListBase *frames_al
 		frame->framenr = BLI_stringdec(filename, head, tail, &digits);
 
 		/* still in the same sequence */
-		if ((frame_range != NULL) &&
+		if (do_frame_range &&
+		    (frame_range != NULL) &&
 		    (STREQLEN(base_head, head, FILE_MAX)) &&
 		    (STREQLEN(base_tail, tail, FILE_MAX)))
 		{
@@ -1167,6 +1169,7 @@ static int image_sequence_get_len(ListBase *frames, int *ofs)
 		}
 		return frame_curr - (*ofs);
 	}
+	*ofs = 0;
 	return 0;
 }
 
@@ -1325,7 +1328,12 @@ static int image_open_exec(bContext *C, wmOperator *op)
 		iuser->frames = frame_seq_len;
 		iuser->sfra = 1;
 		iuser->framenr = 1;
-		iuser->offset = frame_ofs - 1;
+		if (ima->source == IMA_SRC_MOVIE) {
+			iuser->offset = 0;
+		}
+		else {
+			iuser->offset = frame_ofs - 1;
+		}
 		iuser->fie_ima = 2;
 		iuser->scene = scene;
 		BKE_image_init_imageuser(ima, iuser);
@@ -1448,6 +1456,9 @@ void IMAGE_OT_open(wmOperatorType *ot)
 	        ot, FILE_TYPE_FOLDER | FILE_TYPE_IMAGE | FILE_TYPE_MOVIE, FILE_SPECIAL, FILE_OPENFILE,
 	        WM_FILESEL_FILEPATH | WM_FILESEL_DIRECTORY | WM_FILESEL_FILES | WM_FILESEL_RELPATH,
 	        FILE_DEFAULTDISPLAY, FILE_SORT_ALPHA);
+
+	RNA_def_boolean(ot->srna, "use_sequence_detection", true, "Detect Sequences",
+	                "Automatically detect animated sequences in selected images (based on file names)");
 }
 
 /******************** Match movie length operator ********************/
@@ -2375,8 +2386,8 @@ static int image_new_exec(bContext *C, wmOperator *op)
 	Main *bmain;
 	PointerRNA ptr, idptr;
 	PropertyRNA *prop;
-	char _name[MAX_ID_NAME - 2];
-	char *name = _name;
+	char name_buffer[MAX_ID_NAME - 2];
+	const char *name;
 	float color[4];
 	int width, height, floatbuf, gen_type, alpha;
 	int gen_context;
@@ -2389,10 +2400,13 @@ static int image_new_exec(bContext *C, wmOperator *op)
 	bmain = CTX_data_main(C);
 
 	prop = RNA_struct_find_property(op->ptr, "name");
-	RNA_property_string_get(op->ptr, prop, name);
+	RNA_property_string_get(op->ptr, prop, name_buffer);
 	if (!RNA_property_is_set(op->ptr, prop)) {
 		/* Default value, we can translate! */
-		name = (char *)DATA_(name);
+		name = DATA_(name_buffer);
+	}
+	else {
+		name = name_buffer;
 	}
 	width = RNA_int_get(op->ptr, "width");
 	height = RNA_int_get(op->ptr, "height");
@@ -2539,7 +2553,7 @@ void IMAGE_OT_new(wmOperatorType *ot)
 	PropertyRNA *prop;
 	static float default_color[4] = {0.0f, 0.0f, 0.0f, 1.0f};
 
-	static EnumPropertyItem gen_context_items[] = {
+	static const EnumPropertyItem gen_context_items[] = {
 		{GEN_CONTEXT_NONE, "NONE", 0, "None", ""},
 		{GEN_CONTEXT_PAINT_CANVAS, "PAINT_CANVAS", 0, "Paint Canvas", ""},
 		{GEN_CONTEXT_PAINT_STENCIL, "PAINT_STENCIL", 0, "Paint Stencil", ""},
@@ -3246,7 +3260,7 @@ void IMAGE_OT_sample_line(wmOperatorType *ot)
 
 void IMAGE_OT_curves_point_set(wmOperatorType *ot)
 {
-	static EnumPropertyItem point_items[] = {
+	static const EnumPropertyItem point_items[] = {
 		{0, "BLACK_POINT", 0, "Black Point", ""},
 		{1, "WHITE_POINT", 0, "White Point", ""},
 		{0, NULL, 0, NULL, NULL}
@@ -3516,7 +3530,7 @@ static int frame_from_event(bContext *C, const wmEvent *event)
 
 		UI_view2d_region_to_view(&ar->v2d, event->mval[0], event->mval[1], &viewx, &viewy);
 
-		framenr = iroundf(viewx);
+		framenr = round_fl_to_int(viewx);
 	}
 
 	return framenr;
@@ -3622,7 +3636,7 @@ static int render_border_exec(bContext *C, wmOperator *op)
 {
 	ARegion *ar = CTX_wm_region(C);
 	Scene *scene = CTX_data_scene(C);
-	Render *re = RE_GetRender(scene->id.name);
+	Render *re = RE_GetSceneRender(scene);
 	RenderData *rd;
 	rctf border;
 
@@ -3674,10 +3688,10 @@ void IMAGE_OT_render_border(wmOperatorType *ot)
 	ot->idname = "IMAGE_OT_render_border";
 
 	/* api callbacks */
-	ot->invoke = WM_border_select_invoke;
+	ot->invoke = WM_gesture_border_invoke;
 	ot->exec = render_border_exec;
-	ot->modal = WM_border_select_modal;
-	ot->cancel = WM_border_select_cancel;
+	ot->modal = WM_gesture_border_modal;
+	ot->cancel = WM_gesture_border_cancel;
 	ot->poll = image_cycle_render_slot_poll;
 
 	/* flags */

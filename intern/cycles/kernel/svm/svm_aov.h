@@ -3,16 +3,15 @@
 
 CCL_NAMESPACE_BEGIN
 
-ccl_device_inline void kernel_write_pass_float(ccl_global float *buffer, int sample, float value);
-ccl_device_inline void kernel_write_pass_float3(ccl_global float *buffer, int sample, float3 value);
+ccl_device_inline void kernel_write_pass_float(ccl_global float *buffer, float value);
+ccl_device_inline void kernel_write_pass_float3(ccl_global float *buffer, float3 value);
 
 ccl_device void svm_node_aov_write_float3(KernelGlobals *kg,
                                           PathState *state,
                                           float *stack,
                                           int offset,
                                           int aov,
-                                          ccl_global float *buffer,
-                                          int sample) {
+                                          ccl_global float *buffer) {
 	if(state->written_aovs & (1 << aov)) {
 		return;
 	}
@@ -22,7 +21,7 @@ ccl_device void svm_node_aov_write_float3(KernelGlobals *kg,
 	int pass_offset = (kernel_data.film.pass_aov[aov] & ~(1 << 31));
 	kernel_assert(kernel_data.film.pass_aov[aov] & (1 << 31));
 
-	kernel_write_pass_float3(buffer + pass_offset, sample, val);
+	kernel_write_pass_float3(buffer + pass_offset, val);
 	state->written_aovs |= (1 << aov);
 }
 
@@ -31,8 +30,7 @@ ccl_device void svm_node_aov_write_float(KernelGlobals *kg,
                                           float *stack,
                                           int offset,
                                           int aov,
-                                          ccl_global float *buffer,
-                                          int sample) {
+                                          ccl_global float *buffer) {
 	if(state->written_aovs & (1 << aov)) {
 		return;
 	}
@@ -42,7 +40,7 @@ ccl_device void svm_node_aov_write_float(KernelGlobals *kg,
 	int pass_offset = (kernel_data.film.pass_aov[aov] & ~(1 << 31));
 	kernel_assert((kernel_data.film.pass_aov[aov] & (1 << 31)) == 0);
 
-	kernel_write_pass_float(buffer + pass_offset, sample, val);
+	kernel_write_pass_float(buffer + pass_offset, val);
 	state->written_aovs |= (1 << aov);
 }
 

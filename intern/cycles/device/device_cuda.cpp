@@ -105,9 +105,20 @@ public:
 	                                            device_memory& use_queues_flag,
 	                                            device_memory& work_pool_wgs);
 
-	virtual SplitKernelFunction* get_split_kernel_function(string kernel_name, const DeviceRequestedFeatures&);
+	virtual SplitKernelFunction* get_split_kernel_function(const string& kernel_name,
+	                                                       const DeviceRequestedFeatures&);
 	virtual int2 split_kernel_local_size();
 	virtual int2 split_kernel_global_size(device_memory& kg, device_memory& data, DeviceTask *task);
+};
+
+/* Utility to push/pop CUDA context. */
+class CUDAContextScope {
+public:
+	CUDAContextScope(CUDADevice *device);
+	~CUDAContextScope();
+
+private:
+	CUDADevice *device;
 };
 
 class CUDADevice : public Device
@@ -118,7 +129,7 @@ public:
 	CUcontext cuContext;
 	CUmodule cuModule, cuFilterModule;
 	map<device_ptr, bool> tex_interp_map;
-	map<device_ptr, uint> tex_bindless_map;
+	map<device_ptr, CUtexObject> tex_bindless_map;
 	int cuDevId;
 	int cuDevArchitecture;
 	bool first_error;
@@ -134,8 +145,8 @@ public:
 	map<device_ptr, PixelMem> pixel_mem_map;
 
 	/* Bindless Textures */
-	device_vector<uint> bindless_mapping;
-	bool need_bindless_mapping;
+	device_vector<TextureInfo> texture_info;
+	bool need_texture_info;
 
 	CUdeviceptr cuda_device_ptr(device_ptr mem)
 	{
@@ -205,18 +216,9 @@ public:
 		cuda_error_documentation();
 	}
 
-	void cuda_push_context()
-	{
-		cuda_assert(cuCtxSetCurrent(cuContext));
-	}
-
-	void cuda_pop_context()
-	{
-		cuda_assert(cuCtxSetCurrent(NULL));
-	}
-
 	CUDADevice(DeviceInfo& info, Stats &stats, bool background_)
-	: Device(info, stats, background_)
+	: Device(info, stats, background_),
+	  texture_info(this, "__texture_info", MEM_TEXTURE)
 	{
 		first_error = true;
 		background = background_;
@@ -230,7 +232,7 @@ public:
 
 		split_kernel = NULL;
 
-		need_bindless_mapping = false;
+		need_texture_info = false;
 
 		/* intialize */
 		if(cuda_error(cuInit(0)))
@@ -262,7 +264,8 @@ public:
 		cuDeviceGetAttribute(&minor, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR, cuDevId);
 		cuDevArchitecture = major*100 + minor*10;
 
-		cuda_pop_context();
+		/* Pop context set by cuCtxCreate. */
+		cuCtxPopCurrent(NULL);
 	}
 
 	~CUDADevice()
@@ -272,7 +275,7 @@ public:
 		delete split_kernel;
 
 		if(info.has_bindless_textures) {
-			tex_free(bindless_mapping);
+			texture_info.free();
 		}
 
 		cuda_assert(cuCtxDestroy(cuContext));
@@ -518,7 +521,7 @@ public:
 			return false;
 
 		/* open module */
-		cuda_push_context();
+		CUDAContextScope scope(this);
 
 		string cubin_data;
 		CUresult result;
@@ -539,80 +542,49 @@ public:
 		if(cuda_error_(result, "cuModuleLoad"))
 			cuda_error_message(string_printf("Failed loading CUDA kernel %s.", filter_cubin.c_str()));
 
-		cuda_pop_context();
-
 		return (result == CUDA_SUCCESS);
 	}
 
-	void load_bindless_mapping()
+	void load_texture_info()
 	{
-		if(info.has_bindless_textures && need_bindless_mapping) {
-			tex_free(bindless_mapping);
-			tex_alloc("__bindless_mapping", bindless_mapping, INTERPOLATION_NONE, EXTENSION_REPEAT);
-			need_bindless_mapping = false;
+		if(info.has_bindless_textures && need_texture_info) {
+			texture_info.copy_to_device();
+			need_texture_info = false;
 		}
 	}
 
-	void mem_alloc(const char *name, device_memory& mem, MemoryType /*type*/)
+	void generic_alloc(device_memory& mem)
 	{
-		if(name) {
-			VLOG(1) << "Buffer allocate: " << name << ", "
-			        << string_human_readable_number(mem.memory_size()) << " bytes. ("
-			        << string_human_readable_size(mem.memory_size()) << ")";
+		CUDAContextScope scope(this);
+
+		if(mem.name) {
+			VLOG(1) << "Buffer allocate: " << mem.name << ", "
+					<< string_human_readable_number(mem.memory_size()) << " bytes. ("
+					<< string_human_readable_size(mem.memory_size()) << ")";
 		}
 
-		cuda_push_context();
 		CUdeviceptr device_pointer;
 		size_t size = mem.memory_size();
 		cuda_assert(cuMemAlloc(&device_pointer, size));
 		mem.device_pointer = (device_ptr)device_pointer;
 		mem.device_size = size;
 		stats.mem_alloc(size);
-		cuda_pop_context();
 	}
 
-	void mem_copy_to(device_memory& mem)
+	void generic_copy_to(device_memory& mem)
 	{
-		cuda_push_context();
-		if(mem.device_pointer)
+		if(mem.device_pointer) {
+			CUDAContextScope scope(this);
 			cuda_assert(cuMemcpyHtoD(cuda_device_ptr(mem.device_pointer), (void*)mem.data_pointer, mem.memory_size()));
-		cuda_pop_context();
+		}
 	}
 
-	void mem_copy_from(device_memory& mem, int y, int w, int h, int elem)
-	{
-		size_t offset = elem*y*w;
-		size_t size = elem*w*h;
-
-		cuda_push_context();
-		if(mem.device_pointer) {
-			cuda_assert(cuMemcpyDtoH((uchar*)mem.data_pointer + offset,
-			                         (CUdeviceptr)(mem.device_pointer + offset), size));
-		}
-		else {
-			memset((char*)mem.data_pointer + offset, 0, size);
-		}
-		cuda_pop_context();
-	}
-
-	void mem_zero(device_memory& mem)
-	{
-		if(mem.data_pointer) {
-			memset((void*)mem.data_pointer, 0, mem.memory_size());
-		}
-
-		cuda_push_context();
-		if(mem.device_pointer)
-			cuda_assert(cuMemsetD8(cuda_device_ptr(mem.device_pointer), 0, mem.memory_size()));
-		cuda_pop_context();
-	}
-
-	void mem_free(device_memory& mem)
+	void generic_free(device_memory& mem)
 	{
 		if(mem.device_pointer) {
-			cuda_push_context();
+			CUDAContextScope scope(this);
+
 			cuda_assert(cuMemFree(cuda_device_ptr(mem.device_pointer)));
-			cuda_pop_context();
 
 			mem.device_pointer = 0;
 
@@ -621,43 +593,123 @@ public:
 		}
 	}
 
-	virtual device_ptr mem_alloc_sub_ptr(device_memory& mem, int offset, int /*size*/, MemoryType /*type*/)
+	void mem_alloc(device_memory& mem)
+	{
+		if(mem.type == MEM_PIXELS && !background) {
+			pixels_alloc(mem);
+		}
+		else if(mem.type == MEM_TEXTURE) {
+			assert(!"mem_alloc not supported for textures.");
+		}
+		else {
+			generic_alloc(mem);
+		}
+	}
+
+	void mem_copy_to(device_memory& mem)
+	{
+		if(mem.type == MEM_PIXELS) {
+			assert(!"mem_copy_to not supported for pixels.");
+		}
+		else if(mem.type == MEM_TEXTURE) {
+			tex_free(mem);
+			tex_alloc(mem);
+		}
+		else {
+			if(!mem.device_pointer) {
+				generic_alloc(mem);
+			}
+
+			generic_copy_to(mem);
+		}
+	}
+
+	void mem_copy_from(device_memory& mem, int y, int w, int h, int elem)
+	{
+		if(mem.type == MEM_PIXELS && !background) {
+			pixels_copy_from(mem, y, w, h);
+		}
+		else if(mem.type == MEM_TEXTURE) {
+			assert(!"mem_copy_from not supported for textures.");
+		}
+		else {
+			CUDAContextScope scope(this);
+			size_t offset = elem*y*w;
+			size_t size = elem*w*h;
+
+			if(mem.device_pointer) {
+				cuda_assert(cuMemcpyDtoH((uchar*)mem.data_pointer + offset,
+										 (CUdeviceptr)(mem.device_pointer + offset), size));
+			}
+			else {
+				memset((char*)mem.data_pointer + offset, 0, size);
+			}
+		}
+	}
+
+	void mem_zero(device_memory& mem)
+	{
+		if(!mem.device_pointer) {
+			mem_alloc(mem);
+		}
+
+		if(mem.data_pointer) {
+			memset((void*)mem.data_pointer, 0, mem.memory_size());
+		}
+
+		if(mem.device_pointer) {
+			CUDAContextScope scope(this);
+			cuda_assert(cuMemsetD8(cuda_device_ptr(mem.device_pointer), 0, mem.memory_size()));
+		}
+	}
+
+	void mem_free(device_memory& mem)
+	{
+		if(mem.type == MEM_PIXELS && !background) {
+			pixels_free(mem);
+		}
+		else if(mem.type == MEM_TEXTURE) {
+			tex_free(mem);
+		}
+		else {
+			generic_free(mem);
+		}
+	}
+
+	virtual device_ptr mem_alloc_sub_ptr(device_memory& mem, int offset, int /*size*/)
 	{
 		return (device_ptr) (((char*) mem.device_pointer) + mem.memory_elements_size(offset));
 	}
 
 	void const_copy_to(const char *name, void *host, size_t size)
 	{
+		CUDAContextScope scope(this);
 		CUdeviceptr mem;
 		size_t bytes;
 
-		cuda_push_context();
 		cuda_assert(cuModuleGetGlobal(&mem, &bytes, cuModule, name));
 		//assert(bytes == size);
 		cuda_assert(cuMemcpyHtoD(mem, host, size));
-		cuda_pop_context();
 	}
 
-	void tex_alloc(const char *name,
-	               device_memory& mem,
-	               InterpolationType interpolation,
-	               ExtensionType extension)
+	void tex_alloc(device_memory& mem)
 	{
-		VLOG(1) << "Texture allocate: " << name << ", "
+		CUDAContextScope scope(this);
+
+		VLOG(1) << "Texture allocate: " << mem.name << ", "
 		        << string_human_readable_number(mem.memory_size()) << " bytes. ("
 		        << string_human_readable_size(mem.memory_size()) << ")";
 
-		/* Check if we are on sm_30 or above.
-		 * We use arrays and bindles textures for storage there */
+		/* Check if we are on sm_30 or above, for bindless textures. */
 		bool has_bindless_textures = info.has_bindless_textures;
 
 		/* General variables for both architectures */
-		string bind_name = name;
+		string bind_name = mem.name;
 		size_t dsize = datatype_size(mem.data_type);
 		size_t size = mem.memory_size();
 
 		CUaddress_mode address_mode = CU_TR_ADDRESS_MODE_WRAP;
-		switch(extension) {
+		switch(mem.extension) {
 			case EXTENSION_REPEAT:
 				address_mode = CU_TR_ADDRESS_MODE_WRAP;
 				break;
@@ -673,91 +725,69 @@ public:
 		}
 
 		CUfilter_mode filter_mode;
-		if(interpolation == INTERPOLATION_CLOSEST) {
+		if(mem.interpolation == INTERPOLATION_CLOSEST) {
 			filter_mode = CU_TR_FILTER_MODE_POINT;
 		}
 		else {
 			filter_mode = CU_TR_FILTER_MODE_LINEAR;
 		}
 
-		CUarray_format_enum format;
-		switch(mem.data_type) {
-			case TYPE_UCHAR: format = CU_AD_FORMAT_UNSIGNED_INT8; break;
-			case TYPE_UINT: format = CU_AD_FORMAT_UNSIGNED_INT32; break;
-			case TYPE_INT: format = CU_AD_FORMAT_SIGNED_INT32; break;
-			case TYPE_FLOAT: format = CU_AD_FORMAT_FLOAT; break;
-			case TYPE_HALF: format = CU_AD_FORMAT_HALF; break;
-			default: assert(0); return;
-		}
-
 		/* General variables for Fermi */
 		CUtexref texref = NULL;
 
-		if(!has_bindless_textures) {
+		if(!has_bindless_textures && mem.interpolation != INTERPOLATION_NONE) {
 			if(mem.data_depth > 1) {
 				/* Kernel uses different bind names for 2d and 3d float textures,
 				 * so we have to adjust couple of things here.
 				 */
 				vector<string> tokens;
-				string_split(tokens, name, "_");
+				string_split(tokens, mem.name, "_");
 				bind_name = string_printf("__tex_image_%s_3d_%s",
 				                          tokens[2].c_str(),
 				                          tokens[3].c_str());
 			}
 
-			cuda_push_context();
 			cuda_assert(cuModuleGetTexRef(&texref, cuModule, bind_name.c_str()));
-			cuda_pop_context();
 
 			if(!texref) {
 				return;
 			}
 		}
 
-		/* Data Storage */
-		if(interpolation == INTERPOLATION_NONE) {
-			if(has_bindless_textures) {
-				mem_alloc(NULL, mem, MEM_READ_ONLY);
-				mem_copy_to(mem);
+		if(mem.interpolation == INTERPOLATION_NONE) {
+			/* Data Storage */
+			generic_alloc(mem);
+			generic_copy_to(mem);
 
-				cuda_push_context();
+			CUdeviceptr cumem;
+			size_t cubytes;
 
-				CUdeviceptr cumem;
-				size_t cubytes;
+			cuda_assert(cuModuleGetGlobal(&cumem, &cubytes, cuModule, bind_name.c_str()));
 
-				cuda_assert(cuModuleGetGlobal(&cumem, &cubytes, cuModule, bind_name.c_str()));
-
-				if(cubytes == 8) {
-					/* 64 bit device pointer */
-					uint64_t ptr = mem.device_pointer;
-					cuda_assert(cuMemcpyHtoD(cumem, (void*)&ptr, cubytes));
-				}
-				else {
-					/* 32 bit device pointer */
-					uint32_t ptr = (uint32_t)mem.device_pointer;
-					cuda_assert(cuMemcpyHtoD(cumem, (void*)&ptr, cubytes));
-				}
-
-				cuda_pop_context();
+			if(cubytes == 8) {
+				/* 64 bit device pointer */
+				uint64_t ptr = mem.device_pointer;
+				cuda_assert(cuMemcpyHtoD(cumem, (void*)&ptr, cubytes));
 			}
 			else {
-				mem_alloc(NULL, mem, MEM_READ_ONLY);
-				mem_copy_to(mem);
-
-				cuda_push_context();
-
-				cuda_assert(cuTexRefSetAddress(NULL, texref, cuda_device_ptr(mem.device_pointer), size));
-				cuda_assert(cuTexRefSetFilterMode(texref, CU_TR_FILTER_MODE_POINT));
-				cuda_assert(cuTexRefSetFlags(texref, CU_TRSF_READ_AS_INTEGER));
-
-				cuda_pop_context();
+				/* 32 bit device pointer */
+				uint32_t ptr = (uint32_t)mem.device_pointer;
+				cuda_assert(cuMemcpyHtoD(cumem, (void*)&ptr, cubytes));
 			}
 		}
-		/* Texture Storage */
 		else {
+			/* Texture Storage */
 			CUarray handle = NULL;
 
-			cuda_push_context();
+			CUarray_format_enum format;
+			switch(mem.data_type) {
+				case TYPE_UCHAR: format = CU_AD_FORMAT_UNSIGNED_INT8; break;
+				case TYPE_UINT: format = CU_AD_FORMAT_UNSIGNED_INT32; break;
+				case TYPE_INT: format = CU_AD_FORMAT_SIGNED_INT32; break;
+				case TYPE_FLOAT: format = CU_AD_FORMAT_FLOAT; break;
+				case TYPE_HALF: format = CU_AD_FORMAT_HALF; break;
+				default: assert(0); return;
+			}
 
 			if(mem.data_depth > 1) {
 				CUDA_ARRAY3D_DESCRIPTOR desc;
@@ -783,7 +813,6 @@ public:
 			}
 
 			if(!handle) {
-				cuda_pop_context();
 				return;
 			}
 
@@ -824,12 +853,12 @@ public:
 
 			stats.mem_alloc(size);
 
-			/* Bindless Textures - Kepler */
 			if(has_bindless_textures) {
+				/* Bindless Textures - Kepler */
 				int flat_slot = 0;
-				if(string_startswith(name, "__tex_image")) {
-					int pos =  string(name).rfind("_");
-					flat_slot = atoi(name + pos + 1);
+				if(string_startswith(mem.name, "__tex_image")) {
+					int pos =  string(mem.name).rfind("_");
+					flat_slot = atoi(mem.name + pos + 1);
 				}
 				else {
 					assert(0);
@@ -858,59 +887,56 @@ public:
 				}
 
 				/* Resize once */
-				if(flat_slot >= bindless_mapping.size()) {
+				if(flat_slot >= texture_info.size()) {
 					/* Allocate some slots in advance, to reduce amount
-					 * of re-allocations.
-					 */
-					bindless_mapping.resize(flat_slot + 128);
+					 * of re-allocations. */
+					texture_info.resize(flat_slot + 128);
 				}
 
 				/* Set Mapping and tag that we need to (re-)upload to device */
-				bindless_mapping.get_data()[flat_slot] = (uint)tex;
-				tex_bindless_map[mem.device_pointer] = (uint)tex;
-				need_bindless_mapping = true;
+				TextureInfo& info = texture_info[flat_slot];
+				info.data = (uint64_t)tex;
+				info.cl_buffer = 0;
+				info.interpolation = mem.interpolation;
+				info.extension = mem.extension;
+				info.width = mem.data_width;
+				info.height = mem.data_height;
+				info.depth = mem.data_depth;
+
+				tex_bindless_map[mem.device_pointer] = tex;
+				need_texture_info = true;
 			}
-			/* Regular Textures - Fermi */
 			else {
+				/* Regular Textures - Fermi */
 				cuda_assert(cuTexRefSetArray(texref, handle, CU_TRSA_OVERRIDE_FORMAT));
 				cuda_assert(cuTexRefSetFilterMode(texref, filter_mode));
 				cuda_assert(cuTexRefSetFlags(texref, CU_TRSF_NORMALIZED_COORDINATES));
+
+				cuda_assert(cuTexRefSetAddressMode(texref, 0, address_mode));
+				cuda_assert(cuTexRefSetAddressMode(texref, 1, address_mode));
+				if(mem.data_depth > 1) {
+					cuda_assert(cuTexRefSetAddressMode(texref, 2, address_mode));
+				}
+
+				cuda_assert(cuTexRefSetFormat(texref, format, mem.data_elements));
 			}
-
-			cuda_pop_context();
-		}
-
-		/* Fermi, Data and Image Textures */
-		if(!has_bindless_textures) {
-			cuda_push_context();
-
-			cuda_assert(cuTexRefSetAddressMode(texref, 0, address_mode));
-			cuda_assert(cuTexRefSetAddressMode(texref, 1, address_mode));
-			if(mem.data_depth > 1) {
-				cuda_assert(cuTexRefSetAddressMode(texref, 2, address_mode));
-			}
-
-			cuda_assert(cuTexRefSetFormat(texref, format, mem.data_elements));
-
-			cuda_pop_context();
 		}
 
 		/* Fermi and Kepler */
-		tex_interp_map[mem.device_pointer] = (interpolation != INTERPOLATION_NONE);
+		tex_interp_map[mem.device_pointer] = (mem.interpolation != INTERPOLATION_NONE);
 	}
 
 	void tex_free(device_memory& mem)
 	{
 		if(mem.device_pointer) {
 			if(tex_interp_map[mem.device_pointer]) {
-				cuda_push_context();
+				CUDAContextScope scope(this);
 				cuArrayDestroy((CUarray)mem.device_pointer);
-				cuda_pop_context();
 
 				/* Free CUtexObject (Bindless Textures) */
 				if(info.has_bindless_textures && tex_bindless_map[mem.device_pointer]) {
-					uint flat_slot = tex_bindless_map[mem.device_pointer];
-					cuTexObjectDestroy(flat_slot);
+					CUtexObject tex = tex_bindless_map[mem.device_pointer];
+					cuTexObjectDestroy(tex);
 				}
 
 				tex_interp_map.erase(tex_interp_map.find(mem.device_pointer));
@@ -921,21 +947,19 @@ public:
 			}
 			else {
 				tex_interp_map.erase(tex_interp_map.find(mem.device_pointer));
-				mem_free(mem);
+				generic_free(mem);
 			}
 		}
 	}
 
 	bool denoising_set_tiles(device_ptr *buffers, DenoisingTask *task)
 	{
-		mem_alloc("Denoising Tile Info", task->tiles_mem, MEM_READ_ONLY);
-
 		TilesInfo *tiles = (TilesInfo*) task->tiles_mem.data_pointer;
 		for(int i = 0; i < 9; i++) {
 			tiles->buffers[i] = buffers[i];
 		}
 
-		mem_copy_to(task->tiles_mem);
+		task->tiles_mem.copy_to_device();
 
 		return !have_error();
 	}
@@ -959,7 +983,7 @@ public:
 		if(have_error())
 			return false;
 
-		cuda_push_context();
+		CUDAContextScope scope(this);
 
 		int4 rect = task->rect;
 		int w = align_up(rect.z-rect.x, 4);
@@ -1016,7 +1040,6 @@ public:
 		CUDA_LAUNCH_KERNEL(cuNLMNormalize, normalize_args);
 		cuda_assert(cuCtxSynchronize());
 
-		cuda_pop_context();
 		return !have_error();
 	}
 
@@ -1025,7 +1048,7 @@ public:
 		if(have_error())
 			return false;
 
-		cuda_push_context();
+		CUDAContextScope scope(this);
 
 		CUfunction cuFilterConstructTransform;
 		cuda_assert(cuModuleGetFunction(&cuFilterConstructTransform, cuFilterModule, "kernel_cuda_filter_construct_transform"));
@@ -1045,7 +1068,6 @@ public:
 		CUDA_LAUNCH_KERNEL(cuFilterConstructTransform, args);
 		cuda_assert(cuCtxSynchronize());
 
-		cuda_pop_context();
 		return !have_error();
 	}
 
@@ -1057,10 +1079,10 @@ public:
 		if(have_error())
 			return false;
 
+		CUDAContextScope scope(this);
+
 		mem_zero(task->storage.XtWX);
 		mem_zero(task->storage.XtWY);
-
-		cuda_push_context();
 
 		CUfunction cuNLMCalcDifference, cuNLMBlur, cuNLMCalcWeight, cuNLMConstructGramian, cuFinalize;
 		cuda_assert(cuModuleGetFunction(&cuNLMCalcDifference,   cuFilterModule, "kernel_cuda_filter_nlm_calc_difference"));
@@ -1149,7 +1171,6 @@ public:
 		CUDA_LAUNCH_KERNEL(cuFinalize, finalize_args);
 		cuda_assert(cuCtxSynchronize());
 
-		cuda_pop_context();
 		return !have_error();
 	}
 
@@ -1160,7 +1181,7 @@ public:
 		if(have_error())
 			return false;
 
-		cuda_push_context();
+		CUDAContextScope scope(this);
 
 		CUfunction cuFilterCombineHalves;
 		cuda_assert(cuModuleGetFunction(&cuFilterCombineHalves, cuFilterModule, "kernel_cuda_filter_combine_halves"));
@@ -1178,7 +1199,6 @@ public:
 		CUDA_LAUNCH_KERNEL(cuFilterCombineHalves, args);
 		cuda_assert(cuCtxSynchronize());
 
-		cuda_pop_context();
 		return !have_error();
 	}
 
@@ -1189,7 +1209,7 @@ public:
 		if(have_error())
 			return false;
 
-		cuda_push_context();
+		CUDAContextScope scope(this);
 
 		CUfunction cuFilterDivideShadow;
 		cuda_assert(cuModuleGetFunction(&cuFilterDivideShadow, cuFilterModule, "kernel_cuda_filter_divide_shadow"));
@@ -1198,7 +1218,6 @@ public:
 		                   task->rect.z-task->rect.x,
 		                   task->rect.w-task->rect.y);
 
-		bool use_split_variance = use_split_kernel();
 		void *args[] = {&task->render_buffer.samples,
 		                &task->tiles_mem.device_pointer,
 		                &a_ptr,
@@ -1208,12 +1227,10 @@ public:
 		                &buffer_variance_ptr,
 		                &task->rect,
 		                &task->render_buffer.pass_stride,
-		                &task->render_buffer.denoising_data_offset,
-		                &use_split_variance};
+		                &task->render_buffer.denoising_data_offset};
 		CUDA_LAUNCH_KERNEL(cuFilterDivideShadow, args);
 		cuda_assert(cuCtxSynchronize());
 
-		cuda_pop_context();
 		return !have_error();
 	}
 
@@ -1226,7 +1243,7 @@ public:
 		if(have_error())
 			return false;
 
-		cuda_push_context();
+		CUDAContextScope scope(this);
 
 		CUfunction cuFilterGetFeature;
 		cuda_assert(cuModuleGetFunction(&cuFilterGetFeature, cuFilterModule, "kernel_cuda_filter_get_feature"));
@@ -1235,7 +1252,6 @@ public:
 		                   task->rect.z-task->rect.x,
 		                   task->rect.w-task->rect.y);
 
-		bool use_split_variance = use_split_kernel();
 		void *args[] = {&task->render_buffer.samples,
 		                &task->tiles_mem.device_pointer,
 				        &mean_offset,
@@ -1244,12 +1260,10 @@ public:
 		                &variance_ptr,
 		                &task->rect,
 		                &task->render_buffer.pass_stride,
-		                &task->render_buffer.denoising_data_offset,
-		                &use_split_variance};
+		                &task->render_buffer.denoising_data_offset};
 		CUDA_LAUNCH_KERNEL(cuFilterGetFeature, args);
 		cuda_assert(cuCtxSynchronize());
 
-		cuda_pop_context();
 		return !have_error();
 	}
 
@@ -1262,7 +1276,7 @@ public:
 		if(have_error())
 			return false;
 
-		cuda_push_context();
+		CUDAContextScope scope(this);
 
 		CUfunction cuFilterDetectOutliers;
 		cuda_assert(cuModuleGetFunction(&cuFilterDetectOutliers, cuFilterModule, "kernel_cuda_filter_detect_outliers"));
@@ -1281,7 +1295,6 @@ public:
 		CUDA_LAUNCH_KERNEL(cuFilterDetectOutliers, args);
 		cuda_assert(cuCtxSynchronize());
 
-		cuda_pop_context();
 		return !have_error();
 	}
 
@@ -1313,64 +1326,85 @@ public:
 		task.unmap_neighbor_tiles(rtiles, this);
 	}
 
-	void path_trace(RenderTile& rtile, int sample, bool branched)
+	void path_trace(DeviceTask& task, RenderTile& rtile, device_vector<WorkTile>& work_tiles)
 	{
 		if(have_error())
 			return;
 
-		cuda_push_context();
-
+		CUDAContextScope scope(this);
 		CUfunction cuPathTrace;
-		CUdeviceptr d_buffer = cuda_device_ptr(rtile.buffer);
-		CUdeviceptr d_rng_state = cuda_device_ptr(rtile.rng_state);
 
-		/* get kernel function */
-		if(branched) {
+		/* Get kernel function. */
+		if(task.integrator_branched) {
 			cuda_assert(cuModuleGetFunction(&cuPathTrace, cuModule, "kernel_cuda_branched_path_trace"));
 		}
 		else {
 			cuda_assert(cuModuleGetFunction(&cuPathTrace, cuModule, "kernel_cuda_path_trace"));
 		}
 
-		if(have_error())
+		if(have_error()) {
 			return;
-
-		/* pass in parameters */
-		void *args[] = {&d_buffer,
-		                &d_rng_state,
-		                &sample,
-		                &rtile.x,
-		                &rtile.y,
-		                &rtile.w,
-		                &rtile.h,
-		                &rtile.offset,
-		                &rtile.stride};
-
-		/* launch kernel */
-		int threads_per_block;
-		cuda_assert(cuFuncGetAttribute(&threads_per_block, CU_FUNC_ATTRIBUTE_MAX_THREADS_PER_BLOCK, cuPathTrace));
-
-		/*int num_registers;
-		cuda_assert(cuFuncGetAttribute(&num_registers, CU_FUNC_ATTRIBUTE_NUM_REGS, cuPathTrace));
-
-		printf("threads_per_block %d\n", threads_per_block);
-		printf("num_registers %d\n", num_registers);*/
-
-		int xthreads = (int)sqrt(threads_per_block);
-		int ythreads = (int)sqrt(threads_per_block);
-		int xblocks = (rtile.w + xthreads - 1)/xthreads;
-		int yblocks = (rtile.h + ythreads - 1)/ythreads;
+		}
 
 		cuda_assert(cuFuncSetCacheConfig(cuPathTrace, CU_FUNC_CACHE_PREFER_L1));
 
-		cuda_assert(cuLaunchKernel(cuPathTrace,
-		                           xblocks , yblocks, 1, /* blocks */
-		                           xthreads, ythreads, 1, /* threads */
-		                           0, 0, args, 0));
+		/* Allocate work tile. */
+		work_tiles.alloc(1);
 
-		cuda_assert(cuCtxSynchronize());
+		WorkTile *wtile = work_tiles.get_data();
+		wtile->x = rtile.x;
+		wtile->y = rtile.y;
+		wtile->w = rtile.w;
+		wtile->h = rtile.h;
+		wtile->offset = rtile.offset;
+		wtile->stride = rtile.stride;
+		wtile->buffer = (float*)cuda_device_ptr(rtile.buffer);
 
-		cuda_pop_context();
+		/* Prepare work size. More step samples render faster, but for now we
+		 * remain conservative for GPUs connected to a display to avoid driver
+		 * timeouts and display freezing. */
+		int min_blocks, num_threads_per_block;
+		cuda_assert(cuOccupancyMaxPotentialBlockSize(&min_blocks, &num_threads_per_block, cuPathTrace, NULL, 0, 0));
+		if(!info.display_device) {
+			min_blocks *= 8;
+		}
+
+		uint step_samples = divide_up(min_blocks * num_threads_per_block, wtile->w * wtile->h);;
+
+		/* Render all samples. */
+		int start_sample = rtile.start_sample;
+		int end_sample = rtile.start_sample + rtile.num_samples;
+
+		for(int sample = start_sample; sample < end_sample; sample += step_samples) {
+			/* Setup and copy work tile to device. */
+			wtile->start_sample = sample;
+			wtile->num_samples = min(step_samples, end_sample - sample);;
+			work_tiles.copy_to_device();
+
+			CUdeviceptr d_work_tiles = cuda_device_ptr(work_tiles.device_pointer);
+			uint total_work_size = wtile->w * wtile->h * wtile->num_samples;
+			uint num_blocks = divide_up(total_work_size, num_threads_per_block);
+
+			/* Launch kernel. */
+			void *args[] = {&d_work_tiles,
+			                &total_work_size};
+
+			cuda_assert(cuLaunchKernel(cuPathTrace,
+			                           num_blocks, 1, 1,
+			                           num_threads_per_block, 1, 1,
+			                           0, 0, args, 0));
+
+			cuda_assert(cuCtxSynchronize());
+
+			/* Update progress. */
+			rtile.sample = sample + wtile->num_samples;
+			task.update_progress(&rtile, rtile.w*rtile.h*wtile->num_samples);
+
+			if(task.get_cancel()) {
+				if(task.need_finish_queue == false)
+					break;
+			}
+		}
 	}
 
 	void film_convert(DeviceTask& task, device_ptr buffer, device_ptr rgba_byte, device_ptr rgba_half)
@@ -1378,7 +1412,7 @@ public:
 		if(have_error())
 			return;
 
-		cuda_push_context();
+		CUDAContextScope scope(this);
 
 		CUfunction cuFilmConvert;
 		CUdeviceptr d_rgba = map_pixels((rgba_byte)? rgba_byte: rgba_half);
@@ -1423,8 +1457,6 @@ public:
 		                           0, 0, args, 0));
 
 		unmap_pixels((rgba_byte)? rgba_byte: rgba_half);
-
-		cuda_pop_context();
 	}
 
 	void shader(DeviceTask& task)
@@ -1432,19 +1464,21 @@ public:
 		if(have_error())
 			return;
 
-		cuda_push_context();
+		CUDAContextScope scope(this);
 
 		CUfunction cuShader;
 		CUdeviceptr d_input = cuda_device_ptr(task.shader_input);
 		CUdeviceptr d_output = cuda_device_ptr(task.shader_output);
-		CUdeviceptr d_output_luma = cuda_device_ptr(task.shader_output_luma);
 
 		/* get kernel function */
 		if(task.shader_eval_type >= SHADER_EVAL_BAKE) {
 			cuda_assert(cuModuleGetFunction(&cuShader, cuModule, "kernel_cuda_bake"));
 		}
+		else if(task.shader_eval_type == SHADER_EVAL_DISPLACE) {
+			cuda_assert(cuModuleGetFunction(&cuShader, cuModule, "kernel_cuda_displace"));
+		}
 		else {
-			cuda_assert(cuModuleGetFunction(&cuShader, cuModule, "kernel_cuda_shader"));
+			cuda_assert(cuModuleGetFunction(&cuShader, cuModule, "kernel_cuda_background"));
 		}
 
 		/* do tasks in smaller chunks, so we can cancel it */
@@ -1463,9 +1497,6 @@ public:
 				int arg = 0;
 				args[arg++] = &d_input;
 				args[arg++] = &d_output;
-				if(task.shader_eval_type < SHADER_EVAL_BAKE) {
-					args[arg++] = &d_output_luma;
-				}
 				args[arg++] = &task.shader_eval_type;
 				if(task.shader_eval_type >= SHADER_EVAL_BAKE) {
 					args[arg++] = &task.shader_filter;
@@ -1497,8 +1528,6 @@ public:
 
 			task.update_progress(NULL);
 		}
-
-		cuda_pop_context();
 	}
 
 	CUdeviceptr map_pixels(device_ptr mem)
@@ -1528,117 +1557,95 @@ public:
 
 	void pixels_alloc(device_memory& mem)
 	{
-		if(!background) {
-			PixelMem pmem;
+		PixelMem pmem;
 
-			pmem.w = mem.data_width;
-			pmem.h = mem.data_height;
+		pmem.w = mem.data_width;
+		pmem.h = mem.data_height;
 
-			cuda_push_context();
+		CUDAContextScope scope(this);
 
-			glGenBuffers(1, &pmem.cuPBO);
-			glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pmem.cuPBO);
-			if(mem.data_type == TYPE_HALF)
-				glBufferData(GL_PIXEL_UNPACK_BUFFER, pmem.w*pmem.h*sizeof(GLhalf)*4, NULL, GL_DYNAMIC_DRAW);
-			else
-				glBufferData(GL_PIXEL_UNPACK_BUFFER, pmem.w*pmem.h*sizeof(uint8_t)*4, NULL, GL_DYNAMIC_DRAW);
+		glGenBuffers(1, &pmem.cuPBO);
+		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pmem.cuPBO);
+		if(mem.data_type == TYPE_HALF)
+			glBufferData(GL_PIXEL_UNPACK_BUFFER, pmem.w*pmem.h*sizeof(GLhalf)*4, NULL, GL_DYNAMIC_DRAW);
+		else
+			glBufferData(GL_PIXEL_UNPACK_BUFFER, pmem.w*pmem.h*sizeof(uint8_t)*4, NULL, GL_DYNAMIC_DRAW);
 
-			glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
-			glGenTextures(1, &pmem.cuTexId);
-			glBindTexture(GL_TEXTURE_2D, pmem.cuTexId);
-			if(mem.data_type == TYPE_HALF)
-				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F_ARB, pmem.w, pmem.h, 0, GL_RGBA, GL_HALF_FLOAT, NULL);
-			else
-				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, pmem.w, pmem.h, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-			glBindTexture(GL_TEXTURE_2D, 0);
+		glGenTextures(1, &pmem.cuTexId);
+		glBindTexture(GL_TEXTURE_2D, pmem.cuTexId);
+		if(mem.data_type == TYPE_HALF)
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F_ARB, pmem.w, pmem.h, 0, GL_RGBA, GL_HALF_FLOAT, NULL);
+		else
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, pmem.w, pmem.h, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		glBindTexture(GL_TEXTURE_2D, 0);
 
-			CUresult result = cuGraphicsGLRegisterBuffer(&pmem.cuPBOresource, pmem.cuPBO, CU_GRAPHICS_MAP_RESOURCE_FLAGS_NONE);
+		CUresult result = cuGraphicsGLRegisterBuffer(&pmem.cuPBOresource, pmem.cuPBO, CU_GRAPHICS_MAP_RESOURCE_FLAGS_NONE);
 
-			if(result == CUDA_SUCCESS) {
-				cuda_pop_context();
+		if(result == CUDA_SUCCESS) {
+			mem.device_pointer = pmem.cuTexId;
+			pixel_mem_map[mem.device_pointer] = pmem;
 
-				mem.device_pointer = pmem.cuTexId;
-				pixel_mem_map[mem.device_pointer] = pmem;
+			mem.device_size = mem.memory_size();
+			stats.mem_alloc(mem.device_size);
 
-				mem.device_size = mem.memory_size();
-				stats.mem_alloc(mem.device_size);
-
-				return;
-			}
-			else {
-				/* failed to register buffer, fallback to no interop */
-				glDeleteBuffers(1, &pmem.cuPBO);
-				glDeleteTextures(1, &pmem.cuTexId);
-
-				cuda_pop_context();
-
-				background = true;
-			}
+			return;
 		}
+		else {
+			/* failed to register buffer, fallback to no interop */
+			glDeleteBuffers(1, &pmem.cuPBO);
+			glDeleteTextures(1, &pmem.cuTexId);
 
-		Device::pixels_alloc(mem);
+			background = true;
+		}
 	}
 
 	void pixels_copy_from(device_memory& mem, int y, int w, int h)
 	{
-		if(!background) {
-			PixelMem pmem = pixel_mem_map[mem.device_pointer];
+		PixelMem pmem = pixel_mem_map[mem.device_pointer];
 
-			cuda_push_context();
+		CUDAContextScope scope(this);
 
-			glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pmem.cuPBO);
-			uchar *pixels = (uchar*)glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_READ_ONLY);
-			size_t offset = sizeof(uchar)*4*y*w;
-			memcpy((uchar*)mem.data_pointer + offset, pixels + offset, sizeof(uchar)*4*w*h);
-			glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
-			glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
-
-			cuda_pop_context();
-
-			return;
-		}
-
-		Device::pixels_copy_from(mem, y, w, h);
+		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pmem.cuPBO);
+		uchar *pixels = (uchar*)glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_READ_ONLY);
+		size_t offset = sizeof(uchar)*4*y*w;
+		memcpy((uchar*)mem.data_pointer + offset, pixels + offset, sizeof(uchar)*4*w*h);
+		glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
+		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 	}
 
 	void pixels_free(device_memory& mem)
 	{
 		if(mem.device_pointer) {
-			if(!background) {
-				PixelMem pmem = pixel_mem_map[mem.device_pointer];
+			PixelMem pmem = pixel_mem_map[mem.device_pointer];
 
-				cuda_push_context();
+			CUDAContextScope scope(this);
 
-				cuda_assert(cuGraphicsUnregisterResource(pmem.cuPBOresource));
-				glDeleteBuffers(1, &pmem.cuPBO);
-				glDeleteTextures(1, &pmem.cuTexId);
+			cuda_assert(cuGraphicsUnregisterResource(pmem.cuPBOresource));
+			glDeleteBuffers(1, &pmem.cuPBO);
+			glDeleteTextures(1, &pmem.cuTexId);
 
-				cuda_pop_context();
+			pixel_mem_map.erase(pixel_mem_map.find(mem.device_pointer));
+			mem.device_pointer = 0;
 
-				pixel_mem_map.erase(pixel_mem_map.find(mem.device_pointer));
-				mem.device_pointer = 0;
-
-				stats.mem_free(mem.device_size);
-				mem.device_size = 0;
-
-				return;
-			}
-
-			Device::pixels_free(mem);
+			stats.mem_free(mem.device_size);
+			mem.device_size = 0;
 		}
 	}
 
 	void draw_pixels(device_memory& mem, int y, int w, int h, int dx, int dy, int width, int height, bool transparent,
 		const DeviceDrawParams &draw_params)
 	{
+		assert(mem.type == MEM_PIXELS);
+
 		if(!background) {
 			PixelMem pmem = pixel_mem_map[mem.device_pointer];
 			float *vpointer;
 
-			cuda_push_context();
+			CUDAContextScope scope(this);
 
 			/* for multi devices, this assumes the inefficient method that we allocate
 			 * all pixels on the device even though we only render to a subset */
@@ -1727,8 +1734,6 @@ public:
 			glBindTexture(GL_TEXTURE_2D, 0);
 			glDisable(GL_TEXTURE_2D);
 
-			cuda_pop_context();
-
 			return;
 		}
 
@@ -1737,13 +1742,10 @@ public:
 
 	void thread_run(DeviceTask *task)
 	{
+		CUDAContextScope scope(this);
+
 		if(task->type == DeviceTask::RENDER) {
 			RenderTile tile;
-
-			bool branched = task->integrator_branched;
-
-			/* Upload Bindless Mapping */
-			load_bindless_mapping();
 
 			DeviceRequestedFeatures requested_features;
 			if(use_split_kernel()) {
@@ -1757,29 +1759,17 @@ public:
 				}
 			}
 
+			device_vector<WorkTile> work_tiles(this, "work_tiles", MEM_READ_ONLY);
+
 			/* keep rendering tiles until done */
 			while(task->acquire_tile(this, tile)) {
 				if(tile.task == RenderTile::PATH_TRACE) {
 					if(use_split_kernel()) {
-						device_memory void_buffer;
+						device_only_memory<uchar> void_buffer(this, "void_buffer");
 						split_kernel->path_trace(task, tile, void_buffer, void_buffer);
 					}
 					else {
-						int start_sample = tile.start_sample;
-						int end_sample = tile.start_sample + tile.num_samples;
-
-						for(int sample = start_sample; sample < end_sample; sample++) {
-							if(task->get_cancel()) {
-								if(task->need_finish_queue == false)
-									break;
-							}
-
-							path_trace(tile, sample, branched);
-
-							tile.sample = sample + 1;
-
-							task->update_progress(&tile, tile.w*tile.h);
-						}
+						path_trace(*task, tile, work_tiles);
 					}
 				}
 				else if(tile.task == RenderTile::DENOISE) {
@@ -1797,16 +1787,13 @@ public:
 						break;
 				}
 			}
+
+			work_tiles.free();
 		}
 		else if(task->type == DeviceTask::SHADER) {
-			/* Upload Bindless Mapping */
-			load_bindless_mapping();
-
 			shader(*task);
 
-			cuda_push_context();
 			cuda_assert(cuCtxSynchronize());
-			cuda_pop_context();
 		}
 	}
 
@@ -1826,13 +1813,15 @@ public:
 
 	void task_add(DeviceTask& task)
 	{
+		CUDAContextScope scope(this);
+
+		/* Load texture info. */
+		load_texture_info();
+
 		if(task.type == DeviceTask::FILM_CONVERT) {
 			/* must be done in main thread due to opengl access */
 			film_convert(task, task.buffer, task.rgba_byte, task.rgba_half);
-
-			cuda_push_context();
 			cuda_assert(cuCtxSynchronize());
-			cuda_pop_context();
 		}
 		else {
 			task_pool.push(new CUDADeviceTask(this, task));
@@ -1851,6 +1840,7 @@ public:
 
 	friend class CUDASplitKernelFunction;
 	friend class CUDASplitKernel;
+	friend class CUDAContextScope;
 };
 
 /* redefine the cuda_assert macro so it can be used outside of the CUDADevice class
@@ -1871,6 +1861,20 @@ public:
 		} \
 	} (void)0
 
+
+/* CUDA context scope. */
+
+CUDAContextScope::CUDAContextScope(CUDADevice *device)
+: device(device)
+{
+	cuda_assert(cuCtxPushCurrent(device->cuContext));
+}
+
+CUDAContextScope::~CUDAContextScope()
+{
+	cuda_assert(cuCtxPopCurrent(NULL));
+}
+
 /* split kernel */
 
 class CUDASplitKernelFunction : public SplitKernelFunction{
@@ -1888,29 +1892,23 @@ public:
 	/* enqueue the kernel, returns false if there is an error */
 	bool enqueue(const KernelDimensions &dim, void *args[])
 	{
-		device->cuda_push_context();
-
 		if(device->have_error())
 			return false;
+
+		CUDAContextScope scope(device);
 
 		/* we ignore dim.local_size for now, as this is faster */
 		int threads_per_block;
 		cuda_assert(cuFuncGetAttribute(&threads_per_block, CU_FUNC_ATTRIBUTE_MAX_THREADS_PER_BLOCK, func));
 
-		int xthreads = (int)sqrt(threads_per_block);
-		int ythreads = (int)sqrt(threads_per_block);
-
-		int xblocks = (dim.global_size[0] + xthreads - 1)/xthreads;
-		int yblocks = (dim.global_size[1] + ythreads - 1)/ythreads;
+		int xblocks = (dim.global_size[0]*dim.global_size[1] + threads_per_block - 1)/threads_per_block;
 
 		cuda_assert(cuFuncSetCacheConfig(func, CU_FUNC_CACHE_PREFER_L1));
 
 		cuda_assert(cuLaunchKernel(func,
-		                           xblocks , yblocks, 1, /* blocks */
-		                           xthreads, ythreads, 1, /* threads */
+		                           xblocks, 1, 1, /* blocks */
+		                           threads_per_block, 1, 1, /* threads */
 		                           0, 0, args, 0));
-
-		device->cuda_pop_context();
 
 		return !device->have_error();
 	}
@@ -1922,11 +1920,11 @@ CUDASplitKernel::CUDASplitKernel(CUDADevice *device) : DeviceSplitKernel(device)
 
 uint64_t CUDASplitKernel::state_buffer_size(device_memory& /*kg*/, device_memory& /*data*/, size_t num_threads)
 {
-	device_vector<uint64_t> size_buffer;
-	size_buffer.resize(1);
-	device->mem_alloc(NULL, size_buffer, MEM_READ_WRITE);
+	CUDAContextScope scope(device);
 
-	device->cuda_push_context();
+	device_vector<uint64_t> size_buffer(device, "size_buffer", MEM_READ_WRITE);
+	size_buffer.alloc(1);
+	size_buffer.zero_to_device();
 
 	uint threads = num_threads;
 	CUdeviceptr d_size = device->cuda_device_ptr(size_buffer.device_pointer);
@@ -1949,12 +1947,11 @@ uint64_t CUDASplitKernel::state_buffer_size(device_memory& /*kg*/, device_memory
 	                           1, 1, 1,
 	                           0, 0, (void**)&args, 0));
 
-	device->cuda_pop_context();
+	size_buffer.copy_from_device(0, 1, 1);
+	size_t size = size_buffer[0];
+	size_buffer.free();
 
-	device->mem_copy_from(size_buffer, 0, 1, 1, sizeof(uint64_t));
-	device->mem_free(size_buffer);
-
-	return *size_buffer.get_data();
+	return size;
 }
 
 bool CUDASplitKernel::enqueue_split_kernel_data_init(const KernelDimensions& dim,
@@ -1968,7 +1965,7 @@ bool CUDASplitKernel::enqueue_split_kernel_data_init(const KernelDimensions& dim
                                     device_memory& use_queues_flag,
                                     device_memory& work_pool_wgs)
 {
-	device->cuda_push_context();
+	CUDAContextScope scope(device);
 
 	CUdeviceptr d_split_data = device->cuda_device_ptr(split_data.device_pointer);
 	CUdeviceptr d_ray_state = device->cuda_device_ptr(ray_state.device_pointer);
@@ -1976,7 +1973,6 @@ bool CUDASplitKernel::enqueue_split_kernel_data_init(const KernelDimensions& dim
 	CUdeviceptr d_use_queues_flag = device->cuda_device_ptr(use_queues_flag.device_pointer);
 	CUdeviceptr d_work_pool_wgs = device->cuda_device_ptr(work_pool_wgs.device_pointer);
 
-	CUdeviceptr d_rng_state = device->cuda_device_ptr(rtile.rng_state);
 	CUdeviceptr d_buffer = device->cuda_device_ptr(rtile.buffer);
 
 	int end_sample = rtile.start_sample + rtile.num_samples;
@@ -1986,7 +1982,6 @@ bool CUDASplitKernel::enqueue_split_kernel_data_init(const KernelDimensions& dim
 		CUdeviceptr* split_data_buffer;
 		int* num_elements;
 		CUdeviceptr* ray_state;
-		CUdeviceptr* rng_state;
 		int* start_sample;
 		int* end_sample;
 		int* sx;
@@ -2007,7 +2002,6 @@ bool CUDASplitKernel::enqueue_split_kernel_data_init(const KernelDimensions& dim
 		&d_split_data,
 		&num_global_elements,
 		&d_ray_state,
-		&d_rng_state,
 		&rtile.start_sample,
 		&end_sample,
 		&rtile.x,
@@ -2032,24 +2026,20 @@ bool CUDASplitKernel::enqueue_split_kernel_data_init(const KernelDimensions& dim
 
 	CUDASplitKernelFunction(device, data_init).enqueue(dim, (void**)&args);
 
-	device->cuda_pop_context();
-
 	return !device->have_error();
 }
 
-SplitKernelFunction* CUDASplitKernel::get_split_kernel_function(string kernel_name, const DeviceRequestedFeatures&)
+SplitKernelFunction* CUDASplitKernel::get_split_kernel_function(const string& kernel_name,
+                                                                const DeviceRequestedFeatures&)
 {
+	CUDAContextScope scope(device);
 	CUfunction func;
-
-	device->cuda_push_context();
 
 	cuda_assert(cuModuleGetFunction(&func, device->cuModule, (string("kernel_cuda_") + kernel_name).data()));
 	if(device->have_error()) {
 		device->cuda_error_message(string_printf("kernel \"kernel_cuda_%s\" not found in module", kernel_name.data()));
 		return NULL;
 	}
-
-	device->cuda_pop_context();
 
 	return new CUDASplitKernelFunction(device, func);
 }
@@ -2061,12 +2051,11 @@ int2 CUDASplitKernel::split_kernel_local_size()
 
 int2 CUDASplitKernel::split_kernel_global_size(device_memory& kg, device_memory& data, DeviceTask * /*task*/)
 {
+	CUDAContextScope scope(device);
 	size_t free;
 	size_t total;
 
-	device->cuda_push_context();
 	cuda_assert(cuMemGetInfo(&free, &total));
-	device->cuda_pop_context();
 
 	VLOG(1) << "Maximum device allocation size: "
 	        << string_human_readable_number(free) << " bytes. ("
@@ -2125,18 +2114,34 @@ Device *device_cuda_create(DeviceInfo& info, Stats &stats, bool background)
 	return new CUDADevice(info, stats, background);
 }
 
+static CUresult device_cuda_safe_init()
+{
+#ifdef _WIN32
+	__try {
+		return cuInit(0);
+	}
+	__except(EXCEPTION_EXECUTE_HANDLER) {
+		/* Ignore crashes inside the CUDA driver and hope we can
+		 * survive even with corrupted CUDA installs. */
+		fprintf(stderr, "Cycles CUDA: driver crashed, continuing without CUDA.\n");
+	}
+
+	return CUDA_ERROR_NO_DEVICE;
+#else
+	return cuInit(0);
+#endif
+}
+
 void device_cuda_info(vector<DeviceInfo>& devices)
 {
-	CUresult result;
-	int count = 0;
-
-	result = cuInit(0);
+	CUresult result = device_cuda_safe_init();
 	if(result != CUDA_SUCCESS) {
 		if(result != CUDA_ERROR_NO_DEVICE)
 			fprintf(stderr, "CUDA cuInit: %s\n", cuewErrorString(result));
 		return;
 	}
 
+	int count = 0;
 	result = cuDeviceGetCount(&count);
 	if(result != CUDA_SUCCESS) {
 		fprintf(stderr, "CUDA cuDeviceGetCount: %s\n", cuewErrorString(result));
@@ -2147,14 +2152,18 @@ void device_cuda_info(vector<DeviceInfo>& devices)
 
 	for(int num = 0; num < count; num++) {
 		char name[256];
-		int attr;
 
-		if(cuDeviceGetName(name, 256, num) != CUDA_SUCCESS)
+		result = cuDeviceGetName(name, 256, num);
+		if(result != CUDA_SUCCESS) {
+			fprintf(stderr, "CUDA cuDeviceGetName: %s\n", cuewErrorString(result));
 			continue;
+		}
 
 		int major;
 		cuDeviceGetAttribute(&major, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR, num);
 		if(major < 2) {
+			VLOG(1) << "Ignoring device \"" << name
+			        << "\", compute capability is too low.";
 			continue;
 		}
 
@@ -2166,7 +2175,8 @@ void device_cuda_info(vector<DeviceInfo>& devices)
 
 		info.advanced_shading = (major >= 2);
 		info.has_bindless_textures = (major >= 3);
-		info.pack_images = false;
+		info.has_volume_decoupled = false;
+		info.has_qbvh = false;
 
 		int pci_location[3] = {0, 0, 0};
 		cuDeviceGetAttribute(&pci_location[0], CU_DEVICE_ATTRIBUTE_PCI_DOMAIN_ID, num);
@@ -2178,14 +2188,23 @@ void device_cuda_info(vector<DeviceInfo>& devices)
 		                        (unsigned int)pci_location[1],
 		                        (unsigned int)pci_location[2]);
 
-		/* if device has a kernel timeout, assume it is used for display */
-		if(cuDeviceGetAttribute(&attr, CU_DEVICE_ATTRIBUTE_KERNEL_EXEC_TIMEOUT, num) == CUDA_SUCCESS && attr == 1) {
+		/* If device has a kernel timeout and no compute preemption, we assume
+		 * it is connected to a display and will freeze the display while doing
+		 * computations. */
+		int timeout_attr = 0, preempt_attr = 0;
+		cuDeviceGetAttribute(&timeout_attr, CU_DEVICE_ATTRIBUTE_KERNEL_EXEC_TIMEOUT, num);
+		cuDeviceGetAttribute(&preempt_attr, CU_DEVICE_ATTRIBUTE_COMPUTE_PREEMPTION_SUPPORTED, num);
+
+		if(timeout_attr && !preempt_attr) {
+			VLOG(1) << "Device is recognized as display.";
 			info.description += " (Display)";
 			info.display_device = true;
 			display_devices.push_back(info);
 		}
-		else
+		else {
 			devices.push_back(info);
+		}
+		VLOG(1) << "Added device \"" << name << "\" with id \"" << info.id << "\".";
 	}
 
 	if(!display_devices.empty())
@@ -2194,7 +2213,7 @@ void device_cuda_info(vector<DeviceInfo>& devices)
 
 string device_cuda_capabilities(void)
 {
-	CUresult result = cuInit(0);
+	CUresult result = device_cuda_safe_init();
 	if(result != CUDA_SUCCESS) {
 		if(result != CUDA_ERROR_NO_DEVICE) {
 			return string("Error initializing CUDA: ") + cuewErrorString(result);

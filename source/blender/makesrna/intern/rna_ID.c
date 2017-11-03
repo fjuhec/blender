@@ -48,7 +48,7 @@
 /* enum of ID-block types
  * NOTE: need to keep this in line with the other defines for these
  */
-EnumPropertyItem rna_enum_id_type_items[] = {
+const EnumPropertyItem rna_enum_id_type_items[] = {
 	{ID_AC, "ACTION", ICON_ACTION, "Action", ""},
 	{ID_AR, "ARMATURE", ICON_ARMATURE_DATA, "Armature", ""},
 	{ID_BR, "BRUSH", ICON_BRUSH_DATA, "Brush", ""},
@@ -250,9 +250,10 @@ void rna_PropertyGroup_unregister(Main *UNUSED(bmain), StructRNA *type)
 	RNA_struct_free(&BLENDER_RNA, type);
 }
 
-StructRNA *rna_PropertyGroup_register(Main *UNUSED(bmain), ReportList *reports, void *data, const char *identifier,
-                                      StructValidateFunc validate, StructCallbackFunc UNUSED(call),
-                                      StructFreeFunc UNUSED(free))
+StructRNA *rna_PropertyGroup_register(
+        Main *UNUSED(bmain), ReportList *reports, void *data, const char *identifier,
+        StructValidateFunc validate, StructCallbackFunc UNUSED(call),
+        StructFreeFunc UNUSED(free))
 {
 	PointerRNA dummyptr;
 
@@ -938,7 +939,7 @@ static void rna_def_ID(BlenderRNA *brna)
 	FunctionRNA *func;
 	PropertyRNA *prop, *parm;
 
-	static EnumPropertyItem update_flag_items[] = {
+	static const EnumPropertyItem update_flag_items[] = {
 		{OB_RECALC_OB, "OBJECT", 0, "Object", ""},
 		{OB_RECALC_DATA, "DATA", 0, "Data", ""},
 		{OB_RECALC_TIME, "TIME", 0, "Time", ""},

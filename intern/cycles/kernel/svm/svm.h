@@ -195,8 +195,7 @@ ccl_device_noinline void svm_eval_nodes(KernelGlobals *kg,
 										ccl_addr_space PathState *state,
 										ShaderType type,
 										int path_flag,
-										ccl_global float *buffer,
-										int sample)
+										ccl_global float *buffer)
 {
 	float stack[SVM_STACK_SIZE];
 	int offset = sd->shader & SHADER_MASK;
@@ -462,10 +461,10 @@ ccl_device_noinline void svm_eval_nodes(KernelGlobals *kg,
 				svm_node_blackbody(kg, sd, stack, node.y, node.z);
 				break;
 			case NODE_AOV_WRITE_FLOAT3:
-				svm_node_aov_write_float3(kg, state, stack, node.y, node.z, buffer, sample);
+				svm_node_aov_write_float3(kg, state, stack, node.y, node.z, buffer);
 				break;
 			case NODE_AOV_WRITE_FLOAT:
-				svm_node_aov_write_float(kg, state, stack, node.y, node.z, buffer, sample);
+				svm_node_aov_write_float(kg, state, stack, node.y, node.z, buffer);
 				break;
 			case NODE_END_IF_NO_AOVS:
 				if(state->written_aovs == ~0) {

@@ -48,6 +48,7 @@
 #include "util/util_logging.h"
 #include "util/util_map.h"
 #include "util/util_opengl.h"
+#include "util/util_optimization.h"
 #include "util/util_progress.h"
 #include "util/util_system.h"
 #include "util/util_thread.h"
@@ -121,7 +122,7 @@ public:
 		}
 #endif
 
-		if(strstr(architecture_name, logged_architecture) != 0) {
+		if(strcmp(architecture_name, logged_architecture) != 0) {
 			VLOG(1) << "Will be using " << architecture_name << " kernels.";
 			logged_architecture = architecture_name;
 		}
@@ -151,7 +152,8 @@ public:
 	                                            device_memory& use_queues_flag,
 	                                            device_memory& work_pool_wgs);
 
-	virtual SplitKernelFunction* get_split_kernel_function(string kernel_name, const DeviceRequestedFeatures&);
+	virtual SplitKernelFunction* get_split_kernel_function(const string& kernel_name,
+	                                                       const DeviceRequestedFeatures&);
 	virtual int2 split_kernel_local_size();
 	virtual int2 split_kernel_global_size(device_memory& kg, device_memory& data, DeviceTask *task);
 	virtual uint64_t state_buffer_size(device_memory& kg, device_memory& data, size_t num_threads);
@@ -163,6 +165,9 @@ public:
 	TaskPool task_pool;
 	KernelGlobals kernel_globals;
 
+	device_vector<TextureInfo> texture_info;
+	bool need_texture_info;
+
 #ifdef WITH_OSL
 	OSLGlobals osl_globals;
 #endif
@@ -171,15 +176,15 @@ public:
 
 	DeviceRequestedFeatures requested_features;
 
-	KernelFunctions<void(*)(KernelGlobals *, float *, unsigned int *, int, int, int, int, int)>   path_trace_kernel;
-	KernelFunctions<void(*)(KernelGlobals *, uchar4 *, float *, float, int, int, int, int)>       convert_to_half_float_kernel;
-	KernelFunctions<void(*)(KernelGlobals *, uchar4 *, float *, float, int, int, int, int)>       convert_to_byte_kernel;
-	KernelFunctions<void(*)(KernelGlobals *, uint4 *, float4 *, float*, int, int, int, int, int)> shader_kernel;
+	KernelFunctions<void(*)(KernelGlobals *, float *, int, int, int, int, int)>             path_trace_kernel;
+	KernelFunctions<void(*)(KernelGlobals *, uchar4 *, float *, float, int, int, int, int)> convert_to_half_float_kernel;
+	KernelFunctions<void(*)(KernelGlobals *, uchar4 *, float *, float, int, int, int, int)> convert_to_byte_kernel;
+	KernelFunctions<void(*)(KernelGlobals *, uint4 *, float4 *, int, int, int, int, int)>   shader_kernel;
 
-	KernelFunctions<void(*)(int, TilesInfo*, int, int, float*, float*, float*, float*, float*, int*, int, int, bool)> filter_divide_shadow_kernel;
-	KernelFunctions<void(*)(int, TilesInfo*, int, int, int, int, float*, float*, int*, int, int, bool)>               filter_get_feature_kernel;
-	KernelFunctions<void(*)(int, int, float*, float*, float*, float*, int*, int)>                                     filter_detect_outliers_kernel;
-	KernelFunctions<void(*)(int, int, float*, float*, float*, float*, int*, int)>                                     filter_combine_halves_kernel;
+	KernelFunctions<void(*)(int, TilesInfo*, int, int, float*, float*, float*, float*, float*, int*, int, int)> filter_divide_shadow_kernel;
+	KernelFunctions<void(*)(int, TilesInfo*, int, int, int, int, float*, float*, int*, int, int)>               filter_get_feature_kernel;
+	KernelFunctions<void(*)(int, int, float*, float*, float*, float*, int*, int)>                               filter_detect_outliers_kernel;
+	KernelFunctions<void(*)(int, int, float*, float*, float*, float*, int*, int)>                               filter_combine_halves_kernel;
 
 	KernelFunctions<void(*)(int, int, float*, float*, float*, int*, int, int, float, float)> filter_nlm_calc_difference_kernel;
 	KernelFunctions<void(*)(float*, float*, int*, int, int)>                                 filter_nlm_blur_kernel;
@@ -192,7 +197,7 @@ public:
 	KernelFunctions<void(*)(int, int, int, int, int, float*, int*, float*, float3*, int*, int)>                       filter_finalize_kernel;
 
 	KernelFunctions<void(*)(KernelGlobals *, ccl_constant KernelData*, ccl_global void*, int, ccl_global char*,
-	                       ccl_global uint*, int, int, int, int, int, int, int, int, ccl_global int*, int,
+	                       int, int, int, int, int, int, int, int, ccl_global int*, int,
 	                       ccl_global char*, ccl_global unsigned int*, unsigned int, ccl_global float*)>        data_init_kernel;
 	unordered_map<string, KernelFunctions<void(*)(KernelGlobals*, KernelData*)> > split_kernels;
 
@@ -204,8 +209,9 @@ public:
 	      KERNEL_NAME_EVAL(cpu_avx, name), \
 	      KERNEL_NAME_EVAL(cpu_avx2, name)
 
-	CPUDevice(DeviceInfo& info, Stats &stats, bool background)
-	: Device(info, stats, background),
+	CPUDevice(DeviceInfo& info_, Stats &stats_, bool background_)
+	: Device(info_, stats_, background_),
+	  texture_info(this, "__texture_info", MEM_TEXTURE),
 #define REGISTER_KERNEL(name) name ## _kernel(KERNEL_FUNCTIONS(name))
 	  REGISTER_KERNEL(path_trace),
 	  REGISTER_KERNEL(convert_to_half_float),
@@ -226,6 +232,9 @@ public:
 	  REGISTER_KERNEL(data_init)
 #undef REGISTER_KERNEL
 	{
+		if(info.cpu_threads == 0) {
+			info.cpu_threads = TaskScheduler::num_threads();
+		}
 
 #ifdef WITH_OSL
 		kernel_globals.osl = &osl_globals;
@@ -234,6 +243,7 @@ public:
 		if(use_split_kernel) {
 			VLOG(1) << "Will be using split kernel.";
 		}
+		need_texture_info = false;
 
 #define REGISTER_SPLIT_KERNEL(name) split_kernels[#name] = KernelFunctions<void(*)(KernelGlobals*, KernelData*)>(KERNEL_FUNCTIONS(name))
 		REGISTER_SPLIT_KERNEL(path_init);
@@ -250,6 +260,7 @@ public:
 		REGISTER_SPLIT_KERNEL(direct_lighting);
 		REGISTER_SPLIT_KERNEL(shadow_blocked_ao);
 		REGISTER_SPLIT_KERNEL(shadow_blocked_dl);
+		REGISTER_SPLIT_KERNEL(enqueue_inactive);
 		REGISTER_SPLIT_KERNEL(next_iteration_setup);
 		REGISTER_SPLIT_KERNEL(indirect_subsurface);
 		REGISTER_SPLIT_KERNEL(buffer_update);
@@ -260,34 +271,61 @@ public:
 	~CPUDevice()
 	{
 		task_pool.stop();
+		texture_info.free();
 	}
 
 	virtual bool show_samples() const
 	{
-		return (TaskScheduler::num_threads() == 1);
+		return (info.cpu_threads == 1);
 	}
 
-	void mem_alloc(const char *name, device_memory& mem, MemoryType /*type*/)
+	void load_texture_info()
 	{
-		if(name) {
-			VLOG(1) << "Buffer allocate: " << name << ", "
-			        << string_human_readable_number(mem.memory_size()) << " bytes. ("
-			        << string_human_readable_size(mem.memory_size()) << ")";
+		if(need_texture_info) {
+			texture_info.copy_to_device();
+			need_texture_info = false;
 		}
-
-		mem.device_pointer = mem.data_pointer;
-
-		if(!mem.device_pointer) {
-			mem.device_pointer = (device_ptr)malloc(mem.memory_size());
-		}
-
-		mem.device_size = mem.memory_size();
-		stats.mem_alloc(mem.device_size);
 	}
 
-	void mem_copy_to(device_memory& /*mem*/)
+	void mem_alloc(device_memory& mem)
 	{
-		/* no-op */
+		if(mem.type == MEM_TEXTURE) {
+			assert(!"mem_alloc not supported for textures.");
+		}
+		else {
+			if(mem.name) {
+				VLOG(1) << "Buffer allocate: " << mem.name << ", "
+						<< string_human_readable_number(mem.memory_size()) << " bytes. ("
+						<< string_human_readable_size(mem.memory_size()) << ")";
+			}
+
+			mem.device_pointer = mem.data_pointer;
+
+			if(!mem.device_pointer) {
+				mem.device_pointer = (device_ptr)malloc(mem.memory_size());
+			}
+
+			mem.device_size = mem.memory_size();
+			stats.mem_alloc(mem.device_size);
+		}
+	}
+
+	void mem_copy_to(device_memory& mem)
+	{
+		if(mem.type == MEM_TEXTURE) {
+			tex_free(mem);
+			tex_alloc(mem);
+		}
+		else if(mem.type == MEM_PIXELS) {
+			assert(!"mem_copy_to not supported for pixels.");
+		}
+		else {
+			if(!mem.device_pointer) {
+				mem_alloc(mem);
+			}
+
+			/* copy is no-op */
+		}
 	}
 
 	void mem_copy_from(device_memory& /*mem*/,
@@ -299,12 +337,21 @@ public:
 
 	void mem_zero(device_memory& mem)
 	{
-		memset((void*)mem.device_pointer, 0, mem.memory_size());
+		if(!mem.device_pointer) {
+			mem_alloc(mem);
+		}
+
+		if(mem.device_pointer) {
+			memset((void*)mem.device_pointer, 0, mem.memory_size());
+		}
 	}
 
 	void mem_free(device_memory& mem)
 	{
-		if(mem.device_pointer) {
+		if(mem.type == MEM_TEXTURE) {
+			tex_free(mem);
+		}
+		else if(mem.device_pointer) {
 			if(!mem.data_pointer) {
 				free((void*)mem.device_pointer);
 			}
@@ -314,7 +361,7 @@ public:
 		}
 	}
 
-	virtual device_ptr mem_alloc_sub_ptr(device_memory& mem, int offset, int /*size*/, MemoryType /*type*/)
+	virtual device_ptr mem_alloc_sub_ptr(device_memory& mem, int offset, int /*size*/)
 	{
 		return (device_ptr) (((char*) mem.device_pointer) + mem.memory_elements_size(offset));
 	}
@@ -324,22 +371,48 @@ public:
 		kernel_const_copy(&kernel_globals, name, host, size);
 	}
 
-	void tex_alloc(const char *name,
-	               device_memory& mem,
-	               InterpolationType interpolation,
-	               ExtensionType extension)
+	void tex_alloc(device_memory& mem)
 	{
-		VLOG(1) << "Texture allocate: " << name << ", "
+		VLOG(1) << "Texture allocate: " << mem.name << ", "
 		        << string_human_readable_number(mem.memory_size()) << " bytes. ("
 		        << string_human_readable_size(mem.memory_size()) << ")";
-		kernel_tex_copy(&kernel_globals,
-		                name,
-		                mem.data_pointer,
-		                mem.data_width,
-		                mem.data_height,
-		                mem.data_depth,
-		                interpolation,
-		                extension);
+
+		if(mem.interpolation == INTERPOLATION_NONE) {
+			/* Data texture. */
+			kernel_tex_copy(&kernel_globals,
+							mem.name,
+							mem.data_pointer,
+							mem.data_size);
+		}
+		else {
+			/* Image Texture. */
+			int flat_slot = 0;
+			if(string_startswith(mem.name, "__tex_image")) {
+				int pos =  string(mem.name).rfind("_");
+				flat_slot = atoi(mem.name + pos + 1);
+			}
+			else {
+				assert(0);
+			}
+
+			if(flat_slot >= texture_info.size()) {
+				/* Allocate some slots in advance, to reduce amount
+				 * of re-allocations. */
+				texture_info.resize(flat_slot + 128);
+			}
+
+			TextureInfo& info = texture_info[flat_slot];
+			info.data = (uint64_t)mem.data_pointer;
+			info.cl_buffer = 0;
+			info.interpolation = mem.interpolation;
+			info.extension = mem.extension;
+			info.width = mem.data_width;
+			info.height = mem.data_height;
+			info.depth = mem.data_depth;
+
+			need_texture_info = true;
+		}
+
 		mem.device_pointer = mem.data_pointer;
 		mem.device_size = mem.memory_size();
 		stats.mem_alloc(mem.device_size);
@@ -351,6 +424,7 @@ public:
 			mem.device_pointer = 0;
 			stats.mem_free(mem.device_size);
 			mem.device_size = 0;
+			need_texture_info = true;
 		}
 	}
 
@@ -385,12 +459,12 @@ public:
 
 	bool denoising_set_tiles(device_ptr *buffers, DenoisingTask *task)
 	{
-		mem_alloc("Denoising Tile Info", task->tiles_mem, MEM_READ_ONLY);
-
 		TilesInfo *tiles = (TilesInfo*) task->tiles_mem.data_pointer;
 		for(int i = 0; i < 9; i++) {
 			tiles->buffers[i] = buffers[i];
 		}
+
+		task->tiles_mem.copy_to_device();
 
 		return true;
 	}
@@ -562,8 +636,7 @@ public:
 				                              (float*) buffer_variance_ptr,
 				                              &task->rect.x,
 				                              task->render_buffer.pass_stride,
-				                              task->render_buffer.denoising_data_offset,
-				                              use_split_kernel);
+				                              task->render_buffer.denoising_data_offset);
 			}
 		}
 		return true;
@@ -586,8 +659,7 @@ public:
 				                            (float*) variance_ptr,
 				                            &task->rect.x,
 				                            task->render_buffer.pass_stride,
-				                            task->render_buffer.denoising_data_offset,
-				                            use_split_kernel);
+				                            task->render_buffer.denoising_data_offset);
 			}
 		}
 		return true;
@@ -633,7 +705,6 @@ public:
 		}
 
 		float *render_buffer = (float*)tile.buffer;
-		uint *rng_state = (uint*)tile.rng_state;
 		int start_sample = tile.start_sample;
 		int end_sample = tile.start_sample + tile.num_samples;
 
@@ -656,7 +727,7 @@ public:
 							kg->coverage_asset = &coverage_asset[tile.w * (y - tile.y) + x - tile.x];
 						}
 					}
-					path_trace_kernel()(kg, render_buffer, rng_state,
+					path_trace_kernel()(kg, render_buffer,
 					                    sample, x, y, tile.offset, tile.stride);
 				}
 			}
@@ -707,9 +778,8 @@ public:
 		}
 
 		/* allocate buffer for kernel globals */
-		device_only_memory<KernelGlobals> kgbuffer;
-		kgbuffer.resize(1);
-		mem_alloc("kernel_globals", kgbuffer, MEM_READ_WRITE);
+		device_only_memory<KernelGlobals> kgbuffer(this, "kernel_globals");
+		kgbuffer.alloc_to_device(1);
 
 		KernelGlobals *kg = new ((void*) kgbuffer.device_pointer) KernelGlobals(thread_kernel_globals_init());
 
@@ -719,8 +789,7 @@ public:
 			requested_features.max_closure = MAX_CLOSURE;
 			if(!split_kernel->load_kernels(requested_features)) {
 				thread_kernel_globals_free((KernelGlobals*)kgbuffer.device_pointer);
-				mem_free(kgbuffer);
-
+				kgbuffer.free();
 				delete split_kernel;
 				return;
 			}
@@ -735,8 +804,8 @@ public:
 				vector<map<float, float> >coverage_asset;
 
 				if(use_split_kernel) {
-					device_memory data;
-					split_kernel->path_trace(&task, tile, kgbuffer, data);
+					device_only_memory<uchar> void_buffer(this, "void_buffer");
+					split_kernel->path_trace(&task, tile, kgbuffer, void_buffer);
 				}
 				else {
 					path_trace(task, tile, kg, coverage_object, coverage_material, coverage_asset);
@@ -769,7 +838,7 @@ public:
 
 		thread_kernel_globals_free((KernelGlobals*)kgbuffer.device_pointer);
 		kg->~KernelGlobals();
-		mem_free(kgbuffer);
+		kgbuffer.free();
 		delete split_kernel;
 	}
 
@@ -804,7 +873,6 @@ public:
 				shader_kernel()(&kg,
 				                (uint4*)task.shader_input,
 				                (float4*)task.shader_output,
-				                (float*)task.shader_output_luma,
 				                task.shader_eval_type,
 				                task.shader_filter,
 				                x,
@@ -826,20 +894,23 @@ public:
 	int get_split_task_count(DeviceTask& task)
 	{
 		if(task.type == DeviceTask::SHADER)
-			return task.get_subtask_count(TaskScheduler::num_threads(), 256);
+			return task.get_subtask_count(info.cpu_threads, 256);
 		else
-			return task.get_subtask_count(TaskScheduler::num_threads());
+			return task.get_subtask_count(info.cpu_threads);
 	}
 
 	void task_add(DeviceTask& task)
 	{
+		/* Load texture info. */
+		load_texture_info();
+
 		/* split task into smaller ones */
 		list<DeviceTask> tasks;
 
 		if(task.type == DeviceTask::SHADER)
-			task.split(tasks, TaskScheduler::num_threads(), 256);
+			task.split(tasks, info.cpu_threads, 256);
 		else
-			task.split(tasks, TaskScheduler::num_threads());
+			task.split(tasks, info.cpu_threads);
 
 		foreach(DeviceTask& task, tasks)
 			task_pool.push(new CPUDeviceTask(this, task));
@@ -958,7 +1029,6 @@ bool CPUSplitKernel::enqueue_split_kernel_data_init(const KernelDimensions& dim,
 			                           (void*)split_data.device_pointer,
 			                           num_global_elements,
 			                           (char*)ray_state.device_pointer,
-			                           (uint*)rtile.rng_state,
 			                           rtile.start_sample,
 			                           rtile.start_sample + rtile.num_samples,
 			                           rtile.x,
@@ -979,7 +1049,8 @@ bool CPUSplitKernel::enqueue_split_kernel_data_init(const KernelDimensions& dim,
 	return true;
 }
 
-SplitKernelFunction* CPUSplitKernel::get_split_kernel_function(string kernel_name, const DeviceRequestedFeatures&)
+SplitKernelFunction* CPUSplitKernel::get_split_kernel_function(const string& kernel_name,
+                                                               const DeviceRequestedFeatures&)
 {
 	CPUSplitKernelFunction *kernel = new CPUSplitKernelFunction(device);
 
@@ -1021,7 +1092,9 @@ void device_cpu_info(vector<DeviceInfo>& devices)
 	info.id = "CPU";
 	info.num = 0;
 	info.advanced_shading = true;
-	info.pack_images = false;
+	info.has_qbvh = system_cpu_support_sse2();
+	info.has_volume_decoupled = true;
+	info.has_osl = true;
 
 	devices.insert(devices.begin(), info);
 }

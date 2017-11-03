@@ -237,6 +237,11 @@ int PassSettings::get_size() const
 			size += passes[i].components;
 		}
 	}
+	
+	if(denoising_data_pass) {
+		size += DENOISING_PASS_SIZE_BASE;
+		if(denoising_clean_pass) size += DENOISING_PASS_SIZE_CLEAN;
+	}
 
 	for(size_t i = 0; i < aovs.size(); i++) {
 		size += aovs[i].type != AOV_FLOAT ? 4 : 1;
@@ -391,9 +396,7 @@ NODE_DEFINE(Film)
 	SOCKET_FLOAT(mist_falloff, "Mist Falloff", 1.0f);
 
 	SOCKET_BOOLEAN(use_sample_clamp, "Use Sample Clamp", false);
-
-	SOCKET_INT(object_id_slots, "Object ID Slots", 0);
-	
+		
 	SOCKET_INT(denoising_flags, "Denoising Flags", 0);
 
 	return type;

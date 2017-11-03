@@ -334,6 +334,12 @@ static int ed_undo_redo_exec(bContext *C, wmOperator *UNUSED(op))
 	return ret ? OPERATOR_FINISHED : OPERATOR_CANCELLED;
 }
 
+static int ed_undo_redo_poll(bContext *C)
+{
+	wmOperator *last_op = WM_operator_last_redo(C);
+	return last_op && ED_operator_screenactive(C) && 
+		WM_operator_check_ui_enabled(C, last_op->type->name);
+}
 
 /* ********************** */
 
@@ -385,7 +391,7 @@ void ED_OT_undo_redo(wmOperatorType *ot)
 	
 	/* api callbacks */
 	ot->exec = ed_undo_redo_exec;
-	ot->poll = ED_operator_screenactive;
+	ot->poll = ed_undo_redo_poll;
 }
 
 /* ui callbacks should call this rather than calling WM_operator_repeat() themselves */
@@ -526,7 +532,7 @@ static int get_undo_system(bContext *C)
 }
 
 /* create enum based on undo items */
-static EnumPropertyItem *rna_undo_itemf(bContext *C, int undosys, int *totitem)
+static const EnumPropertyItem *rna_undo_itemf(bContext *C, int undosys, int *totitem)
 {
 	EnumPropertyItem item_tmp = {0}, *item = NULL;
 	int i = 0;
@@ -579,7 +585,7 @@ static int undo_history_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSE
 	undosys = get_undo_system(C);
 	
 	if (undosys) {
-		EnumPropertyItem *item = rna_undo_itemf(C, undosys, &totitem);
+		const EnumPropertyItem *item = rna_undo_itemf(C, undosys, &totitem);
 		
 		if (totitem > 0) {
 			uiPopupMenu *pup = UI_popup_menu_begin(C, RNA_struct_ui_name(op->type->srna), ICON_NONE);
@@ -602,7 +608,7 @@ static int undo_history_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSE
 				}
 			}
 			
-			MEM_freeN(item);
+			MEM_freeN((void *)item);
 			
 			UI_popup_menu_end(C, pup);
 		}

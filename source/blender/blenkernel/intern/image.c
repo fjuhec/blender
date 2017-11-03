@@ -303,8 +303,11 @@ static void image_free_anims(Image *ima)
  * Simply free the image data from memory,
  * on display the image can load again (except for render buffers).
  */
-void BKE_image_free_buffers(Image *ima)
+void BKE_image_free_buffers_ex(Image *ima, bool do_lock)
 {
+	if (do_lock) {
+		BLI_spin_lock(&image_spin);
+	}
 	image_free_cached_frames(ima);
 
 	image_free_anims(ima);
@@ -323,6 +326,15 @@ void BKE_image_free_buffers(Image *ima)
 	}
 
 	ima->ok = IMA_OK;
+
+	if (do_lock) {
+		BLI_spin_unlock(&image_spin);
+	}
+}
+
+void BKE_image_free_buffers(Image *ima)
+{
+	BKE_image_free_buffers_ex(ima, false);
 }
 
 /** Free (or release) any data used by this image (does not free the image itself). */
@@ -382,7 +394,7 @@ static Image *image_alloc(Main *bmain, const char *name, short source, short typ
 {
 	Image *ima;
 
-	ima = BKE_libblock_alloc(bmain, ID_IM, name);
+	ima = BKE_libblock_alloc(bmain, ID_IM, name, 0);
 	if (ima) {
 		image_init(ima, source, type);
 	}
@@ -433,39 +445,53 @@ static void copy_image_packedfiles(ListBase *lb_dst, const ListBase *lb_src)
 	}
 }
 
+/**
+ * Only copy internal data of Image ID from source to already allocated/initialized destination.
+ * You probably nerver want to use that directly, use id_copy or BKE_id_copy_ex for typical needs.
+ *
+ * WARNING! This function will not handle ID user count!
+ *
+ * \param flag  Copying options (see BKE_library.h's LIB_ID_COPY_... flags for more).
+ */
+void BKE_image_copy_data(Main *UNUSED(bmain), Image *ima_dst, const Image *ima_src, const int flag)
+{
+	BKE_color_managed_colorspace_settings_copy(&ima_dst->colorspace_settings, &ima_src->colorspace_settings);
+
+	copy_image_packedfiles(&ima_dst->packedfiles, &ima_src->packedfiles);
+
+	ima_dst->stereo3d_format = MEM_dupallocN(ima_src->stereo3d_format);
+	BLI_duplicatelist(&ima_dst->views, &ima_src->views);
+
+	/* Cleanup stuff that cannot be copied. */
+	ima_dst->cache = NULL;
+	ima_dst->rr = NULL;
+	for (int i = 0; i < IMA_MAX_RENDER_SLOT; i++) {
+		ima_dst->renders[i] = NULL;
+	}
+
+	BLI_listbase_clear(&ima_dst->anims);
+
+	ima_dst->totbind = 0;
+	for (int i = 0; i < TEXTARGET_COUNT; i++) {
+		ima_dst->bindcode[i] = 0;
+		ima_dst->gputexture[i] = NULL;
+	}
+	ima_dst->repbind = NULL;
+
+	if ((flag & LIB_ID_COPY_NO_PREVIEW) == 0) {
+		BKE_previewimg_id_copy(&ima_dst->id, &ima_src->id);
+	}
+	else {
+		ima_dst->preview = NULL;
+	}
+}
+
 /* empty image block, of similar type and filename */
 Image *BKE_image_copy(Main *bmain, const Image *ima)
 {
-	Image *nima = image_alloc(bmain, ima->id.name + 2, ima->source, ima->type);
-
-	BLI_strncpy(nima->name, ima->name, sizeof(ima->name));
-
-	nima->flag = ima->flag;
-	nima->tpageflag = ima->tpageflag;
-
-	nima->gen_x = ima->gen_x;
-	nima->gen_y = ima->gen_y;
-	nima->gen_type = ima->gen_type;
-	copy_v4_v4(nima->gen_color, ima->gen_color);
-
-	nima->animspeed = ima->animspeed;
-
-	nima->aspx = ima->aspx;
-	nima->aspy = ima->aspy;
-
-	BKE_color_managed_colorspace_settings_copy(&nima->colorspace_settings, &ima->colorspace_settings);
-
-	copy_image_packedfiles(&nima->packedfiles, &ima->packedfiles);
-
-	/* nima->stere3d_format is already allocated by image_alloc... */
-	*nima->stereo3d_format = *ima->stereo3d_format;
-	BLI_duplicatelist(&nima->views, &ima->views);
-
-	BKE_previewimg_id_copy(&nima->id, &ima->id);
-
-	BKE_id_copy_ensure_local(bmain, &ima->id, &nima->id);
-
-	return nima;
+	Image *ima_copy;
+	BKE_id_copy_ex(bmain, &ima->id, (ID **)&ima_copy, 0, false);
+	return ima_copy;
 }
 
 void BKE_image_make_local(Main *bmain, Image *ima, const bool lib_local)
@@ -1177,7 +1203,6 @@ bool BKE_imtype_is_movie(const char imtype)
 	switch (imtype) {
 		case R_IMF_IMTYPE_AVIRAW:
 		case R_IMF_IMTYPE_AVIJPEG:
-		case R_IMF_IMTYPE_QUICKTIME:
 		case R_IMF_IMTYPE_FFMPEG:
 		case R_IMF_IMTYPE_H264:
 		case R_IMF_IMTYPE_THEORA:
@@ -1249,7 +1274,6 @@ char BKE_imtype_valid_channels(const char imtype, bool write_file)
 		case R_IMF_IMTYPE_MULTILAYER:
 		case R_IMF_IMTYPE_DDS:
 		case R_IMF_IMTYPE_JP2:
-		case R_IMF_IMTYPE_QUICKTIME:
 		case R_IMF_IMTYPE_DPX:
 			chan_flag |= IMA_CHAN_FLAG_ALPHA;
 			break;
@@ -1312,7 +1336,6 @@ char BKE_imtype_from_arg(const char *imtype_arg)
 	else if (STREQ(imtype_arg, "AVIRAW")) return R_IMF_IMTYPE_AVIRAW;
 	else if (STREQ(imtype_arg, "AVIJPEG")) return R_IMF_IMTYPE_AVIJPEG;
 	else if (STREQ(imtype_arg, "PNG")) return R_IMF_IMTYPE_PNG;
-	else if (STREQ(imtype_arg, "QUICKTIME")) return R_IMF_IMTYPE_QUICKTIME;
 	else if (STREQ(imtype_arg, "BMP")) return R_IMF_IMTYPE_BMP;
 #ifdef WITH_HDR
 	else if (STREQ(imtype_arg, "HDR")) return R_IMF_IMTYPE_RADHDR;
@@ -1423,7 +1446,7 @@ static bool do_add_image_extension(char *string, const char imtype, const ImageF
 		}
 	}
 #endif
-	else { //   R_IMF_IMTYPE_AVIRAW, R_IMF_IMTYPE_AVIJPEG, R_IMF_IMTYPE_JPEG90, R_IMF_IMTYPE_QUICKTIME etc
+	else { //   R_IMF_IMTYPE_AVIRAW, R_IMF_IMTYPE_AVIJPEG, R_IMF_IMTYPE_JPEG90 etc
 		if (!(BLI_testextensie_n(string, extension_test = ".jpg", ".jpeg", NULL)))
 			extension = extension_test;
 	}
@@ -1431,9 +1454,7 @@ static bool do_add_image_extension(char *string, const char imtype, const ImageF
 	if (extension) {
 		/* prefer this in many cases to avoid .png.tga, but in certain cases it breaks */
 		/* remove any other known image extension */
-		if (BLI_testextensie_array(string, imb_ext_image) ||
-		    (G.have_quicktime && BLI_testextensie_array(string, imb_ext_image_qt)))
-		{
+		if (BLI_testextensie_array(string, imb_ext_image)) {
 			return BLI_replace_extension(string, FILE_MAX, extension);
 		}
 		else {
@@ -1586,6 +1607,14 @@ void BKE_imbuf_to_image_format(struct ImageFormatData *im_format, const ImBuf *i
 #define STAMP_NAME_SIZE ((MAX_ID_NAME - 2) + 16)
 /* could allow access externally - 512 is for long names,
  * STAMP_NAME_SIZE is for id names, allowing them some room for description */
+typedef struct StampDataCustomField {
+	struct StampDataCustomField *next, *prev;
+	/* TODO(sergey): Think of better size here, maybe dynamically allocated even. */
+	char key[512];
+	char value[512];
+	/* TODO(sergey): Support non-string values. */
+} StampDataCustomField;
+
 typedef struct StampData {
 	char file[512];
 	char note[512];
@@ -1599,6 +1628,13 @@ typedef struct StampData {
 	char strip[STAMP_NAME_SIZE];
 	char rendertime[STAMP_NAME_SIZE];
 	char memory[STAMP_NAME_SIZE];
+
+	/* Custom fields are used to put extra meta information header from render
+	 * engine to the result image.
+	 *
+	 * NOTE: This fields are not stamped onto the image. At least for now.
+	 */
+	ListBase custom_fields;
 } StampData;
 #undef STAMP_NAME_SIZE
 
@@ -1709,7 +1745,7 @@ static void stampdata(Scene *scene, Object *camera, StampData *stamp_data, int d
 	}
 
 	{
-		Render *re = RE_GetRender(scene->id.name);
+		Render *re = RE_GetSceneRender(scene);
 		RenderStats *stats = re ? RE_GetStats(re) : NULL;
 
 		if (stats && (scene->r.stamp & R_STAMP_RENDERTIME)) {
@@ -2100,7 +2136,39 @@ void BKE_stamp_info_callback(void *data, struct StampData *stamp_data, StampCall
 	CALL(rendertime, "RenderTime");
 	CALL(memory, "Memory");
 
+	for (StampDataCustomField *custom_field = stamp_data->custom_fields.first;
+	     custom_field != NULL;
+	     custom_field = custom_field->next)
+	{
+		if (noskip || custom_field->value[0]) {
+			callback(data, custom_field->key, custom_field->value, sizeof(custom_field->value));
+		}
+	}
+
 #undef CALL
+}
+
+void BKE_render_result_stamp_data(RenderResult *rr, const char *key, const char *value)
+{
+	StampData *stamp_data;
+	if (rr->stamp_data == NULL) {
+		rr->stamp_data = MEM_callocN(sizeof(StampData), "RenderResult.stamp_data");
+	}
+	stamp_data = rr->stamp_data;
+	StampDataCustomField *field = MEM_mallocN(sizeof(StampDataCustomField),
+	                                          "StampData Custom Field");
+	BLI_strncpy(field->key, key, sizeof(field->key));
+	BLI_strncpy(field->value, value, sizeof(field->value));
+	BLI_addtail(&stamp_data->custom_fields, field);
+}
+
+void BKE_stamp_data_free(struct StampData *stamp_data)
+{
+	if (stamp_data == NULL) {
+		return;
+	}
+	BLI_freelistN(&stamp_data->custom_fields);
+	MEM_freeN(stamp_data);
 }
 
 /* wrap for callback only */
@@ -2903,7 +2971,7 @@ RenderResult *BKE_image_acquire_renderresult(Scene *scene, Image *ima)
 	}
 	else if (ima->type == IMA_TYPE_R_RESULT) {
 		if (ima->render_slot == ima->last_render_slot)
-			rr = RE_AcquireResultRead(RE_GetRender(scene->id.name));
+			rr = RE_AcquireResultRead(RE_GetSceneRender(scene));
 		else
 			rr = ima->renders[ima->render_slot];
 
@@ -2921,7 +2989,7 @@ void BKE_image_release_renderresult(Scene *scene, Image *ima)
 	}
 	else if (ima->type == IMA_TYPE_R_RESULT) {
 		if (ima->render_slot == ima->last_render_slot)
-			RE_ReleaseResult(RE_GetRender(scene->id.name));
+			RE_ReleaseResult(RE_GetSceneRender(scene));
 	}
 }
 
@@ -2941,7 +3009,7 @@ void BKE_image_backup_render(Scene *scene, Image *ima, bool free_current_slot)
 {
 	/* called right before rendering, ima->renders contains render
 	 * result pointers for everything but the current render */
-	Render *re = RE_GetRender(scene->id.name);
+	Render *re = RE_GetSceneRender(scene);
 	int slot = ima->render_slot, last = ima->last_render_slot;
 
 	if (slot != last) {
@@ -3666,7 +3734,7 @@ static ImBuf *image_get_render_result(Image *ima, ImageUser *iuser, void **r_loc
 	if (!r_lock)
 		return NULL;
 
-	re = RE_GetRender(iuser->scene->id.name);
+	re = RE_GetSceneRender(iuser->scene);
 
 	channels = 4;
 	layer = iuser->layer;

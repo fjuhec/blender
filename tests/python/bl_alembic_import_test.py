@@ -75,6 +75,39 @@ class SimpleImportTest(AbstractAlembicTest):
         self.assertEqual(objects['Cube_003'], objects['Cube_005'].parent)
         self.assertEqual(objects['Cube_003'], objects['Cube_006'].parent)
 
+    def test_inherit_or_not(self):
+        res = bpy.ops.wm.alembic_import(
+            filepath=str(self.testdir / "T52022-inheritance.abc"),
+            as_background_job=False)
+        self.assertEqual({'FINISHED'}, res)
+
+        # The objects should be linked to scene_collection in Blender 2.8,
+        # and to scene in Blender 2.7x.
+        objects = bpy.context.scene.objects
+
+        # ABC parent is top-level object, which translates to nothing in Blender
+        self.assertIsNone(objects['locator1'].parent)
+
+        # ABC parent is locator1, but locator2 has "inherits Xforms" = false, which
+        # translates to "no parent" in Blender.
+        self.assertIsNone(objects['locator2'].parent)
+
+        # Shouldn't have inherited the ABC parent's transform.
+        x, y, z = objects['locator2'].matrix_world.to_translation()
+        self.assertAlmostEqual(0, x)
+        self.assertAlmostEqual(0, y)
+        self.assertAlmostEqual(2, z)
+
+        # ABC parent is inherited and translates to normal parent in Blender.
+        self.assertEqual(objects['locator2'], objects['locatorShape2'].parent)
+
+        # Should have inherited its ABC parent's transform.
+        x, y, z = objects['locatorShape2'].matrix_world.to_translation()
+        self.assertAlmostEqual(0, x)
+        self.assertAlmostEqual(0, y)
+        self.assertAlmostEqual(2, z)
+
+
     def test_select_after_import(self):
         # Add a sphere, so that there is something in the scene, selected, and active,
         # before we do the Alembic import.
@@ -146,22 +179,24 @@ class SimpleImportTest(AbstractAlembicTest):
 
         res = bpy.ops.wm.alembic_import(filepath=str(abc), as_background_job=False)
         self.assertEqual({'FINISHED'}, res)
-        cube = bpy.context.active_object
+        plane = bpy.context.active_object
 
         # Check that the file loaded ok.
         bpy.context.scene.frame_set(6)
-        self.assertAlmostEqual(-1, cube.data.vertices[0].co.x)
-        self.assertAlmostEqual(-1, cube.data.vertices[0].co.y)
-        self.assertAlmostEqual(0.5905638933181763, cube.data.vertices[0].co.z)
+        mesh = plane.to_mesh(bpy.context.scene, True, 'RENDER')
+        self.assertAlmostEqual(-1, mesh.vertices[0].co.x)
+        self.assertAlmostEqual(-1, mesh.vertices[0].co.y)
+        self.assertAlmostEqual(0.5905638933181763, mesh.vertices[0].co.z)
 
         # Change path from absolute to relative. This should not break the animation.
         bpy.context.scene.frame_set(1)
         bpy.data.cache_files[fname].filepath = relpath
         bpy.context.scene.frame_set(6)
 
-        self.assertAlmostEqual(1, cube.data.vertices[3].co.x)
-        self.assertAlmostEqual(1, cube.data.vertices[3].co.y)
-        self.assertAlmostEqual(0.5905638933181763, cube.data.vertices[3].co.z)
+        mesh = plane.to_mesh(bpy.context.scene, True, 'RENDER')
+        self.assertAlmostEqual(1, mesh.vertices[3].co.x)
+        self.assertAlmostEqual(1, mesh.vertices[3].co.y)
+        self.assertAlmostEqual(0.5905638933181763, mesh.vertices[3].co.z)
 
     def test_import_long_names(self):
         # This file contains very long names. The longest name is 4047 chars.
@@ -185,9 +220,9 @@ class VertexColourImportTest(AbstractAlembicTest):
         layer = ob.data.vertex_colors['Cf']  # MeshLoopColorLayer
 
         # Test some known-good values.
-        self.assertAlmostEqualFloatArray(layer.data[0].color, (0, 0, 0))
-        self.assertAlmostEqualFloatArray(layer.data[98].color, (0.9019607, 0.4745098, 0.2666666))
-        self.assertAlmostEqualFloatArray(layer.data[99].color, (0.8941176, 0.4705882, 0.2627451))
+        self.assertAlmostEqualFloatArray(layer.data[0].color, (0, 0, 0, 1.0))
+        self.assertAlmostEqualFloatArray(layer.data[98].color, (0.9019607, 0.4745098, 0.2666666, 1.0))
+        self.assertAlmostEqualFloatArray(layer.data[99].color, (0.8941176, 0.4705882, 0.2627451, 1.0))
 
     def test_import_from_blender(self):
         # Blender saved per-vertex, and as RGBA.
@@ -200,9 +235,9 @@ class VertexColourImportTest(AbstractAlembicTest):
         layer = ob.data.vertex_colors['Cf']  # MeshLoopColorLayer
 
         # Test some known-good values.
-        self.assertAlmostEqualFloatArray(layer.data[0].color, (1.0, 0.0156862, 0.3607843))
-        self.assertAlmostEqualFloatArray(layer.data[98].color, (0.0941176, 0.1215686, 0.9137254))
-        self.assertAlmostEqualFloatArray(layer.data[99].color, (0.1294117, 0.3529411, 0.7529411))
+        self.assertAlmostEqualFloatArray(layer.data[0].color, (1.0, 0.0156862, 0.3607843, 1.0))
+        self.assertAlmostEqualFloatArray(layer.data[98].color, (0.0941176, 0.1215686, 0.9137254, 1.0))
+        self.assertAlmostEqualFloatArray(layer.data[99].color, (0.1294117, 0.3529411, 0.7529411, 1.0))
 
 
 def main():

@@ -839,7 +839,7 @@ void BM_mesh_calc_uvs_grid(
 	const float dx = 1.0f / (float)(x_segments - 1);
 	const float dy = 1.0f / (float)(y_segments - 1);
 	float x = 0.0f;
-	float y = 0.0f;
+	float y = dy;
 
 	int loop_index;
 
@@ -854,16 +854,16 @@ void BM_mesh_calc_uvs_grid(
 
 			switch (loop_index) {
 				case 0:
-					x += dx;
+					y -= dy;
 					break;
 				case 1:
-					y += dy;
+					x += dx;
 					break;
 				case 2:
-					x -= dx;
+					y += dy;
 					break;
 				case 3:
-					y -= dy;
+					x -= dx;
 					break;
 				default:
 					break;
@@ -1285,7 +1285,7 @@ void bmo_create_monkey_exec(BMesh *bm, BMOperator *op)
 
 void bmo_create_circle_exec(BMesh *bm, BMOperator *op)
 {
-	const float dia = BMO_slot_float_get(op->slots_in, "diameter");
+	const float radius = BMO_slot_float_get(op->slots_in, "radius");
 	const int segs = BMO_slot_int_get(op->slots_in, "segments");
 	const bool cap_ends = BMO_slot_bool_get(op->slots_in, "cap_ends");
 	const bool cap_tris = BMO_slot_bool_get(op->slots_in, "cap_tris");
@@ -1315,8 +1315,8 @@ void bmo_create_circle_exec(BMesh *bm, BMOperator *op)
 
 	for (a = 0; a < segs; a++, phi += phid) {
 		/* Going this way ends up with normal(s) upward */
-		vec[0] = -dia * sinf(phi);
-		vec[1] = dia * cosf(phi);
+		vec[0] = -radius * sinf(phi);
+		vec[1] = radius * cosf(phi);
 		vec[2] = 0.0f;
 		mul_m4_v3(mat, vec);
 		v1 = BM_vert_create(bm, vec, NULL, BM_CREATE_NOP);
@@ -1351,7 +1351,7 @@ void bmo_create_circle_exec(BMesh *bm, BMOperator *op)
 		BMO_face_flag_enable(bm, f, FACE_NEW);
 
 		if (calc_uvs) {
-			BM_mesh_calc_uvs_circle(bm, mat, dia, FACE_NEW, cd_loop_uv_offset);
+			BM_mesh_calc_uvs_circle(bm, mat, radius, FACE_NEW, cd_loop_uv_offset);
 		}
 	}
 	
