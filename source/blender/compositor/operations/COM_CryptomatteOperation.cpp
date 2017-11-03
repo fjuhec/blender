@@ -61,11 +61,11 @@ void CryptomatteOperation::executePixel(float output[4],
 			output[1] = ((float) ((m3hash << 8)) / (float) UINT32_MAX);
 			output[2] = ((float) ((m3hash << 16)) / (float) UINT32_MAX);
 		}
-		for(float f : m_objectIndex) {
-			if (f == input[0]) {
+		for(size_t i = 0; i < m_objectIndex.size(); i++) {
+			if (m_objectIndex[i] == input[0]) {
 				output[3] += input[1];
 			}
-			if (f == input[2]) {
+			if (m_objectIndex[i] == input[2]) {
 				output[3] += input[3];
 			}
 		}
