@@ -1752,44 +1752,12 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         row.prop(md, "pass_index", text="Pass")
         row.prop(md, "inverse_pass", text="", icon="ARROW_LEFTRIGHT")
 
-    def GP_DUPLI(self, layout, ob, md):
+    def GP_BUILD(self, layout, ob, md):
         gpd = ob.data
-        layout.prop(md, "count")
-
-        split = layout.split()
-        col = split.column()
-        col.label("Offset:")
-        col.prop(md, "constant_offset_displace", text="")
-
-        col = split.column()
-        col.label("Layer:")
-        row = col.row(align=True)
-        row.prop_search(md, "layer", gpd, "layers", text="", icon='GREASEPENCIL')
-        row.prop(md, "inverse_layers", text="", icon="ARROW_LEFTRIGHT")
-        row = col.row(align=True)
-        row.prop(md, "pass_index", text="Pass")
-        row.prop(md, "inverse_pass", text="", icon="ARROW_LEFTRIGHT")
-
-        row = layout.row()
-        split = row.split()
-        col = split.column()
-        col.label("Rotation:")
-        col.prop(md, "rotation", text="")
-        col.separator()
-        row = col.row(align=True)
-        row.prop(md, "random_rot", text="", icon="TIME", toggle=True)
-        row.prop(md, "rot_factor", text="")
-
-        col = split.column()
-        col.label("Scale:")
-        col.prop(md, "scale", text="")
-        col.separator()
-        row = col.row(align=True)
-        row.prop(md, "random_scale", text="", icon="TIME", toggle=True)
-        row.prop(md, "scale_factor", text="")
+        layout.label(icon='ERROR', text="Not Implemented")
 
     def GP_LATTICE(self, layout, ob, md):
-        gpd = ob.grease_pencil
+        gpd = ob.data
         split = layout.split()
 
         col = split.column()

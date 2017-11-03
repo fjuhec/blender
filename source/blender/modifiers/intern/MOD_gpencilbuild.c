@@ -18,13 +18,13 @@
  * The Original Code is Copyright (C) 2017, Blender Foundation
  * This is a new part of Blender
  *
- * Contributor(s): Antonio Vazquez
+ * Contributor(s): Antonio Vazquez, Joshua Leung
  *
  * ***** END GPL LICENSE BLOCK *****
  *
  */
 
-/** \file blender/modifiers/intern/MOD_gpencildupli.c
+/** \file blender/modifiers/intern/MOD_gpencilbuild.c
  *  \ingroup modifiers
  */
 
@@ -45,25 +45,19 @@
 
 static void initData(ModifierData *md)
 {
-	GpencilDupliModifierData *gpmd = (GpencilDupliModifierData *)md;
-	gpmd->pass_index = 0;
-	gpmd->layername[0] = '\0';
-	gpmd->count = 1;
-	gpmd->offset[0] = 1.0f;
-	gpmd->scale[0] = 1.0f;
-	gpmd->scale[1] = 1.0f;
-	gpmd->scale[2] = 1.0f;
-	gpmd->rnd_rot = 0.5f;
-	gpmd->rnd_size = 0.5f;
-	
-	/* fill random values */
-	gp_mod_fill_random_array(gpmd->rnd, 20);
-	gpmd->rnd[0] = 1;
+	//GpencilBuildModifierData *gpmd = (GpencilBuildModifierData *)md;
 }
 
 static void copyData(ModifierData *md, ModifierData *target)
 {
 	modifier_copyData_generic(md, target);
+}
+
+static void generateStrokes(ModifierData *md, const EvaluationContext *eval_ctx,
+	                        Object *ob, bGPDlayer *gpl, bGPDframe *gpf,
+	                        int modifier_index)
+{
+	
 }
 
 static void bakeModifierGP(const bContext *C, const EvaluationContext *UNUSED(eval_ctx),
@@ -73,17 +67,17 @@ static void bakeModifierGP(const bContext *C, const EvaluationContext *UNUSED(ev
 
 	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
 		for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
-			//BKE_gpencil_dupli_modifier(-1, (GpencilDupliModifierData *)md, ob, gpl, gpf);
+			
 		}
 	}
 }
 
-ModifierTypeInfo modifierType_GpencilDupli = {
-	/* name */              "Duplication",
-	/* structName */        "GpencilDupliModifierData",
-	/* structSize */        sizeof(GpencilDupliModifierData),
+ModifierTypeInfo modifierType_GpencilBuild = {
+	/* name */              "Build",
+	/* structName */        "GpencilBuildModifierData",
+	/* structSize */        sizeof(GpencilBuildModifierData),
 	/* type */              eModifierTypeType_Gpencil,
-	/* flags */             eModifierTypeFlag_GpencilMod | eModifierTypeFlag_SupportsEditmode,
+	/* flags */             eModifierTypeFlag_GpencilMod,
 
 	/* copyData */          copyData,
 	/* deformVerts */       NULL,
@@ -93,7 +87,7 @@ ModifierTypeInfo modifierType_GpencilDupli = {
 	/* applyModifier */     NULL,
 	/* applyModifierEM */   NULL,
 	/* deformStroke */      NULL,
-	/* generateStrokes */   NULL,
+	/* generateStrokes */   generateStrokes,
 	/* bakeModifierGP */    bakeModifierGP,
 	/* initData */          initData,
 	/* requiredDataMask */  NULL,

@@ -671,11 +671,6 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 	ED_gpencil_parent_location(ob, gpd, gpl, viewmatrix);
 	copy_m4_m4(derived_gpf->viewmatrix, viewmatrix);
 
-	/* initialization steps */
-	if ((cache->is_dirty) && (ob->modifiers.first) && (!is_multiedit)) {
-		BKE_gpencil_reset_modifiers(ob);
-	}
-
 	/* apply geometry modifiers */
 	if ((cache->is_dirty) && (ob->modifiers.first) && (!is_multiedit)) {
 		if (!GP_SIMPLIFY_MODIF(ts, playing)) {

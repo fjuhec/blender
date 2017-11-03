@@ -187,7 +187,6 @@ bool BKE_gpencil_vgroup_remove_point_weight(struct bGPDspoint *pt, int index);
 void BKE_gpencil_stroke_weights_duplicate(struct bGPDstroke *gps_src, struct bGPDstroke *gps_dst);
 
 /* modifiers */
-void BKE_gpencil_reset_modifiers(struct Object *ob);
 bool BKE_gpencil_has_geometry_modifiers(struct Object *ob);
 void BKE_gpencil_stroke_modifiers(struct Object *ob, struct bGPDlayer *gpl, struct bGPDframe *gpf, struct bGPDstroke *gps);
 void BKE_gpencil_geometry_modifiers(struct Object *ob, struct bGPDlayer *gpl, struct bGPDframe *gpf);

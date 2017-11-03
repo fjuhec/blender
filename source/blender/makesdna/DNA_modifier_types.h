@@ -92,7 +92,7 @@ typedef enum ModifierType {
 	eModifierType_GpencilThick      = 56,
 	eModifierType_GpencilTint       = 57,
 	eModifierType_GpencilArray      = 58,
-	eModifierType_GpencilDupli      = 59,
+	eModifierType_GpencilBuild      = 59,
 	eModifierType_GpencilOpacity    = 60,
 	eModifierType_GpencilColor      = 61,
 	eModifierType_GpencilLattice    = 62,
@@ -1767,26 +1767,18 @@ typedef enum eGpencilArray_Flag {
 	GP_ARRAY_MAKE_OBJECTS = (1 << 4),
 } eGpencilArray_Flag;
 
-typedef struct GpencilDupliModifierData {
+typedef struct GpencilBuildModifierData {
 	ModifierData modifier;
-	char layername[64];          /* layer name */
-	int pass_index;               /* custom index for passes */
-	int flag;                    /* several flags */
-	float rnd_size;              /* random size factor */
-	float rnd_rot;               /* random size factor */
-	float offset[3];             /* Location increments */
-	float rot[3];                /* Rotation changes */
-	float scale[3];              /* Scale changes */
-	int count;                   /* number of elements in array */
-	float rnd[20];               /* (first element is the index) random values */
-} GpencilDupliModifierData;
+	float start, length;
+	int flag;
+	int seed;             /* (int) random seed */
+} GpencilBuildModifierData;
 
-typedef enum eGpencilDupli_Flag {
-	GP_DUPLI_RANDOM_SIZE    = (1 << 0),
-	GP_DUPLI_RANDOM_ROT     = (1 << 1),
-	GP_DUPLI_INVERSE_LAYER  = (1 << 2),
-	GP_DUPLI_INVERSE_PASS   = (1 << 3),
-} eGpencilDupli_Flag;
+typedef enum eGpencilBuild_Flag {
+	GP_BUILD_FLAG_RANDOMIZE = (1 << 0),  /* order of vertices is randomized */
+	GP_BUILD_FLAG_REVERSE   = (1 << 1),  /* frame range is reversed, resulting in a deconstruction effect */
+} eGpencilBuild_Flag;
+
 
 typedef struct GpencilLatticeModifierData {
 	ModifierData modifier;

@@ -1060,7 +1060,7 @@ static void tselem_draw_icon(uiBlock *block, int xmax, float x, float y, TreeSto
 					case eModifierType_GpencilThick:
 					case eModifierType_GpencilTint:
 					case eModifierType_GpencilArray:
-					case eModifierType_GpencilDupli:
+					case eModifierType_GpencilBuild:
 					case eModifierType_GpencilOpacity:
 					case eModifierType_GpencilColor:
 					case eModifierType_GpencilLattice:

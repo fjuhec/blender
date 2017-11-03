@@ -348,22 +348,6 @@ void BKE_gpencil_simplify_modifier(int UNUSED(id), GpencilSimplifyModifierData *
 	MEM_SAFE_FREE(points2d);
 }
 
-/* reset modifiers */
-void BKE_gpencil_reset_modifiers(Object *ob)
-{
-	ModifierData *md;
-	GpencilDupliModifierData *arr;
-
-	for (md = ob->modifiers.first; md; md = md->next) {
-		switch (md->type) {
-			case eModifierType_GpencilDupli:
-				arr = (GpencilDupliModifierData *) md;
-				arr->rnd[0] = 1;
-				break;
-		}
-	}
-}
-
 /* verify if exist geometry modifiers */
 bool BKE_gpencil_has_geometry_modifiers(Object *ob)
 {
@@ -371,7 +355,7 @@ bool BKE_gpencil_has_geometry_modifiers(Object *ob)
 	for (md = ob->modifiers.first; md; md = md->next) {
 		const ModifierTypeInfo *mti = modifierType_getInfo(md->type);
 		
-		if (mti->generateStrokes) {
+		if (mti && mti->generateStrokes) {
 			return true;
 		}
 	}
@@ -396,7 +380,7 @@ void BKE_gpencil_stroke_modifiers(Object *ob, bGPDlayer *gpl, bGPDframe *UNUSED(
 				continue;
 			}
 			
-			if (mti->deformStroke) {
+			if (mti && mti->deformStroke) {
 				EvaluationContext eval_ctx = {0}; /* XXX */
 				mti->deformStroke(md, &eval_ctx, ob, gpl, gps);
 			}
