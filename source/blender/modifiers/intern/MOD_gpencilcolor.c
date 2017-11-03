@@ -42,6 +42,7 @@
 #include "BKE_global.h"
 #include "BKE_context.h"
 #include "BKE_gpencil.h"
+#include "BKE_main.h"
 #include "BKE_paint.h"
 
 #include "DEG_depsgraph.h"
@@ -91,13 +92,13 @@ static void deformStroke(ModifierData *md, const EvaluationContext *UNUSED(eval_
 	add_v3_v3(hsv, factor);
 	CLAMP3(hsv, 0.0f, 1.0f);
 	hsv_to_rgb_v(hsv, palcolor->fill);
-
 }
 
-static void bakeModifierGP(const bContext *UNUSED(C), const EvaluationContext *eval_ctx,
+static void bakeModifierGP(const bContext *C, const EvaluationContext *eval_ctx,
                            ModifierData *md, Object *ob)
 {
 	GpencilColorModifierData *mmd = (GpencilColorModifierData *)md;
+	Main *bmain = CTX_data_main(C);
 	bGPdata *gpd = ob->data;
 	Palette *newpalette = NULL;
 	
@@ -119,7 +120,8 @@ static void bakeModifierGP(const bContext *UNUSED(C), const EvaluationContext *e
 				if (newpalcolor == NULL) {
 					if (mmd->flag & GP_COLOR_CREATE_COLORS) {
 						if (!newpalette) {
-							newpalette = BKE_palette_add(G.main, "Palette");
+							bGPDpaletteref *palslot = BKE_gpencil_paletteslot_addnew(bmain, gpd, "Tinted Colors");
+							newpalette = palslot->palette;
 						}
 						newpalcolor = BKE_palette_color_copy(newpalette, gps->palcolor);
 						BLI_strncpy(gps->colorname, newpalcolor->info, sizeof(gps->colorname));

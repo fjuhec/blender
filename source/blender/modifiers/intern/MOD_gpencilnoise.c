@@ -97,7 +97,7 @@ static void deformStroke(ModifierData *md, const EvaluationContext *UNUSED(eval_
 
 	if (!is_stroke_affected_by_modifier(
 	        mmd->layername, mmd->pass_index, 3, gpl, gps,
-	         mmd->flag & GP_NOISE_INVERSE_LAYER, mmd->flag & GP_NOISE_INVERSE_PASS))
+	        mmd->flag & GP_NOISE_INVERSE_LAYER, mmd->flag & GP_NOISE_INVERSE_PASS))
 	{
 		return;
 	}
