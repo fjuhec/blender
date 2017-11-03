@@ -1442,7 +1442,7 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
 	
 	prop = RNA_def_property(srna, "is_stroke_paint_mode", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_DATA_STROKE_PAINTMODE);
-	RNA_def_property_ui_text(prop, "Stroke Paint Mode", "Paint Grease Pencil strokes instead of viewport data");
+	RNA_def_property_ui_text(prop, "Stroke Paint Mode", "Draw Grease Pencil strokes on click/drag");
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA | ND_GPENCIL_EDITMODE, "rna_GPencil_editmode_update");
 

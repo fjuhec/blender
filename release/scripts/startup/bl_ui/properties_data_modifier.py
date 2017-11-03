@@ -1559,7 +1559,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         col = split.column()
         col.label("Layer:")
         row = col.row(align=True)
-        row.prop_search(md, "layer", gpd, "layers", text="", icon="GREASEPENCIL")
+        row.prop_search(md, "layer", gpd, "layers", text="", icon='GREASEPENCIL')
         row.prop(md, "inverse_layers", text="", icon="ARROW_LEFTRIGHT")
 
         col.label("Vertex Group:")
@@ -1593,7 +1593,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         col = split.column()
         col.label("Layer:")
         row = col.row(align=True)
-        row.prop_search(md, "layer", gpd, "layers", text="", icon="GREASEPENCIL")
+        row.prop_search(md, "layer", gpd, "layers", text="", icon='GREASEPENCIL')
         row.prop(md, "inverse_layers", text="", icon="ARROW_LEFTRIGHT")
 
     def GP_SIMPLIFY(self, layout, ob, md):
@@ -1610,7 +1610,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         col = split.column()
         col.label("Layer:")
         row = col.row(align=True)
-        row.prop_search(md, "layer", gpd, "layers", text="", icon="GREASEPENCIL")
+        row.prop_search(md, "layer", gpd, "layers", text="", icon='GREASEPENCIL')
         row.prop(md, "inverse_layers", text="", icon="ARROW_LEFTRIGHT")
 
     def GP_THICK(self, layout, ob, md):
@@ -1627,7 +1627,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         col = split.column()
         col.label("Layer:")
         row = col.row(align=True)
-        row.prop_search(md, "layer", gpd, "layers", text="", icon="GREASEPENCIL")
+        row.prop_search(md, "layer", gpd, "layers", text="", icon='GREASEPENCIL')
         row.prop(md, "inverse_layers", text="", icon="ARROW_LEFTRIGHT")
 
         col.label("Vertex Group:")
@@ -1653,7 +1653,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         col = split.column()
         col.label("Layer:")
         row = col.row(align=True)
-        row.prop_search(md, "layer", gpd, "layers", text="", icon="GREASEPENCIL")
+        row.prop_search(md, "layer", gpd, "layers", text="", icon='GREASEPENCIL')
         row.prop(md, "inverse_layers", text="", icon="ARROW_LEFTRIGHT")
         row = col.row(align=True)
         row.prop(md, "pass_index", text="Pass")
@@ -1675,7 +1675,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         col = split.column()
         col.label("Layer:")
         row = col.row(align=True)
-        row.prop_search(md, "layer", gpd, "layers", text="", icon="GREASEPENCIL")
+        row.prop_search(md, "layer", gpd, "layers", text="", icon='GREASEPENCIL')
         row.prop(md, "inverse_layers", text="", icon="ARROW_LEFTRIGHT")
         row = col.row(align=True)
         row.prop(md, "pass_index", text="Pass")
@@ -1695,7 +1695,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         col = split.column()
         col.label("Layer:")
         row = col.row(align=True)
-        row.prop_search(md, "layer", gpd, "layers", text="", icon="GREASEPENCIL")
+        row.prop_search(md, "layer", gpd, "layers", text="", icon='GREASEPENCIL')
         row.prop(md, "inverse_layers", text="", icon="ARROW_LEFTRIGHT")
 
         col.label("Vertex Group:")
@@ -1708,6 +1708,8 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         row.prop(md, "inverse_pass", text="", icon="ARROW_LEFTRIGHT")
 
     def GP_ARRAY(self, layout, ob, md):
+        gpd = ob.data
+
         split = layout.split()
         col = split.column()
         col.prop(md, "count")
@@ -1745,7 +1747,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         col = split.column()
         col.label("Layer:")
         row = col.row(align=True)
-        row.prop_search(md, "layer", gpd, "layers", text="", icon="GREASEPENCIL")
+        row.prop_search(md, "layer", gpd, "layers", text="", icon='GREASEPENCIL')
         row.prop(md, "inverse_layers", text="", icon="ARROW_LEFTRIGHT")
         row = col.row(align=True)
         row.prop(md, "pass_index", text="Pass")
@@ -1765,7 +1767,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         col = split.column()
         col.label("Layer:")
         row = col.row(align=True)
-        row.prop_search(md, "layer", gpd, "layers", text="", icon="GREASEPENCIL")
+        row.prop_search(md, "layer", gpd, "layers", text="", icon='GREASEPENCIL')
         row.prop(md, "inverse_layers", text="", icon="ARROW_LEFTRIGHT")
         row = col.row(align=True)
         row.prop(md, "pass_index", text="Pass")
@@ -1800,7 +1802,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         col = split.column()
         col.label("Layer:")
         row = col.row(align=True)
-        row.prop_search(md, "layer", gpd, "layers", text="", icon="GREASEPENCIL")
+        row.prop_search(md, "layer", gpd, "layers", text="", icon='GREASEPENCIL')
         row.prop(md, "inverse_layers", text="", icon="ARROW_LEFTRIGHT")
 
         col.label("Vertex Group:")

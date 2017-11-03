@@ -130,9 +130,11 @@ class VIEW3D_HT_header(Header):
             row.operator("pose.paste", text="", icon='PASTEFLIPDOWN').flipped = True
 
         # GPencil
-        if context.active_object and context.active_object.type == 'GPENCIL':
+        if context.active_object and context.gpencil_data and context.active_object.type == 'GPENCIL':
             ob = context.active_object
-            if ob.grease_pencil.is_stroke_paint_mode:
+            gpd = context.gpencil_data
+
+            if gpd.is_stroke_paint_mode:
                 row.separator()
                 row.prop(toolsettings, "gpencil_stroke_placement_view3d", text='')
                 if toolsettings.gpencil_stroke_placement_view3d in('ORIGIN', 'CURSOR'):
@@ -142,20 +144,17 @@ class VIEW3D_HT_header(Header):
                 if toolsettings.gpencil_stroke_placement_view3d in ('SURFACE', 'STROKE'):
                     row.prop(toolsettings, "use_gpencil_stroke_endpoints")
 
-            if ob.grease_pencil.is_stroke_sculpt_mode:
+            if gpd.is_stroke_sculpt_mode:
                 settings = context.tool_settings.gpencil_sculpt
                 if settings.tool in ('GRAB', 'PUSH', 'TWIST', 'PINCH', 'RANDOMIZE'):
                     row.separator()
                     row.prop(toolsettings.gpencil_sculpt, "lockaxis", text='')
 
-        gpd = context.gpencil_data
-        if gpd:
             if gpd.use_stroke_edit_mode:
                 row = layout.row(align=True)
                 row.operator("gpencil.copy", text="", icon='COPYDOWN')
                 row.operator("gpencil.paste", text="", icon='PASTEDOWN')
 
-            # XXX: icon
             layout.prop(gpd, "use_onion_skinning", text="Onion Skins", icon='PARTICLE_PATH')
 
             if gpd.use_stroke_edit_mode or gpd.is_stroke_sculpt_mode:
