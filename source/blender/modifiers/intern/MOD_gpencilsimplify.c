@@ -33,6 +33,7 @@
 #include "DNA_scene_types.h"
 #include "DNA_object_types.h"
 #include "DNA_gpencil_types.h"
+#include "DNA_vec_types.h"
 
 #include "BLI_utildefines.h"
  
@@ -42,6 +43,7 @@
 #include "DEG_depsgraph.h"
 
 #include "MOD_modifiertypes.h"
+#include "MOD_gpencil_util.h"
 
 static void initData(ModifierData *md)
 {
@@ -56,7 +58,23 @@ static void copyData(ModifierData *md, ModifierData *target)
 	modifier_copyData_generic(md, target);
 }
 
-static void bakeModifierGP(const bContext *C, const EvaluationContext *UNUSED(eval_ctx),
+static void deformStroke(ModifierData *md, const EvaluationContext *UNUSED(eval_ctx),
+                         Object *UNUSED(ob), bGPDlayer *gpl, bGPDstroke *gps)
+{
+	GpencilSimplifyModifierData *mmd = (GpencilSimplifyModifierData *)md;
+	
+	if (!is_stroke_affected_by_modifier(
+	        mmd->layername, mmd->pass_index, 4, gpl, gps,
+	        mmd->flag & GP_SIMPLIFY_INVERSE_LAYER, mmd->flag & GP_SIMPLIFY_INVERSE_PASS))
+	{
+		return;
+	}
+	
+	/* simplify stroke using Ramer-Douglas-Peucker algorithm */
+	BKE_gpencil_simplify_stroke(gpl, gps, mmd->factor);
+}
+
+static void bakeModifierGP(const bContext *UNUSED(C), const EvaluationContext *eval_ctx,
                            ModifierData *md, Object *ob)
 {
 	bGPdata *gpd = ob->data;
@@ -64,7 +82,7 @@ static void bakeModifierGP(const bContext *C, const EvaluationContext *UNUSED(ev
 	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
 		for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
 			for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
-				BKE_gpencil_simplify_modifier(-1, (GpencilSimplifyModifierData *)md, ob, gpl, gps);
+				deformStroke(md, eval_ctx, ob, gpl, gps);
 			}
 		}
 	}
@@ -84,7 +102,7 @@ ModifierTypeInfo modifierType_GpencilSimplify = {
 	/* deformMatricesEM */  NULL,
 	/* applyModifier */     NULL,
 	/* applyModifierEM */   NULL,
-	/* deformStroke */      NULL,
+	/* deformStroke */      deformStroke,
 	/* generateStrokes */   NULL,
 	/* bakeModifierGP */    bakeModifierGP,
 	/* initData */          initData,

@@ -35,8 +35,6 @@
 #include "BLI_blenlib.h"
 #include "BLI_utildefines.h"
 #include "BLI_math_vector.h"
-#include "BLI_math_color.h"
-#include "BLI_rand.h"
 
 #include "DNA_scene_types.h"
 #include "DNA_object_types.h"
@@ -45,18 +43,15 @@
 #include "DNA_vec_types.h"
 
 #include "BKE_global.h"
-#include "BKE_colortools.h"
-#include "BKE_deform.h"
 #include "BKE_gpencil.h"
 #include "BKE_lattice.h"
 #include "BKE_modifier.h"
 #include "BKE_object.h"
  
 #include "DEG_depsgraph.h"
- 
-// XXX: temp transitional code
-#include "../../modifiers/intern/MOD_gpencil_util.h"
 
+/* *************************************************** */
+/* Geometry Utilities */
 
 /* calculate stroke normal using some points */
 void BKE_gpencil_stroke_normal(const bGPDstroke *gps, float r_normal[3])
@@ -88,47 +83,6 @@ void BKE_gpencil_stroke_normal(const bGPDstroke *gps, float r_normal[3])
 	/* Normalize vector */
 	normalize_v3(r_normal);
 }
-
-
-
-/* init lattice deform data */
-void BKE_gpencil_lattice_init(Object *ob)
-{
-	ModifierData *md;
-	for (md = ob->modifiers.first; md; md = md->next) {
-		if (md->type == eModifierType_GpencilLattice) {
-			GpencilLatticeModifierData *mmd = (GpencilLatticeModifierData *)md;
-			Object *latob = NULL;
-
-			latob = mmd->object;
-			if ((!latob) || (latob->type != OB_LATTICE)) {
-				return;
-			}
-			if (mmd->cache_data) {
-				end_latt_deform((LatticeDeformData *)mmd->cache_data);
-			}
-
-			/* init deform data */
-			mmd->cache_data = (LatticeDeformData *)init_latt_deform(latob, ob);
-		}
-	}
-}
-
-/* clear lattice deform data */
-void BKE_gpencil_lattice_clear(Object *ob)
-{
-	ModifierData *md;
-	for (md = ob->modifiers.first; md; md = md->next) {
-		if (md->type == eModifierType_GpencilLattice) {
-			GpencilLatticeModifierData *mmd = (GpencilLatticeModifierData *)md;
-			if ((mmd) && (mmd->cache_data)) {
-				end_latt_deform((LatticeDeformData *)mmd->cache_data);
-				mmd->cache_data = NULL;
-			}
-		}
-	}
-}
-
 
 /* Get points of stroke always flat to view not affected by camera view or view position */
 static void gpencil_stroke_project_2d(const bGPDspoint *points, int totpoints, vec2f *points2d)
@@ -172,6 +126,8 @@ static void gpencil_stroke_project_2d(const bGPDspoint *points, int totpoints, v
 	}
 
 }
+
+/* Stroke Simplify ------------------------------------- */
 
 /* Reduce a series of points to a simplified version, but
  * maintains the general shape of the series
@@ -278,7 +234,7 @@ static void gpencil_rdp_stroke(bGPDstroke *gps, vec2f *points2d, float epsilon)
 	MEM_SAFE_FREE(marked);
 }
 
-/* (wrapper api) simplify stroke using Ramer-Douglas-Peucker algorithm */
+/* Simplify stroke using Ramer-Douglas-Peucker algorithm */
 void BKE_gpencil_simplify_stroke(bGPDlayer *UNUSED(gpl), bGPDstroke *gps, float factor)
 {
 	/* first create temp data and convert points to 2D */
@@ -291,26 +247,56 @@ void BKE_gpencil_simplify_stroke(bGPDlayer *UNUSED(gpl), bGPDstroke *gps, float 
 	MEM_SAFE_FREE(points2d);
 }
 
+/* *************************************************** */
+/* Modifier Utilities */
 
-/* simplify stroke using Ramer-Douglas-Peucker algorithm */
-void BKE_gpencil_simplify_modifier(int UNUSED(id), GpencilSimplifyModifierData *mmd, Object *UNUSED(ob), bGPDlayer *gpl, bGPDstroke *gps)
+/* Lattice Modifier ---------------------------------- */
+/* Usually, evaluation of the lattice modifier is self-contained.
+ * However, since GP's modifiers operate on a per-stroke basis,
+ * we need to these two extra functions that called before/after
+ * each loop over all the geometry being evaluated.
+ */
+
+/* init lattice deform data */
+void BKE_gpencil_lattice_init(Object *ob)
 {
-	if (!is_stroke_affected_by_modifier(
-	        mmd->layername, mmd->pass_index, 4, gpl, gps,
-	        mmd->flag & GP_SIMPLIFY_INVERSE_LAYER, mmd->flag & GP_SIMPLIFY_INVERSE_PASS))
-	{
-		return;
+	ModifierData *md;
+	for (md = ob->modifiers.first; md; md = md->next) {
+		if (md->type == eModifierType_GpencilLattice) {
+			GpencilLatticeModifierData *mmd = (GpencilLatticeModifierData *)md;
+			Object *latob = NULL;
+
+			latob = mmd->object;
+			if ((!latob) || (latob->type != OB_LATTICE)) {
+				return;
+			}
+			if (mmd->cache_data) {
+				end_latt_deform((LatticeDeformData *)mmd->cache_data);
+			}
+
+			/* init deform data */
+			mmd->cache_data = (LatticeDeformData *)init_latt_deform(latob, ob);
+		}
 	}
-
-	/* first create temp data and convert points to 2D */
-	vec2f *points2d = MEM_mallocN(sizeof(vec2f) * gps->totpoints, "GP Stroke temp 2d points");
-
-	gpencil_stroke_project_2d(gps->points, gps->totpoints, points2d);
-
-	gpencil_rdp_stroke(gps, points2d, mmd->factor);
-
-	MEM_SAFE_FREE(points2d);
 }
+
+/* clear lattice deform data */
+void BKE_gpencil_lattice_clear(Object *ob)
+{
+	ModifierData *md;
+	for (md = ob->modifiers.first; md; md = md->next) {
+		if (md->type == eModifierType_GpencilLattice) {
+			GpencilLatticeModifierData *mmd = (GpencilLatticeModifierData *)md;
+			if ((mmd) && (mmd->cache_data)) {
+				end_latt_deform((LatticeDeformData *)mmd->cache_data);
+				mmd->cache_data = NULL;
+			}
+		}
+	}
+}
+
+/* *************************************************** */
+/* Modifier Methods - Evaluation Loops, etc. */
 
 /* verify if exist geometry modifiers */
 bool BKE_gpencil_has_geometry_modifiers(Object *ob)
@@ -332,8 +318,7 @@ void BKE_gpencil_stroke_modifiers(Object *ob, bGPDlayer *gpl, bGPDframe *UNUSED(
 	ModifierData *md;
 	bGPdata *gpd = ob->data;
 	bool is_edit = GPENCIL_ANY_EDIT_MODE(gpd);
-
-	int id = 0; // XXX: Remove
+	
 	for (md = ob->modifiers.first; md; md = md->next) {
 		if (((md->mode & eModifierMode_Realtime) && ((G.f & G_RENDER_OGL) == 0)) ||
 		    ((md->mode & eModifierMode_Render) && (G.f & G_RENDER_OGL)))
@@ -348,16 +333,7 @@ void BKE_gpencil_stroke_modifiers(Object *ob, bGPDlayer *gpl, bGPDframe *UNUSED(
 				EvaluationContext eval_ctx = {0}; /* XXX */
 				mti->deformStroke(md, &eval_ctx, ob, gpl, gps);
 			}
-
-			// XXX: The following lines need to all be converted to modifier callbacks...
-			switch (md->type) {
-					// Simplify Modifier
-				case eModifierType_GpencilSimplify:
-					BKE_gpencil_simplify_modifier(id, (GpencilSimplifyModifierData *)md, ob, gpl, gps);
-					break;
-			}
 		}
-		id++;
 	}
 }
 
@@ -387,3 +363,5 @@ void BKE_gpencil_geometry_modifiers(Object *ob, bGPDlayer *gpl, bGPDframe *gpf)
 		id++;
 	}
 }
+
+/* *************************************************** */
