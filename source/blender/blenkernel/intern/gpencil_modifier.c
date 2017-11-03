@@ -42,6 +42,7 @@
 #include "DNA_object_types.h"
 #include "DNA_gpencil_types.h"
 #include "DNA_modifier_types.h"
+#include "DNA_vec_types.h"
 
 #include "BKE_global.h"
 #include "BKE_colortools.h"
@@ -56,11 +57,6 @@
 // XXX: temp transitional code
 #include "../../modifiers/intern/MOD_gpencil_util.h"
 
-
-/* temp data for simplify modifier */
-typedef struct tbGPDspoint {
-	float p2d[2];
-} tbGPDspoint;
 
 /* calculate stroke normal using some points */
 void BKE_gpencil_stroke_normal(const bGPDstroke *gps, float r_normal[3])
@@ -135,7 +131,7 @@ void BKE_gpencil_lattice_clear(Object *ob)
 
 
 /* Get points of stroke always flat to view not affected by camera view or view position */
-static void gpencil_stroke_project_2d(const bGPDspoint *points, int totpoints, tbGPDspoint *points2d)
+static void gpencil_stroke_project_2d(const bGPDspoint *points, int totpoints, vec2f *points2d)
 {
 	const bGPDspoint *pt0 = &points[0];
 	const bGPDspoint *pt1 = &points[1];
@@ -170,23 +166,22 @@ static void gpencil_stroke_project_2d(const bGPDspoint *points, int totpoints, t
 		/* Get local space using first point as origin */
 		sub_v3_v3v3(loc, &pt->x, &pt0->x);
 
-		tbGPDspoint *point = &points2d[i];
-		point->p2d[0] = dot_v3v3(loc, locx);
-		point->p2d[1] = dot_v3v3(loc, locy);
+		vec2f *point = &points2d[i];
+		point->x = dot_v3v3(loc, locx);
+		point->y = dot_v3v3(loc, locy);
 	}
 
 }
 
-/* --------------------------------------------------------------------------
-* Reduces a series of points to a simplified version, but
-* maintains the general shape of the series
-*
-* Ramer - Douglas - Peucker algorithm
-* by http ://en.wikipedia.org/wiki/Ramer-Douglas-Peucker_algorithm
-* -------------------------------------------------------------------------- */
-static void gpencil_rdp_stroke(bGPDstroke *gps, tbGPDspoint *points2d, float epsilon)
+/* Reduce a series of points to a simplified version, but
+ * maintains the general shape of the series
+ *
+ * Ramer - Douglas - Peucker algorithm
+ * by http ://en.wikipedia.org/wiki/Ramer-Douglas-Peucker_algorithm
+ */
+static void gpencil_rdp_stroke(bGPDstroke *gps, vec2f *points2d, float epsilon)
 {
-	tbGPDspoint *old_points2d = points2d;
+	vec2f *old_points2d = points2d;
 	int totpoints = gps->totpoints;
 	char *marked = NULL;
 	char work;
@@ -221,16 +216,16 @@ static void gpencil_rdp_stroke(bGPDstroke *gps, tbGPDspoint *points2d, float eps
 			}
 
 			/* perpendicular vector to ls-le */
-			v1[1] = old_points2d[le].p2d[0] - old_points2d[ls].p2d[0];
-			v1[0] = old_points2d[ls].p2d[1] - old_points2d[le].p2d[1];
+			v1[1] = old_points2d[le].x - old_points2d[ls].x;
+			v1[0] = old_points2d[ls].y - old_points2d[le].y;
 
 			for (int i = ls + 1; i < le; i++) {
 				float mul;
 				float dist;
 				float v2[2];
 
-				v2[0] = old_points2d[i].p2d[0] - old_points2d[ls].p2d[0];
-				v2[1] = old_points2d[i].p2d[1] - old_points2d[ls].p2d[1];
+				v2[0] = old_points2d[i].x - old_points2d[ls].x;
+				v2[1] = old_points2d[i].y - old_points2d[ls].y;
 
 				if (v2[0] == 0 && v2[1] == 0) {
 					continue;
@@ -264,20 +259,20 @@ static void gpencil_rdp_stroke(bGPDstroke *gps, tbGPDspoint *points2d, float eps
 	gps->flag |= GP_STROKE_RECALC_CACHES;
 	gps->tot_triangles = 0;
 
-	int x = 0;
+	int j = 0;
 	for (int i = 0; i < totpoints; i++) {
 		bGPDspoint *old_pt = &old_points[i];
-		bGPDspoint *pt = &gps->points[x];
+		bGPDspoint *pt = &gps->points[j];
 		if ((marked[i]) || (i == 0) || (i == totpoints - 1)) {
 			memcpy(pt, old_pt, sizeof(bGPDspoint));
-			x++;
+			j++;
 		}
 		else {
 			BKE_gpencil_free_point_weights(old_pt);
 		}
 	}
 
-	gps->totpoints = x;
+	gps->totpoints = j;
 
 	MEM_SAFE_FREE(old_points);
 	MEM_SAFE_FREE(marked);
@@ -287,7 +282,7 @@ static void gpencil_rdp_stroke(bGPDstroke *gps, tbGPDspoint *points2d, float eps
 void BKE_gpencil_simplify_stroke(bGPDlayer *UNUSED(gpl), bGPDstroke *gps, float factor)
 {
 	/* first create temp data and convert points to 2D */
-	tbGPDspoint *points2d = MEM_mallocN(sizeof(tbGPDspoint) * gps->totpoints, "GP Stroke temp 2d points");
+	vec2f *points2d = MEM_mallocN(sizeof(vec2f) * gps->totpoints, "GP Stroke temp 2d points");
 
 	gpencil_stroke_project_2d(gps->points, gps->totpoints, points2d);
 
@@ -308,7 +303,7 @@ void BKE_gpencil_simplify_modifier(int UNUSED(id), GpencilSimplifyModifierData *
 	}
 
 	/* first create temp data and convert points to 2D */
-	tbGPDspoint *points2d = MEM_mallocN(sizeof(tbGPDspoint) * gps->totpoints, "GP Stroke temp 2d points");
+	vec2f *points2d = MEM_mallocN(sizeof(vec2f) * gps->totpoints, "GP Stroke temp 2d points");
 
 	gpencil_stroke_project_2d(gps->points, gps->totpoints, points2d);
 
