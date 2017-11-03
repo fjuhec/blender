@@ -1052,24 +1052,51 @@ static void tselem_draw_icon(uiBlock *block, int xmax, float x, float y, TreeSto
 					case eModifierType_NormalEdit:
 						ICON_DRAW(ICON_MOD_NORMALEDIT);
 						break;
-					/* Default */
-					case eModifierType_None:
-					case eModifierType_ShapeKey:
+					
+					/* GPencil Modifiers */
 					case eModifierType_GpencilNoise:
+						ICON_DRAW(ICON_RNDCURVE);
+						break;
 					case eModifierType_GpencilSubdiv:
+						ICON_DRAW(ICON_MOD_SUBSURF);
+						break;
 					case eModifierType_GpencilThick:
+						ICON_DRAW(ICON_MAN_ROT);
+						break;
 					case eModifierType_GpencilTint:
+						ICON_DRAW(ICON_COLOR);
+						break;
 					case eModifierType_GpencilArray:
+						ICON_DRAW(ICON_MOD_ARRAY);
+						break;
 					case eModifierType_GpencilBuild:
+						ICON_DRAW(ICON_MOD_BUILD);
+						break;
 					case eModifierType_GpencilOpacity:
+						ICON_DRAW(ICON_MOD_MASK);
+						break;
 					case eModifierType_GpencilColor:
+						ICON_DRAW(ICON_GROUP_VCOL);
+						break;
 					case eModifierType_GpencilLattice:
+						ICON_DRAW(ICON_MOD_LATTICE);
+						break;
 					case eModifierType_GpencilSimplify:
+						ICON_DRAW(ICON_MOD_DECIM);
+						break;
+						
+					/* GPencil VFX Modifiers */
 					case eModifierType_GpencilBlur:
 					case eModifierType_GpencilWave:
 					case eModifierType_GpencilPixel:
 					case eModifierType_GpencilSwirl:
-
+						ICON_DRAW(ICON_SOLO_ON);
+						break;
+					
+					/* Default */
+					case eModifierType_None:
+					case eModifierType_ShapeKey:
+					
 					case NUM_MODIFIER_TYPES:
 						ICON_DRAW(ICON_DOT);
 						break;
