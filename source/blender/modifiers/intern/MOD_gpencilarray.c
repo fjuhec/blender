@@ -172,7 +172,7 @@ static void generate_geometry(ModifierData *md, const EvaluationContext *eval_ct
 		return;
 	}
 	
-		
+	
 	/* Generate new instances of all existing strokes,
 	 * keeping each instance together so they maintain
 	 * the correct ordering relative to each other
@@ -191,20 +191,31 @@ static void generate_geometry(ModifierData *md, const EvaluationContext *eval_ct
 				
 				BKE_gpencil_array_modifier_instance_tfm(mmd, elem_idx, mat);
 				
+				/* apply shift */
+				int sh = x;
+				if (mmd->lock_axis == GP_LOCKAXIS_Y) {
+					sh = y;
+				}
+				if (mmd->lock_axis == GP_LOCKAXIS_Z) {
+					sh = z;
+				}
+				madd_v3_v3fl(mat[3], mmd->shift, sh);
+				
 				/* Duplicate original strokes to create this instance */
-				/* TODO: Do we need to accelerate this by caching which strokes can be used? */
 				for (gps = gpf->strokes.first, idx = 0; gps; gps = gps->next, idx++) {
 					/* check if stroke can be duplicated */
 					if (valid_strokes[idx]) {
 						/* Duplicate stroke */
 						bGPDstroke *gps_dst = MEM_dupallocN(gps);
 						if (modifier_index > -1) {
-							/* TODO: check whether there are any memory leaks from doing this */
+							/* in these cases, we're operating on data stored in the
+							 * derived caches, so copies will get freed
+							 */
 							gps_dst->palcolor = MEM_dupallocN(gps->palcolor);
 						}
 						gps_dst->points = MEM_dupallocN(gps->points);
 						BKE_gpencil_stroke_weights_duplicate(gps, gps_dst);
-
+						
 						gps_dst->triangles = MEM_dupallocN(gps->triangles);
 						
 						/* Move points */
@@ -235,7 +246,7 @@ static void bakeModifierGP_strokes(const bContext *C, const EvaluationContext *e
                                       ModifierData *md, Object *ob)
 {
 	bGPdata *gpd = ob->data;
-
+	
 	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
 		for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
 			generate_geometry(md, eval_ctx, ob, gpl, gpf, -1);
@@ -246,24 +257,22 @@ static void bakeModifierGP_strokes(const bContext *C, const EvaluationContext *e
 /* -------------------------------- */
 
 /* helper to create a new object */
-static Object *object_add_type(const bContext *C,	int UNUSED(type), const char *UNUSED(name), Object *from_ob)
+static Object *array_instance_add_ob_copy(const bContext *C, Object *from_ob)
 {
 	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
 	Object *ob;
-	const float loc[3] = { 0, 0, 0 };
-	const float rot[3] = { 0, 0, 0 };
-
+	
 	ob = BKE_object_copy(bmain, from_ob);
 	BKE_collection_object_add_from(scene, from_ob, ob);
-
-	copy_v3_v3(ob->loc, loc);
-	copy_v3_v3(ob->rot, rot);
-
+	
+	zero_v3(ob->loc);
+	zero_v3(ob->rot);
+	
 	DEG_id_type_tag(bmain, ID_OB);
 	DEG_relations_tag_update(bmain);
 	DEG_id_tag_update(&scene->id, 0);
-
+	
 	return ob;
 }
 
@@ -294,20 +303,7 @@ static void bakeModifierGP_objects(const bContext *C, ModifierData *md, Object *
 				
 				/* compute transform for instance */
 				BKE_gpencil_array_modifier_instance_tfm(mmd, elem_idx, mat);
-				mul_m4_m4m4(finalmat, mat, ob->obmat);
-
-				/* create a new object and new gp datablock */
-				// XXX (aligorith): Review whether this creates and discards and extra GP datablock instance
-				newob = object_add_type(C, OB_GPENCIL, md->name, ob);
-				id_us_min((ID *)ob->data);
-				newob->data = BKE_gpencil_data_duplicate(bmain, ob->data, false);
-				
-				/* remove array on destination object */
-				fmd = (ModifierData *) BLI_findstring(&newob->modifiers, md->name, offsetof(ModifierData, name));
-				if (fmd) {
-					BLI_remlink(&newob->modifiers, fmd);
-					modifier_free(fmd);
-				}
+				mul_m4_m4m4(finalmat, ob->obmat, mat);
 				
 				/* moves to new origin */
 				sh = x;
@@ -318,13 +314,29 @@ static void bakeModifierGP_objects(const bContext *C, ModifierData *md, Object *
 					sh = z;
 				}
 				madd_v3_v3fl(finalmat[3], mmd->shift, sh);
+
+				/* Create a new object
+				 *
+				 * NOTE: Copies share the same original GP datablock
+				 * Artists can later user make_single_user on these
+				 * to make them unique (if necessary), without too
+				 * much extra memory usage.
+				 */
+				newob = array_instance_add_ob_copy(C, ob);
+				
+				/* remove array on destination object */
+				fmd = (ModifierData *)BLI_findstring(&newob->modifiers, md->name, offsetof(ModifierData, name));
+				if (fmd) {
+					BLI_remlink(&newob->modifiers, fmd);
+					modifier_free(fmd);
+				}
+				
+				/* copy transforms to destination object */
+				copy_m4_m4(newob->obmat, finalmat);
+				
 				copy_v3_v3(newob->loc, finalmat[3]);
-				
-				/* apply rotation */
 				mat4_to_eul(newob->rot, finalmat);
-				
-				/* apply scale */
-				ARRAY_SET_ITEMS(newob->size, finalmat[0][0], finalmat[1][1], finalmat[2][2]);
+				mat4_to_size(newob->size, finalmat);
 			}
 		}
 	}

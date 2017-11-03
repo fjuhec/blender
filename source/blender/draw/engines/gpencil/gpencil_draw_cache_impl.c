@@ -1225,7 +1225,7 @@ static void gp_array_modifier_make_instances(GPENCIL_StorageList *stl, Object *o
 				/* add object to cache */
 				newob = MEM_dupallocN(ob);
 				newob->mode = -1; /* use this mark to delete later */
-				mul_m4_m4m4(newob->obmat, mat, ob->obmat);
+				mul_m4_m4m4(newob->obmat, ob->obmat, mat);
 				
 				/* apply scale */
 				ARRAY_SET_ITEMS(newob->size, mat[0][0], mat[1][1], mat[2][2]);
