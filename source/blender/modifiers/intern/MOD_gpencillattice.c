@@ -37,6 +37,7 @@
 #include "BLI_utildefines.h"
 
 #include "BKE_context.h"
+#include "BKE_deform.h"
 #include "BKE_gpencil.h"
 #include "BKE_lattice.h"
 #include "BKE_library_query.h"
@@ -46,6 +47,7 @@
 #include "MEM_guardedalloc.h"
 
 #include "MOD_modifiertypes.h"
+#include "MOD_gpencil_util.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_build.h"
@@ -66,44 +68,79 @@ static void copyData(ModifierData *md, ModifierData *target)
 	modifier_copyData_generic(md, target);
 }
 
+static void deformStroke(ModifierData *md, const EvaluationContext *UNUSED(eval_ctx),
+                         Object *ob, bGPDlayer *gpl, bGPDstroke *gps)
+{
+	GpencilLatticeModifierData *mmd = (GpencilLatticeModifierData *)md;
+	int vindex = defgroup_name_index(ob, mmd->vgname);
+	float weight = 1.0f;
+
+	if (!is_stroke_affected_by_modifier(
+	        mmd->layername, mmd->pass_index, 3, gpl, gps,
+	        mmd->flag & GP_LATTICE_INVERSE_LAYER, mmd->flag & GP_LATTICE_INVERSE_PASS))
+	{
+		return;
+	}
+
+	if (mmd->cache_data == NULL) {
+		return;
+	}
+
+	for (int i = 0; i < gps->totpoints; i++) {
+		bGPDspoint *pt = &gps->points[i];
+		/* verify vertex group */
+		weight = is_point_affected_by_modifier(pt, (int)(!(mmd->flag & GP_LATTICE_INVERSE_VGROUP) == 0), vindex);
+		if (weight < 0) {
+			continue;
+		}
+
+		calc_latt_deform((LatticeDeformData *)mmd->cache_data, &pt->x, mmd->strength * weight);
+	}
+}
+
 static void bakeModifierGP(const bContext *C, const EvaluationContext *eval_ctx,
                            ModifierData *md, Object *ob)
 {
 	GpencilLatticeModifierData *mmd = (GpencilLatticeModifierData *)md;
-	LatticeDeformData *ldata = NULL;
-	Scene *scene = md->scene;
 	Main *bmain = CTX_data_main(C);
+	Scene *scene = md->scene;
+	LatticeDeformData *ldata = NULL;
 	bGPdata *gpd = ob->data;
-	Object *latob = mmd->object;
 	int oldframe = CFRA;
 
-	if ((!latob) || (latob->type != OB_LATTICE)) {
+	if (mmd->object == NULL)
 		return;
-	}
 
 	struct EvaluationContext eval_ctx_copy = *eval_ctx;
 
 	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
 		for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
+			/* apply lattice effects on this frame
+			 * NOTE: this assumes that we don't want lattice animation on non-keyframed frames
+			 */
+			CFRA = gpf->framenum;
+			BKE_scene_update_for_newframe(&eval_ctx_copy, bmain, scene);
+			
+			/* recalculate lattice data */
+			BKE_gpencil_lattice_init(ob);
+			
+			/* compute lattice effects on this frame */
 			for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
-				CFRA = gpf->framenum;
-				BKE_scene_update_for_newframe(&eval_ctx_copy, bmain, scene);
-				/* recalculate lattice data */
-				BKE_gpencil_lattice_init(ob);
-
-				BKE_gpencil_lattice_modifier(-1, (GpencilLatticeModifierData *)md, ob, gpl, gps);
+				deformStroke(md, &eval_ctx_copy, ob, gpl, gps);
 			}
 		}
 	}
-
+	
+	/* free lingering data */
 	ldata = (LatticeDeformData *)mmd->cache_data;
 	if (ldata) {
 		end_latt_deform(ldata);
 		mmd->cache_data = NULL;
 	}
 
-	// XXX: needs an extra update?
+	/* return frame state and DB to original state */
 	CFRA = oldframe;
+	BKE_scene_update_for_newframe(&eval_ctx_copy, bmain, scene); /* XXX: needed? */
 }
 
 static void freeData(ModifierData *md)
@@ -160,7 +197,7 @@ ModifierTypeInfo modifierType_GpencilLattice = {
 	/* deformMatricesEM */  NULL,
 	/* applyModifier */     NULL,
 	/* applyModifierEM */   NULL,
-	/* deformStroke */      NULL,
+	/* deformStroke */      deformStroke,
 	/* generateStrokes */   NULL,
 	/* bakeModifierGP */    bakeModifierGP,
 	/* initData */          initData,

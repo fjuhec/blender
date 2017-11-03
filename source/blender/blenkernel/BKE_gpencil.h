@@ -195,13 +195,14 @@ void BKE_gpencil_stroke_normal(const struct bGPDstroke *gps, float r_normal[3]);
 
 void BKE_gpencil_array_modifier_instance_tfm(struct GpencilArrayModifierData *mmd, const int elem_idx[3], float r_mat[4][4]);
 
+void BKE_gpencil_lattice_init(struct Object *ob);
+void BKE_gpencil_lattice_clear(struct Object *ob);
+
 void BKE_gpencil_simplify_modifier(int id, struct GpencilSimplifyModifierData *mmd, struct Object *ob, struct bGPDlayer *gpl, struct bGPDstroke *gps);
 
 /* (wrapper api) simplify stroke using Ramer-Douglas-Peucker algorithm */
 void BKE_gpencil_simplify_stroke(struct bGPDlayer *gpl, struct bGPDstroke *gps, float factor);
 
-void BKE_gpencil_lattice_init(struct Object *ob);
-void BKE_gpencil_lattice_clear(struct Object *ob);
-void BKE_gpencil_lattice_modifier(int id, struct GpencilLatticeModifierData *mmd, struct Object *ob, struct bGPDlayer *gpl, struct bGPDstroke *gps);
+
 
 #endif /*  __BKE_GPENCIL_H__ */

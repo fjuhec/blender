@@ -133,37 +133,6 @@ void BKE_gpencil_lattice_clear(Object *ob)
 	}
 }
 
-/* apply lattice to stroke */
-void BKE_gpencil_lattice_modifier(
-        int UNUSED(id), GpencilLatticeModifierData *mmd, Object *ob, bGPDlayer *gpl, bGPDstroke *gps)
-{
-	bGPDspoint *pt;
-	int vindex = defgroup_name_index(ob, mmd->vgname);
-	float weight = 1.0f;
-
-	if (!is_stroke_affected_by_modifier(
-	        mmd->layername, mmd->pass_index, 3, gpl, gps,
-	        mmd->flag & GP_LATTICE_INVERSE_LAYER, mmd->flag & GP_LATTICE_INVERSE_PASS))
-	{
-		return;
-	}
-
-	if (mmd->cache_data == NULL) {
-		return;
-	}
-
-	for (int i = 0; i < gps->totpoints; i++) {
-		pt = &gps->points[i];
-		/* verify vertex group */
-		weight = is_point_affected_by_modifier(pt, (int)(!(mmd->flag & GP_LATTICE_INVERSE_VGROUP) == 0), vindex);
-		if (weight < 0) {
-			continue;
-		}
-
-		calc_latt_deform((LatticeDeformData *)mmd->cache_data, &pt->x, mmd->strength * weight);
-	}
-}
-
 
 /* Get points of stroke always flat to view not affected by camera view or view position */
 static void gpencil_stroke_project_2d(const bGPDspoint *points, int totpoints, tbGPDspoint *points2d)
@@ -390,10 +359,6 @@ void BKE_gpencil_stroke_modifiers(Object *ob, bGPDlayer *gpl, bGPDframe *UNUSED(
 					// Simplify Modifier
 				case eModifierType_GpencilSimplify:
 					BKE_gpencil_simplify_modifier(id, (GpencilSimplifyModifierData *)md, ob, gpl, gps);
-					break;
-					// Lattice
-				case eModifierType_GpencilLattice:
-					BKE_gpencil_lattice_modifier(id, (GpencilLatticeModifierData *)md, ob, gpl, gps);
 					break;
 			}
 		}
