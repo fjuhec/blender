@@ -1543,7 +1543,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
             layout.operator("object.correctivesmooth_bind", text="Unbind" if is_bind else "Bind")
 
     def GP_NOISE(self, layout, ob, md):
-        gpd = ob.grease_pencil
+        gpd = ob.data
         split = layout.split()
 
         col = split.column()
@@ -1579,7 +1579,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         row.prop(md, "affect_thickness", text="Thickness", icon='LINE_DATA', toggle=True)
 
     def GP_SUBDIV(self, layout, ob, md):
-        gpd = ob.grease_pencil
+        gpd = ob.data
         split = layout.split()
 
         col = split.column()
@@ -1597,7 +1597,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         row.prop(md, "inverse_layers", text="", icon="ARROW_LEFTRIGHT")
 
     def GP_SIMPLIFY(self, layout, ob, md):
-        gpd = ob.grease_pencil
+        gpd = ob.data
         split = layout.split()
 
         col = split.column()
@@ -1614,7 +1614,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         row.prop(md, "inverse_layers", text="", icon="ARROW_LEFTRIGHT")
 
     def GP_THICK(self, layout, ob, md):
-        gpd = ob.grease_pencil
+        gpd = ob.data
         split = layout.split()
 
         col = split.column()
@@ -1643,7 +1643,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
             col.template_curve_mapping(md, "curve")
 
     def GP_TINT(self, layout, ob, md):
-        gpd = ob.grease_pencil
+        gpd = ob.data
         split = layout.split()
 
         col = split.column()
@@ -1663,7 +1663,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         row.prop(md, "create_colors")
 
     def GP_COLOR(self, layout, ob, md):
-        gpd = ob.grease_pencil
+        gpd = ob.data
         split = layout.split()
 
         col = split.column()
@@ -1685,7 +1685,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         row.prop(md, "create_colors")
 
     def GP_OPACITY(self, layout, ob, md):
-        gpd = ob.grease_pencil
+        gpd = ob.data
         split = layout.split()
 
         col = split.column()
@@ -1754,7 +1754,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         row.row(md, "use_make_objects")
 
     def GP_DUPLI(self, layout, ob, md):
-        gpd = ob.grease_pencil
+        gpd = ob.data
         layout.prop(md, "count")
 
         split = layout.split()
