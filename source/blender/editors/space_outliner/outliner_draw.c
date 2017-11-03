@@ -813,39 +813,6 @@ static void tselem_draw_icon_uibut(struct DrawIconArg *arg, int icon)
 
 }
 
-static void UNUSED_FUNCTION(tselem_draw_gp_icon_uibut)(struct DrawIconArg *arg, ID *id, bGPDlayer *gpl)
-{
-	/* restrict column clip - skip it for now... */
-	if (arg->x >= arg->xmax) {
-		/* pass */
-	}
-	else {
-		PointerRNA ptr;
-		const float eps = 0.001f;
-		const bool is_stroke_visible = (gpl->color[3] > eps);
-		const bool is_fill_visible = (gpl->fill[3] > eps);
-		float w = 0.5f  * UI_UNIT_X;
-		float h = 0.85f * UI_UNIT_Y;
-
-		RNA_pointer_create(id, &RNA_GPencilLayer, gpl, &ptr);
-
-		UI_block_align_begin(arg->block);
-		
-		UI_block_emboss_set(arg->block, is_stroke_visible ? UI_EMBOSS : UI_EMBOSS_NONE);
-		uiDefButR(arg->block, UI_BTYPE_COLOR, 1, "", arg->xb, arg->yb, w, h,
-		          &ptr, "color", -1,
-		          0, 0, 0, 0, NULL);
-		
-		UI_block_emboss_set(arg->block, is_fill_visible ? UI_EMBOSS : UI_EMBOSS_NONE);
-		uiDefButR(arg->block, UI_BTYPE_COLOR, 1, "", arg->xb + w, arg->yb, w, h,
-		          &ptr, "fill_color", -1,
-		          0, 0, 0, 0, NULL);
-		
-		UI_block_emboss_set(arg->block, UI_EMBOSS_NONE);
-		UI_block_align_end(arg->block);
-	}
-}
-
 static void tselem_draw_icon(uiBlock *block, int xmax, float x, float y, TreeStoreElem *tselem, TreeElement *te,
                              float alpha)
 {
@@ -1157,12 +1124,18 @@ static void tselem_draw_icon(uiBlock *block, int xmax, float x, float y, TreeSto
 					ICON_DRAW(icon);
 				}
 				break;
-			/* Removed the icons from outliner. Need a better structure with Layers, Palettes and Colors */
-#if 0
 			case TSE_GP_LAYER:
-				tselem_draw_gp_icon_uibut(&arg, tselem->id, te->directdata);
+			{
+				/* indicate whether layer is active */
+				bGPDlayer *gpl = te->directdata;
+				if (gpl->flag & GP_LAYER_ACTIVE) {
+					ICON_DRAW(ICON_GREASEPENCIL);
+				}
+				else {
+					ICON_DRAW(ICON_DOT);
+				}
 				break;
-#endif
+			}
 			default:
 				ICON_DRAW(ICON_DOT);
 				break;
