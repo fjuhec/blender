@@ -47,15 +47,8 @@ struct PaletteColor;
 struct BoundBox;
 struct Object;
 struct bDeformGroup;
-struct GpencilNoiseModifierData;
-struct GpencilSubdivModifierData;
 struct GpencilSimplifyModifierData;
-struct GpencilThickModifierData;
-struct GpencilTintModifierData;
-struct GpencilColorModifierData;
 struct GpencilArrayModifierData;
-struct GpencilDupliModifierData;
-struct GpencilOpacityModifierData;
 struct GpencilLatticeModifierData;
 
 /* ------------ Grease-Pencil API ------------------ */

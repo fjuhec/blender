@@ -72,7 +72,7 @@ static void bakeModifierGP(const bContext *C, const EvaluationContext *eval_ctx,
 	GpencilLatticeModifierData *mmd = (GpencilLatticeModifierData *)md;
 	LatticeDeformData *ldata = NULL;
 	Scene *scene = md->scene;
-	Main *bmain = CTX_data_main(mmd->C);
+	Main *bmain = CTX_data_main(C);
 	bGPdata *gpd = ob->data;
 	Object *latob = mmd->object;
 	int oldframe = CFRA;

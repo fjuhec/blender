@@ -1798,7 +1798,6 @@ typedef struct GpencilLatticeModifierData {
 	float strength;
 	char pad[4];
 	void *cache_data; /* runtime only (LatticeDeformData) */
-	void *C;                     /* bContext used only for apply */
 } GpencilLatticeModifierData;
 
 typedef enum eGpencilLattice_Flag {
