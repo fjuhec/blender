@@ -5261,6 +5261,17 @@ static void rna_def_modifier_gpencilarray(BlenderRNA *brna)
 	RNA_def_struct_sdna(srna, "GpencilArrayModifierData");
 	RNA_def_struct_ui_icon(srna, ICON_MOD_ARRAY);
 
+	prop = RNA_def_property(srna, "layer", PROP_STRING, PROP_NONE);
+	RNA_def_property_string_sdna(prop, NULL, "layername");
+	RNA_def_property_ui_text(prop, "Layer", "Layer name");
+	RNA_def_property_update(prop, 0, "rna_Modifier_gpencil_update");
+
+	prop = RNA_def_property(srna, "pass_index", PROP_INT, PROP_NONE);
+	RNA_def_property_int_sdna(prop, NULL, "pass_index");
+	RNA_def_property_range(prop, 0, 100);
+	RNA_def_property_ui_text(prop, "Pass", "Pass index");
+	RNA_def_property_update(prop, 0, "rna_Modifier_gpencil_update");
+
 	prop = RNA_def_property(srna, "count", PROP_INT, PROP_XYZ);
 	RNA_def_property_range(prop, 1, INT_MAX);
 	RNA_def_property_ui_range(prop, 1, 1000, 1, -1);
@@ -5333,9 +5344,9 @@ static void rna_def_modifier_gpencilarray(BlenderRNA *brna)
 	
 	prop = RNA_def_property(srna, "use_make_objects", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_ARRAY_MAKE_OBJECTS);
-	RNA_def_property_ui_text(prop, "Make As Objects", 
+	RNA_def_property_ui_text(prop, "Make Objects", 
 		"When applying this modifier, instances get created as separate objects");
-	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+	RNA_def_property_update(prop, 0, "rna_Modifier_gpencil_update");
 }
 
 static void rna_def_modifier_gpencildupli(BlenderRNA *brna)

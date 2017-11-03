@@ -1710,9 +1710,9 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
     def GP_ARRAY(self, layout, ob, md):
         gpd = ob.data
 
-        split = layout.split()
-        col = split.column()
+        col = layout.column()
         col.prop(md, "count")
+        col.prop(md, "use_make_objects")
 
         split = layout.split()
         col = split.column()
@@ -1725,8 +1725,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         row = col.row(align=True)
         row.prop(md, "lock_axis", expand=True)
 
-        row = layout.row()
-        split = row.split()
+        split = layout.split()
         col = split.column()
         col.label("Rotation:")
         col.prop(md, "rotation", text="")
@@ -1752,8 +1751,6 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         row = col.row(align=True)
         row.prop(md, "pass_index", text="Pass")
         row.prop(md, "inverse_pass", text="", icon="ARROW_LEFTRIGHT")
-
-        row.row(md, "use_make_objects")
 
     def GP_DUPLI(self, layout, ob, md):
         gpd = ob.data

@@ -1196,4 +1196,83 @@ struct GPUTexture *DRW_gpencil_create_blank_texture(int width, int height)
 	return tex;
 }
 
+/* Helper for gpencil_array_modifiers()
+ * See also MOD_gpencilarray.c -> bakeModifierGP()
+ */
+static void gp_array_modifier_make_instances(GPENCIL_StorageList *stl, Object *ob, GpencilArrayModifierData *mmd)
+{
+	/* reset random */
+	mmd->rnd[0] = 1;
+	
+	/* Generate instances */
+	for (int x = 0; x < mmd->count[0]; x++) {
+		for (int y = 0; y < mmd->count[1]; y++) {
+			for (int z = 0; z < mmd->count[2]; z++) {
+				Object *newob;
+				
+				const int elem_idx[3] = {x, y, z};
+				float mat[4][4];
+				int sh;
+				
+				/* original strokes are at index = 0,0,0 */
+				if ((x == 0) && (y == 0) && (z == 0)) {
+					continue;
+				}
+				
+				/* compute transform for instance */
+				BKE_gpencil_array_modifier_instance_tfm(mmd, elem_idx, mat);
+
+				/* add object to cache */
+				newob = MEM_dupallocN(ob);
+				newob->mode = -1; /* use this mark to delete later */
+				mul_m4_m4m4(newob->obmat, mat, ob->obmat);
+				
+				/* apply scale */
+				ARRAY_SET_ITEMS(newob->size, mat[0][0], mat[1][1], mat[2][2]);
+				
+				/* apply shift */
+				sh = x;
+				if (mmd->lock_axis == GP_LOCKAXIS_Y) {
+					sh = y;
+				}
+				if (mmd->lock_axis == GP_LOCKAXIS_Z) {
+					sh = z;
+				}
+				madd_v3_v3fl(newob->obmat[3], mmd->shift, sh);
+				
+				/* add temp object to cache */
+				stl->g_data->gp_object_cache = gpencil_object_cache_allocate(stl->g_data->gp_object_cache, &stl->g_data->gp_cache_size, &stl->g_data->gp_cache_used);
+				gpencil_object_cache_add(stl->g_data->gp_object_cache, newob, &stl->g_data->gp_cache_used);
+			}
+		}
+	}
+}
+
+/* create instances using array modifiers */
+void gpencil_array_modifiers(GPENCIL_StorageList *stl, Object *ob)
+{
+	if ((ob) && (ob->data)) {
+		bGPdata *gpd = ob->data;
+		if (GPENCIL_ANY_EDIT_MODE(gpd)) {
+			return;
+		}
+	}
+
+	for (ModifierData *md = ob->modifiers.first; md; md = md->next) {
+		if (((md->mode & eModifierMode_Realtime) && ((G.f & G_RENDER_OGL) == 0)) ||
+		    ((md->mode & eModifierMode_Render) && (G.f & G_RENDER_OGL)))
+		{
+			if (md->type == eModifierType_GpencilArray) {
+				GpencilArrayModifierData *mmd = (GpencilArrayModifierData *)md;
+				
+				/* Only add instances if the "Make Objects" flag is set
+				 * FIXME: This is a workaround for z-ordering weirdness when all instances are in the same object
+				 */
+				if (mmd->flag & GP_ARRAY_MAKE_OBJECTS) {
+					gp_array_modifier_make_instances(stl, ob, mmd);
+				}
+			}
+		}
+	}
+}
 

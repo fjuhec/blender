@@ -201,6 +201,8 @@ void BKE_gpencil_geometry_modifiers(struct Object *ob, struct bGPDlayer *gpl, st
 
 void BKE_gpencil_stroke_normal(const struct bGPDstroke *gps, float r_normal[3]);
 
+void BKE_gpencil_array_modifier_instance_tfm(struct GpencilArrayModifierData *mmd, const int elem_idx[3], float r_mat[4][4]);
+
 void BKE_gpencil_simplify_modifier(int id, struct GpencilSimplifyModifierData *mmd, struct Object *ob, struct bGPDlayer *gpl, struct bGPDstroke *gps);
 
 /* (wrapper api) simplify stroke using Ramer-Douglas-Peucker algorithm */

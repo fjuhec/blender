@@ -73,6 +73,7 @@ static void initData(ModifierData *md)
 	gpmd->rnd_rot = 0.5f;
 	gpmd->rnd_size = 0.5f;
 	gpmd->lock_axis |= GP_LOCKAXIS_X;
+	gpmd->flag |= GP_ARRAY_MAKE_OBJECTS;
 	
 	/* fill random values */
 	gp_mod_fill_random_array(gpmd->rnd, 20);
@@ -87,7 +88,7 @@ static void copyData(ModifierData *md, ModifierData *target)
 /* -------------------------------- */
 
 /* helper function for per-instance positioning */
-static void gpencil_array_modifier_calc_matrix(GpencilArrayModifierData *mmd, const int elem_idx[3], float r_mat[4][4])
+void BKE_gpencil_array_modifier_instance_tfm(GpencilArrayModifierData *mmd, const int elem_idx[3], float r_mat[4][4])
 {
 	float offset[3], rot[3], scale[3];
 	int ri = mmd->rnd[0];
@@ -131,9 +132,9 @@ static void gpencil_array_modifier_calc_matrix(GpencilArrayModifierData *mmd, co
 
 /* array modifier - generate geometry callback (for viewport/rendering) */
 /* TODO: How to skip this for the simplify options?   -->  !GP_SIMPLIFY_MODIF(ts, playing) */
-static void generateStrokes(ModifierData *md, const EvaluationContext *eval_ctx,
-	                        Object *ob, bGPDlayer *gpl, bGPDframe *gpf,
-	                        int modifier_index)
+static void generate_geometry(ModifierData *md, const EvaluationContext *eval_ctx,
+	                          Object *ob, bGPDlayer *gpl, bGPDframe *gpf,
+	                          int modifier_index)
 {
 	GpencilArrayModifierData *mmd = (GpencilArrayModifierData *)md;
 	ListBase stroke_cache = {NULL, NULL};
@@ -188,7 +189,7 @@ static void generateStrokes(ModifierData *md, const EvaluationContext *eval_ctx,
 				const int elem_idx[3] = {x, y, z};
 				float mat[4][4];
 				
-				gpencil_array_modifier_calc_matrix(mmd, elem_idx, mat);
+				BKE_gpencil_array_modifier_instance_tfm(mmd, elem_idx, mat);
 				
 				/* Duplicate original strokes to create this instance */
 				/* TODO: Do we need to accelerate this by caching which strokes can be used? */
@@ -230,14 +231,14 @@ static void generateStrokes(ModifierData *md, const EvaluationContext *eval_ctx,
 }
 
 /* bakeModifierGP - "Bake to Data" Mode */
-static void bakeModifierGP__make_strokes(const bContext *C, const EvaluationContext *eval_ctx,
+static void bakeModifierGP_strokes(const bContext *C, const EvaluationContext *eval_ctx,
                                       ModifierData *md, Object *ob)
 {
 	bGPdata *gpd = ob->data;
 
 	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
 		for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
-			generateStrokes(md, eval_ctx, ob, gpl, gpf, -1);
+			generate_geometry(md, eval_ctx, ob, gpl, gpf, -1);
 		}
 	}
 }
@@ -267,7 +268,7 @@ static Object *object_add_type(const bContext *C,	int UNUSED(type), const char *
 }
 
 /* bakeModifierGP - "Make Objects" Mode */
-static void bakeModifierGP__make_objects(const bContext *C, ModifierData *md, Object *ob)
+static void bakeModifierGP_objects(const bContext *C, ModifierData *md, Object *ob)
 {
 	GpencilArrayModifierData *mmd = (GpencilArrayModifierData *)md;
 	Main *bmain = CTX_data_main(C);
@@ -292,7 +293,7 @@ static void bakeModifierGP__make_objects(const bContext *C, ModifierData *md, Ob
 				}
 				
 				/* compute transform for instance */
-				gpencil_array_modifier_calc_matrix(mmd, elem_idx, mat);
+				BKE_gpencil_array_modifier_instance_tfm(mmd, elem_idx, mat);
 				mul_m4_m4m4(finalmat, mat, ob->obmat);
 
 				/* create a new object and new gp datablock */
@@ -331,17 +332,40 @@ static void bakeModifierGP__make_objects(const bContext *C, ModifierData *md, Ob
 
 /* -------------------------------- */
 
+/* Generic "generateStrokes" callback */
+static void generateStrokes(ModifierData *md, const EvaluationContext *eval_ctx,
+	                        Object *ob, bGPDlayer *gpl, bGPDframe *gpf,
+	                        int modifier_index)
+{
+	GpencilArrayModifierData *mmd = (GpencilArrayModifierData *)md;
+	
+	/* When the "make_objects" flag is set, this modifier is handled as part of the 
+	 * draw engine instead. The main benefit is that the instances won't suffer from
+	 * z-ordering problems.
+	 *
+	 * FIXME: Ultimately, the draw-engine hack here shouldn't be necessary, but until
+	 *        we find a better fix to the z-ordering problems, it's better to have
+	 *        working functionality
+	 */
+	if ((mmd->flag & GP_ARRAY_MAKE_OBJECTS) == 0) {
+		generate_geometry(md, eval_ctx, ob, gpl, gpf, modifier_index);
+	}
+}
+
+/* Generic "bakeModifierGP" callback */
 static void bakeModifierGP(const bContext *C, const EvaluationContext *eval_ctx,
                            ModifierData *md, Object *ob)
 {
 	GpencilArrayModifierData *mmd = (GpencilArrayModifierData *)md;
 	
-	/* Create new objects or add all to current datablock */
+	/* Create new objects or add all to current datablock.
+	 * Sometimes it's useful to have the option to do either of these...
+	 */
 	if (mmd->flag & GP_ARRAY_MAKE_OBJECTS) {
-		bakeModifierGP__make_objects(C, md, ob);
+		bakeModifierGP_objects(C, md, ob);
 	}
 	else {
-		bakeModifierGP__make_strokes(C, eval_ctx, md, ob);
+		bakeModifierGP_strokes(C, eval_ctx, md, ob);
 	}
 }
 
