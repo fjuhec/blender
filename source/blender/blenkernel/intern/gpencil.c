@@ -2168,16 +2168,16 @@ void BKE_gpencil_vgroup_remove(Object *ob, bDeformGroup *defgroup)
 		for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
 			for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
 				for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
-					for (int i = 0; i < gps->totpoints; ++i) {
+					for (int i = 0; i < gps->totpoints; i++) {
 						pt = &gps->points[i];
-						for (int i2 = 0; i2 < pt->totweight; ++i2) {
+						for (int i2 = 0; i2 < pt->totweight; i2++) {
 							gpw = &pt->weights[i2];
 							if (gpw->index == def_nr) {
 								BKE_gpencil_vgroup_remove_point_weight(pt, def_nr);
 							}
 							/* if index is greater, must be moved one back */
 							if (gpw->index > def_nr) {
-								--gpw->index;
+								gpw->index--;
 							}
 						}
 					}
@@ -2197,7 +2197,7 @@ bGPDweight *BKE_gpencil_vgroup_add_point_weight(bGPDspoint *pt, int index, float
 	bGPDweight *tmp_gpw;
 
 	/* need to verify if was used before to update */
-	for (int i = 0; i < pt->totweight; ++i) {
+	for (int i = 0; i < pt->totweight; i++) {
 		tmp_gpw = &pt->weights[i];
 		if (tmp_gpw->index == index) {
 			tmp_gpw->factor = weight;
@@ -2223,7 +2223,7 @@ bGPDweight *BKE_gpencil_vgroup_add_point_weight(bGPDspoint *pt, int index, float
 float BKE_gpencil_vgroup_use_index(bGPDspoint *pt, int index)
 {
 	bGPDweight *gpw;
-	for (int i = 0; i < pt->totweight; ++i) {
+	for (int i = 0; i < pt->totweight; i++) {
 		gpw = &pt->weights[i];
 		if (gpw->index == index) {
 			return gpw->factor;
@@ -2253,17 +2253,17 @@ bool BKE_gpencil_vgroup_remove_point_weight(bGPDspoint *pt, int index)
 	MEM_SAFE_FREE(pt->weights);
 	pt->weights = MEM_callocN(sizeof(bGPDweight) * pt->totweight - 1, "gp_weights");
 
-	for (int x = 0; x < pt->totweight; ++x) {
+	for (int x = 0; x < pt->totweight; x++) {
 		bGPDweight *gpw = &tmp[e];
 		bGPDweight *final_gpw = &pt->weights[e];
 		if (gpw->index != index) {
 			final_gpw->index = gpw->index;
 			final_gpw->factor = gpw->factor;
-			++e;
+			e++;
 		}
 	}
 	MEM_SAFE_FREE(tmp);
-	--pt->totweight;
+	pt->totweight--;
 
 	return true;
 }
