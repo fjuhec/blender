@@ -334,13 +334,6 @@ static bool object_modifier_remove(Main *bmain, Object *ob, ModifierData *md,
 	modifier_free(md);
 	BKE_object_free_derived_caches(ob);
 
-	/* if grease pencil, need refresh cache */
-#if 0 // XXX: Review this (aligorith)
-	if (ob->type == OB_GPENCIL) {
-		BKE_gpencil_batch_cache_dirty(ob->gpd);
-	}
-#endif
-
 	return 1;
 }
 
@@ -927,13 +920,6 @@ static int modifier_remove_exec(bContext *C, wmOperator *op)
 		if ((ob->mode & OB_MODE_PARTICLE_EDIT) == 0)
 			if (sl->basact && sl->basact->object == ob)
 				WM_event_add_notifier(C, NC_SCENE | ND_MODE | NS_MODE_OBJECT, NULL);
-	
-	/* if grease pencil, need refresh cache */
-#if 0 // XXX: Review this (aligorith)
-	if (ob->type == OB_GPENCIL) {
-		BKE_gpencil_batch_cache_dirty(ob->data);
-	}
-#endif
 
 	return OPERATOR_FINISHED;
 }
@@ -974,13 +960,6 @@ static int modifier_move_up_exec(bContext *C, wmOperator *op)
 	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, ob);
 
-	/* if grease pencil, need refresh cache */
-#if 0 // XXX: Review this (aligorith)
-	if (ob->type == OB_GPENCIL) {
-		BKE_gpencil_batch_cache_dirty(ob->data);
-	}
-#endif
-
 	return OPERATOR_FINISHED;
 }
 
@@ -1019,13 +998,6 @@ static int modifier_move_down_exec(bContext *C, wmOperator *op)
 
 	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, ob);
-
-	/* if grease pencil, need refresh cache */
-#if 0 // XXX: Review this (aligorith)
-	if (ob->type == OB_GPENCIL) {
-		BKE_gpencil_batch_cache_dirty(ob->data);
-	}
-#endif
 
 	return OPERATOR_FINISHED;
 }
@@ -1157,13 +1129,6 @@ static int modifier_copy_exec(bContext *C, wmOperator *op)
 
 	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, ob);
-
-	/* if grease pencil, need refresh cache */
-#if 0 // XXX: Review this (aligorith)
-	if (ob->type == OB_GPENCIL) {
-		BKE_gpencil_batch_cache_dirty(ob->data);
-	}
-#endif
 
 	return OPERATOR_FINISHED;
 }
