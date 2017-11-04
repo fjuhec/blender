@@ -672,8 +672,14 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 	/* Get evaluation context */
 	const DRWContextState *draw_ctx = DRW_context_state_get();
 	const bContext *C = draw_ctx->evil_C;
-	EvaluationContext eval_ctx;
-	CTX_data_eval_ctx(C, &eval_ctx);
+
+	EvaluationContext eval_ctx = {0};
+	if (C) {
+		/* NOTE: We must check if C is valid, otherwise we get crashes when trying to save files
+		 * (i.e. the thumbnail offscreen rendering fails) 
+		 */
+		CTX_data_eval_ctx(C, &eval_ctx);
+	}
 
 	/* get parent matrix and save as static data */
 	ED_gpencil_parent_location(ob, gpd, gpl, viewmatrix);
