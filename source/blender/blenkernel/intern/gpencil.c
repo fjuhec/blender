@@ -2153,6 +2153,43 @@ BoundBox *BKE_gpencil_boundbox_get(Object *ob)
 }
 
 /* ************************************************** */
+/* Apply Transforms */
+
+void BKE_gpencil_transform(bGPdata *gpd, float mat[4][4])
+{
+	if (gpd == NULL)
+		return;
+	
+	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+		/* FIXME: For now, we just skip parented layers.
+		 * Otherwise, we have to update each frame to find
+		 * the current parent position/effects.
+		 */
+		if (gpl->parent) {
+			continue;
+		}
+		
+		for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
+			for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
+				bGPDspoint *pt;
+				int i;
+				
+				for (pt = gps->points, i = 0; i < gps->totpoints; pt++, i++) {
+					mul_m4_v3(mat, &pt->x);
+				}
+				
+				/* TODO: Do we need to do this? distortion may mean we need to re-triangulate */
+				gps->flag |= GP_STROKE_RECALC_CACHES;
+				gps->tot_triangles = 0;
+			}
+		}
+	}
+	
+	
+	BKE_gpencil_batch_cache_dirty(gpd);
+}
+
+/* ************************************************** */
 /* GP Object - Vertex Groups */
 
 /* remove a vertex group */
