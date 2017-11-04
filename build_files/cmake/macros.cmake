@@ -668,11 +668,6 @@ function(SETUP_BLENDER_SORTED_LIBS)
 		bf_intern_glew_mx
 	)
 
-	# tenative fix for linux missing flatten_coverage symbol cause of contradictionary ordering
-	if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-		list(APPEND BLENDER_SORTED_LIBS cycles_render)
-	endif()
-
 	if(NOT WITH_SYSTEM_GLOG)
 		list(APPEND BLENDER_SORTED_LIBS extern_glog)
 	endif()
