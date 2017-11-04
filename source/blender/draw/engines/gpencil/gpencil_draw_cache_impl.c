@@ -165,6 +165,7 @@ static void gpencil_batch_cache_check_free_slots(Object *ob, bGPdata *UNUSED(gpd
 		gpencil_batch_cache_resize(cache, cache->cache_size);
 	}
 }
+
 /* cache init */
 static void gpencil_batch_cache_init(Object *ob, int cfra)
 {
@@ -197,7 +198,7 @@ static void gpencil_batch_cache_init(Object *ob, int cfra)
 	cache->cache_frame = cfra;
 }
 
-/*  clear cache */
+/* clear cache */
 static void gpencil_batch_cache_clear(GpencilBatchCache *cache, bGPdata *gpd)
 {
 	if (!cache) {
@@ -249,7 +250,7 @@ static GpencilBatchCache *gpencil_batch_cache_get(Object *ob, int cfra)
 	return gpencil_batch_get_element(ob);
 }
 
- /* create shading group for filling */
+/* create shading group for filling */
 static DRWShadingGroup *DRW_gpencil_shgroup_fill_create(GPENCIL_e_data *e_data, GPENCIL_Data *vedata, DRWPass *pass, 
 	GPUShader *shader, bGPdata *gpd, PaletteColor *palcolor, int id)
 {
@@ -655,6 +656,22 @@ static void gpencil_draw_onion_strokes(GpencilBatchCache *cache, GPENCIL_e_data 
 	}
 }
 
+
+/* Construct eval_ctx from draw_ctx state
+ * Note: This function copies CTX_data_eval_ctx() / DEG_evaluation_context_init_from_scene()
+ */
+static void gpencil_init_evalctx_from_drawctx(const DRWContextState *draw_ctx, EvaluationContext *eval_ctx)
+{
+	Scene *scene = draw_ctx->scene;
+	if (scene) {
+		eval_ctx->depsgraph = scene->depsgraph_legacy;
+		eval_ctx->ctime = BKE_scene_frame_get(scene);
+	}
+
+	eval_ctx->scene_layer = draw_ctx->scene_layer;
+	eval_ctx->engine = draw_ctx->engine;
+}
+
 /* main function to draw strokes */
 static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_data, void *vedata, ToolSettings *ts, Object *ob,
 	bGPdata *gpd, bGPDlayer *gpl, bGPDframe *src_gpf, bGPDframe *derived_gpf,
@@ -670,15 +687,18 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 	bool playing = (bool)stl->storage->playing;
 
 	/* Get evaluation context */
+	/* NOTE: We must check if C is valid, otherwise we get crashes when trying to save files
+	 * (i.e. the thumbnail offscreen rendering fails) 
+	 */
 	const DRWContextState *draw_ctx = DRW_context_state_get();
 	const bContext *C = draw_ctx->evil_C;
 
 	EvaluationContext eval_ctx = {0};
 	if (C) {
-		/* NOTE: We must check if C is valid, otherwise we get crashes when trying to save files
-		 * (i.e. the thumbnail offscreen rendering fails) 
-		 */
 		CTX_data_eval_ctx(C, &eval_ctx);
+	}
+	else {
+		gpencil_init_evalctx_from_drawctx(draw_ctx, &eval_ctx);
 	}
 
 	/* get parent matrix and save as static data */
