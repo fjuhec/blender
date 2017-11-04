@@ -189,6 +189,10 @@ static void ed_keymap_gpencil_selection(wmKeyMap *keymap)
 	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_select", SELECTMOUSE, KM_PRESS, KM_ALT, 0);
 	RNA_boolean_set(kmi->ptr, "entire_strokes", true);
 
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_select", SELECTMOUSE, KM_PRESS, KM_ALT | KM_SHIFT, 0);
+	RNA_boolean_set(kmi->ptr, "entire_strokes", true);
+	RNA_boolean_set(kmi->ptr, "extend", true);
+
 	/* select linked */
 	/* NOTE: While LKEY is redundant, not having it breaks the mode illusion too much */
 	WM_keymap_add_item(keymap, "GPENCIL_OT_select_linked", LKEY, KM_PRESS, 0, 0);
