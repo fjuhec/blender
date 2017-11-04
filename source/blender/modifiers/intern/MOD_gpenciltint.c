@@ -114,6 +114,10 @@ static void bakeModifierGP(const bContext *C, const EvaluationContext *eval_ctx,
 	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
 		for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
 			for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
+				/* skip stroke if it doesn't have color info */
+				if (ELEM(NULL, gps->palette, gps->palcolor))
+					continue;
+				
 				/* look for palette */
 				gh_color = (GHash *)BLI_ghash_lookup(gh_layer, gps->palette->id.name);
 				if (gh_color == NULL) {
