@@ -64,6 +64,7 @@
 
 #include "BKE_animsys.h"
 #include "BKE_curve.h"
+#include "BKE_gpencil.h"
 #include "BKE_key.h"
 #include "BKE_nla.h"
 #include "BKE_context.h"
@@ -4123,8 +4124,15 @@ static void achannel_setting_flush_widget_cb(bContext *C, void *ale_npoin, void 
 		return;
 	}
 
-	if (ale_setting->type == ANIMTYPE_GPLAYER)
+	if (ale_setting->type == ANIMTYPE_GPLAYER) {
+		/* draw cache updates for settings that affect the visible strokes */
+		if (setting == ACHANNEL_SETTING_VISIBLE) {
+			BKE_gpencil_batch_cache_dirty((bGPdata *)ale_setting->id);
+		}
+		
+		/* UI updates */
 		WM_event_add_notifier(C, NC_GPENCIL | ND_DATA, NULL);
+	}
 	
 	/* verify animation context */
 	if (ANIM_animdata_get_context(C, &ac) == 0)
