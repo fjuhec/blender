@@ -32,6 +32,7 @@
  */
 
 struct bContext;
+struct EvaluationContext;
 struct ToolSettings;
 struct ListBase;
 struct bGPdata;
@@ -188,8 +189,13 @@ void BKE_gpencil_stroke_weights_duplicate(struct bGPDstroke *gps_src, struct bGP
 
 /* modifiers */
 bool BKE_gpencil_has_geometry_modifiers(struct Object *ob);
-void BKE_gpencil_stroke_modifiers(struct Object *ob, struct bGPDlayer *gpl, struct bGPDframe *gpf, struct bGPDstroke *gps);
-void BKE_gpencil_geometry_modifiers(struct Object *ob, struct bGPDlayer *gpl, struct bGPDframe *gpf);
+
+void BKE_gpencil_stroke_modifiers(
+		struct EvaluationContext *eval_ctx, struct Object *ob, 
+		struct bGPDlayer *gpl, struct bGPDframe *gpf, struct bGPDstroke *gps);
+void BKE_gpencil_geometry_modifiers(
+		struct EvaluationContext *eval_ctx, struct Object *ob, 
+		struct bGPDlayer *gpl, struct bGPDframe *gpf);
 
 void BKE_gpencil_array_modifier_instance_tfm(struct GpencilArrayModifierData *mmd, const int elem_idx[3], float r_mat[4][4]);
 

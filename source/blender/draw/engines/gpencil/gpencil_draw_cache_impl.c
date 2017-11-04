@@ -43,6 +43,9 @@
 #include "GPU_shader.h"
 #include "GPU_texture.h"
 
+/* For EvaluationContext... */
+#include "DEG_depsgraph.h"
+
 #include "IMB_imbuf_types.h"
 
 #include "draw_cache_impl.h"
@@ -666,6 +669,11 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 	bool is_multiedit = (bool)GPENCIL_MULTIEDIT_SESSIONS_ON(gpd);
 	bool playing = (bool)stl->storage->playing;
 
+	/* Get evaluation context */
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	const bContext *C = draw_ctx->evil_C;
+	EvaluationContext eval_ctx;
+	CTX_data_eval_ctx(C, &eval_ctx);
 
 	/* get parent matrix and save as static data */
 	ED_gpencil_parent_location(ob, gpd, gpl, viewmatrix);
@@ -675,7 +683,7 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 	if ((cache->is_dirty) && (ob->modifiers.first) && (!is_multiedit)) {
 		if (!GP_SIMPLIFY_MODIF(ts, playing)) {
 			if (BKE_gpencil_has_geometry_modifiers(ob)) {
-				BKE_gpencil_geometry_modifiers(ob, gpl, derived_gpf);
+				BKE_gpencil_geometry_modifiers(&eval_ctx, ob, gpl, derived_gpf);
 			}
 		}
 	}
@@ -745,7 +753,7 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 			/* apply modifiers (only modify geometry, but not create ) */
 			if ((cache->is_dirty) && (ob->modifiers.first) && (!is_multiedit)) {
 				if (!GP_SIMPLIFY_MODIF(ts, playing)) {
-					BKE_gpencil_stroke_modifiers(ob, gpl, derived_gpf, gps);
+					BKE_gpencil_stroke_modifiers(&eval_ctx, ob, gpl, derived_gpf, gps);
 				}
 			}
 			/* fill */
