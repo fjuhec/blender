@@ -304,6 +304,9 @@ typedef struct uiHandleButtonData {
 	bool used_mouse;
 	wmTimer *autoopentimer;
 
+	/* auto open (hold) */
+	wmTimer *hold_action_timer;
+
 	/* text selection/editing */
 	/* size of 'str' (including terminator) */
 	int maxlen;
@@ -1287,7 +1290,7 @@ static bool ui_drag_toggle_set_xy_xy(
 		}
 	}
 	if (changed) {
-		/* apply now, not on release (or if handlers are cancelled for whatever reason) */
+		/* apply now, not on release (or if handlers are canceled for whatever reason) */
 		ui_apply_but_funcs_after(C);
 	}
 
@@ -6541,8 +6544,9 @@ static void but_shortcut_name_func(bContext *C, void *arg1, int UNUSED(event))
 		IDProperty *prop = (but->opptr) ? but->opptr->data : NULL;
 		
 		/* complex code to change name of button */
-		if (WM_key_event_operator_string(C, but->optype->idname, but->opcontext, prop, true,
-		                                 sizeof(shortcut_str), shortcut_str))
+		if (WM_key_event_operator_string(
+		        C, but->optype->idname, but->opcontext, prop, true,
+		        shortcut_str, sizeof(shortcut_str)))
 		{
 			ui_but_add_shortcut(but, shortcut_str, true);
 		}
@@ -6790,12 +6794,6 @@ static bool ui_but_menu(bContext *C, uiBut *but)
 		bool is_set = RNA_property_is_set(ptr, prop);
 
 		RNA_property_override_status(ptr, prop, -1, &is_overridable, NULL, NULL, NULL);
-
-		/* set the prop and pointer data for python access to the hovered ui element; TODO, index could be supported as well*/
-		PointerRNA temp_ptr;
-		RNA_pointer_create(NULL, &RNA_Property, but->rnaprop, &temp_ptr);
-		uiLayoutSetContextPointer(layout, "button_prop", &temp_ptr);
-		uiLayoutSetContextPointer(layout, "button_pointer", ptr);
 
 		/* second slower test, saved people finding keyframe items in menus when its not possible */
 		if (is_anim)
@@ -7060,9 +7058,7 @@ static bool ui_but_menu(bContext *C, uiBut *but)
 		}
 
 		/* Set the operator pointer for python access */
-		if (but->opptr) {
-			uiLayoutSetContextPointer(layout, "button_operator", but->opptr);
-		}
+		uiLayoutSetContextFromBut(layout, but);
 
 		uiItemS(layout);
 	}
@@ -7114,10 +7110,7 @@ static bool ui_but_menu(bContext *C, uiBut *but)
 
 	mt = WM_menutype_find("WM_MT_button_context", true);
 	if (mt) {
-		Menu menu = {NULL};
-		menu.layout = uiLayoutColumn(layout, false);
-		menu.type = mt;
-		mt->draw(C, &menu);
+		UI_menutype_draw(C, mt, uiLayoutColumn(layout, false));
 	}
 
 	UI_popup_menu_end(C, pup);
@@ -7859,6 +7852,15 @@ static void button_activate_state(bContext *C, uiBut *but, uiHandleButtonState s
 		data->flashtimer = NULL;
 	}
 
+	/* add hold timer if it's used */
+	if (state == BUTTON_STATE_WAIT_RELEASE && (but->hold_func != NULL)) {
+		data->hold_action_timer = WM_event_add_timer(data->wm, data->window, TIMER, BUTTON_AUTO_OPEN_THRESH);
+	}
+	else if (data->hold_action_timer) {
+		WM_event_remove_timer(data->wm, data->window, data->hold_action_timer);
+		data->hold_action_timer = NULL;
+	}
+
 	/* add a blocking ui handler at the window handler for blocking, modal states
 	 * but not for popups, because we already have a window level handler*/
 	if (!(but->block->handle && but->block->handle->popup)) {
@@ -8077,7 +8079,7 @@ static void button_activate_exit(
 		ui_but_update(but);
 
 	/* adds empty mousemove in queue for re-init handler, in case mouse is
-	 * still over a button. we cannot just check for this ourselfs because
+	 * still over a button. We cannot just check for this ourselves because
 	 * at this point the mouse may be over a button in another region */
 	if (mousemove)
 		WM_event_add_mousemove(C);
@@ -8474,6 +8476,25 @@ static int ui_handle_button_event(bContext *C, const wmEvent *event, uiBut *but)
 				button_activate_state(C, but, BUTTON_STATE_EXIT);
 				break;
 
+			case TIMER:
+			{
+				if (event->customdata == data->hold_action_timer) {
+					if (true) {
+						data->cancel = true;
+						button_activate_state(C, but, BUTTON_STATE_EXIT);
+					}
+					else {
+						/* Do this so we can still mouse-up, closing the menu and running the button.
+						 * This is nice to support but there are times when the button gets left pressed.
+						 * Keep disavled for now. */
+						WM_event_remove_timer(data->wm, data->window, data->hold_action_timer);
+						data->hold_action_timer = NULL;
+					}
+					retval = WM_UI_HANDLER_CONTINUE;
+					but->hold_func(C, data->region, but);
+				}
+				break;
+			}
 			case MOUSEMOVE:
 				if (ELEM(but->type, UI_BTYPE_LINK, UI_BTYPE_INLINK)) {
 					but->flag |= UI_SELECT;
@@ -9400,21 +9421,29 @@ static int ui_handle_menu_event(
 			if (inside == 0) {
 				uiSafetyRct *saferct = block->saferct.first;
 
-				if (ELEM(event->type, LEFTMOUSE, MIDDLEMOUSE, RIGHTMOUSE) &&
-				    ELEM(event->val, KM_PRESS, KM_DBL_CLICK))
-				{
-					if ((is_parent_menu == false) && (U.uiflag & USER_MENUOPENAUTO) == 0) {
-						/* for root menus, allow clicking to close */
-						if (block->flag & (UI_BLOCK_OUT_1))
-							menu->menuretval = UI_RETURN_OK;
-						else
-							menu->menuretval = UI_RETURN_OUT;
+				if (ELEM(event->type, LEFTMOUSE, MIDDLEMOUSE, RIGHTMOUSE)) {
+					if (ELEM(event->val, KM_PRESS, KM_DBL_CLICK)) {
+						if ((is_parent_menu == false) && (U.uiflag & USER_MENUOPENAUTO) == 0) {
+							/* for root menus, allow clicking to close */
+							if (block->flag & (UI_BLOCK_OUT_1))
+								menu->menuretval = UI_RETURN_OK;
+							else
+								menu->menuretval = UI_RETURN_OUT;
+						}
+						else if (saferct && !BLI_rctf_isect_pt(&saferct->parent, event->x, event->y)) {
+							if (block->flag & (UI_BLOCK_OUT_1))
+								menu->menuretval = UI_RETURN_OK;
+							else
+								menu->menuretval = UI_RETURN_OUT;
+						}
 					}
-					else if (saferct && !BLI_rctf_isect_pt(&saferct->parent, event->x, event->y)) {
-						if (block->flag & (UI_BLOCK_OUT_1))
-							menu->menuretval = UI_RETURN_OK;
-						else
-							menu->menuretval = UI_RETURN_OUT;
+					else if (ELEM(event->val, KM_RELEASE, KM_CLICK)) {
+						/* For buttons that use a hold function, exit when mouse-up outside the menu. */
+						if (block->flag & UI_BLOCK_POPUP_HOLD) {
+							/* Note, we could check the cursor is over the parent button. */
+							menu->menuretval = UI_RETURN_CANCEL;
+							retval = WM_UI_HANDLER_CONTINUE;
+						}
 					}
 				}
 			}

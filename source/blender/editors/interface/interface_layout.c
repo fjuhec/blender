@@ -710,7 +710,7 @@ static uiBut *ui_item_with_label(uiLayout *layout, uiBlock *block, const char *n
 		if (RNA_struct_is_a(ptr->type, &RNA_KeyMapItem)) {
 			char buf[128];
 
-			WM_keymap_item_to_string(ptr->data, false, sizeof(buf), buf);
+			WM_keymap_item_to_string(ptr->data, false, buf, sizeof(buf));
 
 			but = uiDefButR_prop(block, UI_BTYPE_HOTKEY_EVENT, 0, buf, x, y, w, h, ptr, prop, 0, 0, 0, -1, -1, NULL);
 			UI_but_func_set(but, ui_keymap_but_cb, but, NULL);
@@ -795,7 +795,7 @@ static void ui_item_disabled(uiLayout *layout, const char *name)
  * \param r_opptr: Optional, initialize with operator properties when not NULL.
  * Will always be written to even in the case of errors.
  */
-void uiItemFullO_ptr(
+static uiBut *uiItemFullO_ptr_ex(
         uiLayout *layout, wmOperatorType *ot,
         const char *name, int icon, IDProperty *properties, int context, int flag,
         PointerRNA *r_opptr)
@@ -845,6 +845,10 @@ void uiItemFullO_ptr(
 	if (flag & UI_ITEM_R_NO_BG)
 		UI_block_emboss_set(block, UI_EMBOSS);
 
+	if (flag & UI_ITEM_O_DEPRESS) {
+		but->flag |= UI_SELECT_DRAW;
+	}
+
 	if (layout->redalert)
 		UI_but_flag_enable(but, UI_BUT_REDALERT);
 
@@ -862,6 +866,48 @@ void uiItemFullO_ptr(
 			*r_opptr = *opptr;
 		}
 	}
+
+	return but;
+}
+
+static void ui_item_hold_menu(struct bContext *C, ARegion *butregion, uiBut *but)
+{
+	uiPopupMenu *pup = UI_popup_menu_begin(C, "", ICON_NONE);
+	uiLayout *layout = UI_popup_menu_layout(pup);
+	uiBlock *block = layout->root->block;
+	UI_popup_menu_but_set(pup, butregion, but);
+
+	block->flag |= UI_BLOCK_POPUP_HOLD;
+
+	const char *menu_id = but->hold_argN;
+	MenuType *mt = WM_menutype_find(menu_id, true);
+	if (mt) {
+		uiLayoutSetContextFromBut(layout, but);
+		UI_menutype_draw(C, mt, layout);
+	}
+	else {
+		uiItemL(layout, "Menu Missing:", ICON_NONE);
+		uiItemL(layout, menu_id, ICON_NONE);
+	}
+	UI_popup_menu_end(C, pup);
+}
+
+void uiItemFullO_ptr(
+        uiLayout *layout, wmOperatorType *ot,
+        const char *name, int icon, IDProperty *properties, int context, int flag,
+        PointerRNA *r_opptr)
+{
+	uiItemFullO_ptr_ex(layout, ot, name, icon, properties, context, flag, r_opptr);
+}
+
+void uiItemFullOMenuHold_ptr(
+        uiLayout *layout, wmOperatorType *ot,
+        const char *name, int icon, IDProperty *properties, int context, int flag,
+        const char *menu_id,
+        PointerRNA *r_opptr)
+{
+	uiBut *but = uiItemFullO_ptr_ex(layout, ot, name, icon, properties, context, flag, r_opptr);
+	UI_but_func_hold_set(but, ui_item_hold_menu, BLI_strdup(menu_id));
 }
 
 void uiItemFullO(
@@ -875,7 +921,7 @@ void uiItemFullO(
 	        ot, opname, {
 	            if (r_opptr) {
 	                *r_opptr = PointerRNA_NULL;
-	            };
+	            }
 	            return;
 	        });
 
@@ -1812,22 +1858,8 @@ void uiItemPointerR(uiLayout *layout, struct PointerRNA *ptr, const char *propna
 static void ui_item_menutype_func(bContext *C, uiLayout *layout, void *arg_mt)
 {
 	MenuType *mt = (MenuType *)arg_mt;
-	Menu menu = {NULL};
 
-	menu.type = mt;
-	menu.layout = layout;
-
-	if (G.debug & G_DEBUG_WM) {
-		printf("%s: opening menu \"%s\"\n", __func__, mt->idname);
-	}
-
-	if (layout->context)
-		CTX_store_set(C, layout->context);
-
-	mt->draw(C, &menu);
-
-	if (layout->context)
-		CTX_store_set(C, NULL);
+	UI_menutype_draw(C, mt, layout);
 
 	/* menus are created flipped (from event handling pov) */
 	layout->root->block->flag ^= UI_BLOCK_IS_FLIP;
@@ -2061,8 +2093,9 @@ void uiItemMenuEnumO_ptr(
 	    (ot->prop && ot->invoke))
 	{
 		char keybuf[128];
-		if (WM_key_event_operator_string(C, ot->idname, layout->root->opcontext, NULL, false,
-		                                 sizeof(keybuf), keybuf))
+		if (WM_key_event_operator_string(
+		        C, ot->idname, layout->root->opcontext, NULL, false,
+		        keybuf, sizeof(keybuf)))
 		{
 			ui_but_add_shortcut(but, keybuf, false);
 		}
@@ -3499,6 +3532,20 @@ void uiLayoutContextCopy(uiLayout *layout, bContextStore *context)
 	layout->context = CTX_store_add_all(&block->contexts, context);
 }
 
+void uiLayoutSetContextFromBut(uiLayout *layout, uiBut *but)
+{
+	if (but->opptr) {
+		uiLayoutSetContextPointer(layout, "button_operator", but->opptr);
+	}
+
+	if (but->rnapoin.data && but->rnaprop) {
+		/* TODO: index could be supported as well */
+		PointerRNA ptr_prop;
+		RNA_pointer_create(NULL, &RNA_Property, but->rnaprop, &ptr_prop);
+		uiLayoutSetContextPointer(layout, "button_prop", &ptr_prop);
+		uiLayoutSetContextPointer(layout, "button_pointer", &but->rnapoin);
+	}
+}
 
 /* introspect funcs */
 #include "BLI_dynstr.h"
@@ -3595,5 +3642,27 @@ MenuType *UI_but_menutype_get(uiBut *but)
 	}
 	else {
 		return NULL;
+	}
+}
+
+void UI_menutype_draw(bContext *C, MenuType *mt, struct uiLayout *layout)
+{
+	Menu menu = {
+		.layout = layout,
+		.type = mt,
+	};
+
+	if (G.debug & G_DEBUG_WM) {
+		printf("%s: opening menu \"%s\"\n", __func__, mt->idname);
+	}
+
+	if (layout->context) {
+		CTX_store_set(C, layout->context);
+	}
+
+	mt->draw(C, &menu);
+
+	if (layout->context) {
+		CTX_store_set(C, NULL);
 	}
 }
