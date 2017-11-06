@@ -1680,8 +1680,8 @@ static int gpencil_vertex_group_poll(bContext *C)
 	Object *ob = CTX_data_active_object(C);
 
 	if ((ob) && (ob->type == OB_GPENCIL)) {
-		return (!ID_IS_LINKED_DATABLOCK(ob) &&
-			!ID_IS_LINKED_DATABLOCK(ob->data) &&
+		return (!ID_IS_LINKED(ob) &&
+			!ID_IS_LINKED(ob->data) &&
 			ob->defbase.first && 
 			((ob->mode == OB_MODE_GPENCIL_EDIT) || (ob->mode == OB_MODE_GPENCIL_SCULPT)));
 	}
