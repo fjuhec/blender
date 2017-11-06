@@ -1756,7 +1756,7 @@ bool RNA_property_editable(PointerRNA *ptr, PropertyRNA *prop)
 
 	return ((flag & PROP_EDITABLE) &&
 	        (flag & PROP_REGISTER) == 0 &&
-	        (!id || ((!ID_IS_LINKED_DATABLOCK(id) || (prop->flag & PROP_LIB_EXCEPTION)) &&
+	        (!id || ((!ID_IS_LINKED(id) || (prop->flag & PROP_LIB_EXCEPTION)) &&
 	                 (!id->override || (prop->flag & PROP_OVERRIDABLE)))));
 }
 
@@ -1784,7 +1784,7 @@ bool RNA_property_editable_info(PointerRNA *ptr, PropertyRNA *prop, const char *
 
 	/* property from linked data-block */
 	if (id) {
-		if (ID_IS_LINKED_DATABLOCK(id) && (prop->flag & PROP_LIB_EXCEPTION) == 0) {
+		if (ID_IS_LINKED(id) && (prop->flag & PROP_LIB_EXCEPTION) == 0) {
 			if (!(*r_info)[0]) {
 				*r_info = "Can't edit this property from a linked data-block.";
 			}
@@ -1833,7 +1833,7 @@ bool RNA_property_editable_index(PointerRNA *ptr, PropertyRNA *prop, int index)
 
 	id = ptr->id.data;
 
-	return (flag & PROP_EDITABLE) && (!id || !ID_IS_LINKED_DATABLOCK(id) || (prop->flag & PROP_LIB_EXCEPTION));
+	return (flag & PROP_EDITABLE) && (!id || !ID_IS_LINKED(id) || (prop->flag & PROP_LIB_EXCEPTION));
 }
 
 bool RNA_property_animateable(PointerRNA *ptr, PropertyRNA *prop)
