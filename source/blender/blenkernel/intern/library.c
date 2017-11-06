@@ -1778,7 +1778,7 @@ static bool check_for_dupid(ListBase *lb, ID *id, char *name)
 		for (idtest = lb->first; idtest; idtest = idtest->next) {
 			int nrtest;
 			if ( (id != idtest) &&
-			     !ID_IS_LINKED_DATABLOCK(idtest) &&
+			     !ID_IS_LINKED(idtest) &&
 			     (*name == *(idtest->name + 2)) &&
 			     STREQLEN(name, idtest->name + 2, left_len) &&
 			     (BLI_split_name_num(leftest, &nrtest, idtest->name + 2, '.') == left_len)
