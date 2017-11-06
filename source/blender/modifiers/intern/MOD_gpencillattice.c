@@ -43,6 +43,7 @@
 #include "BKE_library_query.h"
 #include "BKE_scene.h"
 #include "BKE_main.h"
+#include "BKE_layer.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -107,6 +108,9 @@ static void bakeModifierGP(const bContext *C, const EvaluationContext *eval_ctx,
 	LatticeDeformData *ldata = NULL;
 	bGPdata *gpd = ob->data;
 	int oldframe = CFRA;
+	/* Get depsgraph and scene layer */
+	SceneLayer *scene_layer = BKE_scene_layer_from_scene_get(scene);
+	Depsgraph *depsgraph = BKE_scene_get_depsgraph(scene, scene_layer);
 
 	if (mmd->object == NULL)
 		return;
@@ -119,7 +123,7 @@ static void bakeModifierGP(const bContext *C, const EvaluationContext *eval_ctx,
 			 * NOTE: this assumes that we don't want lattice animation on non-keyframed frames
 			 */
 			CFRA = gpf->framenum;
-			BKE_scene_update_for_newframe(&eval_ctx_copy, bmain, scene);
+			BKE_scene_graph_update_for_newframe(&eval_ctx_copy, depsgraph, bmain, scene);
 			
 			/* recalculate lattice data */
 			BKE_gpencil_lattice_init(ob);
@@ -140,7 +144,7 @@ static void bakeModifierGP(const bContext *C, const EvaluationContext *eval_ctx,
 
 	/* return frame state and DB to original state */
 	CFRA = oldframe;
-	BKE_scene_update_for_newframe(&eval_ctx_copy, bmain, scene); /* XXX: needed? */
+	BKE_scene_graph_update_for_newframe(&eval_ctx_copy, depsgraph, bmain, scene);
 }
 
 static void freeData(ModifierData *md)
