@@ -469,6 +469,57 @@ static void gp_brush_angle(bGPdata *gpd, bGPDbrush *brush, tGPspoint *pt, const 
 
 }
 
+static void copy_v2int_v2float(int r[2], const float a[2])
+{
+	r[0] = (int)a[0];
+	r[1] = (int)a[1];
+}
+
+static void copy_v2float_v2int(float r[2], const int a[2])
+{
+	r[0] = (float)a[0];
+	r[1] = (float)a[1];
+}
+
+/**
+* Apply smooth to last point of buffer
+* \param gpd              Current gp datablock
+* \param inf              Amount of smoothing to apply
+*/
+static bool gp_smooth_buffer_point(bGPdata *gpd, float inf)
+{
+	tGPspoint *pt, *pta, *ptb;
+	float fpt[2], fpta[2], fptb[2];
+	float sco[2] = { 0.0f };
+
+	/* Do nothing if not enough points to smooth out */
+	if (gpd->sbuffer_size < 3) {
+		return false;
+	}
+
+	int i = gpd->sbuffer_size - 1;
+
+	/* points used as reference */
+	pta = (tGPspoint *)gpd->sbuffer + i - 2;
+	ptb = (tGPspoint *)gpd->sbuffer + i - 1;
+
+	/* current point */
+	pt = (tGPspoint *)gpd->sbuffer + i;
+
+	/* compute estimated position following last two points vector */
+	copy_v2float_v2int(fpta, &pta->x);
+	copy_v2float_v2int(fptb, &ptb->x);
+	copy_v2float_v2int(fpt, &pt->x);
+	float lambda = closest_to_line_v2(sco, fpt, fpta, fptb);
+	if (lambda > 0.0f) {
+		/* blend between original and optimal smoothed coordinate */
+		interp_v2_v2v2(fpt, fpt, sco, inf);
+		copy_v2int_v2float(&pt->x, fpt);
+	}
+	return true;
+}
+
+
 /* add current stroke-point to buffer (returns whether point was successfully added) */
 static short gp_stroke_addpoint(
         tGPsdata *p, const int mval[2], float pressure, double curtime)
@@ -531,6 +582,7 @@ static short gp_stroke_addpoint(
 		else {
 			pt->pressure = 1.0f;
 		}
+
 		/* Apply jitter to position */
 		if (brush->draw_jitter > 0.0f) {
 			int r_mval[2];
@@ -586,7 +638,11 @@ static short gp_stroke_addpoint(
 		
 		/* increment counters */
 		gpd->sbuffer_size++;
-		
+
+		/* apply dynamic smooth to point */
+		/* TODO: now the influence is harcoded to 0.6, maybe need a parameter by brush or session? */
+		gp_smooth_buffer_point(gpd, 0.6f);
+
 		/* check if another operation can still occur */
 		if (gpd->sbuffer_size == GP_STROKE_BUFFER_MAX)
 			return GP_STROKEADD_FULL;
