@@ -31,7 +31,6 @@ set(SRC
 	device_opencl.cpp
 	device_split_kernel.cpp
 	device_task.cpp
-	../render/coverage.cpp
 )
 
 set(SRC_OPENCL
@@ -59,7 +58,6 @@ set(SRC_HEADERS
 	device_network.h
 	device_split_kernel.h
 	device_task.h
-	../render/coverage.h
 )
 
 add_definitions(${GL_DEFINITIONS})
