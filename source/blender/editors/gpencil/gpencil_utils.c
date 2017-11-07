@@ -1196,11 +1196,18 @@ void ED_gp_project_stroke_to_plane(Object *ob, RegionView3D *rv3d, bGPDstroke *g
 
 	/* normal vector for a plane locked to axis */
 	zero_v3(plane_normal);
-	plane_normal[axis] = 1.0f;
-	
-	/* if object, apply object rotation */
-	if (ob && (ob->type == OB_GPENCIL)) {
-		mul_mat3_m4_v3(ob->obmat, plane_normal);
+	if (axis < 0) {
+		/* if the axis is not locked, need a vector to the view direction
+		* in order to get the right size of the stroke.
+		*/
+		ED_view3d_global_to_vector(rv3d, origin, plane_normal);
+	}
+	else {
+		plane_normal[axis] = 1.0f;
+		/* if object, apply object rotation */
+		if (ob && (ob->type == OB_GPENCIL)) {
+			mul_mat3_m4_v3(ob->obmat, plane_normal);
+		}
 	}
 
 	/* Reproject the points in the plane */
@@ -1236,16 +1243,16 @@ void ED_gp_project_point_to_plane(Object *ob, RegionView3D *rv3d, const float or
 		/* if the axis is not locked, need a vector to the view direction 
 		 * in order to get the right size of the stroke.
 		 */
-		ED_view3d_global_to_vector(rv3d, &pt->x, plane_normal);
+		ED_view3d_global_to_vector(rv3d, origin, plane_normal);
 	}
 	else {
 		plane_normal[axis] = 1.0f;
+		/* if object, apply object rotation */
+		if (ob && (ob->type == OB_GPENCIL)) {
+			mul_mat3_m4_v3(ob->obmat, plane_normal);
+		}
 	}
 
-	/* if object, apply object rotation */
-	if (ob && (ob->type == OB_GPENCIL)) {
-		mul_mat3_m4_v3(ob->obmat, plane_normal);
-	}
 
 	/* Reproject the points in the plane */
 	/* get a vector from the point with the current view direction of the viewport */

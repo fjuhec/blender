@@ -698,10 +698,8 @@ static short gp_stroke_addpoint(
 			
 			/* convert screen-coordinates to appropriate coordinates (and store them) */
 			gp_stroke_convertcoords(p, &pt->x, &pts->x, NULL);
-			/* if axis locked, reproject to plane locked (only in 3d space) */
-			if (p->lock_axis > GP_LOCKAXIS_NONE) {
-				gp_reproject_toplane(p, gps);
-			}
+			/* reproject to plane (only in 3d space) */
+			gp_reproject_toplane(p, gps);
 			/* if parented change position relative to parent object */
 			gp_apply_parent_point(obact, gpd, gpl, pts);
 			/* copy pressure and time */
@@ -884,10 +882,8 @@ static void gp_stroke_newfrombuffer(tGPsdata *p)
 			
 			/* convert screen-coordinates to appropriate coordinates (and store them) */
 			gp_stroke_convertcoords(p, &ptc->x, &pt->x, NULL);
-			/* if axis locked, reproject to plane locked (only in 3d space) */
-			if (p->lock_axis > GP_LOCKAXIS_NONE) {
-				gp_reproject_toplane(p, gps);
-			}
+			/* reproject to plane (only in 3d space) */
+			gp_reproject_toplane(p, gps);
 			/* if parented change position relative to parent object */
 			gp_apply_parent_point(obact, gpd, gpl, pt);
 			/* copy pressure and time */
@@ -907,10 +903,8 @@ static void gp_stroke_newfrombuffer(tGPsdata *p)
 			
 			/* convert screen-coordinates to appropriate coordinates (and store them) */
 			gp_stroke_convertcoords(p, &ptc->x, &pt->x, NULL);
-			/* if axis locked, reproject to plane locked (only in 3d space) */
-			if (p->lock_axis > GP_LOCKAXIS_NONE) {
-				gp_reproject_toplane(p, gps);
-			}
+			/* reproject to plane (only in 3d space) */
+			gp_reproject_toplane(p, gps);
 			/* if parented change position relative to parent object */
 			gp_apply_parent_point(obact, gpd, gpl, pt);
 
@@ -930,10 +924,8 @@ static void gp_stroke_newfrombuffer(tGPsdata *p)
 		
 		/* convert screen-coordinates to appropriate coordinates (and store them) */
 		gp_stroke_convertcoords(p, &ptc->x, &pt->x, NULL);
-		/* if axis locked, reproject to plane locked (only in 3d space) */
-		if (p->lock_axis > GP_LOCKAXIS_NONE) {
-			gp_reproject_toplane(p, gps);
-		}
+		/* reproject to plane (only in 3d space) */
+		gp_reproject_toplane(p, gps);
 		/* if parented change position relative to parent object */
 		gp_apply_parent_point(obact, gpd, gpl, pt);
 		/* copy pressure and time */
@@ -1054,10 +1046,8 @@ static void gp_stroke_newfrombuffer(tGPsdata *p)
 			}
 		}
 
-		/* if axis locked, reproject to plane locked (only in 3d space) */
-		if (p->lock_axis > GP_LOCKAXIS_NONE) {
-			gp_reproject_toplane(p, gps);
-		}
+		/* reproject to plane (only in 3d space) */
+		gp_reproject_toplane(p, gps);
 		/* change position relative to parent object */
 		gp_apply_parent(obact, gpd, gpl, gps);
 
