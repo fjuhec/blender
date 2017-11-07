@@ -1212,6 +1212,9 @@ PropertyRNA *RNA_def_property(StructOrFunctionRNA *cont_, const char *identifier
 	}
 
 	if (DefRNA.preprocess) {
+		/* TODO For later, once things are working, think we want overridable ON by default. */
+		/*prop->flag |= PROP_OVERRIDABLE;*/
+
 		switch (type) {
 			case PROP_BOOLEAN:
 				DefRNA.silent = 1;

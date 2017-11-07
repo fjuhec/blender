@@ -80,6 +80,7 @@ extern "C" {
 #include "BKE_key.h"
 #include "BKE_lattice.h"
 #include "BKE_library.h"
+#include "BKE_library_override.h"
 #include "BKE_main.h"
 #include "BKE_mask.h"
 #include "BKE_material.h"
@@ -175,31 +176,53 @@ DepsgraphNodeBuilder::~DepsgraphNodeBuilder()
 
 IDDepsNode *DepsgraphNodeBuilder::add_id_node(ID *id, bool do_tag)
 {
-	if (!DEG_depsgraph_use_copy_on_write()) {
-		return m_graph->add_id_node(id);
-	}
 	IDDepsNode *id_node = NULL;
-	ID *id_cow = (ID *)BLI_ghash_lookup(m_cow_id_hash, id);
-	if (id_cow != NULL) {
-		/* TODO(sergey): Is it possible to lookup and pop element from GHash
-		 * at the same time?
-		 */
-		BLI_ghash_remove(m_cow_id_hash, id, NULL, NULL);
+	bool is_idnode_created = false;
+
+	if (!DEG_depsgraph_use_copy_on_write()) {
+		id_node = m_graph->add_id_node(id);
+
+		/* Zero number of components indicates that ID node was just created. */
+		is_idnode_created = (BLI_ghash_size(id_node->components) == 0);
 	}
-	id_node = m_graph->add_id_node(id, do_tag, id_cow);
-	/* Currently all ID nodes are supposed to have copy-on-write logic.
-	 *
-	 * NOTE: Zero number of components indicates that ID node was just created.
-	 */
-	if (BLI_ghash_size(id_node->components) == 0) {
-		ComponentDepsNode *comp_cow =
-		        id_node->add_component(DEG_NODE_TYPE_COPY_ON_WRITE);
-		OperationDepsNode *op_cow = comp_cow->add_operation(
-		    function_bind(deg_evaluate_copy_on_write, _1, m_graph, id_node),
-		    DEG_OPCODE_COPY_ON_WRITE,
-		    "", -1);
-		m_graph->operations.push_back(op_cow);
+	else {
+		ID *id_cow = (ID *)BLI_ghash_lookup(m_cow_id_hash, id);
+		if (id_cow != NULL) {
+			/* TODO(sergey): Is it possible to lookup and pop element from GHash
+			 * at the same time?
+			 */
+			BLI_ghash_remove(m_cow_id_hash, id, NULL, NULL);
+		}
+		id_node = m_graph->add_id_node(id, do_tag, id_cow);
+
+		/* Zero number of components indicates that ID node was just created. */
+		is_idnode_created = (BLI_ghash_size(id_node->components) == 0);
+
+		/* Currently all ID nodes are supposed to have copy-on-write logic. */
+		if (is_idnode_created) {
+			ComponentDepsNode *comp_cow =
+			        id_node->add_component(DEG_NODE_TYPE_COPY_ON_WRITE);
+			OperationDepsNode *op_cow = comp_cow->add_operation(
+			    function_bind(deg_evaluate_copy_on_write, _1, m_graph, id_node),
+			    DEG_OPCODE_COPY_ON_WRITE,
+			    "", -1);
+			m_graph->operations.push_back(op_cow);
+		}
 	}
+
+	if (is_idnode_created) {
+		if (id->override != NULL && (id->flag & LIB_AUTOOVERRIDE) != 0) {
+			ComponentDepsNode *comp_node = id_node->add_component(DEG_NODE_TYPE_PARAMETERS, "override_generator");
+			comp_node->owner = id_node;
+
+			/* TDOD We most certainly do not want to run this on every deg evaluation! Especially not during animation? */
+			/* Ideally, putting this in some kind of queue (only one entry per ID in whole queue) and consuming it in a
+			 * low-priority background thread would be ideal, but we need to ensure IDs remain valid for the thread? */
+			add_operation_node(comp_node, function_bind(BKE_override_operations_create, id, false),
+			                   DEG_OPCODE_OPERATION, "override_generator", 0);
+		}
+	}
+
 	return id_node;
 }
 
