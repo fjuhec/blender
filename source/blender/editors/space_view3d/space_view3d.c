@@ -45,6 +45,7 @@
 #include "BKE_context.h"
 #include "BKE_curve.h"
 #include "BKE_icons.h"
+#include "BKE_idcode.h"
 #include "BKE_lattice.h"
 #include "BKE_library.h"
 #include "BKE_main.h"
@@ -53,6 +54,8 @@
 #include "BKE_scene.h"
 #include "BKE_screen.h"
 #include "BKE_workspace.h"
+
+#include "../blenloader/BLO_readfile.h"
 
 #include "ED_space_api.h"
 #include "ED_screen.h"
@@ -72,6 +75,7 @@
 
 #include "RNA_access.h"
 
+#include "UI_interface.h"
 #include "UI_resources.h"
 
 #ifdef WITH_PYTHON
@@ -580,6 +584,30 @@ static void view3d_main_region_exit(wmWindowManager *wm, ARegion *ar)
 	}
 }
 
+static int view3d_path_link_drop_poll(bContext *C, wmDrag *drag, const wmEvent *event)
+{
+	if (event->shift == false) {
+		if (drag->type == WM_DRAG_LIBRARY) {
+			uiDragLibraryHandle *drag_data = drag->poin;
+			char libname[FILE_MAX];
+			char *group, *name;
+			if (!BLO_library_path_explode(drag_data->path, libname, &group, &name) /* later... && (!aet || !path_to_idcode(path))*/ ) {
+				return 0;
+			}
+			switch (BKE_idcode_from_name(group)) {
+				case ID_OB:
+					return 1;
+				case ID_MA:
+				{
+					Base *base = ED_view3d_give_base_under_cursor(C, event->mval);
+					return (base != NULL && base->object->id.lib == NULL);
+				}
+			}
+		}
+	}
+	return 0;
+}
+
 static int view3d_ob_drop_poll(bContext *UNUSED(C), wmDrag *drag, const wmEvent *UNUSED(event))
 {
 	if (drag->type == WM_DRAG_ID) {
@@ -658,6 +686,20 @@ static int view3d_ima_mesh_drop_poll(bContext *C, wmDrag *drag, const wmEvent *e
 	return 0;
 }
 
+static void view3d_path_link_drop_copy(wmDrag *drag, wmDropBox *drop)
+{
+	uiDragLibraryHandle *drag_data = drag->poin;
+	RNA_string_set(drop->ptr, "asset_engine", drag_data->ae_idname);
+	RNA_string_set(drop->ptr, "directory", "");
+	RNA_string_set(drop->ptr, "filename", drag_data->path);
+	RNA_string_set(drop->ptr, "filepath", drag_data->path);  /* Needed only to avoid invoke to open filebrowser. */
+	RNA_int_set_array(drop->ptr, "uuid_repository", drag_data->uuid.uuid_repository);
+	RNA_int_set_array(drop->ptr, "uuid_asset", drag_data->uuid.uuid_asset);
+	RNA_int_set_array(drop->ptr, "uuid_variant", drag_data->uuid.uuid_variant);
+	RNA_int_set_array(drop->ptr, "uuid_revision", drag_data->uuid.uuid_revision);
+	RNA_int_set_array(drop->ptr, "uuid_view", drag_data->uuid.uuid_view);
+}
+
 static void view3d_ob_drop_copy(wmDrag *drag, wmDropBox *drop)
 {
 	ID *id = drag->poin;
@@ -700,6 +742,7 @@ static void view3d_dropboxes(void)
 {
 	ListBase *lb = WM_dropboxmap_find("View3D", SPACE_VIEW3D, RGN_TYPE_WINDOW);
 	
+	WM_dropbox_add(lb, "WM_OT_link", view3d_path_link_drop_poll, view3d_path_link_drop_copy);
 	WM_dropbox_add(lb, "OBJECT_OT_add_named", view3d_ob_drop_poll, view3d_ob_drop_copy);
 	WM_dropbox_add(lb, "OBJECT_OT_drop_named_material", view3d_mat_drop_poll, view3d_id_drop_copy);
 	WM_dropbox_add(lb, "MESH_OT_drop_named_image", view3d_ima_mesh_drop_poll, view3d_id_path_drop_copy);

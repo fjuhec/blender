@@ -24,7 +24,7 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenloader/intern/writefile.c
+/** \file blender/blenloader/intern/	ile.c
  *  \ingroup blenloader
  */
 
@@ -682,7 +682,14 @@ static void write_iddata(void *wd, const ID *id)
 {
 	/* ID_WM's id->properties are considered runtime only, and never written in .blend file. */
 	if (id->properties && !ELEM(GS(id->name), ID_WM)) {
-		IDP_WriteProperty(id->properties, wd);
+		/* We want to write IDProps from 'virtual' libraries too, but not from 'real' linked datablocks... */
+		if (!id->uuid || (id->lib && (id->lib->flag & LIBRARY_FLAG_VIRTUAL))) {
+			IDP_WriteProperty(id->properties, wd);
+		}
+	}
+	if (id->uuid) {
+		BLI_assert(id->lib && id->lib->asset_repository);
+		writestruct(wd, DATA, AssetUUID, 1, id->uuid);
 	}
 
 	if (id->override) {
@@ -3793,6 +3800,8 @@ static void write_libraries(WriteData *wd, Main *main)
 	bool found_one;
 
 	for (; main; main = main->next) {
+		BLI_assert(BLI_listbase_is_empty(&main->library));
+
 		a = tot = set_listbasepointers(main, lbarray);
 
 		/* test: is lib being used */
@@ -3820,6 +3829,9 @@ static void write_libraries(WriteData *wd, Main *main)
 			writestruct(wd, ID_LI, Library, 1, main->curlib);
 			write_iddata(wd, &main->curlib->id);
 
+			BLI_assert(!(main->curlib->flag & LIBRARY_FLAG_VIRTUAL) ||
+			           (!main->curlib->packedfile && main->curlib->asset_repository));
+
 			if (main->curlib->packedfile) {
 				PackedFile *pf = main->curlib->packedfile;
 				writestruct(wd, DATA, PackedFile, 1, pf);
@@ -3829,15 +3841,77 @@ static void write_libraries(WriteData *wd, Main *main)
 				}
 			}
 
-			while (a--) {
-				for (id = lbarray[a]->first; id; id = id->next) {
-					if (id->us > 0 && (id->tag & LIB_TAG_EXTERN)) {
-						if (!BKE_idcode_is_linkable(GS(id->name))) {
-							printf("ERROR: write file: data-block '%s' from lib '%s' is not linkable "
-							       "but is flagged as directly linked", id->name, main->curlib->filepath);
-							BLI_assert(0);
+			if (main->curlib->asset_repository) {
+				writestruct(wd, DATA, AssetRepositoryRef, 1, main->curlib->asset_repository);
+			}
+
+			if (main->curlib->flag & LIBRARY_FLAG_VIRTUAL) {
+				while (a--) {
+					for (id = lbarray[a]->first; id; id = id->next) {
+						switch ((ID_Type)GS(id->name)) {
+							/* Those should be the only datatypes found in a virtual library! */
+							case ID_IM:
+								write_image(wd, (Image *)id);
+								break;
+							case ID_VF:
+								write_vfont(wd, (VFont *)id);
+								break;
+							case ID_TXT:
+								write_text(wd, (Text *)id);
+								break;
+							case ID_SO:
+								write_sound(wd, (bSound *)id);
+								break;
+							case ID_WM:
+							case ID_SCR:
+							case ID_MC:
+							case ID_MSK:
+							case ID_SCE:
+							case ID_CU:
+							case ID_MB:
+							case ID_CA:
+							case ID_LA:
+							case ID_LT:
+							case ID_KE:
+							case ID_WO:
+							case ID_SPK:
+							case ID_GR:
+							case ID_AR:
+							case ID_AC:
+							case ID_OB:
+							case ID_MA:
+							case ID_TE:
+							case ID_ME:
+							case ID_PA:
+							case ID_NT:
+							case ID_BR:
+							case ID_PAL:
+							case ID_PC:
+							case ID_GD:
+							case ID_LS:
+							case ID_CF:
+							case ID_LI:
+							case ID_IP:
+							default:
+								/* Should never be reached. */
+								BLI_assert(0);
+								break;
 						}
-						writestruct(wd, ID_ID, ID, 1, id);
+					}
+				}
+			}
+			else {
+				while (a--) {
+					for (id = lbarray[a]->first; id; id = id->next) {
+						if (id->us > 0 && (id->tag & LIB_TAG_EXTERN)) {
+							if (!BKE_idcode_is_linkable(GS(id->name))) {
+								printf("ERROR: write file: data-block '%s' from lib '%s' is not linkable "
+									   "but is flagged as directly linked", id->name, main->curlib->filepath);
+								BLI_assert(0);
+							}
+							writestruct(wd, ID_ID, ID, 1, id);
+							write_iddata(wd, id);
+						}
 					}
 				}
 			}

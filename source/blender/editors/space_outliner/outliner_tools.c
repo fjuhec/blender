@@ -447,7 +447,8 @@ static void id_local_cb(
 	if (ID_IS_LINKED(tselem->id) && (tselem->id->tag & LIB_TAG_EXTERN)) {
 		Main *bmain = CTX_data_main(C);
 		/* if the ID type has no special local function,
-		 * just clear the lib */
+		 * just clear the lib. */
+		/* XXX This is very, very, **very** suspicious - should not be handled that way at all!!! */
 		if (id_make_local(bmain, tselem->id, false, false) == false) {
 			id_clear_lib_data(bmain, tselem->id);
 		}

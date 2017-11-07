@@ -633,6 +633,8 @@ typedef struct SpaceFile {
 	
 	int scroll_offset;
 
+	char asset_engine[64];  /* BKE_ST_MAXNAME */
+
 	struct FileSelectParams *params; /* config and input for file select */
 	
 	struct FileList *files; /* holds the list of files to show */
@@ -760,41 +762,35 @@ typedef enum eDirEntry_SelectFlag {
 
 /* ***** Related to file browser, but never saved in DNA, only here to help with RNA. ***** */
 
-/* About Unique identifier.
- * Stored in a CustomProps once imported.
- * Each engine is free to use it as it likes - it will be the only thing passed to it by blender to identify
- * asset/variant/version (concatenating the three into a single 48 bytes one).
- * Assumed to be 128bits, handled as four integers due to lack of real bytes proptype in RNA :|.
- */
-#define ASSET_UUID_LENGTH     16
+/* Container for a view, only relevant in asset context. */
+typedef struct FileDirEntryView {
+	struct FileDirEntryView *next, *prev;
 
-/* Used to communicate with asset engines outside of 'import' context. */
-typedef struct AssetUUID {
-	int uuid_asset[4];
-	int uuid_variant[4];
-	int uuid_revision[4];
-} AssetUUID;
+	int uuid[4];
+	char *name;
+	char *description;
 
-typedef struct AssetUUIDList {
-	AssetUUID *uuids;
-	int nbr_uuids, pad;
-} AssetUUIDList;
+	uint64_t size;
+	int64_t time;  /* Should be duplicate of revision's time (easier to have everything in sigle struct). */
+	/* Temp caching of UI-generated strings... */
+	char    size_str[16];
+	char    time_str[8];
+	char    date_str[16];
+} FileDirEntryView;
 
 /* Container for a revision, only relevant in asset context. */
 typedef struct FileDirEntryRevision {
 	struct FileDirEntryRevision *next, *prev;
 
+	int uuid[4];
 	char *comment;
 	void *pad;
 
-	int uuid[4];
-
-	uint64_t size;
 	int64_t time;
-	/* Temp caching of UI-generated strings... */
-	char    size_str[16];
-	char    time_str[8];
-	char    date_str[16];
+
+	ListBase views;
+	int nbr_views;
+	int act_view;
 } FileDirEntryRevision;
 
 /* Container for a variant, only relevant in asset context.
@@ -815,12 +811,13 @@ typedef struct FileDirEntryVariant {
 typedef struct FileDirEntry {
 	struct FileDirEntry *next, *prev;
 
+	int uuid_repository[4];
 	int uuid[4];
 	char *name;
 	char *description;
 
 	/* Either point to active variant/revision if available, or own entry (in mere filebrowser case). */
-	FileDirEntryRevision *entry;
+	FileDirEntryView *entry;
 
 	int typeflag;  /* eFileSel_File_Types */
 	int blentype;  /* ID type, in case typeflag has FILE_TYPE_BLENDERLIB set. */
@@ -853,7 +850,6 @@ typedef struct FileDirEntryArr {
 	ListBase entries;
 	int nbr_entries;
 	int nbr_entries_filtered;
-	int entry_idx_start, entry_idx_end;
 
 	char root[1024];	 /* FILE_MAX */
 } FileDirEntryArr;

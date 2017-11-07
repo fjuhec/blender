@@ -498,7 +498,12 @@ static uiTooltipData *ui_tooltip_data_from_button(bContext *C, uiBut *but)
 				            .style = UI_TIP_STYLE_NORMAL,
 				            .color_id = UI_TIP_LC_NORMAL,
 				        });
-				field->text = BLI_sprintfN(TIP_("Library: %s"), id->lib->name);
+				if (ID_IS_LINKED_DATABLOCK(id)) {
+					field->text = BLI_sprintfN(TIP_("Library: %s"), id->lib->name);
+				}
+				else {  /* if (ID_IS_LINKED_DATAPATH(id)) */
+					field->text = BLI_sprintfN(TIP_("Using file path as asset"));
+				}
 			}
 		}
 	}

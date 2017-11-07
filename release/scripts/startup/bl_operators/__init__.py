@@ -50,6 +50,9 @@ _modules = [
     "wm",
     ]
 
+_modules.append("amber")
+#_modules.append("claude")
+
 import bpy
 
 if bpy.app.build_options.freestyle:

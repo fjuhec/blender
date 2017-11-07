@@ -30,6 +30,8 @@
 
 #include "DNA_space_types.h"
 
+#include "BKE_screen.h"
+
 #include "BLI_rect.h"
 #include "BLI_math_base.h"
 
@@ -60,7 +62,8 @@ void WM_operator_properties_filesel(
 	if (flag & WM_FILESEL_FILEPATH)
 		RNA_def_string_file_path(ot->srna, "filepath", NULL, FILE_MAX, "File Path", "Path to file");
 
-	if (flag & WM_FILESEL_DIRECTORY)
+	/* Enforce directory in file cases, needed with asset engines. */
+	if (flag & (WM_FILESEL_DIRECTORY | WM_FILESEL_FILEPATH | WM_FILESEL_FILENAME | WM_FILESEL_FILES))
 		RNA_def_string_dir_path(ot->srna, "directory", NULL, FILE_MAX, "Directory", "Directory of the file");
 
 	if (flag & WM_FILESEL_FILENAME)
@@ -68,6 +71,29 @@ void WM_operator_properties_filesel(
 
 	if (flag & WM_FILESEL_FILES)
 		RNA_def_collection_runtime(ot->srna, "files", &RNA_OperatorFileListElement, "Files", "");
+
+	if (flag & (WM_FILESEL_FILEPATH | WM_FILESEL_DIRECTORY | WM_FILESEL_FILENAME | WM_FILESEL_FILES)) {
+		prop = RNA_def_string(ot->srna, "asset_engine", NULL, BKE_ST_MAXNAME, "Asset Engine",
+		                      "Identifier of relevant asset engine (if any)");
+		RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
+		if (flag & (WM_FILESEL_FILEPATH | WM_FILESEL_FILENAME)) {
+			prop = RNA_def_int_vector(ot->srna, "uuid_repository", 4, NULL, INT_MIN, INT_MAX,
+			                          "Repository UUID", "Identifier of this item's repository in current asset engine", INT_MIN, INT_MAX);
+			RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
+			prop = RNA_def_int_vector(ot->srna, "uuid_asset", 4, NULL, INT_MIN, INT_MAX,
+			                          "Asset UUID", "Identifier of this item in current asset engine", INT_MIN, INT_MAX);
+			RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
+			prop = RNA_def_int_vector(ot->srna, "uuid_variant", 4, NULL, INT_MIN, INT_MAX,
+			                          "Variant UUID", "Identifier of this item's variant in current asset engine", INT_MIN, INT_MAX);
+			RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
+			prop = RNA_def_int_vector(ot->srna, "uuid_revision", 4, NULL, INT_MIN, INT_MAX,
+			                          "Revision UUID", "Identifier of this item's revision in current asset engine", INT_MIN, INT_MAX);
+			RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
+			prop = RNA_def_int_vector(ot->srna, "uuid_view", 4, NULL, INT_MIN, INT_MAX,
+			                          "View UUID", "Identifier of this item's view in current asset engine", INT_MIN, INT_MAX);
+			RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
+		}
+	}
 
 	if (action == FILE_SAVE) {
 		/* note, this is only used to check if we should highlight the filename area red when the

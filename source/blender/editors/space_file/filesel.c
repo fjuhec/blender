@@ -108,6 +108,14 @@ short ED_fileselect_set_params(SpaceFile *sfile)
 
 	params = sfile->params;
 
+	/* For now, always init filterid to 'all true' */
+	params->filter_id = FILTER_ID_AC | FILTER_ID_AR | FILTER_ID_BR | FILTER_ID_CA | FILTER_ID_CU | FILTER_ID_GD |
+	                    FILTER_ID_GR | FILTER_ID_IM | FILTER_ID_LA | FILTER_ID_LS | FILTER_ID_LT | FILTER_ID_MA |
+	                    FILTER_ID_MB | FILTER_ID_MC | FILTER_ID_ME | FILTER_ID_MSK | FILTER_ID_NT | FILTER_ID_OB |
+	                    FILTER_ID_PA | FILTER_ID_PAL | FILTER_ID_PC | FILTER_ID_SCE | FILTER_ID_SPK | FILTER_ID_SO |
+	                    FILTER_ID_TE | FILTER_ID_TXT | FILTER_ID_VF | FILTER_ID_WO | FILTER_ID_CF | FILTER_ID_WS |
+	                    FILTER_ID_LP;
+
 	/* set the parameters from the operator, if it exists */
 	if (op) {
 		PropertyRNA *prop;
@@ -210,14 +218,6 @@ short ED_fileselect_set_params(SpaceFile *sfile)
 			}
 		}
 
-		/* For now, always init filterid to 'all true' */
-		params->filter_id = FILTER_ID_AC | FILTER_ID_AR | FILTER_ID_BR | FILTER_ID_CA | FILTER_ID_CU | FILTER_ID_GD |
-		                    FILTER_ID_GR | FILTER_ID_IM | FILTER_ID_LA | FILTER_ID_LS | FILTER_ID_LT | FILTER_ID_MA |
-		                    FILTER_ID_MB | FILTER_ID_MC | FILTER_ID_ME | FILTER_ID_MSK | FILTER_ID_NT | FILTER_ID_OB |
-		                    FILTER_ID_PA | FILTER_ID_PAL | FILTER_ID_PC | FILTER_ID_SCE | FILTER_ID_SPK | FILTER_ID_SO |
-		                    FILTER_ID_TE | FILTER_ID_TXT | FILTER_ID_VF | FILTER_ID_WO | FILTER_ID_CF | FILTER_ID_WS |
-		                    FILTER_ID_LP;
-
 		if (U.uiflag & USER_HIDE_DOT) {
 			params->flag |= FILE_HIDE_DOT;
 		}
@@ -265,12 +265,12 @@ short ED_fileselect_set_params(SpaceFile *sfile)
 	}
 	else {
 		/* default values, if no operator */
-		params->type = FILE_UNIX;
+		params->type = FILE_LOADLIB;
 		params->flag |= FILE_HIDE_DOT;
 		params->flag &= ~FILE_DIRSEL_ONLY;
 		params->display = FILE_SHORTDISPLAY;
 		params->sort = FILE_SORT_ALPHA;
-		params->filter = 0;
+		params->filter = FILE_TYPE_FOLDER | FILE_TYPE_BLENDERLIB;
 		params->filter_glob[0] = '\0';
 	}
 
@@ -504,7 +504,7 @@ void ED_fileselect_init_layout(struct SpaceFile *sfile, ARegion *ar)
 		return;
 	}
 
-	numfiles = filelist_files_ensure(sfile->files);
+	numfiles = filelist_files_ensure(sfile->files, params);
 	textheight = (int)file_font_pointsize();
 	layout = sfile->layout;
 	layout->textheight = textheight;
@@ -614,7 +614,7 @@ int file_select_match(struct SpaceFile *sfile, const char *pattern, char *matche
 	
 	int i;
 	FileDirEntry *file;
-	int n = filelist_files_ensure(sfile->files);
+	int n = filelist_files_ensure(sfile->files, ED_fileselect_get_params(sfile));
 
 	/* select any file that matches the pattern, this includes exact match 
 	 * if the user selects a single file by entering the filename
@@ -690,7 +690,7 @@ int autocomplete_file(struct bContext *C, char *str, void *UNUSED(arg_v))
 	/* search if str matches the beginning of name */
 	if (str[0] && sfile->files) {
 		AutoComplete *autocpl = UI_autocomplete_begin(str, FILE_MAX);
-		int nentries = filelist_files_ensure(sfile->files);
+		int nentries = filelist_files_ensure(sfile->files, ED_fileselect_get_params(sfile));
 		int i;
 
 		for (i = 0; i < nentries; ++i) {

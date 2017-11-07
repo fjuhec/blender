@@ -42,9 +42,12 @@
 #include "BLI_utildefines.h"
 #include "BLI_callbacks.h"
 
+#include "RNA_access.h"
+
 #include "IMB_imbuf.h"
 #include "IMB_moviecache.h"
 
+#include "BKE_asset_engine.h"
 #include "BKE_blender.h"  /* own include */
 #include "BKE_blender_version.h"  /* own include */
 #include "BKE_blendfile.h"
@@ -68,7 +71,6 @@
 #include "RE_render_ext.h"
 
 #include "BLF_api.h"
-
 
 Global G;
 UserDef U;

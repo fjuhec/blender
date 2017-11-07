@@ -38,6 +38,8 @@ extern "C" {
 
 #include "BLI_compiler_attrs.h"
 
+struct AssetEngineType;
+struct AssetUUID;
 struct BlendThumbnail;
 struct GHash;
 struct ListBase;
@@ -197,6 +199,21 @@ void BKE_library_make_local(
 
 void BKE_id_tag_set_atomic(struct ID *id, int tag);
 void BKE_id_tag_clear_atomic(struct ID *id, int tag);
+
+void BKE_library_asset_repository_init(struct Library *lib, const struct AssetEngineType *aet, const char *repo_root);
+void BKE_library_asset_repository_clear(struct Library *lib);
+void BKE_library_asset_repository_free(struct Library *lib);
+struct AssetRef *BKE_library_asset_repository_asset_add(struct Library *lib, const void *idv);
+void BKE_library_asset_repository_asset_remove(struct Library *lib, const void *idv);
+struct AssetRef *BKE_library_asset_repository_asset_find(struct Library *lib, const void *idv);
+void BKE_library_asset_repository_subdata_add(struct AssetRef *aref, const void *idv);
+void BKE_library_asset_repository_subdata_remove(struct AssetRef *aref, const void *idv);
+
+void BKE_libraries_asset_subdata_remove(struct Main *bmain, const void *idv);
+void BKE_libraries_asset_repositories_clear(struct Main *bmain);
+void BKE_libraries_asset_repositories_rebuild(struct Main *bmain);
+struct AssetRef *BKE_libraries_asset_repository_uuid_find(struct Main *bmain, const struct AssetUUID *uuid);
+struct Library *BKE_library_asset_virtual_ensure(struct Main *bmain, const struct AssetEngineType *aet);
 
 /* use when "" is given to new_id() */
 #define ID_FALLBACK_NAME N_("Untitled")

@@ -1456,6 +1456,23 @@ static void outliner_draw_tree_element(
 				UI_icon_draw_alpha((float)startx + offsx + 2 * ufac, (float)*starty + 2 * ufac, ICON_LIBRARY_DATA_DIRECT,
 				                   alpha_fac);
 			}
+			if (tselem->id->uuid) {
+				offsx += UI_UNIT_X;
+				UI_icon_draw_alpha((float)startx + offsx - 0.5f * ufac, (float)*starty + 1.5f * ufac, ICON_SOLO_ON,
+				                   alpha_fac);
+				if (tselem->id->uuid->tag & UUID_TAG_ENGINE_MISSING) {
+					UI_icon_draw_alpha((float)startx + offsx, (float)*starty + 2 * ufac, ICON_GHOST_ENABLED, alpha_fac);
+				}
+				else if (tselem->id->uuid->tag & UUID_TAG_ASSET_MISSING) {
+					/* Nothing special (underlying icon is already 'broken' one)... */
+				}
+				else if (tselem->id->uuid->tag & UUID_TAG_ASSET_RELOAD) {
+					UI_icon_draw_alpha((float)startx + offsx, (float)*starty + 2 * ufac, ICON_FILE_REFRESH, alpha_fac);
+				}
+				else {
+					/* Nothing special (underlying icon is already 'OK' one)... */
+				}
+			}
 			offsx += UI_UNIT_X + 2 * ufac;
 		}
 		glDisable(GL_BLEND);

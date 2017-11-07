@@ -77,6 +77,8 @@
 
 #include "file_intern.h"    // own include
 
+#include "MEM_guardedalloc.h"
+
 /* Dummy helper - we need dynamic tooltips here. */
 static char *file_draw_tooltip_func(bContext *UNUSED(C), void *argN, const char *UNUSED(tip))
 {
@@ -267,7 +269,8 @@ static void draw_tile(int sx, int sy, int width, int height, int colorid, int sh
 }
 
 
-static void file_draw_icon(uiBlock *block, const char *path, int sx, int sy, int icon, int width, int height, bool drag)
+static void file_draw_icon(
+        uiBlock *block, const char *path, int sx, int sy, int icon, int width, int height, uiDragLibraryHandle *drag_data)
 {
 	uiBut *but;
 	int x, y;
@@ -281,9 +284,9 @@ static void file_draw_icon(uiBlock *block, const char *path, int sx, int sy, int
 	but = uiDefIconBut(block, UI_BTYPE_LABEL, 0, icon, x, y, width, height, NULL, 0.0f, 0.0f, 0.0f, 0.0f, NULL);
 	UI_but_func_tooltip_set(but, file_draw_tooltip_func, BLI_strdup(path));
 
-	if (drag) {
+	if (drag_data != NULL) {
 		/* path is no more static, cannot give it directly to but... */
-		UI_but_drag_set_path(but, BLI_strdup(path), true);
+		UI_but_drag_set_library(but, ICON_NONE, NULL, 1.0f, drag_data, true);
 	}
 }
 
@@ -328,7 +331,8 @@ void file_calc_previews(const bContext *C, ARegion *ar)
 
 static void file_draw_preview(
         uiBlock *block, const char *path, int sx, int sy, const float icon_aspect,
-        ImBuf *imb, const int icon, FileLayout *layout, const bool is_icon, const int typeflags, const bool drag)
+        ImBuf *imb, const int icon, FileLayout *layout, const bool is_icon, const int typeflags,
+        const uiDragLibraryHandle *drag_data)
 {
 	uiBut *but;
 	float fx, fy;
@@ -412,9 +416,8 @@ static void file_draw_preview(
 	UI_but_func_tooltip_set(but, file_draw_tooltip_func, BLI_strdup(path));
 
 	/* dragregion */
-	if (drag) {
-		/* path is no more static, cannot give it directly to but... */
-		UI_but_drag_set_image(but, BLI_strdup(path), icon, imb, scale, true);
+	if (drag_data != NULL) {
+		UI_but_drag_set_library(but, icon, imb, scale, drag_data, true);
 	}
 
 	glDisable(GL_BLEND);
@@ -553,7 +556,7 @@ void file_draw_list(const bContext *C, ARegion *ar)
 	const bool update_stat_strings = small_size != SMALL_SIZE_CHECK(layout->curr_size);
 	const float thumb_icon_aspect = sqrtf(64.0f / (float)(params->thumbnail_size));
 
-	numfiles = filelist_files_ensure(files);
+	numfiles = filelist_files_ensure(files, params);
 	
 	if (params->display != FILE_IMGDISPLAY) {
 
@@ -635,6 +638,28 @@ void file_draw_list(const bContext *C, ARegion *ar)
 
 		/* don't drag parent or refresh items */
 		do_drag = !(FILENAME_IS_CURRPAR(file->relpath));
+		uiDragLibraryHandle *drag_data = NULL;
+
+		if (do_drag) {
+			drag_data = MEM_callocN(sizeof(*drag_data), __func__);
+			BLI_strncpy(drag_data->ae_idname, sfile->asset_engine, sizeof(drag_data->ae_idname));
+			BLI_strncpy(drag_data->path, path, sizeof(drag_data->path));
+			memcpy(drag_data->uuid.uuid_repository, file->uuid_repository, sizeof(drag_data->uuid.uuid_repository));
+			memcpy(drag_data->uuid.uuid_asset, file->uuid, sizeof(drag_data->uuid.uuid_asset));
+			FileDirEntryView *vw;
+			FileDirEntryVariant *var = BLI_findlink(&file->variants, file->act_variant);
+			if (var != NULL) {
+				memcpy(drag_data->uuid.uuid_variant, var->uuid, sizeof(drag_data->uuid.uuid_variant));
+				FileDirEntryRevision *rev = BLI_findlink(&var->revisions, var->act_revision);
+				memcpy(drag_data->uuid.uuid_revision, rev->uuid, sizeof(drag_data->uuid.uuid_revision));
+				vw = BLI_findlink(&rev->views, rev->act_view);
+				BLI_assert(vw == file->entry);
+			}
+			else {
+				vw = file->entry;
+			}
+			memcpy(drag_data->uuid.uuid_view, vw->uuid, sizeof(drag_data->uuid.uuid_view));
+		}
 
 		if (FILE_IMGDISPLAY == params->display) {
 			const int icon = filelist_geticon(files, i, false);
@@ -646,11 +671,11 @@ void file_draw_list(const bContext *C, ARegion *ar)
 			}
 
 			file_draw_preview(block, path, sx, sy, thumb_icon_aspect,
-			                  imb, icon, layout, is_icon, file->typeflag, do_drag);
+			                  imb, icon, layout, is_icon, file->typeflag, drag_data);
 		}
 		else {
 			file_draw_icon(block, path, sx, sy - (UI_UNIT_Y / 6), filelist_geticon(files, i, true),
-			               ICON_DEFAULT_WIDTH_SCALE, ICON_DEFAULT_HEIGHT_SCALE, do_drag);
+			               ICON_DEFAULT_WIDTH_SCALE, ICON_DEFAULT_HEIGHT_SCALE, drag_data);
 			sx += ICON_DEFAULT_WIDTH_SCALE + 0.2f * UI_UNIT_X;
 		}
 

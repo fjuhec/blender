@@ -119,10 +119,13 @@
 #include "BLI_threads.h"
 #include "BLI_mempool.h"
 
+#include "RNA_types.h"
+
 #include "BLT_translation.h"
 
 #include "BKE_action.h"
 #include "BKE_armature.h"
+#include "BKE_asset_engine.h"
 #include "BKE_brush.h"
 #include "BKE_cachefile.h"
 #include "BKE_cloth.h"
@@ -2265,6 +2268,12 @@ static void direct_link_id(FileData *fd, ID *id)
 	if (id->override) {
 		id->override = newdataadr(fd, id->override);
 		link_list_ex(fd, &id->override->properties, direct_link_id_override_property_cb);
+	}
+
+	if (id->uuid) {
+		id->uuid = newdataadr(fd, id->uuid);
+		id->uuid->ibuff = NULL;  /* Just in case... */
+		id->uuid->width = id->uuid->height = 0;
 	}
 }
 
@@ -7588,6 +7597,8 @@ static void direct_link_library(FileData *fd, Library *lib, Main *main)
 {
 	Main *newmain;
 	
+	printf("adding lib %s (%s)\n", lib->id.name, lib->name);
+
 	/* check if the library was already read */
 	for (newmain = fd->mainlist->first; newmain; newmain = newmain->next) {
 		if (newmain->curlib) {
@@ -7615,7 +7626,12 @@ static void direct_link_library(FileData *fd, Library *lib, Main *main)
 //	printf("direct_link_library: filepath %s\n", lib->filepath);
 	
 	lib->packedfile = direct_link_packedfile(fd, lib->packedfile);
-	
+	lib->asset_repository = newdataadr(fd, lib->asset_repository);
+	if (lib->asset_repository) {
+		/* Do not clear lib->asset_repository itself! */
+		BLI_listbase_clear(&lib->asset_repository->assets);
+	}
+
 	/* new main */
 	newmain = BKE_main_new();
 	BLI_addtail(fd->mainlist, newmain);
@@ -8443,6 +8459,7 @@ static BHead *read_libblock(FileData *fd, Main *main, BHead *bhead, const short 
 		return blo_nextbhead(fd, bhead);
 	
 	id->tag = tag | LIB_TAG_NEED_LINK;
+	printf("id: %s (%p, %p), lib: %p\n", id->name, id, id->uuid, main->curlib);
 	id->lib = main->curlib;
 	id->us = ID_FAKE_USERS(id);
 	id->icon_id = 0;
@@ -8450,7 +8467,26 @@ static BHead *read_libblock(FileData *fd, Main *main, BHead *bhead, const short 
 	
 	/* this case cannot be direct_linked: it's just the ID part */
 	if (bhead->code == ID_ID) {
+		if (id->uuid) {
+			/* read all data into fd->datamap */
+			bhead = read_data_into_oldnewmap(fd, bhead, __func__);
+
+			id->uuid = newdataadr(fd, id->uuid);
+			id->uuid->ibuff = NULL;  /* Just in case... */
+			id->uuid->width = id->uuid->height = 0;
+
+			oldnewmap_free_unused(fd->datamap);
+			oldnewmap_clear(fd->datamap);
+			return bhead;
+		}
+
 		return blo_nextbhead(fd, bhead);
+	}
+	
+	/* If we have a real ID from a virtual library, tag ID as extern. */
+	if (id->lib && (id->lib->flag & LIBRARY_FLAG_VIRTUAL)) {
+		BLI_assert(ID_VIRTUAL_LIBRARY_VALID(id));
+		id->tag |= LIB_TAG_EXTERN;
 	}
 
 	/* That way, we know which datablock needs do_versions (required currently for linking). */
@@ -8912,7 +8948,7 @@ BlendFileData *blo_read_file_internal(FileData *fd, const char *filepath)
 				bhead = blo_nextbhead(fd, bhead);
 			}
 			else {
-				bhead = read_libblock(fd, bfd->main, bhead, LIB_TAG_LOCAL, NULL);
+				bhead = read_libblock(fd, mainlist.last, bhead, LIB_TAG_LOCAL, NULL);
 			}
 		}
 	}
@@ -8951,6 +8987,8 @@ BlendFileData *blo_read_file_internal(FileData *fd, const char *filepath)
 	lib_verify_nodetree(bfd->main, true);
 	fix_relpaths_library(fd->relabase, bfd->main); /* make all relative paths, relative to the open blend file */
 	
+	BKE_libraries_asset_repositories_rebuild(bfd->main);
+
 	link_global(fd, bfd);	/* as last */
 	
 	fd->mainlist = NULL;  /* Safety, this is local variable, shall not be used afterward. */
@@ -10404,8 +10442,10 @@ void BLO_library_link_copypaste(Main *mainl, BlendHandle *bh)
 }
 
 static ID *link_named_part_ex(
-        Main *mainl, FileData *fd, const short idcode, const char *name, const short flag,
-        Scene *scene, SceneLayer *sl, const bool use_placeholders, const bool force_indirect)
+        Main *mainl, FileData *fd, const AssetEngineType *aet, const char *root,
+        const short idcode, const char *name, const AssetUUID *uuid, const short flag,
+        Scene *scene, SceneLayer *sl,
+        const bool use_placeholders, const bool force_indirect)
 {
 	ID *id = link_named_part(mainl, fd, idcode, name, use_placeholders, force_indirect);
 
@@ -10416,6 +10456,20 @@ static ID *link_named_part_ex(
 		/* tag as needing to be instantiated */
 		if (flag & FILE_GROUP_INSTANCE)
 			id->tag |= LIB_TAG_DOIT;
+	}
+
+	if (id && uuid && aet) {
+		BLI_assert(root);
+
+		id->uuid = MEM_mallocN(sizeof(*id->uuid), __func__);
+		*id->uuid = *uuid;
+		id->uuid->ibuff = NULL;
+		id->uuid->width = id->uuid->height = 0;
+		id->flag |= LIB_ASSET;
+
+		if (!mainl->curlib->asset_repository) {
+			BKE_library_asset_repository_init(mainl->curlib, aet, root);
+		}
 	}
 
 	return id;
@@ -10446,7 +10500,7 @@ ID *BLO_library_link_named_part(Main *mainl, BlendHandle **bh, const short idcod
  * \param name The name of the datablock (without the 2 char ID prefix).
  * \param flag Options for linking, used for instantiating.
  * \param scene The scene in which to instantiate objects/groups (if NULL, no instantiation is done).
- * \param v3d The active View3D (only to define active layers for instantiated objects & groups, can be NULL).
+ * \param sl The active SceneLayer (where objects & groups would be instantiated, can be NULL).
  * \param use_placeholders If true, generate a placeholder (empty ID) if not found in current lib file.
  * \param force_indirect If true, force loaded ID to be tagged as LIB_TAG_INDIRECT (used in reload context only).
  * \return the linked ID when found.
@@ -10458,7 +10512,33 @@ ID *BLO_library_link_named_part_ex(
         const bool use_placeholders, const bool force_indirect)
 {
 	FileData *fd = (FileData*)(*bh);
-	return link_named_part_ex(mainl, fd, idcode, name, flag, scene, sl, use_placeholders, force_indirect);
+	return link_named_part_ex(mainl, fd, NULL, NULL, idcode, name, NULL, flag, scene, sl, use_placeholders, force_indirect);
+}
+
+/**
+ * Link a named datablock from an external blend file, using given asset engine & asset UUID.
+ * Optionally instantiate the object/group in the scene when the flags are set.
+ *
+ * \param mainl The main database to link from (not the active one).
+ * \param bh The blender file handle.
+ * \param aet The asset engine type (NULL when no asset engine is used).
+ * \param root the 'path' of the asset repository.
+ * \param idcode The kind of datablock to link.
+ * \param name The name of the datablock (without the 2 char ID prefix).
+ * \param uuid The asset engine's UUID of this datablock (NULL when no asset engine is used).
+ * \param flag Options for linking, used for instantiating.
+ * \param scene The scene in which to instantiate objects/groups (if NULL, no instantiation is done).
+ * \param sl The active SceneLayer (where objects & groups would be instantiated, can be NULL).
+ * \return the linked ID when found.
+ */
+struct ID *BLO_library_link_named_part_asset(
+        Main *mainl, BlendHandle **bh, const AssetEngineType *aet, const char *root,
+        const short idcode, const char *name, const AssetUUID *uuid, const short flag,
+        Scene *scene, SceneLayer *sl,
+        const bool use_placeholders, const bool force_indirect)
+{
+	FileData *fd = (FileData*)(*bh);
+	return link_named_part_ex(mainl, fd, aet, root, idcode, name, uuid, flag, scene, sl, use_placeholders, force_indirect);
 }
 
 static void link_id_part(ReportList *reports, FileData *fd, Main *mainvar, ID *id, ID **r_id)
@@ -10640,6 +10720,8 @@ static void library_link_end(Main *mainl, FileData **fd, const short flag, Scene
 	/* clear group instantiating tag */
 	BKE_main_id_tag_listbase(&(mainvar->group), LIB_TAG_DOIT, false);
 
+	BKE_libraries_asset_repositories_rebuild(mainvar);
+
 	/* patch to prevent switch_endian happens twice */
 	if ((*fd)->flags & FD_FLAGS_SWITCH_ENDIAN) {
 		blo_freefiledata(*fd);
@@ -10818,6 +10900,11 @@ static void read_libraries(FileData *basefd, ListBase *mainlist)
 							/* realid shall never be NULL - unless some source file/lib is broken
 							 * (known case: some directly linked shapekey from a missing lib...). */
 							/* BLI_assert(realid != NULL); */
+
+							if (realid && id->uuid) {
+								/* we can give ownership of that pointer to new ID. */
+								realid->uuid = id->uuid;
+							}
 
 							change_idid_adr(mainlist, basefd, id, realid);
 

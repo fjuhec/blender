@@ -34,6 +34,7 @@
 
 #include "DNA_windowmanager_types.h"
 #include "DNA_screen_types.h"
+#include "DNA_space_types.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -45,6 +46,7 @@
 #include "BIF_glutil.h"
 
 #include "BKE_context.h"
+#include "BKE_screen.h"
 
 #include "GPU_shader.h"
 
@@ -153,10 +155,17 @@ wmDrag *WM_event_start_drag(struct bContext *C, int icon, int type, void *poin, 
 	drag->flags = flags;
 	drag->icon = icon;
 	drag->type = type;
-	if (type == WM_DRAG_PATH)
+	if (type == WM_DRAG_PATH) {
 		BLI_strncpy(drag->path, poin, FILE_MAX);
-	else
+	}
+	else if (type == WM_DRAG_LIBRARY) {
+		drag->poin = MEM_dupallocN(poin);
+		drag->flags |= WM_DRAG_FREE_DATA;
+		BLI_strncpy(drag->path, ((uiDragLibraryHandle *)poin)->path, sizeof(drag->path));
+	}
+	else {
 		drag->poin = poin;
+	}
 	drag->value = value;
 	
 	return drag;

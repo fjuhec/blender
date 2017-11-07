@@ -155,6 +155,10 @@
  * also note that the id _must_ have a library - campbell */
 void BKE_id_lib_local_paths(Main *bmain, Library *lib, ID *id)
 {
+	if (lib->flag & LIBRARY_FLAG_VIRTUAL) {
+		return;
+	}
+
 	const char *bpath_user_data[2] = {bmain->name, lib->filepath};
 
 	BKE_bpath_traverse_id(bmain, id,
@@ -1450,6 +1454,8 @@ void BKE_library_free(Library *lib)
 {
 	if (lib->packedfile)
 		freePackedFile(lib->packedfile);
+
+	BKE_library_asset_repository_free(lib);
 }
 
 Main *BKE_main_new(void)
@@ -1730,8 +1736,10 @@ static ID *is_dupid(ListBase *lb, ID *id, const char *name)
 	ID *idtest = NULL;
 	
 	for (idtest = lb->first; idtest; idtest = idtest->next) {
-		/* if idtest is not a lib */ 
-		if (id != idtest && !ID_IS_LINKED(idtest)) {
+		/* if idtest is not a lib */
+		/* Virtual lib IDs are considered as local ones here, since we bulk-add them to virtual library datablocks,
+		 * we need to ensure ourselves there is no name collision there. */
+		if (id != idtest && !ID_IS_LINKED_DATABLOCK(idtest)) {
 			/* do not test alphabetic! */
 			/* optimized */
 			if (idtest->name[2] == name[0]) {
@@ -1877,8 +1885,8 @@ bool new_id(ListBase *lb, ID *id, const char *tname)
 	bool result;
 	char name[MAX_ID_NAME - 2];
 
-	/* if library, don't rename */
-	if (ID_IS_LINKED(id))
+	/* if real library, don't rename, in virtual lib case we need to check though. */
+	if (ID_IS_LINKED_DATABLOCK(id))
 		return false;
 
 	/* if no name given, use name of current ID
@@ -1929,6 +1937,7 @@ void id_clear_lib_data_ex(Main *bmain, ID *id, const bool id_in_mainlist)
 	id_fake_user_clear(id);
 
 	id->lib = NULL;
+	MEM_SAFE_FREE(id->uuid);
 	id->tag &= ~(LIB_TAG_INDIRECT | LIB_TAG_EXTERN);
 	if (id_in_mainlist)
 		new_id(which_libbase(bmain, GS(id->name)), id, NULL);
@@ -2459,6 +2468,11 @@ void BKE_id_ui_prefix(char name[MAX_ID_NAME + 1], const ID *id)
 
 void BKE_library_filepath_set(Library *lib, const char *filepath)
 {
+	if (lib->flag & LIBRARY_FLAG_VIRTUAL) {
+		/* Setting path for virtual libraries makes no sense. */
+		return;
+	}
+
 	/* in some cases this is used to update the absolute path from the
 	 * relative */
 	if (lib->name != filepath) {
