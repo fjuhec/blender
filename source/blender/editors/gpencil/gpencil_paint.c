@@ -191,6 +191,8 @@ typedef struct tGPsdata {
 /* minimum length of new segment before new point can be added */
 #define MIN_EUCLIDEAN_PX    (U.gp_euclideandist)
 
+#define MIN_STROKE_SEGMENT_SQUARE 60.0f
+
 static bool gp_stroke_added_check(tGPsdata *p)
 {
 	return (p->gpf && p->gpf->strokes.last && p->flags & GP_PAINTFLAG_STROKEADDED);
@@ -492,6 +494,7 @@ static void copy_v2float_v2int(float r[2], const int a[2])
 */
 static bool gp_smooth_buffer_point(bGPdata *gpd, float inf)
 {
+
 	tGPspoint *pt, *pta, *ptb;
 	float fpt[2], fpta[2], fptb[2];
 	float estimated_co[2] = { 0.0f };
@@ -518,14 +521,17 @@ static bool gp_smooth_buffer_point(bGPdata *gpd, float inf)
 	/* current point */
 	pt = (tGPspoint *)gpd->sbuffer + i;
 
-	/* compute estimated position projecting over last two points vector the 
+	/* compute estimated position projecting over last two points vector the
 	 * vector to new point.
 	 */
 	copy_v2float_v2int(fpta, &pta->x);
 	copy_v2float_v2int(fptb, &ptb->x);
 	copy_v2float_v2int(fpt, &pt->x);
+
+	float sqsize = len_squared_v2v2(fpta, fpt);
 	float lambda = closest_to_line_v2(estimated_co, fpt, fpta, fptb);
-	if (lambda > 0.0f) {
+	/* need a minimum space between points to apply */
+	if ((lambda > 0.0f) && (sqsize > MIN_STROKE_SEGMENT_SQUARE)) {
 		/* blend between original and optimal smoothed coordinate */
 		interp_v2_v2v2(fpt, fpt, estimated_co, inf);
 		copy_v2int_v2float(&pt->x, fpt);
