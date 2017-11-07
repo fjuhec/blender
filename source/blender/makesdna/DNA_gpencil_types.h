@@ -120,7 +120,7 @@ typedef struct bGPDbrush {
 	struct CurveMapping *cur_jitter;
 
 	float curcolor[3];
-	char pad[4];
+	float draw_stabifac;      /* amount of stabilization while drawing */
 } bGPDbrush;
 
 /* bGPDbrush->flag */

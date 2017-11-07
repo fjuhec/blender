@@ -417,6 +417,7 @@ class GreasePencilBrushOptionsPanel:
             col.label(text="Stroke Quality:")
             col.prop(brush, "pen_smooth_factor")
             col.prop(brush, "pen_smooth_steps")
+            col.prop(brush, "pen_stabilize_factor")
             col.separator()
             row = col.row(align=False)
             row.prop(brush, "pen_subdivision_steps")

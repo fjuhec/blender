@@ -490,7 +490,12 @@ static bool gp_smooth_buffer_point(bGPdata *gpd, float inf)
 {
 	tGPspoint *pt, *pta, *ptb;
 	float fpt[2], fpta[2], fptb[2];
-	float sco[2] = { 0.0f };
+	float estimated_co[2] = { 0.0f };
+	/* the influence never can be 1. We keep the value 1 on the UI for consistency,
+	 * but internally never can be 1 because then the estimated position is always used
+	 * and is impossible to draw
+	 */
+	CLAMP(inf, 0.0f, 0.9f);
 
 	/* Do nothing if not enough points to smooth out */
 	if (gpd->sbuffer_size < 3) {
@@ -510,10 +515,10 @@ static bool gp_smooth_buffer_point(bGPdata *gpd, float inf)
 	copy_v2float_v2int(fpta, &pta->x);
 	copy_v2float_v2int(fptb, &ptb->x);
 	copy_v2float_v2int(fpt, &pt->x);
-	float lambda = closest_to_line_v2(sco, fpt, fpta, fptb);
+	float lambda = closest_to_line_v2(estimated_co, fpt, fpta, fptb);
 	if (lambda > 0.0f) {
 		/* blend between original and optimal smoothed coordinate */
-		interp_v2_v2v2(fpt, fpt, sco, inf);
+		interp_v2_v2v2(fpt, fpt, estimated_co, inf);
 		copy_v2int_v2float(&pt->x, fpt);
 	}
 	return true;
@@ -640,8 +645,7 @@ static short gp_stroke_addpoint(
 		gpd->sbuffer_size++;
 
 		/* apply dynamic smooth to point */
-		/* TODO: now the influence is harcoded to 0.6, maybe need a parameter by brush or session? */
-		gp_smooth_buffer_point(gpd, 0.6f);
+		gp_smooth_buffer_point(gpd, brush->draw_stabifac);
 
 		/* check if another operation can still occur */
 		if (gpd->sbuffer_size == GP_STROKE_BUFFER_MAX)

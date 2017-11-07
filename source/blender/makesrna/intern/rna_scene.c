@@ -2374,7 +2374,7 @@ static void rna_def_gpencil_brush(BlenderRNA *brna)
 	RNA_def_property_float_sdna(prop, NULL, "draw_smoothfac");
 	RNA_def_property_range(prop, 0.0, 2.0f);
 	RNA_def_property_ui_text(prop, "Smooth",
-	                         "Amount of smoothing to apply to newly created strokes, to reduce jitter/noise");
+	                         "Amount of smoothing to apply after finish newly created strokes, to reduce jitter/noise");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, NULL);
 
 	/* Iterations of the Smoothing factor */
@@ -2383,6 +2383,15 @@ static void rna_def_gpencil_brush(BlenderRNA *brna)
 	RNA_def_property_range(prop, 1, 3);
 	RNA_def_property_ui_text(prop, "Iterations",
 	                         "Number of times to smooth newly created strokes");
+	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, NULL);
+
+	/* Stabilization factor for new strokes while drawing */
+	prop = RNA_def_property(srna, "pen_stabilize_factor", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_sdna(prop, NULL, "draw_stabifac");
+	RNA_def_property_range(prop, 0.0, 1.0f);
+	RNA_def_property_float_default(prop, 0.6f);
+	RNA_def_property_ui_text(prop, "Stabilize",
+		"Amount of smoothing while drawing to reduce jitter/noise");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, NULL);
 
 	/* Subdivision level for new strokes */
