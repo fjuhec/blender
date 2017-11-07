@@ -471,8 +471,8 @@ static void gp_brush_angle(bGPdata *gpd, bGPDbrush *brush, tGPspoint *pt, const 
 
 static void copy_v2int_v2float(int r[2], const float a[2])
 {
-	r[0] = (int)a[0];
-	r[1] = (int)a[1];
+	r[0] = (int)roundf(a[0]);
+	r[1] = (int)roundf(a[1]);
 }
 
 static void copy_v2float_v2int(float r[2], const int a[2])
@@ -482,7 +482,11 @@ static void copy_v2float_v2int(float r[2], const int a[2])
 }
 
 /**
-* Apply smooth to last point of buffer
+* Apply smooth while drawing
+*
+* This smooth allows the artist to get a feedback of the smooth process and
+* reduces the stroke changes when apply the post stroke smooth.
+*
 * \param gpd              Current gp datablock
 * \param inf              Amount of smoothing to apply
 */
@@ -491,11 +495,14 @@ static bool gp_smooth_buffer_point(bGPdata *gpd, float inf)
 	tGPspoint *pt, *pta, *ptb;
 	float fpt[2], fpta[2], fptb[2];
 	float estimated_co[2] = { 0.0f };
-	/* the influence never can be 1. We keep the value 1 on the UI for consistency,
-	 * but internally never can be 1 because then the estimated position is always used
-	 * and is impossible to draw
+	float sco[3] = { 0.0f };
+
+	/* the influence never can be 1. We keep the range between 0 and 1 on the UI for 
+	 * consistency, but internally never can be 1 because then the estimated position 
+	 * would be used always and this makes impossible to draw. 
+	 * We adjust between 0 and 0.8 that gets good results
 	 */
-	CLAMP(inf, 0.0f, 0.9f);
+	inf *= 0.8f;
 
 	/* Do nothing if not enough points to smooth out */
 	if (gpd->sbuffer_size < 3) {
@@ -511,7 +518,9 @@ static bool gp_smooth_buffer_point(bGPdata *gpd, float inf)
 	/* current point */
 	pt = (tGPspoint *)gpd->sbuffer + i;
 
-	/* compute estimated position following last two points vector */
+	/* compute estimated position projecting over last two points vector the 
+	 * vector to new point.
+	 */
 	copy_v2float_v2int(fpta, &pta->x);
 	copy_v2float_v2int(fptb, &ptb->x);
 	copy_v2float_v2int(fpt, &pt->x);
@@ -521,6 +530,17 @@ static bool gp_smooth_buffer_point(bGPdata *gpd, float inf)
 		interp_v2_v2v2(fpt, fpt, estimated_co, inf);
 		copy_v2int_v2float(&pt->x, fpt);
 	}
+
+	/* smooth point-1 (previous) using an average of 20%-50%-30% between point-2, 
+	 * point-1 and point to get smoother strokes. This reduces the jitter between
+	 * the previous point and the point that is being created.
+	 */
+	madd_v2_v2fl(sco, fpt, 0.20f); 
+	madd_v2_v2fl(sco, fpta, 0.50f);
+	madd_v2_v2fl(sco, fptb, 0.30f);
+	interp_v2_v2v2(fptb, fptb, sco, inf);
+	copy_v2int_v2float(&ptb->x, fptb);
+
 	return true;
 }
 
