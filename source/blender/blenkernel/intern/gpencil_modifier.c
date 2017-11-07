@@ -363,3 +363,15 @@ void BKE_gpencil_geometry_modifiers(EvaluationContext *eval_ctx, Object *ob, bGP
 }
 
 /* *************************************************** */
+
+void BKE_gpencil_eval_geometry(const EvaluationContext *UNUSED(eval_ctx),
+                               bGPdata *UNUSED(gpd))
+{
+	/* TODO: Move "derived_gpf" logic here from DRW_gpencil_populate_datablock()?
+	 * This way, we wouldn't have to mess around trying to figure out how to pass
+	 * an EvaluationContext to each of the modifiers.
+	 */
+}
+
+
+/* *************************************************** */

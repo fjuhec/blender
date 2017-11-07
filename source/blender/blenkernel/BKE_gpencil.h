@@ -187,6 +187,9 @@ struct bGPDweight *BKE_gpencil_vgroup_add_point_weight(struct bGPDspoint *pt, in
 bool BKE_gpencil_vgroup_remove_point_weight(struct bGPDspoint *pt, int index);
 void BKE_gpencil_stroke_weights_duplicate(struct bGPDstroke *gps_src, struct bGPDstroke *gps_dst);
 
+/* GPencil geometry evaluation */
+void BKE_gpencil_eval_geometry(const struct EvaluationContext *eval_ctx, struct bGPdata *gpd);
+
 /* modifiers */
 bool BKE_gpencil_has_geometry_modifiers(struct Object *ob);
 
