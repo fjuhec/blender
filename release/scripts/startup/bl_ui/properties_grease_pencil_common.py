@@ -1042,9 +1042,8 @@ class GreasePencilDataPanel:
             return False
 
         if context.space_data.type in ('VIEW_3D', 'PROPERTIES'):
-            if ts.grease_pencil_source == 'OBJECT':
-                if context.space_data.context != 'DATA':
-                    return False
+            if context.space_data.context != 'DATA':
+                return False
 
             if context.space_data.context == 'DATA':
                 if context.object.type != 'GPENCIL':
