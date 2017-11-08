@@ -2524,7 +2524,11 @@ float schlick_fresnel(float u)
 
 float GTR1(float NdotH, float a)
 {
-	if (a >= 1.0) return M_1_PI;
+	if (a >= 1.0) {
+		return M_1_PI;
+	}
+
+	a = max(a, 0.001);
 	float a2 = a*a;
 	float t = 1.0 + (a2 - 1.0) * NdotH*NdotH;
 	return (a2 - 1.0) / (M_PI * log(a2) * t);
@@ -3802,6 +3806,11 @@ void node_bump(float strength, float dist, float height, vec3 N, vec3 surf_pos, 
 
 	result = normalize(absdet * N - dist * sign(det) * surfgrad);
 	result = normalize(strength * result + (1.0 - strength) * N);
+}
+
+void node_bevel(float radius, vec3 N, out vec3 result)
+{
+	result = N;
 }
 
 /* output */

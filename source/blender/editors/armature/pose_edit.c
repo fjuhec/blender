@@ -86,7 +86,7 @@ void ED_armature_enter_posemode(bContext *C, Base *base)
 	ReportList *reports = CTX_wm_reports(C);
 	Object *ob = base->object;
 	
-	if (ID_IS_LINKED_DATABLOCK(ob)) {
+	if (ID_IS_LINKED(ob)) {
 		BKE_report(reports, RPT_WARNING, "Cannot pose libdata");
 		return;
 	}
@@ -670,7 +670,7 @@ static int pose_autoside_names_exec(bContext *C, wmOperator *op)
 
 void POSE_OT_autoside_names(wmOperatorType *ot)
 {
-	static EnumPropertyItem axis_items[] = {
+	static const EnumPropertyItem axis_items[] = {
 		{0, "XAXIS", 0, "X-Axis", "Left/Right"},
 		{1, "YAXIS", 0, "Y-Axis", "Front/Back"},
 		{2, "ZAXIS", 0, "Z-Axis", "Top/Bottom"},
