@@ -595,7 +595,8 @@ bool BM_loop_check_cyclic_smooth_fan(BMLoop *l_curr)
  * Will use first clnors_data array, and fallback to cd_loop_clnors_offset (use NULL and -1 to not use clnors). */
 static void bm_mesh_loops_calc_normals(
         BMesh *bm, const float (*vcos)[3], const float (*fnos)[3], float (*r_lnos)[3],
-        MLoopNorSpaceArray *r_lnors_spacearr, short (*clnors_data)[2], const int cd_loop_clnors_offset, bool rebuild)
+        MLoopNorSpaceArray *r_lnors_spacearr, short (*clnors_data)[2],
+        const int cd_loop_clnors_offset, const bool do_rebuild)
 {
 	BMIter fiter;
 	BMFace *f_curr;
@@ -651,8 +652,11 @@ static void bm_mesh_loops_calc_normals(
 
 		l_curr = l_first = BM_FACE_FIRST_LOOP(f_curr);
 		do {
-			if (rebuild && !BM_elem_flag_test(l_curr, BM_ELEM_LNORSPACE) && !(bm->spacearr_dirty & BM_SPACEARR_DIRTY_ALL))
+			if (do_rebuild && !BM_elem_flag_test(l_curr, BM_ELEM_LNORSPACE) &&
+			    !(bm->spacearr_dirty & BM_SPACEARR_DIRTY_ALL))
+			{
 				continue;
+			}
 			/* A smooth edge, we have to check for cyclic smooth fan case.
 			 * If we find a new, never-processed cyclic smooth fan, we can do it now using that loop/edge as
 			 * 'entry point', otherwise we can skip it. */
@@ -971,7 +975,8 @@ void BM_mesh_loop_normals_update(
 void BM_loops_calc_normal_vcos(
         BMesh *bm, const float (*vcos)[3], const float (*vnos)[3], const float (*fnos)[3],
         const bool use_split_normals, const float split_angle, float (*r_lnos)[3],
-        MLoopNorSpaceArray *r_lnors_spacearr, short (*clnors_data)[2], const int cd_loop_clnors_offset, bool rebuild)
+        MLoopNorSpaceArray *r_lnors_spacearr, short (*clnors_data)[2],
+        const int cd_loop_clnors_offset, const bool do_rebuild)
 {
 	const bool has_clnors = clnors_data || (cd_loop_clnors_offset != -1);
 
@@ -981,7 +986,8 @@ void BM_loops_calc_normal_vcos(
 		bm_mesh_edges_sharp_tag(bm, vnos, fnos, has_clnors ? (float)M_PI : split_angle, r_lnos);
 
 		/* Finish computing lnos by accumulating face normals in each fan of faces defined by sharp edges. */
-		bm_mesh_loops_calc_normals(bm, vcos, fnos, r_lnos, r_lnors_spacearr, clnors_data, cd_loop_clnors_offset, rebuild);
+		bm_mesh_loops_calc_normals(
+		            bm, vcos, fnos, r_lnos, r_lnors_spacearr, clnors_data, cd_loop_clnors_offset, do_rebuild);
 	}
 	else {
 		BLI_assert(!r_lnors_spacearr);
@@ -999,7 +1005,8 @@ void BM_lnorspacearr_store(BMesh *bm, float (*r_lnors)[3])
 
 	int cd_loop_clnors_offset = CustomData_get_offset(&bm->ldata, CD_CUSTOMLOOPNORMAL);
 
-	BM_loops_calc_normal_vcos(bm, NULL, NULL, NULL, true, M_PI, r_lnors, bm->lnor_spacearr, NULL, cd_loop_clnors_offset, false);
+	BM_loops_calc_normal_vcos(
+	            bm, NULL, NULL, NULL, true, M_PI, r_lnors, bm->lnor_spacearr, NULL, cd_loop_clnors_offset, false);
 	bm->spacearr_dirty &= ~(BM_SPACEARR_DIRTY | BM_SPACEARR_DIRTY_ALL);
 }
 
@@ -1093,7 +1100,8 @@ void BM_lnorspace_rebuild(BMesh *bm, bool preserve_clnor)
 	if (bm->spacearr_dirty & BM_SPACEARR_DIRTY_ALL) {
 		BKE_lnor_spacearr_clear(bm->lnor_spacearr);
 	}
-	BM_loops_calc_normal_vcos(bm, NULL, NULL, NULL, true, M_PI, r_lnors, bm->lnor_spacearr, NULL, cd_loop_clnors_offset, true);
+	BM_loops_calc_normal_vcos(
+	            bm, NULL, NULL, NULL, true, M_PI, r_lnors, bm->lnor_spacearr, NULL, cd_loop_clnors_offset, true);
 	MEM_freeN(r_lnors);
 
 	BM_ITER_MESH(f, &fiter, bm, BM_FACES_OF_MESH) {
