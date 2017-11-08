@@ -157,9 +157,6 @@ void BKE_scene_graph_update_for_newframe(struct EvaluationContext *eval_ctx,
                                          struct Main *bmain,
                                          struct Scene *sce);
 
-/* NOTE: DO NOT USE THOSE IN NEW CODE! */
-void BKE_scene_update_tagged(struct EvaluationContext *eval_ctx, struct Main *bmain, struct Scene *sce);
-
 struct SceneRenderLayer *BKE_scene_add_render_layer(struct Scene *sce, const char *name);
 bool BKE_scene_remove_render_layer(struct Main *main, struct Scene *scene, struct SceneRenderLayer *srl);
 
@@ -230,7 +227,7 @@ void BKE_scene_allocate_depsgraph_hash(struct Scene *scene);
 void BKE_scene_ensure_depsgraph_hash(struct Scene *scene);
 void BKE_scene_free_depsgraph_hash(struct Scene *scene);
 
-struct Depsgraph *BKE_scene_get_depsgraph(struct Scene *scene, struct SceneLayer *scene_layer);
+struct Depsgraph *BKE_scene_get_depsgraph(struct Scene *scene, struct SceneLayer *scene_layer, bool allocate);
 
 #ifdef __cplusplus
 }

@@ -206,6 +206,14 @@ void DEG_graph_build_from_scene(Depsgraph *graph, Main *bmain, Scene *scene)
 
 	DEG::Depsgraph *deg_graph = reinterpret_cast<DEG::Depsgraph *>(graph);
 
+	/* TODO(sergey): This is a bit tricky, but ensures that all the data
+	 * is evaluated properly when depsgraph is becoming "visible".
+	 *
+	 * This now could happen for both visible scene is changed and extra
+	 * dependency graph was created for render engine.
+	 */
+	const bool need_on_visible_update = (deg_graph->scene == NULL);
+
 	/* 1) Generate all the nodes in the graph first */
 	DEG::DepsgraphNodeBuilder node_builder(bmain, deg_graph);
 	node_builder.begin_build(bmain);
@@ -249,6 +257,10 @@ void DEG_graph_build_from_scene(Depsgraph *graph, Main *bmain, Scene *scene)
 
 	/* Relations are up to date. */
 	deg_graph->need_update = false;
+
+	if (need_on_visible_update) {
+		DEG_graph_on_visible_update(bmain, graph);
+	}
 }
 
 /* Tag graph relations for update. */
@@ -275,7 +287,10 @@ void DEG_relations_tag_update(Main *bmain)
 	DEG_DEBUG_PRINTF("%s: Tagging relations for update.\n", __func__);
 	LINKLIST_FOREACH(Scene *, scene, &bmain->scene) {
 		LINKLIST_FOREACH(SceneLayer *, scene_layer, &scene->render_layers) {
-			Depsgraph *depsgraph = (Depsgraph *)BKE_scene_get_depsgraph(scene, scene_layer);
+			Depsgraph *depsgraph =
+			        (Depsgraph *)BKE_scene_get_depsgraph(scene,
+			                                             scene_layer,
+			                                             false);
 			if (depsgraph != NULL) {
 				DEG_graph_tag_relations_update(depsgraph);
 			}
