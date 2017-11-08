@@ -663,11 +663,9 @@ static void gpencil_draw_onion_strokes(GpencilBatchCache *cache, GPENCIL_e_data 
 static void gpencil_init_evalctx_from_drawctx(const DRWContextState *draw_ctx, EvaluationContext *eval_ctx)
 {
 	Scene *scene = draw_ctx->scene;
-	if (scene) {
-		eval_ctx->depsgraph = scene->depsgraph_legacy;
-		eval_ctx->ctime = BKE_scene_frame_get(scene);
-	}
-
+	
+	eval_ctx->depsgraph = BKE_scene_get_depsgraph(scene, draw_ctx->scene_layer);
+	eval_ctx->ctime = BKE_scene_frame_get(scene);
 	eval_ctx->scene_layer = draw_ctx->scene_layer;
 	eval_ctx->engine = draw_ctx->engine;
 }
