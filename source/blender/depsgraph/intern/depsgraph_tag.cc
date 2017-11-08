@@ -184,6 +184,9 @@ void id_tag_update_object_data(Depsgraph *graph, IDDepsNode *id_node)
 		case ID_LP:
 			data_comp = id_node->find_component(DEG_NODE_TYPE_PARAMETERS);
 			break;
+		case ID_GD:
+			data_comp = id_node->find_component(DEG_NODE_TYPE_GEOMETRY);
+			break;
 		default:
 			break;
 	}

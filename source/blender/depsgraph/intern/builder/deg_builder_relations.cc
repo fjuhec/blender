@@ -1722,6 +1722,14 @@ void DepsgraphRelationBuilder::build_obdata_geom(Main *bmain, Scene *scene, Obje
 		
 		case OB_GPENCIL: /* Grease Pencil */
 		{
+			/* Geometry cache needs to be recalculated on frame change
+			 * (e.g. to fix crashes after scrubbing the timeline when
+			 *  onion skinning is enabled, since the ghosts need to be
+			 *  re-added to the cache once scrubbing ends)
+			 */
+			TimeSourceKey time_key;
+			ComponentKey geometry_key(obdata, DEG_NODE_TYPE_GEOMETRY);
+			add_relation(time_key, geometry_key, "GP Frame Change");
 			break;
 		}
 	}
