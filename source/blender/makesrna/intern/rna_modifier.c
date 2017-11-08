@@ -68,13 +68,13 @@ const EnumPropertyItem rna_enum_object_modifier_type_items[] = {
 	{eModifierType_MeshCache, "MESH_CACHE", ICON_MOD_MESHDEFORM, "Mesh Cache", ""},
 	{eModifierType_MeshSequenceCache, "MESH_SEQUENCE_CACHE", ICON_MOD_MESHDEFORM, "Mesh Sequence Cache", ""},
 	{eModifierType_NormalEdit, "NORMAL_EDIT", ICON_MOD_NORMALEDIT, "Normal Edit", ""},
+	{eModifierType_WeightedNormal, "WEIGHTED_NORMAL", ICON_MOD_NORMALEDIT, "Weighted Normal", ""},
 	{eModifierType_UVProject, "UV_PROJECT", ICON_MOD_UVPROJECT, "UV Project", ""},
 	{eModifierType_UVWarp, "UV_WARP", ICON_MOD_UVPROJECT, "UV Warp", ""},
 	{eModifierType_WeightVGEdit, "VERTEX_WEIGHT_EDIT", ICON_MOD_VERTEX_WEIGHT, "Vertex Weight Edit", ""},
 	{eModifierType_WeightVGMix, "VERTEX_WEIGHT_MIX", ICON_MOD_VERTEX_WEIGHT, "Vertex Weight Mix", ""},
 	{eModifierType_WeightVGProximity, "VERTEX_WEIGHT_PROXIMITY", ICON_MOD_VERTEX_WEIGHT,
 	                                  "Vertex Weight Proximity", ""},
-	{eModifierType_WeightedNormal, "WEIGHTED_NORMAL", ICON_MOD_NORMALEDIT, "Weighted Normal", ""},
 	{0, "", 0, N_("Generate"), ""},
 	{eModifierType_Array, "ARRAY", ICON_MOD_ARRAY, "Array", ""},
 	{eModifierType_Bevel, "BEVEL", ICON_MOD_BEVEL, "Bevel", ""},
@@ -4809,7 +4809,7 @@ static void rna_def_modifier_weightednormal(BlenderRNA *brna)
 		{MOD_WEIGHTEDNORMAL_MODE_FACE, "FACE_AREA", 0, "Face Area", "Generate face area weighted normals"},
 		{MOD_WEIGHTEDNORMAL_MODE_ANGLE, "CORNER_ANGLE", 0, "Corner Angle", "Generate corner angle weighted normals"},
 		{MOD_WEIGHTEDNORMAL_MODE_FACE_ANGLE, "FACE_AREA_WITH_ANGLE", 0, "Face Area with Angle",
-			"Generated normals weighted by both Face Area and Angle" },
+		                                     "Generated normals weighted by both Face Area and Angle"},
 		{0, NULL, 0, NULL, NULL}
 	};
 
@@ -4832,7 +4832,7 @@ static void rna_def_modifier_weightednormal(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "thresh", PROP_FLOAT, PROP_NONE);
 	RNA_def_property_range(prop, 0, 10);
 	RNA_def_property_ui_range(prop, 0, 10, 1, 2);
-	RNA_def_property_ui_text(prop, "Thresh", "Threshold value for different weights to be considered equal");
+	RNA_def_property_ui_text(prop, "Threshold", "Threshold value for different weights to be considered equal");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
 	prop = RNA_def_property(srna, "keep_sharp", PROP_BOOLEAN, PROP_NONE);
