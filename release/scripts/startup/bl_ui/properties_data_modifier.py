@@ -1544,20 +1544,20 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
             layout.operator("object.correctivesmooth_bind", text="Unbind" if is_bind else "Bind")
 
     def WEIGHTED_NORMAL(self, layout, ob, md):
-        has_vgroup = bool(md.vertex_group)
-
-        col = layout.column()
-        col.label("Weighting Mode:")
+        layout.label("Weighting Mode:")
+        split = layout.split(align=True)
+        col = split.column(align=True)
         col.prop(md, "mode", text="")
+        col.prop(md, "weight", text="Weight")
+        col.prop(md, "keep_sharp")
 
-        layout.prop(md, "weight", text="Weight")
-        layout.prop(md, "thresh", text="Threshold")
-        row = layout.row(align=True)
+        col = split.column(align=True)
+        row = col.row(align=True)
         row.prop_search(md, "vertex_group", ob, "vertex_groups", text="")
-        row.active = has_vgroup
+        row.active = bool(md.vertex_group)
         row.prop(md, "invert_vertex_group", text="", icon='ARROW_LEFTRIGHT')
-        layout.prop(md, "keep_sharp")
-        layout.prop(md, "face_influence")
+        col.prop(md, "thresh", text="Threshold")
+        col.prop(md, "face_influence")
 
 
 classes = (
