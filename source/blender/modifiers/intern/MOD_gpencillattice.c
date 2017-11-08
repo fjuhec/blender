@@ -110,7 +110,7 @@ static void bakeModifierGP(const bContext *C, const EvaluationContext *eval_ctx,
 	int oldframe = CFRA;
 	/* Get depsgraph and scene layer */
 	SceneLayer *scene_layer = BKE_scene_layer_from_scene_get(scene);
-	Depsgraph *depsgraph = BKE_scene_get_depsgraph(scene, scene_layer);
+	Depsgraph *depsgraph = BKE_scene_get_depsgraph(scene, scene_layer, false);
 
 	if (mmd->object == NULL)
 		return;

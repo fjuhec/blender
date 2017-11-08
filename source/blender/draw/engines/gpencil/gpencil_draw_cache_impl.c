@@ -664,7 +664,7 @@ static void gpencil_init_evalctx_from_drawctx(const DRWContextState *draw_ctx, E
 {
 	Scene *scene = draw_ctx->scene;
 	
-	eval_ctx->depsgraph = BKE_scene_get_depsgraph(scene, draw_ctx->scene_layer);
+	eval_ctx->depsgraph = BKE_scene_get_depsgraph(scene, draw_ctx->scene_layer, false);
 	eval_ctx->ctime = BKE_scene_frame_get(scene);
 	eval_ctx->scene_layer = draw_ctx->scene_layer;
 	eval_ctx->engine = draw_ctx->engine;
