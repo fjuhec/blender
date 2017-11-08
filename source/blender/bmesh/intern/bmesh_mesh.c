@@ -556,8 +556,10 @@ static void bm_mesh_edges_sharp_tag(
 	bm->elem_index_dirty &= ~BM_EDGE;
 }
 
-/* Check whether gievn loop is part of an unknown-so-far cyclic smooth fan, or not.
- * Needed because cyclic smooth fans have no obvious 'entry point', and yet we need to walk them once, and only once. */
+/**
+ * Check whether given loop is part of an unknown-so-far cyclic smooth fan, or not.
+ * Needed because cyclic smooth fans have no obvious 'entry point', and yet we need to walk them once, and only once.
+ */
 bool BM_loop_check_cyclic_smooth_fan(BMLoop *l_curr)
 {
 	BMLoop *lfan_pivot_next = l_curr;
@@ -1013,15 +1015,20 @@ void BM_lnorspacearr_store(BMesh *bm, float (*r_lnors)[3])
 /* will change later */
 #define CLEAR_SPACEARRAY_THRESHOLD(x) x/2
 
-void BM_lnorspace_invalidate(BMesh *bm, bool inval_all)
+void BM_lnorspace_invalidate(BMesh *bm, const bool do_invalidate_all)
 {
 	if (bm->spacearr_dirty & BM_SPACEARR_DIRTY_ALL) {
 		return;
 	}
-	if (inval_all || bm->totvertsel > CLEAR_SPACEARRAY_THRESHOLD(bm->totvert)) {
+	if (do_invalidate_all || bm->totvertsel > CLEAR_SPACEARRAY_THRESHOLD(bm->totvert)) {
 		bm->spacearr_dirty |= BM_SPACEARR_DIRTY_ALL;
 		return;
 	}
+	if (bm->lnor_spacearr == NULL) {
+		bm->spacearr_dirty |= BM_SPACEARR_DIRTY_ALL;
+		return;
+	}
+
 	BMFace *f;
 	BMVert *v;
 	BMLoop *l;
@@ -1036,12 +1043,15 @@ void BM_lnorspace_invalidate(BMesh *bm, bool inval_all)
 			BM_ITER_ELEM(f, &fiter, v, BM_FACES_OF_VERT) {
 				if (!BLI_BITMAP_TEST(faces, BM_elem_index_get(f))) {
 					BM_ITER_ELEM(l, &liter, f, BM_LOOPS_OF_FACE) {
-						BLI_BITMAP_ENABLE(loops_marked, BM_elem_index_get(l));  /* Enable bitmaps of all loops in the spaces. */
-						LinkNode *loops = bm->lnor_spacearr ? bm->lnor_spacearr->lspacearr[BM_elem_index_get(l)]->loops : NULL;
-						while (loops) {
-							const int loop_index = GET_INT_FROM_POINTER(loops->link);
-							BLI_BITMAP_ENABLE(loops_marked, loop_index);
-							loops = loops->next;
+						/* Enable bitmaps of all loops in the spaces. */
+						LinkNode *loops = bm->lnor_spacearr->lspacearr[BM_elem_index_get(l)]->loops;
+						if (loops != NULL) {
+							for (; loops != NULL; loops = loops->next) {
+								BLI_BITMAP_ENABLE(loops_marked, GET_INT_FROM_POINTER(loops->link));
+							}
+						}
+						else {
+							BLI_BITMAP_ENABLE(loops_marked, BM_elem_index_get(l));
 						}
 					}
 					BLI_BITMAP_ENABLE(faces, BM_elem_index_get(f));  /* Enable bitmap of face to not iterate through it again. */

@@ -52,9 +52,10 @@ void BM_loops_calc_normal_vcos(
         const bool use_split_normals, const float split_angle, float (*r_lnos)[3],
         struct MLoopNorSpaceArray *r_lnors_spacearr, short (*clnors_data)[2],
         const int cd_loop_clnors_offset, const bool do_rebuild);
+
 bool BM_loop_check_cyclic_smooth_fan(BMLoop *l_curr);
 void BM_lnorspacearr_store(BMesh *bm, float (*r_lnors)[3]);
-void BM_lnorspace_invalidate(BMesh *bm, bool inval_all);
+void BM_lnorspace_invalidate(BMesh *bm, const bool do_invalidate_all);
 void BM_lnorspace_rebuild(BMesh *bm, bool preserve_clnor);
 void BM_lnorspace_update(BMesh *bm);
 void BM_lnorspace_err(BMesh *bm);
