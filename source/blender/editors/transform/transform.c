@@ -1471,6 +1471,7 @@ int transformEvent(TransInfo *t, const wmEvent *event)
 					t->redraw |= TREDRAW_HARD;
 					handled = true;
 				}
+				break;
 			case NKEY:
 				if (ELEM(t->mode, TFM_ROTATION)) {
 					if (t->obedit && t->obedit->type == OB_MESH) {
