@@ -6489,7 +6489,7 @@ static bool split_loop(bContext *C, wmOperator *UNUSED(op), LoopNormalData *UNUS
 		l_curr = l_first = BM_FACE_FIRST_LOOP(f);
 		do {
 			if (BM_elem_flag_test(l_curr->v, BM_ELEM_SELECT) && (!BM_elem_flag_test(l_curr->e, BM_ELEM_TAG) ||
-				(!BM_elem_flag_test(l_curr, BM_ELEM_TAG) && bm_mesh_loop_check_cyclic_smooth_fan(l_curr))))
+				(!BM_elem_flag_test(l_curr, BM_ELEM_TAG) && BM_loop_check_cyclic_smooth_fan(l_curr))))
 			{
 				if (!BM_elem_flag_test(l_curr->e, BM_ELEM_TAG) && !BM_elem_flag_test(l_curr->prev->e, BM_ELEM_TAG)) {
 					int loop_index = BM_elem_index_get(l_curr);
@@ -6670,7 +6670,7 @@ static int edbm_average_loop_normals_exec(bContext *C, wmOperator *op)
 		l_curr = l_first = BM_FACE_FIRST_LOOP(f);
 		do {
 			if (BM_elem_flag_test(l_curr->v, BM_ELEM_SELECT) && (!BM_elem_flag_test(l_curr->e, BM_ELEM_TAG) ||
-				(!BM_elem_flag_test(l_curr, BM_ELEM_TAG) && bm_mesh_loop_check_cyclic_smooth_fan(l_curr))))
+				(!BM_elem_flag_test(l_curr, BM_ELEM_TAG) && BM_loop_check_cyclic_smooth_fan(l_curr))))
 			{
 				if (!BM_elem_flag_test(l_curr->e, BM_ELEM_TAG) && !BM_elem_flag_test(l_curr->prev->e, BM_ELEM_TAG)) {
 					int loop_index = BM_elem_index_get(l_curr);

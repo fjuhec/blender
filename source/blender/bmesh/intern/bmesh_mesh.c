@@ -558,7 +558,7 @@ static void bm_mesh_edges_sharp_tag(
 
 /* Check whether gievn loop is part of an unknown-so-far cyclic smooth fan, or not.
  * Needed because cyclic smooth fans have no obvious 'entry point', and yet we need to walk them once, and only once. */
-bool bm_mesh_loop_check_cyclic_smooth_fan(BMLoop *l_curr)
+bool BM_loop_check_cyclic_smooth_fan(BMLoop *l_curr)
 {
 	BMLoop *lfan_pivot_next = l_curr;
 	BMEdge *e_next = l_curr->e;
@@ -661,7 +661,7 @@ static void bm_mesh_loops_calc_normals(
 			 * However, this would complicate the code, add more memory usage, and BM_vert_step_fan_loop()
 			 * is quite cheap in term of CPU cycles, so really think it's not worth it. */
 			if (BM_elem_flag_test(l_curr->e, BM_ELEM_TAG) &&
-			    (BM_elem_flag_test(l_curr, BM_ELEM_TAG) || !bm_mesh_loop_check_cyclic_smooth_fan(l_curr)))
+			    (BM_elem_flag_test(l_curr, BM_ELEM_TAG) || !BM_loop_check_cyclic_smooth_fan(l_curr)))
 			{
 			}
 			else if (!BM_elem_flag_test(l_curr->e, BM_ELEM_TAG) &&

@@ -652,7 +652,7 @@ typedef struct LoopSplitTaskDataCommon {
 /* See comment about edge_to_loops below. */
 #define IS_EDGE_SHARP(_e2l) (ELEM((_e2l)[1], INDEX_UNSET, INDEX_INVALID))
 
-void loop_manifold_fan_around_vert_next(
+void BKE_mesh_loop_manifold_fan_around_vert_next(
         const MLoop *mloops, const MPoly *mpolys,
         const int *loop_to_poly, const int *e2lfan_curr, const uint mv_pivot_index,
         const MLoop **r_mlfan_curr, int *r_mlfan_curr_index, int *r_mlfan_vert_index, int *r_mpfan_curr_index)
@@ -892,7 +892,7 @@ static void split_loop_nor_fan_do(LoopSplitTaskDataCommon *common_data, LoopSpli
 		copy_v3_v3(vec_prev, vec_curr);
 
 		/* Find next loop of the smooth fan. */
-		loop_manifold_fan_around_vert_next(
+		BKE_mesh_loop_manifold_fan_around_vert_next(
 		            mloops, mpolys, loop_to_poly, e2lfan_curr, mv_pivot_index,
 		            &mlfan_curr, &mlfan_curr_index, &mlfan_vert_index, &mpfan_curr_index);
 
@@ -1029,7 +1029,7 @@ static bool loop_split_generator_check_cyclic_smooth_fan(
 
 	while (true) {
 		/* Find next loop of the smooth fan. */
-		loop_manifold_fan_around_vert_next(
+		BKE_mesh_loop_manifold_fan_around_vert_next(
 		            mloops, mpolys, loop_to_poly, e2lfan_curr, mv_pivot_index,
 		            &mlfan_curr, &mlfan_curr_index, &mlfan_vert_index, &mpfan_curr_index);
 
