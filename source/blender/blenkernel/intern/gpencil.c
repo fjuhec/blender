@@ -87,14 +87,14 @@ void BKE_gpencil_batch_cache_free(bGPdata *gpd)
 /* TODO: Remove completely? */
 void BKE_gpencil_batch_cache_alldirty_main(Main *bmain)
 {
-#if 0 /* XXX: disabled so we can see how much is broken without this */
-	bGPdata *gpd;
+	/* XXX: disabled by default, so we can see how much is broken without this */
+	if (G.debug_value == 660) {
+		bGPdata *gpd;
 
-	for (gpd = bmain->gpencil.first; gpd; gpd = gpd->id.next) {
-		BKE_gpencil_batch_cache_dirty(gpd);
+		for (gpd = bmain->gpencil.first; gpd; gpd = gpd->id.next) {
+			BKE_gpencil_batch_cache_dirty(gpd);
+		}
 	}
-#endif
-	(void)bmain;
 }
 
 /* ************************************************** */
