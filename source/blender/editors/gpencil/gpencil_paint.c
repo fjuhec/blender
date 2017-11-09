@@ -554,14 +554,14 @@ static bool gp_smooth_buffer_point(bGPdata *gpd, float inf)
 	 */
 	sub_v2_v2v2(vab, fptb, fpta);
 	sub_v2_v2v2(vac, fpt, fpta);
-	float sqsize_bc = len_squared_v2v2(fptb, fpt);
+	float sqsize_ab = len_squared_v2v2(fptb, fpta);
 	normalize_v2(vab);
 	normalize_v2(vac);
 
 	/* as the vectors are normalized, we can use dot product to calculate cosine */
 	float angle = dot_v2v2(vab, vac);
 	/* if the angle is minimun, means the point can be removed, so rollback one point */
-	if ((angle > MIN_STROKE_SEGMENT_ANGLE) && (sqsize_bc < MIN_STROKE_SEGMENT_SQUARE * 3.0f)) {
+	if ((angle > MIN_STROKE_SEGMENT_ANGLE) && (sqsize_ab < MIN_STROKE_SEGMENT_SQUARE * 3.0f)) {
 		ptb->x = pt->x;
 		ptb->y = pt->y;
 		ptb->pressure = pt->pressure;
