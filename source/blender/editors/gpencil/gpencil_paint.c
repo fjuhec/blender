@@ -191,7 +191,9 @@ typedef struct tGPsdata {
 /* minimum length of new segment before new point can be added */
 #define MIN_EUCLIDEAN_PX    (U.gp_euclideandist)
 
+/* TODO: Make user prefs parameters? (antoniov) */
 #define MIN_STROKE_SEGMENT_SQUARE 60.0f
+#define MIN_STROKE_SEGMENT_ANGLE 0.9995f
 
 static bool gp_stroke_added_check(tGPsdata *p)
 {
@@ -496,7 +498,7 @@ static bool gp_smooth_buffer_point(bGPdata *gpd, float inf)
 {
 
 	tGPspoint *pt, *pta, *ptb;
-	float fpt[2], fpta[2], fptb[2];
+	float fpt[2], fpta[2], fptb[2], vab[2], vac[2];
 	float estimated_co[2] = { 0.0f };
 	float sco[3] = { 0.0f };
 
@@ -528,10 +530,10 @@ static bool gp_smooth_buffer_point(bGPdata *gpd, float inf)
 	copy_v2float_v2int(fptb, &ptb->x);
 	copy_v2float_v2int(fpt, &pt->x);
 
-	float sqsize = len_squared_v2v2(fpta, fpt);
+	float sqsize_ac = len_squared_v2v2(fpta, fpt);
 	float lambda = closest_to_line_v2(estimated_co, fpt, fpta, fptb);
 	/* need a minimum space between points to apply */
-	if ((lambda > 0.0f) && (sqsize > MIN_STROKE_SEGMENT_SQUARE)) {
+	if ((lambda > 0.0f) && (sqsize_ac > MIN_STROKE_SEGMENT_SQUARE)) {
 		/* blend between original and optimal smoothed coordinate */
 		interp_v2_v2v2(fpt, fpt, estimated_co, inf);
 		copy_v2int_v2float(&pt->x, fpt);
@@ -546,6 +548,27 @@ static bool gp_smooth_buffer_point(bGPdata *gpd, float inf)
 	madd_v2_v2fl(sco, fptb, 0.30f);
 	interp_v2_v2v2(fptb, fptb, sco, inf);
 	copy_v2int_v2float(&ptb->x, fptb);
+
+	/* check if the previous point is relevant calculating the angle between vectors
+	 * to verify if the angle is too small and can be noise 
+	 */
+	sub_v2_v2v2(vab, fptb, fpta);
+	sub_v2_v2v2(vac, fpt, fpta);
+	float sqsize_bc = len_squared_v2v2(fptb, fpt);
+	normalize_v2(vab);
+	normalize_v2(vac);
+
+	/* as the vectors are normalized, we can use dot product to calculate cosine */
+	float angle = dot_v2v2(vab, vac);
+	/* if the angle is minimun, means the point can be removed, so rollback one point */
+	if ((angle > MIN_STROKE_SEGMENT_ANGLE) && (sqsize_bc < MIN_STROKE_SEGMENT_SQUARE * 3.0f)) {
+		ptb->x = pt->x;
+		ptb->y = pt->y;
+		ptb->pressure = pt->pressure;
+		ptb->strength = pt->strength;
+		ptb->time = pt->time;
+		gpd->sbuffer_size--;
+	}
 
 	return true;
 }
