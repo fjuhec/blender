@@ -1467,6 +1467,10 @@ static int gp_brush_copy_exec(bContext *C, wmOperator *op)
 	newbrush->draw_random_press = brush->draw_random_press;
 	newbrush->draw_random_sub = brush->draw_random_sub;
 
+	newbrush->draw_stabifac = brush->draw_stabifac;
+	newbrush->draw_pxdensity = brush->draw_pxdensity;
+	newbrush->draw_stabangle = brush->draw_stabangle;
+
 	/* free automatic curves created by default (replaced by copy) */
 	curvemapping_free(newbrush->cur_sensitivity);
 	curvemapping_free(newbrush->cur_strength);

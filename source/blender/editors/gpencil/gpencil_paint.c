@@ -191,10 +191,6 @@ typedef struct tGPsdata {
 /* minimum length of new segment before new point can be added */
 #define MIN_EUCLIDEAN_PX    (U.gp_euclideandist)
 
-/* TODO: Make user prefs parameters? (antoniov) */
-#define MIN_STROKE_SEGMENT_SQUARE 60.0f
-#define MIN_STROKE_SEGMENT_ANGLE 0.9995f
-
 static bool gp_stroke_added_check(tGPsdata *p)
 {
 	return (p->gpf && p->gpf->strokes.last && p->flags & GP_PAINTFLAG_STROKEADDED);
@@ -494,13 +490,19 @@ static void copy_v2float_v2int(float r[2], const int a[2])
 * \param gpd              Current gp datablock
 * \param inf              Amount of smoothing to apply
 */
-static bool gp_smooth_buffer_point(bGPdata *gpd, float inf)
+static bool gp_smooth_buffer_point(bGPdata *gpd, bGPDbrush *brush)
 {
 
 	tGPspoint *pt, *pta, *ptb;
 	float fpt[2], fpta[2], fptb[2], vab[2], vac[2];
 	float estimated_co[2] = { 0.0f };
 	float sco[3] = { 0.0f };
+	float inf = brush->draw_stabifac;
+	const float draw_stabangle = 1.0f - brush->draw_stabangle;
+	/* if no stabilization, return */
+	if (brush->draw_stabifac == 0) {
+		return false;
+	}
 
 	/* the influence never can be 1. We keep the range between 0 and 1 on the UI for 
 	 * consistency, but internally never can be 1 because then the estimated position 
@@ -533,7 +535,7 @@ static bool gp_smooth_buffer_point(bGPdata *gpd, float inf)
 	float sqsize_ac = len_squared_v2v2(fpta, fpt);
 	float lambda = closest_to_line_v2(estimated_co, fpt, fpta, fptb);
 	/* need a minimum space between points to apply */
-	if ((lambda > 0.0f) && (sqsize_ac > MIN_STROKE_SEGMENT_SQUARE)) {
+	if ((lambda > 0.0f) && (sqsize_ac > brush->draw_pxdensity)) {
 		/* blend between original and optimal smoothed coordinate */
 		interp_v2_v2v2(fpt, fpt, estimated_co, inf);
 		copy_v2int_v2float(&pt->x, fpt);
@@ -561,7 +563,7 @@ static bool gp_smooth_buffer_point(bGPdata *gpd, float inf)
 	/* as the vectors are normalized, we can use dot product to calculate cosine */
 	float angle = dot_v2v2(vab, vac);
 	/* if the angle is minimun, means the point can be removed, so rollback one point */
-	if ((angle > MIN_STROKE_SEGMENT_ANGLE) && (sqsize_ab < MIN_STROKE_SEGMENT_SQUARE * 3.0f)) {
+	if ((angle > draw_stabangle) && (sqsize_ab < brush->draw_pxdensity * 3.0f)) {
 		ptb->x = pt->x;
 		ptb->y = pt->y;
 		ptb->pressure = pt->pressure;
@@ -694,7 +696,7 @@ static short gp_stroke_addpoint(
 		gpd->sbuffer_size++;
 
 		/* apply dynamic smooth to point */
-		gp_smooth_buffer_point(gpd, brush->draw_stabifac);
+		gp_smooth_buffer_point(gpd, brush);
 
 		/* check if another operation can still occur */
 		if (gpd->sbuffer_size == GP_STROKE_BUFFER_MAX)

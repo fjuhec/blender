@@ -538,6 +538,10 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->draw_random_sub = 0.0f;
 	copy_v3_v3(brush->curcolor, curcolor);
 
+	brush->draw_stabifac = 1.0f;
+	brush->draw_pxdensity = GP_MIN_STROKE_SEGMENT_PX;
+	brush->draw_stabangle = GP_MIN_STROKE_SEGMENT_ANGLE;
+
 	/* Pencil brush */
 	brush = BKE_gpencil_brush_addnew(ts, "Pencil", true);
 	brush->thickness = 15.0f;
@@ -563,6 +567,10 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->sublevel = 1;
 	brush->draw_random_sub = 0.0f;
 	copy_v3_v3(brush->curcolor, curcolor);
+
+	brush->draw_stabifac = 1.0f;
+	brush->draw_pxdensity = GP_MIN_STROKE_SEGMENT_PX;
+	brush->draw_stabangle = GP_MIN_STROKE_SEGMENT_ANGLE;
 
 	/* Ink brush */
 	brush = BKE_gpencil_brush_addnew(ts, "Ink", false);
@@ -590,6 +598,10 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->draw_random_sub = 0.0f;
 	copy_v3_v3(brush->curcolor, curcolor);
 
+	brush->draw_stabifac = 1.0f;
+	brush->draw_pxdensity = GP_MIN_STROKE_SEGMENT_PX;
+	brush->draw_stabangle = GP_MIN_STROKE_SEGMENT_ANGLE;
+
 	/* Ink Noise brush */
 	brush = BKE_gpencil_brush_addnew(ts, "Ink noise", false);
 	brush->thickness = 6.0f;
@@ -615,6 +627,10 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->sublevel = 2;
 	brush->draw_random_sub = 0.0f;
 	copy_v3_v3(brush->curcolor, curcolor);
+
+	brush->draw_stabifac = 1.0f;
+	brush->draw_pxdensity = GP_MIN_STROKE_SEGMENT_PX;
+	brush->draw_stabangle = GP_MIN_STROKE_SEGMENT_ANGLE;
 
 	/* Marker brush */
 	brush = BKE_gpencil_brush_addnew(ts, "Marker", false);
@@ -642,6 +658,10 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->draw_random_sub = 0.0f;
 	copy_v3_v3(brush->curcolor, curcolor);
 
+	brush->draw_stabifac = 1.0f;
+	brush->draw_pxdensity = GP_MIN_STROKE_SEGMENT_PX;
+	brush->draw_stabangle = GP_MIN_STROKE_SEGMENT_ANGLE;
+
 	/* Crayon brush */
 	brush = BKE_gpencil_brush_addnew(ts, "Crayon", false);
 	brush->thickness = 10.0f;
@@ -667,6 +687,10 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->sublevel = 2;
 	brush->draw_random_sub = 0.5f;
 	copy_v3_v3(brush->curcolor, curcolor);
+
+	brush->draw_stabifac = 1.0f;
+	brush->draw_pxdensity = GP_MIN_STROKE_SEGMENT_PX;
+	brush->draw_stabangle = GP_MIN_STROKE_SEGMENT_ANGLE;
 }
 
 /* add a new gp-brush and make it the active */
@@ -694,6 +718,10 @@ bGPDbrush *BKE_gpencil_brush_addnew(ToolSettings *ts, const char *name, bool set
 	brush->flag |= GP_BRUSH_USE_STENGTH_PRESSURE;
 	brush->draw_jitter = 0.0f;
 	brush->flag |= GP_BRUSH_USE_JITTER_PRESSURE;
+
+	brush->draw_stabifac = 1.0f;
+	brush->draw_pxdensity = GP_MIN_STROKE_SEGMENT_PX;
+	brush->draw_stabangle = GP_MIN_STROKE_SEGMENT_ANGLE;
 
 	/* curves */
 	brush->cur_sensitivity = curvemapping_add(1, 0.0f, 0.0f, 1.0f, 1.0f);

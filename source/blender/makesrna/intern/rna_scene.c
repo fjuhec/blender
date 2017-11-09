@@ -2331,6 +2331,24 @@ static void rna_def_gpencil_brush(BlenderRNA *brna)
 		"Amount of smoothing while drawing to reduce jitter/noise");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, NULL);
 
+	/* maximum distance between control points  for new strokes while drawing */
+	prop = RNA_def_property(srna, "pen_density", PROP_INT, PROP_PIXEL);
+	RNA_def_property_int_sdna(prop, NULL, "draw_pxdensity");
+	RNA_def_property_range(prop, 1, 2000);
+	RNA_def_property_int_default(prop, GP_MIN_STROKE_SEGMENT_PX);
+	RNA_def_property_ui_text(prop, "Density",
+		"Maximum space in pixels between control points while drawing");
+	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, NULL);
+
+	/* Noise factor for new strokes while drawing */
+	prop = RNA_def_property(srna, "pen_noise_factor", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_sdna(prop, NULL, "draw_stabangle");
+	RNA_def_property_range(prop, 0.0, 1.0f);
+	RNA_def_property_float_default(prop, GP_MIN_STROKE_SEGMENT_ANGLE);
+	RNA_def_property_ui_text(prop, "Noise",
+		"Factor to determine below what noise the point must not be used to define stroke shape");
+	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, NULL);
+
 	/* Subdivision level for new strokes */
 	prop = RNA_def_property(srna, "pen_subdivision_steps", PROP_INT, PROP_NONE);
 	RNA_def_property_int_sdna(prop, NULL, "sublevel");
