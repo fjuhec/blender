@@ -126,7 +126,7 @@ void DepsgraphNodeBuilder::build_scene_layer(Scene *scene,
 	}
 
 	/* Palettes. */
-	LINKLIST_FOREACH(Palette *, palette, &bmain->palettes) {
+	LINKLIST_FOREACH(Palette *, palette, &bmain_->palettes) {
 		build_palette(palette);
 	}
 

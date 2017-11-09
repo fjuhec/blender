@@ -123,7 +123,7 @@ static void bakeModifierGP(const bContext *C, const EvaluationContext *eval_ctx,
 			 * NOTE: this assumes that we don't want lattice animation on non-keyframed frames
 			 */
 			CFRA = gpf->framenum;
-			BKE_scene_graph_update_for_newframe(&eval_ctx_copy, depsgraph, bmain, scene);
+			BKE_scene_graph_update_for_newframe(&eval_ctx_copy, depsgraph, bmain, scene, scene_layer);
 			
 			/* recalculate lattice data */
 			BKE_gpencil_lattice_init(ob);
@@ -144,7 +144,7 @@ static void bakeModifierGP(const bContext *C, const EvaluationContext *eval_ctx,
 
 	/* return frame state and DB to original state */
 	CFRA = oldframe;
-	BKE_scene_graph_update_for_newframe(&eval_ctx_copy, depsgraph, bmain, scene);
+	BKE_scene_graph_update_for_newframe(&eval_ctx_copy, depsgraph, bmain, scene, scene_layer);
 }
 
 static void freeData(ModifierData *md)

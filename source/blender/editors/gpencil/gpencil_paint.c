@@ -1533,7 +1533,7 @@ static bool gp_session_initdata(bContext *C, tGPsdata *p)
 							ED_object_editmode_exit(C, EM_FREEDATA | EM_FREEUNDO | EM_WAITCURSOR | EM_DO_UNDO);  /* freedata, and undo */
 						
 						sl->basact = base;
-						ED_base_object_activate(C, base);
+						ED_object_base_activate(C, base);
 					}
 					else {
 						printf("ERROR: Couldn't find base for active gp_object (sl = %p, obact = %s)\n", sl, obact->id.name);

@@ -1837,7 +1837,7 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 			DRW_shgroup_empty(stl, psl, ob, scene_layer);
 			break;
 		case OB_GPENCIL:
-			DRW_shgroup_gpencil(stl, ob, sl);
+			DRW_shgroup_gpencil(stl, ob, scene_layer);
 			break;
 		case OB_SPEAKER:
 			DRW_shgroup_speaker(stl, ob, scene_layer);
