@@ -6433,20 +6433,23 @@ static bool merge_loop(bContext *C, wmOperator *UNUSED(op), LoopNormalData *ld)
 
 	BLI_SMALLSTACK_DECLARE(clnors, short *);
 
+	BLI_assert(bm->lnor_spacearr->flags & MLNOR_SPACEARR_BMLOOP_PTR);
+
 	for (int i = 0; i < ld->totloop; i++, tld++) {
 		if (tld->loop_index == -1)
 			continue;
 
 		MLoopNorSpace *lnor_space = bm->lnor_spacearr->lspacearr[tld->loop_index];
 
-		if (lnor_space->loops) {
+		if ((lnor_space->flags & MLNOR_SPACE_IS_SINGLE) == 0) {
 			LinkNode *loops = lnor_space->loops;
-			float avg_normal[3] = { 0, 0, 0 };
+			float avg_normal[3] = {0.0f, 0.0f, 0.0f};
 			short *clnors_data;
 
 			while (loops) {
-				const int loop_index = GET_INT_FROM_POINTER(loops->link);
+				const int loop_index = BM_elem_index_get((BMLoop *)loops->link);
 
+				/* TODO We cannot accept such double-looping here... do be fixed (probably with a mapping lidx -> tld in LoopNormalData ? ). */
 				TransDataLoopNormal *temp = ld->normal;
 				for (int j = 0; j < ld->totloop; j++, temp++) {
 					if (loop_index == temp->loop_index) {
@@ -6459,7 +6462,7 @@ static bool merge_loop(bContext *C, wmOperator *UNUSED(op), LoopNormalData *ld)
 			}
 			if (len_squared_v3(avg_normal) < 1e-4f) {  /* If avg normal is nearly 0, set clnor to default value. */
 				while ((clnors_data = BLI_SMALLSTACK_POP(clnors))) {
-					copy_v2_v2_short(clnors_data, (short[2]) { 0, 0 });
+					copy_v2_v2_short(clnors_data, (short[2]){0, 0});
 				}
 			}
 			else {
@@ -6853,8 +6856,9 @@ static int edbm_custom_normal_tools_exec(bContext *C, wmOperator *op)
 			}
 			bool join = ld->totloop > 0 ? true : false;
 			for (int i = 0; i < ld->totloop; i++, tld++) {
-				if (!compare_v3v3(ld->normal->nloc, tld->nloc, 1e-4f))
+				if (!compare_v3v3(ld->normal->nloc, tld->nloc, 1e-4f)) {
 					join = false;
+				}
 			}
 			if (bm->totfacesel == 1) {
 				BMFace *f;
@@ -7018,17 +7022,22 @@ static int edbm_set_normals_from_faces_exec(bContext *C, wmOperator *op)
 			if (!keep_sharp || (BM_elem_flag_test(e, BM_ELEM_SMOOTH) && BM_elem_flag_test(e, BM_ELEM_SELECT))) {
 				BM_ITER_ELEM(v, &viter, e, BM_VERTS_OF_EDGE) {
 					l = BM_face_vert_share_loop(f, v);
-					int loop_index = BM_elem_index_get(l);
-					int v_index = BM_elem_index_get(l->v);
+					const int loop_index = BM_elem_index_get(l);
+					const int v_index = BM_elem_index_get(l->v);
 					BLI_assert(l->f == f);
 					BLI_assert(l->v == v);
 					if (!is_zero_v3(vnors[v_index])) {
-						LinkNode *loops = bm->lnor_spacearr->lspacearr[loop_index]->loops;
 						short *clnors = BM_ELEM_CD_GET_VOID_P(l, cd_clnors_offset);
 						BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[loop_index], vnors[v_index], clnors);
 
-						for (; loops; loops = loops->next) {
-							BLI_BITMAP_ENABLE(loop_set, GET_INT_FROM_POINTER(loops->link));
+						if (bm->lnor_spacearr->lspacearr[loop_index]->flags & MLNOR_SPACE_IS_SINGLE) {
+							BLI_BITMAP_ENABLE(loop_set, loop_index);
+						}
+						else {
+							LinkNode *loops = bm->lnor_spacearr->lspacearr[loop_index]->loops;
+							for (; loops; loops = loops->next) {
+								BLI_BITMAP_ENABLE(loop_set, BM_elem_index_get((BMLoop *)loops->link));
+							}
 						}
 					}
 				}
@@ -7083,19 +7092,12 @@ static int edbm_smoothen_normals_exec(bContext *C, wmOperator *op)
 	BM_lnorspace_update(bm);
 	LoopNormalData *ld = BM_loop_normal_init(bm);
 
-	BMLoop **loop_at_index = MEM_mallocN(sizeof(*loop_at_index) * bm->totloop, __func__);
 	float(*smooth_normal)[3] = MEM_callocN(sizeof(*smooth_normal) * ld->totloop, __func__);
-
-	BM_ITER_MESH(f, &fiter, bm, BM_FACES_OF_MESH) {
-		BM_ITER_ELEM(l, &liter, f, BM_LOOPS_OF_FACE) {
-			loop_at_index[BM_elem_index_get(l)] = l;
-		}
-	}
 
 	TransDataLoopNormal *tld = ld->normal;
 
 	for (int i = 0; i < ld->totloop; i++, tld++) {
-		l = loop_at_index[tld->loop_index];
+		l = tld->loop;
 		float loop_normal[3];
 
 		BM_ITER_ELEM(f, &fiter, l->v, BM_FACES_OF_VERT) {
@@ -7128,7 +7130,6 @@ static int edbm_smoothen_normals_exec(bContext *C, wmOperator *op)
 
 	MEM_freeN(ld->normal);
 	MEM_freeN(ld);
-	MEM_freeN(loop_at_index);
 	MEM_freeN(smooth_normal);
 
 	EDBM_update_generic(em, true, false);

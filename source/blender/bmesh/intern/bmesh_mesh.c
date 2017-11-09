@@ -627,7 +627,7 @@ static void bm_mesh_loops_calc_normals(
 		r_lnors_spacearr = &_lnors_spacearr;
 	}
 	if (r_lnors_spacearr) {
-		BKE_lnor_spacearr_init(r_lnors_spacearr, bm->totloop);
+		BKE_lnor_spacearr_init(r_lnors_spacearr, bm->totloop, MLNOR_SPACEARR_BMLOOP_PTR);
 		edge_vectors = BLI_stack_new(sizeof(float[3]), __func__);
 	}
 
@@ -701,7 +701,7 @@ static void bm_mesh_loops_calc_normals(
 
 					BKE_lnor_space_define(lnor_space, r_lnos[l_curr_index], vec_curr, vec_prev, NULL);
 					/* We know there is only one loop in this space, no need to create a linklist in this case... */
-					BKE_lnor_space_add_loop(r_lnors_spacearr, lnor_space, l_curr_index, false);
+					BKE_lnor_space_add_loop(r_lnors_spacearr, lnor_space, l_curr_index, l_curr, true);
 
 					if (has_clnors) {
 						short (*clnor)[2] = clnors_data ? &clnors_data[l_curr_index] :
@@ -820,7 +820,7 @@ static void bm_mesh_loops_calc_normals(
 
 					if (r_lnors_spacearr) {
 						/* Assign current lnor space to current 'vertex' loop. */
-						BKE_lnor_space_add_loop(r_lnors_spacearr, lnor_space, lfan_pivot_index, true);
+						BKE_lnor_space_add_loop(r_lnors_spacearr, lnor_space, lfan_pivot_index, lfan_pivot, false);
 						if (e_next != e_org) {
 							/* We store here all edges-normalized vectors processed. */
 							BLI_stack_push(edge_vectors, vec_next);
@@ -1038,6 +1038,7 @@ void BM_lnorspace_invalidate(BMesh *bm, const bool do_invalidate_all)
 
 	BM_mesh_elem_index_ensure(bm, (BM_FACE | BM_LOOP));
 
+	/* TODO this has to be redone, way more looping than needed here ;) */
 	BM_ITER_MESH(v, &viter, bm, BM_VERTS_OF_MESH) {
 		if (BM_elem_flag_test(v, BM_ELEM_SELECT)) {
 			BM_ITER_ELEM(f, &fiter, v, BM_FACES_OF_VERT) {
@@ -1047,7 +1048,7 @@ void BM_lnorspace_invalidate(BMesh *bm, const bool do_invalidate_all)
 						LinkNode *loops = bm->lnor_spacearr->lspacearr[BM_elem_index_get(l)]->loops;
 						if (loops != NULL) {
 							for (; loops != NULL; loops = loops->next) {
-								BLI_BITMAP_ENABLE(loops_marked, GET_INT_FROM_POINTER(loops->link));
+								BLI_BITMAP_ENABLE(loops_marked, BM_elem_index_get((BMLoop *)loops->link));
 							}
 						}
 						else {
@@ -1172,7 +1173,7 @@ void BM_lnorspace_err(BMesh *bm)
 	MLoopNorSpaceArray *temp = MEM_callocN(sizeof(*temp), __func__);
 	temp->lspacearr = NULL;
 
-	BKE_lnor_spacearr_init(temp, bm->totloop);
+	BKE_lnor_spacearr_init(temp, bm->totloop, MLNOR_SPACEARR_BMLOOP_PTR);
 	
 	int cd_loop_clnors_offset = CustomData_get_offset(&bm->ldata, CD_CUSTOMLOOPNORMAL);
 	float (*lnors)[3] = MEM_callocN(sizeof(*lnors) * bm->totloop, __func__);
@@ -1276,6 +1277,8 @@ LoopNormalData *BM_loop_normal_init(BMesh *bm)
 	BMVert *v;
 	BMIter liter, viter;
 
+	BM_mesh_elem_index_ensure(bm, BM_LOOP);
+
 	if (totloopsel) {
 		TransDataLoopNormal *tld = ld->normal = MEM_mallocN(sizeof(*tld) * totloopsel, __func__);
 
@@ -1328,9 +1331,11 @@ void InitTransDataNormal(BMesh *bm, TransDataLoopNormal *tld, BMVert *v, BMLoop 
 	BLI_assert(bm->lnor_spacearr != NULL);
 	BLI_assert(bm->lnor_spacearr->lspacearr != NULL);
 
-	int l_index = BM_elem_index_get(l);
-	tld->loop_index = l_index;
+	const int l_index = BM_elem_index_get(l);
 	short *clnors_data = BM_ELEM_CD_GET_VOID_P(l, offset);
+
+	tld->loop_index = l_index;
+	tld->loop = l;
 
 	float custom_normal[3];
 	BKE_lnor_space_custom_data_to_normal(bm->lnor_spacearr->lspacearr[l_index], clnors_data, custom_normal);

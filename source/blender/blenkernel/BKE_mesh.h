@@ -210,7 +210,14 @@ typedef struct MLoopNorSpace {
 	float ref_alpha;        /* Reference angle, around vec_ortho, in ]0, pi] range (0.0 marks that space as invalid). */
 	float ref_beta;         /* Reference angle, around vec_lnor, in ]0, 2pi] range (0.0 marks that space as invalid). */
 	struct LinkNode *loops; /* All indices (uint_in_ptr) of loops using this lnor space (i.e. smooth fan of loops). */
+	char flags;
 } MLoopNorSpace;
+/**
+ * MLoopNorSpace.flags
+ */
+enum {
+	MLNOR_SPACE_IS_SINGLE = 1 << 0,
+};
 /**
  * Collection of #MLoopNorSpace basic storage & pre-allocation.
  */
@@ -218,8 +225,16 @@ typedef struct MLoopNorSpaceArray {
 	MLoopNorSpace **lspacearr;    /* MLoop aligned array */
 	struct LinkNode *loops_pool;  /* Allocated once, avoids to call BLI_linklist_prepend_arena() for each loop! */
 	struct MemArena *mem;
+	char flags;
 } MLoopNorSpaceArray;
-void BKE_lnor_spacearr_init(MLoopNorSpaceArray *lnors_spacearr, const int numLoops);
+/**
+ * MLoopNorSpaceArray.flags
+ */
+enum {
+	MLNOR_SPACEARR_LOOP_INDEX = 1 << 0,
+	MLNOR_SPACEARR_BMLOOP_PTR = 1 << 1,
+};
+void BKE_lnor_spacearr_init(MLoopNorSpaceArray *lnors_spacearr, const int numLoops, const char flags);
 void BKE_lnor_spacearr_clear(MLoopNorSpaceArray *lnors_spacearr);
 void BKE_lnor_spacearr_free(MLoopNorSpaceArray *lnors_spacearr);
 MLoopNorSpace *BKE_lnor_space_create(MLoopNorSpaceArray *lnors_spacearr);
@@ -227,7 +242,8 @@ void BKE_lnor_space_define(
         MLoopNorSpace *lnor_space, const float lnor[3], float vec_ref[3], float vec_other[3],
         struct BLI_Stack *edge_vectors);
 void BKE_lnor_space_add_loop(
-        MLoopNorSpaceArray *lnors_spacearr, MLoopNorSpace *lnor_space, const int ml_index, const bool add_to_list);
+        MLoopNorSpaceArray *lnors_spacearr, MLoopNorSpace *lnor_space,
+        const int ml_index, void *bm_loop, const bool is_single);
 void BKE_lnor_space_custom_data_to_normal(MLoopNorSpace *lnor_space, const short clnor_data[2], float r_custom_lnor[3]);
 void BKE_lnor_space_custom_normal_to_data(MLoopNorSpace *lnor_space, const float custom_lnor[3], short r_clnor_data[2]);
 
