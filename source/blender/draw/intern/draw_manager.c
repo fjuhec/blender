@@ -3049,9 +3049,9 @@ static void DRW_engines_enable_external(void)
 	use_drw_engine(DRW_engine_viewport_external_type.draw_engine);
 }
 
-static void DRW_engines_enable(const Scene *scene, SceneLayer *sl, RenderEngineType *engine)
+static void DRW_engines_enable(const Scene *scene, SceneLayer *scene_layer, RenderEngineType *engine)
 {
-	Object *obact = OBACT_NEW(sl);
+	Object *obact = OBACT(scene_layer);
 	const int mode = CTX_data_mode_enum_ex(scene->obedit, obact);
 
 	DRW_engines_enable_from_engine(engine);
@@ -3232,7 +3232,7 @@ void DRW_notify_view_update(const bContext *C)
 
 	DST.viewport = rv3d->viewport;
 	DST.draw_ctx = (DRWContextState){
-		ar, rv3d, v3d, scene, scene_layer, OBACT_NEW(scene_layer), engine, C,
+		ar, rv3d, v3d, scene, scene_layer, OBACT(scene_layer), engine, C,
 	};
 
 	DRW_engines_enable(scene, scene_layer, engine);
@@ -3296,7 +3296,7 @@ void DRW_draw_render_loop_ex(
 	GPU_viewport_engines_data_validate(DST.viewport, DRW_engines_get_hash());
 
 	DST.draw_ctx = (DRWContextState){
-	    ar, rv3d, v3d, scene, scene_layer, OBACT_NEW(scene_layer), engine,
+	    ar, rv3d, v3d, scene, scene_layer, OBACT(scene_layer), engine,
 
 	    /* reuse if caller sets */
 	    DST.draw_ctx.evil_C,
@@ -3459,9 +3459,9 @@ void DRW_draw_select_loop(
 {
 	Scene *scene = DEG_get_evaluated_scene(graph);
 	RenderEngineType *engine = RE_engines_find(scene->view_render.engine_id);
-	SceneLayer *sl = DEG_get_evaluated_scene_layer(graph);
+	SceneLayer *scene_layer = DEG_get_evaluated_scene_layer(graph);
 #ifndef USE_GPU_SELECT
-	UNUSED_VARS(vc, scene, sl, v3d, ar, rect);
+	UNUSED_VARS(vc, scene, scene_layer, v3d, ar, rect);
 #else
 	RegionView3D *rv3d = ar->regiondata;
 
@@ -3511,7 +3511,7 @@ void DRW_draw_select_loop(
 
 	/* Instead of 'DRW_context_state_init(C, &DST.draw_ctx)', assign from args */
 	DST.draw_ctx = (DRWContextState){
-		ar, rv3d, v3d, scene, sl, OBACT_NEW(sl), engine, (bContext *)NULL,
+		ar, rv3d, v3d, scene, scene_layer, OBACT(scene_layer), engine, (bContext *)NULL,
 	};
 
 	DRW_viewport_var_init();
@@ -3578,7 +3578,7 @@ void DRW_draw_depth_loop(
 {
 	Scene *scene = DEG_get_evaluated_scene(graph);
 	RenderEngineType *engine = RE_engines_find(scene->view_render.engine_id);
-	SceneLayer *sl = DEG_get_evaluated_scene_layer(graph);
+	SceneLayer *scene_layer = DEG_get_evaluated_scene_layer(graph);
 	RegionView3D *rv3d = ar->regiondata;
 
 	/* backup (_never_ use rv3d->viewport) */
@@ -3608,7 +3608,7 @@ void DRW_draw_depth_loop(
 
 	/* Instead of 'DRW_context_state_init(C, &DST.draw_ctx)', assign from args */
 	DST.draw_ctx = (DRWContextState){
-		ar, rv3d, v3d, scene, sl, OBACT_NEW(sl), engine, (bContext *)NULL,
+		ar, rv3d, v3d, scene, scene_layer, OBACT(scene_layer), engine, (bContext *)NULL,
 	};
 
 	DRW_viewport_var_init();

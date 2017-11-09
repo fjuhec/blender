@@ -91,11 +91,14 @@ Scene *DEG_get_evaluated_scene(Depsgraph *graph)
 
 SceneLayer *DEG_get_evaluated_scene_layer(Depsgraph *graph)
 {
-	Scene *scene = DEG_get_evaluated_scene(graph);
-	if (scene != NULL) {
-		return BKE_scene_layer_context_active_PLACEHOLDER(scene);
-	}
-	return NULL;
+	DEG::Depsgraph *deg_graph = reinterpret_cast<DEG::Depsgraph *>(graph);
+	Scene *scene_cow = DEG_get_evaluated_scene(graph);
+	SceneLayer *scene_layer_orig = deg_graph->scene_layer;
+	SceneLayer *scene_layer_cow =
+	        (SceneLayer *)BLI_findstring(&scene_cow->render_layers,
+	                                     scene_layer_orig->name,
+	                                     offsetof(SceneLayer, name));
+	return scene_layer_cow;
 }
 
 Object *DEG_get_evaluated_object(Depsgraph *depsgraph, Object *object)

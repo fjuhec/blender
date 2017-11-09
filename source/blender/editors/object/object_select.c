@@ -89,44 +89,6 @@
 /* Note: send a NC_SCENE|ND_OB_SELECT notifier yourself! (or 
  * or a NC_SCENE|ND_OB_VISIBLE in case of visibility toggling */
 
-void ED_base_object_select(BaseLegacy *base, short mode)
-{
-	if (base) {
-		if (mode == BA_SELECT) {
-			if (!(base->object->restrictflag & OB_RESTRICT_SELECT))
-				base->flag_legacy |= SELECT;
-		}
-		else if (mode == BA_DESELECT) {
-			base->flag_legacy &= ~SELECT;
-		}
-		BKE_scene_base_flag_sync_from_base(base);
-	}
-}
-
-/* also to set active NULL */
-void ED_base_object_activate(bContext *C, BaseLegacy *base)
-{
-	Scene *scene = CTX_data_scene(C);
-	
-	/* sets scene->basact */
-	BASACT = base;
-	
-	if (base) {
-#ifdef USE_WORKSPACE_MODE
-		WorkSpace *workspace = CTX_wm_workspace(C);
-
-		BKE_workspace_object_mode_set(workspace, base->object->mode);
-#endif
-
-		/* XXX old signals, remember to handle notifiers now! */
-		//		select_actionchannel_by_name(base->object->action, "Object", 1);
-		
-		WM_event_add_notifier(C, NC_SCENE | ND_OB_ACTIVE, scene);
-	}
-	else
-		WM_event_add_notifier(C, NC_SCENE | ND_OB_ACTIVE, NULL);
-}
-
 void ED_object_base_select(Base *base, eObjectSelect_Mode mode)
 {
 	if (mode == BA_INVERT) {
@@ -147,16 +109,24 @@ void ED_object_base_select(Base *base, eObjectSelect_Mode mode)
 				/* Never happens. */
 				break;
 		}
+		BKE_scene_object_base_flag_sync_from_base(base);
 	}
 }
 
+/**
+ * Change active base, it includes the notifier
+ */
 void ED_object_base_activate(bContext *C, Base *base)
 {
-	SceneLayer *sl = CTX_data_scene_layer(C);
-	sl->basact = base;
+	SceneLayer *scene_layer = CTX_data_scene_layer(C);
+	scene_layer->basact = base;
 
 	if (base) {
-		WM_event_add_notifier(C, NC_SCENE | ND_OB_ACTIVE, sl);
+#ifdef USE_WORKSPACE_MODE
+		WorkSpace *workspace = CTX_wm_workspace(C);
+		BKE_workspace_object_mode_set(workspace, base->object->mode);
+#endif
+		WM_event_add_notifier(C, NC_SCENE | ND_OB_ACTIVE, scene_layer);
 	}
 	else {
 		WM_event_add_notifier(C, NC_SCENE | ND_OB_ACTIVE, NULL);
@@ -434,7 +404,7 @@ static int object_select_linked_exec(bContext *C, wmOperator *op)
 		CTX_DATA_END;
 	}
 	
-	ob = OBACT_NEW(sl);
+	ob = OBACT(sl);
 	if (ob == NULL) {
 		BKE_report(op->reports, RPT_ERROR, "No active object");
 		return OPERATOR_CANCELLED;
@@ -589,7 +559,7 @@ static bool select_grouped_parent(bContext *C) /* Makes parent active and de-sel
 	baspar = BKE_scene_layer_base_find(sl, basact->object->parent);
 
 	/* can be NULL if parent in other scene */
-	if (baspar && BASE_SELECTABLE_NEW(baspar)) {
+	if (baspar && BASE_SELECTABLE(baspar)) {
 		ED_object_base_select(baspar, BA_SELECT);
 		ED_object_base_activate(C, baspar);
 		changed = true;
@@ -658,8 +628,8 @@ static bool select_grouped_object_hooks(bContext *C, Object *ob)
 			hmd = (HookModifierData *) md;
 			if (hmd->object && !(hmd->object->flag & SELECT)) {
 				base = BKE_scene_layer_base_find(sl, hmd->object);
-				if (base && (BASE_SELECTABLE_NEW(base))) {
-					ED_base_object_select(base, BA_SELECT);
+				if (base && (BASE_SELECTABLE(base))) {
+					ED_object_base_select(base, BA_SELECT);
 					changed = true;
 				}
 			}
@@ -845,7 +815,7 @@ static int object_select_grouped_exec(bContext *C, wmOperator *op)
 		CTX_DATA_END;
 	}
 
-	ob = OBACT_NEW(sl);
+	ob = OBACT(sl);
 	if (ob == NULL) {
 		BKE_report(op->reports, RPT_ERROR, "No active object");
 		return OPERATOR_CANCELLED;
@@ -1101,9 +1071,9 @@ void OBJECT_OT_select_mirror(wmOperatorType *ot)
 
 static bool object_select_more_less(bContext *C, const bool select)
 {
-	SceneLayer *sl = CTX_data_scene_layer(C);
+	SceneLayer *scene_layer = CTX_data_scene_layer(C);
 
-	for (BaseLegacy *base = sl->object_bases.first; base; base = base->next) {
+	for (Base *base = scene_layer->object_bases.first; base; base = base->next) {
 		Object *ob = base->object;
 		ob->flag &= ~OB_DONE;
 		ob->id.tag &= ~LIB_TAG_DOIT;

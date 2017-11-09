@@ -232,6 +232,7 @@ static void find_iobject(const IObject &object, IObject &ret,
 struct ExportJobData {
 	EvaluationContext eval_ctx;
 	Scene *scene;
+	SceneLayer *scene_layer;
 	Depsgraph *depsgraph;
 	Main *bmain;
 
@@ -264,7 +265,8 @@ static void export_startjob(void *customdata, short *stop, short *do_update, flo
 
 	try {
 		Scene *scene = data->scene;
-		AbcExporter exporter(data->bmain, &data->eval_ctx, scene, data->depsgraph, data->filename, data->settings);
+		SceneLayer *scene_layer = data->scene_layer;
+		AbcExporter exporter(data->bmain, &data->eval_ctx, scene, scene_layer, data->depsgraph, data->filename, data->settings);
 
 		const int orig_frame = CFRA;
 
@@ -274,7 +276,7 @@ static void export_startjob(void *customdata, short *stop, short *do_update, flo
 		if (CFRA != orig_frame) {
 			CFRA = orig_frame;
 
-			BKE_scene_graph_update_for_newframe(data->bmain->eval_ctx, data->depsgraph, data->bmain, scene);
+			BKE_scene_graph_update_for_newframe(data->bmain->eval_ctx, data->depsgraph, data->bmain, scene, data->scene_layer);
 		}
 
 		data->export_ok = !data->was_canceled;
@@ -316,6 +318,7 @@ bool ABC_export(
 	CTX_data_eval_ctx(C, &job->eval_ctx);
 
 	job->scene = scene;
+	job->scene_layer = CTX_data_scene_layer(C);
 	job->depsgraph = CTX_data_depsgraph(C);
 	job->bmain = CTX_data_main(C);
 	job->export_ok = false;
@@ -344,7 +347,7 @@ bool ABC_export(
 	 * Later in the 2.8 development process this may be replaced by using
 	 * a specific collection for Alembic I/O, which can then be toggled
 	 * between "real" objects and cached Alembic files. */
-	job->settings.sl = CTX_data_scene_layer(C);
+	job->settings.scene_layer = CTX_data_scene_layer(C);
 
 	job->settings.frame_start = params->frame_start;
 	job->settings.frame_end = params->frame_end;
@@ -834,16 +837,16 @@ static void import_endjob(void *user_data)
 		/* Add object to scene. */
 		Base *base;
 		LayerCollection *lc;
-		SceneLayer *sl = data->scene_layer;
+		SceneLayer *scene_layer = data->scene_layer;
 
-		BKE_scene_layer_base_deselect_all(sl);
+		BKE_scene_layer_base_deselect_all(scene_layer);
 
-		lc = BKE_layer_collection_get_active(sl);
+		lc = BKE_layer_collection_get_active(scene_layer);
 		if (lc == NULL) {
-			BLI_assert(BLI_listbase_count_ex(&sl->layer_collections, 1) == 0);
+			BLI_assert(BLI_listbase_count_ex(&scene_layer->layer_collections, 1) == 0);
 			/* when there is no collection linked to this SceneLayer, create one */
 			SceneCollection *sc = BKE_collection_add(data->scene, NULL, NULL);
-			lc = BKE_collection_link(sl, sc);
+			lc = BKE_collection_link(scene_layer, sc);
 		}
 
 		for (iter = data->readers.begin(); iter != data->readers.end(); ++iter) {
@@ -852,8 +855,8 @@ static void import_endjob(void *user_data)
 
 			BKE_collection_object_add(data->scene, lc->scene_collection, ob);
 
-			base = BKE_scene_layer_base_find(sl, ob);
-			BKE_scene_layer_base_select(sl, base);
+			base = BKE_scene_layer_base_find(scene_layer, ob);
+			BKE_scene_layer_base_select(scene_layer, base);
 
 			DEG_id_tag_update_ex(data->bmain, &ob->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
 		}
