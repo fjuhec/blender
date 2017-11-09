@@ -63,7 +63,7 @@ static void copyData(ModifierData *md, ModifierData *target)
 
 /* subdivide stroke to get more control points */
 static void deformStroke(ModifierData *md, const EvaluationContext *UNUSED(eval_ctx),
-                         Object *ob, bGPDlayer *gpl, bGPDstroke *gps)
+                         Object *UNUSED(ob), bGPDlayer *gpl, bGPDstroke *gps)
 {
 	GpencilSubdivModifierData *mmd = (GpencilSubdivModifierData *)md;
 	bGPDspoint *temp_points;

@@ -132,8 +132,8 @@ void BKE_gpencil_array_modifier_instance_tfm(GpencilArrayModifierData *mmd, cons
 
 /* array modifier - generate geometry callback (for viewport/rendering) */
 /* TODO: How to skip this for the simplify options?   -->  !GP_SIMPLIFY_MODIF(ts, playing) */
-static void generate_geometry(ModifierData *md, const EvaluationContext *eval_ctx,
-	                          Object *ob, bGPDlayer *gpl, bGPDframe *gpf,
+static void generate_geometry(ModifierData *md, const EvaluationContext *UNUSED(eval_ctx),
+	                          Object *UNUSED(ob), bGPDlayer *gpl, bGPDframe *gpf,
 	                          int modifier_index)
 {
 	GpencilArrayModifierData *mmd = (GpencilArrayModifierData *)md;
@@ -242,7 +242,7 @@ static void generate_geometry(ModifierData *md, const EvaluationContext *eval_ct
 }
 
 /* bakeModifierGP - "Bake to Data" Mode */
-static void bakeModifierGP_strokes(const bContext *C, const EvaluationContext *eval_ctx,
+static void bakeModifierGP_strokes(const bContext *UNUSED(C), const EvaluationContext *eval_ctx,
                                       ModifierData *md, Object *ob)
 {
 	bGPdata *gpd = ob->data;
@@ -280,7 +280,6 @@ static Object *array_instance_add_ob_copy(const bContext *C, Object *from_ob)
 static void bakeModifierGP_objects(const bContext *C, ModifierData *md, Object *ob)
 {
 	GpencilArrayModifierData *mmd = (GpencilArrayModifierData *)md;
-	Main *bmain = CTX_data_main(C);
 	
 	/* reset random */
 	mmd->rnd[0] = 1;
