@@ -1009,7 +1009,6 @@ ParticleSystem *BKE_object_copy_particlesystem(ParticleSystem *psys, const int f
 	psysn->pathcache = NULL;
 	psysn->childcache = NULL;
 	psysn->edit = NULL;
-	psysn->hairedit = NULL;
 	psysn->pdd = NULL;
 	psysn->effectors = NULL;
 	psysn->tree = NULL;

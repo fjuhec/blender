@@ -65,7 +65,6 @@
 #include "BKE_boids.h"
 #include "BKE_cloth.h"
 #include "BKE_colortools.h"
-#include "BKE_editstrands.h"
 #include "BKE_effect.h"
 #include "BKE_global.h"
 #include "BKE_group.h"
@@ -569,11 +568,6 @@ void psys_free(Object *ob, ParticleSystem *psys)
 
 		if (psys->edit && psys->free_edit)
 			psys->free_edit(psys->edit);
-		if (psys->hairedit) {
-			BKE_editstrands_free(psys->hairedit);
-			MEM_freeN(psys->hairedit);
-			psys->hairedit = NULL;
-		}
 
 		if (psys->child) {
 			MEM_freeN(psys->child);
@@ -3218,7 +3212,7 @@ void object_remove_particle_system(Scene *UNUSED(scene), Object *ob)
 	if (ob->particlesystem.first)
 		((ParticleSystem *) ob->particlesystem.first)->flag |= PSYS_CURRENT;
 	else
-		ob->mode &= ~(OB_MODE_PARTICLE_EDIT | OB_MODE_HAIR_EDIT);
+		ob->mode &= ~OB_MODE_PARTICLE_EDIT;
 
 	DEG_relations_tag_update(G.main);
 	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);

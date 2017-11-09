@@ -105,7 +105,6 @@ set(SRC
 	intern/editmesh.c
 	intern/editmesh_bvh.c
 	intern/editmesh_tangent.c
-	intern/editstrands.c
 	intern/effect.c
 	intern/fcurve.c
 	intern/fluidsim.c
@@ -239,7 +238,6 @@ set(SRC
 	BKE_deform.h
 	BKE_displist.h
 	BKE_dynamicpaint.h
-	BKE_editstrands.h
 	BKE_editmesh.h
 	BKE_editmesh_bvh.h
 	BKE_editmesh_tangent.h

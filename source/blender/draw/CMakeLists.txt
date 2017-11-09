@@ -61,7 +61,6 @@ set(SRC
 	intern/draw_cache_impl_lattice.c
 	intern/draw_cache_impl_mesh.c
 	intern/draw_cache_impl_particles.c
-	intern/draw_cache_impl_strands.c
 	intern/draw_common.c
 	intern/draw_hair.c
 	intern/draw_manager.c
@@ -74,7 +73,6 @@ set(SRC
 	modes/edit_mesh_mode.c
 	modes/edit_mesh_mode_text.c
 	modes/edit_metaball_mode.c
-	modes/edit_strands_mode.c
 	modes/edit_surface_mode.c
 	modes/edit_text_mode.c
 	modes/object_mode.c
@@ -208,7 +206,6 @@ data_to_c_simple(modes/shaders/edit_lattice_overlay_frag.glsl SRC)
 data_to_c_simple(modes/shaders/edit_lattice_overlay_loosevert_vert.glsl SRC)
 data_to_c_simple(modes/shaders/edit_normals_vert.glsl SRC)
 data_to_c_simple(modes/shaders/edit_normals_geom.glsl SRC)
-data_to_c_simple(modes/shaders/edit_strands_vert.glsl SRC)
 data_to_c_simple(modes/shaders/object_empty_image_frag.glsl SRC)
 data_to_c_simple(modes/shaders/object_empty_image_vert.glsl SRC)
 data_to_c_simple(modes/shaders/object_outline_resolve_frag.glsl SRC)

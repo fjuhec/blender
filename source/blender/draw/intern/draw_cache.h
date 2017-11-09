@@ -30,7 +30,6 @@ struct Gwn_Batch;
 struct GPUMaterial;
 struct Object;
 struct ModifierData;
-struct BMEditStrands;
 struct HairGroup;
 struct DRWHairFiberTextureBuffer;
 struct DerivedMesh;
@@ -160,12 +159,6 @@ struct Gwn_Batch *DRW_cache_lattice_vert_overlay_get(struct Object *ob);
 struct Gwn_Batch *DRW_cache_particles_get_hair(struct ParticleSystem *psys, struct ModifierData *md);
 struct Gwn_Batch *DRW_cache_particles_get_dots(struct ParticleSystem *psys);
 struct Gwn_Batch *DRW_cache_particles_get_prim(int type);
-
-/* Strands */
-struct Gwn_Batch *DRW_cache_editstrands_get_tips(struct BMEditStrands *es);
-struct Gwn_Batch *DRW_cache_editstrands_get_roots(struct BMEditStrands *es);
-struct Gwn_Batch *DRW_cache_editstrands_get_points(struct BMEditStrands *es);
-struct Gwn_Batch *DRW_cache_editstrands_get_wires(struct BMEditStrands *es);
 
 /* Hair */
 struct Gwn_Batch *DRW_cache_hair_get_fibers(struct HairGroup *group, int subdiv, struct DerivedMesh *scalp,

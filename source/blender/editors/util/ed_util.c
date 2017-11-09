@@ -52,7 +52,6 @@
 #include "BLT_translation.h"
 
 #include "BKE_context.h"
-#include "BKE_editstrands.h"
 #include "BKE_global.h"
 #include "BKE_main.h"
 #include "BKE_multires.h"
@@ -130,7 +129,6 @@ void ED_editors_exit(bContext *C)
 {
 	Main *bmain = CTX_data_main(C);
 	Scene *sce;
-	Object *ob;
 
 	if (!bmain)
 		return;
@@ -141,7 +139,7 @@ void ED_editors_exit(bContext *C)
 	
 	for (sce = bmain->scene.first; sce; sce = sce->id.next) {
 		if (sce->obedit) {
-			ob = sce->obedit;
+			Object *ob = sce->obedit;
 		
 			if (ob) {
 				if (ob->type == OB_MESH) {
@@ -155,17 +153,6 @@ void ED_editors_exit(bContext *C)
 				else if (ob->type == OB_ARMATURE) {
 					ED_armature_edit_free(ob->data);
 				}
-			}
-		}
-	}
-	
-	for (ob = bmain->object.first; ob; ob = ob->id.next) {
-		if (ob->type == OB_MESH) {
-			Mesh *me = ob->data;
-			if (me->edit_strands) {
-				BKE_editstrands_free(me->edit_strands);
-				MEM_freeN(me->edit_strands);
-				me->edit_strands = NULL;
 			}
 		}
 	}

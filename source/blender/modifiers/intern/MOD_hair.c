@@ -40,7 +40,6 @@
 #include "DNA_hair_types.h"
 
 #include "BKE_cdderivedmesh.h"
-#include "BKE_editstrands.h"
 #include "BKE_hair.h"
 #include "BKE_library.h"
 #include "BKE_library_query.h"
@@ -58,8 +57,6 @@ static void initData(ModifierData *md)
 	hmd->hair = BKE_hair_new();
 	
 	hmd->flag |= 0;
-	
-	hmd->edit = NULL;
 }
 
 static void copyData(ModifierData *md, ModifierData *target)
@@ -76,8 +73,6 @@ static void copyData(ModifierData *md, ModifierData *target)
 	if (hmd->hair) {
 		thmd->hair = BKE_hair_copy(hmd->hair);
 	}
-	
-	thmd->edit = NULL;
 }
 
 static void freeData(ModifierData *md)
@@ -86,11 +81,6 @@ static void freeData(ModifierData *md)
 	
 	if (hmd->hair) {
 		BKE_hair_free(hmd->hair);
-	}
-	
-	if (hmd->edit) {
-		BKE_editstrands_free(hmd->edit);
-		MEM_freeN(hmd->edit);
 	}
 }
 

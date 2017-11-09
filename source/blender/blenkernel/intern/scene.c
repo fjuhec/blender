@@ -866,11 +866,6 @@ void BKE_scene_init(Scene *sce)
 	sce->toolsettings->imapaint.normal_angle = 80;
 	sce->toolsettings->imapaint.seam_bleed = 2;
 
-	sce->toolsettings->hair_edit.select_mode = HAIR_SELECT_VERTEX;
-	sce->toolsettings->hair_edit.hair_draw_mode = HAIR_DRAW_FIBERS;
-	sce->toolsettings->hair_edit.hair_draw_size = 2.5f;
-	sce->toolsettings->hair_edit.hair_draw_subdiv = 2;
-
 	sce->physics_settings.gravity[0] = 0.0f;
 	sce->physics_settings.gravity[1] = 0.0f;
 	sce->physics_settings.gravity[2] = -9.81f;

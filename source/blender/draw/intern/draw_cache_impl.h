@@ -32,7 +32,6 @@ struct ListBase;
 struct CurveCache;
 struct ParticleSystem;
 struct ModifierData;
-struct BMEditStrands;
 struct HairGroup;
 struct DRWHairFiberTextureBuffer;
 struct DerivedMesh;
@@ -56,9 +55,6 @@ void DRW_particle_batch_cache_free(struct ParticleSystem *psys);
 
 void DRW_hair_batch_cache_dirty(struct HairGroup *group, int mode);
 void DRW_hair_batch_cache_free(struct HairGroup *group);
-
-void DRW_editstrands_batch_cache_dirty(struct BMEditStrands *es, int mode);
-void DRW_editstrands_batch_cache_free(struct BMEditStrands *es);
 
 /* Curve */
 struct Gwn_Batch *DRW_curve_batch_cache_get_wire_edge(struct Curve *cu, struct CurveCache *ob_curve_cache);
@@ -116,12 +112,6 @@ void DRW_mesh_cache_sculpt_coords_ensure(struct Mesh *me);
 /* Particles */
 struct Gwn_Batch *DRW_particles_batch_cache_get_hair(struct ParticleSystem *psys, struct ModifierData *md);
 struct Gwn_Batch *DRW_particles_batch_cache_get_dots(struct ParticleSystem *psys);
-
-/* Strands */
-struct Gwn_Batch *DRW_editstrands_batch_cache_get_wires(struct BMEditStrands *es);
-struct Gwn_Batch *DRW_editstrands_batch_cache_get_tips(struct BMEditStrands *es);
-struct Gwn_Batch *DRW_editstrands_batch_cache_get_roots(struct BMEditStrands *es);
-struct Gwn_Batch *DRW_editstrands_batch_cache_get_points(struct BMEditStrands *es);
 
 /* Hair */
 struct Gwn_Batch *DRW_hair_batch_cache_get_fibers(struct HairGroup *group, int subdiv, struct DerivedMesh *scalp,

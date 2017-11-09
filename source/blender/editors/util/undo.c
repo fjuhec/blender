@@ -55,7 +55,6 @@
 #include "ED_mball.h"
 #include "ED_mesh.h"
 #include "ED_object.h"
-#include "ED_physics.h"
 #include "ED_render.h"
 #include "ED_screen.h"
 #include "ED_paint.h"
@@ -103,9 +102,6 @@ void ED_undo_push(bContext *C, const char *str)
 		if (U.undosteps == 0) return;
 
 		PE_undo_push(CTX_data_scene(C), CTX_data_scene_layer(C), str);
-	}
-	else if (obact && obact->mode & OB_MODE_HAIR_EDIT) {
-		undo_push_strands(C, str);
 	}
 	else if (obact && obact->mode & OB_MODE_SCULPT) {
 		/* do nothing for now */
@@ -188,14 +184,6 @@ static int ed_undo_step(bContext *C, int step, const char *undoname)
 				PE_undo(scene, sl);
 			else
 				PE_redo(scene, sl);
-		}
-		else if (obact && obact->mode & OB_MODE_HAIR_EDIT) {
-			if (undoname)
-				undo_editmode_name(C, undoname);
-			else
-				undo_editmode_step(C, step);
-			
-			WM_event_add_notifier(C, NC_GEOM | ND_DATA, NULL);
 		}
 		else if (U.uiflag & USER_GLOBALUNDO) {
 			// note python defines not valid here anymore.

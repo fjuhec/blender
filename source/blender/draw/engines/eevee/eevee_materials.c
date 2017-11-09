@@ -35,7 +35,6 @@
 #include "BLI_alloca.h"
 
 #include "BKE_DerivedMesh.h"
-#include "BKE_editstrands.h"
 #include "BKE_particle.h"
 #include "BKE_paint.h"
 #include "BKE_pbvh.h"
@@ -1229,7 +1228,7 @@ static void material_particle_hair(EEVEE_SceneLayerData *sldata, EEVEE_Data *ved
 	
 	bool use_hair = false;
 	struct Gwn_Batch *hair_geom = NULL;
-	if ((ob->mode & OB_MODE_HAIR_EDIT) == 0) {
+	{
 		int draw_as = (part->draw_as == PART_DRAW_REND) ? part->ren_as : part->draw_as;
 		if (draw_as == PART_DRAW_PATH && (psys->pathcache || psys->childcache)) {
 			use_hair = true;
@@ -1297,8 +1296,8 @@ static void material_hair(EEVEE_SceneLayerData *sldata, EEVEE_Data *vedata, Obje
 	const DRWContextState *draw_ctx = DRW_context_state_get();
 	Scene *scene = draw_ctx->scene;
 	GHash *material_hash = stl->g_data->hair_material_hash;
-	const HairEditSettings *tsettings = &scene->toolsettings->hair_edit;
-	
+	/* TODO */
+	const int subdiv = 0;
 	float mat[4][4];
 	copy_m4_m4(mat, ob->obmat);
 	
@@ -1314,7 +1313,7 @@ static void material_hair(EEVEE_SceneLayerData *sldata, EEVEE_Data *vedata, Obje
 			DEG_evaluation_context_init(&eval_ctx, DAG_EVAL_VIEWPORT);
 			scalp = mesh_get_derived_final(&eval_ctx, scene, ob, CD_MASK_BAREMESH);
 		}
-		hair_geom = DRW_cache_hair_get_fibers(group, tsettings->hair_draw_subdiv, scalp, &fiber_buffer);
+		hair_geom = DRW_cache_hair_get_fibers(group, subdiv, scalp, &fiber_buffer);
 	}
 	
 	if (!group->draw_texture_cache) {

@@ -103,8 +103,6 @@ const EnumPropertyItem rna_enum_symmetrize_direction_items[] = {
 
 #include "BKE_context.h"
 #include "BKE_DerivedMesh.h"
-#include "BKE_editstrands.h"
-#include "BKE_effect.h"
 #include "BKE_pointcache.h"
 #include "BKE_particle.h"
 #include "BKE_pbvh.h"
@@ -260,8 +258,6 @@ static int rna_Brush_mode_poll(PointerRNA *ptr, PointerRNA value)
 		mode = OB_MODE_VERTEX_PAINT;
 	else if (ptr->data == ts->wpaint)
 		mode = OB_MODE_WEIGHT_PAINT;
-	else if (ptr->data == &ts->hair_edit)
-		mode = OB_MODE_HAIR_EDIT;
 
 	return brush->ob_mode & mode;
 }
@@ -433,28 +429,6 @@ static char *rna_GPencilSculptBrush_path(PointerRNA *UNUSED(ptr))
 	return BLI_strdup("tool_settings.gpencil_sculpt.brush");
 }
 
-/* ==== Hair Edit ==== */
-
-static char *rna_HairEdit_path(PointerRNA *UNUSED(ptr))
-{
-	return BLI_strdup("tool_settings.hair_edit");
-}
-
-static void rna_HairEdit_update(Main *UNUSED(bmain), Scene *scene, PointerRNA *UNUSED(ptr))
-{
-	Object *ob = OBACT;
-
-	if (ob)
-		DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
-}
-
-static void rna_HairEdit_brush_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)
-{
-	HairEditSettings *settings = ptr->data;
-	Brush *brush = settings->brush;
-	BKE_paint_invalidate_overlay_all();
-	WM_main_add_notifier(NC_BRUSH | NA_EDITED, brush);
-}
 
 #else
 
@@ -1154,72 +1128,6 @@ static void rna_def_gpencil_sculpt(BlenderRNA *brna)
 	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
 }
 
-static void rna_def_hair_edit(BlenderRNA *brna)
-{
-	StructRNA *srna;
-	PropertyRNA *prop;
-
-	static EnumPropertyItem select_mode_items[] = {
-		{HAIR_SELECT_STRAND, "STRAND", ICON_PARTICLE_PATH, "Strand", "Strand edit mode"},
-		{HAIR_SELECT_VERTEX, "VERTEX", ICON_PARTICLE_POINT, "Vertex", "Vertex select mode"},
-		{HAIR_SELECT_TIP, "TIP", ICON_PARTICLE_TIP, "Tip", "Tip select mode"},
-		{0, NULL, 0, NULL, NULL}
-	};
-	
-	static EnumPropertyItem hair_draw_mode_items[] = {
-		{HAIR_DRAW_NONE, "NONE", ICON_NONE, "None", "Don't show hair while editing"},
-		{HAIR_DRAW_FIBERS, "FIBERS", ICON_STRANDS, "Fibers", "Draw hair fibers"},
-		{0, NULL, 0, NULL, NULL}
-	};
-
-	srna = RNA_def_struct(brna, "HairEdit", NULL);
-	RNA_def_struct_sdna(srna, "HairEditSettings");
-	RNA_def_struct_path_func(srna, "rna_HairEdit_path");
-	RNA_def_struct_ui_text(srna, "Hair Edit", "Settings for hair editing mode");
-
-	prop = RNA_def_property(srna, "brush", PROP_POINTER, PROP_NONE);
-	RNA_def_property_flag(prop, PROP_EDITABLE);
-	RNA_def_property_pointer_funcs(prop, NULL, NULL, NULL, "rna_Brush_mode_poll");
-	RNA_def_property_ui_text(prop, "Brush", "Active Brush");
-	RNA_def_property_update(prop, 0, "rna_HairEdit_brush_update");
-
-	prop = RNA_def_property(srna, "show_brush", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag", HAIR_EDIT_SHOW_BRUSH);
-	RNA_def_property_ui_text(prop, "Show Brush", "");
-	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
-
-	prop = RNA_def_property(srna, "select_mode", PROP_ENUM, PROP_NONE);
-	RNA_def_property_enum_sdna(prop, NULL, "select_mode");
-	RNA_def_property_enum_items(prop, select_mode_items);
-	RNA_def_property_ui_text(prop, "Selection Mode", "Hair selection mode");
-	RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_HairEdit_update");
-
-	prop = RNA_def_property(srna, "hair_draw_mode", PROP_ENUM, PROP_NONE);
-	RNA_def_property_enum_sdna(prop, NULL, "hair_draw_mode");
-	RNA_def_property_enum_items(prop, hair_draw_mode_items);
-	RNA_def_property_ui_text(prop, "Hair Draw Mode", "Draw mode for edited hair results");
-	RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_HairEdit_update");
-
-	prop = RNA_def_property(srna, "hair_draw_size", PROP_FLOAT, PROP_NONE);
-	RNA_def_property_float_sdna(prop, NULL, "hair_draw_size");
-	RNA_def_property_range(prop, 0.0f, FLT_MAX);
-	RNA_def_property_ui_range(prop, 1.0f, 10.0f, 1.0f, 1);
-	RNA_def_property_ui_text(prop, "Hair Draw Size", "Width of hair fibers in pixels");
-	RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_HairEdit_update");
-
-	prop = RNA_def_property(srna, "hair_draw_subdivision", PROP_INT, PROP_NONE);
-	RNA_def_property_int_sdna(prop, NULL, "hair_draw_subdiv");
-	RNA_def_property_range(prop, 0, INT_MAX);
-	RNA_def_property_ui_range(prop, 0, 5, 1, -1);
-	RNA_def_property_ui_text(prop, "Hair Draw Subdivision", "Subdivide hair fibers");
-	RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_HairEdit_update");
-
-	prop = RNA_def_property(srna, "shape_object", PROP_POINTER, PROP_NONE);
-	RNA_def_property_flag(prop, PROP_EDITABLE);
-	RNA_def_property_ui_text(prop, "Shape Object", "Outer shape to use for tools");
-	RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_HairEdit_update");
-}
-
 void RNA_def_sculpt_paint(BlenderRNA *brna)
 {
 	/* *** Non-Animated *** */
@@ -1232,7 +1140,6 @@ void RNA_def_sculpt_paint(BlenderRNA *brna)
 	rna_def_image_paint(brna);
 	rna_def_particle_edit(brna);
 	rna_def_gpencil_sculpt(brna);
-	rna_def_hair_edit(brna);
 	RNA_define_animate_sdna(true);
 }
 

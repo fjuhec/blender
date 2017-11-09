@@ -59,7 +59,6 @@
 #include "BKE_DerivedMesh.h"
 #include "BKE_deform.h"
 #include "BKE_displist.h"
-#include "BKE_editstrands.h"
 #include "BKE_font.h"
 #include "BKE_global.h"
 #include "BKE_image.h"
@@ -4229,7 +4228,7 @@ static void draw_em_fancy_new(Scene *UNUSED(scene), ARegion *UNUSED(ar), View3D 
 void draw_mesh_object_outline(View3D *v3d, Object *ob, DerivedMesh *dm, const unsigned char ob_wire_col[4]) /* LEGACY */
 {
 	if ((v3d->transp == false) &&  /* not when we draw the transparent pass */
-	    (ob->mode & OB_MODE_ALL_BRUSH) == false) /* not when painting (its distracting) - campbell */
+	    (ob->mode & OB_MODE_ALL_PAINT) == false) /* not when painting (its distracting) - campbell */
 	{
 		glLineWidth(UI_GetThemeValuef(TH_OUTLINE_WIDTH) * 2.0f);
 		glDepthMask(GL_FALSE);
@@ -8750,7 +8749,7 @@ void draw_object(
 	if (!skip_object) {
 		/* draw outline for selected objects, mesh does itself */
 		if ((v3d->flag & V3D_SELECT_OUTLINE) && !render_override && ob->type != OB_MESH) {
-			if (dt > OB_WIRE && (ob->mode & (OB_MODE_EDIT | OB_MODE_HAIR_EDIT)) == 0 && (dflag & DRAW_SCENESET) == 0) {
+			if (dt > OB_WIRE && (ob->mode & OB_MODE_EDIT) == 0 && (dflag & DRAW_SCENESET) == 0) {
 				if (!(ob->dtx & OB_DRAWWIRE) && (base->flag & BASE_SELECTED) && !(dflag & (DRAW_PICKING | DRAW_CONSTCOLOR))) {
 					draw_object_selected_outline(eval_ctx, scene, sl, v3d, ar, base, ob_wire_col);
 				}
@@ -8941,16 +8940,14 @@ afterdraw:
 		view3d_cached_text_draw_begin();
 
 		for (psys = ob->particlesystem.first; psys; psys = psys->next) {
-			if (!(ob->mode & OB_MODE_HAIR_EDIT)) {
-				/* run this so that possible child particles get cached */
-				if (ob->mode & OB_MODE_PARTICLE_EDIT && is_obact) {
-					PTCacheEdit *edit = PE_create_current(eval_ctx, scene, ob);
-					if (edit && edit->psys == psys)
-						draw_update_ptcache_edit(eval_ctx, scene, sl, ob, edit);
-				}
-				
-				draw_new_particle_system(eval_ctx, scene, v3d, rv3d, base, psys, dt, dflag);
+			/* run this so that possible child particles get cached */
+			if (ob->mode & OB_MODE_PARTICLE_EDIT && is_obact) {
+				PTCacheEdit *edit = PE_create_current(eval_ctx, scene, ob);
+				if (edit && edit->psys == psys)
+					draw_update_ptcache_edit(eval_ctx, scene, sl, ob, edit);
 			}
+
+			draw_new_particle_system(eval_ctx, scene, v3d, rv3d, base, psys, dt, dflag);
 		}
 		invert_m4_m4(ob->imat, ob->obmat);
 		view3d_cached_text_draw_end(v3d, ar, 0);
@@ -8972,13 +8969,6 @@ afterdraw:
 				draw_update_ptcache_edit(eval_ctx, scene, sl, ob, edit);
 				draw_ptcache_edit(scene, v3d, edit);
 				gpuMultMatrix(ob->obmat);
-			}
-		}
-
-		if (ob->mode & OB_MODE_HAIR_EDIT && is_obact) {
-			BMEditStrands *edit = BKE_editstrands_from_object(ob);
-			if (edit) {
-				draw_strands_edit_hair(scene, v3d, ar, edit);
 			}
 		}
 	}
@@ -9169,7 +9159,7 @@ afterdraw:
 	}
 
 	/* object centers, need to be drawn in viewmat space for speed, but OK for picking select */
-	if (!is_obact || !(ob->mode & OB_MODE_ALL_BRUSH)) {
+	if (!is_obact || !(ob->mode & OB_MODE_ALL_PAINT)) {
 		int do_draw_center = -1; /* defines below are zero or positive... */
 
 		if (render_override) {

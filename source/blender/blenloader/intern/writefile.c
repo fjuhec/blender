@@ -2289,7 +2289,6 @@ static void write_mesh(WriteData *wd, Mesh *mesh)
 			CustomData_reset(&mesh->pdata);
 			CustomData_reset(&mesh->ldata);
 			mesh->edit_btmesh = NULL;
-				mesh->edit_strands = NULL;
 
 			/* now fill in polys to mfaces */
 			/* XXX This breaks writing design, by using temp allocated memory, which will likely generate

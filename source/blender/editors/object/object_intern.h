@@ -286,8 +286,5 @@ void TRANSFORM_OT_vertex_random(struct wmOperatorType *ot);
 void OBJECT_OT_data_transfer(struct wmOperatorType *ot);
 void OBJECT_OT_datalayout_transfer(struct wmOperatorType *ot);
 
-/* object_hair.c */
-void OBJECT_OT_hair_follicles_generate(struct wmOperatorType *ot);
-
 #endif /* __OBJECT_INTERN_H__ */
 

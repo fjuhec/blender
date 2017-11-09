@@ -98,9 +98,6 @@
 #include "bmesh.h"
 #include "intern/bmesh_private.h" /* for element checking */
 
-/* XXX stupid hack: linker otherwise strips bmesh_strands_conv.c because it is not used inside bmesh */
-void *__dummy_hack__ = &BM_strands_count_psys_keys;
-
 void BM_mesh_cd_flag_ensure(BMesh *bm, Mesh *mesh, const char cd_flag)
 {
 	const char cd_flag_all = BM_mesh_cd_flag_from_bmesh(bm) | cd_flag;
@@ -211,14 +208,13 @@ void BM_mesh_bm_from_me(
 	BMFace *f, **ftable = NULL;
 	float (*keyco)[3] = NULL;
 	int totloops, i;
-	CustomDataMask mask = CD_MASK_BMESH | params->cd_mask_extra;
 
 	if (!me || !me->totvert) {
 		if (me && is_new) { /*no verts? still copy customdata layout*/
-			CustomData_copy(&me->vdata, &bm->vdata, mask, CD_ASSIGN, 0);
-			CustomData_copy(&me->edata, &bm->edata, mask, CD_ASSIGN, 0);
-			CustomData_copy(&me->ldata, &bm->ldata, mask, CD_ASSIGN, 0);
-			CustomData_copy(&me->pdata, &bm->pdata, mask, CD_ASSIGN, 0);
+			CustomData_copy(&me->vdata, &bm->vdata, CD_MASK_BMESH, CD_ASSIGN, 0);
+			CustomData_copy(&me->edata, &bm->edata, CD_MASK_BMESH, CD_ASSIGN, 0);
+			CustomData_copy(&me->ldata, &bm->ldata, CD_MASK_BMESH, CD_ASSIGN, 0);
+			CustomData_copy(&me->pdata, &bm->pdata, CD_MASK_BMESH, CD_ASSIGN, 0);
 
 			CustomData_bmesh_init_pool(&bm->vdata, me->totvert, BM_VERT);
 			CustomData_bmesh_init_pool(&bm->edata, me->totedge, BM_EDGE);
@@ -229,10 +225,10 @@ void BM_mesh_bm_from_me(
 	}
 
 	if (is_new) {
-		CustomData_copy(&me->vdata, &bm->vdata, mask, CD_CALLOC, 0);
-		CustomData_copy(&me->edata, &bm->edata, mask, CD_CALLOC, 0);
-		CustomData_copy(&me->ldata, &bm->ldata, mask, CD_CALLOC, 0);
-		CustomData_copy(&me->pdata, &bm->pdata, mask, CD_CALLOC, 0);
+		CustomData_copy(&me->vdata, &bm->vdata, CD_MASK_BMESH, CD_CALLOC, 0);
+		CustomData_copy(&me->edata, &bm->edata, CD_MASK_BMESH, CD_CALLOC, 0);
+		CustomData_copy(&me->ldata, &bm->ldata, CD_MASK_BMESH, CD_CALLOC, 0);
+		CustomData_copy(&me->pdata, &bm->pdata, CD_MASK_BMESH, CD_CALLOC, 0);
 	}
 
 	/* -------------------------------------------------------------------- */

@@ -4437,7 +4437,6 @@ static void direct_link_particlesystems(FileData *fd, ListBase *particles)
 		
 		psys->edit = NULL;
 		psys->free_edit = NULL;
-		psys->hairedit = NULL;
 		psys->pathcache = NULL;
 		psys->childcache = NULL;
 		BLI_listbase_clear(&psys->pathcachebufs);
@@ -4680,7 +4679,6 @@ static void direct_link_mesh(FileData *fd, Mesh *mesh)
 
 	mesh->bb = NULL;
 	mesh->edit_btmesh = NULL;
-	mesh->edit_strands = NULL;
 	mesh->batch_cache = NULL;
 	
 	/* happens with old files */
@@ -5481,8 +5479,6 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb)
 			
 			hmd->hair = newdataadr(fd, hmd->hair);
 			direct_link_hair(fd, hmd->hair);
-			
-			hmd->edit = NULL;
 		}
 	}
 }
@@ -5513,7 +5509,7 @@ static void direct_link_object(FileData *fd, Object *ob)
 	 * See [#34776, #42780] for more information.
 	 */
 	if (fd->memfile || (ob->id.tag & (LIB_TAG_EXTERN | LIB_TAG_INDIRECT))) {
-		ob->mode &= ~(OB_MODE_EDIT | OB_MODE_PARTICLE_EDIT | OB_MODE_HAIR_EDIT);
+		ob->mode &= ~(OB_MODE_EDIT | OB_MODE_PARTICLE_EDIT);
 		if (!fd->memfile) {
 			ob->mode &= ~OB_MODE_POSE;
 		}
@@ -5864,14 +5860,6 @@ static void lib_link_scene(FileData *fd, Main *main)
 			
 			sce->toolsettings->particle.shape_object = newlibadr(fd, sce->id.lib, sce->toolsettings->particle.shape_object);
 			
-			{
-				HairEditSettings *hair_edit = &sce->toolsettings->hair_edit;
-				if (hair_edit->brush)
-					hair_edit->brush = newlibadr(fd, sce->id.lib, hair_edit->brush);
-				if (hair_edit->shape_object)
-					hair_edit->shape_object = newlibadr(fd, sce->id.lib, hair_edit->shape_object);
-			}
-			
 			for (Base *base_legacy_next, *base_legacy = sce->base.first; base_legacy; base_legacy = base_legacy_next) {
 				base_legacy_next = base_legacy->next;
 				
@@ -6183,7 +6171,6 @@ static void direct_link_scene(FileData *fd, Scene *sce, Main *bmain)
 		sce->toolsettings->particle.scene_layer = NULL;
 		sce->toolsettings->particle.object = NULL;
 		sce->toolsettings->gp_sculpt.paintcursor = NULL;
-		sce->toolsettings->hair_edit.paint_cursor = NULL;
 		
 		/* relink grease pencil drawing brushes */
 		link_list(fd, &sce->toolsettings->gp_brushes);

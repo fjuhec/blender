@@ -48,8 +48,6 @@ struct bMotionPath;
 struct bPoseChannel;
 struct Mesh;
 struct SceneLayer;
-struct BMEditStrands;
-
 struct wmOperatorType;
 struct wmWindowManager;
 struct wmKeyConfig;
@@ -213,9 +211,6 @@ void draw_mesh_paint(View3D *v3d, RegionView3D *rv3d,
 
 /* drawsimdebug.c */
 void draw_sim_debug_data(Scene *scene, View3D *v3d, ARegion *ar);
-
-/* drawstrands.c */
-void draw_strands_edit_hair(Scene *scene, View3D *v3d, ARegion *ar, struct BMEditStrands *edit);
 
 /* view3d_draw.c */
 void view3d_main_region_draw(const struct bContext *C, struct ARegion *ar);

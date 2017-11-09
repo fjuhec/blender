@@ -49,7 +49,6 @@ set(SRC
 	object_edit.c
 	object_facemap_ops.c
 	object_group.c
-	object_hair.c
 	object_hook.c
 	object_lattice.c
 	object_lod.c

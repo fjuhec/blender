@@ -44,7 +44,6 @@
 #include "ED_screen.h"
 #include "ED_image.h"
 #include "UI_resources.h"
-#include "UI_interface.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -61,40 +60,20 @@
 #include <stddef.h>
 
 /* Brush operators */
-
 static int brush_add_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	/*int type = RNA_enum_get(op->ptr, "type");*/
+	Paint *paint = BKE_paint_get_active_from_context(C);
+	Brush *br = BKE_paint_brush(paint);
 	Main *bmain = CTX_data_main(C);
 	ePaintMode mode = BKE_paintmode_get_active_from_context(C);
-	Scene *scene = CTX_data_scene(C);
-	Object *ob = CTX_data_active_object(C);
-	Paint *paint = NULL;
-	HairEditSettings *hair_edit = NULL;
-	Brush *br = NULL;
-	
-	/* get active brush context */
-	if (ob->mode == OB_MODE_HAIR_EDIT) {
-		hair_edit = &scene->toolsettings->hair_edit;
-		br = hair_edit->brush;
-	}
-	else {
-		paint = BKE_paint_get_active_from_context(C);
-		br = BKE_paint_brush(paint);
-	}
-	
+
 	if (br)
 		br = BKE_brush_copy(bmain, br);
 	else
 		br = BKE_brush_add(bmain, "Brush", BKE_paint_object_mode_from_paint_mode(mode));
 
-	/* set new brush pointer in the context */
-	if (ob->mode == OB_MODE_HAIR_EDIT) {
-		hair_edit->brush = br;
-	}
-	else {
-		BKE_paint_brush_set(paint, br);
-	}
+	BKE_paint_brush_set(paint, br);
 
 	return OPERATOR_FINISHED;
 }
@@ -117,19 +96,10 @@ static void BRUSH_OT_add(wmOperatorType *ot)
 static int brush_scale_size_exec(bContext *C, wmOperator *op)
 {
 	Scene *scene = CTX_data_scene(C);
-	Object *ob = CTX_data_active_object(C);
-	Brush  *brush;
+	Paint  *paint =  BKE_paint_get_active_from_context(C);
+	Brush  *brush =  BKE_paint_brush(paint);
+	// Object *ob = CTX_data_active_object(C);
 	float scalar = RNA_float_get(op->ptr, "scalar");
-
-	/* get active brush context */
-	if (ob->mode == OB_MODE_HAIR_EDIT) {
-		HairEditSettings *hair_edit = &scene->toolsettings->hair_edit;
-		brush = hair_edit->brush;
-	}
-	else {
-		Paint  *paint = BKE_paint_get_active_from_context(C);
-		brush = BKE_paint_brush(paint);
-	}
 
 	if (brush) {
 		// pixel radius
@@ -440,7 +410,7 @@ static int brush_select_exec(bContext *C, wmOperator *op)
 		Object *ob = CTX_data_active_object(C);
 		if (ob) {
 			/* select current paint mode */
-			paint_mode = ob->mode & OB_MODE_ALL_BRUSH;
+			paint_mode = ob->mode & OB_MODE_ALL_PAINT;
 		}
 		else {
 			return OPERATOR_CANCELLED;

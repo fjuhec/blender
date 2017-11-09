@@ -2577,31 +2577,6 @@ Gwn_Batch *DRW_cache_particles_get_prim(int type)
 
 /* -------------------------------------------------------------------- */
 
-/** \name Strands
- * \{ */
-
-Gwn_Batch *DRW_cache_editstrands_get_tips(struct BMEditStrands *es)
-{
-	return DRW_editstrands_batch_cache_get_tips(es);
-}
-
-Gwn_Batch *DRW_cache_editstrands_get_roots(struct BMEditStrands *es)
-{
-	return DRW_editstrands_batch_cache_get_roots(es);
-}
-
-Gwn_Batch *DRW_cache_editstrands_get_points(struct BMEditStrands *es)
-{
-	return DRW_editstrands_batch_cache_get_points(es);
-}
-
-Gwn_Batch *DRW_cache_editstrands_get_wires(struct BMEditStrands *es)
-{
-	return DRW_editstrands_batch_cache_get_wires(es);
-}
-
-/* -------------------------------------------------------------------- */
-
 /** \name Hair */
 
 Gwn_Batch *DRW_cache_hair_get_fibers(struct HairGroup *group, int subdiv, struct DerivedMesh *scalp,

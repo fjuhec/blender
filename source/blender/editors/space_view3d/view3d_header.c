@@ -309,7 +309,7 @@ void uiTemplateHeader3D(uiLayout *layout, struct bContext *C)
 
 	if (obedit == NULL && is_paint) {
 		/* Manipulators aren't used in paint modes */
-		if (!ELEM(ob->mode, OB_MODE_SCULPT, OB_MODE_PARTICLE_EDIT, OB_MODE_HAIR_EDIT)) {
+		if (!ELEM(ob->mode, OB_MODE_SCULPT, OB_MODE_PARTICLE_EDIT)) {
 			/* masks aren't used for sculpt and particle painting */
 			PointerRNA meshptr;
 
