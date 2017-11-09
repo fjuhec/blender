@@ -1033,43 +1033,41 @@ void BM_lnorspace_invalidate(BMesh *bm, const bool do_invalidate_all)
 	BMVert *v;
 	BMLoop *l;
 	BMIter viter, fiter, liter;
-	BLI_bitmap *faces = BLI_BITMAP_NEW(bm->totface, __func__);
-	BLI_bitmap *loops_marked = BLI_BITMAP_NEW(bm->totloop, __func__);
+	/* Note: we could use temp tag of BMItem for that, but probably better not use it in such low-level func? --mont29 */
+	BLI_bitmap *done_faces = BLI_BITMAP_NEW(bm->totface, __func__);
 
-	BM_mesh_elem_index_ensure(bm, (BM_FACE | BM_LOOP));
+	BM_mesh_elem_index_ensure(bm, BM_FACE);
+
+	BLI_assert(bm->lnor_spacearr->flags & MLNOR_SPACEARR_BMLOOP_PTR);
+	MLoopNorSpace **lnors_spaces = bm->lnor_spacearr->lspacearr;
 
 	/* TODO this has to be redone, way more looping than needed here ;) */
+	/* Note: Unfortunately, we have to invalidate all loops from any potentially affected face, in some cases only
+	 *       taking into account neighbors of selected vertices ones is not enough... */
 	BM_ITER_MESH(v, &viter, bm, BM_VERTS_OF_MESH) {
 		if (BM_elem_flag_test(v, BM_ELEM_SELECT)) {
 			BM_ITER_ELEM(f, &fiter, v, BM_FACES_OF_VERT) {
-				if (!BLI_BITMAP_TEST(faces, BM_elem_index_get(f))) {
+				if (!BLI_BITMAP_TEST(done_faces, BM_elem_index_get(f))) {
 					BM_ITER_ELEM(l, &liter, f, BM_LOOPS_OF_FACE) {
-						/* Enable bitmaps of all loops in the spaces. */
-						LinkNode *loops = bm->lnor_spacearr->lspacearr[BM_elem_index_get(l)]->loops;
-						if (loops != NULL) {
-							for (; loops != NULL; loops = loops->next) {
-								BLI_BITMAP_ENABLE(loops_marked, BM_elem_index_get((BMLoop *)loops->link));
-							}
+						MLoopNorSpace *lspace = lnors_spaces[BM_elem_index_get(l)];
+						if (lspace->flags & MLNOR_SPACE_IS_SINGLE) {
+							BLI_assert(l == (BMLoop *)lspace->loops);
+							BM_elem_flag_enable(l, BM_ELEM_LNORSPACE);
 						}
 						else {
-							BLI_BITMAP_ENABLE(loops_marked, BM_elem_index_get(l));
+							LinkNode *loops = lspace->loops;
+							for (; loops != NULL; loops = loops->next) {
+								BM_elem_flag_enable((BMLoop *)loops->link, BM_ELEM_LNORSPACE);
+							}
 						}
 					}
-					BLI_BITMAP_ENABLE(faces, BM_elem_index_get(f));  /* Enable bitmap of face to not iterate through it again. */
+					BLI_BITMAP_ENABLE(done_faces, BM_elem_index_get(f));  /* No need to iterate through it again. */
 				}
 			}
 		}
 	}
-	BM_ITER_MESH(f, &fiter, bm, BM_FACES_OF_MESH) {
-		BM_ITER_ELEM(l, &liter, f, BM_LOOPS_OF_FACE) {
-			if (BLI_BITMAP_TEST(loops_marked, BM_elem_index_get(l))) {
-				BM_elem_flag_enable(l, BM_ELEM_LNORSPACE);  /* Flag all loops marked. */
-			}
-		}
-	}
 
-	MEM_freeN(loops_marked);
-	MEM_freeN(faces);
+	MEM_freeN(done_faces);
 	bm->spacearr_dirty |= BM_SPACEARR_DIRTY;
 }
 
