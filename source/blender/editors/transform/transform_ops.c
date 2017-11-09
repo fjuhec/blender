@@ -518,8 +518,12 @@ static void transform_ui(bContext *C, wmOperator *op)
 	PointerRNA ptr;
 	Object *obedit = CTX_data_edit_object(C);
 
-	RNA_boolean_set(op->ptr, "show_preserve_clnor",
-	                (obedit && obedit->type == OB_MESH && (((Mesh *)(obedit->data))->flag & ME_AUTOSMOOTH)));
+	PropertyRNA *prop = RNA_struct_find_property(op->ptr, "show_preserve_clnor");
+	if (prop) {
+		RNA_property_boolean_set(
+		            op->ptr, prop,
+		            (obedit && obedit->type == OB_MESH && (((Mesh *)(obedit->data))->flag & ME_AUTOSMOOTH)));
+	}
 
 	RNA_pointer_create(&wm->id, op->type->srna, op->properties, &ptr);
 
@@ -1036,10 +1040,10 @@ static void TRANSFORM_OT_rotate_normal(struct wmOperatorType *ot)
 
 	/* api callbacks */
 	ot->invoke = transform_invoke;
-	ot->exec = transform_exec;
-	ot->modal = transform_modal;
+	ot->exec   = transform_exec;
+	ot->modal  = transform_modal;
 	ot->cancel = transform_cancel;
-	ot->poll = ED_operator_editmesh_auto_smooth;
+	ot->poll   = ED_operator_editmesh_auto_smooth;
 	ot->ui     = transform_ui;
 
 	RNA_def_float_rotation(ot->srna, "value", 0, NULL, -FLT_MAX, FLT_MAX, "Angle", "", -M_PI * 2, M_PI * 2);
