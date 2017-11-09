@@ -1634,7 +1634,7 @@ typedef struct Scene {
 	
 	struct Scene *set;
 	
-	ListBase base;
+	ListBase base DNA_DEPRECATED;
 	struct BaseLegacy *basact;		/* active base */
 	struct Object *obedit;		/* name replaces old G.obedit */
 	
@@ -1674,9 +1674,7 @@ typedef struct Scene {
 	void *fps_info;					/* (runtime) info/cache used for presenting playback framerate info to the user */
 	
 	/* none of the dependency graph  vars is mean to be saved */
-	struct Depsgraph *depsgraph_legacy;
 	struct GHash *depsgraph_hash;
-	void *pad3;
 	int pad7;
 
 	/* User-Defined KeyingSets */
