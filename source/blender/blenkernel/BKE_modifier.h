@@ -49,6 +49,7 @@ struct BMEditMesh;
 struct DepsNodeHandle;
 struct bGPDlayer;
 struct bGPDframe;
+struct bGPDstroke;
 
 typedef enum {
 	/* Should not be used, only for None modifier type */
