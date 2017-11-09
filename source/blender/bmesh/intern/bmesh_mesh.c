@@ -1087,9 +1087,7 @@ void BM_lnorspace_rebuild(BMesh *bm, bool preserve_clnor)
 
 	int cd_loop_clnors_offset = CustomData_get_offset(&bm->ldata, CD_CUSTOMLOOPNORMAL);
 
-	if (bm->elem_index_dirty & BM_LOOP) {
-		BM_mesh_elem_index_ensure(bm, BM_LOOP);
-	}
+	BM_mesh_elem_index_ensure(bm, BM_LOOP);
 
 	if (preserve_clnor) {
 		BLI_assert(bm->lnor_spacearr->lspacearr != NULL);
@@ -1199,14 +1197,15 @@ void BM_lnorspace_err(BMesh *bm)
 }
 
 /* Mark the individual clnors to be edited, if multiple selection methods are used. */
-static int BM_loop_normal_mark_indiv(BMesh *bm, BLI_bitmap *loops)
+static int bm_loop_normal_mark_indiv(BMesh *bm, BLI_bitmap *loops)
 {
 	BMEditSelection *ese, *vert;
 	int totloopsel = 0;
 
-	if (bm->elem_index_dirty & BM_LOOP) {
-		BM_mesh_elem_index_ensure(bm, BM_LOOP);
-	}
+	BM_mesh_elem_index_ensure(bm, BM_LOOP);
+
+	BLI_assert(bm->lnor_spacearr != NULL);
+	BLI_assert(bm->lnor_spacearr->flags & MLNOR_SPACEARR_BMLOOP_PTR);
 
 	/* Goes from last selected to the first selected element. */
 	for (ese = bm->selected.last; ese; ese = ese->prev) {
@@ -1240,14 +1239,15 @@ static int BM_loop_normal_mark_indiv(BMesh *bm, BLI_bitmap *loops)
 
 	for (int i = 0; i < bm->totloop; i++) {  /* Mark all loops in a loop normal space. */
 		if (BLI_BITMAP_TEST(loops, i)) {
-			LinkNode *node = bm->lnor_spacearr->lspacearr[i]->loops;
-			while (node) {
-				const int l_index = GET_INT_FROM_POINTER(node->link);
-				if (!BLI_BITMAP_TEST(loops, l_index)) {
-					BLI_BITMAP_ENABLE(loops, l_index);
-					totloopsel++;
+			if ((bm->lnor_spacearr->lspacearr[i]->flags & MLNOR_SPACE_IS_SINGLE) == 0) {
+				LinkNode *node = bm->lnor_spacearr->lspacearr[i]->loops;
+				for (; node; node = node->next) {
+					const int l_index = BM_elem_index_get((BMLoop *)node->link);
+					if (!BLI_BITMAP_TEST(loops, l_index)) {
+						BLI_BITMAP_ENABLE(loops, l_index);
+						totloopsel++;
+					}
 				}
-				node = node->next;
 			}
 		}
 	}
@@ -1257,6 +1257,10 @@ static int BM_loop_normal_mark_indiv(BMesh *bm, BLI_bitmap *loops)
 
 LoopNormalData *BM_loop_normal_init(BMesh *bm)
 {
+	BMLoop *l;
+	BMVert *v;
+	BMIter liter, viter;
+
 	bool verts = (bm->selectmode & SCE_SELECT_VERTEX) != 0;
 	bool edges = (bm->selectmode & SCE_SELECT_EDGE) != 0;
 	bool faces = (bm->selectmode & SCE_SELECT_FACE) != 0;
@@ -1264,18 +1268,21 @@ LoopNormalData *BM_loop_normal_init(BMesh *bm)
 
 	BLI_assert(bm->spacearr_dirty == 0);
 
+	LoopNormalData *ld = MEM_mallocN(sizeof(*ld), __func__);
+	ld->loop_idx_to_transdata_lnors = MEM_callocN(sizeof(*ld->loop_idx_to_transdata_lnors) * bm->totloop, __func__);
+
+	if (!CustomData_has_layer(&bm->ldata, CD_CUSTOMLOOPNORMAL)) {
+		BM_data_layer_add(bm, &bm->ldata, CD_CUSTOMLOOPNORMAL);
+	}
+	int cd_custom_normal_offset = CustomData_get_offset(&bm->ldata, CD_CUSTOMLOOPNORMAL);
+
+	BM_mesh_elem_index_ensure(bm, BM_LOOP);
+
 	BLI_bitmap *loops = BLI_BITMAP_NEW(bm->totloop, __func__);
 	if (verts + edges + faces > 1) {
 		/* More than one selection mode, check if only individual normals to edit. */
-		totloopsel = BM_loop_normal_mark_indiv(bm, loops);
+		totloopsel = bm_loop_normal_mark_indiv(bm, loops);
 	}
-	LoopNormalData *ld = MEM_mallocN(sizeof(*ld), __func__);
-	int cd_custom_normal_offset = CustomData_get_offset(&bm->ldata, CD_CUSTOMLOOPNORMAL);
-	BMLoop *l;
-	BMVert *v;
-	BMIter liter, viter;
-
-	BM_mesh_elem_index_ensure(bm, BM_LOOP);
 
 	if (totloopsel) {
 		TransDataLoopNormal *tld = ld->normal = MEM_mallocN(sizeof(*tld) * totloopsel, __func__);
@@ -1284,6 +1291,7 @@ LoopNormalData *BM_loop_normal_init(BMesh *bm)
 			BM_ITER_ELEM(l, &liter, v, BM_LOOPS_OF_VERT) {
 				if (BLI_BITMAP_TEST(loops, BM_elem_index_get(l))) {
 					InitTransDataNormal(bm, tld, v, l, cd_custom_normal_offset);
+					ld->loop_idx_to_transdata_lnors[BM_elem_index_get(l)] = tld;
 					tld++;
 				}
 			}
@@ -1298,6 +1306,7 @@ LoopNormalData *BM_loop_normal_init(BMesh *bm)
 			if (BM_elem_flag_test(v, BM_ELEM_SELECT)) {
 				BM_ITER_ELEM(l, &liter, v, BM_LOOPS_OF_VERT) {
 					InitTransDataNormal(bm, tld, v, l, cd_custom_normal_offset);
+					ld->loop_idx_to_transdata_lnors[BM_elem_index_get(l)] = tld;
 					tld++;
 				}
 			}
@@ -1308,6 +1317,13 @@ LoopNormalData *BM_loop_normal_init(BMesh *bm)
 	MEM_freeN(loops);
 	ld->offset = cd_custom_normal_offset;
 	return ld;
+}
+
+void BM_loop_normal_free(LoopNormalData *ld)
+{
+	MEM_SAFE_FREE(ld->normal);
+	MEM_SAFE_FREE(ld->loop_idx_to_transdata_lnors);
+	MEM_freeN(ld);
 }
 
 int BM_total_loop_select(BMesh *bm)

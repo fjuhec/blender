@@ -281,6 +281,8 @@ typedef struct TransDataLoopNormal {
 
 typedef struct LoopNormalData {
 	TransDataLoopNormal *normal;
+	/* This one has full amount of loops, used to map loop index to actual TransDataLoopNormal struct. */
+	TransDataLoopNormal **loop_idx_to_transdata_lnors;
 
 	int offset;
 	int totloop;

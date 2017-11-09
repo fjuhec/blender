@@ -4253,8 +4253,7 @@ void freeCustomNormalArray(TransInfo *t, TransCustomData *custom_data)
 		}
 	}
 
-	MEM_freeN(ld->normal);
-	MEM_freeN(ld);
+	BM_loop_normal_free(ld);
 
 	t->custom.mode.data = NULL;
 	t->custom.mode.free_cb = NULL;
