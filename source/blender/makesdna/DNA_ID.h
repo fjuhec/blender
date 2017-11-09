@@ -296,12 +296,12 @@ typedef enum ID_Type {
 
 #define ID_MISSING(_id) (((_id)->tag & LIB_TAG_MISSING) != 0)
 
-#define ID_IS_LINKED_DATABLOCK(_id) (((ID *)(_id))->lib != NULL)
+#define ID_IS_LINKED(_id) (((ID *)(_id))->lib != NULL)
 
 #ifdef GS
 #  undef GS
 #endif
-#define GS(a)	(CHECK_TYPE_ANY(a, char *, const char *, char [66], const char[66]), (*((const short *)(a))))
+#define GS(a)	(CHECK_TYPE_ANY(a, char *, const char *, char [66], const char[66]), (ID_Type)(*((const short *)(a))))
 
 #define ID_NEW_SET(_id, _idn) \
 	(((ID *)(_id))->newid = (ID *)(_idn), ((ID *)(_id))->newid->tag |= LIB_TAG_NEW, (void *)((ID *)(_id))->newid)

@@ -100,9 +100,8 @@ typedef struct HairGuideVertex {
 
 typedef struct HairGuideData {
 	struct HairGuide *guides;
-	int num_guides;
-	
 	struct HairGuideVertex *verts;
+	int num_guides;
 	int totvert;
 } HairGuideData;
 

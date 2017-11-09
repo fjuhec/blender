@@ -30,8 +30,8 @@ class PhysicButtonsPanel:
 
     @classmethod
     def poll(cls, context):
-        rd = context.scene.render
-        return (context.object) and rd.engine in cls.COMPAT_ENGINES
+        view_render = context.scene.view_render
+        return (context.object) and view_render.engine in cls.COMPAT_ENGINES
 
 
 def physics_add(self, layout, md, name, type, typeicon, toggles):
@@ -57,7 +57,7 @@ def physics_add_special(self, layout, data, name, addop, removeop, typeicon):
 class PHYSICS_PT_add(PhysicButtonsPanel, Panel):
     bl_label = ""
     bl_options = {'HIDE_HEADER'}
-    COMPAT_ENGINES = {'BLENDER_RENDER'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE'}
 
     def draw(self, context):
         obj = context.object

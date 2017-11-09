@@ -543,12 +543,6 @@ enum {
 #define BA_TRANSFORM_CHILD  (1 << 8)  /* child of a transformed object */
 #define BA_TRANSFORM_PARENT (1 << 13)  /* parent of a transformed object */
 
-
-/* an initial attempt as making selection more specific! */
-#define BA_DESELECT     0
-#define BA_SELECT       1
-
-
 #define OB_FROMDUPLI        (1 << 9)
 #define OB_DONE             (1 << 10)  /* unknown state, clear before use */
 /* #define OB_RADIO            (1 << 11) */  /* deprecated */
@@ -708,7 +702,7 @@ enum {
 };
 
 /* ob->mode */
-typedef enum ObjectMode {
+typedef enum eObjectMode {
 	OB_MODE_OBJECT        = 0,
 	OB_MODE_EDIT          = 1 << 0,
 	OB_MODE_SCULPT        = 1 << 1,
@@ -719,11 +713,14 @@ typedef enum ObjectMode {
 	OB_MODE_POSE          = 1 << 6,
 	OB_MODE_GPENCIL       = 1 << 7,  /* NOTE: Just a dummy to make the UI nicer */
 	OB_MODE_HAIR_EDIT     = 1 << 8,
-} ObjectMode;
+} eObjectMode;
 
 /* any mode where the brush system is used */
 #define OB_MODE_ALL_PAINT (OB_MODE_SCULPT | OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT | OB_MODE_TEXTURE_PAINT)
 #define OB_MODE_ALL_BRUSH (OB_MODE_ALL_PAINT | OB_MODE_HAIR_EDIT)
+
+/* any mode that uses ob->sculpt */
+#define OB_MODE_ALL_SCULPT (OB_MODE_SCULPT | OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT)
 
 #define MAX_DUPLI_RECUR 8
 

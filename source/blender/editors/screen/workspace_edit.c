@@ -38,6 +38,7 @@
 #include "BKE_main.h"
 #include "BKE_library.h"
 #include "BKE_report.h"
+#include "BKE_scene.h"
 #include "BKE_screen.h"
 #include "BKE_workspace.h"
 
@@ -50,6 +51,8 @@
 
 #include "ED_object.h"
 #include "ED_screen.h"
+
+#include "MEM_guardedalloc.h"
 
 #include "RNA_access.h"
 
@@ -68,7 +71,7 @@
  * \{ */
 
 WorkSpace *ED_workspace_add(
-        Main *bmain, const char *name, SceneLayer *act_render_layer)
+        Main *bmain, const char *name, SceneLayer *act_render_layer, ViewRender *view_render)
 {
 	WorkSpace *workspace = BKE_workspace_add(bmain, name);
 
@@ -77,6 +80,7 @@ WorkSpace *ED_workspace_add(
 #endif
 
 	BKE_workspace_render_layer_set(workspace, act_render_layer);
+	BKE_viewrender_copy(&workspace->view_render, view_render);
 
 	return workspace;
 }
@@ -90,8 +94,8 @@ static void workspace_change_update_mode(
         const WorkSpace *workspace_old, const WorkSpace *workspace_new,
         bContext *C, Object *ob_act, ReportList *reports)
 {
-	ObjectMode mode_old = BKE_workspace_object_mode_get(workspace_old);
-	ObjectMode mode_new = BKE_workspace_object_mode_get(workspace_new);
+	eObjectMode mode_old = BKE_workspace_object_mode_get(workspace_old);
+	eObjectMode mode_new = BKE_workspace_object_mode_get(workspace_new);
 
 	if (mode_old != mode_new) {
 		ED_object_mode_compat_set(C, ob_act, mode_new, reports);
@@ -215,7 +219,8 @@ WorkSpace *ED_workspace_duplicate(
 	ListBase *layouts_old = BKE_workspace_layouts_get(workspace_old);
 	WorkSpace *workspace_new = ED_workspace_add(
 	        bmain, workspace_old->id.name + 2,
-	        BKE_workspace_render_layer_get(workspace_old));
+	        BKE_workspace_render_layer_get(workspace_old),
+	        &workspace_old->view_render);
 	ListBase *transform_orientations_old = BKE_workspace_transform_orientations_get(workspace_old);
 	ListBase *transform_orientations_new = BKE_workspace_transform_orientations_get(workspace_new);
 
@@ -231,7 +236,6 @@ WorkSpace *ED_workspace_duplicate(
 			win->workspace_hook->temp_layout_store = layout_new;
 		}
 	}
-
 	return workspace_new;
 }
 
@@ -239,7 +243,7 @@ WorkSpace *ED_workspace_duplicate(
  * \return if succeeded.
  */
 bool ED_workspace_delete(
-        WorkSpace *workspace, Main *bmain, bContext *C, wmWindowManager *wm, wmWindow *win)
+        WorkSpace *workspace, Main *bmain, bContext *C, wmWindowManager *wm)
 {
 	ID *workspace_id = (ID *)workspace;
 
@@ -247,7 +251,7 @@ bool ED_workspace_delete(
 		return false;
 	}
 
-	if (WM_window_get_active_workspace(win) == workspace) {
+	for (wmWindow *win = wm->windows.first; win; win = win->next) {
 		WorkSpace *prev = workspace_id->prev;
 		WorkSpace *next = workspace_id->next;
 
@@ -315,7 +319,7 @@ static int workspace_delete_exec(bContext *C, wmOperator *UNUSED(op))
 	wmWindowManager *wm = CTX_wm_manager(C);
 	wmWindow *win = CTX_wm_window(C);
 
-	ED_workspace_delete(WM_window_get_active_workspace(win), bmain, C, wm, win);
+	ED_workspace_delete(WM_window_get_active_workspace(win), bmain, C, wm);
 
 	return OPERATOR_FINISHED;
 }
@@ -377,9 +381,9 @@ static void workspace_append_button(
 	        lib_path, sizeof(lib_path), from_main->name, BKE_idcode_to_name(GS(id->name)), NULL);
 
 	BLI_assert(STREQ(ot_append->idname, "WM_OT_append"));
-	opptr = uiItemFullO_ptr(
-	            layout, ot_append, workspace->id.name + 2, ICON_NONE, NULL,
-	            WM_OP_EXEC_DEFAULT, UI_ITEM_O_RETURN_PROPS);
+	uiItemFullO_ptr(
+	        layout, ot_append, workspace->id.name + 2, ICON_NONE, NULL,
+	        WM_OP_EXEC_DEFAULT, 0, &opptr);
 	RNA_string_set(&opptr, "directory", lib_path);
 	RNA_string_set(&opptr, "filename", id->name + 2);
 }

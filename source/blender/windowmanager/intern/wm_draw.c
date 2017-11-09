@@ -34,6 +34,8 @@
 #include <string.h>
 
 #include "DNA_listBase.h"
+#include "DNA_object_types.h"
+#include "DNA_camera_types.h"
 #include "DNA_screen_types.h"
 #include "DNA_windowmanager_types.h"
 #include "DNA_userdef_types.h"
@@ -58,6 +60,7 @@
 #include "GPU_draw.h"
 #include "GPU_extensions.h"
 #include "GPU_immediate.h"
+#include "GPU_viewport.h"
 
 #include "RE_engine.h"
 
@@ -136,6 +139,7 @@ static void wm_region_test_render_do_draw(const Scene *scene, ScrArea *sa, ARegi
 	if (sa->spacetype == SPACE_VIEW3D) {
 		RegionView3D *rv3d = ar->regiondata;
 		RenderEngine *engine = (rv3d) ? rv3d->render_engine : NULL;
+		GPUViewport *viewport = (rv3d) ? rv3d->viewport : NULL;
 
 		if (engine && (engine->flag & RE_ENGINE_DO_DRAW)) {
 			View3D *v3d = sa->spacedata.first;
@@ -148,6 +152,9 @@ static void wm_region_test_render_do_draw(const Scene *scene, ScrArea *sa, ARegi
 				ED_region_tag_redraw(ar);
 
 			engine->flag &= ~RE_ENGINE_DO_DRAW;
+		}
+		else if (viewport && GPU_viewport_do_update(viewport)) {
+			ED_region_tag_redraw(ar);
 		}
 	}
 }
@@ -643,7 +650,7 @@ static void wm_method_draw_triple(bContext *C, wmWindow *win)
 	}
 }
 
-static void wm_method_draw_triple_multiview(bContext *C, wmWindow *win, StereoViews sview)
+static void wm_method_draw_triple_multiview(bContext *C, wmWindow *win, eStereoViews sview)
 {
 	wmWindowManager *wm = CTX_wm_manager(C);
 	wmDrawData *drawdata;
@@ -703,9 +710,12 @@ static void wm_method_draw_triple_multiview(bContext *C, wmWindow *win, StereoVi
 			case SPACE_VIEW3D:
 			{
 				View3D *v3d = sa->spacedata.first;
-				BGpic *bgpic = v3d->bgpicbase.first;
-				v3d->multiview_eye = sview;
-				if (bgpic) bgpic->iuser.multiview_eye = sview;
+				if (v3d->camera && v3d->camera->type == OB_CAMERA) {
+					Camera *cam = v3d->camera->data;
+					CameraBGImage *bgpic = cam->bg_images.first;
+					v3d->multiview_eye = sview;
+					if (bgpic) bgpic->iuser.multiview_eye = sview;
+				}
 				break;
 			}
 			case SPACE_NODE:
@@ -869,25 +879,13 @@ static bool wm_draw_update_test_window(wmWindow *win)
 
 static int wm_automatic_draw_method(wmWindow *win)
 {
-	/* Ideally all cards would work well with triple buffer, since if it works
-	 * well gives the least redraws and is considerably faster at partial redraw
-	 * for sculpting or drawing overlapping menus. For typically lower end cards
-	 * copy to texture is slow though and so we use overlap instead there. */
-
+	/* We assume all supported GPUs now support triple buffer well. */
 	if (win->drawmethod == USER_DRAW_AUTOMATIC) {
-		/* Windows software driver darkens color on each redraw */
-		if (GPU_type_matches(GPU_DEVICE_SOFTWARE, GPU_OS_WIN, GPU_DRIVER_SOFTWARE))
-			return USER_DRAW_OVERLAP_FLIP;
-		else if (GPU_type_matches(GPU_DEVICE_SOFTWARE, GPU_OS_UNIX, GPU_DRIVER_SOFTWARE))
-			return USER_DRAW_OVERLAP;
-		/* drawing lower color depth again degrades colors each time */
-		else if (GPU_color_depth() < 24)
-			return USER_DRAW_OVERLAP;
-		else
-			return USER_DRAW_TRIPLE;
+		return USER_DRAW_TRIPLE;
 	}
-	else
+	else {
 		return win->drawmethod;
+	}
 }
 
 bool WM_is_draw_triple(wmWindow *win)

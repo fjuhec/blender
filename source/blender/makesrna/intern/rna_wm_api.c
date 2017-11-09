@@ -46,7 +46,7 @@
 #include "rna_internal.h"  /* own include */
 
 /* confusingm 2 enums mixed up here */
-EnumPropertyItem rna_enum_window_cursor_items[] = {
+const EnumPropertyItem rna_enum_window_cursor_items[] = {
 	{CURSOR_STD, "DEFAULT", 0, "Default", ""},
 	{CURSOR_NONE, "NONE", 0, "None", ""},
 	{CURSOR_WAIT, "WAIT", 0, "Wait", ""},
@@ -136,7 +136,7 @@ static void rna_manipulator_group_type_add(ReportList *reports, const char *idna
 {
 	wmManipulatorGroupType *wgt = wm_manipulatorgrouptype_find_for_add_remove(reports, idname);
 	if (wgt != NULL) {
-		WM_manipulator_group_add_ptr(wgt);
+		WM_manipulator_group_type_add_ptr(wgt);
 	}
 }
 
@@ -144,7 +144,7 @@ static void rna_manipulator_group_type_remove(Main *bmain, ReportList *reports, 
 {
 	wmManipulatorGroupType *wgt = wm_manipulatorgrouptype_find_for_add_remove(reports, idname);
 	if (wgt != NULL) {
-		WM_manipulator_group_remove_ptr(bmain, wgt);
+		WM_manipulator_group_type_remove_ptr(bmain, wgt);
 	}
 }
 

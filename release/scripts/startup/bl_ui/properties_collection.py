@@ -49,8 +49,7 @@ class COLLECTION_PT_clay_settings(CollectionButtonsPanel, Panel):
 
     @classmethod
     def poll(cls, context):
-        scene = context.scene
-        return scene and (scene.render.engine in cls.COMPAT_ENGINES)
+        return context.view_render.engine in cls.COMPAT_ENGINES
 
     def draw(self, context):
         layout = self.layout
@@ -76,8 +75,8 @@ class COLLECTION_PT_object_mode_settings(CollectionButtonsPanel, Panel):
 
     @classmethod
     def poll(cls, context):
-        ob = context.object
-        return ob and (ob.mode == 'OBJECT')
+        workspace = context.workspace
+        return workspace and hasattr(workspace, 'object_mode') and (workspace.object_mode == 'OBJECT')
 
     def draw(self, context):
         layout = self.layout
@@ -95,8 +94,8 @@ class COLLECTION_PT_edit_mode_settings(CollectionButtonsPanel, Panel):
 
     @classmethod
     def poll(cls, context):
-        ob = context.object
-        return ob and (ob.mode == 'EDIT')
+        workspace = context.workspace
+        return workspace and hasattr(workspace, 'object_mode') and (workspace.object_mode == 'EDIT')
 
     def draw(self, context):
         layout = self.layout
@@ -119,8 +118,8 @@ class COLLECTION_PT_paint_weight_mode_settings(CollectionButtonsPanel, Panel):
 
     @classmethod
     def poll(cls, context):
-        ob = context.object
-        return ob and (ob.mode == 'WEIGHT_PAINT')
+        workspace = context.workspace
+        return workspace and hasattr(workspace, 'object_mode') and (workspace.object_mode == 'WEIGHT_PAINT')
 
     def draw(self, context):
         layout = self.layout
@@ -138,8 +137,8 @@ class COLLECTION_PT_paint_vertex_mode_settings(CollectionButtonsPanel, Panel):
 
     @classmethod
     def poll(cls, context):
-        ob = context.object
-        return ob and (ob.mode == 'VERTEX_PAINT')
+        workspace = context.workspace
+        return workspace and hasattr(workspace, 'object_mode') and (workspace.object_mode == 'VERTEX_PAINT')
 
     def draw(self, context):
         layout = self.layout

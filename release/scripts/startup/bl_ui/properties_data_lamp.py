@@ -37,7 +37,7 @@ class DataButtonsPanel:
 
     @classmethod
     def poll(cls, context):
-        engine = context.scene.render.engine
+        engine = context.engine
         return context.lamp and (engine in cls.COMPAT_ENGINES)
 
 
@@ -172,7 +172,7 @@ class DATA_PT_sunsky(DataButtonsPanel, Panel):
     @classmethod
     def poll(cls, context):
         lamp = context.lamp
-        engine = context.scene.render.engine
+        engine = context.engine
         return (lamp and lamp.type == 'SUN') and (engine in cls.COMPAT_ENGINES)
 
     def draw(self, context):
@@ -244,7 +244,7 @@ class DATA_PT_shadow(DataButtonsPanel, Panel):
     @classmethod
     def poll(cls, context):
         lamp = context.lamp
-        engine = context.scene.render.engine
+        engine = context.engine
         return (lamp and lamp.type in {'POINT', 'SUN', 'SPOT', 'AREA'}) and (engine in cls.COMPAT_ENGINES)
 
     def draw(self, context):
@@ -258,7 +258,7 @@ class DATA_PT_shadow(DataButtonsPanel, Panel):
             split = layout.split()
 
             col = split.column()
-            col.label(text="Form factor sampling:")
+            col.label(text="Form Factor Sampling:")
 
             sub = col.row(align=True)
 
@@ -359,7 +359,7 @@ class DATA_PT_EEVEE_shadow(DataButtonsPanel, Panel):
     @classmethod
     def poll(cls, context):
         lamp = context.lamp
-        engine = context.scene.render.engine
+        engine = context.engine
         return (lamp and lamp.type in {'POINT', 'SUN', 'SPOT', 'AREA'}) and (engine in cls.COMPAT_ENGINES)
 
     def draw_header(self, context):
@@ -371,19 +371,48 @@ class DATA_PT_EEVEE_shadow(DataButtonsPanel, Panel):
 
         lamp = context.lamp
 
+        split = layout.split()
+        split.active = lamp.use_shadow
+
+        sub = split.column()
+        col = sub.column(align=True)
+        col.prop(lamp, "shadow_buffer_clip_start", text="Clip Start")
+        col.prop(lamp, "shadow_buffer_clip_end", text="Clip End")
+        col = sub.column()
+        col.prop(lamp, "shadow_buffer_soft", text="Soft")
+
+        col = split.column(align=True)
+        col.prop(lamp, "shadow_buffer_bias", text="Bias")
+        col.prop(lamp, "shadow_buffer_exp", text="Exponent")
+        col.prop(lamp, "shadow_buffer_bleed_bias", text="Bleed Bias")
+
         if lamp.type == 'SUN':
-            layout.label("Comming Soon")
-        else:
-            split = layout.split()
-            split.active = lamp.use_shadow
+            col = layout.column()
+            col.active = lamp.use_shadow
+            col.label("Cascaded Shadow Map:")
 
-            col = split.column(align=True)
-            col.prop(lamp, "shadow_buffer_clip_start", text="Clip Start")
-            col.prop(lamp, "shadow_buffer_clip_end", text="Clip End")
+            split = col.split()
 
-            col = split.column(align=True)
-            col.prop(lamp, "shadow_buffer_bias", text="Bias")
-            col.prop(lamp, "shadow_buffer_exp", text="Exponent")
+            sub = split.column()
+            sub.prop(lamp, "shadow_cascade_count", text="Count")
+            sub.prop(lamp, "shadow_cascade_fade", text="Fade")
+
+            sub = split.column()
+            sub.prop(lamp, "shadow_cascade_max_distance", text="Max Distance")
+            sub.prop(lamp, "shadow_cascade_exponent", text="Distribution")
+
+        layout.separator()
+
+        layout.prop(lamp, "use_contact_shadow")
+        split = layout.split()
+        split.active = lamp.use_contact_shadow
+        col = split.column()
+        col.prop(lamp, "contact_shadow_distance", text="Distance")
+        col.prop(lamp, "contact_shadow_soft_size", text="Soft")
+
+        col = split.column()
+        col.prop(lamp, "contact_shadow_bias", text="Bias")
+        col.prop(lamp, "contact_shadow_thickness", text="Thickness")
 
 
 class DATA_PT_area(DataButtonsPanel, Panel):
@@ -393,7 +422,7 @@ class DATA_PT_area(DataButtonsPanel, Panel):
     @classmethod
     def poll(cls, context):
         lamp = context.lamp
-        engine = context.scene.render.engine
+        engine = context.engine
         return (lamp and lamp.type == 'AREA') and (engine in cls.COMPAT_ENGINES)
 
     def draw(self, context):
@@ -419,7 +448,7 @@ class DATA_PT_spot(DataButtonsPanel, Panel):
     @classmethod
     def poll(cls, context):
         lamp = context.lamp
-        engine = context.scene.render.engine
+        engine = context.engine
         return (lamp and lamp.type == 'SPOT') and (engine in cls.COMPAT_ENGINES)
 
     def draw(self, context):
@@ -454,7 +483,7 @@ class DATA_PT_spot(DataButtonsPanel, Panel):
     @classmethod
     def poll(cls, context):
         lamp = context.lamp
-        engine = context.scene.render.engine
+        engine = context.engine
         return (lamp and lamp.type == 'SPOT') and (engine in cls.COMPAT_ENGINES)
 
     def draw(self, context):
@@ -480,7 +509,7 @@ class DATA_PT_falloff_curve(DataButtonsPanel, Panel):
     @classmethod
     def poll(cls, context):
         lamp = context.lamp
-        engine = context.scene.render.engine
+        engine = context.engine
 
         return (lamp and lamp.type in {'POINT', 'SPOT'} and lamp.falloff_type == 'CUSTOM_CURVE') and (engine in cls.COMPAT_ENGINES)
 

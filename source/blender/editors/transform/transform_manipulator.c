@@ -86,6 +86,8 @@
 #include "GPU_immediate.h"
 #include "GPU_matrix.h"
 
+#define USE_AXIS_BOUNDS
+
 /* return codes for select, and drawing flags */
 
 #define MAN_TRANS_X		(1 << 0)
@@ -114,27 +116,31 @@ enum {
 	MAN_AXIS_TRANS_Z,
 	MAN_AXIS_TRANS_C,
 
+	MAN_AXIS_TRANS_XY,
+	MAN_AXIS_TRANS_YZ,
+	MAN_AXIS_TRANS_ZX,
+#define MAN_AXIS_RANGE_TRANS_START MAN_AXIS_TRANS_X
+#define MAN_AXIS_RANGE_TRANS_END (MAN_AXIS_TRANS_ZX + 1)
+
 	MAN_AXIS_ROT_X,
 	MAN_AXIS_ROT_Y,
 	MAN_AXIS_ROT_Z,
 	MAN_AXIS_ROT_C,
 	MAN_AXIS_ROT_T, /* trackball rotation */
+#define MAN_AXIS_RANGE_ROT_START MAN_AXIS_ROT_X
+#define MAN_AXIS_RANGE_ROT_END (MAN_AXIS_ROT_T + 1)
 
 	MAN_AXIS_SCALE_X,
 	MAN_AXIS_SCALE_Y,
 	MAN_AXIS_SCALE_Z,
 	MAN_AXIS_SCALE_C,
-
-	/* special */
-	MAN_AXIS_TRANS_XY,
-	MAN_AXIS_TRANS_YZ,
-	MAN_AXIS_TRANS_ZX,
-
 	MAN_AXIS_SCALE_XY,
 	MAN_AXIS_SCALE_YZ,
 	MAN_AXIS_SCALE_ZX,
+#define MAN_AXIS_RANGE_SCALE_START MAN_AXIS_SCALE_X
+#define MAN_AXIS_RANGE_SCALE_END (MAN_AXIS_SCALE_ZX + 1)
 
-	MAN_AXIS_LAST,
+	MAN_AXIS_LAST = MAN_AXIS_RANGE_SCALE_END,
 };
 
 /* axis types */
@@ -148,31 +154,23 @@ enum {
 typedef struct ManipulatorGroup {
 	bool all_hidden;
 
-	struct wmManipulator *translate_x,
-	                *translate_y,
-	                *translate_z,
-	                *translate_xy,
-	                *translate_yz,
-	                *translate_zx,
-	                *translate_c,
-
-	                *rotate_x,
-	                *rotate_y,
-	                *rotate_z,
-	                *rotate_c,
-	                *rotate_t, /* trackball rotation */
-
-	                *scale_x,
-	                *scale_y,
-	                *scale_z,
-	                *scale_xy,
-	                *scale_yz,
-	                *scale_zx,
-	                *scale_c;
+	struct wmManipulator *manipulators[MAN_AXIS_LAST];
 } ManipulatorGroup;
 
+struct TransformBounds {
+	float center[3];		/* Center for transform widget. */
+	float min[3], max[3];	/* Boundbox of selection for transform widget. */
 
-/* **************** Utilities **************** */
+#ifdef USE_AXIS_BOUNDS
+	/* Normalized axis */
+	float axis[3][3];
+	float axis_min[3], axis_max[3];
+#endif
+};
+
+/* -------------------------------------------------------------------- */
+/** \name Utilities
+ * \{ */
 
 /* loop over axes */
 #define MAN_ITER_AXES_BEGIN(axis, axis_idx) \
@@ -189,93 +187,78 @@ typedef struct ManipulatorGroup {
 static wmManipulator *manipulator_get_axis_from_index(const ManipulatorGroup *man, const short axis_idx)
 {
 	BLI_assert(IN_RANGE_INCL(axis_idx, (float)MAN_AXIS_TRANS_X, (float)MAN_AXIS_LAST));
-
-	switch (axis_idx) {
-		case MAN_AXIS_TRANS_X:
-			return man->translate_x;
-		case MAN_AXIS_TRANS_Y:
-			return man->translate_y;
-		case MAN_AXIS_TRANS_Z:
-			return man->translate_z;
-		case MAN_AXIS_TRANS_XY:
-			return man->translate_xy;
-		case MAN_AXIS_TRANS_YZ:
-			return man->translate_yz;
-		case MAN_AXIS_TRANS_ZX:
-			return man->translate_zx;
-		case MAN_AXIS_TRANS_C:
-			return man->translate_c;
-		case MAN_AXIS_ROT_X:
-			return man->rotate_x;
-		case MAN_AXIS_ROT_Y:
-			return man->rotate_y;
-		case MAN_AXIS_ROT_Z:
-			return man->rotate_z;
-		case MAN_AXIS_ROT_C:
-			return man->rotate_c;
-		case MAN_AXIS_ROT_T:
-			return man->rotate_t;
-		case MAN_AXIS_SCALE_X:
-			return man->scale_x;
-		case MAN_AXIS_SCALE_Y:
-			return man->scale_y;
-		case MAN_AXIS_SCALE_Z:
-			return man->scale_z;
-		case MAN_AXIS_SCALE_XY:
-			return man->scale_xy;
-		case MAN_AXIS_SCALE_YZ:
-			return man->scale_yz;
-		case MAN_AXIS_SCALE_ZX:
-			return man->scale_zx;
-		case MAN_AXIS_SCALE_C:
-			return man->scale_c;
-	}
-
-	return NULL;
+	return man->manipulators[axis_idx];
 }
 
-static short manipulator_get_axis_type(const ManipulatorGroup *man, const wmManipulator *axis)
+static short manipulator_get_axis_type(const int axis_idx)
 {
-	if (ELEM(axis, man->translate_x, man->translate_y, man->translate_z, man->translate_c,
-	         man->translate_xy, man->translate_yz, man->translate_zx))
-	{
+	if (axis_idx >= MAN_AXIS_RANGE_TRANS_START && axis_idx < MAN_AXIS_RANGE_TRANS_END) {
 		return MAN_AXES_TRANSLATE;
 	}
-	else if (ELEM(axis, man->rotate_x, man->rotate_y, man->rotate_z, man->rotate_c, man->rotate_t)) {
+	if (axis_idx >= MAN_AXIS_RANGE_ROT_START && axis_idx < MAN_AXIS_RANGE_ROT_END) {
 		return MAN_AXES_ROTATE;
 	}
-	else {
+	if (axis_idx >= MAN_AXIS_RANGE_SCALE_START && axis_idx < MAN_AXIS_RANGE_SCALE_END) {
 		return MAN_AXES_SCALE;
 	}
+	BLI_assert(0);
+	return -1;
 }
 
-/* get index within axis type, so that x == 0, y == 1 and z == 2, no matter which axis type */
-static uint manipulator_index_normalize(const int axis_idx)
+static uint manipulator_orientation_axis(const int axis_idx, bool *r_is_plane)
 {
-	if (axis_idx > MAN_AXIS_TRANS_ZX) {
-		return axis_idx - 16;
-	}
-	else if (axis_idx > MAN_AXIS_SCALE_C) {
-		return axis_idx - 13;
-	}
-	else if (axis_idx > MAN_AXIS_ROT_T) {
-		return axis_idx - 9;
-	}
-	else if (axis_idx > MAN_AXIS_TRANS_C) {
-		return axis_idx - 4;
-	}
+	switch (axis_idx) {
+		case MAN_AXIS_TRANS_YZ:
+		case MAN_AXIS_SCALE_YZ:
+			if (r_is_plane) {
+				*r_is_plane = true;
+			}
+			ATTR_FALLTHROUGH;
+		case MAN_AXIS_TRANS_X:
+		case MAN_AXIS_ROT_X:
+		case MAN_AXIS_SCALE_X:
+			return 0;
 
-	return axis_idx;
+		case MAN_AXIS_TRANS_ZX:
+		case MAN_AXIS_SCALE_ZX:
+			if (r_is_plane) {
+				*r_is_plane = true;
+			}
+			ATTR_FALLTHROUGH;
+		case MAN_AXIS_TRANS_Y:
+		case MAN_AXIS_ROT_Y:
+		case MAN_AXIS_SCALE_Y:
+			return 1;
+
+		case MAN_AXIS_TRANS_XY:
+		case MAN_AXIS_SCALE_XY:
+			if (r_is_plane) {
+				*r_is_plane = true;
+			}
+			ATTR_FALLTHROUGH;
+		case MAN_AXIS_TRANS_Z:
+		case MAN_AXIS_ROT_Z:
+		case MAN_AXIS_SCALE_Z:
+			return 2;
+	}
+	return 3;
 }
 
 static bool manipulator_is_axis_visible(
         const View3D *v3d, const RegionView3D *rv3d,
         const float idot[3], const int axis_type, const int axis_idx)
 {
-	const uint aidx_norm = manipulator_index_normalize(axis_idx);
+	bool is_plane = false;
+	const uint aidx_norm = manipulator_orientation_axis(axis_idx, &is_plane);
 	/* don't draw axis perpendicular to the view */
-	if (aidx_norm < 3 && idot[aidx_norm] < TW_AXIS_DOT_MIN) {
-		return false;
+	if (aidx_norm < 3) {
+		float idot_axis = idot[aidx_norm];
+		if (is_plane) {
+			idot_axis = 1.0f - idot_axis;
+		}
+		if (idot_axis < TW_AXIS_DOT_MIN) {
+			return false;
+		}
 	}
 
 	if ((axis_type == MAN_AXES_TRANSLATE && !(v3d->twtype & V3D_MANIP_TRANSLATE)) ||
@@ -351,10 +334,14 @@ static void manipulator_get_axis_color(
 	const float alpha_hi = 1.0f;
 	float alpha_fac;
 
-	const int axis_idx_norm = manipulator_index_normalize(axis_idx);
+	bool is_plane = false;
+	const int axis_idx_norm = manipulator_orientation_axis(axis_idx, &is_plane);
 	/* get alpha fac based on axis angle, to fade axis out when hiding it because it points towards view */
 	if (axis_idx_norm < 3) {
-		const float idot_axis = idot[axis_idx_norm];
+		float idot_axis = idot[axis_idx_norm];
+		if (is_plane) {
+			idot_axis = 1.0f - idot_axis;
+		}
 		alpha_fac = (idot_axis > TW_AXIS_DOT_MAX) ?
 		        1.0f : (idot_axis < TW_AXIS_DOT_MIN) ?
 		        0.0f : ((idot_axis - TW_AXIS_DOT_MIN) / (TW_AXIS_DOT_MAX - TW_AXIS_DOT_MIN));
@@ -441,14 +428,18 @@ static void manipulator_get_axis_constraint(const int axis_idx, int r_axis[3])
 /* **************** Preparation Stuff **************** */
 
 /* transform widget center calc helper for below */
-static void calc_tw_center(Scene *scene, const float co[3])
+static void calc_tw_center(struct TransformBounds *tbounds, const float co[3])
 {
-	float *twcent = scene->twcent;
-	float *min = scene->twmin;
-	float *max = scene->twmax;
+	minmax_v3v3_v3(tbounds->min, tbounds->max, co);
+	add_v3_v3(tbounds->center, co);
 
-	minmax_v3v3_v3(min, max, co);
-	add_v3_v3(twcent, co);
+#ifdef USE_AXIS_BOUNDS
+	for (int i = 0; i < 3; i++) {
+		const float d = dot_v3v3(tbounds->axis[i], co);
+		tbounds->axis_min[i] = min_ff(d, tbounds->axis_min[i]);
+		tbounds->axis_max[i] = max_ff(d, tbounds->axis_max[i]);
+	}
+#endif
 }
 
 static void protectflag_to_drawflags(short protectflag, short *drawflags)
@@ -593,7 +584,9 @@ bool gimbal_axis(Object *ob, float gmat[3][3])
 
 /* centroid, boundbox, of selection */
 /* returns total items selected */
-static int calc_manipulator_stats(const bContext *C)
+static int calc_manipulator_stats(
+        const bContext *C, bool use_only_center,
+        struct TransformBounds *tbounds)
 {
 	ScrArea *sa = CTX_wm_area(C);
 	ARegion *ar = CTX_wm_region(C);
@@ -611,333 +604,20 @@ static int calc_manipulator_stats(const bContext *C)
 	/* transform widget matrix */
 	unit_m4(rv3d->twmat);
 
+#ifdef USE_AXIS_BOUNDS
+	unit_m3(rv3d->tw_axis_matrix);
+	zero_v3(rv3d->tw_axis_min);
+	zero_v3(rv3d->tw_axis_max);
+#endif
+
 	rv3d->twdrawflag = 0xFFFF;
 
-	/* transform widget centroid/center */
-	INIT_MINMAX(scene->twmin, scene->twmax);
-	zero_v3(scene->twcent);
-	
-	if (is_gp_edit) {
-		float diff_mat[4][4];
-		float fpt[3];
-
-		for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
-			/* only editable and visible layers are considered */
-			if (gpencil_layer_is_editable(gpl) && (gpl->actframe != NULL)) {
-
-				/* calculate difference matrix if parent object */
-				if (gpl->parent != NULL) {
-					ED_gpencil_parent_location(gpl, diff_mat);
-				}
-
-				for (bGPDstroke *gps = gpl->actframe->strokes.first; gps; gps = gps->next) {
-					/* skip strokes that are invalid for current view */
-					if (ED_gpencil_stroke_can_use(C, gps) == false) {
-						continue;
-					}
-
-					/* we're only interested in selected points here... */
-					if (gps->flag & GP_STROKE_SELECT) {
-						bGPDspoint *pt;
-						int i;
-
-						/* Change selection status of all points, then make the stroke match */
-						for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
-							if (pt->flag & GP_SPOINT_SELECT) {
-								if (gpl->parent == NULL) {
-									calc_tw_center(scene, &pt->x);
-									totsel++;
-								}
-								else {
-									mul_v3_m4v3(fpt, diff_mat, &pt->x);
-									calc_tw_center(scene, fpt);
-									totsel++;
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-
-
-		/* selection center */
-		if (totsel) {
-			mul_v3_fl(scene->twcent, 1.0f / (float)totsel);   /* centroid! */
-		}
-	}
-	else if (obedit) {
-		ob = obedit;
-		if (obedit->type == OB_MESH) {
-			BMEditMesh *em = BKE_editmesh_from_object(obedit);
-			BMEditSelection ese;
-			float vec[3] = {0, 0, 0};
-
-			/* USE LAST SELECTE WITH ACTIVE */
-			if ((v3d->around == V3D_AROUND_ACTIVE) && BM_select_history_active_get(em->bm, &ese)) {
-				BM_editselection_center(&ese, vec);
-				calc_tw_center(scene, vec);
-				totsel = 1;
-			}
-			else {
-				BMesh *bm = em->bm;
-				BMVert *eve;
-
-				BMIter iter;
-
-				BM_ITER_MESH (eve, &iter, bm, BM_VERTS_OF_MESH) {
-					if (!BM_elem_flag_test(eve, BM_ELEM_HIDDEN)) {
-						if (BM_elem_flag_test(eve, BM_ELEM_SELECT)) {
-							totsel++;
-							calc_tw_center(scene, eve->co);
-						}
-					}
-				}
-			}
-		} /* end editmesh */
-		else if (obedit->type == OB_ARMATURE) {
-			bArmature *arm = obedit->data;
-			EditBone *ebo;
-
-			if ((v3d->around == V3D_AROUND_ACTIVE) && (ebo = arm->act_edbone)) {
-				/* doesn't check selection or visibility intentionally */
-				if (ebo->flag & BONE_TIPSEL) {
-					calc_tw_center(scene, ebo->tail);
-					totsel++;
-				}
-				if ((ebo->flag & BONE_ROOTSEL) ||
-				    ((ebo->flag & BONE_TIPSEL) == false))  /* ensure we get at least one point */
-				{
-					calc_tw_center(scene, ebo->head);
-					totsel++;
-				}
-				protectflag_to_drawflags_ebone(rv3d, ebo);
-			}
-			else {
-				for (ebo = arm->edbo->first; ebo; ebo = ebo->next) {
-					if (EBONE_VISIBLE(arm, ebo)) {
-						if (ebo->flag & BONE_TIPSEL) {
-							calc_tw_center(scene, ebo->tail);
-							totsel++;
-						}
-						if ((ebo->flag & BONE_ROOTSEL) &&
-						    /* don't include same point multiple times */
-						    ((ebo->flag & BONE_CONNECTED) &&
-						     (ebo->parent != NULL) &&
-						     (ebo->parent->flag & BONE_TIPSEL) &&
-						     EBONE_VISIBLE(arm, ebo->parent)) == 0)
-						{
-							calc_tw_center(scene, ebo->head);
-							totsel++;
-						}
-						if (ebo->flag & BONE_SELECTED) {
-							protectflag_to_drawflags_ebone(rv3d, ebo);
-						}
-					}
-				}
-			}
-		}
-		else if (ELEM(obedit->type, OB_CURVE, OB_SURF)) {
-			Curve *cu = obedit->data;
-			float center[3];
-
-			if (v3d->around == V3D_AROUND_ACTIVE && ED_curve_active_center(cu, center)) {
-				calc_tw_center(scene, center);
-				totsel++;
-			}
-			else {
-				Nurb *nu;
-				BezTriple *bezt;
-				BPoint *bp;
-				ListBase *nurbs = BKE_curve_editNurbs_get(cu);
-
-				nu = nurbs->first;
-				while (nu) {
-					if (nu->type == CU_BEZIER) {
-						bezt = nu->bezt;
-						a = nu->pntsu;
-						while (a--) {
-							/* exceptions
-							 * if handles are hidden then only check the center points.
-							 * If the center knot is selected then only use this as the center point.
-							 */
-							if (cu->drawflag & CU_HIDE_HANDLES) {
-								if (bezt->f2 & SELECT) {
-									calc_tw_center(scene, bezt->vec[1]);
-									totsel++;
-								}
-							}
-							else if (bezt->f2 & SELECT) {
-								calc_tw_center(scene, bezt->vec[1]);
-								totsel++;
-							}
-							else {
-								if (bezt->f1 & SELECT) {
-									calc_tw_center(scene, bezt->vec[(v3d->around == V3D_AROUND_LOCAL_ORIGINS) ? 1 : 0]);
-									totsel++;
-								}
-								if (bezt->f3 & SELECT) {
-									calc_tw_center(scene, bezt->vec[(v3d->around == V3D_AROUND_LOCAL_ORIGINS) ? 1 : 2]);
-									totsel++;
-								}
-							}
-							bezt++;
-						}
-					}
-					else {
-						bp = nu->bp;
-						a = nu->pntsu * nu->pntsv;
-						while (a--) {
-							if (bp->f1 & SELECT) {
-								calc_tw_center(scene, bp->vec);
-								totsel++;
-							}
-							bp++;
-						}
-					}
-					nu = nu->next;
-				}
-			}
-		}
-		else if (obedit->type == OB_MBALL) {
-			MetaBall *mb = (MetaBall *)obedit->data;
-			MetaElem *ml;
-
-			if ((v3d->around == V3D_AROUND_ACTIVE) && (ml = mb->lastelem)) {
-				calc_tw_center(scene, &ml->x);
-				totsel++;
-			}
-			else {
-				for (ml = mb->editelems->first; ml; ml = ml->next) {
-					if (ml->flag & SELECT) {
-						calc_tw_center(scene, &ml->x);
-						totsel++;
-					}
-				}
-			}
-		}
-		else if (obedit->type == OB_LATTICE) {
-			Lattice *lt = ((Lattice *)obedit->data)->editlatt->latt;
-			BPoint *bp;
-
-			if ((v3d->around == V3D_AROUND_ACTIVE) && (bp = BKE_lattice_active_point_get(lt))) {
-				calc_tw_center(scene, bp->vec);
-				totsel++;
-			}
-			else {
-				bp = lt->def;
-				a = lt->pntsu * lt->pntsv * lt->pntsw;
-				while (a--) {
-					if (bp->f1 & SELECT) {
-						calc_tw_center(scene, bp->vec);
-						totsel++;
-					}
-					bp++;
-				}
-			}
-		}
-
-		/* selection center */
-		if (totsel) {
-			mul_v3_fl(scene->twcent, 1.0f / (float)totsel);   // centroid!
-			mul_m4_v3(obedit->obmat, scene->twcent);
-			mul_m4_v3(obedit->obmat, scene->twmin);
-			mul_m4_v3(obedit->obmat, scene->twmax);
-		}
-	}
-	else if (ob && (ob->mode & OB_MODE_POSE)) {
-		bPoseChannel *pchan;
-		int mode = TFM_ROTATION; // mislead counting bones... bah. We don't know the manipulator mode, could be mixed
-		bool ok = false;
-
-		if ((v3d->around == V3D_AROUND_ACTIVE) && (pchan = BKE_pose_channel_active(ob))) {
-			/* doesn't check selection or visibility intentionally */
-			Bone *bone = pchan->bone;
-			if (bone) {
-				calc_tw_center(scene, pchan->pose_head);
-				protectflag_to_drawflags_pchan(rv3d, pchan);
-				totsel = 1;
-				ok = true;
-			}
-		}
-		else {
-			totsel = count_set_pose_transflags(&mode, 0, ob);
-
-			if (totsel) {
-				/* use channels to get stats */
-				for (pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
-					Bone *bone = pchan->bone;
-					if (bone && (bone->flag & BONE_TRANSFORM)) {
-						calc_tw_center(scene, pchan->pose_head);
-						protectflag_to_drawflags_pchan(rv3d, pchan);
-					}
-				}
-				ok = true;
-			}
-		}
-
-		if (ok) {
-			mul_v3_fl(scene->twcent, 1.0f / (float)totsel);   // centroid!
-			mul_m4_v3(ob->obmat, scene->twcent);
-			mul_m4_v3(ob->obmat, scene->twmin);
-			mul_m4_v3(ob->obmat, scene->twmax);
-		}
-	}
-	else if (ob && (ob->mode & OB_MODE_ALL_PAINT)) {
-		/* pass */
-	}
-	else if (ob && ob->mode & OB_MODE_PARTICLE_EDIT) {
-		PTCacheEdit *edit = PE_get_current(scene, sl, ob);
-		PTCacheEditPoint *point;
-		PTCacheEditKey *ek;
-		int k;
-
-		if (edit) {
-			point = edit->points;
-			for (a = 0; a < edit->totpoint; a++, point++) {
-				if (point->flag & PEP_HIDE) continue;
-
-				for (k = 0, ek = point->keys; k < point->totkey; k++, ek++) {
-					if (ek->flag & PEK_SELECT) {
-						calc_tw_center(scene, (ek->flag & PEK_USE_WCO) ? ek->world_co : ek->co);
-						totsel++;
-					}
-				}
-			}
-
-			/* selection center */
-			if (totsel)
-				mul_v3_fl(scene->twcent, 1.0f / (float)totsel);  // centroid!
-		}
-	}
-	else {
-
-		/* we need the one selected object, if its not active */
-		base = BASACT_NEW(sl);
-		ob = OBACT_NEW(sl);
-		if (base && ((base->flag & BASE_SELECTED) == 0)) ob = NULL;
-
-		for (base = sl->object_bases.first; base; base = base->next) {
-			if (TESTBASELIB_NEW(base)) {
-				if (ob == NULL)
-					ob = base->object;
-				calc_tw_center(scene, base->object->obmat[3]);
-				protectflag_to_drawflags(base->object->protectflag, &rv3d->twdrawflag);
-				totsel++;
-			}
-		}
-
-		/* selection center */
-		if (totsel) {
-			mul_v3_fl(scene->twcent, 1.0f / (float)totsel);   // centroid!
-		}
-	}
-
-	/* global, local or normal orientation? */
-	if (ob && totsel && !is_gp_edit) {
+	/* global, local or normal orientation?
+	 * if we could check 'totsel' now, this should be skipped with no selection. */
+	if (ob && !is_gp_edit) {
 
 		switch (v3d->twmode) {
-		
+
 			case V3D_MANIP_GLOBAL:
 			{
 				break; /* nothing to do */
@@ -990,7 +670,7 @@ static int calc_manipulator_stats(const bContext *C)
 			case V3D_MANIP_CUSTOM:
 			{
 				TransformOrientation *custom_orientation = BKE_workspace_transform_orientation_find(
-				                                               CTX_wm_workspace(C), v3d->custom_orientation_index);
+				        CTX_wm_workspace(C), v3d->custom_orientation_index);
 				float mat[3][3];
 
 				if (applyTransformOrientation(custom_orientation, mat, NULL)) {
@@ -999,7 +679,363 @@ static int calc_manipulator_stats(const bContext *C)
 				break;
 			}
 		}
+	}
 
+	/* transform widget centroid/center */
+	INIT_MINMAX(tbounds->min, tbounds->max);
+	zero_v3(tbounds->center);
+
+#ifdef USE_AXIS_BOUNDS
+	copy_m3_m4(tbounds->axis, rv3d->twmat);
+	if (ob && ob->mode & OB_MODE_EDIT) {
+		float diff_mat[3][3];
+		copy_m3_m4(diff_mat, ob->obmat);
+		normalize_m3(diff_mat);
+		invert_m3(diff_mat);
+		mul_m3_m3m3(tbounds->axis, tbounds->axis, diff_mat);
+		normalize_m3(tbounds->axis);
+	}
+
+	for (int i = 0; i < 3; i++) {
+		tbounds->axis_min[i] = +FLT_MAX;
+		tbounds->axis_max[i] = -FLT_MAX;
+	}
+#endif
+
+	if (is_gp_edit) {
+		float diff_mat[4][4];
+		float fpt[3];
+
+		for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+			/* only editable and visible layers are considered */
+			if (gpencil_layer_is_editable(gpl) && (gpl->actframe != NULL)) {
+
+				/* calculate difference matrix if parent object */
+				if (gpl->parent != NULL) {
+					ED_gpencil_parent_location(gpl, diff_mat);
+				}
+
+				for (bGPDstroke *gps = gpl->actframe->strokes.first; gps; gps = gps->next) {
+					/* skip strokes that are invalid for current view */
+					if (ED_gpencil_stroke_can_use(C, gps) == false) {
+						continue;
+					}
+
+					/* we're only interested in selected points here... */
+					if (gps->flag & GP_STROKE_SELECT) {
+						bGPDspoint *pt;
+						int i;
+
+						/* Change selection status of all points, then make the stroke match */
+						for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
+							if (pt->flag & GP_SPOINT_SELECT) {
+								if (gpl->parent == NULL) {
+									calc_tw_center(tbounds, &pt->x);
+									totsel++;
+								}
+								else {
+									mul_v3_m4v3(fpt, diff_mat, &pt->x);
+									calc_tw_center(tbounds, fpt);
+									totsel++;
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+
+
+		/* selection center */
+		if (totsel) {
+			mul_v3_fl(tbounds->center, 1.0f / (float)totsel);   /* centroid! */
+		}
+	}
+	else if (obedit) {
+		ob = obedit;
+		if (obedit->type == OB_MESH) {
+			BMEditMesh *em = BKE_editmesh_from_object(obedit);
+			BMEditSelection ese;
+			float vec[3] = {0, 0, 0};
+
+			/* USE LAST SELECTE WITH ACTIVE */
+			if ((v3d->around == V3D_AROUND_ACTIVE) && BM_select_history_active_get(em->bm, &ese)) {
+				BM_editselection_center(&ese, vec);
+				calc_tw_center(tbounds, vec);
+				totsel = 1;
+			}
+			else {
+				BMesh *bm = em->bm;
+				BMVert *eve;
+
+				BMIter iter;
+
+				BM_ITER_MESH (eve, &iter, bm, BM_VERTS_OF_MESH) {
+					if (!BM_elem_flag_test(eve, BM_ELEM_HIDDEN)) {
+						if (BM_elem_flag_test(eve, BM_ELEM_SELECT)) {
+							totsel++;
+							calc_tw_center(tbounds, eve->co);
+						}
+					}
+				}
+			}
+		} /* end editmesh */
+		else if (obedit->type == OB_ARMATURE) {
+			bArmature *arm = obedit->data;
+			EditBone *ebo;
+
+			if ((v3d->around == V3D_AROUND_ACTIVE) && (ebo = arm->act_edbone)) {
+				/* doesn't check selection or visibility intentionally */
+				if (ebo->flag & BONE_TIPSEL) {
+					calc_tw_center(tbounds, ebo->tail);
+					totsel++;
+				}
+				if ((ebo->flag & BONE_ROOTSEL) ||
+				    ((ebo->flag & BONE_TIPSEL) == false))  /* ensure we get at least one point */
+				{
+					calc_tw_center(tbounds, ebo->head);
+					totsel++;
+				}
+				protectflag_to_drawflags_ebone(rv3d, ebo);
+			}
+			else {
+				for (ebo = arm->edbo->first; ebo; ebo = ebo->next) {
+					if (EBONE_VISIBLE(arm, ebo)) {
+						if (ebo->flag & BONE_TIPSEL) {
+							calc_tw_center(tbounds, ebo->tail);
+							totsel++;
+						}
+						if ((ebo->flag & BONE_ROOTSEL) &&
+						    /* don't include same point multiple times */
+						    ((ebo->flag & BONE_CONNECTED) &&
+						     (ebo->parent != NULL) &&
+						     (ebo->parent->flag & BONE_TIPSEL) &&
+						     EBONE_VISIBLE(arm, ebo->parent)) == 0)
+						{
+							calc_tw_center(tbounds, ebo->head);
+							totsel++;
+						}
+						if (ebo->flag & BONE_SELECTED) {
+							protectflag_to_drawflags_ebone(rv3d, ebo);
+						}
+					}
+				}
+			}
+		}
+		else if (ELEM(obedit->type, OB_CURVE, OB_SURF)) {
+			Curve *cu = obedit->data;
+			float center[3];
+
+			if (v3d->around == V3D_AROUND_ACTIVE && ED_curve_active_center(cu, center)) {
+				calc_tw_center(tbounds, center);
+				totsel++;
+			}
+			else {
+				Nurb *nu;
+				BezTriple *bezt;
+				BPoint *bp;
+				ListBase *nurbs = BKE_curve_editNurbs_get(cu);
+
+				nu = nurbs->first;
+				while (nu) {
+					if (nu->type == CU_BEZIER) {
+						bezt = nu->bezt;
+						a = nu->pntsu;
+						while (a--) {
+							/* exceptions
+							 * if handles are hidden then only check the center points.
+							 * If the center knot is selected then only use this as the center point.
+							 */
+							if (cu->drawflag & CU_HIDE_HANDLES) {
+								if (bezt->f2 & SELECT) {
+									calc_tw_center(tbounds, bezt->vec[1]);
+									totsel++;
+								}
+							}
+							else if (bezt->f2 & SELECT) {
+								calc_tw_center(tbounds, bezt->vec[1]);
+								totsel++;
+							}
+							else {
+								if (bezt->f1 & SELECT) {
+									calc_tw_center(tbounds, bezt->vec[(v3d->around == V3D_AROUND_LOCAL_ORIGINS) ? 1 : 0]);
+									totsel++;
+								}
+								if (bezt->f3 & SELECT) {
+									calc_tw_center(tbounds, bezt->vec[(v3d->around == V3D_AROUND_LOCAL_ORIGINS) ? 1 : 2]);
+									totsel++;
+								}
+							}
+							bezt++;
+						}
+					}
+					else {
+						bp = nu->bp;
+						a = nu->pntsu * nu->pntsv;
+						while (a--) {
+							if (bp->f1 & SELECT) {
+								calc_tw_center(tbounds, bp->vec);
+								totsel++;
+							}
+							bp++;
+						}
+					}
+					nu = nu->next;
+				}
+			}
+		}
+		else if (obedit->type == OB_MBALL) {
+			MetaBall *mb = (MetaBall *)obedit->data;
+			MetaElem *ml;
+
+			if ((v3d->around == V3D_AROUND_ACTIVE) && (ml = mb->lastelem)) {
+				calc_tw_center(tbounds, &ml->x);
+				totsel++;
+			}
+			else {
+				for (ml = mb->editelems->first; ml; ml = ml->next) {
+					if (ml->flag & SELECT) {
+						calc_tw_center(tbounds, &ml->x);
+						totsel++;
+					}
+				}
+			}
+		}
+		else if (obedit->type == OB_LATTICE) {
+			Lattice *lt = ((Lattice *)obedit->data)->editlatt->latt;
+			BPoint *bp;
+
+			if ((v3d->around == V3D_AROUND_ACTIVE) && (bp = BKE_lattice_active_point_get(lt))) {
+				calc_tw_center(tbounds, bp->vec);
+				totsel++;
+			}
+			else {
+				bp = lt->def;
+				a = lt->pntsu * lt->pntsv * lt->pntsw;
+				while (a--) {
+					if (bp->f1 & SELECT) {
+						calc_tw_center(tbounds, bp->vec);
+						totsel++;
+					}
+					bp++;
+				}
+			}
+		}
+
+		/* selection center */
+		if (totsel) {
+			mul_v3_fl(tbounds->center, 1.0f / (float)totsel);   // centroid!
+			mul_m4_v3(obedit->obmat, tbounds->center);
+			mul_m4_v3(obedit->obmat, tbounds->min);
+			mul_m4_v3(obedit->obmat, tbounds->max);
+		}
+	}
+	else if (ob && (ob->mode & OB_MODE_POSE)) {
+		bPoseChannel *pchan;
+		int mode = TFM_ROTATION; // mislead counting bones... bah. We don't know the manipulator mode, could be mixed
+		bool ok = false;
+
+		if ((v3d->around == V3D_AROUND_ACTIVE) && (pchan = BKE_pose_channel_active(ob))) {
+			/* doesn't check selection or visibility intentionally */
+			Bone *bone = pchan->bone;
+			if (bone) {
+				calc_tw_center(tbounds, pchan->pose_head);
+				protectflag_to_drawflags_pchan(rv3d, pchan);
+				totsel = 1;
+				ok = true;
+			}
+		}
+		else {
+			totsel = count_set_pose_transflags(&mode, 0, ob);
+
+			if (totsel) {
+				/* use channels to get stats */
+				for (pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
+					Bone *bone = pchan->bone;
+					if (bone && (bone->flag & BONE_TRANSFORM)) {
+						calc_tw_center(tbounds, pchan->pose_head);
+						protectflag_to_drawflags_pchan(rv3d, pchan);
+					}
+				}
+				ok = true;
+			}
+		}
+
+		if (ok) {
+			mul_v3_fl(tbounds->center, 1.0f / (float)totsel);   // centroid!
+			mul_m4_v3(ob->obmat, tbounds->center);
+			mul_m4_v3(ob->obmat, tbounds->min);
+			mul_m4_v3(ob->obmat, tbounds->max);
+		}
+	}
+	else if (ob && (ob->mode & OB_MODE_ALL_PAINT)) {
+		/* pass */
+	}
+	else if (ob && ob->mode & OB_MODE_PARTICLE_EDIT) {
+		PTCacheEdit *edit = PE_get_current(scene, sl, ob);
+		PTCacheEditPoint *point;
+		PTCacheEditKey *ek;
+		int k;
+
+		if (edit) {
+			point = edit->points;
+			for (a = 0; a < edit->totpoint; a++, point++) {
+				if (point->flag & PEP_HIDE) continue;
+
+				for (k = 0, ek = point->keys; k < point->totkey; k++, ek++) {
+					if (ek->flag & PEK_SELECT) {
+						calc_tw_center(tbounds, (ek->flag & PEK_USE_WCO) ? ek->world_co : ek->co);
+						totsel++;
+					}
+				}
+			}
+
+			/* selection center */
+			if (totsel)
+				mul_v3_fl(tbounds->center, 1.0f / (float)totsel);  // centroid!
+		}
+	}
+	else {
+
+		/* we need the one selected object, if its not active */
+		base = BASACT_NEW(sl);
+		ob = OBACT_NEW(sl);
+		if (base && ((base->flag & BASE_SELECTED) == 0)) ob = NULL;
+
+		for (base = sl->object_bases.first; base; base = base->next) {
+			if (TESTBASELIB_NEW(base)) {
+				if (ob == NULL)
+					ob = base->object;
+				if (use_only_center || base->object->bb == NULL) {
+					calc_tw_center(tbounds, base->object->obmat[3]);
+				}
+				else {
+					for (uint j = 0; j < 8; j++) {
+						float co[3];
+						mul_v3_m4v3(co, base->object->obmat, base->object->bb->vec[j]);
+						calc_tw_center(tbounds, co);
+					}
+				}
+				protectflag_to_drawflags(base->object->protectflag, &rv3d->twdrawflag);
+				totsel++;
+			}
+		}
+
+		/* selection center */
+		if (totsel) {
+			mul_v3_fl(tbounds->center, 1.0f / (float)totsel);   // centroid!
+		}
+	}
+
+	if (totsel == 0) {
+		unit_m4(rv3d->twmat);
+	}
+	else {
+#ifdef USE_AXIS_BOUNDS
+		copy_v3_v3(rv3d->tw_axis_min, tbounds->axis_min);
+		copy_v3_v3(rv3d->tw_axis_max, tbounds->axis_max);
+		copy_m3_m3(rv3d->tw_axis_matrix, tbounds->axis);
+#endif
 	}
 
 	return totsel;
@@ -1015,7 +1051,8 @@ static void manipulator_get_idot(RegionView3D *rv3d, float r_idot[3])
 	}
 }
 
-static void manipulator_prepare_mat(const bContext *C, View3D *v3d, RegionView3D *rv3d)
+static void manipulator_prepare_mat(
+        const bContext *C, View3D *v3d, RegionView3D *rv3d, const struct TransformBounds *tbounds)
 {
 	Scene *scene = CTX_data_scene(C);
 	SceneLayer *sl = CTX_data_scene_layer(C);
@@ -1024,23 +1061,23 @@ static void manipulator_prepare_mat(const bContext *C, View3D *v3d, RegionView3D
 		case V3D_AROUND_CENTER_BOUNDS:
 		case V3D_AROUND_ACTIVE:
 		{
-				bGPdata *gpd = CTX_data_gpencil_data(C);
-				Object *ob = OBACT_NEW(sl);
+			bGPdata *gpd = CTX_data_gpencil_data(C);
+			Object *ob = OBACT_NEW(sl);
 
-				if (((v3d->around == V3D_AROUND_ACTIVE) && (scene->obedit == NULL)) &&
-				    ((gpd == NULL) || !(gpd->flag & GP_DATA_STROKE_EDITMODE)) &&
-				    (!(ob->mode & OB_MODE_POSE)))
-				{
-					copy_v3_v3(rv3d->twmat[3], ob->obmat[3]);
-				}
-				else {
-					mid_v3_v3v3(rv3d->twmat[3], scene->twmin, scene->twmax);
-				}
-				break;
+			if (((v3d->around == V3D_AROUND_ACTIVE) && (scene->obedit == NULL)) &&
+			    ((gpd == NULL) || !(gpd->flag & GP_DATA_STROKE_EDITMODE)) &&
+			    (!(ob->mode & OB_MODE_POSE)))
+			{
+				copy_v3_v3(rv3d->twmat[3], ob->obmat[3]);
+			}
+			else {
+				mid_v3_v3v3(rv3d->twmat[3], tbounds->min, tbounds->max);
+			}
+			break;
 		}
 		case V3D_AROUND_LOCAL_ORIGINS:
 		case V3D_AROUND_CENTER_MEAN:
-			copy_v3_v3(rv3d->twmat[3], scene->twcent);
+			copy_v3_v3(rv3d->twmat[3], tbounds->center);
 			break;
 		case V3D_AROUND_CURSOR:
 			copy_v3_v3(rv3d->twmat[3], ED_view3d_cursor3d_get(scene, v3d));
@@ -1078,7 +1115,12 @@ static void manipulator_line_range(const View3D *v3d, const short axis_type, flo
 	*r_len -= *r_start;
 }
 
-/* **************** Actual Widget Stuff **************** */
+/** \} */
+
+
+/* -------------------------------------------------------------------- */
+/** \name Transform Manipulator
+ * \{ */
 
 static ManipulatorGroup *manipulatorgroup_init(wmManipulatorGroup *mgroup)
 {
@@ -1091,47 +1133,47 @@ static ManipulatorGroup *manipulatorgroup_init(wmManipulatorGroup *mgroup)
 	const wmManipulatorType *wt_prim = WM_manipulatortype_find("MANIPULATOR_WT_primitive_3d", true);
 
 #define MANIPULATOR_NEW_ARROW(v, draw_style) { \
-	v = WM_manipulator_new_ptr(wt_arrow, mgroup, NULL); \
-	RNA_enum_set((v)->ptr, "draw_style", draw_style); \
+	man->manipulators[v] = WM_manipulator_new_ptr(wt_arrow, mgroup, NULL); \
+	RNA_enum_set(man->manipulators[v]->ptr, "draw_style", draw_style); \
 } ((void)0)
 #define MANIPULATOR_NEW_DIAL(v, draw_options) { \
-	v = WM_manipulator_new_ptr(wt_dial, mgroup, NULL); \
-	RNA_enum_set((v)->ptr, "draw_options", draw_options); \
+	man->manipulators[v] = WM_manipulator_new_ptr(wt_dial, mgroup, NULL); \
+	RNA_enum_set(man->manipulators[v]->ptr, "draw_options", draw_options); \
 } ((void)0)
 #define MANIPULATOR_NEW_PRIM(v, draw_style) { \
-	v = WM_manipulator_new_ptr(wt_prim, mgroup, NULL); \
-	RNA_enum_set((v)->ptr, "draw_style", draw_style); \
+	man->manipulators[v] = WM_manipulator_new_ptr(wt_prim, mgroup, NULL); \
+	RNA_enum_set(man->manipulators[v]->ptr, "draw_style", draw_style); \
 } ((void)0)
 
 	/* add/init widgets - order matters! */
-	MANIPULATOR_NEW_DIAL(man->rotate_t, ED_MANIPULATOR_DIAL_DRAW_FLAG_FILL);
+	MANIPULATOR_NEW_DIAL(MAN_AXIS_ROT_T, ED_MANIPULATOR_DIAL_DRAW_FLAG_FILL);
 
-	MANIPULATOR_NEW_DIAL(man->scale_c, ED_MANIPULATOR_DIAL_DRAW_FLAG_NOP);
+	MANIPULATOR_NEW_DIAL(MAN_AXIS_SCALE_C, ED_MANIPULATOR_DIAL_DRAW_FLAG_NOP);
 
-	MANIPULATOR_NEW_ARROW(man->scale_x, ED_MANIPULATOR_ARROW_STYLE_BOX);
-	MANIPULATOR_NEW_ARROW(man->scale_y, ED_MANIPULATOR_ARROW_STYLE_BOX);
-	MANIPULATOR_NEW_ARROW(man->scale_z, ED_MANIPULATOR_ARROW_STYLE_BOX);
+	MANIPULATOR_NEW_ARROW(MAN_AXIS_SCALE_X, ED_MANIPULATOR_ARROW_STYLE_BOX);
+	MANIPULATOR_NEW_ARROW(MAN_AXIS_SCALE_Y, ED_MANIPULATOR_ARROW_STYLE_BOX);
+	MANIPULATOR_NEW_ARROW(MAN_AXIS_SCALE_Z, ED_MANIPULATOR_ARROW_STYLE_BOX);
 
-	MANIPULATOR_NEW_PRIM(man->scale_xy, ED_MANIPULATOR_PRIMITIVE_STYLE_PLANE);
-	MANIPULATOR_NEW_PRIM(man->scale_yz, ED_MANIPULATOR_PRIMITIVE_STYLE_PLANE);
-	MANIPULATOR_NEW_PRIM(man->scale_zx, ED_MANIPULATOR_PRIMITIVE_STYLE_PLANE);
+	MANIPULATOR_NEW_PRIM(MAN_AXIS_SCALE_XY, ED_MANIPULATOR_PRIMITIVE_STYLE_PLANE);
+	MANIPULATOR_NEW_PRIM(MAN_AXIS_SCALE_YZ, ED_MANIPULATOR_PRIMITIVE_STYLE_PLANE);
+	MANIPULATOR_NEW_PRIM(MAN_AXIS_SCALE_ZX, ED_MANIPULATOR_PRIMITIVE_STYLE_PLANE);
 
-	MANIPULATOR_NEW_DIAL(man->rotate_x, ED_MANIPULATOR_DIAL_DRAW_FLAG_CLIP);
-	MANIPULATOR_NEW_DIAL(man->rotate_y, ED_MANIPULATOR_DIAL_DRAW_FLAG_CLIP);
-	MANIPULATOR_NEW_DIAL(man->rotate_z, ED_MANIPULATOR_DIAL_DRAW_FLAG_CLIP);
+	MANIPULATOR_NEW_DIAL(MAN_AXIS_ROT_X, ED_MANIPULATOR_DIAL_DRAW_FLAG_CLIP);
+	MANIPULATOR_NEW_DIAL(MAN_AXIS_ROT_Y, ED_MANIPULATOR_DIAL_DRAW_FLAG_CLIP);
+	MANIPULATOR_NEW_DIAL(MAN_AXIS_ROT_Z, ED_MANIPULATOR_DIAL_DRAW_FLAG_CLIP);
 
 	/* init screen aligned widget last here, looks better, behaves better */
-	MANIPULATOR_NEW_DIAL(man->rotate_c, ED_MANIPULATOR_DIAL_DRAW_FLAG_NOP);
+	MANIPULATOR_NEW_DIAL(MAN_AXIS_ROT_C, ED_MANIPULATOR_DIAL_DRAW_FLAG_NOP);
 
-	MANIPULATOR_NEW_DIAL(man->translate_c, ED_MANIPULATOR_DIAL_DRAW_FLAG_NOP);
+	MANIPULATOR_NEW_DIAL(MAN_AXIS_TRANS_C, ED_MANIPULATOR_DIAL_DRAW_FLAG_NOP);
 
-	MANIPULATOR_NEW_ARROW(man->translate_x, ED_MANIPULATOR_ARROW_STYLE_NORMAL);
-	MANIPULATOR_NEW_ARROW(man->translate_y, ED_MANIPULATOR_ARROW_STYLE_NORMAL);
-	MANIPULATOR_NEW_ARROW(man->translate_z, ED_MANIPULATOR_ARROW_STYLE_NORMAL);
+	MANIPULATOR_NEW_ARROW(MAN_AXIS_TRANS_X, ED_MANIPULATOR_ARROW_STYLE_NORMAL);
+	MANIPULATOR_NEW_ARROW(MAN_AXIS_TRANS_Y, ED_MANIPULATOR_ARROW_STYLE_NORMAL);
+	MANIPULATOR_NEW_ARROW(MAN_AXIS_TRANS_Z, ED_MANIPULATOR_ARROW_STYLE_NORMAL);
 
-	MANIPULATOR_NEW_PRIM(man->translate_xy, ED_MANIPULATOR_PRIMITIVE_STYLE_PLANE);
-	MANIPULATOR_NEW_PRIM(man->translate_yz, ED_MANIPULATOR_PRIMITIVE_STYLE_PLANE);
-	MANIPULATOR_NEW_PRIM(man->translate_zx, ED_MANIPULATOR_PRIMITIVE_STYLE_PLANE);
+	MANIPULATOR_NEW_PRIM(MAN_AXIS_TRANS_XY, ED_MANIPULATOR_PRIMITIVE_STYLE_PLANE);
+	MANIPULATOR_NEW_PRIM(MAN_AXIS_TRANS_YZ, ED_MANIPULATOR_PRIMITIVE_STYLE_PLANE);
+	MANIPULATOR_NEW_PRIM(MAN_AXIS_TRANS_ZX, ED_MANIPULATOR_PRIMITIVE_STYLE_PLANE);
 
 	return man;
 }
@@ -1139,7 +1181,7 @@ static ManipulatorGroup *manipulatorgroup_init(wmManipulatorGroup *mgroup)
 /**
  * Custom handler for manipulator widgets
  */
-static void manipulator_modal(
+static int manipulator_modal(
         bContext *C, wmManipulator *widget, const wmEvent *UNUSED(event),
         eWM_ManipulatorTweak UNUSED(tweak_flag))
 {
@@ -1147,13 +1189,17 @@ static void manipulator_modal(
 	ARegion *ar = CTX_wm_region(C);
 	View3D *v3d = sa->spacedata.first;
 	RegionView3D *rv3d = ar->regiondata;
+	struct TransformBounds tbounds;
 
-	if (calc_manipulator_stats(C)) {
-		manipulator_prepare_mat(C, v3d, rv3d);
+
+	if (calc_manipulator_stats(C, true, &tbounds)) {
+		manipulator_prepare_mat(C, v3d, rv3d, &tbounds);
 		WM_manipulator_set_matrix_location(widget, rv3d->twmat[3]);
 	}
 
 	ED_region_tag_redraw(ar);
+
+	return OPERATOR_RUNNING_MODAL;
 }
 
 static void WIDGETGROUP_manipulator_setup(const bContext *UNUSED(C), wmManipulatorGroup *mgroup)
@@ -1169,7 +1215,7 @@ static void WIDGETGROUP_manipulator_setup(const bContext *UNUSED(C), wmManipulat
 
 	MAN_ITER_AXES_BEGIN(axis, axis_idx)
 	{
-		const short axis_type = manipulator_get_axis_type(man, axis);
+		const short axis_type = manipulator_get_axis_type(axis_idx);
 		int constraint_axis[3] = {1, 0, 0};
 		PointerRNA *ptr;
 
@@ -1178,7 +1224,7 @@ static void WIDGETGROUP_manipulator_setup(const bContext *UNUSED(C), wmManipulat
 		/* custom handler! */
 		WM_manipulator_set_fn_custom_modal(axis, manipulator_modal);
 
-		switch(axis_idx) {
+		switch (axis_idx) {
 			case MAN_AXIS_TRANS_X:
 			case MAN_AXIS_TRANS_Y:
 			case MAN_AXIS_TRANS_Z:
@@ -1230,7 +1276,7 @@ static void WIDGETGROUP_manipulator_setup(const bContext *UNUSED(C), wmManipulat
 				if (ot_store.translate == NULL) {
 					ot_store.translate = WM_operatortype_find("TRANSFORM_OT_translate", true);
 				}
-				ptr = WM_manipulator_set_operator(axis, ot_store.translate, NULL);
+				ptr = WM_manipulator_operator_set(axis, 0, ot_store.translate, NULL);
 				break;
 			case MAN_AXES_ROTATE:
 			{
@@ -1247,7 +1293,7 @@ static void WIDGETGROUP_manipulator_setup(const bContext *UNUSED(C), wmManipulat
 					}
 					ot_rotate = ot_store.rotate;
 				}
-				ptr = WM_manipulator_set_operator(axis, ot_rotate, NULL);
+				ptr = WM_manipulator_operator_set(axis, 0, ot_rotate, NULL);
 				break;
 			}
 			case MAN_AXES_SCALE:
@@ -1255,7 +1301,7 @@ static void WIDGETGROUP_manipulator_setup(const bContext *UNUSED(C), wmManipulat
 				if (ot_store.resize == NULL) {
 					ot_store.resize = WM_operatortype_find("TRANSFORM_OT_resize", true);
 				}
-				ptr = WM_manipulator_set_operator(axis, ot_store.resize, NULL);
+				ptr = WM_manipulator_operator_set(axis, 0, ot_store.resize, NULL);
 				break;
 			}
 		}
@@ -1279,19 +1325,20 @@ static void WIDGETGROUP_manipulator_refresh(const bContext *C, wmManipulatorGrou
 	ARegion *ar = CTX_wm_region(C);
 	View3D *v3d = sa->spacedata.first;
 	RegionView3D *rv3d = ar->regiondata;
+	struct TransformBounds tbounds;
 
 	/* skip, we don't draw anything anyway */
-	if ((man->all_hidden = (calc_manipulator_stats(C) == 0)))
+	if ((man->all_hidden = (calc_manipulator_stats(C, true, &tbounds) == 0)))
 		return;
 
-	manipulator_prepare_mat(C, v3d, rv3d);
+	manipulator_prepare_mat(C, v3d, rv3d, &tbounds);
 
 	/* *** set properties for axes *** */
 
 	MAN_ITER_AXES_BEGIN(axis, axis_idx)
 	{
-		const short axis_type = manipulator_get_axis_type(man, axis);
-		const int aidx_norm = manipulator_index_normalize(axis_idx);
+		const short axis_type = manipulator_get_axis_type(axis_idx);
+		const int aidx_norm = manipulator_orientation_axis(axis_idx, NULL);
 
 		WM_manipulator_set_matrix_location(axis, rv3d->twmat[3]);
 
@@ -1326,8 +1373,8 @@ static void WIDGETGROUP_manipulator_refresh(const bContext *C, wmManipulatorGrou
 			case MAN_AXIS_SCALE_YZ:
 			case MAN_AXIS_SCALE_ZX:
 			{
-				const float *y_axis = rv3d->twmat[aidx_norm + 1 > 2 ? 0 : aidx_norm + 1];
-				const float *z_axis = rv3d->twmat[aidx_norm - 1 < 0 ? 2 : aidx_norm - 1];
+				const float *y_axis = rv3d->twmat[aidx_norm - 1 < 0 ? 2 : aidx_norm - 1];
+				const float *z_axis = rv3d->twmat[aidx_norm];
 				WM_manipulator_set_matrix_rotation_from_yz_axis(axis, y_axis, z_axis);
 				break;
 			}
@@ -1361,7 +1408,7 @@ static void WIDGETGROUP_manipulator_draw_prepare(const bContext *C, wmManipulato
 
 	MAN_ITER_AXES_BEGIN(axis, axis_idx)
 	{
-		const short axis_type = manipulator_get_axis_type(man, axis);
+		const short axis_type = manipulator_get_axis_type(axis_idx);
 		/* XXX maybe unset _HIDDEN flag on redraw? */
 		if (manipulator_is_axis_visible(v3d, rv3d, idot, axis_type, axis_idx)) {
 			WM_manipulator_set_flag(axis, WM_MANIPULATOR_HIDDEN, false);
@@ -1394,8 +1441,16 @@ static bool WIDGETGROUP_manipulator_poll(const struct bContext *C, struct wmMani
 	const ScrArea *sa = CTX_wm_area(C);
 	const View3D *v3d = sa->spacedata.first;
 
-	return (((v3d->twflag & V3D_MANIPULATOR_DRAW) != 0) &&
-	        ((v3d->twtype & (V3D_MANIP_TRANSLATE | V3D_MANIP_ROTATE | V3D_MANIP_SCALE)) != 0));
+	if (((v3d->twflag & V3D_MANIPULATOR_DRAW) != 0) &&
+	        ((v3d->twtype & (V3D_MANIP_TRANSLATE | V3D_MANIP_ROTATE | V3D_MANIP_SCALE)) != 0))
+	{
+		/* Don't show when tools have a manipulator. */
+		WorkSpace *workspace = CTX_wm_workspace(C);
+		if (workspace->tool.manipulator_group[0] == '\0') {
+			return true;
+		}
+	}
+	return false;
 }
 
 void TRANSFORM_WGT_manipulator(wmManipulatorGroupType *wgt)
@@ -1411,3 +1466,155 @@ void TRANSFORM_WGT_manipulator(wmManipulatorGroupType *wgt)
 	wgt->refresh = WIDGETGROUP_manipulator_refresh;
 	wgt->draw_prepare = WIDGETGROUP_manipulator_draw_prepare;
 }
+
+/** \} */
+
+
+/* -------------------------------------------------------------------- */
+/** \name Scale Cage Manipulator
+ * \{ */
+
+struct XFormCageWidgetGroup {
+	wmManipulator *manipulator;
+};
+
+static bool WIDGETGROUP_xform_cage_poll(const bContext *C, wmManipulatorGroupType *wgt)
+{
+	WorkSpace *workspace = CTX_wm_workspace(C);
+	if (!STREQ(wgt->idname, workspace->tool.manipulator_group)) {
+		WM_manipulator_group_type_unlink_delayed_ptr(wgt);
+		return false;
+	}
+	return true;
+}
+
+static void WIDGETGROUP_xform_cage_setup(const bContext *UNUSED(C), wmManipulatorGroup *mgroup)
+{
+	struct XFormCageWidgetGroup *xmgroup = MEM_mallocN(sizeof(struct XFormCageWidgetGroup), __func__);
+	const wmManipulatorType *wt_cage = WM_manipulatortype_find("MANIPULATOR_WT_cage_3d", true);
+	xmgroup->manipulator = WM_manipulator_new_ptr(wt_cage, mgroup, NULL);
+	wmManipulator *mpr = xmgroup->manipulator;
+
+	RNA_enum_set(mpr->ptr, "transform",
+	             ED_MANIPULATOR_CAGE2D_XFORM_FLAG_SCALE |
+	             ED_MANIPULATOR_CAGE2D_XFORM_FLAG_TRANSLATE);
+
+	mpr->color[0] = 1;
+	mpr->color_hi[0]=1;
+
+	mgroup->customdata = xmgroup;
+
+	{
+		wmOperatorType *ot_resize = WM_operatortype_find("TRANSFORM_OT_resize", true);
+		PointerRNA *ptr;
+
+		/* assign operator */
+		PropertyRNA *prop_release_confirm = NULL;
+		PropertyRNA *prop_constraint_axis = NULL;
+
+		int i = ED_MANIPULATOR_CAGE3D_PART_SCALE_MIN_X_MIN_Y_MIN_Z;
+		for (int x = 0; x < 3; x++) {
+			for (int y = 0; y < 3; y++) {
+				for (int z = 0; z < 3; z++) {
+					int constraint[3] = {x != 1, y != 1, z != 1};
+					ptr = WM_manipulator_operator_set(mpr, i, ot_resize, NULL);
+					if (prop_release_confirm == NULL) {
+						prop_release_confirm = RNA_struct_find_property(ptr, "release_confirm");
+						prop_constraint_axis = RNA_struct_find_property(ptr, "constraint_axis");
+					}
+					RNA_property_boolean_set(ptr, prop_release_confirm, true);
+					RNA_property_boolean_set_array(ptr, prop_constraint_axis, constraint);
+					i++;
+				}
+			}
+		}
+	}
+}
+
+static void WIDGETGROUP_xform_cage_refresh(const bContext *C, wmManipulatorGroup *mgroup)
+{
+	ScrArea *sa = CTX_wm_area(C);
+	View3D *v3d = sa->spacedata.first;
+	ARegion *ar = CTX_wm_region(C);
+	RegionView3D *rv3d = ar->regiondata;
+
+	struct XFormCageWidgetGroup *xmgroup = mgroup->customdata;
+	wmManipulator *mpr = xmgroup->manipulator;
+
+	struct TransformBounds tbounds;
+
+	if ((calc_manipulator_stats(C, false, &tbounds) == 0) ||
+	    equals_v3v3(rv3d->tw_axis_min, rv3d->tw_axis_max))
+	{
+		WM_manipulator_set_flag(mpr, WM_MANIPULATOR_HIDDEN, true);
+	}
+	else {
+		manipulator_prepare_mat(C, v3d, rv3d, &tbounds);
+
+		WM_manipulator_set_flag(mpr, WM_MANIPULATOR_HIDDEN, false);
+
+		float dims[3];
+		sub_v3_v3v3(dims, rv3d->tw_axis_max, rv3d->tw_axis_min);
+		RNA_float_set_array(mpr->ptr, "dimensions", dims);
+		mul_v3_fl(dims, 0.5f);
+
+		copy_m4_m3(mpr->matrix_offset, rv3d->tw_axis_matrix);
+		mid_v3_v3v3(mpr->matrix_offset[3], rv3d->tw_axis_max, rv3d->tw_axis_min);
+		mul_m3_v3(rv3d->tw_axis_matrix, mpr->matrix_offset[3]);
+
+		PropertyRNA *prop_center_override = NULL;
+		float center[3];
+		float center_global[3];
+		int i = ED_MANIPULATOR_CAGE3D_PART_SCALE_MIN_X_MIN_Y_MIN_Z;
+		for (int x = 0; x < 3; x++) {
+			center[0] = (float)(1 - x) * dims[0];
+			for (int y = 0; y < 3; y++) {
+				center[1] = (float)(1 - y) * dims[1];
+				for (int z = 0; z < 3; z++) {
+					center[2] = (float)(1 - z) * dims[2];
+					struct wmManipulatorOpElem *mpop = WM_manipulator_operator_get(mpr, i);
+					if (prop_center_override == NULL) {
+						prop_center_override = RNA_struct_find_property(&mpop->ptr, "center_override");
+					}
+					mul_v3_m4v3(center_global, mpr->matrix_offset, center);
+					RNA_property_float_set_array(&mpop->ptr, prop_center_override, center_global);
+					i++;
+				}
+			}
+		}
+	}
+}
+
+static void WIDGETGROUP_xform_cage_draw_prepare(const bContext *C, wmManipulatorGroup *mgroup)
+{
+	struct XFormCageWidgetGroup *xmgroup = mgroup->customdata;
+	wmManipulator *mpr = xmgroup->manipulator;
+
+	SceneLayer *sl = CTX_data_scene_layer(C);
+	Object *ob = OBACT_NEW(sl);
+	if (ob && ob->mode & OB_MODE_EDIT) {
+		copy_m4_m4(mpr->matrix_space, ob->obmat);
+	}
+	else {
+		unit_m4(mpr->matrix_space);
+	}
+}
+
+void VIEW3D_WGT_xform_cage(wmManipulatorGroupType *wgt)
+{
+	wgt->name = "Transform Cage";
+	wgt->idname = "VIEW3D_WGT_xform_cage";
+
+	wgt->flag |= (WM_MANIPULATORGROUPTYPE_3D |
+	              WM_MANIPULATORGROUPTYPE_DEPTH_3D);
+
+	wgt->mmap_params.spaceid = SPACE_VIEW3D;
+	wgt->mmap_params.regionid = RGN_TYPE_WINDOW;
+
+	wgt->poll = WIDGETGROUP_xform_cage_poll;
+	wgt->setup = WIDGETGROUP_xform_cage_setup;
+	wgt->refresh = WIDGETGROUP_xform_cage_refresh;
+	wgt->draw_prepare = WIDGETGROUP_xform_cage_draw_prepare;
+}
+
+/** \} */

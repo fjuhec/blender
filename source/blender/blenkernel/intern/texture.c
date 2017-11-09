@@ -883,6 +883,8 @@ void BKE_texture_copy_data(Main *bmain, Tex *tex_dst, const Tex *tex_src, const 
 		if (tex_src->nodetree->execdata) {
 			ntreeTexEndExecTree(tex_src->nodetree->execdata);
 		}
+		/* Note: nodetree is *not* in bmain, however this specific case is handled at lower level
+		 *       (see BKE_libblock_copy_ex()). */
 		BKE_id_copy_ex(bmain, (ID *)tex_src->nodetree, (ID **)&tex_dst->nodetree, flag, false);
 	}
 
@@ -1128,6 +1130,8 @@ void set_active_mtex(ID *id, short act)
 			break;
 		case ID_PA:
 			((ParticleSettings *)id)->texact = act;
+			break;
+		default:
 			break;
 	}
 }

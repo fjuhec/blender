@@ -246,13 +246,18 @@ static void wm_window_match_do(bContext *C, ListBase *oldwmlist)
 		if (BLI_listbase_is_empty(&G.main->wm)) {
 			bScreen *screen = NULL;
 
-			/* when loading without UI, no matching needed */
-			if (!(G.fileflags & G_FILE_NO_UI) && (screen = CTX_wm_screen(C))) {
+			/* match oldwm to new dbase, only old files */
+			for (wm = oldwmlist->first; wm; wm = wm->id.next) {
+				wm->initialized &= ~WM_INIT_WINDOW;
 
-				/* match oldwm to new dbase, only old files */
-				for (wm = oldwmlist->first; wm; wm = wm->id.next) {
+				/* when loading without UI, no matching needed */
+				if (!(G.fileflags & G_FILE_NO_UI) && (screen = CTX_wm_screen(C))) {
 					for (win = wm->windows.first; win; win = win->next) {
-						WorkSpace *workspace = WM_window_get_active_workspace(win);
+						WorkSpace *workspace;
+
+						BKE_workspace_layout_find_global(G.main, screen, &workspace);
+						BKE_workspace_active_set(win->workspace_hook, workspace);
+						win->scene = CTX_data_scene(C);
 
 						/* all windows get active screen from file */
 						if (screen->winid == 0) {
@@ -271,11 +276,8 @@ static void wm_window_match_do(bContext *C, ListBase *oldwmlist)
 					}
 				}
 			}
-			
+
 			G.main->wm = *oldwmlist;
-			
-			/* screens were read from file! */
-			ED_screens_initialize(G.main->wm.first);
 		}
 		else {
 			bool has_match = false;
@@ -433,8 +435,9 @@ void wm_file_read_report(bContext *C)
 	Scene *sce;
 
 	for (sce = G.main->scene.first; sce; sce = sce->id.next) {
-		if (sce->r.engine[0] &&
-		    BLI_findstring(&R_engines, sce->r.engine, offsetof(RenderEngineType, idname)) == NULL)
+		ViewRender *view_render = &sce->view_render;
+		if (view_render->engine_id[0] &&
+		    BLI_findstring(&R_engines, view_render->engine_id, offsetof(RenderEngineType, idname)) == NULL)
 		{
 			if (reports == NULL) {
 				reports = CTX_wm_reports(C);
@@ -442,7 +445,7 @@ void wm_file_read_report(bContext *C)
 
 			BKE_reportf(reports, RPT_ERROR,
 			            "Engine '%s' not available for scene '%s' (an add-on may need to be installed or enabled)",
-			            sce->r.engine, sce->id.name + 2);
+			            view_render->engine_id, sce->id.name + 2);
 		}
 	}
 
@@ -500,16 +503,6 @@ static void wm_file_read_post(bContext *C, const bool is_startup_file, const boo
 	/* important to do before NULL'ing the context */
 	BLI_callback_exec(CTX_data_main(C), NULL, BLI_CB_EVT_VERSION_UPDATE);
 	BLI_callback_exec(CTX_data_main(C), NULL, BLI_CB_EVT_LOAD_POST);
-
-	/* Would otherwise be handled by event loop.
-	 *
-	 * Disabled for startup file, since it causes problems when PyDrivers are used in the startup file.
-	 * While its possible state of startup file may be wrong,
-	 * in this case users nearly always load a file to replace the startup file. */
-	if (G.background && (is_startup_file == false)) {
-		Main *bmain = CTX_data_main(C);
-		BKE_scene_update_tagged(bmain->eval_ctx, bmain, CTX_data_scene(C));
-	}
 
 	WM_event_add_notifier(C, NC_WM | ND_FILEREAD, NULL);
 
@@ -746,13 +739,13 @@ int wm_homefile_read(
 
 	if ((app_template != NULL) && (app_template[0] != '\0')) {
 		BKE_appdir_app_template_id_search(app_template, app_template_system, sizeof(app_template_system));
-		BLI_path_join(app_template_config, sizeof(app_template_config), cfgdir, app_template, NULL);
 
 		/* Insert template name into startup file. */
 
 		/* note that the path is being set even when 'use_factory_settings == true'
 		 * this is done so we can load a templates factory-settings */
 		if (!use_factory_settings) {
+			BLI_path_join(app_template_config, sizeof(app_template_config), cfgdir, app_template, NULL);
 			BLI_path_join(filepath_startup, sizeof(filepath_startup), app_template_config, BLENDER_STARTUP_FILE, NULL);
 			if (BLI_access(filepath_startup, R_OK) != 0) {
 				filepath_startup[0] = '\0';
@@ -1000,7 +993,7 @@ static void wm_history_file_update(void)
 
 
 /* screen can be NULL */
-static ImBuf *blend_file_thumb(const bContext *C, Scene *scene, SceneLayer *sl, bScreen *screen, BlendThumbnail **thumb_pt)
+static ImBuf *blend_file_thumb(const bContext *C, Scene *scene, SceneLayer *scene_layer, bScreen *screen, BlendThumbnail **thumb_pt)
 {
 	/* will be scaled down, but gives some nice oversampling */
 	ImBuf *ibuf;
@@ -1041,14 +1034,14 @@ static ImBuf *blend_file_thumb(const bContext *C, Scene *scene, SceneLayer *sl, 
 	/* gets scaled to BLEN_THUMB_SIZE */
 	if (scene->camera) {
 		ibuf = ED_view3d_draw_offscreen_imbuf_simple(
-		        &eval_ctx, scene, sl, scene->camera,
+		        &eval_ctx, scene, scene_layer, scene->camera,
 		        BLEN_THUMB_SIZE * 2, BLEN_THUMB_SIZE * 2,
 		        IB_rect, OB_SOLID, false, false, false, R_ALPHAPREMUL, 0, false, NULL,
 		        NULL, NULL, err_out);
 	}
 	else {
 		ibuf = ED_view3d_draw_offscreen_imbuf(
-		        &eval_ctx, scene, sl, v3d, ar,
+		        &eval_ctx, scene, scene_layer, v3d, ar,
 		        BLEN_THUMB_SIZE * 2, BLEN_THUMB_SIZE * 2,
 		        IB_rect, false, R_ALPHAPREMUL, 0, false, NULL,
 		        NULL, NULL, err_out);

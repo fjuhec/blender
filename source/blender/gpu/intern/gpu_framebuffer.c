@@ -34,6 +34,7 @@
 
 #include "GPU_batch.h"
 #include "GPU_draw.h"
+#include "GPU_extensions.h"
 #include "GPU_framebuffer.h"
 #include "GPU_matrix.h"
 #include "GPU_shader.h"
@@ -348,6 +349,10 @@ void GPU_framebuffer_bind(GPUFrameBuffer *fb)
 		glReadBuffer(readattachement);
 	}
 
+	if (GPU_texture_target(tex) == GL_TEXTURE_2D_MULTISAMPLE) {
+		glEnable(GL_MULTISAMPLE);
+	}
+
 	glViewport(0, 0, GPU_texture_width(tex), GPU_texture_height(tex));
 	GG.currentfb = fb->object;
 }
@@ -519,16 +524,17 @@ void GPU_framebuffer_blit(GPUFrameBuffer *fb_read, int read_slot, GPUFrameBuffer
 	glBindFramebuffer(GL_READ_FRAMEBUFFER, fb_read->object);
 	glFramebufferTexture2D(
 	        GL_READ_FRAMEBUFFER, read_attach,
-	        GL_TEXTURE_2D, read_bind, 0);
+	        GPU_texture_target(read_tex), read_bind, 0);
 	BLI_assert(glCheckFramebufferStatus(GL_READ_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
 
 	/* write into new single-sample buffer */
 	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, fb_write->object);
 	glFramebufferTexture2D(
 	        GL_DRAW_FRAMEBUFFER, write_attach,
-	        GL_TEXTURE_2D, write_bind, 0);
+	        GPU_texture_target(write_tex), write_bind, 0);
 	BLI_assert(glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
 
+	glDrawBuffer((use_depth) ? GL_COLOR_ATTACHMENT0 : read_attach);
 	glBlitFramebuffer(0, 0, read_w, read_h, 0, 0, write_w, write_h, (use_depth) ? GL_DEPTH_BUFFER_BIT : GL_COLOR_BUFFER_BIT, GL_NEAREST);
 
 	/* Restore previous framebuffer */
@@ -568,11 +574,25 @@ void GPU_framebuffer_recursive_downsample(
 		glReadBuffer(GL_COLOR_ATTACHMENT0);
 	}
 
-	for (i=1; i < num_iter+1 && (current_dim[0] > 4 && current_dim[1] > 4); i++) {
+	for (i = 1; i < num_iter + 1; i++) {
 
 		/* calculate next viewport size */
 		current_dim[0] /= 2;
 		current_dim[1] /= 2;
+
+		if (GPU_type_matches(GPU_DEVICE_AMD_VEGA, GPU_OS_UNIX, GPU_DRIVER_OPENSOURCE)) {
+			/* NOTE : here 16 is because of a bug on AMD Vega GPU + non-pro drivers, that prevents us
+			 * from sampling mipmaps that are smaller or equal to 16px. (9) */
+			if (current_dim[0] <= 16 && current_dim[1] <= 16) {
+				break;
+			}
+		}
+		else {
+			if (current_dim[0] <= 2 && current_dim[1] <= 2) {
+				/* Cannot reduce further. */
+				break;
+			}
+		}
 
 		/* ensure that the viewport size is always at least 1x1 */
 		CLAMP_MIN(current_dim[0], 1);
@@ -582,8 +602,8 @@ void GPU_framebuffer_recursive_downsample(
 
 		/* bind next level for rendering but first restrict fetches only to previous level */
 		GPU_texture_bind(tex, 0);
-		glTexParameteri(GPU_texture_target(tex), GL_TEXTURE_BASE_LEVEL, i-1);
-		glTexParameteri(GPU_texture_target(tex), GL_TEXTURE_MAX_LEVEL, i-1);
+		glTexParameteri(GPU_texture_target(tex), GL_TEXTURE_BASE_LEVEL, i - 1);
+		glTexParameteri(GPU_texture_target(tex), GL_TEXTURE_MAX_LEVEL, i - 1);
 		GPU_texture_unbind(tex);
 
 		glFramebufferTexture(GL_FRAMEBUFFER, attachment, GPU_texture_opengl_bindcode(tex), i);
@@ -596,7 +616,7 @@ void GPU_framebuffer_recursive_downsample(
 	/* reset mipmap level range for the depth image */
 	GPU_texture_bind(tex, 0);
 	glTexParameteri(GPU_texture_target(tex), GL_TEXTURE_BASE_LEVEL, 0);
-	glTexParameteri(GPU_texture_target(tex), GL_TEXTURE_MAX_LEVEL, i-1);
+	glTexParameteri(GPU_texture_target(tex), GL_TEXTURE_MAX_LEVEL, i - 1);
 	GPU_texture_unbind(tex);
 }
 

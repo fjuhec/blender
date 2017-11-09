@@ -1325,7 +1325,7 @@ void ntreeUserDecrefID(bNodeTree *ntree)
 /* *************** Node Preview *********** */
 
 /* XXX this should be removed eventually ...
- * Currently BKE functions are modelled closely on previous code,
+ * Currently BKE functions are modeled closely on previous code,
  * using BKE_node_preview_init_tree to set up previews for a whole node tree in advance.
  * This should be left more to the individual node tree implementations.
  */
@@ -2235,7 +2235,7 @@ static void ntree_interface_type_create(bNodeTree *ntree)
 	/* register a subtype of PropertyGroup */
 	srna = RNA_def_struct_ptr(&BLENDER_RNA, identifier, &RNA_PropertyGroup);
 	RNA_def_struct_ui_text(srna, name, description);
-	RNA_def_struct_duplicate_pointers(srna);
+	RNA_def_struct_duplicate_pointers(&BLENDER_RNA, srna);
 	
 	/* associate the RNA type with the node tree */
 	ntree->interface_type = srna;
@@ -2274,10 +2274,10 @@ StructRNA *ntreeInterfaceTypeGet(bNodeTree *ntree, int create)
 			ntree_interface_identifier(ntree, base, identifier, sizeof(identifier), name, description);
 			
 			/* rename the RNA type */
-			RNA_def_struct_free_pointers(srna);
+			RNA_def_struct_free_pointers(&BLENDER_RNA, srna);
 			RNA_def_struct_identifier(&BLENDER_RNA, srna, identifier);
 			RNA_def_struct_ui_text(srna, name, description);
-			RNA_def_struct_duplicate_pointers(srna);
+			RNA_def_struct_duplicate_pointers(&BLENDER_RNA, srna);
 		}
 	}
 	else if (create) {
@@ -2630,7 +2630,7 @@ void BKE_node_clipboard_add_node(bNode *node)
 	node_info->id = node->id;
 	if (node->id) {
 		BLI_strncpy(node_info->id_name, node->id->name, sizeof(node_info->id_name));
-		if (ID_IS_LINKED_DATABLOCK(node->id)) {
+		if (ID_IS_LINKED(node->id)) {
 			BLI_strncpy(node_info->library_name, node->id->lib->filepath, sizeof(node_info->library_name));
 		}
 		else {
@@ -3564,6 +3564,7 @@ static void registerShaderNodes(void)
 	register_node_type_sh_hue_sat();
 
 	register_node_type_sh_attribute();
+	register_node_type_sh_bevel();
 	register_node_type_sh_geometry();
 	register_node_type_sh_light_path();
 	register_node_type_sh_light_falloff();
@@ -3803,4 +3804,47 @@ void BKE_nodetree_remove_layer_n(bNodeTree *ntree, Scene *scene, const int layer
 			}
 		}
 	}
+}
+
+static void node_copy_default_values_list(ListBase *sockets_dst,
+                                          const ListBase *sockets_src)
+{
+	bNodeSocket *sock_dst = sockets_dst->first;
+	const bNodeSocket *sock_src = sockets_src->first;
+	while (sock_dst != NULL) {
+		node_socket_copy_default_value(sock_dst, sock_src);
+		sock_dst = sock_dst->next;
+		sock_src = sock_src->next;
+	}
+}
+
+static void node_copy_default_values(bNode *node_dst, const bNode *node_src)
+{
+	node_copy_default_values_list(&node_dst->inputs, &node_src->inputs);
+	node_copy_default_values_list(&node_dst->outputs, &node_src->outputs);
+}
+
+void BKE_nodetree_copy_default_values(bNodeTree *ntree_dst,
+                                      const bNodeTree *ntree_src)
+{
+	if (ntree_dst == ntree_src) {
+		return;
+	}
+	bNode *node_dst = ntree_dst->nodes.first;
+	const bNode *node_src = ntree_src->nodes.first;
+	while (node_dst != NULL) {
+		node_copy_default_values(node_dst, node_src);
+		node_dst = node_dst->next;
+		node_src = node_src->next;
+	}
+}
+
+void BKE_nodetree_shading_params_eval(const struct EvaluationContext *UNUSED(eval_ctx),
+                                      bNodeTree *ntree_dst,
+                                      const bNodeTree *ntree_src)
+{
+	if (G.debug & G_DEBUG_DEPSGRAPH) {
+		printf("%s on %s (%p)\n", __func__, ntree_src->id.name, ntree_dst);
+	}
+	BKE_nodetree_copy_default_values(ntree_dst, ntree_src);
 }

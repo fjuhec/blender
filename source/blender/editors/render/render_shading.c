@@ -434,7 +434,7 @@ static int material_slot_move_exec(bContext *C, wmOperator *op)
 
 void OBJECT_OT_material_slot_move(wmOperatorType *ot)
 {
-	static EnumPropertyItem material_slot_move[] = {
+	static const EnumPropertyItem material_slot_move[] = {
 		{1, "UP", 0, "Up", ""},
 		{-1, "DOWN", 0, "Down", ""},
 		{0, NULL, 0, NULL, NULL}
@@ -656,9 +656,9 @@ static int render_layer_remove_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
-	SceneLayer *sl = CTX_data_scene_layer(C);
+	SceneLayer *scene_layer = BKE_scene_layer_from_scene_get(scene);
 
-	if (!ED_scene_render_layer_delete(bmain, scene, sl, NULL)) {
+	if (!ED_scene_render_layer_delete(bmain, scene, scene_layer, NULL)) {
 		return OPERATOR_CANCELLED;
 	}
 
@@ -843,7 +843,7 @@ static int freestyle_module_move_exec(bContext *C, wmOperator *op)
 
 void SCENE_OT_freestyle_module_move(wmOperatorType *ot)
 {
-	static EnumPropertyItem direction_items[] = {
+	static const EnumPropertyItem direction_items[] = {
 		{-1, "UP", 0, "Up", ""},
 		{1, "DOWN", 0, "Down", ""},
 		{0, NULL, 0, NULL, NULL}
@@ -1003,7 +1003,7 @@ static int freestyle_lineset_move_exec(bContext *C, wmOperator *op)
 
 void SCENE_OT_freestyle_lineset_move(wmOperatorType *ot)
 {
-	static EnumPropertyItem direction_items[] = {
+	static const EnumPropertyItem direction_items[] = {
 		{-1, "UP", 0, "Up", ""},
 		{1, "DOWN", 0, "Down", ""},
 		{0, NULL, 0, NULL, NULL}
@@ -1380,7 +1380,7 @@ static int freestyle_modifier_move_exec(bContext *C, wmOperator *op)
 
 void SCENE_OT_freestyle_modifier_move(wmOperatorType *ot)
 {
-	static EnumPropertyItem direction_items[] = {
+	static const EnumPropertyItem direction_items[] = {
 		{-1, "UP", 0, "Up", ""},
 		{1, "DOWN", 0, "Down", ""},
 		{0, NULL, 0, NULL, NULL}
@@ -1501,7 +1501,7 @@ static int texture_slot_move_exec(bContext *C, wmOperator *op)
 
 void TEXTURE_OT_slot_move(wmOperatorType *ot)
 {
-	static EnumPropertyItem slot_move[] = {
+	static const EnumPropertyItem slot_move[] = {
 		{-1, "UP", 0, "Up", ""},
 		{1, "DOWN", 0, "Down", ""},
 		{0, NULL, 0, NULL, NULL}
@@ -1784,6 +1784,8 @@ static void copy_mtex_copybuf(ID *id)
 			break;
 		case ID_LS:
 			mtex = &(((FreestyleLineStyle *)id)->mtex[(int)((FreestyleLineStyle *)id)->texact]);
+			break;
+		default:
 			break;
 	}
 	

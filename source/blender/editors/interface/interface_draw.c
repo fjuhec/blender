@@ -604,7 +604,7 @@ void UI_draw_safe_areas(
 			float maxx = x2 - margin_x;
 			float maxy = y2 - margin_y;
 
-			imm_draw_line_box(pos, minx, miny, maxx, maxy);
+			imm_draw_box_wire_2d(pos, minx, miny, maxx, maxy);
 		}
 	}
 }
@@ -1377,7 +1377,7 @@ void ui_draw_but_COLORBAND(uiBut *but, uiWidgetColors *UNUSED(wcol), const rcti 
 
 	/* layer: box outline */
 	immUniformColor4f(0.0f, 0.0f, 0.0f, 1.0f);
-	imm_draw_line_box(position, x1, y1, x1 + sizex, rect->ymax);
+	imm_draw_box_wire_2d(position, x1, y1, x1 + sizex, rect->ymax);
 
 	/* layer: box outline */
 	glEnable(GL_BLEND);
@@ -1460,7 +1460,7 @@ void ui_draw_but_UNITVEC(uiBut *but, uiWidgetColors *wcol, const rcti *rect)
 
 	glEnable(GL_BLEND);
 	glEnable(GL_LINE_SMOOTH);
-	imm_draw_circle_wire(pos, 0.0f, 0.0f, 1.0f, 32);
+	imm_draw_circle_wire_2d(pos, 0.0f, 0.0f, 1.0f, 32);
 	glDisable(GL_BLEND);
 	glDisable(GL_LINE_SMOOTH);
 
@@ -1650,7 +1650,7 @@ void ui_draw_but_CURVE(ARegion *ar, uiBut *but, uiWidgetColors *wcol, const rcti
 	immUniformColor3ubv((unsigned char *)wcol->item);
 	glEnable(GL_LINE_SMOOTH);
 	glEnable(GL_BLEND);
-	immBegin(GWN_PRIM_LINE_STRIP, (CM_TABLE+1) + 2);
+	immBegin(GWN_PRIM_LINE_STRIP, (CM_TABLE + 1) + 2);
 	
 	if (cuma->table == NULL)
 		curvemapping_changed(cumap, false);
@@ -1717,7 +1717,7 @@ void ui_draw_but_CURVE(ARegion *ar, uiBut *but, uiWidgetColors *wcol, const rcti
 	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 
 	immUniformColor3ubv((unsigned char *)wcol->outline);
-	imm_draw_line_box(pos, rect->xmin, rect->ymin, rect->xmax, rect->ymax);
+	imm_draw_box_wire_2d(pos, rect->xmin, rect->ymin, rect->xmax, rect->ymax);
 
 	immUnbindProgram();
 }
@@ -1812,14 +1812,14 @@ void ui_draw_but_TRACKPREVIEW(ARegion *ar, uiBut *but, uiWidgetColors *UNUSED(wc
 			UI_GetThemeColor4fv(TH_MARKER_OUTLINE, col_outline);
 
 			/* Do stipple cross with geometry */
-			immBegin(GWN_PRIM_LINES, 7*2*2);
+			immBegin(GWN_PRIM_LINES, 7 * 2 * 2);
 			float pos_sel[8] = {-10.0f, -7.0f, -4.0f, -1.0f, 2.0f, 5.0f, 8.0f, 11.0f};
 			for (int axe = 0; axe < 2; ++axe) {
 				for (int i = 0; i < 7; ++i) {
 					float x1 = pos_sel[i] * (1 - axe);
 					float y1 = pos_sel[i] * axe;
-					float x2 = pos_sel[i+1] * (1 - axe);
-					float y2 = pos_sel[i+1] * axe;
+					float x2 = pos_sel[i + 1] * (1 - axe);
+					float y2 = pos_sel[i + 1] * axe;
 
 					if (i % 2 == 1)
 						immAttrib4fv(col, col_sel);

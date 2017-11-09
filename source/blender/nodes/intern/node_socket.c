@@ -183,13 +183,14 @@ void node_verify_socket_templates(bNodeTree *ntree, bNode *node)
 {
 	bNodeType *ntype = node->typeinfo;
 	/* Don't try to match socket lists when there are no templates.
-	 * This prevents group node sockets from being removed, without the need to explicitly
-	 * check the node type here.
+	 * This prevents dynamically generated sockets to be removed, like for
+	 * group, image or render layer nodes. We have an explicit check for the
+	 * render layer node since it still has fixed sockets too.
 	 */
 	if (ntype) {
 		if (ntype->inputs && ntype->inputs[0].type >= 0)
 			verify_socket_template_list(ntree, node, SOCK_IN, &node->inputs, ntype->inputs);
-		if (ntype->outputs && ntype->outputs[0].type >= 0)
+		if (ntype->outputs && ntype->outputs[0].type >= 0 && node->type != CMP_NODE_R_LAYERS)
 			verify_socket_template_list(ntree, node, SOCK_OUT, &node->outputs, ntype->outputs);
 	}
 }
@@ -267,7 +268,7 @@ void node_socket_init_default_value(bNodeSocket *sock)
 	}
 }
 
-void node_socket_copy_default_value(bNodeSocket *to, bNodeSocket *from)
+void node_socket_copy_default_value(bNodeSocket *to, const bNodeSocket *from)
 {
 	/* sanity check */
 	if (to->type != from->type)

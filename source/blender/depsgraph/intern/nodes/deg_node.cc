@@ -169,6 +169,7 @@ void IDDepsNode::init(const ID *id, const char *UNUSED(subdata))
 	/* Store ID-pointer. */
 	id_orig = (ID *)id;
 	eval_flags = 0;
+	linked_state = DEG_ID_LINKED_INDIRECTLY;
 
 	components = BLI_ghash_new(id_deps_node_hash_key,
 	                           id_deps_node_hash_key_cmp,
@@ -177,7 +178,14 @@ void IDDepsNode::init(const ID *id, const char *UNUSED(subdata))
 
 void IDDepsNode::init_copy_on_write(ID *id_cow_hint)
 {
-#ifdef WITH_COPY_ON_WRITE
+	/* Early output for non-copy-on-write case: we keep CoW pointer same as
+	 * an original one.
+	 */
+	if (!DEG_depsgraph_use_copy_on_write()) {
+		UNUSED_VARS(id_cow_hint);
+		id_cow = id_orig;
+		return;
+	}
 	/* Create pointer as early as possible, so we can use it for function
 	 * bindings. Rest of data we'll be copying to the new datablock when
 	 * it is actually needed.
@@ -200,10 +208,6 @@ void IDDepsNode::init_copy_on_write(ID *id_cow_hint)
 	else {
 		id_cow = id_orig;
 	}
-#else
-	UNUSED_VARS(id_cow_hint);
-	id_cow = id_orig;
-#endif
 }
 
 /* Free 'id' node. */
@@ -222,7 +226,6 @@ void IDDepsNode::destroy()
 	               id_deps_node_hash_key_free,
 	               id_deps_node_hash_value_free);
 
-#ifdef WITH_COPY_ON_WRITE
 	/* Free memory used by this CoW ID. */
 	if (id_cow != id_orig && id_cow != NULL) {
 		deg_free_copy_on_write_datablock(id_cow);
@@ -230,7 +233,7 @@ void IDDepsNode::destroy()
 		DEG_COW_PRINT("Destroy CoW for %s: id_orig=%p id_cow=%p\n",
 		              id_orig->name, id_orig, id_cow);
 	}
-#endif
+
 	/* Tag that the node is freed. */
 	id_orig = NULL;
 }
@@ -280,6 +283,9 @@ void IDDepsNode::tag_update(Depsgraph *graph)
 			{
 				do_component_tag = false;
 			}
+		}
+		else if (comp_node->type == DEG_NODE_TYPE_SHADING_PARAMETERS) {
+			do_component_tag = false;
 		}
 		else if (comp_node->type == DEG_NODE_TYPE_EVAL_PARTICLES) {
 			/* Only do explicit particle settings tagging. */

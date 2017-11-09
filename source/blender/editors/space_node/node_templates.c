@@ -559,6 +559,7 @@ static void ui_template_node_link_menu(bContext *C, uiLayout *layout, void *but_
 {
 	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
+	ViewRender *view_render = CTX_data_view_render(C);
 	uiBlock *block = uiLayoutGetBlock(layout);
 	uiBut *but = (uiBut *)but_p;
 	uiLayout *split, *column;
@@ -575,7 +576,7 @@ static void ui_template_node_link_menu(bContext *C, uiLayout *layout, void *but_
 	arg->layout = split;
 
 	if (ntreetype && ntreetype->foreach_nodeclass)
-		ntreetype->foreach_nodeclass(scene, arg, node_menu_column_foreach_cb);
+		ntreetype->foreach_nodeclass(view_render, arg, node_menu_column_foreach_cb);
 
 	column = uiLayoutColumn(split, false);
 	UI_block_layout_set_current(block, column);
@@ -683,10 +684,11 @@ static void ui_node_draw_input(uiLayout *layout, bContext *C, bNodeTree *ntree, 
 	RNA_pointer_create(&ntree->id, &RNA_Node, node, &nodeptr);
 
 	/* indented label */
-	for (i = 0; i < indent; i++)
+	for (i = 0; i < indent; i++) {
 		label[i] = ' ';
+	}
 	label[indent] = '\0';
-	BLI_snprintf(label, UI_MAX_NAME_STR, "%s%s:", label, IFACE_(input->name));
+	BLI_snprintf(label + indent, UI_MAX_NAME_STR - indent, "%s:", IFACE_(input->name));
 
 	/* split in label and value */
 	split = uiLayoutSplit(layout, 0.35f, false);

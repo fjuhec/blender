@@ -81,11 +81,11 @@ static void hair_draw_cursor(bContext *C, int x, int y, void *UNUSED(customdata)
 	/* draw an inner brush */
 	if (ups->stroke_active && BKE_brush_use_size_pressure(scene, brush)) {
 		/* inner at full alpha */
-		imm_draw_circle_wire(pos, x, y, final_radius * ups->size_pressure_value, 40);
+		imm_draw_circle_wire_2d(pos, x, y, final_radius * ups->size_pressure_value, 40);
 		/* outer at half alpha */
 		immUniformColor3fvAlpha(col, col[3]*0.5f);
 	}
-	imm_draw_circle_wire(pos, x, y, final_radius, 40);
+	imm_draw_circle_wire_2d(pos, x, y, final_radius, 40);
 
 	immUnbindProgram();
 }

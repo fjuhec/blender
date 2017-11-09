@@ -84,6 +84,11 @@
 
 #include "RNA_enum_types.h"
 
+#include "DEG_depsgraph.h"
+
+/* Motion in pixels allowed before we don't consider single/double click. */
+#define WM_EVENT_CLICK_WIGGLE_ROOM 2
+
 static void wm_notifier_clear(wmNotifier *note);
 static void update_tablet_data(wmWindow *win, wmEvent *event);
 
@@ -264,13 +269,62 @@ static void wm_notifier_clear(wmNotifier *note)
 	memset(((char *)note) + sizeof(Link), 0, sizeof(*note) - sizeof(Link));
 }
 
+/**
+ * Was part of #wm_event_do_notifiers, split out so it can be called once before entering the #WM_main loop.
+ * This ensures operators don't run before the UI and depsgraph are initialized.
+ */
+void wm_event_do_refresh_wm_and_depsgraph(bContext *C)
+{
+	wmWindowManager *wm = CTX_wm_manager(C);
+	uint64_t win_combine_v3d_datamask = 0;
+
+	/* combine datamasks so 1 win doesn't disable UV's in another [#26448] */
+	for (wmWindow *win = wm->windows.first; win; win = win->next) {
+		const Scene *scene = WM_window_get_active_scene(win);
+		const bScreen *screen = WM_window_get_active_screen(win);
+
+		win_combine_v3d_datamask |= ED_view3d_screen_datamask(scene, screen);
+	}
+
+	/* cached: editor refresh callbacks now, they get context */
+	for (wmWindow *win = wm->windows.first; win; win = win->next) {
+		const bScreen *screen = WM_window_get_active_screen(win);
+		Scene *scene = WM_window_get_active_scene(win);
+		ScrArea *sa;
+
+		CTX_wm_window_set(C, win);
+		for (sa = screen->areabase.first; sa; sa = sa->next) {
+			if (sa->do_refresh) {
+				CTX_wm_area_set(C, sa);
+				ED_area_do_refresh(C, sa);
+			}
+		}
+
+		/* XXX make lock in future, or separated derivedmesh users in scene */
+		if (G.is_rendering == false) {
+			/* depsgraph & animation: update tagged datablocks */
+			Main *bmain = CTX_data_main(C);
+
+			/* copied to set's in scene_update_tagged_recursive() */
+			scene->customdata_mask = win_combine_v3d_datamask;
+
+			/* XXX, hack so operators can enforce datamasks [#26482], gl render */
+			scene->customdata_mask |= scene->customdata_mask_modal;
+
+			WorkSpace *workspace = WM_window_get_active_workspace(win);
+			BKE_workspace_update_tagged(bmain->eval_ctx, bmain, workspace, scene);
+		}
+	}
+
+	CTX_wm_window_set(C, NULL);
+}
+
 /* called in mainloop */
 void wm_event_do_notifiers(bContext *C)
 {
 	wmWindowManager *wm = CTX_wm_manager(C);
 	wmNotifier *note, *next;
 	wmWindow *win;
-	uint64_t win_combine_v3d_datamask = 0;
 	
 	if (wm == NULL)
 		return;
@@ -343,12 +397,12 @@ void wm_event_do_notifiers(bContext *C)
 		if (do_anim) {
 
 			/* XXX, quick frame changes can cause a crash if framechange and rendering
-			 * collide (happens on slow scenes), BKE_scene_update_for_newframe can be called
+			 * collide (happens on slow scenes), BKE_scene_graph_update_for_newframe can be called
 			 * twice which can depgraph update the same object at once */
 			if (G.is_rendering == false) {
 
 				/* depsgraph gets called, might send more notifiers */
-				ED_update_for_newframe(CTX_data_main(C), scene, 1);
+				ED_update_for_newframe(CTX_data_main(C), scene, CTX_data_depsgraph(C));
 			}
 		}
 	}
@@ -358,12 +412,13 @@ void wm_event_do_notifiers(bContext *C)
 		for (win = wm->windows.first; win; win = win->next) {
 			Scene *scene = WM_window_get_active_scene(win);
 			bScreen *screen = WM_window_get_active_screen(win);
+			WorkSpace *workspace = WM_window_get_active_workspace(win);
 
 			/* filter out notifiers */
 			if (note->category == NC_SCREEN &&
 			    note->reference &&
 			    note->reference != screen &&
-			    note->reference != WM_window_get_active_workspace(win) &&
+			    note->reference != workspace &&
 			    note->reference != WM_window_get_active_layout(win))
 			{
 				/* pass */
@@ -386,7 +441,7 @@ void wm_event_do_notifiers(bContext *C)
 				}
 				
 				for (sa = screen->areabase.first; sa; sa = sa->next) {
-					ED_area_do_listen(screen, sa, note, scene);
+					ED_area_do_listen(screen, sa, note, scene, workspace);
 					for (ar = sa->regionbase.first; ar; ar = ar->next) {
 						ED_region_do_listen(screen, sa, ar, note, scene);
 					}
@@ -397,44 +452,7 @@ void wm_event_do_notifiers(bContext *C)
 		MEM_freeN(note);
 	}
 
-	/* combine datamasks so 1 win doesn't disable UV's in another [#26448] */
-	for (win = wm->windows.first; win; win = win->next) {
-		const Scene *scene = WM_window_get_active_scene(win);
-		const bScreen *screen = WM_window_get_active_screen(win);
-
-		win_combine_v3d_datamask |= ED_view3d_screen_datamask(scene, screen);
-	}
-
-	/* cached: editor refresh callbacks now, they get context */
-	for (win = wm->windows.first; win; win = win->next) {
-		const bScreen *screen = WM_window_get_active_screen(win);
-		Scene *scene = WM_window_get_active_scene(win);
-		ScrArea *sa;
-		
-		CTX_wm_window_set(C, win);
-		for (sa = screen->areabase.first; sa; sa = sa->next) {
-			if (sa->do_refresh) {
-				CTX_wm_area_set(C, sa);
-				ED_area_do_refresh(C, sa);
-			}
-		}
-		
-		/* XXX make lock in future, or separated derivedmesh users in scene */
-		if (G.is_rendering == false) {
-			/* depsgraph & animation: update tagged datablocks */
-			Main *bmain = CTX_data_main(C);
-
-			/* copied to set's in scene_update_tagged_recursive() */
-			scene->customdata_mask = win_combine_v3d_datamask;
-
-			/* XXX, hack so operators can enforce datamasks [#26482], gl render */
-			scene->customdata_mask |= scene->customdata_mask_modal;
-
-			BKE_scene_update_tagged(bmain->eval_ctx, bmain, scene);
-		}
-	}
-
-	CTX_wm_window_set(C, NULL);
+	wm_event_do_refresh_wm_and_depsgraph(C);
 }
 
 static int wm_event_always_pass(const wmEvent *event)
@@ -759,11 +777,15 @@ static bool wm_operator_register_check(wmWindowManager *wm, wmOperatorType *ot)
 	return wm && (wm->op_undo_depth == 0) && (ot->flag & (OPTYPE_REGISTER | OPTYPE_UNDO));
 }
 
-static void wm_operator_finished(bContext *C, wmOperator *op, const bool repeat)
+static void wm_operator_finished(bContext *C, wmOperator *op, const bool repeat, const bool store)
 {
 	wmWindowManager *wm = CTX_wm_manager(C);
 
 	op->customdata = NULL;
+
+	if (store) {
+		WM_operator_last_properties_store(op);
+	}
 
 	/* we don't want to do undo pushes for operators that are being
 	 * called from operators that already do an undo push. usually
@@ -827,12 +849,7 @@ static int wm_operator_exec(bContext *C, wmOperator *op, const bool repeat, cons
 		wm_operator_reports(C, op, retval, false);
 	
 	if (retval & OPERATOR_FINISHED) {
-		if (store) {
-			if (wm->op_undo_depth == 0) { /* not called by py script */
-				WM_operator_last_properties_store(op);
-			}
-		}
-		wm_operator_finished(C, op, repeat);
+		wm_operator_finished(C, op, repeat, store && wm->op_undo_depth == 0);
 	}
 	else if (repeat == 0) {
 		/* warning: modal from exec is bad practice, but avoid crashing. */
@@ -1188,10 +1205,8 @@ static int wm_operator_invoke(
 			/* do nothing, wm_operator_exec() has been called somewhere */
 		}
 		else if (retval & OPERATOR_FINISHED) {
-			if (!is_nested_call) { /* not called by py script */
-				WM_operator_last_properties_store(op);
-			}
-			wm_operator_finished(C, op, 0);
+			const bool store = !is_nested_call;
+			wm_operator_finished(C, op, false, store);
 		}
 		else if (retval & OPERATOR_RUNNING_MODAL) {
 			/* take ownership of reports (in case python provided own) */
@@ -1797,7 +1812,7 @@ static int wm_handler_operator_call(bContext *C, ListBase *handlers, wmEventHand
 
 				/* important to run 'wm_operator_finished' before NULLing the context members */
 				if (retval & OPERATOR_FINISHED) {
-					wm_operator_finished(C, op, 0);
+					wm_operator_finished(C, op, false, true);
 					handler->op = NULL;
 				}
 				else if (retval & (OPERATOR_CANCELLED | OPERATOR_FINISHED)) {
@@ -2388,15 +2403,22 @@ static int wm_handlers_do(bContext *C, wmEvent *event, ListBase *handlers)
 				    (win->eventstate->prevval == KM_PRESS) &&
 				    (win->eventstate->check_click == true))
 				{
-					event->val = KM_CLICK;
-					
-					if (G.debug & (G_DEBUG_HANDLERS)) {
-						printf("%s: handling CLICK\n", __func__);
+					if ((abs(event->x - win->eventstate->prevclickx)) <= WM_EVENT_CLICK_WIGGLE_ROOM &&
+					    (abs(event->y - win->eventstate->prevclicky)) <= WM_EVENT_CLICK_WIGGLE_ROOM)
+					{
+						event->val = KM_CLICK;
+
+						if (G.debug & (G_DEBUG_HANDLERS)) {
+							printf("%s: handling CLICK\n", __func__);
+						}
+
+						action |= wm_handlers_do_intern(C, event, handlers);
+
+						event->val = KM_RELEASE;
 					}
-
-					action |= wm_handlers_do_intern(C, event, handlers);
-
-					event->val = KM_RELEASE;
+					else {
+						win->eventstate->check_click = 0;
+					}
 				}
 				else if (event->val == KM_DBL_CLICK) {
 					event->val = KM_PRESS;
@@ -2600,7 +2622,7 @@ void wm_event_do_handlers(bContext *C)
 							int ncfra = time * (float)FPS + 0.5f;
 							if (ncfra != scene->r.cfra) {
 								scene->r.cfra = ncfra;
-								ED_update_for_newframe(CTX_data_main(C), scene, 1);
+								ED_update_for_newframe(CTX_data_main(C), scene, CTX_data_depsgraph(C));
 								WM_event_add_notifier(C, NC_WINDOW, NULL);
 							}
 						}
@@ -2708,8 +2730,41 @@ void wm_event_do_handlers(bContext *C)
 											wm_drags_check_ops(C, event);
 										}
 									}
-									
+
+#ifdef USE_WORKSPACE_TOOL
+									/* How to solve properly?
+									 *
+									 * Handlers are stored in each region,
+									 * however the tool-system swaps keymaps often and isn't stored
+									 * per region.
+									 *
+									 * Need to investigate how this could be done better.
+									 * We might need to add a more dynamic handler type that uses a callback
+									 * to fetch its current keymap.
+									 */
+									wmEventHandler sneaky_handler = {NULL};
+									if (ar->regiontype == RGN_TYPE_WINDOW) {
+										WorkSpace *workspace = WM_window_get_active_workspace(win);
+										if (workspace->tool.keymap[0] &&
+										    workspace->tool.spacetype == sa->spacetype)
+										{
+											wmKeyMap *km = WM_keymap_find_all(
+											        C, workspace->tool.keymap, sa->spacetype, RGN_TYPE_WINDOW);
+											if (km != NULL) {
+												sneaky_handler.keymap = km;
+												BLI_addhead(&ar->handlers, &sneaky_handler);
+											}
+										}
+									}
+#endif /* USE_WORKSPACE_TOOL */
+
 									action |= wm_handlers_do(C, event, &ar->handlers);
+
+#ifdef USE_WORKSPACE_TOOL
+									if (sneaky_handler.keymap) {
+										BLI_remlink(&ar->handlers, &sneaky_handler);
+									}
+#endif /* USE_WORKSPACE_TOOL */
 
 									/* fileread case (python), [#29489] */
 									if (CTX_wm_window(C) == NULL)
@@ -3383,8 +3438,9 @@ static bool wm_event_is_double_click(wmEvent *event, const wmEvent *event_state)
 	    (event_state->prevval == KM_RELEASE) &&
 	    (event->val == KM_PRESS))
 	{
-		if ((ISMOUSE(event->type) == false) || ((ABS(event->x - event_state->prevclickx)) <= 2 &&
-		                                        (ABS(event->y - event_state->prevclicky)) <= 2))
+		if ((ISMOUSE(event->type) == false) ||
+		    ((abs(event->x - event_state->prevclickx)) <= WM_EVENT_CLICK_WIGGLE_ROOM &&
+		     (abs(event->y - event_state->prevclicky)) <= WM_EVENT_CLICK_WIGGLE_ROOM))
 		{
 			if ((PIL_check_seconds_timer() - event_state->prevclicktime) * 1000 < U.dbl_click_time) {
 				return true;

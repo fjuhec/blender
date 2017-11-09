@@ -219,7 +219,7 @@ static void brush_drawcursor_uvsculpt(bContext *C, int x, int y, void *UNUSED(cu
 
 		glEnable(GL_LINE_SMOOTH);
 		glEnable(GL_BLEND);
-		imm_draw_circle_wire(pos, (float)x, (float)y, size, 40);
+		imm_draw_circle_wire_2d(pos, (float)x, (float)y, size, 40);
 		glDisable(GL_BLEND);
 		glDisable(GL_LINE_SMOOTH);
 
@@ -905,7 +905,7 @@ static int uv_sculpt_stroke_modal(bContext *C, wmOperator *op, const wmEvent *ev
 
 void SCULPT_OT_uv_sculpt_stroke(wmOperatorType *ot)
 {
-	static EnumPropertyItem stroke_mode_items[] = {
+	static const EnumPropertyItem stroke_mode_items[] = {
 		{BRUSH_STROKE_NORMAL, "NORMAL", 0, "Normal", "Apply brush normally"},
 		{BRUSH_STROKE_INVERT, "INVERT", 0, "Invert", "Invert action of brush for duration of stroke"},
 		{BRUSH_STROKE_SMOOTH, "RELAX", 0, "Relax", "Switch brush to relax mode for duration of stroke"},

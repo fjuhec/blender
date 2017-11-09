@@ -76,6 +76,7 @@ const char *BlenderStrokeRenderer::uvNames[] = {"along_stroke", "along_stroke_ti
 BlenderStrokeRenderer::BlenderStrokeRenderer(Render *re, int render_count) : StrokeRenderer()
 {
 	freestyle_bmain = re->freestyle_bmain;
+	freestyle_depsgraph = DEG_graph_new();
 
 	// for stroke mesh generation
 	_width = re->winx;
@@ -115,23 +116,27 @@ BlenderStrokeRenderer::BlenderStrokeRenderer(Render *re, int render_count) : Str
 	freestyle_scene->r.filtertype = old_scene->r.filtertype;
 	freestyle_scene->r.gauss = old_scene->r.gauss;
 	freestyle_scene->r.dither_intensity = old_scene->r.dither_intensity;
-	BLI_strncpy(freestyle_scene->r.engine, old_scene->r.engine, sizeof(freestyle_scene->r.engine));
-	freestyle_scene->r.im_format.planes = R_IMF_PLANES_RGBA; 
+	BKE_viewrender_copy(&freestyle_scene->view_render, &old_scene->view_render);
+	freestyle_scene->r.im_format.planes = R_IMF_PLANES_RGBA;
 	freestyle_scene->r.im_format.imtype = R_IMF_IMTYPE_PNG;
 
 	if (G.debug & G_DEBUG_FREESTYLE) {
 		printf("%s: %d thread(s)\n", __func__, BKE_render_num_threads(&freestyle_scene->r));
 	}
 
+	BKE_scene_set_background(freestyle_bmain, freestyle_scene);
+	DEG_graph_id_tag_update(freestyle_bmain, freestyle_depsgraph, &freestyle_scene->id, 0);
+
 	// Render layer
 	SceneRenderLayer *srl = (SceneRenderLayer *)freestyle_scene->r.layers.first;
 	srl->layflag = SCE_LAY_SOLID | SCE_LAY_ZTRA;
 
-	BKE_scene_set_background(freestyle_bmain, freestyle_scene);
+	// Scene layer.
+	SceneLayer *scene_layer = (SceneLayer *)freestyle_scene->render_layers.first;
 
 	// Camera
-	Object *object_camera = BKE_object_add(freestyle_bmain, freestyle_scene, (SceneLayer *)freestyle_scene->render_layers.first, OB_CAMERA, NULL);
-	DEG_relations_tag_update(freestyle_bmain);
+	Object *object_camera = BKE_object_add(freestyle_bmain, freestyle_scene, scene_layer, OB_CAMERA, NULL);
+	DEG_graph_id_tag_update(freestyle_bmain, freestyle_depsgraph, &object_camera->id, 0);
 
 	Camera *camera = (Camera *)object_camera->data;
 	camera->type = CAM_ORTHO;
@@ -159,6 +164,9 @@ BlenderStrokeRenderer::BlenderStrokeRenderer(Render *re, int render_count) : Str
 		_nodetree_hash = BLI_ghash_ptr_new("BlenderStrokeRenderer::_nodetree_hash");
 	else
 		_nodetree_hash = NULL;
+
+	// New IDs were added, tag relations for update.
+	DEG_graph_tag_relations_update(freestyle_depsgraph);
 }
 
 BlenderStrokeRenderer::~BlenderStrokeRenderer()
@@ -169,7 +177,8 @@ BlenderStrokeRenderer::~BlenderStrokeRenderer()
 	// compositor has finished.
 
 	// release objects and data blocks
-	for (Base *b = (Base *)((SceneLayer *)(freestyle_scene->render_layers.first))->object_bases.first; b; b = b->next) {
+	SceneLayer *scene_layer = (SceneLayer *)freestyle_scene->render_layers.first;
+	for (Base *b = (Base *)scene_layer->object_bases.first; b; b = b->next) {
 		Object *ob = b->object;
 		void *data = ob->data;
 		char *name = ob->id.name;
@@ -193,6 +202,14 @@ BlenderStrokeRenderer::~BlenderStrokeRenderer()
 		}
 	}
 
+	// Make sure we don't have any bases which might reference freed objects.
+	FOREACH_SCENE_COLLECTION(freestyle_scene, sc)
+	{
+		BLI_freelistN(&sc->objects);
+	}
+	FOREACH_SCENE_COLLECTION_END
+	BLI_freelistN(&scene_layer->object_bases);
+
 	// release materials
 	Link *lnk = (Link *)freestyle_bmain->mat.first;
 
@@ -214,6 +231,8 @@ BlenderStrokeRenderer::~BlenderStrokeRenderer()
 
 	if (_use_shading_nodes)
 		BLI_ghash_free(_nodetree_hash, NULL, NULL);
+
+	DEG_graph_free(freestyle_depsgraph);
 
 	FreeStrokeGroups();
 }
@@ -463,7 +482,7 @@ void BlenderStrokeRenderer::RenderStrokeRepBasic(StrokeRep *iStrokeRep) const
 			BLI_ghash_insert(_nodetree_hash, nt, ma);
 		}
 
-		if (STREQ(freestyle_scene->r.engine, RE_engine_id_CYCLES)) {
+		if (STREQ(freestyle_scene->view_render.engine_id, RE_engine_id_CYCLES)) {
 			PointerRNA scene_ptr, freestyle_scene_ptr;
 			RNA_pointer_create(NULL, &RNA_Scene, old_scene, &scene_ptr);
 			RNA_pointer_create(NULL, &RNA_Scene, freestyle_scene, &freestyle_scene_ptr);
@@ -931,11 +950,12 @@ Object *BlenderStrokeRenderer::NewMesh() const
 
 	SceneCollection *sc_master = BKE_collection_master(freestyle_scene);
 	BKE_collection_object_add(freestyle_scene, sc_master, ob);
+	DEG_graph_tag_relations_update(freestyle_depsgraph);
 
-	BKE_scene_base_add(freestyle_scene, ob);
-	DEG_relations_tag_update(freestyle_bmain);
-
-	DEG_id_tag_update_ex(freestyle_bmain, &ob->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
+	DEG_graph_id_tag_update(freestyle_bmain,
+	                        freestyle_depsgraph,
+	                        &ob->id,
+	                        OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
 
 	return ob;
 }
@@ -951,9 +971,9 @@ Render *BlenderStrokeRenderer::RenderScene(Render * /*re*/, bool render)
 	}
 #endif
 
-	Render *freestyle_render = RE_NewRender(freestyle_scene->id.name);
-	DEG_scene_relations_update(freestyle_bmain, freestyle_scene);
-	freestyle_render->depsgraph = freestyle_scene->depsgraph_legacy;
+	Render *freestyle_render = RE_NewSceneRender(freestyle_scene);
+	DEG_graph_relations_update(freestyle_depsgraph, freestyle_bmain, freestyle_scene);
+	freestyle_render->depsgraph = freestyle_depsgraph;
 
 	RE_RenderFreestyleStrokes(freestyle_render, freestyle_bmain, freestyle_scene,
 	                          render && get_stroke_count() > 0);

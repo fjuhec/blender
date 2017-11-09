@@ -279,6 +279,7 @@ typedef struct MirrorModifierData {
 	short flag;
 	float tolerance;
 	float uv_offset[2];
+	float uv_offset_copy[2];
 	struct Object *mirror_ob;
 } MirrorModifierData;
 
@@ -655,7 +656,8 @@ typedef struct BooleanModifierData {
 	struct Object *object;
 	char operation;
 	char solver;
-	char pad[2];
+	char pad;
+	char bm_flag;
 	float double_threshold;
 } BooleanModifierData;
 
@@ -669,6 +671,13 @@ typedef enum {
 	eBooleanModifierSolver_Carve    = 0,
 	eBooleanModifierSolver_BMesh = 1,
 } BooleanSolver;
+
+/* bm_flag (only used when G_DEBUG) */
+enum {
+	eBooleanModifierBMeshFlag_BMesh_Separate            = (1 << 0),
+	eBooleanModifierBMeshFlag_BMesh_NoDissolve          = (1 << 1),
+	eBooleanModifierBMeshFlag_BMesh_NoConnectRegions    = (1 << 2),
+};
 
 typedef struct MDefInfluence {
 	int vertex;
@@ -925,9 +934,10 @@ typedef struct ScrewModifierData {
 	unsigned int iter;
 	float screw_ofs;
 	float angle;
-	char axis;
-	char pad;
+	float merge_dist;
 	short flag;
+	char axis;
+	char pad[5];
 } ScrewModifierData;
 
 enum {
@@ -938,6 +948,7 @@ enum {
 	MOD_SCREW_SMOOTH_SHADING = (1 << 5),
 	MOD_SCREW_UV_STRETCH_U   = (1 << 6),
 	MOD_SCREW_UV_STRETCH_V   = (1 << 7),
+	MOD_SCREW_MERGE          = (1 << 8),
 };
 
 typedef struct OceanModifierData {
@@ -1216,19 +1227,19 @@ enum {
 };
 
 /* Remesh modifier */
-typedef enum RemeshModifierFlags {
+typedef enum eRemeshModifierFlags {
 	MOD_REMESH_FLOOD_FILL     = 1,
 	MOD_REMESH_SMOOTH_SHADING = 2,
 } RemeshModifierFlags;
 
-typedef enum RemeshModifierMode {
+typedef enum eRemeshModifierMode {
 	/* blocky */
 	MOD_REMESH_CENTROID       = 0,
 	/* smooth */
 	MOD_REMESH_MASS_POINT     = 1,
 	/* keeps sharp edges */
 	MOD_REMESH_SHARP_FEATURES = 2,
-} RemeshModifierMode;
+} eRemeshModifierMode;
 
 typedef struct RemeshModifierData {
 	ModifierData modifier;

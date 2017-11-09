@@ -57,6 +57,7 @@
 /* prototype */
 struct EngineSettingsCB_Type;
 static void layer_collection_free(SceneLayer *sl, LayerCollection *lc);
+static void layer_collection_objects_populate(SceneLayer *sl, LayerCollection *lc, ListBase *objects);
 static LayerCollection *layer_collection_add(SceneLayer *sl, LayerCollection *parent, SceneCollection *sc);
 static LayerCollection *find_layer_collection_by_scene_collection(LayerCollection *lc, const SceneCollection *sc);
 static IDProperty *collection_engine_settings_create(struct EngineSettingsCB_Type *ces_type, const bool populate);
@@ -81,9 +82,14 @@ SceneLayer *BKE_scene_layer_from_scene_get(const Scene *scene)
 /**
  * Returns the SceneLayer to be used for drawing, outliner, and other context related areas.
  */
-SceneLayer *BKE_scene_layer_from_workspace_get(const struct WorkSpace *workspace)
+SceneLayer *BKE_scene_layer_from_workspace_get(const struct Scene *scene, const struct WorkSpace *workspace)
 {
-	return BKE_workspace_render_layer_get(workspace);
+	if (BKE_workspace_use_scene_settings_get(workspace)) {
+		return BKE_scene_layer_from_scene_get(scene);
+	}
+	else {
+		return BKE_workspace_render_layer_get(workspace);
+	}
 }
 
 /**
@@ -170,14 +176,6 @@ void BKE_scene_layer_free(SceneLayer *sl)
 }
 
 /**
- * Set the render engine of a renderlayer
- */
-void BKE_scene_layer_engine_set(SceneLayer *sl, const char *engine)
-{
-	BLI_strncpy_utf8(sl->engine, engine, sizeof(sl->engine));
-}
-
-/**
  * Tag all the selected objects of a renderlayer
  */
 void BKE_scene_layer_selected_objects_tag(SceneLayer *sl, const int tag)
@@ -203,6 +201,24 @@ static bool find_scene_collection_in_scene_collections(ListBase *lb, const Layer
 		}
 	}
 	return false;
+}
+
+/**
+ * Fallback for when a Scene has no camera to use
+ *
+ * \param scene_layer: in general you want to use the same SceneLayer that is used
+ * for depsgraph. If rendering you pass the scene active layer, when viewing in the viewport
+ * you want to get SceneLayer from context.
+ */
+Object *BKE_scene_layer_camera_find(SceneLayer *scene_layer)
+{
+	for (Base *base = scene_layer->object_bases.first; base; base = base->next) {
+		if (base->object->type == OB_CAMERA) {
+			return base->object;
+		}
+	}
+
+	return NULL;
 }
 
 /**
@@ -288,11 +304,7 @@ static Base *object_base_add(SceneLayer *sl, Object *ob)
 
 /* LayerCollection */
 
-/**
- * When freeing the entire SceneLayer at once we don't bother with unref
- * otherwise SceneLayer is passed to keep the syncing of the LayerCollection tree
- */
-static void layer_collection_free(SceneLayer *sl, LayerCollection *lc)
+static void layer_collection_objects_unpopulate(SceneLayer *sl, LayerCollection *lc)
 {
 	if (sl) {
 		for (LinkData *link = lc->object_bases.first; link; link = link->next) {
@@ -301,6 +313,15 @@ static void layer_collection_free(SceneLayer *sl, LayerCollection *lc)
 	}
 
 	BLI_freelistN(&lc->object_bases);
+}
+
+/**
+ * When freeing the entire SceneLayer at once we don't bother with unref
+ * otherwise SceneLayer is passed to keep the syncing of the LayerCollection tree
+ */
+static void layer_collection_free(SceneLayer *sl, LayerCollection *lc)
+{
+	layer_collection_objects_unpopulate(sl, lc);
 	BLI_freelistN(&lc->overrides);
 
 	if (lc->properties) {
@@ -352,6 +373,15 @@ static LayerCollection *collection_from_index(ListBase *lb, const int number, in
 }
 
 /**
+ * Get the collection for a given index
+ */
+LayerCollection *BKE_layer_collection_from_index(SceneLayer *sl, const int index)
+{
+	int i = 0;
+	return collection_from_index(&sl->layer_collections, index, &i);
+}
+
+/**
  * Get the active collection
  */
 LayerCollection *BKE_layer_collection_get_active(SceneLayer *sl)
@@ -374,6 +404,8 @@ LayerCollection *BKE_layer_collection_get_active_ensure(Scene *scene, SceneLayer
 		/* When there is no collection linked to this SceneLayer, create one. */
 		SceneCollection *sc = BKE_collection_add(scene, NULL, NULL);
 		lc = BKE_collection_link(sl, sc);
+		/* New collection has to be the active one. */
+		BLI_assert(lc == BKE_layer_collection_get_active(sl));
 	}
 
 	return lc;
@@ -795,6 +827,60 @@ void BKE_collection_unlink(SceneLayer *sl, LayerCollection *lc)
 	BLI_remlink(&sl->layer_collections, lc);
 	MEM_freeN(lc);
 	sl->active_collection = 0;
+}
+
+/**
+ * Recursively enable nested collections
+ */
+static void layer_collection_enable(SceneLayer *sl, LayerCollection *lc)
+{
+	layer_collection_objects_populate(sl, lc, &lc->scene_collection->objects);
+
+	for (LayerCollection *nlc = lc->layer_collections.first; nlc; nlc = nlc->next) {
+		layer_collection_enable(sl, nlc);
+	}
+}
+
+/**
+ * Enable collection
+ * Add its objects bases to SceneLayer
+ * Depsgraph needs to be rebuilt afterwards
+ */
+void BKE_collection_enable(SceneLayer *sl, LayerCollection *lc)
+{
+	if ((lc->flag & COLLECTION_DISABLED) == 0) {
+		return;
+	}
+
+	lc->flag &= ~COLLECTION_DISABLED;
+	layer_collection_enable(sl, lc);
+}
+
+/**
+ * Recursively disable nested collections
+ */
+static void layer_collection_disable(SceneLayer *sl, LayerCollection *lc)
+{
+	layer_collection_objects_unpopulate(sl, lc);
+
+	for (LayerCollection *nlc = lc->layer_collections.first; nlc; nlc = nlc->next) {
+		layer_collection_disable(sl, nlc);
+	}
+}
+
+/**
+ * Disable collection
+ * Remove all its object bases from SceneLayer
+ * Depsgraph needs to be rebuilt afterwards
+ */
+void BKE_collection_disable(SceneLayer *sl, LayerCollection *lc)
+{
+	if ((lc->flag & COLLECTION_DISABLED) != 0) {
+		return;
+	}
+
+	lc->flag |= COLLECTION_DISABLED;
+	layer_collection_disable(sl, lc);
 }
 
 static void layer_collection_object_add(SceneLayer *sl, LayerCollection *lc, Object *ob)
@@ -1351,7 +1437,7 @@ void BKE_collection_engine_property_add_float_array(
 	val.array.len = array_length;
 	val.array.type = IDP_FLOAT;
 
-	IDProperty *idprop= IDP_New(IDP_ARRAY, &val, name);
+	IDProperty *idprop = IDP_New(IDP_ARRAY, &val, name);
 	memcpy(IDP_Array(idprop), values, sizeof(float) * idprop->len);
 	IDP_AddToGroup(props, idprop);
 }
@@ -1606,7 +1692,6 @@ static void object_bases_iterator_begin(BLI_Iterator *iter, void *data_in, const
 		return;
 	}
 
-	iter->valid = true;
 	iter->data = base;
 
 	if ((base->flag & flag) == 0) {
@@ -1630,7 +1715,6 @@ static void object_bases_iterator_next(BLI_Iterator *iter, const int flag)
 		base = base->next;
 	}
 
-	iter->current = NULL;
 	iter->valid = false;
 }
 
@@ -1710,6 +1794,88 @@ void BKE_visible_bases_iterator_next(BLI_Iterator *iter)
 void BKE_visible_bases_iterator_end(BLI_Iterator *UNUSED(iter))
 {
 	/* do nothing */
+}
+
+void BKE_renderable_objects_iterator_begin(BLI_Iterator *iter, void *data_in)
+{
+	ObjectsRenderableIteratorData *data = data_in;
+
+	for (Scene *scene = data->scene; scene; scene = scene->set) {
+		for (SceneLayer *sl = scene->render_layers.first; sl; sl = sl->next) {
+			for (Base *base = sl->object_bases.first; base; base = base->next) {
+				 base->object->id.flag |=  LIB_TAG_DOIT;
+			}
+		}
+	}
+
+	SceneLayer *scene_layer = data->scene->render_layers.first;
+	data->iter.scene_layer = scene_layer;
+
+	Base base = {(Base *)scene_layer->object_bases.first, NULL};
+	data->iter.base = &base;
+
+	data->iter.set = NULL;
+
+	iter->data = data_in;
+	BKE_renderable_objects_iterator_next(iter);
+}
+
+void BKE_renderable_objects_iterator_next(BLI_Iterator *iter)
+{
+	ObjectsRenderableIteratorData *data = iter->data;
+	Base *base = data->iter.base->next;
+
+	/* There is still a base in the current scene layer. */
+	if (base != NULL) {
+		Object *ob = base->object;
+
+		iter->current = ob;
+		data->iter.base = base;
+
+		if ((base->flag & BASE_VISIBLED) == 0) {
+			BKE_renderable_objects_iterator_next(iter);
+		}
+		return;
+	}
+
+	/* Time to go to the next scene layer. */
+	if (data->iter.set == NULL) {
+		while ((data->iter.scene_layer = data->iter.scene_layer->next)) {
+			SceneLayer *scene_layer = data->iter.scene_layer;
+			if (scene_layer->flag & SCENE_LAYER_RENDER) {
+
+				Base base_iter = {(Base *)scene_layer->object_bases.first, NULL};
+				data->iter.base = &base_iter;
+
+				BKE_renderable_objects_iterator_next(iter);
+				return;
+			}
+		}
+
+		/* Setup the "set" for the next iteration. */
+		Scene scene = {.set = data->scene};
+		data->iter.set = &scene;
+		BKE_renderable_objects_iterator_next(iter);
+		return;
+	}
+
+	/* Look for an object in the next set. */
+	while ((data->iter.set = data->iter.set->set)) {
+		SceneLayer *scene_layer = BKE_scene_layer_from_scene_get(data->iter.set);
+
+		Base base_iter = {(Base *)scene_layer->object_bases.first, NULL};
+		data->iter.base = &base_iter;
+
+		BKE_renderable_objects_iterator_next(iter);
+		return;
+	}
+
+	iter->valid = false;
+}
+
+void BKE_renderable_objects_iterator_end(BLI_Iterator *UNUSED(iter))
+{
+	/* Do nothing - iter->data was static allocated, we can't free it. */
 }
 
 /* Evaluation  */

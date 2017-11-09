@@ -54,6 +54,9 @@
 
 #include "BIF_glutil.h"
 
+#include "UI_resources.h"
+
+#include "GPU_glew.h"
 #include "GPU_select.h"
 #include "GPU_matrix.h"
 
@@ -511,7 +514,7 @@ static int view3d_camera_to_view_poll(bContext *C)
 
 	if (ED_view3d_context_user_region(C, &v3d, &ar)) {
 		RegionView3D *rv3d = ar->regiondata;
-		if (v3d && v3d->camera && !ID_IS_LINKED_DATABLOCK(v3d->camera)) {
+		if (v3d && v3d->camera && !ID_IS_LINKED(v3d->camera)) {
 			if (rv3d && (rv3d->viewlock & RV3D_LOCKED) == 0) {
 				if (rv3d->persp != RV3D_CAMOB) {
 					return 1;
@@ -1198,6 +1201,7 @@ int view3d_opengl_select(
         const EvaluationContext *eval_ctx, ViewContext *vc, unsigned int *buffer, unsigned int bufsize, const rcti *input,
         eV3DSelectMode select_mode)
 {
+	struct bThemeState theme_state;
 	Depsgraph *graph = vc->depsgraph;
 	Scene *scene = vc->scene;
 	View3D *v3d = vc->v3d;
@@ -1242,6 +1246,10 @@ int view3d_opengl_select(
 			gpu_select_mode = GPU_SELECT_ALL;
 		}
 	}
+
+	/* Tools may request depth outside of regular drawing code. */
+	UI_Theme_Store(&theme_state);
+	UI_SetTheme(SPACE_VIEW3D, RGN_TYPE_WINDOW);
 
 	/* Re-use cache (rect must be smaller then the cached)
 	 * other context is assumed to be unchanged */
@@ -1312,6 +1320,8 @@ int view3d_opengl_select(
 
 finally:
 	if (hits < 0) printf("Too many objects in select buffer\n");  /* XXX make error message */
+
+	UI_Theme_Restore(&theme_state);
 
 	return hits;
 }
@@ -1564,7 +1574,7 @@ static int game_engine_exec(bContext *C, wmOperator *op)
 
 	//XXX restore_all_scene_cfra(scene_cfra_store);
 	BKE_scene_set_background(CTX_data_main(C), startscene);
-	//XXX BKE_scene_update_for_newframe(bmain->eval_ctx, bmain, scene);
+	//XXX BKE_scene_graph_update_for_newframe(bmain->eval_ctx, bmain, scene, depsgraph);
 
 	BLI_callback_exec(bmain, &startscene->id, BLI_CB_EVT_GAME_POST);
 

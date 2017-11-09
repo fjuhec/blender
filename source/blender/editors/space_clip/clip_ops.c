@@ -82,6 +82,8 @@
 
 #include "PIL_time.h"
 
+#include "DEG_depsgraph_build.h"
+
 #include "clip_intern.h"	// own include
 
 /******************** view navigation utilities *********************/
@@ -247,6 +249,7 @@ static int open_exec(bContext *C, wmOperator *op)
 
 	WM_event_add_notifier(C, NC_MOVIECLIP | NA_ADDED, clip);
 
+	DEG_relations_tag_update(bmain);
 	MEM_freeN(op->customdata);
 
 	return OPERATOR_FINISHED;
@@ -941,7 +944,7 @@ static int frame_from_event(bContext *C, const wmEvent *event)
 
 		UI_view2d_region_to_view(&ar->v2d, event->mval[0], event->mval[1], &viewx, &viewy);
 
-		framenr = iroundf(viewx);
+		framenr = round_fl_to_int(viewx);
 	}
 
 	return framenr;

@@ -49,8 +49,6 @@
 #include "ED_node.h"
 #include "ED_render.h"
 #include "ED_screen.h"
-#include "WM_api.h"
-#include "WM_types.h"
 
 #include "UI_resources.h"
 #include "UI_view2d.h"
@@ -58,6 +56,7 @@
 #include "RNA_access.h"
 
 #include "WM_api.h"
+#include "WM_types.h"
 
 #include "node_intern.h"  /* own include */
 
@@ -383,12 +382,14 @@ static void node_init(struct wmWindowManager *UNUSED(wm), ScrArea *UNUSED(sa))
 
 }
 
-static void node_area_listener(bScreen *UNUSED(sc), ScrArea *sa, wmNotifier *wmn, const Scene *scene)
+static void node_area_listener(bScreen *UNUSED(sc), ScrArea *sa, wmNotifier *wmn, Scene *scene,
+                               WorkSpace *workspace)
 {
 	/* note, ED_area_tag_refresh will re-execute compositor */
 	SpaceNode *snode = sa->spacedata.first;
+	ViewRender *view_render = BKE_viewrender_get(scene, workspace);
 	/* shaderfrom is only used for new shading nodes, otherwise all shaders are from objects */
-	short shader_type = BKE_scene_use_new_shading_nodes(scene) ? snode->shaderfrom : SNODE_SHADER_OBJECT;
+	short shader_type = BKE_viewrender_use_new_shading_nodes(view_render) ? snode->shaderfrom : SNODE_SHADER_OBJECT;
 
 	/* preview renders */
 	switch (wmn->category) {

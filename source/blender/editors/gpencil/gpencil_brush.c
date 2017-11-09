@@ -991,11 +991,11 @@ static void gp_brush_drawcursor(bContext *C, int x, int y, void *UNUSED(customda
 		/* Inner Ring: Light color for action of the brush */
 		/* TODO: toggle between add and remove? */
 		immUniformColor4ub(255, 255, 255, 200);
-		imm_draw_circle_wire(pos, x, y, brush->size, 40);
+		imm_draw_circle_wire_2d(pos, x, y, brush->size, 40);
 
 		/* Outer Ring: Dark color for contrast on light backgrounds (e.g. gray on white) */
 		immUniformColor3ub(30, 30, 30);
-		imm_draw_circle_wire(pos, x, y, brush->size + 1, 40);
+		imm_draw_circle_wire_2d(pos, x, y, brush->size + 1, 40);
 
 		immUnbindProgram();
 
@@ -1851,8 +1851,6 @@ static int gpsculpt_brush_modal(bContext *C, wmOperator *op, const wmEvent *even
 
 void GPENCIL_OT_brush_paint(wmOperatorType *ot)
 {
-	PropertyRNA *prop;
-	
 	/* identifiers */
 	ot->name = "Stroke Sculpt";
 	ot->idname = "GPENCIL_OT_brush_paint";
@@ -1869,7 +1867,9 @@ void GPENCIL_OT_brush_paint(wmOperatorType *ot)
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_BLOCKING;
 
 	/* properties */
-	RNA_def_collection_runtime(ot->srna, "stroke", &RNA_OperatorStrokeElement, "Stroke", "");
+	PropertyRNA *prop;
+	prop = RNA_def_collection_runtime(ot->srna, "stroke", &RNA_OperatorStrokeElement, "Stroke", "");
+	RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
 	
 	prop = RNA_def_boolean(ot->srna, "wait_for_input", true, "Wait for Input",
 	                       "Enter a mini 'sculpt-mode' if enabled, otherwise, exit after drawing a single stroke");

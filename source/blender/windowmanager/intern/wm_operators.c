@@ -52,6 +52,7 @@
 #include "DNA_scene_types.h"
 #include "DNA_userdef_types.h"
 #include "DNA_windowmanager_types.h"
+#include "DNA_workspace_types.h"
 
 #include "BLT_translation.h"
 
@@ -115,7 +116,6 @@
 #include "wm_event_system.h"
 #include "wm_event_types.h"
 #include "wm_files.h"
-#include "wm_subwindow.h"
 #include "wm_window.h"
 
 static GHash *global_ops_hash = NULL;
@@ -576,6 +576,46 @@ void WM_operator_bl_idname(char *to, const char *from)
 }
 
 /**
+ * Sanity check to ensure #WM_operator_bl_idname won't fail.
+ * \returns true when there are no problems with \a idname, otherwise report an error.
+ */
+bool WM_operator_py_idname_ok_or_report(ReportList *reports, const char *classname, const char *idname)
+{
+	const char *ch = idname;
+	int dot = 0;
+	int i;
+	for (i = 0; *ch; i++, ch++) {
+		if ((*ch >= 'a' && *ch <= 'z') || (*ch >= '0' && *ch <= '9') || *ch == '_') {
+			/* pass */
+		}
+		else if (*ch == '.') {
+			dot++;
+		}
+		else {
+			BKE_reportf(reports, RPT_ERROR,
+			            "Registering operator class: '%s', invalid bl_idname '%s', at position %d",
+			            classname, idname, i);
+			return false;
+		}
+	}
+
+	if (i > (MAX_NAME - 3)) {
+		BKE_reportf(reports, RPT_ERROR, "Registering operator class: '%s', invalid bl_idname '%s', "
+		            "is too long, maximum length is %d", classname, idname,
+		            MAX_NAME - 3);
+		return false;
+	}
+
+	if (dot != 1) {
+		BKE_reportf(reports, RPT_ERROR,
+		            "Registering operator class: '%s', invalid bl_idname '%s', must contain 1 '.' character",
+		            classname, idname);
+		return false;
+	}
+	return true;
+}
+
+/**
  * Print a string representation of the operator, with the args that it runs so python can run it again.
  *
  * When calling from an existing wmOperator, better to use simple version:
@@ -870,6 +910,8 @@ static char *wm_prop_pystring_from_context(bContext *C, PointerRNA *ptr, Propert
 				CTX_TEST_SPACE_TYPE(SPACE_FILE, "space_data.params", CTX_wm_space_file(C)->params);
 				break;
 			}
+			default:
+				break;
 		}
 
 		if (member_id) {
@@ -1209,7 +1251,7 @@ int WM_operator_confirm_message_ex(bContext *C, wmOperator *op,
 
 	pup = UI_popup_menu_begin(C, title, icon);
 	layout = UI_popup_menu_layout(pup);
-	uiItemFullO_ptr(layout, op->type, message, ICON_NONE, properties, WM_OP_EXEC_REGION_WIN, 0);
+	uiItemFullO_ptr(layout, op->type, message, ICON_NONE, properties, WM_OP_EXEC_REGION_WIN, 0, NULL);
 	UI_popup_menu_end(C, pup);
 	
 	return OPERATOR_INTERFACE;
@@ -1392,13 +1434,13 @@ static uiBlock *wm_block_create_redo(bContext *C, ARegion *ar, void *arg_op)
 
 	if (op->type->flag & OPTYPE_MACRO) {
 		for (op = op->macro.first; op; op = op->next) {
-			uiLayoutOperatorButs(C, layout, op, NULL, 'H', UI_LAYOUT_OP_SHOW_TITLE);
+			uiTemplateOperatorPropertyButs(C, layout, op, NULL, 'H', UI_TEMPLATE_OP_PROPS_SHOW_TITLE);
 			if (op->next)
 				uiItemS(layout);
 		}
 	}
 	else {
-		uiLayoutOperatorButs(C, layout, op, NULL, 'H', UI_LAYOUT_OP_SHOW_TITLE);
+		uiTemplateOperatorPropertyButs(C, layout, op, NULL, 'H', UI_TEMPLATE_OP_PROPS_SHOW_TITLE);
 	}
 	
 	UI_block_bounds_set_popup(block, 4, 0, 0);
@@ -1419,7 +1461,7 @@ static void dialog_exec_cb(bContext *C, void *arg1, void *arg2)
 	wmOpPopUp *data = arg1;
 	uiBlock *block = arg2;
 
-	/* Explicitly set UI_RETURN_OK flag, otherwise the menu might be cancelled
+	/* Explicitly set UI_RETURN_OK flag, otherwise the menu might be canceled
 	 * in case WM_operator_call_ex exits/reloads the current file (T49199). */
 	UI_popup_menu_retval_set(block, UI_RETURN_OK, true);
 
@@ -1467,7 +1509,7 @@ static uiBlock *wm_block_dialog_create(bContext *C, ARegion *ar, void *userData)
 
 	layout = UI_block_layout(block, UI_LAYOUT_VERTICAL, UI_LAYOUT_PANEL, 0, 0, data->width, data->height, 0, style);
 	
-	uiLayoutOperatorButs(C, layout, op, NULL, 'H', UI_LAYOUT_OP_SHOW_TITLE);
+	uiTemplateOperatorPropertyButs(C, layout, op, NULL, 'H', UI_TEMPLATE_OP_PROPS_SHOW_TITLE);
 	
 	/* clear so the OK button is left alone */
 	UI_block_func_set(block, NULL, NULL, NULL);
@@ -1506,7 +1548,7 @@ static uiBlock *wm_operator_ui_create(bContext *C, ARegion *ar, void *userData)
 	layout = UI_block_layout(block, UI_LAYOUT_VERTICAL, UI_LAYOUT_PANEL, 0, 0, data->width, data->height, 0, style);
 
 	/* since ui is defined the auto-layout args are not used */
-	uiLayoutOperatorButs(C, layout, op, NULL, 'V', 0);
+	uiTemplateOperatorPropertyButs(C, layout, op, NULL, 'V', 0);
 
 	UI_block_func_set(block, NULL, NULL, NULL);
 
@@ -1702,6 +1744,67 @@ static void WM_OT_operator_defaults(wmOperatorType *ot)
 	ot->flag = OPTYPE_INTERNAL;
 }
 
+#ifdef USE_WORKSPACE_TOOL
+/* ***************** Set Active Tool ************************* */
+
+/* Developers note: in it's current form this doesn't need to be an operator,
+ * keep this as-is for now since it may end up setting an active key-map.
+ */
+
+static int wm_operator_tool_set_exec(bContext *C, wmOperator *op)
+{
+	Main *bmain = CTX_data_main(C);
+	WorkSpace *workspace = CTX_wm_workspace(C);
+	ScrArea *sa = CTX_wm_area(C);
+	char id_keymap[sizeof(workspace->tool.keymap)];
+	char id_manipulator_group[sizeof(workspace->tool.manipulator_group)];
+	RNA_string_get(op->ptr, "keymap", id_keymap);
+	RNA_string_get(op->ptr, "manipulator_group", id_manipulator_group);
+	int index = RNA_int_get(op->ptr, "index");
+
+	workspace->tool.index = index;
+
+	if (workspace->tool.manipulator_group[0]) {
+		wmManipulatorGroupType *wgt = WM_manipulatorgrouptype_find(workspace->tool.manipulator_group, false);
+		if (wgt != NULL) {
+			wmManipulatorMapType *mmap_type = WM_manipulatormaptype_ensure(&wgt->mmap_params);
+			WM_manipulatormaptype_group_unlink(C, bmain, mmap_type, wgt);
+		}
+	}
+
+	/* NOTE: we may want to move this logic into a function. */
+	{
+		BLI_strncpy(workspace->tool.keymap, id_keymap, sizeof(workspace->tool.keymap));
+		BLI_strncpy(workspace->tool.manipulator_group, id_manipulator_group, sizeof(workspace->tool.manipulator_group));
+		workspace->tool.spacetype = sa->spacetype;
+	}
+
+	if (workspace->tool.manipulator_group[0]) {
+		WM_manipulator_group_type_ensure(workspace->tool.manipulator_group);
+	}
+
+	/* For some reason redraw fails with menus (even though 'ar' isn't the menu's region). */
+	ED_area_tag_redraw(sa);
+
+	return OPERATOR_FINISHED;
+}
+
+static void WM_OT_tool_set(wmOperatorType *ot)
+{
+	ot->name = "Set Active Tool";
+	ot->idname = "WM_OT_tool_set";
+	ot->description = "Set the active tool";
+
+	ot->exec = wm_operator_tool_set_exec;
+
+	ot->flag = OPTYPE_INTERNAL;
+
+	RNA_def_string(ot->srna, "keymap", NULL, KMAP_MAX_NAME, "Key Map", "");
+	RNA_def_string(ot->srna, "manipulator_group", NULL, MAX_NAME, "Manipulator Group", "");
+	RNA_def_int(ot->srna, "index", 0, INT_MIN, INT_MAX, "Index", "", INT_MIN, INT_MAX);
+}
+#endif /* USE_WORKSPACE_TOOL */
+
 /* ***************** Splash Screen ************************* */
 
 static void wm_block_splash_close(bContext *C, void *arg_block, void *UNUSED(arg))
@@ -1845,8 +1948,8 @@ static uiBlock *wm_block_create_splash(bContext *C, ARegion *ar, void *UNUSED(ar
 	if (version_suffix != NULL && version_suffix[0]) {
 		/* placed after the version number in the image,
 		 * placing y is tricky to match baseline */
-		int x = 260 * U.pixelsize - (2 * UI_DPI_FAC);
-		int y = 242 * U.pixelsize + (4 * UI_DPI_FAC);
+		int x = 236 * U.pixelsize - (2 * UI_DPI_FAC);
+		int y = 231 * U.pixelsize + (4 * UI_DPI_FAC);
 		int w = 240 * U.pixelsize;
 
 		/* hack to have text draw 'text_sel' */
@@ -1859,17 +1962,32 @@ static uiBlock *wm_block_create_splash(bContext *C, ARegion *ar, void *UNUSED(ar
 
 #ifdef WITH_BUILDINFO
 	if (build_commit_timestamp != 0) {
-		uiDefBut(block, UI_BTYPE_LABEL, 0, date_buf, U.pixelsize * 494 - date_width, U.pixelsize * 270, date_width, UI_UNIT_Y, NULL, 0, 0, 0, 0, NULL);
+		but = uiDefBut(
+		          block, UI_BTYPE_LABEL, 0, date_buf,
+		          U.pixelsize * 502 - date_width, U.pixelsize * 267,
+		          date_width, UI_UNIT_Y, NULL, 0, 0, 0, 0, NULL);
+		/* XXX, set internal flag - UI_SELECT */
+		UI_but_flag_enable(but, 1);
 		label_delta = 12;
 	}
-	uiDefBut(block, UI_BTYPE_LABEL, 0, hash_buf, U.pixelsize * 494 - hash_width, U.pixelsize * (270 - label_delta), hash_width, UI_UNIT_Y, NULL, 0, 0, 0, 0, NULL);
+	but = uiDefBut(
+	          block, UI_BTYPE_LABEL, 0, hash_buf,
+	          U.pixelsize * 502 - hash_width, U.pixelsize * (267 - label_delta),
+	          hash_width, UI_UNIT_Y, NULL, 0, 0, 0, 0, NULL);
+	/* XXX, set internal flag - UI_SELECT */
+	UI_but_flag_enable(but, 1);
 
 	if (!STREQ(build_branch, "master")) {
 		char branch_buf[128] = "\0";
 		int branch_width;
 		BLI_snprintf(branch_buf, sizeof(branch_buf), "Branch: %s", build_branch);
 		branch_width = (int)BLF_width(style->widgetlabel.uifont_id, branch_buf, sizeof(branch_buf)) + U.widget_unit;
-		uiDefBut(block, UI_BTYPE_LABEL, 0, branch_buf, U.pixelsize * 494 - branch_width, U.pixelsize * (258 - label_delta), branch_width, UI_UNIT_Y, NULL, 0, 0, 0, 0, NULL);
+		but = uiDefBut(
+		          block, UI_BTYPE_LABEL, 0, branch_buf,
+		          U.pixelsize * 502 - branch_width, U.pixelsize * (255 - label_delta),
+		          branch_width, UI_UNIT_Y, NULL, 0, 0, 0, 0, NULL);
+		/* XXX, set internal flag - UI_SELECT */
+		UI_but_flag_enable(but, 1);
 	}
 #endif  /* WITH_BUILDINFO */
 	
@@ -1878,10 +1996,7 @@ static uiBlock *wm_block_create_splash(bContext *C, ARegion *ar, void *UNUSED(ar
 	UI_block_emboss_set(block, UI_EMBOSS);
 	/* show the splash menu (containing interaction presets), using python */
 	if (mt) {
-		Menu menu = {NULL};
-		menu.layout = layout;
-		menu.type = mt;
-		mt->draw(C, &menu);
+		UI_menutype_draw(C, mt, layout);
 
 //		wmWindowManager *wm = CTX_wm_manager(C);
 //		uiItemM(layout, C, "USERPREF_MT_keyconfigs", U.keyconfigstr, ICON_NONE);
@@ -1908,13 +2023,11 @@ static uiBlock *wm_block_create_splash(bContext *C, ARegion *ar, void *UNUSED(ar
 	              "https://docs.blender.org/manual/en/dev/");
 	uiItemStringO(col, IFACE_("Blender Website"), ICON_URL, "WM_OT_url_open", "url", "http://www.blender.org");
 	if (STREQ(STRINGIFY(BLENDER_VERSION_CYCLE), "release")) {
-		BLI_snprintf(url, sizeof(url), "http://www.blender.org/documentation/blender_python_api_%d_%d"
-		                               STRINGIFY(BLENDER_VERSION_CHAR) "_release",
+		BLI_snprintf(url, sizeof(url), "https://docs.blender.org/api/%d.%d"STRINGIFY(BLENDER_VERSION_CHAR),
 		             BLENDER_VERSION / 100, BLENDER_VERSION % 100);
 	}
 	else {
-		BLI_snprintf(url, sizeof(url), "http://www.blender.org/documentation/blender_python_api_%d_%d_%d",
-		             BLENDER_VERSION / 100, BLENDER_VERSION % 100, BLENDER_SUBVERSION);
+		BLI_snprintf(url, sizeof(url), "https://docs.blender.org/api/master");
 	}
 	uiItemStringO(col, IFACE_("Python API Reference"), ICON_URL, "WM_OT_url_open", "url", url);
 	uiItemL(col, "", ICON_NONE);
@@ -1940,10 +2053,7 @@ static uiBlock *wm_block_create_splash(bContext *C, ARegion *ar, void *UNUSED(ar
 	
 	mt = WM_menutype_find("USERPREF_MT_splash_footer", false);
 	if (mt) {
-		Menu menu = {NULL};
-		menu.layout = uiLayoutColumn(layout, false);
-		menu.type = mt;
-		mt->draw(C, &menu);
+		UI_menutype_draw(C, mt, uiLayoutColumn(layout, false));
 	}
 
 	UI_block_bounds_set_centered(block, 0);
@@ -2241,705 +2351,6 @@ void WM_paint_cursor_end(wmWindowManager *wm, void *handle)
 	}
 }
 
-/* ************ window gesture operator-callback definitions ************** */
-/*
- * These are default callbacks for use in operators requiring gesture input
- */
-
-/* **************** Border gesture *************** */
-
-/**
- * Border gesture has two types:
- * -# #WM_GESTURE_CROSS_RECT: starts a cross, on mouse click it changes to border.
- * -# #WM_GESTURE_RECT: starts immediate as a border, on mouse click or release it ends.
- *
- * It stores 4 values (xmin, xmax, ymin, ymax) and event it ended with (event_type)
- */
-
-static int border_apply_rect(wmOperator *op)
-{
-	wmGesture *gesture = op->customdata;
-	rcti *rect = gesture->customdata;
-	
-	if (rect->xmin == rect->xmax || rect->ymin == rect->ymax)
-		return 0;
-
-	
-	/* operator arguments and storage. */
-	RNA_int_set(op->ptr, "xmin", min_ii(rect->xmin, rect->xmax));
-	RNA_int_set(op->ptr, "ymin", min_ii(rect->ymin, rect->ymax));
-	RNA_int_set(op->ptr, "xmax", max_ii(rect->xmin, rect->xmax));
-	RNA_int_set(op->ptr, "ymax", max_ii(rect->ymin, rect->ymax));
-
-	return 1;
-}
-
-static int border_apply(bContext *C, wmOperator *op, int gesture_mode)
-{
-	PropertyRNA *prop;
-
-	int retval;
-
-	if (!border_apply_rect(op))
-		return 0;
-	
-	/* XXX weak; border should be configured for this without reading event types */
-	if ((prop = RNA_struct_find_property(op->ptr, "gesture_mode"))) {
-		RNA_property_int_set(op->ptr, prop, gesture_mode);
-	}
-
-	retval = op->type->exec(C, op);
-	OPERATOR_RETVAL_CHECK(retval);
-
-	return 1;
-}
-
-static void wm_gesture_end(bContext *C, wmOperator *op)
-{
-	wmGesture *gesture = op->customdata;
-	
-	WM_gesture_end(C, gesture); /* frees gesture itself, and unregisters from window */
-	op->customdata = NULL;
-
-	ED_area_tag_redraw(CTX_wm_area(C));
-	
-	if (RNA_struct_find_property(op->ptr, "cursor")) {
-		WM_cursor_modal_restore(CTX_wm_window(C));
-	}
-}
-
-int WM_border_select_invoke(bContext *C, wmOperator *op, const wmEvent *event)
-{
-	if (ISTWEAK(event->type))
-		op->customdata = WM_gesture_new(C, event, WM_GESTURE_RECT);
-	else
-		op->customdata = WM_gesture_new(C, event, WM_GESTURE_CROSS_RECT);
-
-	/* add modal handler */
-	WM_event_add_modal_handler(C, op);
-	
-	wm_gesture_tag_redraw(C);
-
-	return OPERATOR_RUNNING_MODAL;
-}
-
-int WM_border_select_modal(bContext *C, wmOperator *op, const wmEvent *event)
-{
-	wmGesture *gesture = op->customdata;
-	rcti *rect = gesture->customdata;
-	int sx, sy;
-	
-	if (event->type == MOUSEMOVE) {
-		wm_subwindow_origin_get(CTX_wm_window(C), gesture->swinid, &sx, &sy);
-
-		if (gesture->type == WM_GESTURE_CROSS_RECT && gesture->mode == 0) {
-			rect->xmin = rect->xmax = event->x - sx;
-			rect->ymin = rect->ymax = event->y - sy;
-		}
-		else {
-			rect->xmax = event->x - sx;
-			rect->ymax = event->y - sy;
-		}
-		border_apply_rect(op);
-
-		wm_gesture_tag_redraw(C);
-	}
-	else if (event->type == EVT_MODAL_MAP) {
-		switch (event->val) {
-			case GESTURE_MODAL_BEGIN:
-				if (gesture->type == WM_GESTURE_CROSS_RECT && gesture->mode == 0) {
-					gesture->mode = 1;
-					wm_gesture_tag_redraw(C);
-				}
-				break;
-			case GESTURE_MODAL_SELECT:
-			case GESTURE_MODAL_DESELECT:
-			case GESTURE_MODAL_IN:
-			case GESTURE_MODAL_OUT:
-				if (border_apply(C, op, event->val)) {
-					wm_gesture_end(C, op);
-					return OPERATOR_FINISHED;
-				}
-				wm_gesture_end(C, op);
-				return OPERATOR_CANCELLED;
-
-			case GESTURE_MODAL_CANCEL:
-				wm_gesture_end(C, op);
-				return OPERATOR_CANCELLED;
-		}
-
-	}
-#ifdef WITH_INPUT_NDOF
-	else if (event->type == NDOF_MOTION) {
-		return OPERATOR_PASS_THROUGH;
-	}
-#endif
-//	/* Allow view navigation??? */
-//	else {
-//		return OPERATOR_PASS_THROUGH;
-//	}
-
-	return OPERATOR_RUNNING_MODAL;
-}
-
-void WM_border_select_cancel(bContext *C, wmOperator *op)
-{
-	wm_gesture_end(C, op);
-}
-
-/* **************** circle gesture *************** */
-/* works now only for selection or modal paint stuff, calls exec while hold mouse, exit on release */
-
-#ifdef GESTURE_MEMORY
-int circle_select_size = 25; /* XXX - need some operator memory thing! */
-#endif
-
-int WM_gesture_circle_invoke(bContext *C, wmOperator *op, const wmEvent *event)
-{
-	op->customdata = WM_gesture_new(C, event, WM_GESTURE_CIRCLE);
-	
-	/* add modal handler */
-	WM_event_add_modal_handler(C, op);
-	
-	wm_gesture_tag_redraw(C);
-	
-	return OPERATOR_RUNNING_MODAL;
-}
-
-static void gesture_circle_apply(bContext *C, wmOperator *op)
-{
-	wmGesture *gesture = op->customdata;
-	rcti *rect = gesture->customdata;
-	
-	if (RNA_int_get(op->ptr, "gesture_mode") == GESTURE_MODAL_NOP)
-		return;
-
-	/* operator arguments and storage. */
-	RNA_int_set(op->ptr, "x", rect->xmin);
-	RNA_int_set(op->ptr, "y", rect->ymin);
-	RNA_int_set(op->ptr, "radius", rect->xmax);
-	
-	if (op->type->exec) {
-		int retval;
-		retval = op->type->exec(C, op);
-		OPERATOR_RETVAL_CHECK(retval);
-	}
-#ifdef GESTURE_MEMORY
-	circle_select_size = rect->xmax;
-#endif
-}
-
-int WM_gesture_circle_modal(bContext *C, wmOperator *op, const wmEvent *event)
-{
-	wmGesture *gesture = op->customdata;
-	rcti *rect = gesture->customdata;
-	int sx, sy;
-
-	if (event->type == MOUSEMOVE) {
-		wm_subwindow_origin_get(CTX_wm_window(C), gesture->swinid, &sx, &sy);
-
-		rect->xmin = event->x - sx;
-		rect->ymin = event->y - sy;
-
-		wm_gesture_tag_redraw(C);
-
-		if (gesture->mode)
-			gesture_circle_apply(C, op);
-	}
-	else if (event->type == EVT_MODAL_MAP) {
-		float fac;
-		
-		switch (event->val) {
-			case GESTURE_MODAL_CIRCLE_SIZE:
-				fac = 0.3f * (event->y - event->prevy);
-				if (fac > 0)
-					rect->xmax += ceil(fac);
-				else
-					rect->xmax += floor(fac);
-				if (rect->xmax < 1) rect->xmax = 1;
-				wm_gesture_tag_redraw(C);
-				break;
-			case GESTURE_MODAL_CIRCLE_ADD:
-				rect->xmax += 2 + rect->xmax / 10;
-				wm_gesture_tag_redraw(C);
-				break;
-			case GESTURE_MODAL_CIRCLE_SUB:
-				rect->xmax -= 2 + rect->xmax / 10;
-				if (rect->xmax < 1) rect->xmax = 1;
-				wm_gesture_tag_redraw(C);
-				break;
-			case GESTURE_MODAL_SELECT:
-			case GESTURE_MODAL_DESELECT:
-			case GESTURE_MODAL_NOP:
-				if (RNA_struct_find_property(op->ptr, "gesture_mode"))
-					RNA_int_set(op->ptr, "gesture_mode", event->val);
-
-				if (event->val != GESTURE_MODAL_NOP) {
-					/* apply first click */
-					gesture_circle_apply(C, op);
-					gesture->mode = 1;
-					wm_gesture_tag_redraw(C);
-				}
-				break;
-
-			case GESTURE_MODAL_CANCEL:
-			case GESTURE_MODAL_CONFIRM:
-				wm_gesture_end(C, op);
-				return OPERATOR_FINISHED; /* use finish or we don't get an undo */
-		}
-	}
-#ifdef WITH_INPUT_NDOF
-	else if (event->type == NDOF_MOTION) {
-		return OPERATOR_PASS_THROUGH;
-	}
-#endif
-	/* Allow view navigation??? */
-	/* note, this gives issues: 1) other modal ops run on top (border select), 2) middlemouse is used now 3) tablet/trackpad? */
-//	else {
-//		return OPERATOR_PASS_THROUGH;
-//	}
-
-	return OPERATOR_RUNNING_MODAL;
-}
-
-void WM_gesture_circle_cancel(bContext *C, wmOperator *op)
-{
-	wm_gesture_end(C, op);
-}
-
-#if 0
-/* template to copy from */
-void WM_OT_circle_gesture(wmOperatorType *ot)
-{
-	ot->name = "Circle Gesture";
-	ot->idname = "WM_OT_circle_gesture";
-	ot->description = "Enter rotate mode with a circular gesture";
-	
-	ot->invoke = WM_gesture_circle_invoke;
-	ot->modal = WM_gesture_circle_modal;
-	
-	ot->poll = WM_operator_winactive;
-	
-	RNA_def_property(ot->srna, "x", PROP_INT, PROP_NONE);
-	RNA_def_property(ot->srna, "y", PROP_INT, PROP_NONE);
-	RNA_def_property(ot->srna, "radius", PROP_INT, PROP_NONE);
-
-}
-#endif
-
-/* **************** Tweak gesture *************** */
-
-static void tweak_gesture_modal(bContext *C, const wmEvent *event)
-{
-	wmWindow *window = CTX_wm_window(C);
-	wmGesture *gesture = window->tweak;
-	rcti *rect = gesture->customdata;
-	int sx, sy, val;
-	
-	switch (event->type) {
-		case MOUSEMOVE:
-		case INBETWEEN_MOUSEMOVE:
-			
-			wm_subwindow_origin_get(window, gesture->swinid, &sx, &sy);
-			
-			rect->xmax = event->x - sx;
-			rect->ymax = event->y - sy;
-			
-			if ((val = wm_gesture_evaluate(gesture))) {
-				wmEvent tevent;
-
-				wm_event_init_from_window(window, &tevent);
-				/* We want to get coord from start of drag, not from point where it becomes a tweak event, see T40549 */
-				tevent.x = rect->xmin + sx;
-				tevent.y = rect->ymin + sy;
-				if (gesture->event_type == LEFTMOUSE)
-					tevent.type = EVT_TWEAK_L;
-				else if (gesture->event_type == RIGHTMOUSE)
-					tevent.type = EVT_TWEAK_R;
-				else
-					tevent.type = EVT_TWEAK_M;
-				tevent.val = val;
-				/* mouse coords! */
-
-				/* important we add immediately after this event, so future mouse releases
-				 * (which may be in the queue already), are handled in order, see T44740 */
-				wm_event_add_ex(window, &tevent, event);
-				
-				WM_gesture_end(C, gesture); /* frees gesture itself, and unregisters from window */
-			}
-			
-			break;
-			
-		case LEFTMOUSE:
-		case RIGHTMOUSE:
-		case MIDDLEMOUSE:
-			if (gesture->event_type == event->type) {
-				WM_gesture_end(C, gesture);
-
-				/* when tweak fails we should give the other keymap entries a chance */
-
-				/* XXX, assigning to readonly, BAD JUJU! */
-				((wmEvent *)event)->val = KM_RELEASE;
-			}
-			break;
-		default:
-			if (!ISTIMER(event->type) && event->type != EVENT_NONE) {
-				WM_gesture_end(C, gesture);
-			}
-			break;
-	}
-}
-
-/* standard tweak, called after window handlers passed on event */
-void wm_tweakevent_test(bContext *C, wmEvent *event, int action)
-{
-	wmWindow *win = CTX_wm_window(C);
-	
-	if (win->tweak == NULL) {
-		if (CTX_wm_region(C)) {
-			if (event->val == KM_PRESS) {
-				if (ELEM(event->type, LEFTMOUSE, MIDDLEMOUSE, RIGHTMOUSE)) {
-					win->tweak = WM_gesture_new(C, event, WM_GESTURE_TWEAK);
-				}
-			}
-		}
-	}
-	else {
-		/* no tweaks if event was handled */
-		if ((action & WM_HANDLER_BREAK)) {
-			WM_gesture_end(C, win->tweak);
-		}
-		else
-			tweak_gesture_modal(C, event);
-	}
-}
-
-/* *********************** lasso gesture ****************** */
-
-int WM_gesture_lasso_invoke(bContext *C, wmOperator *op, const wmEvent *event)
-{
-	PropertyRNA *prop;
-
-	op->customdata = WM_gesture_new(C, event, WM_GESTURE_LASSO);
-	
-	/* add modal handler */
-	WM_event_add_modal_handler(C, op);
-	
-	wm_gesture_tag_redraw(C);
-	
-	if ((prop = RNA_struct_find_property(op->ptr, "cursor"))) {
-		WM_cursor_modal_set(CTX_wm_window(C), RNA_property_int_get(op->ptr, prop));
-	}
-	
-	return OPERATOR_RUNNING_MODAL;
-}
-
-int WM_gesture_lines_invoke(bContext *C, wmOperator *op, const wmEvent *event)
-{
-	PropertyRNA *prop;
-
-	op->customdata = WM_gesture_new(C, event, WM_GESTURE_LINES);
-	
-	/* add modal handler */
-	WM_event_add_modal_handler(C, op);
-	
-	wm_gesture_tag_redraw(C);
-	
-	if ((prop = RNA_struct_find_property(op->ptr, "cursor"))) {
-		WM_cursor_modal_set(CTX_wm_window(C), RNA_property_int_get(op->ptr, prop));
-	}
-	
-	return OPERATOR_RUNNING_MODAL;
-}
-
-
-static void gesture_lasso_apply(bContext *C, wmOperator *op)
-{
-	wmGesture *gesture = op->customdata;
-	PointerRNA itemptr;
-	float loc[2];
-	int i;
-	const short *lasso = gesture->customdata;
-	
-	/* operator storage as path. */
-
-	RNA_collection_clear(op->ptr, "path");
-	for (i = 0; i < gesture->points; i++, lasso += 2) {
-		loc[0] = lasso[0];
-		loc[1] = lasso[1];
-		RNA_collection_add(op->ptr, "path", &itemptr);
-		RNA_float_set_array(&itemptr, "loc", loc);
-	}
-	
-	wm_gesture_end(C, op);
-		
-	if (op->type->exec) {
-		int retval = op->type->exec(C, op);
-		OPERATOR_RETVAL_CHECK(retval);
-	}
-}
-
-int WM_gesture_lasso_modal(bContext *C, wmOperator *op, const wmEvent *event)
-{
-	wmGesture *gesture = op->customdata;
-	int sx, sy;
-	
-	switch (event->type) {
-		case MOUSEMOVE:
-		case INBETWEEN_MOUSEMOVE:
-			
-			wm_gesture_tag_redraw(C);
-			
-			wm_subwindow_origin_get(CTX_wm_window(C), gesture->swinid, &sx, &sy);
-
-			if (gesture->points == gesture->size) {
-				short *old_lasso = gesture->customdata;
-				gesture->customdata = MEM_callocN(2 * sizeof(short) * (gesture->size + WM_LASSO_MIN_POINTS), "lasso points");
-				memcpy(gesture->customdata, old_lasso, 2 * sizeof(short) * gesture->size);
-				gesture->size = gesture->size + WM_LASSO_MIN_POINTS;
-				MEM_freeN(old_lasso);
-				// printf("realloc\n");
-			}
-
-			{
-				int x, y;
-				short *lasso = gesture->customdata;
-				
-				lasso += (2 * gesture->points - 2);
-				x = (event->x - sx - lasso[0]);
-				y = (event->y - sy - lasso[1]);
-				
-				/* make a simple distance check to get a smoother lasso
-				 * add only when at least 2 pixels between this and previous location */
-				if ((x * x + y * y) > 4) {
-					lasso += 2;
-					lasso[0] = event->x - sx;
-					lasso[1] = event->y - sy;
-					gesture->points++;
-				}
-			}
-			break;
-			
-		case LEFTMOUSE:
-		case MIDDLEMOUSE:
-		case RIGHTMOUSE:
-			if (event->val == KM_RELEASE) {   /* key release */
-				gesture_lasso_apply(C, op);
-				return OPERATOR_FINISHED;
-			}
-			break;
-		case ESCKEY:
-			wm_gesture_end(C, op);
-			return OPERATOR_CANCELLED;
-	}
-	return OPERATOR_RUNNING_MODAL;
-}
-
-int WM_gesture_lines_modal(bContext *C, wmOperator *op, const wmEvent *event)
-{
-	return WM_gesture_lasso_modal(C, op, event);
-}
-
-void WM_gesture_lasso_cancel(bContext *C, wmOperator *op)
-{
-	wm_gesture_end(C, op);
-}
-
-void WM_gesture_lines_cancel(bContext *C, wmOperator *op)
-{
-	wm_gesture_end(C, op);
-}
-
-/**
- * helper function, we may want to add options for conversion to view space
- *
- * caller must free.
- */
-const int (*WM_gesture_lasso_path_to_array(bContext *UNUSED(C), wmOperator *op, int *mcords_tot))[2]
-{
-	PropertyRNA *prop = RNA_struct_find_property(op->ptr, "path");
-	int (*mcords)[2] = NULL;
-	BLI_assert(prop != NULL);
-
-	if (prop) {
-		const int len = RNA_property_collection_length(op->ptr, prop);
-
-		if (len) {
-			int i = 0;
-			mcords = MEM_mallocN(sizeof(int) * 2 * len, __func__);
-
-			RNA_PROP_BEGIN (op->ptr, itemptr, prop)
-			{
-				float loc[2];
-
-				RNA_float_get_array(&itemptr, "loc", loc);
-				mcords[i][0] = (int)loc[0];
-				mcords[i][1] = (int)loc[1];
-				i++;
-			}
-			RNA_PROP_END;
-		}
-		*mcords_tot = len;
-	}
-	else {
-		*mcords_tot = 0;
-	}
-
-	/* cast for 'const' */
-	return (const int (*)[2])mcords;
-}
-
-#if 0
-/* template to copy from */
-
-static int gesture_lasso_exec(bContext *C, wmOperator *op)
-{
-	RNA_BEGIN (op->ptr, itemptr, "path")
-	{
-		float loc[2];
-		
-		RNA_float_get_array(&itemptr, "loc", loc);
-		printf("Location: %f %f\n", loc[0], loc[1]);
-	}
-	RNA_END;
-	
-	return OPERATOR_FINISHED;
-}
-
-void WM_OT_lasso_gesture(wmOperatorType *ot)
-{
-	PropertyRNA *prop;
-	
-	ot->name = "Lasso Gesture";
-	ot->idname = "WM_OT_lasso_gesture";
-	ot->description = "Select objects within the lasso as you move the pointer";
-	
-	ot->invoke = WM_gesture_lasso_invoke;
-	ot->modal = WM_gesture_lasso_modal;
-	ot->exec = gesture_lasso_exec;
-	
-	ot->poll = WM_operator_winactive;
-	
-	prop = RNA_def_property(ot->srna, "path", PROP_COLLECTION, PROP_NONE);
-	RNA_def_property_struct_runtime(prop, &RNA_OperatorMousePath);
-}
-#endif
-
-/* *********************** straight line gesture ****************** */
-
-static int straightline_apply(bContext *C, wmOperator *op)
-{
-	wmGesture *gesture = op->customdata;
-	rcti *rect = gesture->customdata;
-	
-	if (rect->xmin == rect->xmax && rect->ymin == rect->ymax)
-		return 0;
-	
-	/* operator arguments and storage. */
-	RNA_int_set(op->ptr, "xstart", rect->xmin);
-	RNA_int_set(op->ptr, "ystart", rect->ymin);
-	RNA_int_set(op->ptr, "xend", rect->xmax);
-	RNA_int_set(op->ptr, "yend", rect->ymax);
-
-	if (op->type->exec) {
-		int retval = op->type->exec(C, op);
-		OPERATOR_RETVAL_CHECK(retval);
-	}
-	
-	return 1;
-}
-
-
-int WM_gesture_straightline_invoke(bContext *C, wmOperator *op, const wmEvent *event)
-{
-	PropertyRNA *prop;
-
-	op->customdata = WM_gesture_new(C, event, WM_GESTURE_STRAIGHTLINE);
-	
-	/* add modal handler */
-	WM_event_add_modal_handler(C, op);
-	
-	wm_gesture_tag_redraw(C);
-	
-	if ((prop = RNA_struct_find_property(op->ptr, "cursor"))) {
-		WM_cursor_modal_set(CTX_wm_window(C), RNA_property_int_get(op->ptr, prop));
-	}
-		
-	return OPERATOR_RUNNING_MODAL;
-}
-
-int WM_gesture_straightline_modal(bContext *C, wmOperator *op, const wmEvent *event)
-{
-	wmGesture *gesture = op->customdata;
-	rcti *rect = gesture->customdata;
-	int sx, sy;
-	
-	if (event->type == MOUSEMOVE) {
-		wm_subwindow_origin_get(CTX_wm_window(C), gesture->swinid, &sx, &sy);
-		
-		if (gesture->mode == 0) {
-			rect->xmin = rect->xmax = event->x - sx;
-			rect->ymin = rect->ymax = event->y - sy;
-		}
-		else {
-			rect->xmax = event->x - sx;
-			rect->ymax = event->y - sy;
-			straightline_apply(C, op);
-		}
-		
-		wm_gesture_tag_redraw(C);
-	}
-	else if (event->type == EVT_MODAL_MAP) {
-		switch (event->val) {
-			case GESTURE_MODAL_BEGIN:
-				if (gesture->mode == 0) {
-					gesture->mode = 1;
-					wm_gesture_tag_redraw(C);
-				}
-				break;
-			case GESTURE_MODAL_SELECT:
-				if (straightline_apply(C, op)) {
-					wm_gesture_end(C, op);
-					return OPERATOR_FINISHED;
-				}
-				wm_gesture_end(C, op);
-				return OPERATOR_CANCELLED;
-				
-			case GESTURE_MODAL_CANCEL:
-				wm_gesture_end(C, op);
-				return OPERATOR_CANCELLED;
-		}
-		
-	}
-
-	return OPERATOR_RUNNING_MODAL;
-}
-
-void WM_gesture_straightline_cancel(bContext *C, wmOperator *op)
-{
-	wm_gesture_end(C, op);
-}
-
-#if 0
-/* template to copy from */
-void WM_OT_straightline_gesture(wmOperatorType *ot)
-{
-	PropertyRNA *prop;
-	
-	ot->name = "Straight Line Gesture";
-	ot->idname = "WM_OT_straightline_gesture";
-	ot->description = "Draw a straight line as you move the pointer";
-	
-	ot->invoke = WM_gesture_straightline_invoke;
-	ot->modal = WM_gesture_straightline_modal;
-	ot->exec = gesture_straightline_exec;
-	
-	ot->poll = WM_operator_winactive;
-	
-	WM_operator_properties_gesture_straightline(ot, 0);
-}
-#endif
-
 /* *********************** radial control ****************** */
 
 #define WM_RADIAL_CONTROL_DISPLAY_SIZE (200 * UI_DPI_FAC)
@@ -3142,7 +2553,7 @@ static void radial_control_paint_tex(RadialControl *rc, float radius, float alph
 		/* flat color if no texture available */
 		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 		immUniformColor3fvAlpha(col, alpha);
-		imm_draw_circle_fill(pos, 0.0f, 0.0f, radius, 40);
+		imm_draw_circle_fill_2d(pos, 0.0f, 0.0f, radius, 40);
 	}
 	
 	immUnbindProgram();
@@ -3249,10 +2660,10 @@ static void radial_control_paint_cursor(bContext *C, int x, int y, void *customd
 	}
 
 	/* draw circles on top */
-	imm_draw_circle_wire(pos, 0.0f, 0.0f, r1, 40);
-	imm_draw_circle_wire(pos, 0.0f, 0.0f, r2, 40);
+	imm_draw_circle_wire_2d(pos, 0.0f, 0.0f, r1, 40);
+	imm_draw_circle_wire_2d(pos, 0.0f, 0.0f, r2, 40);
 	if (rmin > 0.0f)
-		imm_draw_circle_wire(pos, 0.0, 0.0f, rmin, 40);
+		imm_draw_circle_wire_2d(pos, 0.0, 0.0f, rmin, 40);
 	immUnbindProgram();
 
 	BLF_size(fontid, 1.5 * fstyle_points * U.pixelsize, U.dpi);
@@ -3816,7 +3227,7 @@ enum {
 	eRTUndo = 6,
 };
 
-static EnumPropertyItem redraw_timer_type_items[] = {
+static const EnumPropertyItem redraw_timer_type_items[] = {
 	{eRTDrawRegion, "DRAW", 0, "Draw Region", "Draw Region"},
 	{eRTDrawRegionSwap, "DRAW_SWAP", 0, "Draw Region + Swap", "Draw Region and Swap"},
 	{eRTDrawWindow, "DRAW_WIN", 0, "Draw Window", "Draw Window"},
@@ -3829,7 +3240,7 @@ static EnumPropertyItem redraw_timer_type_items[] = {
 
 
 static void redraw_timer_step(
-        bContext *C, Main *bmain, Scene *scene,
+        bContext *C, Main *bmain, Scene *scene, struct Depsgraph *depsgraph,
         wmWindow *win, ScrArea *sa, ARegion *ar,
         const int type, const int cfra)
 {
@@ -3876,7 +3287,7 @@ static void redraw_timer_step(
 	}
 	else if (type == eRTAnimationStep) {
 		scene->r.cfra += (cfra == scene->r.cfra) ? 1 : -1;
-		BKE_scene_update_for_newframe(bmain->eval_ctx, bmain, scene);
+		BKE_scene_graph_update_for_newframe(bmain->eval_ctx, depsgraph, bmain, scene);
 	}
 	else if (type == eRTAnimationPlay) {
 		/* play anim, return on same frame as started with */
@@ -3888,7 +3299,7 @@ static void redraw_timer_step(
 			if (scene->r.cfra > scene->r.efra)
 				scene->r.cfra = scene->r.sfra;
 
-			BKE_scene_update_for_newframe(bmain->eval_ctx, bmain, scene);
+			BKE_scene_graph_update_for_newframe(bmain->eval_ctx, depsgraph, bmain, scene);
 			redraw_timer_window_swap(C);
 		}
 	}
@@ -3912,13 +3323,14 @@ static int redraw_timer_exec(bContext *C, wmOperator *op)
 	const int cfra = scene->r.cfra;
 	int a, iter_steps = 0;
 	const char *infostr = "";
+	struct Depsgraph *depsgraph = CTX_data_depsgraph(C);
 
 	WM_cursor_wait(1);
 
 	time_start = PIL_check_seconds_timer();
 
 	for (a = 0; a < iter; a++) {
-		redraw_timer_step(C, bmain, scene, win, sa, ar, type, cfra);
+		redraw_timer_step(C, bmain, scene, depsgraph, win, sa, ar, type, cfra);
 		iter_steps += 1;
 
 		if (time_limit != 0.0) {
@@ -3989,7 +3401,7 @@ static void previews_id_ensure(bContext *C, Scene *scene, ID *id)
 
 	/* Only preview non-library datablocks, lib ones do not pertain to this .blend file!
 	 * Same goes for ID with no user. */
-	if (!ID_IS_LINKED_DATABLOCK(id) && (id->us != 0)) {
+	if (!ID_IS_LINKED(id) && (id->us != 0)) {
 		UI_id_icon_render(C, scene, id, false, false);
 		UI_id_icon_render(C, scene, id, true, false);
 	}
@@ -4063,7 +3475,7 @@ static void WM_OT_previews_ensure(wmOperatorType *ot)
 /* *************************** Datablocks previews clear ************* */
 
 /* Only types supporting previews currently. */
-static EnumPropertyItem preview_id_type_items[] = {
+static const EnumPropertyItem preview_id_type_items[] = {
     {FILTER_ID_SCE, "SCENE", 0, "Scenes", ""},
     {FILTER_ID_GR, "GROUP", 0, "Groups", ""},
     {FILTER_ID_OB, "OBJECT", 0, "Objects", ""},
@@ -4247,6 +3659,9 @@ void wm_operatortype_init(void)
 	WM_operatortype_append(WM_OT_memory_statistics);
 	WM_operatortype_append(WM_OT_debug_menu);
 	WM_operatortype_append(WM_OT_operator_defaults);
+#ifdef USE_WORKSPACE_TOOL
+	WM_operatortype_append(WM_OT_tool_set);
+#endif
 	WM_operatortype_append(WM_OT_splash);
 	WM_operatortype_append(WM_OT_search_menu);
 	WM_operatortype_append(WM_OT_call_menu);
@@ -4268,7 +3683,7 @@ void wm_operatortype_init(void)
 /* circleselect-like modal operators */
 static void gesture_circle_modal_keymap(wmKeyConfig *keyconf)
 {
-	static EnumPropertyItem modal_items[] = {
+	static const EnumPropertyItem modal_items[] = {
 		{GESTURE_MODAL_CANCEL,  "CANCEL", 0, "Cancel", ""},
 		{GESTURE_MODAL_CONFIRM, "CONFIRM", 0, "Confirm", ""},
 		{GESTURE_MODAL_CIRCLE_ADD, "ADD", 0, "Add", ""},
@@ -4299,14 +3714,15 @@ static void gesture_circle_modal_keymap(wmKeyConfig *keyconf)
 
 	WM_modalkeymap_add_item(keymap, LEFTMOUSE, KM_PRESS, 0, 0, GESTURE_MODAL_SELECT);
 
+	/* Note: use 'KM_ANY' for release, so the circle exits on any mouse release,
+	 * this is needed when circle select is activated as a tool. */
+
 	/* left mouse shift for deselect too */
 	WM_modalkeymap_add_item(keymap, LEFTMOUSE, KM_PRESS, KM_SHIFT, 0, GESTURE_MODAL_DESELECT);
-	WM_modalkeymap_add_item(keymap, LEFTMOUSE, KM_RELEASE, KM_SHIFT, 0, GESTURE_MODAL_NOP);
+	WM_modalkeymap_add_item(keymap, LEFTMOUSE, KM_RELEASE, KM_ANY, 0, GESTURE_MODAL_NOP);
 
 	WM_modalkeymap_add_item(keymap, MIDDLEMOUSE, KM_PRESS, 0, 0, GESTURE_MODAL_DESELECT); //  default 2.4x
-	WM_modalkeymap_add_item(keymap, MIDDLEMOUSE, KM_RELEASE, 0, 0, GESTURE_MODAL_NOP); //  default 2.4x
-
-	WM_modalkeymap_add_item(keymap, LEFTMOUSE, KM_RELEASE, 0, 0, GESTURE_MODAL_NOP);
+	WM_modalkeymap_add_item(keymap, MIDDLEMOUSE, KM_RELEASE, KM_ANY, 0, GESTURE_MODAL_NOP); //  default 2.4x
 
 	WM_modalkeymap_add_item(keymap, WHEELUPMOUSE, KM_PRESS, 0, 0, GESTURE_MODAL_CIRCLE_SUB);
 	WM_modalkeymap_add_item(keymap, PADMINUS, KM_PRESS, 0, 0, GESTURE_MODAL_CIRCLE_SUB);
@@ -4329,7 +3745,7 @@ static void gesture_circle_modal_keymap(wmKeyConfig *keyconf)
 /* straight line modal operators */
 static void gesture_straightline_modal_keymap(wmKeyConfig *keyconf)
 {
-	static EnumPropertyItem modal_items[] = {
+	static const EnumPropertyItem modal_items[] = {
 		{GESTURE_MODAL_CANCEL,  "CANCEL", 0, "Cancel", ""},
 		{GESTURE_MODAL_SELECT,  "SELECT", 0, "Select", ""},
 		{GESTURE_MODAL_BEGIN,   "BEGIN", 0, "Begin", ""},
@@ -4348,7 +3764,7 @@ static void gesture_straightline_modal_keymap(wmKeyConfig *keyconf)
 	WM_modalkeymap_add_item(keymap, RIGHTMOUSE, KM_ANY, KM_ANY, 0, GESTURE_MODAL_CANCEL);
 	
 	WM_modalkeymap_add_item(keymap, LEFTMOUSE, KM_PRESS, 0, 0, GESTURE_MODAL_BEGIN);
-	WM_modalkeymap_add_item(keymap, LEFTMOUSE, KM_RELEASE, 0, 0, GESTURE_MODAL_SELECT);
+	WM_modalkeymap_add_item(keymap, LEFTMOUSE, KM_RELEASE, KM_ANY, 0, GESTURE_MODAL_SELECT);
 	
 	/* assign map to operators */
 	WM_modalkeymap_assign(keymap, "IMAGE_OT_sample_line");
@@ -4360,7 +3776,7 @@ static void gesture_straightline_modal_keymap(wmKeyConfig *keyconf)
 /* borderselect-like modal operators */
 static void gesture_border_modal_keymap(wmKeyConfig *keyconf)
 {
-	static EnumPropertyItem modal_items[] = {
+	static const EnumPropertyItem modal_items[] = {
 		{GESTURE_MODAL_CANCEL,  "CANCEL", 0, "Cancel", ""},
 		{GESTURE_MODAL_SELECT,  "SELECT", 0, "Select", ""},
 		{GESTURE_MODAL_DESELECT, "DESELECT", 0, "DeSelect", ""},
@@ -4426,7 +3842,7 @@ static void gesture_border_modal_keymap(wmKeyConfig *keyconf)
 /* zoom to border modal operators */
 static void gesture_zoom_border_modal_keymap(wmKeyConfig *keyconf)
 {
-	static EnumPropertyItem modal_items[] = {
+	static const EnumPropertyItem modal_items[] = {
 		{GESTURE_MODAL_CANCEL, "CANCEL", 0, "Cancel", ""},
 		{GESTURE_MODAL_IN,  "IN", 0, "In", ""},
 		{GESTURE_MODAL_OUT, "OUT", 0, "Out", ""},
@@ -4576,14 +3992,14 @@ void wm_window_keymap(wmKeyConfig *keyconf)
 }
 
 /* Generic itemf's for operators that take library args */
-static EnumPropertyItem *rna_id_itemf(bContext *UNUSED(C), PointerRNA *UNUSED(ptr), bool *r_free, ID *id, bool local)
+static const EnumPropertyItem *rna_id_itemf(bContext *UNUSED(C), PointerRNA *UNUSED(ptr), bool *r_free, ID *id, bool local)
 {
 	EnumPropertyItem item_tmp = {0}, *item = NULL;
 	int totitem = 0;
 	int i = 0;
 
 	for (; id; id = id->next) {
-		if (local == false || !ID_IS_LINKED_DATABLOCK(id)) {
+		if (local == false || !ID_IS_LINKED(id)) {
 			item_tmp.identifier = item_tmp.name = id->name + 2;
 			item_tmp.value = i++;
 			RNA_enum_item_add(&item, &totitem, &item_tmp);
@@ -4597,58 +4013,58 @@ static EnumPropertyItem *rna_id_itemf(bContext *UNUSED(C), PointerRNA *UNUSED(pt
 }
 
 /* can add more as needed */
-EnumPropertyItem *RNA_action_itemf(bContext *C, PointerRNA *ptr, PropertyRNA *UNUSED(prop), bool *r_free)
+const EnumPropertyItem *RNA_action_itemf(bContext *C, PointerRNA *ptr, PropertyRNA *UNUSED(prop), bool *r_free)
 {
 	return rna_id_itemf(C, ptr, r_free, C ? (ID *)CTX_data_main(C)->action.first : NULL, false);
 }
 #if 0 /* UNUSED */
-EnumPropertyItem *RNA_action_local_itemf(bContext *C, PointerRNA *ptr, PropertyRNA *UNUSED(prop), bool *r_free)
+const EnumPropertyItem *RNA_action_local_itemf(bContext *C, PointerRNA *ptr, PropertyRNA *UNUSED(prop), bool *r_free)
 {
 	return rna_id_itemf(C, ptr, r_free, C ? (ID *)CTX_data_main(C)->action.first : NULL, true);
 }
 #endif
 
-EnumPropertyItem *RNA_group_itemf(bContext *C, PointerRNA *ptr, PropertyRNA *UNUSED(prop), bool *r_free)
+const EnumPropertyItem *RNA_group_itemf(bContext *C, PointerRNA *ptr, PropertyRNA *UNUSED(prop), bool *r_free)
 {
 	return rna_id_itemf(C, ptr, r_free, C ? (ID *)CTX_data_main(C)->group.first : NULL, false);
 }
-EnumPropertyItem *RNA_group_local_itemf(bContext *C, PointerRNA *ptr, PropertyRNA *UNUSED(prop), bool *r_free)
+const EnumPropertyItem *RNA_group_local_itemf(bContext *C, PointerRNA *ptr, PropertyRNA *UNUSED(prop), bool *r_free)
 {
 	return rna_id_itemf(C, ptr, r_free, C ? (ID *)CTX_data_main(C)->group.first : NULL, true);
 }
 
-EnumPropertyItem *RNA_image_itemf(bContext *C, PointerRNA *ptr, PropertyRNA *UNUSED(prop), bool *r_free)
+const EnumPropertyItem *RNA_image_itemf(bContext *C, PointerRNA *ptr, PropertyRNA *UNUSED(prop), bool *r_free)
 {
 	return rna_id_itemf(C, ptr, r_free, C ? (ID *)CTX_data_main(C)->image.first : NULL, false);
 }
-EnumPropertyItem *RNA_image_local_itemf(bContext *C, PointerRNA *ptr, PropertyRNA *UNUSED(prop), bool *r_free)
+const EnumPropertyItem *RNA_image_local_itemf(bContext *C, PointerRNA *ptr, PropertyRNA *UNUSED(prop), bool *r_free)
 {
 	return rna_id_itemf(C, ptr, r_free, C ? (ID *)CTX_data_main(C)->image.first : NULL, true);
 }
 
-EnumPropertyItem *RNA_scene_itemf(bContext *C, PointerRNA *ptr, PropertyRNA *UNUSED(prop), bool *r_free)
+const EnumPropertyItem *RNA_scene_itemf(bContext *C, PointerRNA *ptr, PropertyRNA *UNUSED(prop), bool *r_free)
 {
 	return rna_id_itemf(C, ptr, r_free, C ? (ID *)CTX_data_main(C)->scene.first : NULL, false);
 }
-EnumPropertyItem *RNA_scene_local_itemf(bContext *C, PointerRNA *ptr, PropertyRNA *UNUSED(prop), bool *r_free)
+const EnumPropertyItem *RNA_scene_local_itemf(bContext *C, PointerRNA *ptr, PropertyRNA *UNUSED(prop), bool *r_free)
 {
 	return rna_id_itemf(C, ptr, r_free, C ? (ID *)CTX_data_main(C)->scene.first : NULL, true);
 }
 
-EnumPropertyItem *RNA_movieclip_itemf(bContext *C, PointerRNA *ptr, PropertyRNA *UNUSED(prop), bool *r_free)
+const EnumPropertyItem *RNA_movieclip_itemf(bContext *C, PointerRNA *ptr, PropertyRNA *UNUSED(prop), bool *r_free)
 {
 	return rna_id_itemf(C, ptr, r_free, C ? (ID *)CTX_data_main(C)->movieclip.first : NULL, false);
 }
-EnumPropertyItem *RNA_movieclip_local_itemf(bContext *C, PointerRNA *ptr, PropertyRNA *UNUSED(prop), bool *r_free)
+const EnumPropertyItem *RNA_movieclip_local_itemf(bContext *C, PointerRNA *ptr, PropertyRNA *UNUSED(prop), bool *r_free)
 {
 	return rna_id_itemf(C, ptr, r_free, C ? (ID *)CTX_data_main(C)->movieclip.first : NULL, true);
 }
 
-EnumPropertyItem *RNA_mask_itemf(bContext *C, PointerRNA *ptr, PropertyRNA *UNUSED(prop), bool *r_free)
+const EnumPropertyItem *RNA_mask_itemf(bContext *C, PointerRNA *ptr, PropertyRNA *UNUSED(prop), bool *r_free)
 {
 	return rna_id_itemf(C, ptr, r_free, C ? (ID *)CTX_data_main(C)->mask.first : NULL, false);
 }
-EnumPropertyItem *RNA_mask_local_itemf(bContext *C, PointerRNA *ptr, PropertyRNA *UNUSED(prop), bool *r_free)
+const EnumPropertyItem *RNA_mask_local_itemf(bContext *C, PointerRNA *ptr, PropertyRNA *UNUSED(prop), bool *r_free)
 {
 	return rna_id_itemf(C, ptr, r_free, C ? (ID *)CTX_data_main(C)->mask.first : NULL, true);
 }

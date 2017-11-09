@@ -386,7 +386,7 @@ static void outliner_add_scene_contents(SpaceOops *soops, ListBase *lb, Scene *s
 	outliner_add_element(soops,  lb, sce->world, te, 0, 0);
 
 #ifdef WITH_FREESTYLE
-	if (STREQ(sce->r.engine, RE_engine_id_BLENDER_RENDER) && (sce->r.mode & R_EDGE_FRS))
+	if (STREQ(sce->view_render->engine_id, RE_engine_id_BLENDER_RENDER) && (sce->r.mode & R_EDGE_FRS))
 		outliner_add_line_styles(soops, lb, sce, te);
 #endif
 }
@@ -444,7 +444,7 @@ static void outliner_add_object_contents(SpaceOops *soops, TreeElement *te, Tree
 
 	outliner_add_element(soops, &te->subtree, ob->poselib, te, 0, 0); // XXX FIXME.. add a special type for this
 	
-	if (ob->proxy && !ID_IS_LINKED_DATABLOCK(ob))
+	if (ob->proxy && !ID_IS_LINKED(ob))
 		outliner_add_element(soops, &te->subtree, ob->proxy, te, TSE_PROXY, 0);
 		
 	outliner_add_element(soops, &te->subtree, ob->gpd, te, 0, 0);
@@ -843,6 +843,8 @@ static void outliner_add_id_contents(SpaceOops *soops, TreeElement *te, TreeStor
 			}
 			break;
 		}
+		default:
+			break;
 	}
 }
 
@@ -1298,7 +1300,7 @@ static void outliner_add_library_contents(Main *mainvar, SpaceOops *soops, TreeE
 				ten = outliner_add_element(soops, &te->subtree, lbarray[a], NULL, TSE_ID_BASE, 0);
 				ten->directdata = lbarray[a];
 				
-				ten->name = (char *)BKE_idcode_to_name_plural(GS(id->name));
+				ten->name = BKE_idcode_to_name_plural(GS(id->name));
 				if (ten->name == NULL)
 					ten->name = "UNKNOWN";
 				
@@ -1338,7 +1340,7 @@ static void outliner_add_orphaned_datablocks(Main *mainvar, SpaceOops *soops)
 				ten = outliner_add_element(soops, &soops->tree, lbarray[a], NULL, TSE_ID_BASE, 0);
 				ten->directdata = lbarray[a];
 				
-				ten->name = (char *)BKE_idcode_to_name_plural(GS(id->name));
+				ten->name = BKE_idcode_to_name_plural(GS(id->name));
 				if (ten->name == NULL)
 					ten->name = "UNKNOWN";
 				

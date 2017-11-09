@@ -33,7 +33,7 @@ class RenderFreestyleButtonsPanel:
     def poll(cls, context):
         scene = context.scene
         with_freestyle = bpy.app.build_options.freestyle
-        return scene and with_freestyle and(scene.render.engine in cls.COMPAT_ENGINES)
+        return scene and with_freestyle and(scene.view_render.engine in cls.COMPAT_ENGINES)
 
 
 class RENDER_PT_freestyle(RenderFreestyleButtonsPanel, Panel):
@@ -75,7 +75,7 @@ class RenderLayerFreestyleButtonsPanel:
         with_freestyle = bpy.app.build_options.freestyle
 
         return (scene and with_freestyle and rd.use_freestyle and
-                rd.layers.active and(scene.render.engine in cls.COMPAT_ENGINES))
+                rd.layers.active and(scene.view_render.engine in cls.COMPAT_ENGINES))
 
 
 class RenderLayerFreestyleEditorButtonsPanel(RenderLayerFreestyleButtonsPanel):
@@ -123,7 +123,7 @@ class RENDERLAYER_PT_freestyle(RenderLayerFreestyleButtonsPanel, Panel):
         layout.active = rl.use_freestyle
 
         row = layout.row()
-        layout.prop(freestyle, "mode", text="Control mode")
+        layout.prop(freestyle, "mode", text="Control Mode")
         layout.prop(freestyle, "use_view_map_cache", text="View Map Cache")
         layout.label(text="Edge Detection Options:")
 
@@ -183,7 +183,10 @@ class RENDERLAYER_PT_freestyle_lineset(RenderLayerFreestyleEditorButtonsPanel, P
     def draw(self, context):
         layout = self.layout
 
-        rd = context.scene.render
+        scene = context.scene
+        rd = scene.render
+        view_render = scene.view_render
+
         rl = rd.layers.active
         freestyle = rl.freestyle_settings
         lineset = freestyle.linesets.active
@@ -285,7 +288,7 @@ class RENDERLAYER_PT_freestyle_linestyle(RenderLayerFreestyleEditorButtonsPanel,
 
     def draw_modifier_box_error(self, box, modifier, message):
         row = box.row()
-        row.label(text=message, icon="ERROR")
+        row.label(text=message, icon='ERROR')
 
     def draw_modifier_common(self, box, modifier):
         row = box.row()
@@ -779,7 +782,7 @@ class RENDERLAYER_PT_freestyle_linestyle(RenderLayerFreestyleEditorButtonsPanel,
             layout.separator()
 
             row = layout.row()
-            if rd.use_shading_nodes:
+            if view_render.use_shading_nodes:
                 row.prop(linestyle, "use_nodes")
             else:
                 row.prop(linestyle, "use_texture")
@@ -810,7 +813,7 @@ class MaterialFreestyleButtonsPanel:
         material = context.material
         with_freestyle = bpy.app.build_options.freestyle
         return with_freestyle and material and scene and scene.render.use_freestyle and \
-            (scene.render.engine in cls.COMPAT_ENGINES)
+            (scene.view_render.engine in cls.COMPAT_ENGINES)
 
 
 class MATERIAL_PT_freestyle_line(MaterialFreestyleButtonsPanel, Panel):

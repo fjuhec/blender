@@ -52,6 +52,7 @@ extern "C" {
 #include "BKE_collision.h"
 #include "BKE_effect.h"
 #include "BKE_modifier.h"
+#include "BKE_scene.h"
 } /* extern "C" */
 
 #include "DEG_depsgraph.h"
@@ -205,10 +206,18 @@ void DEG_graph_build_from_scene(Depsgraph *graph, Main *bmain, Scene *scene)
 
 	DEG::Depsgraph *deg_graph = reinterpret_cast<DEG::Depsgraph *>(graph);
 
+	/* TODO(sergey): This is a bit tricky, but ensures that all the data
+	 * is evaluated properly when depsgraph is becoming "visible".
+	 *
+	 * This now could happen for both visible scene is changed and extra
+	 * dependency graph was created for render engine.
+	 */
+	const bool need_on_visible_update = (deg_graph->scene == NULL);
+
 	/* 1) Generate all the nodes in the graph first */
 	DEG::DepsgraphNodeBuilder node_builder(bmain, deg_graph);
 	node_builder.begin_build(bmain);
-	node_builder.build_scene(bmain, scene);
+	node_builder.build_scene(bmain, scene, DEG::DEG_ID_LINKED_DIRECTLY);
 
 	/* 2) Hook up relationships between operations - to determine evaluation
 	 *    order.
@@ -216,9 +225,9 @@ void DEG_graph_build_from_scene(Depsgraph *graph, Main *bmain, Scene *scene)
 	DEG::DepsgraphRelationBuilder relation_builder(deg_graph);
 	relation_builder.begin_build(bmain);
 	relation_builder.build_scene(bmain, scene);
-#ifdef WITH_COPY_ON_WRITE
-	relation_builder.build_copy_on_write_relations();
-#endif
+	if (DEG_depsgraph_use_copy_on_write()) {
+		relation_builder.build_copy_on_write_relations();
+	}
 
 	/* Detect and solve cycles. */
 	DEG::deg_graph_detect_cycles(deg_graph);
@@ -233,7 +242,7 @@ void DEG_graph_build_from_scene(Depsgraph *graph, Main *bmain, Scene *scene)
 	}
 
 	/* 4) Flush visibility layer and re-schedule nodes for update. */
-	DEG::deg_graph_build_finalize(deg_graph);
+	DEG::deg_graph_build_finalize(bmain, deg_graph);
 
 #if 0
 	if (!DEG_debug_consistency_check(deg_graph)) {
@@ -245,6 +254,13 @@ void DEG_graph_build_from_scene(Depsgraph *graph, Main *bmain, Scene *scene)
 #ifdef DEBUG_TIME
 	TIMEIT_END(DEG_graph_build_from_scene);
 #endif
+
+	/* Relations are up to date. */
+	deg_graph->need_update = false;
+
+	if (need_on_visible_update) {
+		DEG_graph_on_visible_update(bmain, graph);
+	}
 }
 
 /* Tag graph relations for update. */
@@ -254,60 +270,31 @@ void DEG_graph_tag_relations_update(Depsgraph *graph)
 	deg_graph->need_update = true;
 }
 
+/* Create or update relations in the specified graph. */
+void DEG_graph_relations_update(Depsgraph *graph, Main *bmain, Scene *scene)
+{
+	DEG::Depsgraph *deg_graph = (DEG::Depsgraph *)graph;
+	if (!deg_graph->need_update) {
+		/* Graph is up to date, nothing to do. */
+		return;
+	}
+	DEG_graph_build_from_scene(graph, bmain, scene);
+}
+
 /* Tag all relations for update. */
 void DEG_relations_tag_update(Main *bmain)
 {
 	DEG_DEBUG_PRINTF("%s: Tagging relations for update.\n", __func__);
-	for (Scene *scene = (Scene *)bmain->scene.first;
-	     scene != NULL;
-	     scene = (Scene *)scene->id.next)
-	{
-		if (scene->depsgraph_legacy != NULL) {
-			DEG_graph_tag_relations_update(scene->depsgraph_legacy);
+	LINKLIST_FOREACH(Scene *, scene, &bmain->scene) {
+		LINKLIST_FOREACH(SceneLayer *, scene_layer, &scene->render_layers) {
+			Depsgraph *depsgraph =
+			        (Depsgraph *)BKE_scene_get_depsgraph(scene,
+			                                             scene_layer,
+			                                             false);
+			if (depsgraph != NULL) {
+				DEG_graph_tag_relations_update(depsgraph);
+			}
 		}
-	}
-}
-
-/* Create new graph if didn't exist yet,
- * or update relations if graph was tagged for update.
- */
-void DEG_scene_relations_update(Main *bmain, Scene *scene)
-{
-	if (scene->depsgraph_legacy == NULL) {
-		/* Rebuild graph from scratch and exit. */
-		scene->depsgraph_legacy = DEG_graph_new();
-		DEG_graph_build_from_scene(scene->depsgraph_legacy, bmain, scene);
-		return;
-	}
-
-	DEG::Depsgraph *graph = reinterpret_cast<DEG::Depsgraph *>(scene->depsgraph_legacy);
-	if (!graph->need_update) {
-		/* Graph is up to date, nothing to do. */
-		return;
-	}
-
-	/* Build new nodes and relations. */
-	DEG_graph_build_from_scene(reinterpret_cast< ::Depsgraph * >(graph),
-	                           bmain,
-	                           scene);
-
-	graph->need_update = false;
-}
-
-/* Rebuild dependency graph only for a given scene. */
-void DEG_scene_relations_rebuild(Main *bmain, Scene *scene)
-{
-	if (scene->depsgraph_legacy != NULL) {
-		DEG_graph_tag_relations_update(scene->depsgraph_legacy);
-	}
-	DEG_scene_relations_update(bmain, scene);
-}
-
-void DEG_scene_graph_free(Scene *scene)
-{
-	if (scene->depsgraph_legacy) {
-		DEG_graph_free(scene->depsgraph_legacy);
-		scene->depsgraph_legacy = NULL;
 	}
 }
 

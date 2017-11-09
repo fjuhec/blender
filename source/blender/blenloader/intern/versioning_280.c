@@ -100,6 +100,14 @@ static void do_version_workspaces_create_from_screens(Main *bmain)
 		BKE_workspace_layout_add(workspace, screen, screen->id.name + 2);
 		BKE_workspace_render_layer_set(workspace, layer);
 
+#ifdef WITH_CLAY_ENGINE
+		BLI_strncpy(workspace->view_render.engine_id, RE_engine_id_BLENDER_CLAY,
+		            sizeof(workspace->view_render.engine_id));
+#else
+		BLI_strncpy(workspace->view_render.engine_id, RE_engine_id_BLENDER_EEVEE,
+		            sizeof(workspace->view_render.engine_id));
+#endif
+
 		transform_orientations = BKE_workspace_transform_orientations_get(workspace);
 		BLI_duplicatelist(transform_orientations, &screen->scene->transform_spaces);
 	}
@@ -192,7 +200,6 @@ void do_versions_after_linking_280(Main *main)
 					for (SceneRenderLayer *srl = scene->r.layers.first; srl; srl = srl->next) {
 
 						SceneLayer *sl = BKE_scene_layer_add(scene, srl->name);
-						BKE_scene_layer_engine_set(sl, scene->r.engine);
 
 						if (srl->mat_override) {
 							BKE_collection_override_datablock_add((LayerCollection *)sl->layer_collections.first, "material", (ID *)srl->mat_override);
@@ -377,13 +384,13 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 	}
 
 	if (!MAIN_VERSION_ATLEAST(main, 280, 1)) {
-		if (!DNA_struct_elem_find(fd->filesdna, "Lamp", "float", "bleedexp"))	{
+		if (!DNA_struct_elem_find(fd->filesdna, "Lamp", "float", "bleedexp")) {
 			for (Lamp *la = main->lamp.first; la; la = la->id.next) {
-				la->bleedexp = 120.0f;
+				la->bleedexp = 2.5f;
 			}
 		}
 
-		if (!DNA_struct_elem_find(fd->filesdna, "GPUDOFSettings", "float", "ratio"))	{
+		if (!DNA_struct_elem_find(fd->filesdna, "GPUDOFSettings", "float", "ratio")) {
 			for (Camera *ca = main->camera.first; ca; ca = ca->id.next) {
 				ca->gpu_dof.ratio = 1.0f;
 			}
@@ -411,7 +418,9 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 				}
 			}
 		}
+	}
 
+	{
 		if (!DNA_struct_elem_find(fd->filesdna, "View3D", "short", "custom_orientation_index")) {
 			for (bScreen *screen = main->screen.first; screen; screen = screen->id.next) {
 				for (ScrArea *area = screen->areabase.first; area; area = area->next) {
@@ -428,6 +437,24 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 						}
 					}
 				}
+			}
+		}
+
+		if (!DNA_struct_elem_find(fd->filesdna, "Lamp", "float", "cascade_max_dist")) {
+			for (Lamp *la = main->lamp.first; la; la = la->id.next) {
+				la->cascade_max_dist = 1000.0f;
+				la->cascade_count = 4;
+				la->cascade_exponent = 0.8f;
+				la->cascade_fade = 0.1f;
+			}
+		}
+
+		if (!DNA_struct_elem_find(fd->filesdna, "Lamp", "float", "contact_dist")) {
+			for (Lamp *la = main->lamp.first; la; la = la->id.next) {
+				la->contact_dist = 1.0f;
+				la->contact_bias = 0.03f;
+				la->contact_spread = 0.2f;
+				la->contact_thickness = 0.5f;
 			}
 		}
 	}
@@ -450,7 +477,7 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 			if (ntree->type == NTREE_SHADER) {
 				for (bNode *node = ntree->nodes.first; node; node = node->next) {
 					if (node->type == 194 /* SH_NODE_EEVEE_METALLIC */ &&
-						STREQ(node->idname, "ShaderNodeOutputMetallic"))
+					    STREQ(node->idname, "ShaderNodeOutputMetallic"))
 					{
 						BLI_strncpy(node->idname, "ShaderNodeEeveeMetallic", sizeof(node->idname));
 						error |= NTREE_DOVERSION_NEED_OUTPUT;
@@ -462,14 +489,14 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 					}
 
 					else if (node->type == 196 /* SH_NODE_OUTPUT_EEVEE_MATERIAL */ &&
-							 STREQ(node->idname, "ShaderNodeOutputEeveeMaterial"))
+					         STREQ(node->idname, "ShaderNodeOutputEeveeMaterial"))
 					{
 						node->type = SH_NODE_OUTPUT_MATERIAL;
 						BLI_strncpy(node->idname, "ShaderNodeOutputMaterial", sizeof(node->idname));
 					}
 
 					else if (node->type == 194 /* SH_NODE_EEVEE_METALLIC */ &&
-							 STREQ(node->idname, "ShaderNodeEeveeMetallic"))
+					         STREQ(node->idname, "ShaderNodeEeveeMetallic"))
 					{
 						node->type = SH_NODE_BSDF_PRINCIPLED;
 						BLI_strncpy(node->idname, "ShaderNodeBsdfPrincipled", sizeof(node->idname));
@@ -488,6 +515,19 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 		if (error & NTREE_DOVERSION_TRANSPARENCY_EMISSION) {
 			BKE_report(fd->reports, RPT_ERROR, "Eevee material conversion problem. Error in console");
 			printf("You need to combine transparency and emission shaders to the converted Principled shader nodes.\n");
+		}
+	}
+
+	{
+		if (!DNA_struct_elem_find(fd->filesdna, "Scene", "ViewRender", "view_render")) {
+			for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
+				BLI_strncpy_utf8(scene->view_render.engine_id, scene->r.engine,
+				                 sizeof(scene->view_render.engine_id));
+			}
+
+			for (WorkSpace *workspace = main->workspaces.first; workspace; workspace = workspace->id.next) {
+				BKE_viewrender_init(&workspace->view_render);
+			}
 		}
 	}
 }

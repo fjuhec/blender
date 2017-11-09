@@ -301,6 +301,8 @@ static void time_draw_idblock_keyframes(View2D *v2d, ID *id, short onlysel, cons
 		case ID_CF:
 			cachefile_to_keylist(&ads, (CacheFile *)id, &keys, NULL);
 			break;
+		default:
+			break;
 	}
 		
 	/* build linked-list for searching */
@@ -331,9 +333,7 @@ static void time_draw_idblock_keyframes(View2D *v2d, ID *id, short onlysel, cons
 
 		immBeginAtMost(GWN_PRIM_LINES, max_len * 2);
 
-		for (; (ak) && (ak->cfra <= v2d->cur.xmax);
-			ak = ak->next)
-		{
+		for (; (ak) && (ak->cfra <= v2d->cur.xmax); ak = ak->next) {
 			immVertex2f(pos, ak->cfra, ymin);
 			immVertex2f(pos, ak->cfra, ymax);
 		}
@@ -468,7 +468,8 @@ static void time_draw_keyframes(const bContext *C, ARegion *ar)
 /* ---------------- */
 
 /* editor level listener */
-static void time_listener(bScreen *UNUSED(sc), ScrArea *sa, wmNotifier *wmn, const Scene *UNUSED(scene))
+static void time_listener(bScreen *UNUSED(sc), ScrArea *sa, wmNotifier *wmn, Scene *UNUSED(scene),
+                          WorkSpace *UNUSED(workspace))
 {
 
 	/* mainly for updating cache display */

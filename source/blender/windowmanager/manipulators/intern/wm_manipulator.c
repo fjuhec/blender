@@ -172,8 +172,11 @@ void WM_manipulator_free(wmManipulator *mpr)
 	}
 #endif
 
-	if (mpr->op_data.ptr.data) {
-		WM_operator_properties_free(&mpr->op_data.ptr);
+	if (mpr->op_data) {
+		for (int i = 0; i < mpr->op_data_len; i++) {
+			WM_operator_properties_free(&mpr->op_data[i].ptr);
+		}
+		MEM_freeN(mpr->op_data);
 	}
 
 	if (mpr->ptr != NULL) {
@@ -204,7 +207,7 @@ void WM_manipulator_unlink(ListBase *manipulatorlist, wmManipulatorMap *mmap, wm
 		wm_manipulatormap_highlight_set(mmap, C, NULL, 0);
 	}
 	if (mpr->state & WM_MANIPULATOR_STATE_MODAL) {
-		wm_manipulatormap_modal_set(mmap, C, NULL, NULL);
+		wm_manipulatormap_modal_set(mmap, C, mpr, NULL, false);
 	}
 	/* Unlink instead of setting so we don't run callbacks. */
 	if (mpr->state & WM_MANIPULATOR_STATE_SELECT) {
@@ -228,22 +231,38 @@ void WM_manipulator_unlink(ListBase *manipulatorlist, wmManipulatorMap *mmap, wm
  *
  * \{ */
 
-
-PointerRNA *WM_manipulator_set_operator(
-        wmManipulator *mpr, wmOperatorType *ot, IDProperty *properties)
+struct wmManipulatorOpElem *WM_manipulator_operator_get(
+        wmManipulator *mpr, int part_index)
 {
-	mpr->op_data.type = ot;
-
-	if (mpr->op_data.ptr.data) {
-		WM_operator_properties_free(&mpr->op_data.ptr);
+	if (mpr->op_data && ((part_index >= 0) && (part_index < mpr->op_data_len))) {
+		return &mpr->op_data[part_index];
 	}
-	WM_operator_properties_create_ptr(&mpr->op_data.ptr, ot);
+	return NULL;
+}
+
+PointerRNA *WM_manipulator_operator_set(
+        wmManipulator *mpr, int part_index,
+        wmOperatorType *ot, IDProperty *properties)
+{
+	BLI_assert(part_index < 255);
+	/* We could pre-allocate these but using multiple is such a rare thing. */
+	if (part_index >= mpr->op_data_len) {
+		mpr->op_data_len = part_index + 1;
+		mpr->op_data = MEM_recallocN(mpr->op_data, sizeof(*mpr->op_data) * mpr->op_data_len);
+	}
+	wmManipulatorOpElem *mpop = &mpr->op_data[part_index];
+	mpop->type = ot;
+
+	if (mpop->ptr.data) {
+		WM_operator_properties_free(&mpop->ptr);
+	}
+	WM_operator_properties_create_ptr(&mpop->ptr, ot);
 
 	if (properties) {
-		mpr->op_data.ptr.data = properties;
+		mpop->ptr.data = properties;
 	}
 
-	return &mpr->op_data.ptr;
+	return &mpop->ptr;
 }
 
 static void wm_manipulator_set_matrix_rotation_from_z_axis__internal(
@@ -522,16 +541,25 @@ void WM_manipulator_calc_matrix_final_params(
 	const float *scale_final = params->scale_final ? params->scale_final : &mpr->scale_final;
 
 	float final_matrix[4][4];
+	if (params->matrix_basis == NULL && mpr->type->matrix_basis_get) {
+		mpr->type->matrix_basis_get(mpr, final_matrix);
+	}
+	else {
+		copy_m4_m4(final_matrix, matrix_basis);
+	}
 
-	copy_m4_m4(final_matrix, matrix_basis);
-
-	if (mpr->flag & WM_MANIPULATOR_DRAW_OFFSET_SCALE) {
-		mul_mat3_m4_fl(final_matrix, *scale_final);
+	if (mpr->flag & WM_MANIPULATOR_DRAW_NO_SCALE) {
 		mul_m4_m4m4(final_matrix, final_matrix, matrix_offset);
 	}
 	else {
-		mul_m4_m4m4(final_matrix, final_matrix, matrix_offset);
-		mul_mat3_m4_fl(final_matrix, *scale_final);
+		if (mpr->flag & WM_MANIPULATOR_DRAW_OFFSET_SCALE) {
+			mul_mat3_m4_fl(final_matrix, *scale_final);
+			mul_m4_m4m4(final_matrix, final_matrix, matrix_offset);
+		}
+		else {
+			mul_m4_m4m4(final_matrix, final_matrix, matrix_offset);
+			mul_mat3_m4_fl(final_matrix, *scale_final);
+		}
 	}
 
 	mul_m4_m4m4(r_mat, matrix_space, final_matrix);
@@ -542,10 +570,10 @@ void WM_manipulator_calc_matrix_final(const wmManipulator *mpr, float r_mat[4][4
 	WM_manipulator_calc_matrix_final_params(
 	        mpr,
 	        &((struct WM_ManipulatorMatrixParams) {
-	            .matrix_space = mpr->matrix_space,
-	            .matrix_basis = mpr->matrix_basis,
-	            .matrix_offset = mpr->matrix_offset,
-	            .scale_final = &mpr->scale_final,
+	            .matrix_space = NULL,
+	            .matrix_basis = NULL,
+	            .matrix_offset = NULL,
+	            .scale_final = NULL,
 	        }), r_mat
 	);
 }

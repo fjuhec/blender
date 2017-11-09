@@ -35,9 +35,11 @@
 #include "DNA_space_types.h"
 #include "DNA_view2d_types.h"
 #include "DNA_view3d_types.h"
+#include "DNA_workspace_types.h"
 
 #include "BLI_compiler_attrs.h"
 
+struct Depsgraph;
 struct wmWindowManager;
 struct wmWindow;
 struct wmNotifier;
@@ -47,6 +49,7 @@ struct WorkSpace;
 struct WorkSpaceInstanceHook;
 struct bContext;
 struct Scene;
+struct SceneLayer;
 struct bScreen;
 struct ARegion;
 struct uiBlock;
@@ -92,7 +95,8 @@ int     ED_area_header_switchbutton(const struct bContext *C, struct uiBlock *bl
 void    ED_area_initialize(struct wmWindowManager *wm, struct wmWindow *win, struct ScrArea *sa);
 void    ED_area_exit(struct bContext *C, struct ScrArea *sa);
 int     ED_screen_area_active(const struct bContext *C);
-void    ED_area_do_listen(struct bScreen *sc, ScrArea *sa, struct wmNotifier *note, const Scene *scene);
+void    ED_area_do_listen(struct bScreen *sc, ScrArea *sa, struct wmNotifier *note, Scene *scene,
+                          struct WorkSpace *workspace);
 void    ED_area_tag_redraw(ScrArea *sa);
 void    ED_area_tag_redraw_regiontype(ScrArea *sa, int type);
 void    ED_area_tag_refresh(ScrArea *sa);
@@ -110,8 +114,11 @@ void    ED_screen_draw(struct wmWindow *win);
 void    ED_screen_refresh(struct wmWindowManager *wm, struct wmWindow *win);
 void    ED_screen_do_listen(struct bContext *C, struct wmNotifier *note);
 bool    ED_screen_change(struct bContext *C, struct bScreen *sc);
-void    ED_screen_update_after_scene_change(const struct bScreen *screen, struct Scene *scene_new);
-void    ED_screen_set_subwinactive(struct bContext *C, struct wmEvent *event);
+void    ED_screen_update_after_scene_change(
+        const struct bScreen *screen,
+        struct Scene *scene_new,
+        struct SceneLayer *scene_layer);
+void    ED_screen_set_subwinactive(struct bContext *C, const struct wmEvent *event);
 void    ED_screen_exit(struct bContext *C, struct wmWindow *window, struct bScreen *screen);
 void    ED_screen_animation_timer(struct bContext *C, int redraws, int refresh, int sync, int enable);
 void    ED_screen_animation_timer_update(struct bScreen *screen, int redraws, int refresh);
@@ -129,7 +136,8 @@ void    ED_screen_preview_render(const struct bScreen *screen, int size_x, int s
 struct WorkSpace *ED_workspace_add(
         struct Main *bmain,
         const char *name,
-        SceneLayer *act_render_layer) ATTR_NONNULL();
+        SceneLayer *act_render_layer,
+        struct ViewRender *view_render) ATTR_NONNULL();
 bool ED_workspace_change(
         struct WorkSpace *workspace_new,
         struct bContext *C,
@@ -140,7 +148,7 @@ struct WorkSpace *ED_workspace_duplicate(
 bool ED_workspace_delete(
         struct WorkSpace *workspace,
         struct Main *bmain, struct bContext *C,
-        struct wmWindowManager *wm, struct wmWindow *win) ATTR_NONNULL();
+        struct wmWindowManager *wm) ATTR_NONNULL();
 void ED_workspace_scene_data_sync(
         struct WorkSpaceInstanceHook *hook, Scene *scene) ATTR_NONNULL();
 void ED_workspace_render_layer_unset(
@@ -160,7 +168,7 @@ bool ED_workspace_layout_cycle(
         struct bContext *C) ATTR_NONNULL();
 
 /* anim */
-void    ED_update_for_newframe(struct Main *bmain, struct Scene *scene, int mute);
+void    ED_update_for_newframe(struct Main *bmain, struct Scene *scene, struct Depsgraph *depsgraph);
 
 void    ED_refresh_viewport_fps(struct bContext *C);
 int		ED_screen_animation_play(struct bContext *C, int sync, int mode);
@@ -227,6 +235,7 @@ int     ED_operator_posemode_context(struct bContext *C);
 int     ED_operator_posemode(struct bContext *C);
 int     ED_operator_posemode_local(struct bContext *C);
 int     ED_operator_mask(struct bContext *C);
+int     ED_operator_camera(struct bContext *C);
 
 
 /* Cache display helpers */

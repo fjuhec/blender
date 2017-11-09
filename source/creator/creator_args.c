@@ -44,6 +44,8 @@
 #include "BLI_fileops.h"
 #include "BLI_mempool.h"
 
+#include "BLO_readfile.h"  /* only for BLO_has_bfile_extension */
+
 #include "BKE_blender_version.h"
 #include "BKE_context.h"
 
@@ -86,6 +88,9 @@
 #ifdef WITH_CYCLES_LOGGING
 #  include "CCL_api.h"
 #endif
+
+#include "DEG_depsgraph.h"
+#include "DEG_depsgraph_build.h"
 
 #include "creator_intern.h"  /* own include */
 
@@ -422,6 +427,25 @@ static void arg_py_context_restore(
 
 /** \} */
 
+static void render_set_depgraph(bContext *C, Render *re)
+{
+	/* TODO(sergey): For until we make depsgraph to be created and
+	 * handled by render pipeline.
+	 */
+	Main *bmain = CTX_data_main(C);
+	Scene *scene = CTX_data_scene(C);
+	/* NOTE: This is STUPID to use first layer, but is ok for now
+	 * (at least for until depsgraph becomes per-layer).
+	 * Apparently, CTX_data_layer is crashing here (context's layer
+	 * is NULL for old files, and there is no workspace).
+	 */
+	SceneLayer *scene_layer = scene->render_layers.first;
+	Depsgraph *depsgraph = BKE_scene_get_depsgraph(scene, scene_layer, true);
+	DEG_graph_relations_update(depsgraph, bmain, scene);
+	DEG_graph_on_visible_update(bmain, depsgraph);
+
+	RE_SetDepsgraph(re, depsgraph);
+}
 
 /* -------------------------------------------------------------------- */
 
@@ -439,7 +463,7 @@ static void arg_py_context_restore(
  * \{ */
 
 static const char arg_handle_print_version_doc[] =
-"\n\tPrint Blender version and exit"
+"\n\tPrint Blender version and exit."
 ;
 static int arg_handle_print_version(int UNUSED(argc), const char **UNUSED(argv), void *UNUSED(data))
 {
@@ -463,10 +487,10 @@ static int arg_handle_print_version(int UNUSED(argc), const char **UNUSED(argv),
 }
 
 static const char arg_handle_print_help_doc[] =
-"\n\tPrint this help text and exit"
+"\n\tPrint this help text and exit."
 ;
 static const char arg_handle_print_help_doc_win32[] =
-"\n\tPrint this help text and exit (windows only)"
+"\n\tPrint this help text and exit (windows only)."
 ;
 static int arg_handle_print_help(int UNUSED(argc), const char **UNUSED(argv), void *data)
 {
@@ -548,6 +572,7 @@ static int arg_handle_print_help(int UNUSED(argc), const char **UNUSED(argv), vo
 	BLI_argsPrintArgDoc(ba, "--debug-depsgraph-no-threads");
 
 	BLI_argsPrintArgDoc(ba, "--debug-gpumem");
+	BLI_argsPrintArgDoc(ba, "--debug-gpu-shaders");
 	BLI_argsPrintArgDoc(ba, "--debug-wm");
 	BLI_argsPrintArgDoc(ba, "--debug-all");
 	BLI_argsPrintArgDoc(ba, "--debug-io");
@@ -582,6 +607,7 @@ static int arg_handle_print_help(int UNUSED(argc), const char **UNUSED(argv), vo
 
 	printf("\n");
 	printf("Experimental Features:\n");
+	BLI_argsPrintArgDoc(ba, "--enable-copy-on-write");
 
 	/* Other options _must_ be last (anything not handled will show here) */
 	printf("\n");
@@ -592,16 +618,16 @@ static int arg_handle_print_help(int UNUSED(argc), const char **UNUSED(argv), vo
 	printf("Argument Parsing:\n");
 	printf("\tArguments must be separated by white space, eg:\n");
 	printf("\t# blender -ba test.blend\n");
-	printf("\t...will ignore the 'a'\n");
+	printf("\t...will ignore the 'a'.\n");
 	printf("\t# blender -b test.blend -f8\n");
-	printf("\t...will ignore '8' because there is no space between the '-f' and the frame value\n\n");
+	printf("\t...will ignore '8' because there is no space between the '-f' and the frame value.\n\n");
 
 	printf("Argument Order:\n");
 	printf("\tArguments are executed in the order they are given. eg:\n");
 	printf("\t# blender --background test.blend --render-frame 1 --render-output '/tmp'\n");
-	printf("\t...will not render to '/tmp' because '--render-frame 1' renders before the output path is set\n");
+	printf("\t...will not render to '/tmp' because '--render-frame 1' renders before the output path is set.\n");
 	printf("\t# blender --background --render-output /tmp test.blend --render-frame 1\n");
-	printf("\t...will not render to '/tmp' because loading the blend-file overwrites the render output that was set\n");
+	printf("\t...will not render to '/tmp' because loading the blend-file overwrites the render output that was set.\n");
 	printf("\t# blender --background test.blend --render-output /tmp --render-frame 1\n");
 	printf("\t...works as expected.\n\n");
 
@@ -611,7 +637,7 @@ static int arg_handle_print_help(int UNUSED(argc), const char **UNUSED(argv), vo
 	printf("  $BLENDER_SYSTEM_SCRIPTS   Directory for system wide scripts.\n");
 	printf("  $BLENDER_USER_DATAFILES   Directory for user data files (icons, translations, ..).\n");
 	printf("  $BLENDER_SYSTEM_DATAFILES Directory for system wide data files.\n");
-	printf("  $BLENDER_SYSTEM_PYTHON    Directory for system python libraries.\n");
+	printf("  $BLENDER_SYSTEM_PYTHON    Directory for system Python libraries.\n");
 #ifdef WIN32
 	printf("  $TEMP                     Store temporary files here.\n");
 #else
@@ -620,7 +646,7 @@ static int arg_handle_print_help(int UNUSED(argc), const char **UNUSED(argv), vo
 #ifdef WITH_SDL
 	printf("  $SDL_AUDIODRIVER          LibSDL audio driver - alsa, esd, dma.\n");
 #endif
-	printf("  $PYTHONHOME               Path to the python directory, eg. /usr/lib/python.\n\n");
+	printf("  $PYTHONHOME               Path to the Python directory, eg. /usr/lib/python.\n\n");
 
 	exit(0);
 
@@ -628,7 +654,7 @@ static int arg_handle_print_help(int UNUSED(argc), const char **UNUSED(argv), vo
 }
 
 static const char arg_handle_arguments_end_doc[] =
-"\n\tEnds option processing, following arguments passed unchanged. Access via Python's 'sys.argv'"
+"\n\tEnd option processing, following arguments passed unchanged. Access via Python's 'sys.argv'."
 ;
 static int arg_handle_arguments_end(int UNUSED(argc), const char **UNUSED(argv), void *UNUSED(data))
 {
@@ -645,10 +671,10 @@ static int arg_handle_arguments_end(int UNUSED(argc), const char **UNUSED(argv),
 #endif
 
 static const char arg_handle_python_set_doc_enable[] =
-"\n\tEnable automatic Python script execution" PY_ENABLE_AUTO
+"\n\tEnable automatic Python script execution" PY_ENABLE_AUTO "."
 ;
 static const char arg_handle_python_set_doc_disable[] =
-"\n\tDisable automatic Python script execution (pydrivers & startup scripts)" PY_DISABLE_AUTO
+"\n\tDisable automatic Python script execution (pydrivers & startup scripts)" PY_DISABLE_AUTO "."
 ;
 #undef PY_ENABLE_AUTO
 #undef PY_DISABLE_AUTO
@@ -666,7 +692,7 @@ static int arg_handle_python_set(int UNUSED(argc), const char **UNUSED(argv), vo
 }
 
 static const char arg_handle_crash_handler_disable_doc[] =
-"\n\tDisable the crash handler"
+"\n\tDisable the crash handler."
 ;
 static int arg_handle_crash_handler_disable(int UNUSED(argc), const char **UNUSED(argv), void *UNUSED(data))
 {
@@ -675,7 +701,7 @@ static int arg_handle_crash_handler_disable(int UNUSED(argc), const char **UNUSE
 }
 
 static const char arg_handle_abort_handler_disable_doc[] =
-"\n\tDisable the abort handler"
+"\n\tDisable the abort handler."
 ;
 static int arg_handle_abort_handler_disable(int UNUSED(argc), const char **UNUSED(argv), void *UNUSED(data))
 {
@@ -684,7 +710,7 @@ static int arg_handle_abort_handler_disable(int UNUSED(argc), const char **UNUSE
 }
 
 static const char arg_handle_background_mode_set_doc[] =
-"\n\tRun in background (often used for UI-less rendering)"
+"\n\tRun in background (often used for UI-less rendering)."
 ;
 static int arg_handle_background_mode_set(int UNUSED(argc), const char **UNUSED(argv), void *UNUSED(data))
 {
@@ -694,7 +720,7 @@ static int arg_handle_background_mode_set(int UNUSED(argc), const char **UNUSED(
 
 static const char arg_handle_debug_mode_set_doc[] =
 "\n"
-"\tTurn debugging on\n"
+"\tTurn debugging on.\n"
 "\n"
 "\t* Enables memory error detection\n"
 "\t* Disables mouse grab (to interact with a debugger in some cases)\n"
@@ -719,30 +745,30 @@ static int arg_handle_debug_mode_set(int UNUSED(argc), const char **UNUSED(argv)
 
 #ifdef WITH_FFMPEG
 static const char arg_handle_debug_mode_generic_set_doc_ffmpeg[] =
-"\n\tEnable debug messages from FFmpeg library";
+"\n\tEnable debug messages from FFmpeg library.";
 #endif
 #ifdef WITH_FREESTYLE
 static const char arg_handle_debug_mode_generic_set_doc_freestyle[] =
-"\n\tEnable debug messages for FreeStyle";
+"\n\tEnable debug messages for FreeStyle.";
 #endif
 static const char arg_handle_debug_mode_generic_set_doc_python[] =
-"\n\tEnable debug messages for Python";
+"\n\tEnable debug messages for Python.";
 static const char arg_handle_debug_mode_generic_set_doc_events[] =
-"\n\tEnable debug messages for the event system";
+"\n\tEnable debug messages for the event system.";
 static const char arg_handle_debug_mode_generic_set_doc_handlers[] =
-"\n\tEnable debug messages for event handling";
+"\n\tEnable debug messages for event handling.";
 static const char arg_handle_debug_mode_generic_set_doc_wm[] =
-"\n\tEnable debug messages for the window manager, also prints every operator call";
+"\n\tEnable debug messages for the window manager, also prints every operator call.";
 static const char arg_handle_debug_mode_generic_set_doc_jobs[] =
 "\n\tEnable time profiling for background jobs.";
 static const char arg_handle_debug_mode_generic_set_doc_gpu[] =
 "\n\tEnable gpu debug context and information for OpenGL 4.3+.";
 static const char arg_handle_debug_mode_generic_set_doc_depsgraph[] =
-"\n\tEnable debug messages from dependency graph";
+"\n\tEnable debug messages from dependency graph.";
 static const char arg_handle_debug_mode_generic_set_doc_depsgraph_no_threads[] =
-"\n\tSwitch dependency graph to a single threaded evaluation";
+"\n\tSwitch dependency graph to a single threaded evaluation.";
 static const char arg_handle_debug_mode_generic_set_doc_gpumem[] =
-"\n\tEnable GPU memory stats in status bar";
+"\n\tEnable GPU memory stats in status bar.";
 
 static int arg_handle_debug_mode_generic_set(int UNUSED(argc), const char **UNUSED(argv), void *data)
 {
@@ -751,7 +777,7 @@ static int arg_handle_debug_mode_generic_set(int UNUSED(argc), const char **UNUS
 }
 
 static const char arg_handle_debug_mode_io_doc[] =
-"\n\tEnable debug messages for I/O (collada, ...)";
+"\n\tEnable debug messages for I/O (collada, ...).";
 static int arg_handle_debug_mode_io(int UNUSED(argc), const char **UNUSED(argv), void *UNUSED(data))
 {
 	G.debug |= G_DEBUG_IO;
@@ -759,7 +785,7 @@ static int arg_handle_debug_mode_io(int UNUSED(argc), const char **UNUSED(argv),
 }
 
 static const char arg_handle_debug_mode_all_doc[] =
-"\n\tEnable all debug messages";
+"\n\tEnable all debug messages.";
 static int arg_handle_debug_mode_all(int UNUSED(argc), const char **UNUSED(argv), void *UNUSED(data))
 {
 	G.debug |= G_DEBUG_ALL;
@@ -774,7 +800,7 @@ static int arg_handle_debug_mode_all(int UNUSED(argc), const char **UNUSED(argv)
 
 #ifdef WITH_LIBMV
 static const char arg_handle_debug_mode_libmv_doc[] =
-"\n\tEnable debug messages from libmv library"
+"\n\tEnable debug messages from libmv library."
 ;
 static int arg_handle_debug_mode_libmv(int UNUSED(argc), const char **UNUSED(argv), void *UNUSED(data))
 {
@@ -786,7 +812,7 @@ static int arg_handle_debug_mode_libmv(int UNUSED(argc), const char **UNUSED(arg
 
 #ifdef WITH_CYCLES_LOGGING
 static const char arg_handle_debug_mode_cycles_doc[] =
-"\n\tEnable debug messages from Cycles"
+"\n\tEnable debug messages from Cycles."
 ;
 static int arg_handle_debug_mode_cycles(int UNUSED(argc), const char **UNUSED(argv), void *UNUSED(data))
 {
@@ -796,7 +822,7 @@ static int arg_handle_debug_mode_cycles(int UNUSED(argc), const char **UNUSED(ar
 #endif
 
 static const char arg_handle_debug_mode_memory_set_doc[] =
-"\n\tEnable fully guarded memory allocation and debugging"
+"\n\tEnable fully guarded memory allocation and debugging."
 ;
 static int arg_handle_debug_mode_memory_set(int UNUSED(argc), const char **UNUSED(argv), void *UNUSED(data))
 {
@@ -806,7 +832,7 @@ static int arg_handle_debug_mode_memory_set(int UNUSED(argc), const char **UNUSE
 
 static const char arg_handle_debug_value_set_doc[] =
 "<value>\n"
-"\tSet debug value of <value> on startup\n"
+"\tSet debug value of <value> on startup."
 ;
 static int arg_handle_debug_value_set(int argc, const char **argv, void *UNUSED(data))
 {
@@ -830,7 +856,7 @@ static int arg_handle_debug_value_set(int argc, const char **argv, void *UNUSED(
 }
 
 static const char arg_handle_debug_fpe_set_doc[] =
-"\n\tEnable floating point exceptions"
+"\n\tEnable floating point exceptions."
 ;
 static int arg_handle_debug_fpe_set(int UNUSED(argc), const char **UNUSED(argv), void *UNUSED(data))
 {
@@ -839,7 +865,7 @@ static int arg_handle_debug_fpe_set(int UNUSED(argc), const char **UNUSED(argv),
 }
 
 static const char arg_handle_factory_startup_set_doc[] =
-"\n\tSkip reading the " STRINGIFY(BLENDER_STARTUP_FILE) " in the users home directory"
+"\n\tSkip reading the " STRINGIFY(BLENDER_STARTUP_FILE) " in the users home directory."
 ;
 static int arg_handle_factory_startup_set(int UNUSED(argc), const char **UNUSED(argv), void *UNUSED(data))
 {
@@ -848,11 +874,11 @@ static int arg_handle_factory_startup_set(int UNUSED(argc), const char **UNUSED(
 }
 
 static const char arg_handle_env_system_set_doc_datafiles[] =
-"\n\tSet the "STRINGIFY_ARG (BLENDER_SYSTEM_DATAFILES)" environment variable";
+"\n\tSet the "STRINGIFY_ARG (BLENDER_SYSTEM_DATAFILES)" environment variable.";
 static const char arg_handle_env_system_set_doc_scripts[] =
-"\n\tSet the "STRINGIFY_ARG (BLENDER_SYSTEM_SCRIPTS)" environment variable";
+"\n\tSet the "STRINGIFY_ARG (BLENDER_SYSTEM_SCRIPTS)" environment variable.";
 static const char arg_handle_env_system_set_doc_python[] =
-"\n\tSet the "STRINGIFY_ARG (BLENDER_SYSTEM_PYTHON)" environment variable";
+"\n\tSet the "STRINGIFY_ARG (BLENDER_SYSTEM_PYTHON)" environment variable.";
 
 static int arg_handle_env_system_set(int argc, const char **argv, void *UNUSED(data))
 {
@@ -878,13 +904,19 @@ static int arg_handle_env_system_set(int argc, const char **argv, void *UNUSED(d
 
 static const char arg_handle_playback_mode_doc[] =
 "<options> <file(s)>\n"
-"\tPlayback <file(s)>, only operates this way when not running in background.\n"
-"\t\t-p <sx> <sy>\tOpen with lower left corner at <sx>, <sy>\n"
-"\t\t-m\t\tRead from disk (Do not buffer)\n"
-"\t\t-f <fps> <fps-base>\t\tSpecify FPS to start with\n"
-"\t\t-j <frame>\tSet frame step to <frame>\n"
-"\t\t-s <frame>\tPlay from <frame>\n"
-"\t\t-e <frame>\tPlay until <frame>"
+"\tPlayback <file(s)>, only operates this way when not running in background.\n\n"
+"\t-p <sx> <sy>\n"
+"\t\tOpen with lower left corner at <sx>, <sy>.\n"
+"\t-m\n"
+"\t\tRead from disk (Do not buffer).\n"
+"\t-f <fps> <fps-base>\n"
+"\t\tSpecify FPS to start with.\n"
+"\t-j <frame>\n"
+"\t\tSet frame step to <frame>.\n"
+"\t-s <frame>\n"
+"\t\tPlay from <frame>.\n"
+"\t-e <frame>\n"
+"\t\tPlay until <frame>."
 ;
 static int arg_handle_playback_mode(int argc, const char **argv, void *UNUSED(data))
 {
@@ -904,7 +936,7 @@ static int arg_handle_playback_mode(int argc, const char **argv, void *UNUSED(da
 
 static const char arg_handle_window_geometry_doc[] =
 "<sx> <sy> <w> <h>\n"
-"\tOpen with lower left corner at <sx>, <sy> and width and height as <w>, <h>"
+"\tOpen with lower left corner at <sx>, <sy> and width and height as <w>, <h>."
 ;
 static int arg_handle_window_geometry(int argc, const char **argv, void *UNUSED(data))
 {
@@ -930,7 +962,7 @@ static int arg_handle_window_geometry(int argc, const char **argv, void *UNUSED(
 }
 
 static const char arg_handle_native_pixels_set_doc[] =
-"\n\tDo not use native pixel size, for high resolution displays (MacBook 'Retina')"
+"\n\tDo not use native pixel size, for high resolution displays (MacBook 'Retina')."
 ;
 static int arg_handle_native_pixels_set(int UNUSED(argc), const char **UNUSED(argv), void *UNUSED(data))
 {
@@ -939,7 +971,7 @@ static int arg_handle_native_pixels_set(int UNUSED(argc), const char **UNUSED(ar
 }
 
 static const char arg_handle_with_borders_doc[] =
-"\n\tForce opening with borders"
+"\n\tForce opening with borders."
 ;
 static int arg_handle_with_borders(int UNUSED(argc), const char **UNUSED(argv), void *UNUSED(data))
 {
@@ -948,7 +980,7 @@ static int arg_handle_with_borders(int UNUSED(argc), const char **UNUSED(argv), 
 }
 
 static const char arg_handle_without_borders_doc[] =
-"\n\tForce opening without borders"
+"\n\tForce opening without borders."
 ;
 static int arg_handle_without_borders(int UNUSED(argc), const char **UNUSED(argv), void *UNUSED(data))
 {
@@ -959,7 +991,7 @@ static int arg_handle_without_borders(int UNUSED(argc), const char **UNUSED(argv
 extern bool wm_start_with_console; /* wm_init_exit.c */
 
 static const char arg_handle_start_with_console_doc[] =
-"\n\tStart with the console window open (ignored if -b is set), (Windows only)"
+"\n\tStart with the console window open (ignored if -b is set), (Windows only)."
 ;
 static int arg_handle_start_with_console(int UNUSED(argc), const char **UNUSED(argv), void *UNUSED(data))
 {
@@ -968,10 +1000,10 @@ static int arg_handle_start_with_console(int UNUSED(argc), const char **UNUSED(a
 }
 
 static const char arg_handle_register_extension_doc[] =
-"\n\tRegister blend-file extension, then exit (Windows only)"
+"\n\tRegister blend-file extension, then exit (Windows only)."
 ;
 static const char arg_handle_register_extension_doc_silent[] =
-"\n\tSilently register blend-file extension, then exit (Windows only)"
+"\n\tSilently register blend-file extension, then exit (Windows only)."
 ;
 static int arg_handle_register_extension(int UNUSED(argc), const char **UNUSED(argv), void *data)
 {
@@ -986,7 +1018,7 @@ static int arg_handle_register_extension(int UNUSED(argc), const char **UNUSED(a
 }
 
 static const char arg_handle_joystick_disable_doc[] =
-"\n\tDisable joystick support"
+"\n\tDisable joystick support."
 ;
 static int arg_handle_joystick_disable(int UNUSED(argc), const char **UNUSED(argv), void *data)
 {
@@ -1007,7 +1039,7 @@ static int arg_handle_joystick_disable(int UNUSED(argc), const char **UNUSED(arg
 }
 
 static const char arg_handle_audio_disable_doc[] =
-"\n\tForce sound system to None"
+"\n\tForce sound system to None."
 ;
 static int arg_handle_audio_disable(int UNUSED(argc), const char **UNUSED(argv), void *UNUSED(data))
 {
@@ -1016,7 +1048,7 @@ static int arg_handle_audio_disable(int UNUSED(argc), const char **UNUSED(argv),
 }
 
 static const char arg_handle_audio_set_doc[] =
-"\n\tForce sound system to a specific device\n\tNULL SDL OPENAL JACK"
+"\n\tForce sound system to a specific device.\n\t'NULL' 'SDL' 'OPENAL' 'JACK'."
 ;
 static int arg_handle_audio_set(int argc, const char **argv, void *UNUSED(data))
 {
@@ -1066,7 +1098,7 @@ static int arg_handle_output_set(int argc, const char **argv, void *data)
 
 static const char arg_handle_engine_set_doc[] =
 "<engine>\n"
-"\tSpecify the render engine\n\tuse -E help to list available engines"
+"\tSpecify the render engine.\n\tUse -E help to list available engines."
 ;
 static int arg_handle_engine_set(int argc, const char **argv, void *data)
 {
@@ -1083,10 +1115,8 @@ static int arg_handle_engine_set(int argc, const char **argv, void *data)
 		else {
 			Scene *scene = CTX_data_scene(C);
 			if (scene) {
-				RenderData *rd = &scene->r;
-
 				if (BLI_findstring(&R_engines, argv[1], offsetof(RenderEngineType, idname))) {
-					BLI_strncpy_utf8(rd->engine, argv[1], sizeof(rd->engine));
+					BLI_strncpy_utf8(scene->view_render.engine_id, argv[1], sizeof(scene->view_render.engine_id));
 				}
 				else {
 					printf("\nError: engine not found '%s'\n", argv[1]);
@@ -1109,11 +1139,11 @@ static int arg_handle_engine_set(int argc, const char **argv, void *data)
 
 static const char arg_handle_image_type_set_doc[] =
 "<format>\n"
-"\tSet the render format, Valid options are...\n"
-"\t\tTGA RAWTGA JPEG IRIS IRIZ\n"
-"\t\tAVIRAW AVIJPEG PNG BMP\n"
-"\t(formats that can be compiled into blender, not available on all systems)\n"
-"\t\tHDR TIFF EXR MULTILAYER MPEG FRAMESERVER QUICKTIME CINEON DPX DDS JP2"
+"\tSet the render format.\n"
+"\tValid options are 'TGA' 'RAWTGA' 'JPEG' 'IRIS' 'IRIZ' 'AVIRAW' 'AVIJPEG' 'PNG' 'BMP'\n"
+"\n"
+"\tFormats that can be compiled into Blender, not available on all systems: 'HDR' 'TIFF' 'EXR' 'MULTILAYER'\n"
+"\t'MPEG' 'FRAMESERVER' 'CINEON' 'DPX' 'DDS' 'JP2'"
 ;
 static int arg_handle_image_type_set(int argc, const char **argv, void *data)
 {
@@ -1169,6 +1199,16 @@ static int arg_handle_threads_set(int argc, const char **argv, void *UNUSED(data
 	}
 }
 
+static const char arg_handle_use_copy_on_write_doc[] =
+"\n\tUse new dependency graph"
+;
+static int arg_handle_use_copy_on_write(int UNUSED(argc), const char **UNUSED(argv), void *UNUSED(data))
+{
+	printf("Using copy on write. This is highly EXPERIMENTAL!\n");
+	DEG_depsgraph_enable_copy_on_write();
+	return 0;
+}
+
 static const char arg_handle_verbosity_set_doc[] =
 "<verbose>\n"
 "\tSet logging verbosity level."
@@ -1201,7 +1241,7 @@ static int arg_handle_verbosity_set(int argc, const char **argv, void *UNUSED(da
 
 static const char arg_handle_extension_set_doc[] =
 "<bool>\n"
-"\tSet option to add the file extension to the end of the file"
+"\tSet option to add the file extension to the end of the file."
 ;
 static int arg_handle_extension_set(int argc, const char **argv, void *data)
 {
@@ -1233,10 +1273,15 @@ static int arg_handle_extension_set(int argc, const char **argv, void *data)
 
 static const char arg_handle_ge_parameters_set_doc[] =
 "Game Engine specific options\n"
-"\t-g fixedtime\t\tRun on 50 hertz without dropping frames\n"
-"\t-g vertexarrays\t\tUse Vertex Arrays for rendering (usually faster)\n"
-"\t-g nomipmap\t\tNo Texture Mipmapping\n"
-"\t-g linearmipmap\t\tLinear Texture Mipmapping instead of Nearest (default)"
+"\n"
+"\t'fixedtime'\n"
+"\t\tRun on 50 hertz without dropping frames.\n"
+"\t'vertexarrays'\n"
+"\t\tUse Vertex Arrays for rendering (usually faster).\n"
+"\t'nomipmap'\n"
+"\t\tNo Texture Mipmapping.\n"
+"\t'linearmipmap'\n"
+"\t\tLinear Texture Mipmapping instead of Nearest (default)."
 ;
 static int arg_handle_ge_parameters_set(int argc, const char **argv, void *data)
 {
@@ -1269,7 +1314,7 @@ static int arg_handle_ge_parameters_set(int argc, const char **argv, void *data)
 #endif
 			}
 			else {
-				printf("error: argument assignment (%s) without value.\n", paramname);
+				printf("Error: argument assignment (%s) without value.\n", paramname);
 				return 0;
 			}
 			/* name arg eaten */
@@ -1326,11 +1371,11 @@ static int arg_handle_render_frame(int argc, const char **argv, void *data)
 				return 1;
 			}
 
-			re = RE_NewRender(scene->id.name);
+			re = RE_NewSceneRender(scene);
 			BLI_begin_threaded_malloc();
 			BKE_reports_init(&reports, RPT_STORE);
-
 			RE_SetReports(re, &reports);
+			render_set_depgraph(C, re);
 			for (int i = 0; i < frames_range_len; i++) {
 				/* We could pass in frame ranges,
 				 * but prefer having exact behavior as passing in multiple frames */
@@ -1360,7 +1405,7 @@ static int arg_handle_render_frame(int argc, const char **argv, void *data)
 }
 
 static const char arg_handle_render_animation_doc[] =
-"\n\tRender frames from start to end (inclusive)"
+"\n\tRender frames from start to end (inclusive)."
 ;
 static int arg_handle_render_animation(int UNUSED(argc), const char **UNUSED(argv), void *data)
 {
@@ -1368,11 +1413,12 @@ static int arg_handle_render_animation(int UNUSED(argc), const char **UNUSED(arg
 	Scene *scene = CTX_data_scene(C);
 	if (scene) {
 		Main *bmain = CTX_data_main(C);
-		Render *re = RE_NewRender(scene->id.name);
+		Render *re = RE_NewSceneRender(scene);
 		ReportList reports;
 		BLI_begin_threaded_malloc();
 		BKE_reports_init(&reports, RPT_STORE);
 		RE_SetReports(re, &reports);
+		render_set_depgraph(C, re);
 		RE_BlenderAnim(re, bmain, scene, NULL, scene->lay, scene->r.sfra, scene->r.efra, scene->r.frame_step);
 		RE_SetReports(re, NULL);
 		BKE_reports_clear(&reports);
@@ -1386,7 +1432,7 @@ static int arg_handle_render_animation(int UNUSED(argc), const char **UNUSED(arg
 
 static const char arg_handle_scene_set_doc[] =
 "<name>\n"
-"\tSet the active scene <name> for rendering"
+"\tSet the active scene <name> for rendering."
 ;
 static int arg_handle_scene_set(int argc, const char **argv, void *data)
 {
@@ -1468,7 +1514,7 @@ static int arg_handle_frame_end_set(int argc, const char **argv, void *data)
 
 static const char arg_handle_frame_skip_set_doc[] =
 "<frames>\n"
-"\tSet number of frames to step forward after each rendered frame"
+"\tSet number of frames to step forward after each rendered frame."
 ;
 static int arg_handle_frame_skip_set(int argc, const char **argv, void *data)
 {
@@ -1496,7 +1542,7 @@ static int arg_handle_frame_skip_set(int argc, const char **argv, void *data)
 
 static const char arg_handle_python_file_run_doc[] =
 "<filename>\n"
-"\tRun the given Python script file"
+"\tRun the given Python script file."
 ;
 static int arg_handle_python_file_run(int argc, const char **argv, void *data)
 {
@@ -1524,14 +1570,14 @@ static int arg_handle_python_file_run(int argc, const char **argv, void *data)
 	}
 #else
 	UNUSED_VARS(argc, argv, data);
-	printf("This blender was built without python support\n");
+	printf("This Blender was built without Python support\n");
 	return 0;
 #endif /* WITH_PYTHON */
 }
 
 static const char arg_handle_python_text_run_doc[] =
 "<name>\n"
-"\tRun the given Python script text block"
+"\tRun the given Python script text block."
 ;
 static int arg_handle_python_text_run(int argc, const char **argv, void *data)
 {
@@ -1565,14 +1611,14 @@ static int arg_handle_python_text_run(int argc, const char **argv, void *data)
 	}
 #else
 	UNUSED_VARS(argc, argv, data);
-	printf("This blender was built without python support\n");
+	printf("This Blender was built without Python support\n");
 	return 0;
 #endif /* WITH_PYTHON */
 }
 
 static const char arg_handle_python_expr_run_doc[] =
 "<expression>\n"
-"\tRun the given expression as a Python script"
+"\tRun the given expression as a Python script."
 ;
 static int arg_handle_python_expr_run(int argc, const char **argv, void *data)
 {
@@ -1595,13 +1641,13 @@ static int arg_handle_python_expr_run(int argc, const char **argv, void *data)
 	}
 #else
 	UNUSED_VARS(argc, argv, data);
-	printf("This blender was built without python support\n");
+	printf("This Blender was built without Python support\n");
 	return 0;
 #endif /* WITH_PYTHON */
 }
 
 static const char arg_handle_python_console_run_doc[] =
-"\n\tRun blender with an interactive console"
+"\n\tRun Blender with an interactive console."
 ;
 static int arg_handle_python_console_run(int UNUSED(argc), const char **argv, void *data)
 {
@@ -1613,7 +1659,7 @@ static int arg_handle_python_console_run(int UNUSED(argc), const char **argv, vo
 	return 0;
 #else
 	UNUSED_VARS(argv, data);
-	printf("This blender was built without python support\n");
+	printf("This Blender was built without python support\n");
 	return 0;
 #endif /* WITH_PYTHON */
 }
@@ -1645,7 +1691,7 @@ static int arg_handle_python_exit_code_set(int argc, const char **argv, void *UN
 }
 
 static const char arg_handle_addons_set_doc[] =
-"\n\tComma separated list of add-ons (no spaces)"
+"\n\tComma separated list of add-ons (no spaces)."
 ;
 static int arg_handle_addons_set(int argc, const char **argv, void *data)
 {
@@ -1717,11 +1763,18 @@ static int arg_handle_load_file(int UNUSED(argc), const char **argv, void *data)
 			return -1;
 		}
 
-		/* Just pretend a file was loaded, so the user can press Save and it'll save at the filename from the CLI. */
-		BLI_strncpy(G.main->name, filename, FILE_MAX);
-		G.relbase_valid = true;
-		G.save_over = true;
-		printf("... opened default scene instead; saving will write to %s\n", filename);
+		if (BLO_has_bfile_extension(filename)) {
+			/* Just pretend a file was loaded, so the user can press Save and it'll save at the filename from the CLI. */
+			BLI_strncpy(G.main->name, filename, FILE_MAX);
+			G.relbase_valid = true;
+			G.save_over = true;
+			printf("... opened default scene instead; saving will write to: %s\n", filename);
+		}
+		else {
+			printf("Error: argument has no '.blend' file extension, not using as new file, exiting! %s\n", filename);
+			G.is_break = true;
+			WM_exit(C);
+		}
 	}
 
 	G.file_loaded = 1;
@@ -1805,6 +1858,10 @@ void main_args_setup(bContext *C, bArgs *ba, SYS_SystemHandle *syshandle)
 	            CB_EX(arg_handle_debug_mode_generic_set, depsgraph_no_threads), (void *)G_DEBUG_DEPSGRAPH_NO_THREADS);
 	BLI_argsAdd(ba, 1, NULL, "--debug-gpumem",
 	            CB_EX(arg_handle_debug_mode_generic_set, gpumem), (void *)G_DEBUG_GPU_MEM);
+	BLI_argsAdd(ba, 1, NULL, "--debug-gpu-shaders",
+	            CB_EX(arg_handle_debug_mode_generic_set, gpumem), (void *)G_DEBUG_GPU_SHADERS);
+
+	BLI_argsAdd(ba, 1, NULL, "--enable-copy-on-write", CB(arg_handle_use_copy_on_write), NULL);
 
 	BLI_argsAdd(ba, 1, NULL, "--verbose", CB(arg_handle_verbosity_set), NULL);
 

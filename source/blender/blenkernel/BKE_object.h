@@ -63,7 +63,6 @@ void BKE_object_free_particlesystems(struct Object *ob);
 void BKE_object_free_softbody(struct Object *ob);
 void BKE_object_free_bulletsoftbody(struct Object *ob);
 void BKE_object_free_curve_cache(struct Object *ob);
-void BKE_object_update_base_layer(struct Scene *scene, struct Object *ob);
 
 void BKE_object_free(struct Object *ob);
 void BKE_object_free_derived_caches(struct Object *ob);
@@ -83,6 +82,7 @@ bool BKE_object_exists_check(struct Object *obtest);
 bool BKE_object_is_in_editmode(struct Object *ob);
 bool BKE_object_is_in_editmode_vgroup(struct Object *ob);
 bool BKE_object_is_in_wpaint_select_vert(struct Object *ob);
+bool BKE_object_is_visible(struct Object *ob);
 
 void BKE_object_init(struct Object *ob);
 struct Object *BKE_object_add_only_object(
@@ -90,9 +90,13 @@ struct Object *BKE_object_add_only_object(
         int type, const char *name)
         ATTR_NONNULL(1) ATTR_RETURNS_NONNULL;
 struct Object *BKE_object_add(
-        struct Main *bmain, struct Scene *scene, struct SceneLayer *sl,
+        struct Main *bmain, struct Scene *scene, struct SceneLayer *scene_layer,
         int type, const char *name)
         ATTR_NONNULL(1, 2, 3) ATTR_RETURNS_NONNULL;
+struct Object *BKE_object_add_from(
+        struct Main *bmain, struct Scene *scene, struct SceneLayer *scene_layer,
+        int type, const char *name, struct Object *ob_src)
+        ATTR_NONNULL(1, 2, 3, 6) ATTR_RETURNS_NONNULL;
 void *BKE_object_obdata_add_from_type(
         struct Main *bmain,
         int type, const char *name)

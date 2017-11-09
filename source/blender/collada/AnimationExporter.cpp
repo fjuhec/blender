@@ -313,12 +313,12 @@ void AnimationExporter::dae_animation(Object *ob, FCurve *fcu, char *transformNa
 	if (ob->type == OB_ARMATURE) {
 		ob_name =  getObjectBoneName(ob, fcu);
 		BLI_snprintf(
-				anim_id,
-				sizeof(anim_id),
-				"%s_%s.%s",
-				(char *)translate_id(ob_name).c_str(),
-				(char *)translate_id(transformName).c_str(),
-				axis_name);
+		        anim_id,
+		        sizeof(anim_id),
+		        "%s_%s.%s",
+		        (char *)translate_id(ob_name).c_str(),
+		        (char *)translate_id(transformName).c_str(),
+		        axis_name);
 	}
 	else {
 		if (ma)
@@ -327,12 +327,12 @@ void AnimationExporter::dae_animation(Object *ob, FCurve *fcu, char *transformNa
 			ob_name = id_name(ob);
 
 		BLI_snprintf(
-				anim_id,
-				sizeof(anim_id),
-				"%s_%s_%s",
-				(char *)translate_id(ob_name).c_str(),
-				(char *)getAnimationPathId(fcu).c_str(),
-				axis_name);
+		        anim_id,
+		        sizeof(anim_id),
+		        "%s_%s_%s",
+		        (char *)translate_id(ob_name).c_str(),
+		        (char *)getAnimationPathId(fcu).c_str(),
+		        axis_name);
 	}
 
 	openAnimation(anim_id, COLLADABU::Utils::EMPTY_STRING);
@@ -939,7 +939,7 @@ std::string AnimationExporter::create_4x4_source(std::vector<float> &frames, Obj
 
 		float ctime = BKE_scene_frame_get_from_ctime(scene, *it);
 		CFRA = BKE_scene_frame_get_from_ctime(scene, *it);
-		//BKE_scene_update_for_newframe(G.main->eval_ctx, G.main,scene);
+		//BKE_scene_graph_update_for_newframe(G.main->eval_ctx, depsgraph, G.main,scene);
 		BKE_animsys_evaluate_animdata(scene, &ob->id, ob->adt, ctime, ADT_RECALC_ALL);
 				
 		if (bone) {

@@ -104,7 +104,11 @@ bool ED_scene_delete(bContext *C, Main *bmain, wmWindow *win, Scene *scene)
 	WM_window_change_active_scene(bmain, C, win, scene_new);
 
 	BKE_libblock_remap(bmain, scene, scene_new, ID_REMAP_SKIP_INDIRECT_USAGE | ID_REMAP_SKIP_NEVER_NULL_USAGE);
-	BKE_libblock_free(bmain, scene);
+
+	id_us_clear_real(&scene->id);
+	if (scene->id.us == 0) {
+		BKE_libblock_free(bmain, scene);
+	}
 
 	return true;
 }
@@ -120,15 +124,17 @@ void ED_scene_changed_update(Main *bmain, bContext *C, Scene *scene_new, const b
 	 * but workspace should remember the last one set. Could store render-layer
 	 * per window-workspace combination (using WorkSpaceDataRelation) */
 	SceneLayer *layer_new = BLI_findlink(&scene_new->render_layers, scene_new->active_layer);
+	Depsgraph *depsgraph = BKE_scene_get_depsgraph(scene_new, layer_new, true);
 
 	CTX_data_scene_set(C, scene_new);
 	BKE_workspace_render_layer_set(CTX_wm_workspace(C), layer_new);
 	BKE_scene_set_background(bmain, scene_new);
+	DEG_graph_relations_update(depsgraph, bmain, scene_new);
 	DEG_on_visible_update(bmain, false);
 
-	ED_screen_update_after_scene_change(active_screen, scene_new);
+	ED_screen_update_after_scene_change(active_screen, scene_new, layer_new);
 	ED_render_engine_changed(bmain);
-	ED_update_for_newframe(bmain, scene_new, 1);
+	ED_update_for_newframe(bmain, scene_new, depsgraph);
 
 	/* complete redraw */
 	WM_event_add_notifier(C, NC_WINDOW, NULL);

@@ -57,7 +57,7 @@ struct WorkSpace;
 void BKE_layer_exit(void);
 
 struct SceneLayer *BKE_scene_layer_from_scene_get(const struct Scene *scene);
-struct SceneLayer *BKE_scene_layer_from_workspace_get(const struct WorkSpace *workspace);
+struct SceneLayer *BKE_scene_layer_from_workspace_get(const struct Scene *scene, const struct WorkSpace *workspace);
 struct SceneLayer *BKE_scene_layer_add(struct Scene *scene, const char *name);
 
 /* DEPRECATED */
@@ -65,12 +65,12 @@ struct SceneLayer *BKE_scene_layer_context_active_PLACEHOLDER(const struct Scene
 
 void BKE_scene_layer_free(struct SceneLayer *sl);
 
-void BKE_scene_layer_engine_set(struct SceneLayer *sl, const char *engine);
-
 void BKE_scene_layer_selected_objects_tag(struct SceneLayer *sl, const int tag);
 
+struct Object *BKE_scene_layer_camera_find(struct SceneLayer *sl);
 struct SceneLayer *BKE_scene_layer_find_from_collection(const struct Scene *scene, struct LayerCollection *lc);
 struct Base *BKE_scene_layer_base_find(struct SceneLayer *sl, struct Object *ob);
+struct Base *BKE_scene_layer_base_find_by_name(struct SceneLayer *sl, struct Object *ob);
 void BKE_scene_layer_base_deselect_all(struct SceneLayer *sl);
 void BKE_scene_layer_base_select(struct SceneLayer *sl, struct Base *selbase);
 
@@ -81,6 +81,7 @@ struct LayerCollection *BKE_layer_collection_get_active_ensure(struct Scene *sce
 
 int BKE_layer_collection_count(struct SceneLayer *sl);
 
+struct LayerCollection *BKE_layer_collection_from_index(struct SceneLayer *sl, const int index);
 int BKE_layer_collection_findindex(struct SceneLayer *sl, const struct LayerCollection *lc);
 
 bool BKE_layer_collection_move_above(const struct Scene *scene, struct LayerCollection *lc_dst, struct LayerCollection *lc_src);
@@ -92,6 +93,9 @@ void BKE_layer_collection_resync(const struct Scene *scene, const struct SceneCo
 struct LayerCollection *BKE_collection_link(struct SceneLayer *sl, struct SceneCollection *sc);
 
 void BKE_collection_unlink(struct SceneLayer *sl, struct LayerCollection *lc);
+
+void BKE_collection_enable(struct SceneLayer *sl, struct LayerCollection *lc);
+void BKE_collection_disable(struct SceneLayer *sl, struct LayerCollection *lc);
 
 bool BKE_scene_layer_has_collection(struct SceneLayer *sl, const struct SceneCollection *sc);
 bool BKE_scene_has_object(struct Scene *scene, struct Object *ob);
@@ -162,6 +166,10 @@ void BKE_selected_objects_iterator_end(BLI_Iterator *iter);
 void BKE_visible_objects_iterator_begin(BLI_Iterator *iter, void *data_in);
 void BKE_visible_objects_iterator_next(BLI_Iterator *iter);
 void BKE_visible_objects_iterator_end(BLI_Iterator *iter);
+
+void BKE_renderable_objects_iterator_begin(BLI_Iterator *iter, void *data_in);
+void BKE_renderable_objects_iterator_next(BLI_Iterator *iter);
+void BKE_renderable_objects_iterator_end(BLI_Iterator *iter);
 
 void BKE_selected_bases_iterator_begin(BLI_Iterator *iter, void *data_in);
 void BKE_selected_bases_iterator_next(BLI_Iterator *iter);
@@ -243,6 +251,29 @@ void BKE_visible_bases_iterator_end(BLI_Iterator *iter);
 #define FOREACH_OBJECT_FLAG_END                                               \
 	ITER_END                                                                  \
 }
+
+typedef struct ObjectsRenderableIteratorData {
+	struct Scene *scene;
+
+	struct {
+		struct SceneLayer *scene_layer;
+		struct Base *base;
+		struct Scene *set;
+	} iter;
+} ObjectsRenderableIteratorData;
+
+#define FOREACH_OBJECT_RENDERABLE(scene_, _instance)                          \
+	ObjectsRenderableIteratorData data_ = {                                   \
+	    .scene = (scene_),                                                    \
+	};                                                                        \
+	ITER_BEGIN(BKE_renderable_objects_iterator_begin,                         \
+	           BKE_renderable_objects_iterator_next,                          \
+	           BKE_renderable_objects_iterator_end,                           \
+	           &data_, Object *, _instance)
+
+
+#define FOREACH_OBJECT_RENDERABLE_END                                         \
+	ITER_END
 
 #ifdef __cplusplus
 }

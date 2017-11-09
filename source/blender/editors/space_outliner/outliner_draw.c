@@ -59,6 +59,7 @@
 #include "BKE_object.h"
 
 #include "DEG_depsgraph.h"
+#include "DEG_depsgraph_build.h"
 
 #include "ED_armature.h"
 #include "ED_keyframing.h"
@@ -244,6 +245,30 @@ static void restrictbutton_ebone_visibility_cb(bContext *C, void *UNUSED(poin), 
 static void restrictbutton_gp_layer_flag_cb(bContext *C, void *UNUSED(poin), void *UNUSED(poin2))
 {
 	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
+}
+
+static void enablebutton_collection_flag_cb(bContext *C, void *poin, void *poin2)
+{
+	Main *bmain = CTX_data_main(C);
+	Scene *scene = poin;
+	LayerCollection *layer_collection = poin2;
+	SceneLayer *scene_layer = BKE_scene_layer_find_from_collection(scene, layer_collection);
+
+	/* We need to toggle the flag since this is called after the flag is already set. */
+	layer_collection->flag ^= COLLECTION_DISABLED;
+
+	if (layer_collection->flag & COLLECTION_DISABLED) {
+		BKE_collection_enable(scene_layer, layer_collection);
+	}
+	else {
+		BKE_collection_disable(scene_layer, layer_collection);
+	}
+
+	DEG_relations_tag_update(bmain);
+	/* TODO(sergey): Use proper flag for tagging here. */
+	DEG_id_tag_update(&scene->id, 0);
+	WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, scene);
+	WM_event_add_notifier(C, NC_SCENE | ND_LAYER_CONTENT, NULL);
 }
 
 static void restrictbutton_collection_flag_cb(bContext *C, void *poin, void *UNUSED(poin2))
@@ -559,7 +584,17 @@ static void outliner_draw_restrictbuts(uiBlock *block, Scene *scene, ARegion *ar
 			else if (tselem->type == TSE_LAYER_COLLECTION) {
 				LayerCollection *collection = te->directdata;
 
+				const bool is_enabled = (collection->flag & COLLECTION_DISABLED) == 0;
+
 				UI_block_emboss_set(block, UI_EMBOSS_NONE);
+
+				bt = uiDefIconButBitS(block, UI_BTYPE_BUT_TOGGLE, COLLECTION_DISABLED, 0,
+				                      is_enabled ? ICON_CHECKBOX_HLT : ICON_CHECKBOX_DEHLT,
+				                      (int)(ar->v2d.cur.xmax - OL_TOG_RESTRICT_ENABLEX), te->ys, UI_UNIT_X,
+				                      UI_UNIT_Y, &collection->flag, 0, 0, 0, 0,
+				                      TIP_("Enable/Disable collection from depsgraph"));
+				UI_but_func_set(bt, enablebutton_collection_flag_cb, scene, collection);
+				UI_but_flag_enable(bt, UI_BUT_DRAG_LOCK);
 
 				bt = uiDefIconButBitS(block, UI_BTYPE_ICON_TOGGLE_N, COLLECTION_VISIBLE, 0, ICON_RESTRICT_VIEW_OFF,
 				                      (int)(ar->v2d.cur.xmax - OL_TOG_RESTRICT_VIEWX), te->ys, UI_UNIT_X,
@@ -599,7 +634,7 @@ static void outliner_draw_userbuts(uiBlock *block, ARegion *ar, SpaceOops *soops
 				char buf[16] = "";
 				int but_flag = UI_BUT_DRAG_LOCK;
 
-				if (ID_IS_LINKED_DATABLOCK(id))
+				if (ID_IS_LINKED(id))
 					but_flag |= UI_BUT_DISABLED;
 
 				UI_block_emboss_set(block, UI_EMBOSS_NONE);
@@ -770,7 +805,7 @@ static void tselem_draw_icon_uibut(struct DrawIconArg *arg, int icon)
 	else {
 		uiBut *but = uiDefIconBut(arg->block, UI_BTYPE_LABEL, 0, icon, arg->xb, arg->yb, UI_UNIT_X, UI_UNIT_Y, NULL,
 		                          0.0, 0.0, 1.0, arg->alpha,
-		                          (arg->id && ID_IS_LINKED_DATABLOCK(arg->id)) ? arg->id->lib->name : "");
+		                          (arg->id && ID_IS_LINKED(arg->id)) ? arg->id->lib->name : "");
 		
 		if (arg->id)
 			UI_but_drag_set_id(but, arg->id);
@@ -1123,7 +1158,10 @@ static void tselem_draw_icon(uiBlock *block, int xmax, float x, float y, TreeSto
 			}
 		}
 		else {
-			switch (GS(tselem->id->name)) {
+			/* TODO(sergey): Casting to short here just to handle ID_NLA which is
+			 * NOT inside of IDType enum.
+			 */
+			switch ((short)GS(tselem->id->name)) {
 				case ID_SCE:
 					tselem_draw_icon_uibut(&arg, ICON_SCENE_DATA); break;
 				case ID_ME:
@@ -1193,6 +1231,8 @@ static void tselem_draw_icon(uiBlock *block, int xmax, float x, float y, TreeSto
 					tselem_draw_icon_uibut(&arg, ICON_LINE_DATA); break;
 				case ID_GD:
 					tselem_draw_icon_uibut(&arg, ICON_GREASEPENCIL); break;
+				default:
+					break;
 			}
 		}
 	}
@@ -1406,7 +1446,7 @@ static void outliner_draw_tree_element(
 		else
 			offsx += 2 * ufac;
 		
-		if (tselem->type == 0 && ID_IS_LINKED_DATABLOCK(tselem->id)) {
+		if (tselem->type == 0 && ID_IS_LINKED(tselem->id)) {
 			if (tselem->id->tag & LIB_TAG_MISSING) {
 				UI_icon_draw_alpha((float)startx + offsx + 2 * ufac, (float)*starty + 2 * ufac, ICON_LIBRARY_DATA_BROKEN,
 				                   alpha_fac);

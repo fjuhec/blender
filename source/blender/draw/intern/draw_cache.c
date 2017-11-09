@@ -44,6 +44,7 @@
 static struct DRWShapeCache {
 	Gwn_Batch *drw_single_vertice;
 	Gwn_Batch *drw_fullscreen_quad;
+	Gwn_Batch *drw_quad;
 	Gwn_Batch *drw_screenspace_circle;
 	Gwn_Batch *drw_plain_axes;
 	Gwn_Batch *drw_single_arrow;
@@ -229,6 +230,7 @@ static Gwn_VertBuf *sphere_wire_vbo(const float rad)
 }
 
 /* Quads */
+/* Use this one for rendering fullscreen passes. For 3D objects use DRW_cache_quad_get(). */
 Gwn_Batch *DRW_cache_fullscreen_quad_get(void)
 {
 	if (!SHC.drw_fullscreen_quad) {
@@ -248,7 +250,7 @@ Gwn_Batch *DRW_cache_fullscreen_quad_get(void)
 		Gwn_VertBuf *vbo = GWN_vertbuf_create_with_format(&format);
 		GWN_vertbuf_data_alloc(vbo, 3);
 
-		for (int i = 0; i < 3; ++i)	{
+		for (int i = 0; i < 3; ++i) {
 			GWN_vertbuf_attr_set(vbo, attr_id.pos, i, pos[i]);
 			GWN_vertbuf_attr_set(vbo, attr_id.uvs, i, uvs[i]);
 		}
@@ -256,6 +258,35 @@ Gwn_Batch *DRW_cache_fullscreen_quad_get(void)
 		SHC.drw_fullscreen_quad = GWN_batch_create_ex(GWN_PRIM_TRIS, vbo, NULL, GWN_BATCH_OWNS_VBO);
 	}
 	return SHC.drw_fullscreen_quad;
+}
+
+/* Just a regular quad with 4 vertices. */
+Gwn_Batch *DRW_cache_quad_get(void)
+{
+	if (!SHC.drw_quad) {
+		/* Use a triangle instead of a real quad */
+		float pos[4][2] = {{-1.0f, -1.0f}, { 1.0f, -1.0f}, {1.0f,  1.0f}, {-1.0f,  1.0f}};
+		float uvs[4][2] = {{ 0.0f,  0.0f}, { 1.0f,  0.0f}, {1.0f,  1.0f}, { 0.0f,  1.0f}};
+
+		/* Position Only 2D format */
+		static Gwn_VertFormat format = { 0 };
+		static struct { uint pos, uvs; } attr_id;
+		if (format.attrib_ct == 0) {
+			attr_id.pos = GWN_vertformat_attr_add(&format, "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
+			attr_id.uvs = GWN_vertformat_attr_add(&format, "uvs", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
+		}
+
+		Gwn_VertBuf *vbo = GWN_vertbuf_create_with_format(&format);
+		GWN_vertbuf_data_alloc(vbo, 4);
+
+		for (int i = 0; i < 4; ++i) {
+			GWN_vertbuf_attr_set(vbo, attr_id.pos, i, pos[i]);
+			GWN_vertbuf_attr_set(vbo, attr_id.uvs, i, uvs[i]);
+		}
+
+		SHC.drw_quad = GWN_batch_create_ex(GWN_PRIM_TRI_FAN, vbo, NULL, GWN_BATCH_OWNS_VBO);
+	}
+	return SHC.drw_quad;
 }
 
 /* Sphere */
@@ -360,7 +391,7 @@ Gwn_Batch *DRW_cache_square_get(void)
 
 		for (int i = 0; i < 4; i++) {
 			GWN_vertbuf_attr_set(vbo, attr_id.pos, i * 2,     p[i % 4]);
-			GWN_vertbuf_attr_set(vbo, attr_id.pos, i * 2 + 1, p[(i+1) % 4]);
+			GWN_vertbuf_attr_set(vbo, attr_id.pos, i * 2 + 1, p[(i + 1) % 4]);
 		}
 
 		SHC.drw_square = GWN_batch_create_ex(GWN_PRIM_LINES, vbo, NULL, GWN_BATCH_OWNS_VBO);
@@ -1165,8 +1196,8 @@ Gwn_Batch *DRW_cache_lamp_spot_get(void)
 
 			GWN_vertbuf_attr_set(vbo, attr_id.n1, i * 4,     n[(i) % NSEGMENTS]);
 			GWN_vertbuf_attr_set(vbo, attr_id.n1, i * 4 + 1, n[(i) % NSEGMENTS]);
-			GWN_vertbuf_attr_set(vbo, attr_id.n2, i * 4,     n[(i+1) % NSEGMENTS]);
-			GWN_vertbuf_attr_set(vbo, attr_id.n2, i * 4 + 1, n[(i+1) % NSEGMENTS]);
+			GWN_vertbuf_attr_set(vbo, attr_id.n2, i * 4,     n[(i + 1) % NSEGMENTS]);
+			GWN_vertbuf_attr_set(vbo, attr_id.n2, i * 4 + 1, n[(i + 1) % NSEGMENTS]);
 
 			/* end ring */
 			v[0] = cv[0], v[1] = cv[1], v[2] = -1.0f;
@@ -1214,8 +1245,8 @@ Gwn_Batch *DRW_cache_lamp_spot_square_get(void)
 			GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, p[0]);
 			GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, p[i]);
 
-			GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, p[(i % 4)+1]);
-			GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, p[((i+1) % 4)+1]);
+			GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, p[(i % 4) + 1]);
+			GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, p[((i + 1) % 4) + 1]);
 		}
 
 		SHC.drw_lamp_spot_square = GWN_batch_create_ex(GWN_PRIM_LINES, vbo, NULL, GWN_BATCH_OWNS_VBO);
@@ -1320,7 +1351,7 @@ Gwn_Batch *DRW_cache_lightprobe_cube_get(void)
 		Gwn_VertBuf *vbo = GWN_vertbuf_create_with_format(&format);
 		GWN_vertbuf_data_alloc(vbo, (6 + 3) * 2);
 
-		for (int i = 0; i < 6; ++i)	{
+		for (int i = 0; i < 6; ++i) {
 			GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, v[i]);
 			GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, v[(i + 1) % 6]);
 		}
@@ -1365,7 +1396,7 @@ Gwn_Batch *DRW_cache_lightprobe_grid_get(void)
 		Gwn_VertBuf *vbo = GWN_vertbuf_create_with_format(&format);
 		GWN_vertbuf_data_alloc(vbo, (6 * 2 + 3) * 2);
 
-		for (int i = 0; i < 6; ++i)	{
+		for (int i = 0; i < 6; ++i) {
 			float tmp_v1[3], tmp_v2[3], tmp_tr[3];
 			copy_v3_v3(tmp_v1, v[i]);
 			copy_v3_v3(tmp_v2, v[(i + 1) % 6]);
@@ -1418,7 +1449,7 @@ Gwn_Batch *DRW_cache_lightprobe_planar_get(void)
 		Gwn_VertBuf *vbo = GWN_vertbuf_create_with_format(&format);
 		GWN_vertbuf_data_alloc(vbo, 4 * 2);
 
-		for (int i = 0; i < 4; ++i)	{
+		for (int i = 0; i < 4; ++i) {
 			GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, v[i]);
 			GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, v[(i + 1) % 4]);
 		}
@@ -1592,7 +1623,7 @@ static const unsigned int bone_box_solid_tris[12][3] = {
 /* aligned with bone_octahedral_solid_tris */
 static const float bone_box_solid_normals[12][3] = {
 	{ 0.0f, -1.0f,  0.0f},
-    { 0.0f, -1.0f,  0.0f},
+	{ 0.0f, -1.0f,  0.0f},
 
 	{ 1.0f,  0.0f,  0.0f},
 	{ 1.0f,  0.0f,  0.0f},
@@ -1751,10 +1782,10 @@ Gwn_Batch *DRW_cache_bone_envelope_solid_get(void)
 			float co1[3], co2[3], co3[3], co4[3];
 
 			for (int j = 0; j < lat_res; j++, lat += lat_inc) {
-				benv_lat_lon_to_co(lat          , lon          , co1);
-				benv_lat_lon_to_co(lat          , lon + lon_inc, co2);
+				benv_lat_lon_to_co(lat,           lon,           co1);
+				benv_lat_lon_to_co(lat,           lon + lon_inc, co2);
 				benv_lat_lon_to_co(lat + lat_inc, lon + lon_inc, co3);
-				benv_lat_lon_to_co(lat + lat_inc, lon          , co4);
+				benv_lat_lon_to_co(lat + lat_inc, lon,           co4);
 
 				if (j != 0) {  /* At pole, n1 and n2 are identical. */
 					benv_add_tri(vbo, attr_id.pos, &v_idx, co1, co2, co3);

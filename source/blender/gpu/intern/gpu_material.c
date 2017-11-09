@@ -50,6 +50,7 @@
 #include "BKE_colortools.h"
 #include "BKE_global.h"
 #include "BKE_image.h"
+#include "BKE_layer.h"
 #include "BKE_main.h"
 #include "BKE_node.h"
 #include "BKE_scene.h"
@@ -134,7 +135,18 @@ struct GPUMaterial {
 	bool bound;
 
 	bool is_opensubdiv;
+
+	/* XXX: Should be in Material. But it depends on the output node
+	 * used and since the output selection is difference for GPUMaterial...
+	 */
+	int domain;
+
 	GPUUniformBuffer *ubo; /* UBOs for shader uniforms. */
+};
+
+enum {
+	GPU_DOMAIN_SURFACE    = (1 << 0),
+	GPU_DOMAIN_VOLUME     = (1 << 1)
 };
 
 /* Forward declaration so shade_light_textures() can use this, while still keeping the code somewhat organized */
@@ -506,6 +518,16 @@ bool GPU_material_use_new_shading_nodes(GPUMaterial *mat)
 bool GPU_material_use_world_space_shading(GPUMaterial *mat)
 {
 	return BKE_scene_use_world_space_shading(mat->scene);
+}
+
+bool GPU_material_use_domain_surface(GPUMaterial *mat)
+{
+	return (mat->domain & GPU_DOMAIN_SURFACE);
+}
+
+bool GPU_material_use_domain_volume(GPUMaterial *mat)
+{
+	return (mat->domain & GPU_DOMAIN_VOLUME);
 }
 
 static GPUNodeLink *lamp_get_visibility(GPUMaterial *mat, GPULamp *lamp, GPUNodeLink **lv, GPUNodeLink **dist)
@@ -2144,6 +2166,7 @@ GPUMaterial *GPU_material_from_nodetree(
 	GPUMaterial *mat;
 	GPUNodeLink *outlink;
 	LinkData *link;
+	bool has_volume_output, has_surface_output;
 
 	/* Caller must re-use materials. */
 	BLI_assert(GPU_material_from_nodetree_find(gpumaterials, engine_type, options) == NULL);
@@ -2154,7 +2177,15 @@ GPUMaterial *GPU_material_from_nodetree(
 	mat->engine_type = engine_type;
 	mat->options = options;
 
-	ntreeGPUMaterialNodes(ntree, mat, NODE_NEWER_SHADING);
+	ntreeGPUMaterialNodes(ntree, mat, NODE_NEW_SHADING | NODE_NEWER_SHADING);
+	ntreeGPUMaterialDomain(ntree, &has_surface_output, &has_volume_output);
+
+	if (has_surface_output) {
+		mat->domain |= GPU_DOMAIN_SURFACE;
+	}
+	if (has_volume_output) {
+		mat->domain |= GPU_DOMAIN_VOLUME;
+	}
 
 	/* Let Draw manager finish the construction. */
 	if (mat->outlink) {
@@ -2370,6 +2401,7 @@ GPUShaderExport *GPU_shader_export(struct Scene *scene, struct Material *ma)
 						break;
 
 					case GPU_NONE:
+					case GPU_TEX3D:
 					case GPU_TEXCUBE:
 					case GPU_FLOAT:
 					case GPU_VEC2:
@@ -2408,6 +2440,7 @@ GPUShaderExport *GPU_shader_export(struct Scene *scene, struct Material *ma)
 					case GPU_NONE:
 					case GPU_CLOSURE:
 					case GPU_TEX2D:
+					case GPU_TEX3D:
 					case GPU_TEXCUBE:
 					case GPU_SHADOW2D:
 					case GPU_ATTRIB:

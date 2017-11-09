@@ -294,7 +294,7 @@ void ED_object_editmode_enter(bContext *C, int flag)
 	Object *ob;
 	bool ok = false;
 
-	if (ID_IS_LINKED_DATABLOCK(scene)) return;
+	if (ID_IS_LINKED(scene)) return;
 
 	if ((flag & EM_IGNORE_LAYER) == 0) {
 		ob = CTX_data_active_object(C); /* active layer checked here for view3d */
@@ -356,7 +356,7 @@ void ED_object_editmode_enter(bContext *C, int flag)
 		 * BKE_object_obdata_is_libdata that prevent the bugfix #6614, so
 		 * i add this little hack here.
 		 */
-		if (ID_IS_LINKED_DATABLOCK(arm)) {
+		if (ID_IS_LINKED(arm)) {
 			error_libdata();
 			return;
 		}
@@ -440,7 +440,7 @@ static int editmode_toggle_poll(bContext *C)
 	Object *ob = CTX_data_active_object(C);
 
 	/* covers proxies too */
-	if (ELEM(NULL, ob, ob->data) || ID_IS_LINKED_DATABLOCK(ob->data))
+	if (ELEM(NULL, ob, ob->data) || ID_IS_LINKED(ob->data))
 		return 0;
 
 	/* if hidden but in edit mode, we still display */
@@ -667,7 +667,7 @@ static void copy_attr(Main *bmain, Scene *scene, SceneLayer *sl, short event)
 	Nurb *nu;
 	bool do_depgraph_update = false;
 	
-	if (ID_IS_LINKED_DATABLOCK(scene)) return;
+	if (ID_IS_LINKED(scene)) return;
 
 	if (!(ob = OBACT_NEW(sl))) return;
 	
@@ -976,13 +976,16 @@ void ED_object_check_force_modifiers(Main *bmain, Scene *scene, Object *object)
 
 	/* add/remove modifier as needed */
 	if (!md) {
-		if (pd && (pd->shape == PFIELD_SHAPE_SURFACE) && ELEM(pd->forcefield, PFIELD_GUIDE, PFIELD_TEXTURE) == 0)
-			if (ELEM(object->type, OB_MESH, OB_SURF, OB_FONT, OB_CURVE))
+		if (pd && (pd->shape == PFIELD_SHAPE_SURFACE) && !ELEM(pd->forcefield, 0, PFIELD_GUIDE, PFIELD_TEXTURE)) {
+			if (ELEM(object->type, OB_MESH, OB_SURF, OB_FONT, OB_CURVE)) {
 				ED_object_modifier_add(NULL, bmain, scene, object, NULL, eModifierType_Surface);
+			}
+		}
 	}
 	else {
-		if (!pd || pd->shape != PFIELD_SHAPE_SURFACE || pd->forcefield != PFIELD_FORCE)
+		if (!pd || (pd->shape != PFIELD_SHAPE_SURFACE) || ELEM(pd->forcefield, 0, PFIELD_GUIDE, PFIELD_TEXTURE)) {
 			ED_object_modifier_remove(NULL, bmain, object, md);
+		}
 	}
 }
 
@@ -1255,7 +1258,7 @@ static int shade_smooth_exec(bContext *C, wmOperator *op)
 	{
 		data = ob->data;
 
-		if (data && ID_IS_LINKED_DATABLOCK(data)) {
+		if (data && ID_IS_LINKED(data)) {
 			linked_data = true;
 			continue;
 		}
@@ -1263,7 +1266,7 @@ static int shade_smooth_exec(bContext *C, wmOperator *op)
 		if (ob->type == OB_MESH) {
 			BKE_mesh_smooth_flag_set(ob, !clear);
 
-			BKE_mesh_batch_cache_dirty(ob->data, BKE_MESH_BATCH_DIRTY_NOCHECK);
+			BKE_mesh_batch_cache_dirty(ob->data, BKE_MESH_BATCH_DIRTY_ALL);
 			DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 			WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
 
@@ -1339,7 +1342,7 @@ static void UNUSED_FUNCTION(image_aspect) (Scene *scene, SceneLayer *sl)
 	int a, b, done;
 	
 	if (scene->obedit) return;  // XXX get from context
-	if (ID_IS_LINKED_DATABLOCK(scene)) return;
+	if (ID_IS_LINKED(scene)) return;
 	
 	for (base = FIRSTBASE_NEW(sl); base; base = base->next) {
 		if (TESTBASELIB_NEW(base)) {
@@ -1390,9 +1393,10 @@ static void UNUSED_FUNCTION(image_aspect) (Scene *scene, SceneLayer *sl)
 	
 }
 
-static EnumPropertyItem *object_mode_set_itemsf(bContext *C, PointerRNA *UNUSED(ptr), PropertyRNA *UNUSED(prop), bool *r_free)
+static const EnumPropertyItem *object_mode_set_itemsf(
+        bContext *C, PointerRNA *UNUSED(ptr), PropertyRNA *UNUSED(prop), bool *r_free)
 {
-	EnumPropertyItem *input = rna_enum_object_mode_items;
+	const EnumPropertyItem *input = rna_enum_object_mode_items;
 	EnumPropertyItem *item = NULL;
 	Object *ob;
 	bGPdata *gpd;
@@ -1465,7 +1469,7 @@ static const char *object_mode_op_string(int mode)
 /* checks the mode to be set is compatible with the object
  * should be made into a generic function
  */
-static bool object_mode_compat_test(Object *ob, ObjectMode mode)
+static bool object_mode_compat_test(Object *ob, eObjectMode mode)
 {
 	if (ob) {
 		if (mode == OB_MODE_OBJECT)
@@ -1550,8 +1554,8 @@ static int object_mode_set_exec(bContext *C, wmOperator *op)
 {
 	Object *ob = CTX_data_active_object(C);
 	bGPdata *gpd = CTX_data_gpencil_data(C);
-	ObjectMode mode = RNA_enum_get(op->ptr, "mode");
-	ObjectMode restore_mode = (ob) ? ob->mode : OB_MODE_OBJECT;
+	eObjectMode mode = RNA_enum_get(op->ptr, "mode");
+	eObjectMode restore_mode = (ob) ? ob->mode : OB_MODE_OBJECT;
 	const bool toggle = RNA_boolean_get(op->ptr, "toggle");
 	
 	if (gpd) {
@@ -1774,7 +1778,7 @@ static int game_property_move(bContext *C, wmOperator *op)
 
 void OBJECT_OT_game_property_move(wmOperatorType *ot)
 {
-	static EnumPropertyItem direction_property_move[] = {
+	static const EnumPropertyItem direction_property_move[] = {
 		{GAME_PROPERTY_MOVE_UP,   "UP",   0, "Up",   ""},
 		{GAME_PROPERTY_MOVE_DOWN, "DOWN", 0, "Down", ""},
 		{0, NULL, 0, NULL, NULL}
@@ -1807,14 +1811,14 @@ void OBJECT_OT_game_property_move(wmOperatorType *ot)
 #define COPY_PROPERTIES_MERGE   2
 #define COPY_PROPERTIES_COPY    3
 
-static EnumPropertyItem game_properties_copy_operations[] = {
+static const EnumPropertyItem game_properties_copy_operations[] = {
 	{COPY_PROPERTIES_REPLACE, "REPLACE", 0, "Replace Properties", ""},
 	{COPY_PROPERTIES_MERGE, "MERGE", 0, "Merge Properties", ""},
 	{COPY_PROPERTIES_COPY, "COPY", 0, "Copy a Property", ""},
 	{0, NULL, 0, NULL, NULL}
 };
 
-static EnumPropertyItem *gameprops_itemf(bContext *C, PointerRNA *UNUSED(ptr), PropertyRNA *UNUSED(prop), bool *r_free)
+static const EnumPropertyItem *gameprops_itemf(bContext *C, PointerRNA *UNUSED(ptr), PropertyRNA *UNUSED(prop), bool *r_free)
 {	
 	Object *ob = ED_object_active_context(C);
 	EnumPropertyItem tmp = {0, "", 0, "", ""};

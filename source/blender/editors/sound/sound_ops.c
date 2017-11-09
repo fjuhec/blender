@@ -311,6 +311,7 @@ static int sound_bake_animation_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
+	struct Depsgraph *depsgraph = CTX_data_depsgraph(C);
 	int oldfra = scene->r.cfra;
 	int cfra;
 
@@ -318,11 +319,11 @@ static int sound_bake_animation_exec(bContext *C, wmOperator *UNUSED(op))
 
 	for (cfra = (scene->r.sfra > 0) ? (scene->r.sfra - 1) : 0; cfra <= scene->r.efra + 1; cfra++) {
 		scene->r.cfra = cfra;
-		BKE_scene_update_for_newframe(bmain->eval_ctx, bmain, scene);
+		BKE_scene_graph_update_for_newframe(bmain->eval_ctx, depsgraph, bmain, scene);
 	}
 
 	scene->r.cfra = oldfra;
-	BKE_scene_update_for_newframe(bmain->eval_ctx, bmain, scene);
+	BKE_scene_graph_update_for_newframe(bmain->eval_ctx, depsgraph, bmain, scene);
 
 	return OPERATOR_FINISHED;
 }
@@ -397,7 +398,7 @@ static int sound_mixdown_exec(bContext *C, wmOperator *op)
 }
 
 #ifdef WITH_AUDASPACE
-static EnumPropertyItem container_items[] = {
+static const EnumPropertyItem container_items[] = {
 #ifdef WITH_FFMPEG
 	{AUD_CONTAINER_AC3, "AC3", 0, "ac3", "Dolby Digital ATRAC 3"},
 #endif
@@ -429,7 +430,7 @@ static bool sound_mixdown_check(bContext *UNUSED(C), wmOperator *op)
 
 	const char *extension = NULL;
 
-	EnumPropertyItem *item = container_items;
+	const EnumPropertyItem *item = container_items;
 	while (item->identifier != NULL) {
 		if (item->value == container) {
 			const char **ext = snd_ext_sound;
@@ -491,7 +492,7 @@ static bool sound_mixdown_draw_check_prop(PointerRNA *UNUSED(ptr), PropertyRNA *
 
 static void sound_mixdown_draw(bContext *C, wmOperator *op)
 {
-	static EnumPropertyItem pcm_format_items[] = {
+	static const EnumPropertyItem pcm_format_items[] = {
 		{AUD_FORMAT_U8, "U8", 0, "U8", "8 bit unsigned"},
 		{AUD_FORMAT_S16, "S16", 0, "S16", "16 bit signed"},
 #ifdef WITH_SNDFILE
@@ -503,21 +504,21 @@ static void sound_mixdown_draw(bContext *C, wmOperator *op)
 		{0, NULL, 0, NULL, NULL}
 	};
 
-	static EnumPropertyItem mp3_format_items[] = {
+	static const EnumPropertyItem mp3_format_items[] = {
 		{AUD_FORMAT_S16, "S16", 0, "S16", "16 bit signed"},
 		{AUD_FORMAT_S32, "S32", 0, "S32", "32 bit signed"},
 		{0, NULL, 0, NULL, NULL}
 	};
 
 #ifdef WITH_SNDFILE
-	static EnumPropertyItem flac_format_items[] = {
+	static const EnumPropertyItem flac_format_items[] = {
 		{AUD_FORMAT_S16, "S16", 0, "S16", "16 bit signed"},
 		{AUD_FORMAT_S24, "S24", 0, "S24", "24 bit signed"},
 		{0, NULL, 0, NULL, NULL}
 	};
 #endif
 
-	static EnumPropertyItem all_codec_items[] = {
+	static const EnumPropertyItem all_codec_items[] = {
 		{AUD_CODEC_AAC, "AAC", 0, "AAC", "Advanced Audio Coding"},
 		{AUD_CODEC_AC3, "AC3", 0, "AC3", "Dolby Digital ATRAC 3"},
 		{AUD_CODEC_FLAC, "FLAC", 0, "FLAC", "Free Lossless Audio Codec"},
@@ -528,7 +529,7 @@ static void sound_mixdown_draw(bContext *C, wmOperator *op)
 		{0, NULL, 0, NULL, NULL}
 	};
 
-	static EnumPropertyItem ogg_codec_items[] = {
+	static const EnumPropertyItem ogg_codec_items[] = {
 		{AUD_CODEC_FLAC, "FLAC", 0, "FLAC", "Free Lossless Audio Codec"},
 		{AUD_CODEC_VORBIS, "VORBIS", 0, "Vorbis", "Xiph.Org Vorbis Codec"},
 		{0, NULL, 0, NULL, NULL}
@@ -641,7 +642,7 @@ static void sound_mixdown_draw(bContext *C, wmOperator *op)
 static void SOUND_OT_mixdown(wmOperatorType *ot)
 {
 #ifdef WITH_AUDASPACE
-	static EnumPropertyItem format_items[] = {
+	static const EnumPropertyItem format_items[] = {
 		{AUD_FORMAT_U8, "U8", 0, "U8", "8 bit unsigned"},
 		{AUD_FORMAT_S16, "S16", 0, "S16", "16 bit signed"},
 		{AUD_FORMAT_S24, "S24", 0, "S24", "24 bit signed"},
@@ -651,7 +652,7 @@ static void SOUND_OT_mixdown(wmOperatorType *ot)
 		{0, NULL, 0, NULL, NULL}
 	};
 
-	static EnumPropertyItem codec_items[] = {
+	static const EnumPropertyItem codec_items[] = {
 #ifdef WITH_FFMPEG
 		{AUD_CODEC_AAC, "AAC", 0, "AAC", "Advanced Audio Coding"},
 		{AUD_CODEC_AC3, "AC3", 0, "AC3", "Dolby Digital ATRAC 3"},

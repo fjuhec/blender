@@ -579,10 +579,10 @@ int GPU_verify_image(
 				if (do_color_management) {
 					srgb_frect = MEM_mallocN(ibuf->x * ibuf->y * sizeof(float) * 4, "floar_buf_col_cor");
 					gpu_verify_high_bit_srgb_buffer(srgb_frect, ibuf);
-					frect = srgb_frect + texwinsy * ibuf->x + texwinsx;
+					frect = srgb_frect + (4 * (texwinsy * ibuf->x + texwinsx));
 				}
 				else {
-					frect = ibuf->rect_float + texwinsy * ibuf->x + texwinsx;
+					frect = ibuf->rect_float + (ibuf->channels * (texwinsy * ibuf->x + texwinsx));
 				}
 			}
 			else {
@@ -1259,6 +1259,16 @@ void GPU_create_smoke(SmokeModifierData *smd, int highres)
 			else {
 				sds->tex = GPU_texture_create_3D_custom(sds->res[0], sds->res[1], sds->res[2], 1,
 				                                 GPU_R8, smoke_get_density(sds->fluid), NULL);
+
+				/* Swizzle the RGBA components to read the Red channel so
+				 * that the shader stay the same for colored and non color
+				 * density textures. */
+				GPU_texture_bind(sds->tex, 0);
+				glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_SWIZZLE_R, GL_RED);
+				glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_SWIZZLE_G, GL_RED);
+				glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_SWIZZLE_B, GL_RED);
+				glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_SWIZZLE_A, GL_RED);
+				GPU_texture_unbind(sds->tex);
 			}
 			sds->tex_flame = (smoke_has_fuel(sds->fluid)) ?
 			                  GPU_texture_create_3D_custom(sds->res[0], sds->res[1], sds->res[2], 1,
@@ -1277,10 +1287,20 @@ void GPU_create_smoke(SmokeModifierData *smd, int highres)
 			else {
 				sds->tex = GPU_texture_create_3D_custom(sds->res_wt[0], sds->res_wt[1], sds->res_wt[2], 1,
 				                                        GPU_R8, smoke_turbulence_get_density(sds->wt), NULL);
+
+				/* Swizzle the RGBA components to read the Red channel so
+				 * that the shader stay the same for colored and non color
+				 * density textures. */
+				GPU_texture_bind(sds->tex, 0);
+				glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_SWIZZLE_R, GL_RED);
+				glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_SWIZZLE_G, GL_RED);
+				glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_SWIZZLE_B, GL_RED);
+				glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_SWIZZLE_A, GL_RED);
+				GPU_texture_unbind(sds->tex);
 			}
 			sds->tex_flame = (smoke_turbulence_has_fuel(sds->wt)) ?
 			                  GPU_texture_create_3D_custom(sds->res_wt[0], sds->res_wt[1], sds->res_wt[2], 1,
-			                                               GPU_R8, smoke_turbulence_get_flame(sds->wt), NULL):
+			                                               GPU_R8, smoke_turbulence_get_flame(sds->wt), NULL) :
 			                  NULL;
 		}
 
@@ -2018,7 +2038,7 @@ int GPU_scene_object_lights(SceneLayer *sl, float viewmat[4][4], int ortho)
 		GPU_basic_shader_light_set(count, NULL);
 
 	/* view direction for specular is not computed correct by default in
-	 * opengl, so we set the settings ourselfs */
+	 * opengl, so we set the settings ourselves */
 	GPU_basic_shader_light_set_viewer(!ortho);
 
 	int count = 0;
@@ -2425,7 +2445,8 @@ void gpuPushAttrib(eGPUAttribMask mask)
 	AttribStack.top++;
 }
 
-static void restore_mask(GLenum cap, const bool value) {
+static void restore_mask(GLenum cap, const bool value)
+{
 	if (value) {
 		glEnable(cap);
 	}

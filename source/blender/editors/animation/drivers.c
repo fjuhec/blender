@@ -40,6 +40,7 @@
 #include "BLI_string.h"
 
 #include "DNA_anim_types.h"
+#include "DNA_object_types.h"
 #include "DNA_texture_types.h"
 
 #include "BKE_animsys.h"
@@ -47,6 +48,7 @@
 #include "BKE_context.h"
 #include "BKE_report.h"
 
+#include "DEG_depsgraph.h"
 #include "DEG_depsgraph_build.h"
 
 #include "ED_keyframing.h"
@@ -102,6 +104,7 @@ FCurve *verify_driver_fcurve(ID *id, const char rna_path[], const int array_inde
 		fcu = MEM_callocN(sizeof(FCurve), "FCurve");
 		
 		fcu->flag = (FCURVE_VISIBLE | FCURVE_SELECTED);
+		fcu->auto_smoothing = FCURVE_SMOOTH_CONT_ACCEL;
 		
 		/* store path - make copy, and store that */
 		fcu->rna_path = BLI_strdup(rna_path);
@@ -123,7 +126,7 @@ FCurve *verify_driver_fcurve(ID *id, const char rna_path[], const int array_inde
 				 * Create FModifier so that old scripts won't break
 				 * for now before 2.7 series -- (September 4, 2013)
 				 */
-				add_fmodifier(&fcu->modifiers, FMODIFIER_TYPE_GENERATOR);
+				add_fmodifier(&fcu->modifiers, FMODIFIER_TYPE_GENERATOR, fcu);
 			}
 			else {
 				/* add 2 keyframes so that user has something to work with 
@@ -765,7 +768,7 @@ EnumPropertyItem prop_driver_create_mapping_types[] = {
 };
 
 /* Filtering callback for driver mapping types enum */
-static EnumPropertyItem *driver_mapping_type_itemsf(bContext *C, PointerRNA *UNUSED(owner_ptr), PropertyRNA *UNUSED(owner_prop), bool *r_free)
+static const EnumPropertyItem *driver_mapping_type_itemsf(bContext *C, PointerRNA *UNUSED(owner_ptr), PropertyRNA *UNUSED(owner_prop), bool *r_free)
 {
 	EnumPropertyItem *input = prop_driver_create_mapping_types;
 	EnumPropertyItem *item = NULL;
@@ -1029,6 +1032,11 @@ static int paste_driver_button_exec(bContext *C, wmOperator *op)
 			success = ANIM_paste_driver(op->reports, ptr.id.data, path, index, 0);
 			
 			UI_context_update_anim_flag(C);
+			
+			DEG_relations_tag_update(CTX_data_main(C));
+			DEG_id_tag_update(ptr.id.data, OB_RECALC_OB | OB_RECALC_DATA);
+			
+			WM_event_add_notifier(C, NC_ANIMATION | ND_KEYFRAME_PROP, NULL);  // XXX
 			
 			MEM_freeN(path);
 		}

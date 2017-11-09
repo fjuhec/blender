@@ -57,11 +57,12 @@
 
 #include "BLI_sys_types.h" /* needed for intptr_t used in ED_mesh.h */
 #include "ED_mesh.h"
+#include "ED_object.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
 
-EnumPropertyItem rna_enum_object_mode_items[] = {
+const EnumPropertyItem rna_enum_object_mode_items[] = {
 	{OB_MODE_OBJECT, "OBJECT", ICON_OBJECT_DATAMODE, "Object Mode", ""},
 	{OB_MODE_EDIT, "EDIT", ICON_EDITMODE_HLT, "Edit Mode", ""},
 	{OB_MODE_POSE, "POSE", ICON_POSE_HLT, "Pose Mode", ""},
@@ -75,7 +76,7 @@ EnumPropertyItem rna_enum_object_mode_items[] = {
 	{0, NULL, 0, NULL, NULL}
 };
 
-EnumPropertyItem rna_enum_object_empty_drawtype_items[] = {
+const EnumPropertyItem rna_enum_object_empty_drawtype_items[] = {
 	{OB_PLAINAXES, "PLAIN_AXES", 0, "Plain Axes", ""},
 	{OB_ARROWS, "ARROWS", 0, "Arrows", ""},
 	{OB_SINGLE_ARROW, "SINGLE_ARROW", 0, "Single Arrow", ""},
@@ -88,7 +89,7 @@ EnumPropertyItem rna_enum_object_empty_drawtype_items[] = {
 };
 
 
-static EnumPropertyItem parent_type_items[] = {
+static const EnumPropertyItem parent_type_items[] = {
 	{PAROBJECT, "OBJECT", 0, "Object", "The object is parented to an object"},
 	{PARSKEL, "ARMATURE", 0, "Armature", ""},
 	{PARSKEL, "LATTICE", 0, "Lattice", "The object is parented to a lattice"}, /* PARSKEL reuse will give issues */
@@ -106,7 +107,7 @@ static EnumPropertyItem parent_type_items[] = {
 
 #define DUPLI_ITEM_GROUP \
 	{OB_DUPLIGROUP, "GROUP", 0, "Group", "Enable group instancing"}
-static EnumPropertyItem dupli_items[] = {
+static const EnumPropertyItem dupli_items[] = {
 	DUPLI_ITEMS_SHARED,
 	DUPLI_ITEM_GROUP,
 	{0, NULL, 0, NULL, NULL}
@@ -120,7 +121,7 @@ static EnumPropertyItem dupli_items_nogroup[] = {
 #undef DUPLI_ITEMS_SHARED
 #undef DUPLI_ITEM_GROUP
 
-static EnumPropertyItem collision_bounds_items[] = {
+static const EnumPropertyItem collision_bounds_items[] = {
 	{OB_BOUND_BOX, "BOX", ICON_MESH_CUBE, "Box", ""},
 	{OB_BOUND_SPHERE, "SPHERE", ICON_MESH_UVSPHERE, "Sphere", ""},
 	{OB_BOUND_CYLINDER, "CYLINDER", ICON_MESH_CYLINDER, "Cylinder", ""},
@@ -132,7 +133,7 @@ static EnumPropertyItem collision_bounds_items[] = {
 	{0, NULL, 0, NULL, NULL}
 };
 
-EnumPropertyItem rna_enum_metaelem_type_items[] = {
+const EnumPropertyItem rna_enum_metaelem_type_items[] = {
 	{MB_BALL, "BALL", ICON_META_BALL, "Ball", ""},
 	{MB_TUBE, "CAPSULE", ICON_META_CAPSULE, "Capsule", ""},
 	{MB_PLANE, "PLANE", ICON_META_PLANE, "Plane", ""},
@@ -146,7 +147,7 @@ EnumPropertyItem rna_enum_metaelem_type_items[] = {
 #define OBTYPE_CU_SURF {OB_SURF, "SURFACE", 0, "Surface", ""}
 #define OBTYPE_CU_FONT {OB_FONT, "FONT", 0, "Font", ""}
 
-EnumPropertyItem rna_enum_object_type_items[] = {
+const EnumPropertyItem rna_enum_object_type_items[] = {
 	{OB_MESH, "MESH", 0, "Mesh", ""},
 	OBTYPE_CU_CURVE,
 	OBTYPE_CU_SURF,
@@ -164,14 +165,14 @@ EnumPropertyItem rna_enum_object_type_items[] = {
 	{0, NULL, 0, NULL, NULL}
 };
 
-EnumPropertyItem rna_enum_object_type_curve_items[] = {
+const EnumPropertyItem rna_enum_object_type_curve_items[] = {
 	OBTYPE_CU_CURVE,
 	OBTYPE_CU_SURF,
 	OBTYPE_CU_FONT,
 	{0, NULL, 0, NULL, NULL}
 };
 
-EnumPropertyItem rna_enum_object_axis_items[] = {
+const EnumPropertyItem rna_enum_object_axis_items[] = {
 	{OB_POSX, "POS_X", 0, "+X", ""},
 	{OB_POSY, "POS_Y", 0, "+Y", ""},
 	{OB_POSZ, "POS_Z", 0, "+Z", ""},
@@ -312,61 +313,6 @@ static void rna_Object_dependency_update(Main *bmain, Scene *UNUSED(scene), Poin
 	WM_main_add_notifier(NC_OBJECT | ND_PARENT, ptr->id.data);
 }
 
-/* when changing the selection flag the scene needs updating */
-static void rna_Base_select_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)
-{
-	BaseLegacy *base = (BaseLegacy *)ptr->data;
-	short mode = (base->flag_legacy & BA_SELECT) ? BA_SELECT : BA_DESELECT;
-	ED_base_object_select(base, mode);
-}
-
-static void rna_Object_layer_update__internal(Main *bmain, Scene *scene, BaseLegacy *base, Object *ob)
-{
-	/* try to avoid scene sort */
-	if (scene == NULL) {
-		/* pass - unlikely but when running scripts on startup it happens */
-	}
-	else if ((ob->lay & scene->lay) && (base->lay & scene->lay)) {
-		/* pass */
-	}
-	else if ((ob->lay & scene->lay) == 0 && (base->lay & scene->lay) == 0) {
-		/* pass */
-	}
-	else {
-		DEG_relations_tag_update(bmain);
-	}
-
-	DEG_id_type_tag(bmain, ID_OB);
-}
-
-static void rna_Object_layer_update(Main *bmain, Scene *scene, PointerRNA *ptr)
-{
-	Object *ob = (Object *)ptr->id.data;
-	BaseLegacy *base;
-
-	base = scene ? BKE_scene_base_find(scene, ob) : NULL;
-	if (!base)
-		return;
-	
-	SWAP(unsigned int, base->lay, ob->lay);
-
-	rna_Object_layer_update__internal(bmain, scene, base, ob);
-	ob->lay = base->lay;
-
-	WM_main_add_notifier(NC_SCENE | ND_LAYER_CONTENT, scene);
-}
-
-static void rna_Base_layer_update(Main *bmain, Scene *scene, PointerRNA *ptr)
-{
-	BaseLegacy *base = (BaseLegacy *)ptr->data;
-	Object *ob = (Object *)base->object;
-
-	rna_Object_layer_update__internal(bmain, scene, base, ob);
-	ob->lay = base->lay;
-
-	WM_main_add_notifier(NC_SCENE | ND_LAYER_CONTENT, scene);
-}
-
 static void rna_Object_data_set(PointerRNA *ptr, PointerRNA value)
 {
 	Object *ob = (Object *)ptr->data;
@@ -453,7 +399,7 @@ static void rna_Object_parent_type_set(PointerRNA *ptr, int value)
 	ED_object_parent(ob, ob->parent, value, ob->parsubstr);
 }
 
-static EnumPropertyItem *rna_Object_parent_type_itemf(bContext *UNUSED(C), PointerRNA *ptr,
+static const EnumPropertyItem *rna_Object_parent_type_itemf(bContext *UNUSED(C), PointerRNA *ptr,
                                                       PropertyRNA *UNUSED(prop), bool *r_free)
 {
 	Object *ob = (Object *)ptr->data;
@@ -494,7 +440,7 @@ static void rna_Object_empty_draw_type_set(PointerRNA *ptr, int value)
 	BKE_object_empty_draw_type_set(ob, value);
 }
 
-static EnumPropertyItem *rna_Object_collision_bounds_itemf(bContext *UNUSED(C), PointerRNA *ptr,
+static const EnumPropertyItem *rna_Object_collision_bounds_itemf(bContext *UNUSED(C), PointerRNA *ptr,
                                                            PropertyRNA *UNUSED(prop), bool *r_free)
 {
 	Object *ob = (Object *)ptr->data;
@@ -527,12 +473,12 @@ static void rna_Object_parent_bone_set(PointerRNA *ptr, const char *value)
 	ED_object_parent(ob, ob->parent, ob->partype, value);
 }
 
-static EnumPropertyItem *rna_Object_dupli_type_itemf(
+static const EnumPropertyItem *rna_Object_dupli_type_itemf(
         bContext *UNUSED(C), PointerRNA *ptr,
         PropertyRNA *UNUSED(prop), bool *UNUSED(r_free))
 {
 	Object *ob = (Object *)ptr->data;
-	EnumPropertyItem *item;
+	const EnumPropertyItem *item;
 
 	if (ob->type == OB_EMPTY) {
 		item = dupli_items;
@@ -827,10 +773,10 @@ static int rna_Object_active_material_editable(PointerRNA *ptr, const char **UNU
 	bool is_editable;
 
 	if ((ob->matbits == NULL) || (ob->actcol == 0) || ob->matbits[ob->actcol - 1]) {
-		is_editable = !ID_IS_LINKED_DATABLOCK(ob);
+		is_editable = !ID_IS_LINKED(ob);
 	}
 	else {
-		is_editable = ob->data ? !ID_IS_LINKED_DATABLOCK(ob->data) : false;
+		is_editable = ob->data ? !ID_IS_LINKED(ob->data) : false;
 	}
 
 	return is_editable ? PROP_EDITABLE : 0;
@@ -1199,49 +1145,6 @@ static PointerRNA rna_Object_active_particle_system_get(PointerRNA *ptr)
 static PointerRNA rna_Object_game_settings_get(PointerRNA *ptr)
 {
 	return rna_pointer_inherit_refine(ptr, &RNA_GameObjectSettings, ptr->id.data);
-}
-
-
-static unsigned int rna_Object_layer_validate__internal(const int *values, unsigned int lay)
-{
-	int i, tot = 0;
-
-	/* ensure we always have some layer selected */
-	for (i = 0; i < 20; i++)
-		if (values[i])
-			tot++;
-
-	if (tot == 0)
-		return 0;
-
-	for (i = 0; i < 20; i++) {
-		if (values[i]) lay |=  (1 << i);
-		else           lay &= ~(1 << i);
-	}
-
-	return lay;
-}
-
-static void rna_Object_layer_set(PointerRNA *ptr, const int *values)
-{
-	Object *ob = (Object *)ptr->data;
-	unsigned int lay;
-
-	lay = rna_Object_layer_validate__internal(values, ob->lay);
-	if (lay)
-		ob->lay = lay;
-}
-
-static void rna_Base_layer_set(PointerRNA *ptr, const int *values)
-{
-	BaseLegacy *base = (BaseLegacy *)ptr->data;
-
-	unsigned int lay;
-	lay = rna_Object_layer_validate__internal(values, base->lay);
-	if (lay)
-		base->lay = lay;
-
-	/* rna_Base_layer_update updates the objects layer */
 }
 
 static void rna_GameObjectSettings_state_get(PointerRNA *ptr, int *values)
@@ -1704,7 +1607,7 @@ static void rna_def_vertex_group(BlenderRNA *brna)
 	FunctionRNA *func;
 	PropertyRNA *parm;
 
-	static EnumPropertyItem assign_mode_items[] = {
+	static const EnumPropertyItem assign_mode_items[] = {
 		{WEIGHT_REPLACE,  "REPLACE",  0, "Replace",  "Replace"},
 		{WEIGHT_ADD,      "ADD",      0, "Add",      "Add"},
 		{WEIGHT_SUBTRACT, "SUBTRACT", 0, "Subtract", "Subtract"},
@@ -1809,7 +1712,7 @@ static void rna_def_material_slot(BlenderRNA *brna)
 	StructRNA *srna;
 	PropertyRNA *prop;
 
-	static EnumPropertyItem link_items[] = {
+	static const EnumPropertyItem link_items[] = {
 		{1, "OBJECT", 0, "Object", ""},
 		{0, "DATA", 0, "Data", ""},
 		{0, NULL, 0, NULL, NULL}
@@ -1850,7 +1753,7 @@ static void rna_def_object_game_settings(BlenderRNA *brna)
 	StructRNA *srna;
 	PropertyRNA *prop;
 
-	static EnumPropertyItem body_type_items[] = {
+	static const EnumPropertyItem body_type_items[] = {
 		{OB_BODY_TYPE_NO_COLLISION, "NO_COLLISION", 0, "No Collision", "Disable collision for this object"},
 		{OB_BODY_TYPE_STATIC, "STATIC", 0, "Static", "Stationary object"},
 		{OB_BODY_TYPE_DYNAMIC, "DYNAMIC", 0, "Dynamic", "Linear physics"},
@@ -2433,14 +2336,14 @@ static void rna_def_object(BlenderRNA *brna)
 	StructRNA *srna;
 	PropertyRNA *prop;
 
-	static EnumPropertyItem up_items[] = {
+	static const EnumPropertyItem up_items[] = {
 		{OB_POSX, "X", 0, "X", ""},
 		{OB_POSY, "Y", 0, "Y", ""},
 		{OB_POSZ, "Z", 0, "Z", ""},
 		{0, NULL, 0, NULL, NULL}
 	};
 
-	static EnumPropertyItem drawtype_items[] = {
+	static const EnumPropertyItem drawtype_items[] = {
 		{OB_BOUNDBOX, "BOUNDS", 0, "Bounds", "Draw the bounds of the object"},
 		{OB_WIRE, "WIRE", 0, "Wire", "Draw the object as a wireframe"},
 		{OB_SOLID, "SOLID", 0, "Solid", "Draw the object as a solid (if solid drawing is enabled in the viewport)"},
@@ -2449,7 +2352,7 @@ static void rna_def_object(BlenderRNA *brna)
 		{0, NULL, 0, NULL, NULL}
 	};
 
-	static EnumPropertyItem boundtype_items[] = {
+	static const EnumPropertyItem boundtype_items[] = {
 		{OB_BOUND_BOX, "BOX", 0, "Box", "Draw bounds as box"},
 		{OB_BOUND_SPHERE, "SPHERE", 0, "Sphere", "Draw bounds as sphere"},
 		{OB_BOUND_CYLINDER, "CYLINDER", 0, "Cylinder", "Draw bounds as cylinder"},
@@ -2461,7 +2364,7 @@ static void rna_def_object(BlenderRNA *brna)
 	
 	/* XXX: this RNA enum define is currently duplicated for objects,
 	 *      since there is some text here which is not applicable */
-	static EnumPropertyItem prop_rotmode_items[] = {
+	static const EnumPropertyItem prop_rotmode_items[] = {
 		{ROT_MODE_QUAT, "QUATERNION", 0, "Quaternion (WXYZ)", "No Gimbal Lock"},
 		{ROT_MODE_XYZ, "XYZ", 0, "XYZ Euler", "XYZ Rotation Order - prone to Gimbal Lock (default)"},
 		{ROT_MODE_XZY, "XZY", 0, "XZY Euler", "XZY Rotation Order - prone to Gimbal Lock"},
@@ -2502,15 +2405,6 @@ static void rna_def_object(BlenderRNA *brna)
 	RNA_def_property_enum_items(prop, rna_enum_object_mode_items);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 	RNA_def_property_ui_text(prop, "Mode", "Object interaction mode");
-
-	prop = RNA_def_property(srna, "layers", PROP_BOOLEAN, PROP_LAYER_MEMBER);
-	RNA_def_property_boolean_sdna(prop, NULL, "lay", 1);
-	RNA_def_property_array(prop, 20);
-	RNA_def_property_ui_text(prop, "Layers", "Layers the object is on");
-	RNA_def_property_boolean_funcs(prop, NULL, "rna_Object_layer_set");
-	RNA_def_property_flag(prop, PROP_LIB_EXCEPTION);
-	RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_Object_layer_update");
-	RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
 
 	prop = RNA_def_property(srna, "layers_local_view", PROP_BOOLEAN, PROP_LAYER_MEMBER);
 	RNA_def_property_boolean_sdna(prop, NULL, "lay", 0x01000000);
@@ -2658,7 +2552,7 @@ static void rna_def_object(BlenderRNA *brna)
 	/* only for the transform-panel and conflicts with animating scale */
 	RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
 	RNA_def_property_float_funcs(prop, "rna_Object_dimensions_get", "rna_Object_dimensions_set", NULL);
-	RNA_def_property_ui_range(prop, 0.0f, FLT_MAX, 1, 3);
+	RNA_def_property_ui_range(prop, 0.0f, FLT_MAX, 1, RNA_TRANSLATION_PREC_DEFAULT);
 	RNA_def_property_ui_text(prop, "Dimensions", "Absolute bounding box dimensions of the object");
 	RNA_def_property_update(prop, NC_OBJECT | ND_TRANSFORM, "rna_Object_internal_update");
 	
@@ -2897,6 +2791,12 @@ static void rna_def_object(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Restrict Render", "Restrict renderability");
 	RNA_def_property_ui_icon(prop, ICON_RESTRICT_RENDER_OFF, 1);
 	RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_Object_hide_update");
+
+	/* Keep it in sync with BKE_object_is_visible. */
+	prop = RNA_def_property(srna, "is_visible", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "base_flag", BASE_VISIBLED);
+	RNA_def_property_ui_text(prop, "Visible", "Visible to camera rays, set only on objects evaluated by depsgraph");
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 
 	prop = RNA_def_property(srna, "collection_properties", PROP_COLLECTION, PROP_NONE);
 	RNA_def_property_collection_sdna(prop, NULL, "base_collection_properties->data.group", NULL);
@@ -3181,49 +3081,12 @@ static void rna_def_dupli_object(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Dupli random id", "Random id for this dupli object");
 }
 
-static void rna_def_object_base_legacy(BlenderRNA *brna)
-{
-	StructRNA *srna;
-	PropertyRNA *prop;
-
-	srna = RNA_def_struct(brna, "ObjectBaseLegacy", NULL);
-	RNA_def_struct_sdna(srna, "Base");
-	RNA_def_struct_ui_text(srna, "Object Base Legacy", "An object instance in a scene (deprecated)");
-	RNA_def_struct_ui_icon(srna, ICON_OBJECT_DATA);
-
-	prop = RNA_def_property(srna, "object", PROP_POINTER, PROP_NONE);
-	RNA_def_property_pointer_sdna(prop, NULL, "object");
-	RNA_def_property_ui_text(prop, "Object", "Object this base links to");
-
-	/* same as object layer */
-	prop = RNA_def_property(srna, "layers", PROP_BOOLEAN, PROP_LAYER_MEMBER);
-	RNA_def_property_boolean_sdna(prop, NULL, "lay", 1);
-	RNA_def_property_array(prop, 20);
-	RNA_def_property_ui_text(prop, "Layers", "Layers the object base is on");
-	RNA_def_property_boolean_funcs(prop, NULL, "rna_Base_layer_set");
-	RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_Base_layer_update");
-
-	prop = RNA_def_property(srna, "layers_local_view", PROP_BOOLEAN, PROP_LAYER_MEMBER);
-	RNA_def_property_boolean_sdna(prop, NULL, "lay", 0x01000000);
-	RNA_def_property_array(prop, 8);
-	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
-	RNA_def_property_ui_text(prop, "Local View Layers", "3D local view layers the object base is on");
-
-	prop = RNA_def_property(srna, "select", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag_legacy", BA_SELECT);
-	RNA_def_property_ui_text(prop, "Select", "Object base selection state");
-	RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_Base_select_update");
-
-	RNA_api_object_base_legacy(srna);
-}
-
 void RNA_def_object(BlenderRNA *brna)
 {
 	rna_def_object(brna);
 
 	RNA_define_animate_sdna(false);
 	rna_def_object_game_settings(brna);
-	rna_def_object_base_legacy(brna);
 	rna_def_vertex_group(brna);
 	rna_def_face_map(brna);
 	rna_def_material_slot(brna);

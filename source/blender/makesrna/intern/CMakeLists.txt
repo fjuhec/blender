@@ -57,6 +57,7 @@ set(DEFSRC
 	rna_key.c
 	rna_lamp.c
 	rna_lattice.c
+	rna_layer.c
 	rna_linestyle.c
 	rna_main.c
 	rna_mask.c
@@ -240,13 +241,6 @@ if(WITH_AUDASPACE)
 	list(APPEND INC_SYS
 		${AUDASPACE_C_INCLUDE_DIRS}
 	)
-endif()
-
-if(WITH_CODEC_QUICKTIME)
-	list(APPEND INC
-		../../quicktime
-	)
-	add_definitions(-DWITH_QUICKTIME)
 endif()
 
 if(WITH_CODEC_FFMPEG)

@@ -50,7 +50,7 @@
 
 #include "rna_internal.h"  /* own include */
 
-static EnumPropertyItem space_items[] = {
+static const EnumPropertyItem space_items[] = {
 	{CONSTRAINT_SPACE_WORLD,    "WORLD", 0, "World Space",
 	                            "The most gobal space in Blender"},
 	{CONSTRAINT_SPACE_POSE,     "POSE", 0, "Pose Space",
@@ -111,13 +111,13 @@ static void rna_Object_select_set(Object *ob, bContext *C, ReportList *reports, 
 	}
 
 	switch (action) {
-	    case 1: /* DESELECT */
-		    base->flag &= ~BASE_SELECTED;
-		    break;
-	    case 0: /* SELECT */
-	    default:
-		    BKE_scene_layer_base_select(sl, base);
-		    break;
+		case 1: /* DESELECT */
+			base->flag &= ~BASE_SELECTED;
+			break;
+		case 0: /* SELECT */
+		default:
+			BKE_scene_layer_base_select(sl, base);
+			break;
 	}
 }
 
@@ -329,11 +329,6 @@ static void rna_Object_shape_key_remove(
 	RNA_POINTER_INVALIDATE(kb_ptr);
 }
 
-static int rna_Object_is_visible(Object *ob, Scene *sce)
-{
-	return !(ob->restrictflag & OB_RESTRICT_VIEW) && (ob->lay & sce->lay);
-}
-
 #if 0
 static void rna_Mesh_assign_verts_to_group(Object *ob, bDeformGroup *group, int *indices, int totindex,
                                            float weight, int assignmode)
@@ -481,13 +476,6 @@ finally:
 	free_bvhtree_from_mesh(&treeData);
 }
 
-/* ObjectBaseLegacy */
-
-static void rna_ObjectBaseLegacy_layers_from_view(BaseLegacy *base, View3D *v3d)
-{
-	base->lay = base->object->lay = v3d->lay;
-}
-
 static int rna_Object_is_modified(Object *ob, Scene *scene, int settings)
 {
 	return BKE_object_is_modified(scene, ob) & settings;
@@ -550,13 +538,13 @@ void RNA_api_object(StructRNA *srna)
 	FunctionRNA *func;
 	PropertyRNA *parm;
 
-	static EnumPropertyItem mesh_type_items[] = {
+	static const EnumPropertyItem mesh_type_items[] = {
 		{eModifierMode_Realtime, "PREVIEW", 0, "Preview", "Apply modifier preview settings"},
 		{eModifierMode_Render, "RENDER", 0, "Render", "Apply modifier render settings"},
 		{0, NULL, 0, NULL, NULL}
 	};
 
-	static EnumPropertyItem dupli_eval_mode_items[] = {
+	static const EnumPropertyItem dupli_eval_mode_items[] = {
 		{DAG_EVAL_VIEWPORT, "VIEWPORT", 0, "Viewport", "Generate duplis using viewport settings"},
 		{DAG_EVAL_PREVIEW, "PREVIEW", 0, "Preview", "Generate duplis using preview settings"},
 		{DAG_EVAL_RENDER, "RENDER", 0, "Render", "Generate duplis using render settings"},
@@ -564,7 +552,7 @@ void RNA_api_object(StructRNA *srna)
 	};
 
 #ifndef NDEBUG
-	static EnumPropertyItem mesh_dm_info_items[] = {
+	static const EnumPropertyItem mesh_dm_info_items[] = {
 		{0, "SOURCE", 0, "Source", "Source mesh"},
 		{1, "DEFORM", 0, "Deform", "Objects deform mesh"},
 		{2, "FINAL", 0, "Final", "Objects final mesh"},
@@ -754,12 +742,6 @@ void RNA_api_object(StructRNA *srna)
 	RNA_def_function_output(func, parm);
 
 	/* View */
-	func = RNA_def_function(srna, "is_visible", "rna_Object_is_visible");
-	RNA_def_function_ui_description(func, "Determine if object is visible in a given scene");
-	parm = RNA_def_pointer(func, "scene", "Scene", "", "");
-	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
-	parm = RNA_def_boolean(func, "result", 0, "", "Object visibility");
-	RNA_def_function_return(func, parm);
 
 	/* utility function for checking if the object is modified */
 	func = RNA_def_function(srna, "is_modified", "rna_Object_is_modified");

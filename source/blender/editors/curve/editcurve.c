@@ -595,7 +595,7 @@ static void calc_keyHandles(ListBase *nurb, float *key)
 				if (nextp) key_to_bezt(nextfp, nextp, &next);
 				if (prevp) key_to_bezt(prevfp, prevp, &prev);
 
-				BKE_nurb_handle_calc(&cur, prevp ? &prev : NULL, nextp ? &next : NULL, 0);
+				BKE_nurb_handle_calc(&cur, prevp ? &prev : NULL, nextp ? &next : NULL, 0, 0);
 				bezt_to_key(&cur, fp);
 
 				prevp = bezt;
@@ -3596,7 +3596,7 @@ static int set_spline_type_exec(bContext *C, wmOperator *op)
 
 void CURVE_OT_spline_type_set(wmOperatorType *ot)
 {
-	static EnumPropertyItem type_items[] = {
+	static const EnumPropertyItem type_items[] = {
 		{CU_POLY, "POLY", 0, "Poly", ""},
 		{CU_BEZIER, "BEZIER", 0, "Bezier", ""},
 //		{CU_CARDINAL, "CARDINAL", 0, "Cardinal", ""},
@@ -3641,7 +3641,7 @@ static int set_handle_type_exec(bContext *C, wmOperator *op)
 void CURVE_OT_handle_type_set(wmOperatorType *ot)
 {
 	/* keep in sync with graphkeys_handle_type_items */
-	static EnumPropertyItem editcurve_handle_type_items[] = {
+	static const EnumPropertyItem editcurve_handle_type_items[] = {
 		{HD_AUTO, "AUTOMATIC", 0, "Automatic", ""},
 		{HD_VECT, "VECTOR", 0, "Vector", ""},
 		{5, "ALIGNED", 0, "Aligned", ""},
@@ -4795,13 +4795,13 @@ static int ed_editcurve_addvert(Curve *cu, EditNurb *editnurb, const float locat
 {
 	Nurb *nu;
 
-	float minmax[2][3];
+	float center[3];
 	float temp[3];
-	bool nu_has_select = false;
-
+	uint verts_len;
 	bool changed = false;
 
-	INIT_MINMAX(minmax[0], minmax[1]);
+	zero_v3(center);
+	verts_len = 0;
 
 	for (nu = editnurb->nurbs.first; nu; nu = nu->next) {
 		int i;
@@ -4810,8 +4810,8 @@ static int ed_editcurve_addvert(Curve *cu, EditNurb *editnurb, const float locat
 
 			for (i = 0, bezt = nu->bezt; i < nu->pntsu; i++, bezt++) {
 				if (BEZT_ISSEL_ANY_HIDDENHANDLES(cu, bezt)) {
-					minmax_v3v3_v3(UNPACK2(minmax), bezt->vec[1]);
-					nu_has_select = true;
+					add_v3_v3(center, bezt->vec[1]);
+					verts_len += 1;
 				}
 			}
 		}
@@ -4820,18 +4820,18 @@ static int ed_editcurve_addvert(Curve *cu, EditNurb *editnurb, const float locat
 
 			for (i = 0, bp = nu->bp; i < nu->pntsu; i++, bp++) {
 				if (bp->f1 & SELECT) {
-					minmax_v3v3_v3(UNPACK2(minmax), bp->vec);
-					nu_has_select = true;
+					add_v3_v3(center, bp->vec);
+					verts_len += 1;
 				}
 			}
 		}
 	}
 
-	if (nu_has_select && ed_editcurve_extrude(cu, editnurb)) {
-		float ofs[3], center[3];
+	if (verts_len && ed_editcurve_extrude(cu, editnurb)) {
+		float ofs[3];
 		int i;
 
-		mid_v3_v3v3(center, minmax[0], minmax[1]);
+		mul_v3_fl(center, 1.0f / (float)verts_len);
 		sub_v3_v3v3(ofs, location_init, center);
 
 		if ((cu->flag & CU_3D) == 0) {
@@ -5017,7 +5017,7 @@ static int add_vertex_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 			const float mval[2] = {UNPACK2(event->mval)};
 
 			struct SnapObjectContext *snap_context = ED_transform_snap_object_context_create_view3d(
-			        CTX_data_main(C), vc.scene, vc.scene_layer, 0,
+			        CTX_data_main(C), vc.scene, vc.scene_layer, vc.engine, 0,
 			        vc.ar, vc.v3d);
 
 			ED_transform_snap_object_project_view3d_mixed(
@@ -5258,7 +5258,7 @@ static int toggle_cyclic_invoke(bContext *C, wmOperator *op, const wmEvent *UNUS
 
 void CURVE_OT_cyclic_toggle(wmOperatorType *ot)
 {
-	static EnumPropertyItem direction_items[] = {
+	static const EnumPropertyItem direction_items[] = {
 		{0, "CYCLIC_U", 0, "Cyclic U", ""},
 		{1, "CYCLIC_V", 0, "Cyclic V", ""},
 		{0, NULL, 0, NULL, NULL}
@@ -5752,13 +5752,13 @@ static int curve_delete_exec(bContext *C, wmOperator *op)
 	return retval;
 }
 
-static EnumPropertyItem curve_delete_type_items[] = {
+static const EnumPropertyItem curve_delete_type_items[] = {
 	{CURVE_VERTEX, "VERT", 0, "Vertices", ""},
 	{CURVE_SEGMENT, "SEGMENT", 0, "Segments", ""},
 	{0, NULL, 0, NULL, NULL}
 };
 
-static EnumPropertyItem *rna_curve_delete_type_itemf(bContext *C, PointerRNA *UNUSED(ptr),
+static const EnumPropertyItem *rna_curve_delete_type_itemf(bContext *C, PointerRNA *UNUSED(ptr),
                                                             PropertyRNA *UNUSED(prop), bool *r_free)
 {
 	EnumPropertyItem *item = NULL;
@@ -5908,6 +5908,86 @@ void CURVE_OT_dissolve_verts(wmOperatorType *ot)
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
+
+static bool nurb_bezt_flag_any(const Nurb *nu, const char flag_test)
+{
+	BezTriple *bezt = nu->bezt;
+	int i;
+
+	for (i = nu->pntsu, bezt = nu->bezt; i--; bezt++) {
+		if (bezt->f2 & flag_test) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+static int curve_decimate_exec(bContext *C, wmOperator *op)
+{
+	Object *obedit = CTX_data_edit_object(C);
+	Curve *cu = (Curve *)obedit->data;
+	bool all_supported = true;
+	bool changed = false;
+
+	{
+		const float error_sq_max = FLT_MAX;
+		float ratio = RNA_float_get(op->ptr, "ratio");
+
+		ListBase *editnurb = object_editcurve_get(obedit);
+		Nurb *nu;
+
+		for (nu = editnurb->first; nu; nu = nu->next) {
+			if (nu->type == CU_BEZIER) {
+				if ((nu->pntsu > 2) && nurb_bezt_flag_any(nu, SELECT)) {
+					const int error_target_len = max_ii(2, nu->pntsu * ratio);
+					if (error_target_len != nu->pntsu) {
+						BKE_curve_decimate_nurb(nu, cu->resolu, error_sq_max, error_target_len);
+						changed = true;
+					}
+				}
+			}
+			else {
+				all_supported = false;
+			}
+		}
+	}
+
+	if (all_supported == false) {
+		BKE_report(op->reports, RPT_WARNING, "Only bezier curves are supported");
+	}
+
+	if (changed) {
+		cu->actnu = cu->actvert = CU_ACT_NONE;
+		if (ED_curve_updateAnimPaths(obedit->data)) {
+			WM_event_add_notifier(C, NC_OBJECT | ND_KEYS, obedit);
+		}
+
+		WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
+		DEG_id_tag_update(obedit->data, 0);
+	}
+
+	return OPERATOR_FINISHED;
+}
+
+void CURVE_OT_decimate(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Decimate Curve";
+	ot->description = "Simplify selected curves";
+	ot->idname = "CURVE_OT_decimate";
+
+	/* api callbacks */
+	ot->exec = curve_decimate_exec;
+	ot->poll = ED_operator_editcurve;
+
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+	/* properties */
+	RNA_def_float_factor(ot->srna, "ratio", 1.0f, 0.0f, 1.0f, "Ratio", "", 0.0f, 1.0f);
+}
+
 
 /********************** shade smooth/flat operator *********************/
 

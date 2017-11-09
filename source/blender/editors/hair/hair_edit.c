@@ -229,10 +229,13 @@ void hair_init_viewcontext(bContext *C, ViewContext *vc)
 	
 	if (has_zbuf) {
 		if (v3d->flag & V3D_INVALID_BACKBUF) {
+			EvaluationContext eval_ctx;
+			CTX_data_eval_ctx(C, &eval_ctx);
+			
 			/* needed or else the draw matrix can be incorrect */
 			view3d_operator_needs_opengl(C);
 			
-			ED_view3d_backbuf_validate(C, vc);
+			ED_view3d_backbuf_validate(&eval_ctx, vc);
 			/* we may need to force an update here by setting the rv3d as dirty
 			 * for now it seems ok, but take care!:
 			 * rv3d->depths->dirty = 1; */

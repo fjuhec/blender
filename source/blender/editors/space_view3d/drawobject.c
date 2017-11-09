@@ -651,7 +651,7 @@ void drawaxes(const float viewmat_local[4][4], float size, char drawtype, const 
 
 
 /* Function to draw an Image on an empty Object */
-static void draw_empty_image(Object *ob, const short dflag, const unsigned char ob_wire_col[4], StereoViews sview)
+static void draw_empty_image(Object *ob, const short dflag, const unsigned char ob_wire_col[4], eStereoViews sview)
 {
 	Image *ima = ob->data;
 
@@ -769,7 +769,7 @@ static void draw_empty_image(Object *ob, const short dflag, const unsigned char 
 			glDisable(GL_BLEND);
 		}
 
-		imm_draw_line_box(pos, rect.xmin, rect.ymin, rect.xmax, rect.ymax);
+		imm_draw_box_wire_2d(pos, rect.xmin, rect.ymin, rect.xmax, rect.ymax);
 	}
 	else {
 		immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
@@ -781,7 +781,7 @@ static void draw_empty_image(Object *ob, const short dflag, const unsigned char 
 			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 		}
 
-		imm_draw_line_box(pos, rect.xmin, rect.ymin, rect.xmax, rect.ymax);
+		imm_draw_box_wire_2d(pos, rect.xmin, rect.ymin, rect.xmax, rect.ymax);
 
 		glDisable(GL_LINE_SMOOTH);
 		glDisable(GL_BLEND);
@@ -824,7 +824,7 @@ static void drawcentercircle(View3D *v3d, RegionView3D *UNUSED(rv3d), const floa
 	const float outlineWidth = 1.0f * U.pixelsize;
 	const float size = U.obcenter_dia * U.pixelsize + outlineWidth;
 
- 	if (v3d->zbuf) {
+	if (v3d->zbuf) {
 		glDisable(GL_DEPTH_TEST);
 		/* TODO(merwin): fit things like this into plates/buffers design */
 	}
@@ -861,7 +861,7 @@ static void drawcentercircle(View3D *v3d, RegionView3D *UNUSED(rv3d), const floa
 	GPU_disable_program_point_size();
 	glDisable(GL_BLEND);
 
- 	if (v3d->zbuf) {
+	if (v3d->zbuf) {
 		glEnable(GL_DEPTH_TEST);
 	}
 }
@@ -1479,7 +1479,7 @@ void drawlamp(View3D *v3d, RegionView3D *rv3d, Base *base,
 				 * previously it adjusted to always to show it but that seems
 				 * confusing because it doesn't show the actual blend size */
 				if (blend != 0.0f && blend != z_abs) {
-					imm_draw_line_box_3d(pos, blend, -blend, -blend, blend);
+					imm_draw_box_wire_3d(pos, blend, -blend, -blend, blend);
 				}
 			}
 		}
@@ -1589,9 +1589,9 @@ void drawlamp(View3D *v3d, RegionView3D *rv3d, Base *base,
 	else if (la->type == LA_AREA) {
 		setlinestyle(3);
 		if (la->area_shape == LA_AREA_SQUARE)
-			imm_draw_line_box_3d(pos, -la->area_size * 0.5f, -la->area_size * 0.5f, la->area_size * 0.5f, la->area_size * 0.5f);
+			imm_draw_box_wire_3d(pos, -la->area_size * 0.5f, -la->area_size * 0.5f, la->area_size * 0.5f, la->area_size * 0.5f);
 		else if (la->area_shape == LA_AREA_RECT)
-			imm_draw_line_box_3d(pos, -la->area_size * 0.5f, -la->area_sizey * 0.5f, la->area_size * 0.5f, la->area_sizey * 0.5f);
+			imm_draw_box_wire_3d(pos, -la->area_size * 0.5f, -la->area_sizey * 0.5f, la->area_size * 0.5f, la->area_sizey * 0.5f);
 
 		immBegin(GWN_PRIM_LINES, 2);
 		immVertex3f(pos, 0.0f, 0.0f, -circrad);
@@ -8444,7 +8444,7 @@ void draw_object_wire_color(Scene *scene, SceneLayer *sl, Base *base, unsigned c
 	}
 	else {
 		/* Sets the 'colindex' */
-		if (ID_IS_LINKED_DATABLOCK(ob)) {
+		if (ID_IS_LINKED(ob)) {
 			colindex = ((base->flag & BASE_SELECTED) || (base->flag_legacy & BA_WAS_SEL)) ? 2 : 1;
 		}
 		/* Sets the 'theme_id' or fallback to wire */
@@ -8761,7 +8761,7 @@ void draw_object(
 		if ((dflag & DRAW_PICKING) == 0) {
 			if ((dt == OB_BOUNDBOX) || ELEM(ob->type, OB_EMPTY, OB_LAMP, OB_CAMERA, OB_SPEAKER)) {
 				goto afterdraw;
-				}
+			}
 		}
 
 		switch (ob->type) {
@@ -9206,7 +9206,7 @@ afterdraw:
 				    !(G.f & G_RENDER_OGL))
 				{
 					/* check > 0 otherwise grease pencil can draw into the circle select which is annoying. */
-					drawcentercircle(v3d, rv3d, ob->obmat[3], do_draw_center, ID_IS_LINKED_DATABLOCK(ob) || ob->id.us > 1);
+					drawcentercircle(v3d, rv3d, ob->obmat[3], do_draw_center, ID_IS_LINKED(ob) || ob->id.us > 1);
 				}
 			}
 		}
@@ -9227,7 +9227,7 @@ afterdraw:
 
 		/* help lines and so */
 		if (ob != scene->obedit && ob->parent) {
-			if ((ob->parent->base_flag & BASE_VISIBLED) != 0) {
+			if (BKE_object_is_visible(ob->parent)) {
 				setlinestyle(3);
 				immBegin(GWN_PRIM_LINES, 2);
 				immVertex3fv(pos, ob->obmat[3]);
@@ -9802,8 +9802,8 @@ void draw_object_backbufsel(
 			else {
 				Mesh *me = ob->data;
 				if ((me->editflag & ME_EDIT_PAINT_VERT_SEL) &&
-				    /* currently vertex select only supports weight paint */
-				    (ob->mode & OB_MODE_WEIGHT_PAINT))
+				    /* currently vertex select supports weight paint and vertex paint*/
+				    ((ob->mode & OB_MODE_WEIGHT_PAINT) || (ob->mode & OB_MODE_VERTEX_PAINT)))
 				{
 					bbs_mesh_solid_verts(eval_ctx, scene, ob);
 				}

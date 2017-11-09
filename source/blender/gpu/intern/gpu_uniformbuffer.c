@@ -97,6 +97,7 @@ GPUUniformBuffer *GPU_uniformbuffer_create(int size, const void *data, char err_
 {
 	GPUUniformBuffer *ubo = MEM_callocN(sizeof(GPUUniformBufferStatic), "GPUUniformBufferStatic");
 	ubo->size = size;
+	ubo->bindpoint = -1;
 
 	/* Generate Buffer object */
 	glGenBuffers(1, &ubo->bindcode);
@@ -134,6 +135,7 @@ GPUUniformBuffer *GPU_uniformbuffer_dynamic_create(ListBase *inputs, char err_ou
 
 	GPUUniformBufferDynamic *ubo = MEM_callocN(sizeof(GPUUniformBufferDynamic), "GPUUniformBufferDynamic");
 	ubo->buffer.type = GPU_UBO_DYNAMIC;
+	ubo->buffer.bindpoint = -1;
 	ubo->flag = GPU_UBO_FLAG_DIRTY;
 
 	/* Generate Buffer object. */
@@ -241,8 +243,8 @@ static GPUType get_padded_gpu_type(LinkData *link)
 
 	/* Unless the vec3 is followed by a float we need to treat it as a vec4. */
 	if (gputype == GPU_VEC3 &&
-		(link->next != NULL) &&
-		(((GPUInput *)link->next->data)->type != GPU_FLOAT))
+	    (link->next != NULL) &&
+	    (((GPUInput *)link->next->data)->type != GPU_FLOAT))
 	{
 		gputype = GPU_VEC4;
 	}
@@ -356,12 +358,18 @@ void GPU_uniformbuffer_bind(GPUUniformBuffer *ubo, int number)
 	ubo->bindpoint = number;
 }
 
+void GPU_uniformbuffer_unbind(GPUUniformBuffer *ubo)
+{
+	ubo->bindpoint = -1;
+}
+
 int GPU_uniformbuffer_bindpoint(GPUUniformBuffer *ubo)
 {
 	return ubo->bindpoint;
 }
 
-void GPU_uniformbuffer_tag_dirty(GPUUniformBuffer *ubo_) {
+void GPU_uniformbuffer_tag_dirty(GPUUniformBuffer *ubo_)
+{
 	BLI_assert(ubo_->type == GPU_UBO_DYNAMIC);
 	GPUUniformBufferDynamic *ubo = (GPUUniformBufferDynamic *)ubo_;
 	ubo->flag |= GPU_UBO_FLAG_DIRTY;

@@ -125,7 +125,7 @@
 /* this is an exact copy of the define in rna_lamp.c
  * kept here because of linking order.
  * Icons are only defined here */
-EnumPropertyItem rna_enum_lamp_type_items[] = {
+const EnumPropertyItem rna_enum_lamp_type_items[] = {
 	{LA_LOCAL, "POINT", ICON_LAMP_POINT, "Point", "Omnidirectional point light source"},
 	{LA_SUN, "SUN", ICON_LAMP_SUN, "Sun", "Constant direction parallel ray light source"},
 	{LA_SPOT, "SPOT", ICON_LAMP_SPOT, "Spot", "Directional cone light source"},
@@ -135,7 +135,7 @@ EnumPropertyItem rna_enum_lamp_type_items[] = {
 };
 
 /* copy from rna_object_force.c */
-static EnumPropertyItem field_type_items[] = {
+static const EnumPropertyItem field_type_items[] = {
 	{PFIELD_FORCE, "FORCE", ICON_FORCE_FORCE, "Force", ""},
 	{PFIELD_WIND, "WIND", ICON_FORCE_WIND, "Wind", ""},
 	{PFIELD_VORTEX, "VORTEX", ICON_FORCE_VORTEX, "Vortex", ""},
@@ -1073,7 +1073,7 @@ static int group_instance_add_exec(bContext *C, wmOperator *op)
 		group = (Group *)BKE_libblock_find_name(ID_GR, name);
 		
 		if (0 == RNA_struct_property_is_set(op->ptr, "location")) {
-			wmEvent *event = CTX_wm_window(C)->eventstate;
+			const wmEvent *event = CTX_wm_window(C)->eventstate;
 			ARegion *ar = CTX_wm_region(C);
 			const int mval[2] = {event->x - ar->winrct.xmin,
 			                     event->y - ar->winrct.ymin};
@@ -1278,7 +1278,7 @@ static int object_delete_exec(bContext *C, wmOperator *op)
 		if (use_global) {
 			Scene *scene_iter;
 			for (scene_iter = bmain->scene.first; scene_iter; scene_iter = scene_iter->id.next) {
-				if (scene_iter != scene && !ID_IS_LINKED_DATABLOCK(scene_iter)) {
+				if (scene_iter != scene && !ID_IS_LINKED(scene_iter)) {
 					if (is_indirectly_used && ID_REAL_USERS(ob) <= 1 && ID_EXTRA_USERS(ob) == 0) {
 						BKE_reportf(op->reports, RPT_WARNING,
 						            "Cannot delete object '%s' from scene '%s', indirectly used objects need at least one user",
@@ -1459,8 +1459,9 @@ static void make_object_duplilist_real(bContext *C, Scene *scene, Base *base,
 			ob_dst->totcol = 0;
 		}
 
-		BKE_collection_object_add_from(scene, ob_src, ob_dst);
+		BKE_collection_object_add_from(scene, base->object, ob_dst);
 		base_dst = BKE_scene_layer_base_find(sl, ob_dst);
+		BLI_assert(base_dst != NULL);
 
 		BKE_scene_object_base_flag_sync_from_base(base_dst);
 
@@ -1627,7 +1628,7 @@ void OBJECT_OT_duplicates_make_real(wmOperatorType *ot)
 
 /**************************** Convert **************************/
 
-static EnumPropertyItem convert_target_items[] = {
+static const EnumPropertyItem convert_target_items[] = {
 	{OB_CURVE, "CURVE", ICON_OUTLINER_OB_CURVE, "Curve from Mesh/Text", ""},
 	{OB_MESH, "MESH", ICON_OUTLINER_OB_MESH, "Mesh from Curve/Meta/Surf/Text", ""},
 	{0, NULL, 0, NULL, NULL}
@@ -1664,11 +1665,12 @@ static void curvetomesh(EvaluationContext *eval_ctx, Main *bmain, Scene *scene, 
 
 static int convert_poll(bContext *C)
 {
-	Object *obact = CTX_data_active_object(C);
 	Scene *scene = CTX_data_scene(C);
+	Base *base_act = CTX_data_active_base(C);
+	Object *obact = base_act ? base_act->object : NULL;
 
-	return (!ID_IS_LINKED_DATABLOCK(scene) && obact && scene->obedit != obact &&
-	        (obact->flag & SELECT) && !ID_IS_LINKED_DATABLOCK(obact));
+	return (!ID_IS_LINKED(scene) && obact && scene->obedit != obact &&
+	        (base_act->flag & BASE_SELECTED) && !ID_IS_LINKED(obact));
 }
 
 /* Helper for convert_exec */
@@ -1698,7 +1700,7 @@ static int convert_exec(bContext *C, wmOperator *op)
 	SceneLayer *sl = CTX_data_scene_layer(C);
 	EvaluationContext eval_ctx;
 	Base *basen = NULL, *basact = NULL;
-	Object *ob, *ob1, *newob, *obact = CTX_data_active_object(C);
+	Object *ob1, *newob, *obact = CTX_data_active_object(C);
 	DerivedMesh *dm;
 	Curve *cu;
 	Nurb *nu;
@@ -1713,10 +1715,8 @@ static int convert_exec(bContext *C, wmOperator *op)
 	/* don't forget multiple users! */
 
 	{
-		BaseLegacy *base;
-
-		for (base = scene->base.first; base; base = base->next) {
-			ob = base->object;
+		FOREACH_SCENE_OBJECT(scene, ob)
+		{
 			ob->flag &= ~OB_DONE;
 
 			/* flag data thats not been edited (only needed for !keep_original) */
@@ -1735,6 +1735,7 @@ static int convert_exec(bContext *C, wmOperator *op)
 				}
 			}
 		}
+		FOREACH_SCENE_OBJECT_END
 	}
 
 	ListBase selected_editable_bases = CTX_data_collection_get(C, "selected_editable_bases");
@@ -1744,15 +1745,15 @@ static int convert_exec(bContext *C, wmOperator *op)
 	 * on other objects data masks too, see: T50950. */
 	{
 		for (CollectionPointerLink *link = selected_editable_bases.first; link; link = link->next) {
-			BaseLegacy *base = link->ptr.data;
-			ob = base->object;
+			Base *base = link->ptr.data;
+			Object *ob = base->object;
 
 			/* The way object type conversion works currently (enforcing conversion of *all* objetcs using converted
 			 * obdata, even some un-selected/hidden/inother scene ones, sounds totally bad to me.
 			 * However, changing this is more design than bugfix, not to mention convoluted code below,
 			 * so that will be for later.
 			 * But at the very least, do not do that with linked IDs! */
-			if ((ID_IS_LINKED_DATABLOCK(ob) || (ob->data && ID_IS_LINKED_DATABLOCK(ob->data))) && !keep_original) {
+			if ((ID_IS_LINKED(ob) || (ob->data && ID_IS_LINKED(ob->data))) && !keep_original) {
 				keep_original = true;
 				BKE_reportf(op->reports, RPT_INFO,
 				            "Converting some linked object/object data, enforcing 'Keep Original' option to True");
@@ -1761,15 +1762,16 @@ static int convert_exec(bContext *C, wmOperator *op)
 			DEG_id_tag_update(&base->object->id, OB_RECALC_DATA);
 		}
 
+		Depsgraph *depsgraph = BKE_scene_get_depsgraph(scene, sl, true);
 		uint64_t customdata_mask_prev = scene->customdata_mask;
 		scene->customdata_mask |= CD_MASK_MESH;
-		BKE_scene_update_tagged(bmain->eval_ctx, bmain, scene);
+		BKE_scene_graph_update_tagged(bmain->eval_ctx, depsgraph, bmain, scene);
 		scene->customdata_mask = customdata_mask_prev;
 	}
 
 	for (CollectionPointerLink *link = selected_editable_bases.first; link; link = link->next) {
-		BaseLegacy *base = link->ptr.data;
-		ob = base->object;
+		Base *base = link->ptr.data;
+		Object *ob = base->object;
 
 		if (ob->flag & OB_DONE || !IS_TAGGED(ob->data)) {
 			if (ob->type != target) {
@@ -1939,8 +1941,8 @@ static int convert_exec(bContext *C, wmOperator *op)
 		else if (ob->type == OB_MBALL && target == OB_MESH) {
 			Object *baseob;
 
-			base->flag &= ~SELECT;
-			ob->flag &= ~SELECT;
+			base->flag &= ~BASE_SELECTED;
+			ob->base_flag &= ~BASE_SELECTED;
 
 			baseob = BKE_mball_basis_find(scene, ob);
 
@@ -2005,8 +2007,8 @@ static int convert_exec(bContext *C, wmOperator *op)
 		if (mballConverted) {
 			FOREACH_SCENE_OBJECT(scene, ob_mball)
 			{
-				if (ob->type == OB_MBALL) {
-					if (ob->flag & OB_DONE) {
+				if (ob_mball->type == OB_MBALL) {
+					if (ob_mball->flag & OB_DONE) {
 						Object *ob_basis = NULL;
 						if (BKE_mball_is_basis(ob_mball) ||
 						    ((ob_basis = BKE_mball_basis_find(scene, ob_mball)) && (ob_basis->flag & OB_DONE)))
@@ -2262,6 +2264,11 @@ static Base *object_add_duplicate_internal(Main *bmain, Scene *scene, SceneLayer
 		if (didit) {
 			Key *key = BKE_key_from_object(obn);
 
+			Key *oldkey = BKE_key_from_object(ob);
+			if (oldkey != NULL) {
+				ID_NEW_SET(oldkey, key);
+			}
+
 			if (dupflag & USER_DUP_ACT) {
 				bActuator *act;
 
@@ -2493,7 +2500,7 @@ static int join_poll(bContext *C)
 {
 	Object *ob = CTX_data_active_object(C);
 
-	if (!ob || ID_IS_LINKED_DATABLOCK(ob)) return 0;
+	if (!ob || ID_IS_LINKED(ob)) return 0;
 
 	if (ELEM(ob->type, OB_MESH, OB_CURVE, OB_SURF, OB_ARMATURE))
 		return ED_operator_screenactive(C);
@@ -2546,7 +2553,7 @@ static int join_shapes_poll(bContext *C)
 {
 	Object *ob = CTX_data_active_object(C);
 
-	if (!ob || ID_IS_LINKED_DATABLOCK(ob)) return 0;
+	if (!ob || ID_IS_LINKED(ob)) return 0;
 
 	/* only meshes supported at the moment */
 	if (ob->type == OB_MESH)

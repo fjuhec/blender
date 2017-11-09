@@ -277,19 +277,6 @@ static int matcap_to_index(int matcap)
 	return 0;
 }
 
-/* Van der Corput sequence */
-/* TODO this is duplicated code from eevee_lightprobes.c */
- /* From http://holger.dammertz.org/stuff/notes_HammersleyOnHemisphere.html */
-static float radical_inverse(int i) {
-	unsigned int bits = (unsigned int)i;
-	bits = (bits << 16u) | (bits >> 16u);
-	bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);
-	bits = ((bits & 0x33333333u) << 2u) | ((bits & 0xCCCCCCCCu) >> 2u);
-	bits = ((bits & 0x0F0F0F0Fu) << 4u) | ((bits & 0xF0F0F0F0u) >> 4u);
-	bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);
-	return (float)bits * 2.3283064365386963e-10f;
-}
-
 /* Using Hammersley distribution */
 static float *create_disk_samples(int num_samples)
 {
@@ -299,7 +286,10 @@ static float *create_disk_samples(int num_samples)
 
 	for (int i = 0; i < num_samples; i++) {
 		float r = (i + 0.5f) * num_samples_inv;
-		float phi = radical_inverse(i) * 2.0f * M_PI;
+		double dphi;
+		BLI_hammersley_1D(i, &dphi);
+
+		float phi = (float)dphi * 2.0f * M_PI;
 		texels[i][0] = cosf(phi);
 		texels[i][1] = sinf(phi);
 		/* This deliberatly distribute more samples
@@ -503,8 +493,9 @@ static void CLAY_engine_init(void *vedata)
 	}
 }
 
-static DRWShadingGroup *CLAY_shgroup_create(CLAY_Data *UNUSED(vedata), DRWPass *pass, int *material_id, bool use_flat)
+static DRWShadingGroup *CLAY_shgroup_create(CLAY_Data *vedata, DRWPass *pass, int *material_id, bool use_flat)
 {
+	CLAY_StorageList *stl = vedata->stl;
 	CLAY_SceneLayerData *sldata = CLAY_scene_layer_data_get();
 	DRWShadingGroup *grp = DRW_shgroup_create(use_flat ? e_data.clay_flat_sh : e_data.clay_sh, pass);
 
@@ -520,16 +511,19 @@ static DRWShadingGroup *CLAY_shgroup_create(CLAY_Data *UNUSED(vedata), DRWPass *
 
 	DRW_shgroup_uniform_texture(grp, "ssao_jitter", sldata->jitter_tx);
 	DRW_shgroup_uniform_block(grp, "samples_block", sldata->sampling_ubo);
+	DRW_shgroup_uniform_block(grp, "material_block", stl->mat_ubo);
 
 	return grp;
 }
 
-static DRWShadingGroup *CLAY_hair_shgroup_create(DRWPass *pass, int *material_id)
+static DRWShadingGroup *CLAY_hair_shgroup_create(CLAY_Data *vedata, DRWPass *pass, int *material_id)
 {
+	CLAY_StorageList *stl = vedata->stl;
 	DRWShadingGroup *grp = DRW_shgroup_create(e_data.hair_sh, pass);
 
 	DRW_shgroup_uniform_texture(grp, "matcaps", e_data.matcap_array);
 	DRW_shgroup_uniform_int(grp, "mat_id", material_id, 1);
+	DRW_shgroup_uniform_block(grp, "material_block", stl->mat_ubo);
 
 	return grp;
 }
@@ -679,16 +673,12 @@ static DRWShadingGroup *CLAY_object_shgrp_get(
 	if (shgrps[id] == NULL) {
 		shgrps[id] = CLAY_shgroup_create(
 		        vedata, use_flat ? psl->clay_pass_flat : psl->clay_pass, &e_data.ubo_mat_idxs[id], use_flat);
-		/* if it's the first shgrp, pass bind the material UBO */
-		if (stl->storage->ubo_current_id == 1) {
-			DRW_shgroup_uniform_block(shgrps[0], "material_block", stl->mat_ubo);
-		}
 	}
 
 	return shgrps[id];
 }
 
-static DRWShadingGroup *CLAY_hair_shgrp_get(Object *ob, CLAY_StorageList *stl, CLAY_PassList *psl)
+static DRWShadingGroup *CLAY_hair_shgrp_get(CLAY_Data *vedata, Object *ob, CLAY_StorageList *stl, CLAY_PassList *psl)
 {
 	DRWShadingGroup **hair_shgrps = stl->storage->hair_shgrps;
 
@@ -698,11 +688,7 @@ static DRWShadingGroup *CLAY_hair_shgrp_get(Object *ob, CLAY_StorageList *stl, C
 	int hair_id = hair_mat_in_ubo(stl->storage, &hair_mat_ubo_test);
 
 	if (hair_shgrps[hair_id] == NULL) {
-		hair_shgrps[hair_id] = CLAY_hair_shgroup_create(psl->hair_pass, &e_data.ubo_mat_idxs[hair_id]);
-		/* if it's the first shgrp, pass bind the material UBO */
-		if (stl->storage->hair_ubo_current_id == 1) {
-			DRW_shgroup_uniform_block(hair_shgrps[0], "material_block", stl->hair_mat_ubo);
-		}
+		hair_shgrps[hair_id] = CLAY_hair_shgroup_create(vedata, psl->hair_pass, &e_data.ubo_mat_idxs[hair_id]);
 	}
 
 	return hair_shgrps[hair_id];
@@ -830,7 +816,7 @@ static void CLAY_cache_populate(void *vedata, Object *ob)
 
 					if (draw_as == PART_DRAW_PATH) {
 						geom = DRW_cache_particles_get_hair(psys, NULL);
-						hair_shgrp = CLAY_hair_shgrp_get(ob, stl, psl);
+						hair_shgrp = CLAY_hair_shgrp_get(vedata, ob, stl, psl);
 						DRW_shgroup_call_add(hair_shgrp, geom, mat);
 					}
 				}
@@ -927,7 +913,8 @@ DrawEngineType draw_engine_clay_type = {
 	&CLAY_cache_populate,
 	&CLAY_cache_finish,
 	NULL,
-	&CLAY_draw_scene
+	&CLAY_draw_scene,
+	NULL,
 };
 
 RenderEngineType DRW_engine_viewport_clay_type = {

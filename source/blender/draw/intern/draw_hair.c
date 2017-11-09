@@ -44,11 +44,9 @@ const char* DRW_hair_shader_defines(void)
 	return str;
 }
 
-void DRW_hair_shader_uniforms(DRWShadingGroup *shgrp, Scene *scene,
+void DRW_hair_shader_uniforms(DRWShadingGroup *shgrp, Scene *UNUSED(scene),
                               GPUTexture **fibertex, const DRWHairFiberTextureBuffer *texbuffer)
 {
-	const HairEditSettings *tsettings = &scene->toolsettings->hair_edit;
-	
 	DRW_shgroup_uniform_vec2(shgrp, "viewport_size", DRW_viewport_size_get(), 1);
 	//DRW_shgroup_uniform_float(shgrp, "ribbon_width", &tsettings->hair_draw_size, 1);
 	static float test = 2.5f;

@@ -127,16 +127,25 @@ void ED_base_object_activate(bContext *C, BaseLegacy *base)
 		WM_event_add_notifier(C, NC_SCENE | ND_OB_ACTIVE, NULL);
 }
 
-void ED_object_base_select(Base *base, short mode)
+void ED_object_base_select(Base *base, eObjectSelect_Mode mode)
 {
+	if (mode == BA_INVERT) {
+		mode = (base->flag & BASE_SELECTED) != 0 ? BA_DESELECT : BA_SELECT;
+	}
+
 	if (base) {
-		if (mode == BA_SELECT) {
-			if ((base->flag & BASE_SELECTABLED) != 0) {
-				base->flag |= BASE_SELECTED;
-			}
-		}
-		else if (mode == BA_DESELECT) {
-			base->flag &= ~BASE_SELECTED;
+		switch (mode) {
+			case BA_SELECT:
+				if ((base->flag & BASE_SELECTABLED) != 0) {
+					base->flag |= BASE_SELECTED;
+				}
+				break;
+			case BA_DESELECT:
+				base->flag &= ~BASE_SELECTED;
+				break;
+			case BA_INVERT:
+				/* Never happens. */
+				break;
 		}
 	}
 }
@@ -233,7 +242,7 @@ enum {
 	OBJECT_SELECT_LINKED_LIBRARY_OBDATA
 };
 
-static EnumPropertyItem prop_select_linked_types[] = {
+static const EnumPropertyItem prop_select_linked_types[] = {
 	//{OBJECT_SELECT_LINKED_IPO, "IPO", 0, "Object IPO", ""}, // XXX deprecated animation system stuff...
 	{OBJECT_SELECT_LINKED_OBDATA, "OBDATA", 0, "Object Data", ""},
 	{OBJECT_SELECT_LINKED_MATERIAL, "MATERIAL", 0, "Material", ""},
@@ -530,7 +539,7 @@ enum {
 	OBJECT_GRPSEL_LAMP_TYPE          = 12,
 };
 
-static EnumPropertyItem prop_select_grouped_types[] = {
+static const EnumPropertyItem prop_select_grouped_types[] = {
 	{OBJECT_GRPSEL_CHILDREN_RECURSIVE, "CHILDREN_RECURSIVE", 0, "Children", ""},
 	{OBJECT_GRPSEL_CHILDREN, "CHILDREN", 0, "Immediate Children", ""},
 	{OBJECT_GRPSEL_PARENT, "PARENT", 0, "Parent", ""},
@@ -940,13 +949,13 @@ static int object_select_all_exec(bContext *C, wmOperator *op)
 	{
 		switch (action) {
 			case SEL_SELECT:
-			    ED_object_base_select(base, BA_SELECT);
+				ED_object_base_select(base, BA_SELECT);
 				break;
 			case SEL_DESELECT:
-			    ED_object_base_select(base, BA_DESELECT);
+				ED_object_base_select(base, BA_DESELECT);
 				break;
 			case SEL_INVERT:
-			    if ((base->flag & BASE_SELECTED) != 0) {
+				if ((base->flag & BASE_SELECTED) != 0) {
 					ED_object_base_select(base, BA_DESELECT);
 				}
 				else {

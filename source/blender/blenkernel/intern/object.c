@@ -159,16 +159,6 @@ void BKE_object_workob_clear(Object *workob)
 	workob->rotmode = ROT_MODE_EUL;
 }
 
-void BKE_object_update_base_layer(struct Scene *scene, Object *ob)
-{
-	BaseLegacy *base = scene->base.first;
-
-	while (base) {
-		if (base->object == ob) base->lay = ob->lay;
-		base = base->next;
-	}
-}
-
 void BKE_object_free_particlesystems(Object *ob)
 {
 	ParticleSystem *psys;
@@ -562,6 +552,15 @@ bool BKE_object_is_in_wpaint_select_vert(Object *ob)
 	return false;
 }
 
+/**
+ * Return if the object is visible, as evaluated by depsgraph
+ * Keep in sync with rna_object.c (object.is_visible).
+ */
+bool BKE_object_is_visible(Object *ob)
+{
+	return (ob->base_flag & BASE_VISIBLED) != 0;
+}
+
 bool BKE_object_exists_check(Object *obtest)
 {
 	Object *ob;
@@ -715,32 +714,65 @@ Object *BKE_object_add_only_object(Main *bmain, int type, const char *name)
 	return ob;
 }
 
-/* general add: to scene, with layer from area and default name */
-/* creates minimum required data, but without vertices etc. */
-Object *BKE_object_add(
-        Main *bmain, Scene *scene, SceneLayer *sl,
-        int type, const char *name)
+
+static Object *object_add_common(Main *bmain, SceneLayer *scene_layer, int type, const char *name)
 {
 	Object *ob;
-	Base *base;
-	LayerCollection *lc;
 
 	ob = BKE_object_add_only_object(bmain, type, name);
-
 	ob->data = BKE_object_obdata_add_from_type(bmain, type, name);
-
-	lc = BKE_layer_collection_get_active_ensure(scene, sl);
-
-	BKE_collection_object_add(scene, lc->scene_collection, ob);
-
-	base = BKE_scene_layer_base_find(sl, ob);
-	BKE_scene_layer_base_deselect_all(sl);
-	BKE_scene_layer_base_select(sl, base);
+	BKE_scene_layer_base_deselect_all(scene_layer);
 
 	DEG_id_tag_update_ex(bmain, &ob->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
 	return ob;
 }
 
+/**
+ * General add: to scene, with layer from area and default name
+ *
+ * Object is added to the active SceneCollection.
+ * If there is no linked collection to the active SceneLayer we create a new one.
+ */
+/* creates minimum required data, but without vertices etc. */
+Object *BKE_object_add(
+        Main *bmain, Scene *scene, SceneLayer *scene_layer,
+        int type, const char *name)
+{
+	Object *ob;
+	Base *base;
+	LayerCollection *layer_collection;
+
+	ob = object_add_common(bmain, scene_layer, type, name);
+
+	layer_collection = BKE_layer_collection_get_active_ensure(scene, scene_layer);
+	BKE_collection_object_add(scene, layer_collection->scene_collection, ob);
+
+	base = BKE_scene_layer_base_find(scene_layer, ob);
+	BKE_scene_layer_base_select(scene_layer, base);
+
+	return ob;
+}
+
+/**
+ * Add a new object, using another one as a reference
+ *
+ * /param ob_src object to use to determine the collections of the new object.
+ */
+Object *BKE_object_add_from(
+        Main *bmain, Scene *scene, SceneLayer *scene_layer,
+        int type, const char *name, Object *ob_src)
+{
+	Object *ob;
+	Base *base;
+
+	ob = object_add_common(bmain, scene_layer, type, name);
+	BKE_collection_object_add_from(scene, ob_src, ob);
+
+	base = BKE_scene_layer_base_find(scene_layer, ob);
+	BKE_scene_layer_base_select(scene_layer, base);
+
+	return ob;
+}
 
 #ifdef WITH_GAMEENGINE
 
@@ -1247,7 +1279,7 @@ void BKE_object_make_local_ex(Main *bmain, Object *ob, const bool lib_local, con
 	 * In case we make a whole lib's content local, we always want to localize, and we skip remapping (done later).
 	 */
 
-	if (!ID_IS_LINKED_DATABLOCK(ob)) {
+	if (!ID_IS_LINKED(ob)) {
 		return;
 	}
 
@@ -1289,15 +1321,15 @@ void BKE_object_make_local(Main *bmain, Object *ob, const bool lib_local)
 /* Returns true if the Object is from an external blend file (libdata) */
 bool BKE_object_is_libdata(Object *ob)
 {
-	return (ob && ID_IS_LINKED_DATABLOCK(ob));
+	return (ob && ID_IS_LINKED(ob));
 }
 
 /* Returns true if the Object data is from an external blend file (libdata) */
 bool BKE_object_obdata_is_libdata(Object *ob)
 {
 	/* Linked objects with local obdata are forbidden! */
-	BLI_assert(!ob || !ob->data || (ID_IS_LINKED_DATABLOCK(ob) ? ID_IS_LINKED_DATABLOCK(ob->data) : true));
-	return (ob && ob->data && ID_IS_LINKED_DATABLOCK(ob->data));
+	BLI_assert(!ob || !ob->data || (ID_IS_LINKED(ob) ? ID_IS_LINKED(ob->data) : true));
+	return (ob && ob->data && ID_IS_LINKED(ob->data));
 }
 
 /* *************** PROXY **************** */
@@ -1344,7 +1376,7 @@ void BKE_object_copy_proxy_drivers(Object *ob, Object *target)
 							/* only on local objects because this causes indirect links
 							 * 'a -> b -> c', blend to point directly to a.blend
 							 * when a.blend has a proxy thats linked into c.blend  */
-							if (!ID_IS_LINKED_DATABLOCK(ob))
+							if (!ID_IS_LINKED(ob))
 								id_lib_extern((ID *)dtar->id);
 						}
 					}
@@ -1362,7 +1394,7 @@ void BKE_object_copy_proxy_drivers(Object *ob, Object *target)
 void BKE_object_make_proxy(Object *ob, Object *target, Object *gob)
 {
 	/* paranoia checks */
-	if (ID_IS_LINKED_DATABLOCK(ob) || !ID_IS_LINKED_DATABLOCK(target)) {
+	if (ID_IS_LINKED(ob) || !ID_IS_LINKED(target)) {
 		printf("cannot make proxy\n");
 		return;
 	}
@@ -2674,7 +2706,7 @@ void BKE_object_handle_update_ex(const EvaluationContext *eval_ctx,
 				printf("recalcob %s\n", ob->id.name + 2);
 			
 			/* handle proxy copy for target */
-			if (ID_IS_LINKED_DATABLOCK(ob) && ob->proxy_from) {
+			if (ID_IS_LINKED(ob) && ob->proxy_from) {
 				// printf("ob proxy copy, lib ob %s proxy %s\n", ob->id.name, ob->proxy_from->id.name);
 				if (ob->proxy_from->proxy_group) { /* transform proxy into group space */
 					Object *obg = ob->proxy_from->proxy_group;
@@ -2728,7 +2760,7 @@ void BKE_object_sculpt_modifiers_changed(Object *ob)
 {
 	SculptSession *ss = ob->sculpt;
 
-	if (ss) {
+	if (ss && ss->building_vp_handle == false) {
 		if (!ss->cache) {
 			/* we free pbvh on changes, except during sculpt since it can't deal with
 			 * changing PVBH node organization, we hope topology does not change in
@@ -2739,6 +2771,9 @@ void BKE_object_sculpt_modifiers_changed(Object *ob)
 			}
 
 			BKE_sculptsession_free_deformMats(ob->sculpt);
+
+			/* In vertex/weight paint, force maps to be rebuilt. */
+			BKE_sculptsession_free_vwpaint_data(ob->sculpt);
 		}
 		else {
 			PBVHNode **nodes;

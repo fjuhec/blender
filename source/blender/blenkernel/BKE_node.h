@@ -74,6 +74,7 @@ struct PointerRNA;
 struct RenderData;
 struct Scene;
 struct Tex;
+struct ViewRender;
 struct SpaceNode;
 struct ARegion;
 struct ColorManagedViewSettings;
@@ -251,9 +252,9 @@ typedef struct bNodeType {
 #define NODE_CLASS_LAYOUT			100
 
 /* nodetype->compatibility */
-#define NODE_OLD_SHADING	1
-#define NODE_NEW_SHADING	2
-#define NODE_NEWER_SHADING	3
+#define NODE_OLD_SHADING	(1 << 0)
+#define NODE_NEW_SHADING	(1 << 1)
+#define NODE_NEWER_SHADING	(1 << 2)
 
 /* node resize directions */
 #define NODE_RESIZE_TOP		1
@@ -282,7 +283,7 @@ typedef struct bNodeTreeType {
 	/* callbacks */
 	void (*free_cache)(struct bNodeTree *ntree);
 	void (*free_node_cache)(struct bNodeTree *ntree, struct bNode *node);
-	void (*foreach_nodeclass)(struct Scene *scene, void *calldata, bNodeClassCallback func);	/* iteration over all node classes */
+	void (*foreach_nodeclass)(struct ViewRender *view_render, void *calldata, bNodeClassCallback func);	/* iteration over all node classes */
 	/* Check visibility in the node editor */
 	int (*poll)(const struct bContext *C, struct bNodeTreeType *ntreetype);
 	/* Select a node tree from the context */
@@ -797,6 +798,7 @@ struct ShadeResult;
 #define SH_NODE_TEX_POINTDENSITY		192
 #define SH_NODE_BSDF_PRINCIPLED         193
 #define SH_NODE_EEVEE_SPECULAR			195
+#define SH_NODE_BEVEL                   197
 
 /* custom defines options for Material node */
 #define SH_NODE_MAT_DIFF   1
@@ -815,6 +817,7 @@ extern void (*node_shader_lamp_loop)(struct ShadeInput *, struct ShadeResult *);
 void            set_node_shader_lamp_loop(void (*lamp_loop_func)(struct ShadeInput *, struct ShadeResult *));
 
 void            ntreeGPUMaterialNodes(struct bNodeTree *ntree, struct GPUMaterial *mat, short compatibility);
+void            ntreeGPUMaterialDomain(struct bNodeTree *ntree, bool *has_surface_output, bool *has_volume_output);
 
 /** \} */
 
@@ -1049,5 +1052,17 @@ int ntreeTexExecTree(struct bNodeTree *ntree, struct TexResult *target,
 
 void init_nodesystem(void);
 void free_nodesystem(void);
+
+/* -------------------------------------------------------------------- */
+/* evaluation support, */
+
+struct EvaluationContext;
+
+void BKE_nodetree_copy_default_values(struct bNodeTree *ntree_dst,
+                                      const struct bNodeTree *ntree_src);
+
+void BKE_nodetree_shading_params_eval(const struct EvaluationContext *eval_ctx,
+                                      struct bNodeTree *ntree_dst,
+                                      const struct bNodeTree *ntree_src);
 
 #endif  /* __BKE_NODE_H__ */

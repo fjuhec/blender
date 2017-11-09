@@ -120,6 +120,7 @@ static void WIDGETGROUP_camera_setup(const bContext *C, wmManipulatorGroup *mgro
 	{
 		wmManipulator *mpr;
 		mpr = camgroup->focal_len = WM_manipulator_new_ptr(wt_arrow, mgroup, NULL);
+		mpr->flag |= WM_MANIPULATOR_DRAW_NO_SCALE;
 		RNA_enum_set(mpr->ptr, "draw_style",  ED_MANIPULATOR_ARROW_STYLE_CONE);
 		RNA_enum_set(mpr->ptr, "draw_options",  ED_MANIPULATOR_ARROW_STYLE_CONSTRAINED);
 
@@ -128,6 +129,7 @@ static void WIDGETGROUP_camera_setup(const bContext *C, wmManipulatorGroup *mgro
 		cameragroup_property_setup(mpr, ob, ca, false);
 
 		mpr = camgroup->ortho_scale = WM_manipulator_new_ptr(wt_arrow, mgroup, NULL);
+		mpr->flag |= WM_MANIPULATOR_DRAW_NO_SCALE;
 		RNA_enum_set(mpr->ptr, "draw_style",  ED_MANIPULATOR_ARROW_STYLE_CONE);
 		RNA_enum_set(mpr->ptr, "draw_options",  ED_MANIPULATOR_ARROW_STYLE_CONSTRAINED);
 
@@ -168,11 +170,6 @@ static void WIDGETGROUP_camera_refresh(const bContext *C, wmManipulatorGroup *mg
 	/* TODO - make focal length/ortho scale widget optional */
 	if (true) {
 		const bool is_ortho = (ca->type == CAM_ORTHO);
-		const float scale[3] = {1.0f / len_v3(ob->obmat[0]), 1.0f / len_v3(ob->obmat[1]), 1.0f / len_v3(ob->obmat[2])};
-		const float scale_fac = ca->drawsize;
-		const float drawsize = is_ortho ?
-		        (0.5f * ca->ortho_scale) :
-		        (scale_fac / ((scale[0] + scale[1] + scale[2]) / 3.0f));
 		float offset[3];
 		float aspect[2];
 
@@ -194,13 +191,30 @@ static void WIDGETGROUP_camera_refresh(const bContext *C, wmManipulatorGroup *mg
 		aspect[0] = (sensor_fit == CAMERA_SENSOR_FIT_HOR) ? 1.0f : aspx / aspy;
 		aspect[1] = (sensor_fit == CAMERA_SENSOR_FIT_HOR) ? aspy / aspx : 1.0f;
 
+		unit_m4(widget->matrix_basis);
 		WM_manipulator_set_matrix_location(widget, ob->obmat[3]);
 		WM_manipulator_set_matrix_rotation_from_yz_axis(widget, ob->obmat[1], dir);
+
+		{
+			float scale_matrix;
+			if (is_ortho) {
+				scale_matrix = ca->ortho_scale * 0.5f;
+			}
+			else {
+				const float scale[3] = {
+					1.0f / len_v3(ob->obmat[0]),
+					1.0f / len_v3(ob->obmat[1]),
+					1.0f / len_v3(ob->obmat[2]),
+				};
+				scale_matrix = ca->drawsize / ((scale[0] + scale[1] + scale[2]) / 3.0f);
+			}
+			mul_v3_fl(widget->matrix_basis[0], scale_matrix);
+			mul_v3_fl(widget->matrix_basis[1], scale_matrix);
+		}
 
 		RNA_float_set_array(widget->ptr, "aspect", aspect);
 
 		WM_manipulator_set_matrix_offset_location(widget, offset);
-		WM_manipulator_set_scale(widget, drawsize);
 
 		/* need to set property here for undo. TODO would prefer to do this in _init */
 		WM_manipulator_target_property_def_rna(camgroup->focal_len, "offset", &camera_ptr, "lens", -1);
@@ -215,7 +229,6 @@ void VIEW3D_WGT_camera(wmManipulatorGroupType *wgt)
 
 	wgt->flag = (WM_MANIPULATORGROUPTYPE_PERSISTENT |
 	             WM_MANIPULATORGROUPTYPE_3D |
-	             WM_MANIPULATORGROUPTYPE_SCALE |
 	             WM_MANIPULATORGROUPTYPE_DEPTH_3D);
 
 	wgt->poll = WIDGETGROUP_camera_poll;
@@ -240,57 +253,33 @@ struct CameraViewWidgetGroup {
 };
 
 /* scale callbacks */
-static void manipulator_render_border_prop_size_get(
+static void manipulator_render_border_prop_matrix_get(
         const wmManipulator *UNUSED(mpr), wmManipulatorProperty *mpr_prop,
         void *value_p)
 {
-	float *value = value_p;
-	BLI_assert(mpr_prop->type->array_length == 2);
+	float (*matrix)[4] = value_p;
+	BLI_assert(mpr_prop->type->array_length == 16);
 	struct CameraViewWidgetGroup *viewgroup = mpr_prop->custom_func.user_data;
 	const rctf *border = viewgroup->state.edit_border;
 
-	value[0] = BLI_rctf_size_x(border);
-	value[1] = BLI_rctf_size_y(border);
+	unit_m4(matrix);
+	matrix[0][0] = BLI_rctf_size_x(border);
+	matrix[1][1] = BLI_rctf_size_y(border);
+	matrix[3][0] = BLI_rctf_cent_x(border);
+	matrix[3][1] = BLI_rctf_cent_y(border);
 }
 
-static void manipulator_render_border_prop_size_set(
+static void manipulator_render_border_prop_matrix_set(
         const wmManipulator *UNUSED(mpr), wmManipulatorProperty *mpr_prop,
         const void *value_p)
 {
-	const float *value = value_p;
+	const float (*matrix)[4] = value_p;
 	struct CameraViewWidgetGroup *viewgroup = mpr_prop->custom_func.user_data;
 	rctf *border = viewgroup->state.edit_border;
-	BLI_assert(mpr_prop->type->array_length == 2);
+	BLI_assert(mpr_prop->type->array_length == 16);
 
-	BLI_rctf_resize(border, value[0], value[1]);
-	BLI_rctf_isect(&(rctf){.xmin = 0, .ymin = 0, .xmax = 1, .ymax = 1}, border, border);
-}
-
-/* offset callbacks */
-static void manipulator_render_border_prop_offset_get(
-        const wmManipulator *UNUSED(mpr), wmManipulatorProperty *mpr_prop,
-        void *value_p)
-{
-	float *value = value_p;
-	BLI_assert(mpr_prop->type->array_length == 2);
-	struct CameraViewWidgetGroup *viewgroup = mpr_prop->custom_func.user_data;
-	const rctf *border = viewgroup->state.edit_border;
-
-	value[0] = BLI_rctf_cent_x(border);
-	value[1] = BLI_rctf_cent_y(border);
-}
-
-static void manipulator_render_border_prop_offset_set(
-        const wmManipulator *UNUSED(mpr), wmManipulatorProperty *mpr_prop,
-        const void *value_p)
-{
-	const float *value = value_p;
-	struct CameraViewWidgetGroup *viewgroup = mpr_prop->custom_func.user_data;
-	rctf *border = viewgroup->state.edit_border;
-
-	BLI_assert(mpr_prop->type->array_length == 2);
-
-	BLI_rctf_recenter(border, value[0], value[1]);
+	BLI_rctf_resize(border, len_v3(matrix[0]), len_v3(matrix[1]));
+	BLI_rctf_recenter(border, matrix[3][0], matrix[3][1]);
 	BLI_rctf_isect(&(rctf){.xmin = 0, .ymin = 0, .xmax = 1, .ymax = 1}, border, border);
 }
 
@@ -329,7 +318,10 @@ static void WIDGETGROUP_camera_view_setup(const bContext *UNUSED(C), wmManipulat
 	viewgroup->border = WM_manipulator_new("MANIPULATOR_WT_cage_2d", mgroup, NULL);
 
 	RNA_enum_set(viewgroup->border->ptr, "transform",
-	             ED_MANIPULATOR_RECT_TRANSFORM_FLAG_TRANSLATE | ED_MANIPULATOR_RECT_TRANSFORM_FLAG_SCALE);
+	             ED_MANIPULATOR_CAGE2D_XFORM_FLAG_TRANSLATE | ED_MANIPULATOR_CAGE2D_XFORM_FLAG_SCALE);
+	/* Box style is more subtle in this case. */
+	RNA_enum_set(viewgroup->border->ptr, "draw_style", ED_MANIPULATOR_CAGE2D_STYLE_BOX);
+
 
 	mgroup->customdata = viewgroup;
 }
@@ -369,10 +361,9 @@ static void WIDGETGROUP_camera_view_refresh(const bContext *C, wmManipulatorGrou
 	{
 		wmManipulator *mpr = viewgroup->border;
 		WM_manipulator_set_flag(mpr, WM_MANIPULATOR_HIDDEN, false);
-		WM_manipulator_set_flag(mpr, WM_MANIPULATOR_DRAW_HOVER, true);
 
 		RNA_enum_set(viewgroup->border->ptr, "transform",
-		             ED_MANIPULATOR_RECT_TRANSFORM_FLAG_TRANSLATE | ED_MANIPULATOR_RECT_TRANSFORM_FLAG_SCALE);
+		             ED_MANIPULATOR_CAGE2D_XFORM_FLAG_TRANSLATE | ED_MANIPULATOR_CAGE2D_XFORM_FLAG_SCALE);
 
 		if (rv3d->persp == RV3D_CAMOB) {
 			viewgroup->state.edit_border = &scene->r.border;
@@ -382,19 +373,10 @@ static void WIDGETGROUP_camera_view_refresh(const bContext *C, wmManipulatorGrou
 		}
 
 		WM_manipulator_target_property_def_func(
-		        mpr, "offset",
+		        mpr, "matrix",
 		        &(const struct wmManipulatorPropertyFnParams) {
-		            .value_get_fn = manipulator_render_border_prop_offset_get,
-		            .value_set_fn = manipulator_render_border_prop_offset_set,
-		            .range_get_fn = NULL,
-		            .user_data = viewgroup,
-		        });
-
-		WM_manipulator_target_property_def_func(
-		        mpr, "scale",
-		        &(const struct wmManipulatorPropertyFnParams) {
-		            .value_get_fn = manipulator_render_border_prop_size_get,
-		            .value_set_fn = manipulator_render_border_prop_size_set,
+		            .value_get_fn = manipulator_render_border_prop_matrix_get,
+		            .value_set_fn = manipulator_render_border_prop_matrix_set,
 		            .range_get_fn = NULL,
 		            .user_data = viewgroup,
 		        });

@@ -145,11 +145,11 @@ void ED_region_do_listen(bScreen *sc, ScrArea *sa, ARegion *ar, wmNotifier *note
 }
 
 /* only exported for WM */
-void ED_area_do_listen(bScreen *sc, ScrArea *sa, wmNotifier *note, const Scene *scene)
+void ED_area_do_listen(bScreen *sc, ScrArea *sa, wmNotifier *note, Scene *scene, WorkSpace *workspace)
 {
 	/* no generic notes? */
 	if (sa->type && sa->type->listener) {
-		sa->type->listener(sc, sa, note, scene);
+		sa->type->listener(sc, sa, note, scene, workspace);
 	}
 }
 
@@ -228,7 +228,7 @@ static void area_draw_azone_fullscreen(short x1, short y1, short x2, short y2, f
 
 		immAttrib4ub(color, 255, 0, 0, alpha_debug);
 		immBindBuiltinProgram(GPU_SHADER_2D_FLAT_COLOR);
-		imm_draw_line_box(pos, click_rect.xmin, click_rect.ymin, click_rect.xmax, click_rect.ymax);
+		imm_draw_box_wire_2d(pos, click_rect.xmin, click_rect.ymin, click_rect.xmax, click_rect.ymax);
 
 		immAttrib4ub(color, 0, 255, 255, alpha_debug);
 		immBegin(GWN_PRIM_LINES, 4);

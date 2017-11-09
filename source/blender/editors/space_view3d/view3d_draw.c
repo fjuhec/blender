@@ -64,13 +64,11 @@
 
 #include "DRW_engine.h"
 
-#include "ED_keyframing.h"
 #include "ED_armature.h"
 #include "ED_keyframing.h"
 #include "ED_gpencil.h"
 #include "ED_screen.h"
 #include "ED_transform.h"
-#include "ED_gpencil.h"
 
 #include "DEG_depsgraph_query.h"
 
@@ -504,12 +502,12 @@ static void drawviewborder(Scene *scene, ARegion *ar, View3D *v3d)
 		}
 
 		immUniformThemeColor(TH_BACK);
-		imm_draw_line_box(shdr_pos, x1i, y1i, x2i, y2i);
+		imm_draw_box_wire_2d(shdr_pos, x1i, y1i, x2i, y2i);
 
 #ifdef VIEW3D_CAMERA_BORDER_HACK
 		if (view3d_camera_border_hack_test == true) {
 			immUniformColor3ubv(view3d_camera_border_hack_col);
-			imm_draw_line_box(shdr_pos, x1i + 1, y1i + 1, x2i - 1, y2i - 1);
+			imm_draw_box_wire_2d(shdr_pos, x1i + 1, y1i + 1, x2i - 1, y2i - 1);
 			view3d_camera_border_hack_test = false;
 		}
 #endif
@@ -532,11 +530,11 @@ static void drawviewborder(Scene *scene, ARegion *ar, View3D *v3d)
 		/* outer line not to confuse with object selection */
 		if (v3d->flag2 & V3D_LOCK_CAMERA) {
 			immUniformThemeColor(TH_REDALERT);
-			imm_draw_line_box(shdr_pos, x1i - 1, y1i - 1, x2i + 1, y2i + 1);
+			imm_draw_box_wire_2d(shdr_pos, x1i - 1, y1i - 1, x2i + 1, y2i + 1);
 		}
 
 		immUniformThemeColor(TH_VIEW_OVERLAY);
-		imm_draw_line_box(shdr_pos, x1i, y1i, x2i, y2i);
+		imm_draw_box_wire_2d(shdr_pos, x1i, y1i, x2i, y2i);
 	}
 
 	/* border */
@@ -549,7 +547,7 @@ static void drawviewborder(Scene *scene, ARegion *ar, View3D *v3d)
 		y4 = floorf(y1 + (scene->r.border.ymax * (y2 - y1))) + (U.pixelsize - 1);
 
 		immUniformColor3f(1.0f, 0.25f, 0.25f);
-		imm_draw_line_box(shdr_pos, x3, y3, x4, y4);
+		imm_draw_box_wire_2d(shdr_pos, x3, y3, x4, y4);
 	}
 
 	/* safety border */
@@ -658,7 +656,7 @@ static void drawviewborder(Scene *scene, ARegion *ar, View3D *v3d)
 			/* TODO Was using UI_draw_roundbox_4fv(false, rect.xmin, rect.ymin, rect.xmax, rect.ymax, 2.0f, color).
 			 * We'll probably need a new imm_draw_line_roundbox_dashed dor that - though in practice the
 			 * 2.0f round corner effect was nearly not visible anyway... */
-			imm_draw_line_box(shdr_pos, rect.xmin, rect.ymin, rect.xmax, rect.ymax);
+			imm_draw_box_wire_2d(shdr_pos, rect.xmin, rect.ymin, rect.xmax, rect.ymax);
 		}
 	}
 
@@ -692,7 +690,7 @@ static void drawrenderborder(ARegion *ar, View3D *v3d)
 	immUniform1f("dash_width", 6.0f);
 	immUniform1f("dash_factor", 0.5f);
 
-	imm_draw_line_box(shdr_pos,
+	imm_draw_box_wire_2d(shdr_pos,
 	                  v3d->render_border.xmin * ar->winx, v3d->render_border.ymin * ar->winy,
 	                  v3d->render_border.xmax * ar->winx, v3d->render_border.ymax * ar->winy);
 
@@ -703,6 +701,7 @@ void ED_view3d_draw_depth(
         const EvaluationContext *eval_ctx, struct Depsgraph *graph,
         ARegion *ar, View3D *v3d, bool alphaoverride)
 {
+	struct bThemeState theme_state;
 	Scene *scene = DEG_get_evaluated_scene(graph);
 	RegionView3D *rv3d = ar->regiondata;
 
@@ -715,6 +714,10 @@ void ED_view3d_draw_depth(
 	v3d->flag &= ~V3D_SELECT_OUTLINE;
 	U.glalphaclip = alphaoverride ? 0.5f : glalphaclip; /* not that nice but means we wont zoom into billboards */
 	U.obcenter_dia = 0;
+
+	/* Tools may request depth outside of regular drawing code. */
+	UI_Theme_Store(&theme_state);
+	UI_SetTheme(SPACE_VIEW3D, RGN_TYPE_WINDOW);
 
 	ED_view3d_draw_setup_view(NULL, eval_ctx, scene, ar, v3d, NULL, NULL, NULL);
 
@@ -751,6 +754,8 @@ void ED_view3d_draw_depth(
 	U.glalphaclip = glalphaclip;
 	v3d->flag = flag;
 	U.obcenter_dia = obcenter_dia;
+
+	UI_Theme_Restore(&theme_state);
 }
 
 /* ******************** background plates ***************** */
@@ -1875,10 +1880,11 @@ static void view3d_draw_view(const bContext *C, ARegion *ar)
 void view3d_main_region_draw(const bContext *C, ARegion *ar)
 {
 	Scene *scene = CTX_data_scene(C);
+	WorkSpace *workspace = CTX_wm_workspace(C);
 	View3D *v3d = CTX_wm_view3d(C);
 	RegionView3D *rv3d = ar->regiondata;
-	/* XXX: In the future we should get RE from Layers/Depsgraph */
-	RenderEngineType *type = RE_engines_find(scene->r.engine);
+	ViewRender *view_render = BKE_viewrender_get(scene, workspace);
+	RenderEngineType *type = RE_engines_find(view_render->engine_id);
 
 	/* Provisory Blender Internal drawing */
 	if (type->flag & RE_USE_LEGACY_PIPELINE) {
@@ -1926,7 +1932,7 @@ static void view3d_stereo3d_setup_offscreen(
 
 void ED_view3d_draw_offscreen_init(const EvaluationContext *eval_ctx, Scene *scene, SceneLayer *sl, View3D *v3d)
 {
-	RenderEngineType *type = RE_engines_find(scene->r.engine);
+	RenderEngineType *type = eval_ctx->engine;
 	if (type->flag & RE_USE_LEGACY_PIPELINE) {
 		/* shadow buffers, before we setup matrices */
 		if (draw_glsl_material(scene, sl, NULL, v3d, v3d->drawtype)) {
@@ -1954,7 +1960,8 @@ static void view3d_main_region_clear(Scene *scene, View3D *v3d, ARegion *ar)
  * stuff like shadow buffers
  */
 void ED_view3d_draw_offscreen(
-        const EvaluationContext *eval_ctx, Scene *scene, SceneLayer *sl, View3D *v3d, ARegion *ar, int winx, int winy,
+        const EvaluationContext *eval_ctx, Scene *scene, SceneLayer *scene_layer,
+        View3D *v3d, ARegion *ar, int winx, int winy,
         float viewmat[4][4], float winmat[4][4],
         bool do_bgpic, bool do_sky, bool is_persp, const char *viewname,
         GPUFX *fx, GPUFXSettings *fx_settings,
@@ -2008,7 +2015,7 @@ void ED_view3d_draw_offscreen(
 		view3d_main_region_setup_view(eval_ctx, scene, v3d, ar, viewmat, winmat, NULL);
 
 	/* main drawing call */
-	RenderEngineType *type = RE_engines_find(scene->r.engine);
+	RenderEngineType *type = eval_ctx->engine;
 	if (type->flag & RE_USE_LEGACY_PIPELINE) {
 
 		/* framebuffer fx needed, we need to draw offscreen first */
@@ -2050,8 +2057,9 @@ void ED_view3d_draw_offscreen(
 	}
 	else {
 		/* XXX, should take depsgraph as arg */
-		Depsgraph *depsgraph = BKE_scene_get_depsgraph(scene, sl);
-		DRW_draw_render_loop_offscreen(depsgraph, ar, v3d, ofs);
+		Depsgraph *depsgraph = BKE_scene_get_depsgraph(scene, scene_layer, false);
+		BLI_assert(depsgraph != NULL);
+		DRW_draw_render_loop_offscreen(depsgraph, eval_ctx->engine, ar, v3d, ofs);
 	}
 
 	/* restore size */
@@ -2074,7 +2082,8 @@ void ED_view3d_draw_offscreen(
  * (avoids re-creating when doing multiple GL renders).
  */
 ImBuf *ED_view3d_draw_offscreen_imbuf(
-        const EvaluationContext *eval_ctx, Scene *scene, SceneLayer *sl, View3D *v3d, ARegion *ar, int sizex, int sizey,
+        const EvaluationContext *eval_ctx, Scene *scene, SceneLayer *scene_layer,
+        View3D *v3d, ARegion *ar, int sizex, int sizey,
         unsigned int flag, bool draw_background,
         int alpha_mode, int samples, bool full_samples, const char *viewname,
         /* output vars */
@@ -2103,7 +2112,7 @@ ImBuf *ED_view3d_draw_offscreen_imbuf(
 		}
 	}
 
-	ED_view3d_draw_offscreen_init(eval_ctx, scene, sl, v3d);
+	ED_view3d_draw_offscreen_init(eval_ctx, scene, scene_layer, v3d);
 
 	GPU_offscreen_bind(ofs, true);
 
@@ -2145,7 +2154,7 @@ ImBuf *ED_view3d_draw_offscreen_imbuf(
 	if ((samples && full_samples) == 0) {
 		/* Single-pass render, common case */
 		ED_view3d_draw_offscreen(
-		        eval_ctx, scene, sl, v3d, ar, sizex, sizey, NULL, winmat,
+		        eval_ctx, scene, scene_layer, v3d, ar, sizex, sizey, NULL, winmat,
 		        draw_background, draw_sky, !is_ortho, viewname,
 		        fx, &fx_settings, ofs);
 
@@ -2169,7 +2178,7 @@ ImBuf *ED_view3d_draw_offscreen_imbuf(
 
 		/* first sample buffer, also initializes 'rv3d->persmat' */
 		ED_view3d_draw_offscreen(
-		        eval_ctx, scene, sl, v3d, ar, sizex, sizey, NULL, winmat,
+		        eval_ctx, scene, scene_layer, v3d, ar, sizex, sizey, NULL, winmat,
 		        draw_background, draw_sky, !is_ortho, viewname,
 		        fx, &fx_settings, ofs);
 		GPU_offscreen_read_pixels(ofs, GL_UNSIGNED_BYTE, rect_temp);
@@ -2188,7 +2197,7 @@ ImBuf *ED_view3d_draw_offscreen_imbuf(
 			        (jit_ofs[j][1] * 2.0f) / sizey);
 
 			ED_view3d_draw_offscreen(
-			        eval_ctx, scene, sl, v3d, ar, sizex, sizey, NULL, winmat_jitter,
+			        eval_ctx, scene, scene_layer, v3d, ar, sizex, sizey, NULL, winmat_jitter,
 			        draw_background, draw_sky, !is_ortho, viewname,
 			        fx, &fx_settings, ofs);
 			GPU_offscreen_read_pixels(ofs, GL_UNSIGNED_BYTE, rect_temp);
@@ -2239,7 +2248,8 @@ ImBuf *ED_view3d_draw_offscreen_imbuf(
  * \note used by the sequencer
  */
 ImBuf *ED_view3d_draw_offscreen_imbuf_simple(
-        const EvaluationContext *eval_ctx, Scene *scene, SceneLayer *sl, Object *camera, int width, int height,
+        const EvaluationContext *eval_ctx, Scene *scene, SceneLayer *scene_layer,
+        Object *camera, int width, int height,
         unsigned int flag, int drawtype, bool use_solid_tex, bool use_gpencil, bool draw_background,
         int alpha_mode, int samples, bool full_samples, const char *viewname,
         GPUFX *fx, GPUOffScreen *ofs, char err_out[256])
@@ -2293,7 +2303,7 @@ ImBuf *ED_view3d_draw_offscreen_imbuf_simple(
 	invert_m4_m4(rv3d.persinv, rv3d.viewinv);
 
 	return ED_view3d_draw_offscreen_imbuf(
-	        eval_ctx, scene, sl, &v3d, &ar, width, height, flag,
+	        eval_ctx, scene, scene_layer, &v3d, &ar, width, height, flag,
 	        draw_background, alpha_mode, samples, full_samples, viewname,
 	        fx, ofs, err_out);
 }

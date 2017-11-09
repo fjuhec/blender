@@ -27,11 +27,15 @@
 #include "DRW_render.h"
 
 #include "GPU_shader.h"
+
+#include "DNA_mesh_types.h"
 #include "DNA_view3d_types.h"
 
 #include "draw_common.h"
 
 #include "draw_mode_engines.h"
+
+#include "edit_mesh_mode_intern.h" /* own include */
 
 extern struct GPUUniformBuffer *globals_ubo; /* draw_common.c */
 extern struct GlobalsUboStorage ts; /* draw_common.c */
@@ -152,14 +156,19 @@ static void EDIT_MESH_engine_init(void *vedata)
 		        datatoc_edit_mesh_overlay_vert_glsl,
 		        datatoc_edit_mesh_overlay_geom_tri_glsl,
 		        datatoc_edit_mesh_overlay_frag_glsl,
-		        datatoc_common_globals_lib_glsl, "#define EDGE_FIX\n");
+		        datatoc_common_globals_lib_glsl,
+		        "#define EDGE_FIX\n"
+		        "#define ANTI_ALIASING\n"
+		        "#define VERTEX_FACING");
 	}
 	if (!e_data.overlay_tri_fast_sh) {
 		e_data.overlay_tri_fast_sh = DRW_shader_create_with_lib(
 		        datatoc_edit_mesh_overlay_vert_glsl,
 		        datatoc_edit_mesh_overlay_geom_tri_glsl,
 		        datatoc_edit_mesh_overlay_frag_glsl,
-		        datatoc_common_globals_lib_glsl, NULL);
+		        datatoc_common_globals_lib_glsl,
+		        "#define ANTI_ALIASING\n"
+		        "#define VERTEX_FACING\n");
 	}
 	if (!e_data.overlay_tri_vcol_sh) {
 		e_data.overlay_tri_vcol_sh = DRW_shader_create_with_lib(
@@ -168,7 +177,9 @@ static void EDIT_MESH_engine_init(void *vedata)
 		        datatoc_edit_mesh_overlay_frag_glsl,
 		        datatoc_common_globals_lib_glsl,
 		        "#define EDGE_FIX\n"
-		        "#define VERTEX_SELECTION\n");
+		        "#define VERTEX_SELECTION\n"
+		        "#define ANTI_ALIASING\n"
+		        "#define VERTEX_FACING\n");
 	}
 	if (!e_data.overlay_tri_vcol_fast_sh) {
 		e_data.overlay_tri_vcol_fast_sh = DRW_shader_create_with_lib(
@@ -176,14 +187,18 @@ static void EDIT_MESH_engine_init(void *vedata)
 		        datatoc_edit_mesh_overlay_geom_tri_glsl,
 		        datatoc_edit_mesh_overlay_frag_glsl,
 		        datatoc_common_globals_lib_glsl,
-		        "#define VERTEX_SELECTION\n");
+		        "#define VERTEX_SELECTION\n"
+		        "#define ANTI_ALIASING\n"
+		        "#define VERTEX_FACING\n");
 	}
 	if (!e_data.overlay_edge_sh) {
 		e_data.overlay_edge_sh = DRW_shader_create_with_lib(
 		        datatoc_edit_mesh_overlay_vert_glsl,
 		        datatoc_edit_mesh_overlay_geom_edge_glsl,
 		        datatoc_edit_mesh_overlay_frag_glsl,
-		        datatoc_common_globals_lib_glsl, NULL);
+		        datatoc_common_globals_lib_glsl,
+		        "#define ANTI_ALIASING\n"
+		        "#define VERTEX_FACING\n");
 	}
 	if (!e_data.overlay_edge_vcol_sh) {
 		e_data.overlay_edge_vcol_sh = DRW_shader_create_with_lib(
@@ -191,7 +206,8 @@ static void EDIT_MESH_engine_init(void *vedata)
 		        datatoc_edit_mesh_overlay_geom_edge_glsl,
 		        datatoc_edit_mesh_overlay_frag_glsl,
 		        datatoc_common_globals_lib_glsl,
-		        "#define VERTEX_SELECTION\n");
+		        "#define VERTEX_SELECTION\n"
+		        "#define VERTEX_FACING\n");
 	}
 	if (!e_data.overlay_vert_sh) {
 		e_data.overlay_vert_sh = DRW_shader_create_with_lib(
@@ -204,7 +220,8 @@ static void EDIT_MESH_engine_init(void *vedata)
 		e_data.overlay_facedot_sh = DRW_shader_create_with_lib(
 		        datatoc_edit_mesh_overlay_facedot_vert_glsl, NULL,
 		        datatoc_edit_mesh_overlay_facedot_frag_glsl,
-		        datatoc_common_globals_lib_glsl, NULL);
+		        datatoc_common_globals_lib_glsl,
+		        "#define VERTEX_FACING\n");
 	}
 	if (!e_data.overlay_mix_sh) {
 		e_data.overlay_mix_sh = DRW_shader_create_fullscreen(datatoc_edit_mesh_overlay_mix_frag_glsl, NULL);
@@ -431,6 +448,7 @@ static void EDIT_MESH_cache_populate(void *vedata, Object *ob)
 
 	if (ob->type == OB_MESH) {
 		if (ob == obedit) {
+			const Mesh *me = ob->data;
 			IDProperty *ces_mode_ed = BKE_layer_collection_engine_evaluated_get(ob, COLLECTION_MODE_EDIT, "");
 			bool do_occlude_wire = BKE_collection_engine_property_value_get_bool(ces_mode_ed, "show_occlude_wire");
 			bool do_show_weight = BKE_collection_engine_property_value_get_bool(ces_mode_ed, "show_weight");
@@ -486,6 +504,16 @@ static void EDIT_MESH_cache_populate(void *vedata, Object *ob)
 				edit_mesh_add_ob_to_pass(
 				        scene, ob, stl->g_data->face_overlay_shgrp, stl->g_data->ledges_overlay_shgrp,
 				        stl->g_data->lverts_overlay_shgrp, stl->g_data->facedot_overlay_shgrp, NULL);
+			}
+
+			/* 3D text overlay */
+			if (me->drawflag & (ME_DRAWEXTRA_EDGELEN |
+			                    ME_DRAWEXTRA_FACEAREA |
+			                    ME_DRAWEXTRA_FACEANG |
+			                    ME_DRAWEXTRA_EDGEANG))
+			{
+				DRW_edit_mesh_mode_text_measure_stats(
+				       draw_ctx->ar, v3d, ob, &scene->unit);
 			}
 		}
 	}
@@ -580,5 +608,6 @@ DrawEngineType draw_engine_edit_mesh_type = {
 	&EDIT_MESH_cache_populate,
 	NULL,
 	NULL,
-	&EDIT_MESH_draw_scene
+	&EDIT_MESH_draw_scene,
+	NULL,
 };

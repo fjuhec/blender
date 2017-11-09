@@ -2705,7 +2705,7 @@ static void createTransEditVerts(TransInfo *t)
 	int *island_vert_map = NULL;
 
 	DEG_evaluation_context_init_from_scene(&eval_ctx,
-	                                       t->scene, t->scene_layer,
+	                                       t->scene, t->scene_layer, t->engine,
 	                                       DAG_EVAL_VIEWPORT);
 
 	/* Even for translation this is needed because of island-orientation, see: T51651. */
@@ -3013,7 +3013,7 @@ void flushTransSeq(TransInfo *t)
 		tdsq = (TransDataSeq *)td->extra;
 		seq = tdsq->seq;
 		old_start = seq->start;
-		new_frame = iroundf(td2d->loc[0]);
+		new_frame = round_fl_to_int(td2d->loc[0]);
 
 		switch (tdsq->sel_flag) {
 			case SELECT:
@@ -3025,7 +3025,7 @@ void flushTransSeq(TransInfo *t)
 					seq->start = new_frame - tdsq->start_offset;
 #endif
 				if (seq->depth == 0) {
-					seq->machine = iroundf(td2d->loc[1]);
+					seq->machine = round_fl_to_int(td2d->loc[1]);
 					CLAMP(seq->machine, 1, MAXSEQ);
 				}
 				break;
@@ -3971,7 +3971,7 @@ void flushTransIntFrameActionData(TransInfo *t)
 
 	/* flush data! */
 	for (i = 0; i < t->total; i++, tfd++) {
-		*(tfd->sdata) = iroundf(tfd->val);
+		*(tfd->sdata) = round_fl_to_int(tfd->val);
 	}
 }
 
@@ -4999,7 +4999,7 @@ void flushTransGraphData(TransInfo *t)
 		
 		/* if int-values only, truncate to integers */
 		if (td->flag & TD_INTVALUES)
-			td2d->loc2d[1] = floorf(td2d->loc[1] + 0.5f);
+			td2d->loc2d[1] = floorf(td2d->loc[1] * inv_unit_scale - tdg->offset + 0.5f);
 		else
 			td2d->loc2d[1] = td2d->loc[1] * inv_unit_scale - tdg->offset;
 		
@@ -5755,7 +5755,14 @@ static void ObjectToTransData(TransInfo *t, TransData *td, Object *ob)
 /* it deselects Bases, so we have to call the clear function always after */
 static void set_trans_object_base_flags(TransInfo *t)
 {
+	/* TODO(sergey): Get rid of global, use explicit main. */
+	Main *bmain = G.main;
 	SceneLayer *sl = t->scene_layer;
+	Scene *scene = t->scene;
+	Depsgraph *depsgraph = BKE_scene_get_depsgraph(scene, sl, false);
+
+	/* Transform tool is expected to be executed from an evaluated scene. */
+	BLI_assert(depsgraph != NULL);
 
 	/*
 	 * if Base selected and has parent selected:
@@ -5771,12 +5778,12 @@ static void set_trans_object_base_flags(TransInfo *t)
 	BKE_scene_base_flag_to_objects(t->scene_layer);
 
 	/* Make sure depsgraph is here. */
-	DEG_scene_relations_update(G.main, t->scene);
+	DEG_graph_relations_update(depsgraph, bmain, scene);
 
 	/* handle pending update events, otherwise they got copied below */
 	EvaluationContext eval_ctx;
 	DEG_evaluation_context_init_from_scene(&eval_ctx,
-	                                       t->scene, t->scene_layer,
+	                                       t->scene, t->scene_layer, t->engine,
 	                                       DAG_EVAL_VIEWPORT);
 	for (base = sl->object_bases.first; base; base = base->next) {
 		if (base->object->recalc & OB_RECALC_ALL) {
@@ -5821,6 +5828,9 @@ static void set_trans_object_base_flags(TransInfo *t)
 		}
 	}
 
+	/* all recalc flags get flushed to all layers, so a layer flip later on works fine */
+	DEG_graph_flush_update(bmain, depsgraph);
+
 	/* and we store them temporal in base (only used for transform code) */
 	/* this because after doing updates, the object->recalc is cleared */
 	for (base = sl->object_bases.first; base; base = base->next) {
@@ -5849,8 +5859,15 @@ static bool mark_children(Object *ob)
 static int count_proportional_objects(TransInfo *t)
 {
 	int total = 0;
+	/* TODO(sergey): Get rid of global, use explicit main. */
+	Main *bmain = G.main;
 	SceneLayer *sl = t->scene_layer;
+	Scene *scene = t->scene;
+	Depsgraph *depsgraph = BKE_scene_get_depsgraph(scene, sl, false);
 	Base *base;
+
+	/* Transform tool is expected to be executed from an evaluated scene. */
+	BLI_assert(depsgraph != NULL);
 
 	/* rotations around local centers are allowed to propagate, so we take all objects */
 	if (!((t->around == V3D_AROUND_LOCAL_ORIGINS) &&
@@ -5898,7 +5915,8 @@ static int count_proportional_objects(TransInfo *t)
 	
 
 	/* all recalc flags get flushed to all layers, so a layer flip later on works fine */
-	DEG_scene_relations_update(G.main, t->scene);
+	DEG_graph_relations_update(depsgraph, bmain, scene);
+	DEG_graph_flush_update(bmain, depsgraph);
 
 	/* and we store them temporal in base (only used for transform code) */
 	/* this because after doing updates, the object->recalc is cleared */
@@ -6828,7 +6846,7 @@ static void createTransObject(bContext *C, TransInfo *t)
 		}
 		
 		/* select linked objects, but skip them later */
-		if (ID_IS_LINKED_DATABLOCK(ob)) {
+		if (ID_IS_LINKED(ob)) {
 			td->flag |= TD_SKIP;
 		}
 		
@@ -8052,7 +8070,7 @@ static void createTransGPencil(bContext *C, TransInfo *t)
 	float mtx[3][3], smtx[3][3];
 	
 	const Scene *scene = CTX_data_scene(C);
-	const int cfra = CFRA;
+	const int cfra_scene = CFRA;
 	
 	const bool is_prop_edit = (t->flag & T_PROP_EDIT) != 0;
 	const bool is_prop_edit_connected = (t->flag & T_PROP_CONNECTED) != 0;
@@ -8077,7 +8095,7 @@ static void createTransGPencil(bContext *C, TransInfo *t)
 		if (gpencil_layer_is_editable(gpl) && (gpl->actframe != NULL)) {
 			bGPDframe *gpf = gpl->actframe;
 			bGPDstroke *gps;
-			
+
 			for (gps = gpf->strokes.first; gps; gps = gps->next) {
 				/* skip strokes that are invalid for current view */
 				if (ED_gpencil_stroke_can_use(C, gps) == false) {
@@ -8133,6 +8151,7 @@ static void createTransGPencil(bContext *C, TransInfo *t)
 	for (gpl = gpd->layers.first; gpl; gpl = gpl->next) {
 		/* only editable and visible layers are considered */
 		if (gpencil_layer_is_editable(gpl) && (gpl->actframe != NULL)) {
+			const int cfra = (gpl->flag & GP_LAYER_FRAMELOCK) ? gpl->actframe->framenum : cfra_scene;
 			bGPDframe *gpf = gpl->actframe;
 			bGPDstroke *gps;
 			float diff_mat[4][4];
@@ -8149,7 +8168,6 @@ static void createTransGPencil(bContext *C, TransInfo *t)
 			 * - This is useful when animating as it saves that "uh-oh" moment when you realize you've
 			 *   spent too much time editing the wrong frame...
 			 */
-			// XXX: should this be allowed when framelock is enabled?
 			if (gpf->framenum != cfra) {
 				gpf = BKE_gpencil_frame_addcopy(gpl, cfra);
 				/* in some weird situations (framelock enabled) return NULL */

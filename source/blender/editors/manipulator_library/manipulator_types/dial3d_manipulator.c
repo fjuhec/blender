@@ -71,7 +71,7 @@
 /* to use custom dials exported to geom_dial_manipulator.c */
 // #define USE_MANIPULATOR_CUSTOM_DIAL
 
-static void manipulator_dial_modal(
+static int manipulator_dial_modal(
         bContext *C, wmManipulator *mpr, const wmEvent *event,
         eWM_ManipulatorTweak tweak_flag);
 
@@ -96,7 +96,9 @@ typedef struct DialInteraction {
 #define DIAL_WIDTH       1.0f
 #define DIAL_RESOLUTION 32
 
-
+/**
+ * We can't use this for the #wmManipulatorType.matrix_basis_get callback, it conflicts with depth picking.
+ */
 static void dial_calc_matrix(const wmManipulator *mpr, float mat[4][4])
 {
 	float rot[3][3];
@@ -138,10 +140,10 @@ static void dial_geom_draw(
 	immUniformColor4fv(color);
 
 	if (filled) {
-		imm_draw_circle_fill(pos, 0, 0, 1.0, DIAL_RESOLUTION);
+		imm_draw_circle_fill_2d(pos, 0, 0, 1.0, DIAL_RESOLUTION);
 	}
 	else {
-		imm_draw_circle_wire(pos, 0, 0, 1.0, DIAL_RESOLUTION);
+		imm_draw_circle_wire_2d(pos, 0, 0, 1.0, DIAL_RESOLUTION);
 	}
 
 	immUnbindProgram();
@@ -185,7 +187,7 @@ static void dial_ghostarc_draw(
 	uint pos = GWN_vertformat_attr_add(format, "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
 	immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 	immUniformColor4fv(color);
-	imm_draw_disk_partial_fill(
+	imm_draw_disk_partial_fill_2d(
 	        pos, 0, 0, 0.0, width_inner, DIAL_RESOLUTION, RAD2DEGF(angle_ofs), RAD2DEGF(angle_delta));
 	immUnbindProgram();
 }
@@ -219,7 +221,7 @@ static void dial_ghostarc_get_angles(
 	plane_from_point_normal_v3(dial_plane, mpr->matrix_basis[3], axis_vec);
 
 	if (!ED_view3d_win_to_ray(ar, v3d, inter->init_mval, ray_co, ray_no, false) ||
-		!isect_ray_plane_v3(ray_co, ray_no, dial_plane, &ray_lambda, false))
+	    !isect_ray_plane_v3(ray_co, ray_no, dial_plane, &ray_lambda, false))
 	{
 		goto fail;
 	}
@@ -227,7 +229,7 @@ static void dial_ghostarc_get_angles(
 	sub_v3_v3(proj_mval_init_rel, mpr->matrix_basis[3]);
 
 	if (!ED_view3d_win_to_ray(ar, v3d, mval, ray_co, ray_no, false) ||
-		!isect_ray_plane_v3(ray_co, ray_no, dial_plane, &ray_lambda, false))
+	    !isect_ray_plane_v3(ray_co, ray_no, dial_plane, &ray_lambda, false))
 	{
 		goto fail;
 	}
@@ -384,7 +386,7 @@ static void manipulator_dial_draw(const bContext *C, wmManipulator *mpr)
 	}
 }
 
-static void manipulator_dial_modal(
+static int manipulator_dial_modal(
         bContext *C, wmManipulator *mpr, const wmEvent *event,
         eWM_ManipulatorTweak UNUSED(tweak_flag))
 {
@@ -408,6 +410,7 @@ static void manipulator_dial_modal(
 	if (WM_manipulator_target_property_is_valid(mpr_prop)) {
 		WM_manipulator_target_property_value_set(C, mpr, mpr_prop, inter->init_prop_angle + angle_delta);
 	}
+	return OPERATOR_RUNNING_MODAL;
 }
 
 
@@ -419,7 +422,7 @@ static void manipulator_dial_setup(wmManipulator *mpr)
 	copy_v3_v3(mpr->matrix_basis[2], dir_default);
 }
 
-static void manipulator_dial_invoke(
+static int manipulator_dial_invoke(
         bContext *UNUSED(C), wmManipulator *mpr, const wmEvent *event)
 {
 	DialInteraction *inter = MEM_callocN(sizeof(DialInteraction), __func__);
@@ -433,6 +436,8 @@ static void manipulator_dial_invoke(
 	}
 
 	mpr->interaction_data = inter;
+
+	return OPERATOR_RUNNING_MODAL;
 }
 
 /* -------------------------------------------------------------------- */

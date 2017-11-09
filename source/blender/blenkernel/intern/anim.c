@@ -275,47 +275,8 @@ void animviz_get_object_motionpaths(Object *ob, ListBase *targets)
 
 /* ........ */
 
-/* Note on evaluation optimizations:
- * Optimization's currently used here play tricks with the depsgraph in order to try and
- * evaluate as few objects as strictly necessary to get nicer performance under standard
- * production conditions. For those people who really need the accurate version, 
- * disable the ifdef (i.e. 1 -> 0) and comment out the call to motionpaths_calc_optimise_depsgraph()
- */
-
-/* tweak the object ordering to trick depsgraph into making MotionPath calculations run faster */
-static void motionpaths_calc_optimise_depsgraph(bContext *C, Scene *scene, ListBase *targets)
-{
-	BaseLegacy *base, *baseNext;
-	MPathTarget *mpt;
-	Main *bmain = CTX_data_main(C);
-	
-	/* make sure our temp-tag isn't already in use */
-	for (base = scene->base.first; base; base = base->next)
-		base->object->flag &= ~BA_TEMP_TAG;
-	
-	/* for each target, dump its object to the start of the list if it wasn't moved already */
-	for (mpt = targets->first; mpt; mpt = mpt->next) {
-		for (base = scene->base.first; base; base = baseNext) {
-			baseNext = base->next;
-			
-			if ((base->object == mpt->ob) && !(mpt->ob->flag & BA_TEMP_TAG)) {
-				BLI_remlink(&scene->base, base);
-				BLI_addhead(&scene->base, base);
-				
-				mpt->ob->flag |= BA_TEMP_TAG;
-				
-				/* we really don't need to continue anymore once this happens, but this line might really 'break' */
-				break;
-			}
-		}
-	}
-	
-	/* "brew me a list that's sorted a bit faster now depsy" */
-	DEG_scene_relations_rebuild(bmain, scene);
-}
-
 /* update scene for current frame */
-static void motionpaths_calc_update_scene(Scene *scene)
+static void motionpaths_calc_update_scene(Main *bmain, Scene *scene, struct Depsgraph *depsgraph)
 {
 	/* Do all updates
 	 *  - if this is too slow, resort to using a more efficient way
@@ -324,8 +285,10 @@ static void motionpaths_calc_update_scene(Scene *scene)
 	 *
 	 * TODO(segey): Bring back partial updates, which became impossible
 	 * with the new depsgraph due to unsorted nature of bases.
+	 *
+	 * TODO(sergey): Use evaluation context dedicated to motion paths.
 	 */
-	BKE_scene_update_for_newframe(G.main->eval_ctx, G.main, scene);
+	BKE_scene_graph_update_for_newframe(bmain->eval_ctx, depsgraph, bmain, scene);
 }
 
 /* ........ */
@@ -380,6 +343,8 @@ void animviz_calc_motionpaths(bContext *C, Scene *scene, ListBase *targets)
 	MPathTarget *mpt;
 	int sfra, efra;
 	int cfra;
+	Main *bmain = CTX_data_main(C);
+	struct Depsgraph *depsgraph = CTX_data_depsgraph(C);
 	
 	/* sanity check */
 	if (ELEM(NULL, targets, targets->first))
@@ -399,14 +364,10 @@ void animviz_calc_motionpaths(bContext *C, Scene *scene, ListBase *targets)
 	}
 	if (efra <= sfra) return;
 	
-	/* optimize the depsgraph for faster updates */
-	/* TODO: whether this is used should depend on some setting for the level of optimizations used */
-	motionpaths_calc_optimise_depsgraph(C, scene, targets);
-	
 	/* calculate path over requested range */
 	for (CFRA = sfra; CFRA <= efra; CFRA++) {
 		/* update relevant data for new frame */
-		motionpaths_calc_update_scene(scene);
+		motionpaths_calc_update_scene(bmain, scene, depsgraph);
 		
 		/* perform baking for targets */
 		motionpaths_calc_bake_targets(scene, targets);
@@ -414,7 +375,7 @@ void animviz_calc_motionpaths(bContext *C, Scene *scene, ListBase *targets)
 	
 	/* reset original environment */
 	CFRA = cfra;
-	motionpaths_calc_update_scene(scene);
+	motionpaths_calc_update_scene(bmain, scene, depsgraph);
 	
 	/* clear recalc flags from targets */
 	for (mpt = targets->first; mpt; mpt = mpt->next) {

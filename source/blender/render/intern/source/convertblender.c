@@ -71,6 +71,7 @@
 #include "BKE_key.h"
 #include "BKE_image.h"
 #include "BKE_lattice.h"
+#include "BKE_layer.h"
 #include "BKE_material.h"
 #include "BKE_main.h"
 #include "BKE_mball.h"
@@ -272,7 +273,7 @@ static void calc_tangent_vector(ObjectRen *obr, VlakRen *vlr, int do_tangent)
 	}
 	else return;
 
-	tangent_from_uv(uv1, uv2, uv3, v1->co, v2->co, v3->co, vlr->n, tang);
+	tangent_from_uv_v3(uv1, uv2, uv3, v1->co, v2->co, v3->co, vlr->n, tang);
 	
 	if (do_tangent) {
 		tav= RE_vertren_get_tangent(obr, v1, 1);
@@ -284,7 +285,7 @@ static void calc_tangent_vector(ObjectRen *obr, VlakRen *vlr, int do_tangent)
 	}
 	
 	if (v4) {
-		tangent_from_uv(uv1, uv3, uv4, v1->co, v3->co, v4->co, vlr->n, tang);
+		tangent_from_uv_v3(uv1, uv3, uv4, v1->co, v3->co, v4->co, vlr->n, tang);
 		
 		if (do_tangent) {
 			tav= RE_vertren_get_tangent(obr, v1, 1);
@@ -399,7 +400,7 @@ static void calc_vertexnormals(Render *UNUSED(re), ObjectRen *obr, bool do_verte
 			float *n4= (vlr->v4)? vlr->v4->n: NULL;
 			const float *c4= (vlr->v4)? vlr->v4->co: NULL;
 
-			accumulate_vertex_normals(vlr->v1->n, vlr->v2->n, vlr->v3->n, n4,
+			accumulate_vertex_normals_v3(vlr->v1->n, vlr->v2->n, vlr->v3->n, n4,
 				vlr->n, vlr->v1->co, vlr->v2->co, vlr->v3->co, c4);
 		}
 		if (do_tangent) {
@@ -4848,6 +4849,8 @@ void RE_Database_Free(Render *re)
 		BLI_memarena_free(re->memArena);
 		re->memArena = NULL;
 	}
+
+	BKE_viewrender_free(&re->view_render);
 }
 
 static int allow_render_object(Render *re, Object *ob, int nolamps, int onlyselected, Object *actob)
@@ -5200,6 +5203,7 @@ void RE_Database_FromScene(Render *re, Main *bmain, Scene *scene, unsigned int l
 	re->i.infostr= "Preparing Scene data";
 	re->i.cfra= scene->r.cfra;
 	BLI_strncpy(re->i.scene_name, scene->id.name + 2, sizeof(re->i.scene_name));
+	re->view_render = scene->view_render;
 	
 	/* XXX add test if dbase was filled already? */
 	
@@ -5216,14 +5220,14 @@ void RE_Database_FromScene(Render *re, Main *bmain, Scene *scene, unsigned int l
 	
 	/* applies changes fully */
 	if ((re->r.scemode & (R_NO_FRAME_UPDATE|R_BUTS_PREVIEW|R_VIEWPORT_PREVIEW))==0) {
-		BKE_scene_update_for_newframe(re->eval_ctx, re->main, re->scene);
+		BKE_scene_graph_update_for_newframe(re->eval_ctx, re->depsgraph, re->main, re->scene);
 		render_update_anim_renderdata(re, &re->scene->r);
 	}
 	
 	/* if no camera, viewmat should have been set! */
 	if (use_camera_view && camera) {
 		/* called before but need to call again in case of lens animation from the
-		 * above call to BKE_scene_update_for_newframe, fixes bug. [#22702].
+		 * above call to BKE_scene_graph_update_for_newframe, fixes bug. [#22702].
 		 * following calls don't depend on 'RE_SetCamera' */
 		RE_SetCamera(re, camera);
 		RE_GetCameraModelMatrix(re, camera, mat);
@@ -5388,7 +5392,7 @@ static void database_fromscene_vectors(Render *re, Scene *scene, unsigned int la
 	
 	/* applies changes fully */
 	scene->r.cfra += timeoffset;
-	BKE_scene_update_for_newframe(re->eval_ctx, re->main, re->scene);
+	BKE_scene_graph_update_for_newframe(re->eval_ctx, re->depsgraph, re->main, re->scene);
 	
 	/* if no camera, viewmat should have been set! */
 	if (camera) {
@@ -5909,6 +5913,7 @@ void RE_Database_Baking(Render *re, Main *bmain, Scene *scene, unsigned int lay,
 
 	/* renderdata setup and exceptions */
 	render_copy_renderdata(&re->r, &scene->r);
+	render_copy_viewrender(&re->view_render, &scene->view_render);
 
 	RE_init_threadcount(re);
 	

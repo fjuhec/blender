@@ -34,6 +34,7 @@
 #include <float.h>
 
 #include "DNA_armature_types.h"
+#include "DNA_camera_types.h"
 #include "DNA_curve_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
@@ -51,6 +52,7 @@
 #include "BKE_camera.h"
 #include "BKE_context.h"
 #include "BKE_font.h"
+#include "BKE_layer.h"
 #include "BKE_library.h"
 #include "BKE_object.h"
 #include "BKE_paint.h"
@@ -101,7 +103,7 @@ bool ED_view3d_offset_lock_check(const  View3D *v3d, const  RegionView3D *rv3d)
 bool ED_view3d_camera_lock_check(const View3D *v3d, const RegionView3D *rv3d)
 {
 	return ((v3d->camera) &&
-	        (!ID_IS_LINKED_DATABLOCK(v3d->camera)) &&
+	        (!ID_IS_LINKED(v3d->camera)) &&
 	        (v3d->flag2 & V3D_LOCK_CAMERA) &&
 	        (rv3d->persp == RV3D_CAMOB));
 }
@@ -727,10 +729,15 @@ static enum eViewOpsOrbit viewops_orbit_mode(void)
 
 /**
  * Calculate the values for #ViewOpsData
+ *
+ * \param use_ensure_persp: When enabled run #view3d_ensure_persp this may switch out of
+ * camera view when orbiting or switch from ortho to perspective when auto-persp is enabled.
+ * Some operations don't require this (view zoom/pan or ndof where subtle rotation is common
+ * so we don't want it to trigger auto-perspective).
  */
 static void viewops_data_create_ex(
         bContext *C, wmOperator *op, const wmEvent *event,
-        bool switch_from_camera, enum eViewOpsOrbit orbit_mode)
+        bool use_ensure_persp, enum eViewOpsOrbit orbit_mode)
 {
 	ViewOpsData *vod = op->customdata;
 	RegionView3D *rv3d = vod->rv3d;
@@ -755,8 +762,7 @@ static void viewops_data_create_ex(
 		vod->use_dyn_ofs = false;
 	}
 
-	if (switch_from_camera) {
-		/* switch from camera view when: */
+	if (use_ensure_persp) {
 		if (view3d_ensure_persp(vod->v3d, vod->ar)) {
 			/* If we're switching from camera view to the perspective one,
 			 * need to tag viewport update, so camera vuew and borders
@@ -858,10 +864,10 @@ static void viewops_data_create_ex(
 	rv3d->rflag |= RV3D_NAVIGATING;
 }
 
-static void viewops_data_create(bContext *C, wmOperator *op, const wmEvent *event, bool switch_from_camera)
+static void viewops_data_create(bContext *C, wmOperator *op, const wmEvent *event, bool use_ensure_persp)
 {
 	enum eViewOpsOrbit orbit_mode = viewops_orbit_mode();
-	viewops_data_create_ex(C, op, event, switch_from_camera, orbit_mode);
+	viewops_data_create_ex(C, op, event, use_ensure_persp, orbit_mode);
 }
 
 static void viewops_data_free(bContext *C, wmOperator *op)
@@ -912,7 +918,7 @@ enum {
 /* called in transform_ops.c, on each regeneration of keymaps  */
 void viewrotate_modal_keymap(wmKeyConfig *keyconf)
 {
-	static EnumPropertyItem modal_items[] = {
+	static const EnumPropertyItem modal_items[] = {
 		{VIEW_MODAL_CONFIRM,    "CONFIRM", 0, "Confirm", ""},
 
 		{VIEWROT_MODAL_AXIS_SNAP_ENABLE,    "AXIS_SNAP_ENABLE", 0, "Enable Axis Snap", ""},
@@ -1681,7 +1687,7 @@ static int ndof_orbit_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 		viewops_data_alloc(C, op);
 		viewops_data_create_ex(
 		        C, op, event,
-		        viewops_orbit_mode_ex((U.uiflag & USER_ORBIT_SELECTION) != 0, false), false);
+		        false, viewops_orbit_mode_ex((U.uiflag & USER_ORBIT_SELECTION) != 0, false));
 		vod = op->customdata;
 
 		ED_view3d_smooth_view_force_finish(C, vod->v3d, vod->ar);
@@ -1750,7 +1756,7 @@ static int ndof_orbit_zoom_invoke(bContext *C, wmOperator *op, const wmEvent *ev
 		viewops_data_alloc(C, op);
 		viewops_data_create_ex(
 		        C, op, event,
-		        viewops_orbit_mode_ex((U.uiflag & USER_ORBIT_SELECTION) != 0, false), false);
+		        false, viewops_orbit_mode_ex((U.uiflag & USER_ORBIT_SELECTION) != 0, false));
 
 		vod = op->customdata;
 
@@ -1936,7 +1942,7 @@ void VIEW3D_OT_ndof_all(struct wmOperatorType *ot)
 /* called in transform_ops.c, on each regeneration of keymaps  */
 void viewmove_modal_keymap(wmKeyConfig *keyconf)
 {
-	static EnumPropertyItem modal_items[] = {
+	static const EnumPropertyItem modal_items[] = {
 		{VIEW_MODAL_CONFIRM,    "CONFIRM", 0, "Confirm", ""},
 		
 		{VIEWROT_MODAL_SWITCH_ZOOM, "SWITCH_TO_ZOOM", 0, "Switch to Zoom"},
@@ -2115,7 +2121,7 @@ void VIEW3D_OT_move(wmOperatorType *ot)
 /* called in transform_ops.c, on each regeneration of keymaps  */
 void viewzoom_modal_keymap(wmKeyConfig *keyconf)
 {
-	static EnumPropertyItem modal_items[] = {
+	static const EnumPropertyItem modal_items[] = {
 		{VIEW_MODAL_CONFIRM,    "CONFIRM", 0, "Confirm", ""},
 		
 		{VIEWROT_MODAL_SWITCH_ROTATE, "SWITCH_TO_ROTATE", 0, "Switch to Rotate"},
@@ -2507,7 +2513,7 @@ static int viewzoom_exec(bContext *C, wmOperator *op)
 /* called in transform_ops.c, on each regeneration of keymaps  */
 void viewdolly_modal_keymap(wmKeyConfig *keyconf)
 {
-	static EnumPropertyItem modal_items[] = {
+	static const EnumPropertyItem modal_items[] = {
 		{VIEW_MODAL_CONFIRM,    "CONFIRM", 0, "Confirm", ""},
 
 		{VIEWROT_MODAL_SWITCH_ROTATE, "SWITCH_TO_ROTATE", 0, "Switch to Rotate"},
@@ -3520,10 +3526,10 @@ void VIEW3D_OT_render_border(wmOperatorType *ot)
 	ot->idname = "VIEW3D_OT_render_border";
 
 	/* api callbacks */
-	ot->invoke = WM_border_select_invoke;
+	ot->invoke = WM_gesture_border_invoke;
 	ot->exec = render_border_exec;
-	ot->modal = WM_border_select_modal;
-	ot->cancel = WM_border_select_cancel;
+	ot->modal = WM_gesture_border_modal;
+	ot->cancel = WM_gesture_border_cancel;
 
 	ot->poll = ED_operator_view3d_active;
 
@@ -3593,7 +3599,6 @@ static int view3d_zoom_border_exec(bContext *C, wmOperator *op)
 	ARegion *ar = CTX_wm_region(C);
 	View3D *v3d = CTX_wm_view3d(C);
 	RegionView3D *rv3d = CTX_wm_region_view3d(C);
-	int gesture_mode;
 	const int smooth_viewtx = WM_operator_smooth_viewtx_get(op);
 
 	/* Zooms in on a border drawn by the user */
@@ -3618,7 +3623,7 @@ static int view3d_zoom_border_exec(bContext *C, wmOperator *op)
 	WM_operator_properties_border_to_rcti(op, &rect);
 
 	/* check if zooming in/out view */
-	gesture_mode = RNA_int_get(op->ptr, "gesture_mode");
+	const bool zoom_in = !RNA_boolean_get(op->ptr, "zoom_out");
 
 	ED_view3d_dist_range_get(v3d, dist_range);
 
@@ -3672,8 +3677,7 @@ static int view3d_zoom_border_exec(bContext *C, wmOperator *op)
 		new_dist = rv3d->dist;
 
 		/* convert the drawn rectangle into 3d space */
-		if (depth_close != FLT_MAX && ED_view3d_unproject(ar, centx, centy, depth_close, p))
-		{
+		if (depth_close != FLT_MAX && ED_view3d_unproject(ar, centx, centy, depth_close, p)) {
 			negate_v3_v3(new_ofs, p);
 		}
 		else {
@@ -3702,7 +3706,7 @@ static int view3d_zoom_border_exec(bContext *C, wmOperator *op)
 		new_dist *= max_ff(xscale, yscale);
 	}
 
-	if (gesture_mode == GESTURE_MODAL_OUT) {
+	if (!zoom_in) {
 		sub_v3_v3v3(dvec, new_ofs, rv3d->ofs);
 		new_dist = rv3d->dist * (rv3d->dist / new_dist);
 		add_v3_v3v3(new_ofs, rv3d->ofs, dvec);
@@ -3728,7 +3732,7 @@ static int view3d_zoom_border_invoke(bContext *C, wmOperator *op, const wmEvent 
 
 	/* if in camera view do not exec the operator so we do not conflict with set render border*/
 	if ((rv3d->persp != RV3D_CAMOB) || ED_view3d_camera_lock_check(v3d, rv3d))
-		return WM_border_select_invoke(C, op, event);
+		return WM_gesture_border_invoke(C, op, event);
 	else
 		return OPERATOR_PASS_THROUGH;
 }
@@ -3743,8 +3747,8 @@ void VIEW3D_OT_zoom_border(wmOperatorType *ot)
 	/* api callbacks */
 	ot->invoke = view3d_zoom_border_invoke;
 	ot->exec = view3d_zoom_border_exec;
-	ot->modal = WM_border_select_modal;
-	ot->cancel = WM_border_select_cancel;
+	ot->modal = WM_gesture_border_modal;
+	ot->cancel = WM_gesture_border_cancel;
 
 	ot->poll = ED_operator_region_view3d_active;
 
@@ -3752,7 +3756,7 @@ void VIEW3D_OT_zoom_border(wmOperatorType *ot)
 	ot->flag = 0;
 
 	/* rna */
-	WM_operator_properties_gesture_border(ot, false);
+	WM_operator_properties_gesture_border_zoom(ot);
 }
 
 /* sets the view to 1:1 camera/render-pixel */
@@ -3802,7 +3806,7 @@ void VIEW3D_OT_zoom_camera_1_to_1(wmOperatorType *ot)
 
 /* ********************* Changing view operator ****************** */
 
-static EnumPropertyItem prop_view_items[] = {
+static const EnumPropertyItem prop_view_items[] = {
 	{RV3D_VIEW_LEFT, "LEFT", ICON_TRIA_LEFT, "Left", "View From the Left"},
 	{RV3D_VIEW_RIGHT, "RIGHT", ICON_TRIA_RIGHT, "Right", "View From the Right"},
 	{RV3D_VIEW_BOTTOM, "BOTTOM", ICON_TRIA_DOWN, "Bottom", "View From the Bottom"},
@@ -3911,7 +3915,7 @@ static int viewnumpad_exec(bContext *C, wmOperator *op)
 	ARegion *ar;
 	RegionView3D *rv3d;
 	Scene *scene = CTX_data_scene(C);
-	SceneLayer *sl = CTX_data_scene_layer(C);
+	SceneLayer *scene_layer = CTX_data_scene_layer(C);
 	static int perspo = RV3D_PERSP;
 	int viewnum, nextperspo;
 	bool align_active;
@@ -3946,7 +3950,7 @@ static int viewnumpad_exec(bContext *C, wmOperator *op)
 			/* lastview -  */
 
 			if (rv3d->persp != RV3D_CAMOB) {
-				Object *ob = OBACT_NEW(sl);
+				Object *ob = OBACT_NEW(scene_layer);
 
 				if (!rv3d->smooth_timer) {
 					/* store settings of current view before allowing overwriting with camera view
@@ -3981,7 +3985,7 @@ static int viewnumpad_exec(bContext *C, wmOperator *op)
 					v3d->camera = ob;
 
 				if (v3d->camera == NULL)
-					v3d->camera = BKE_scene_camera_find(scene);
+					v3d->camera = BKE_scene_layer_camera_find(scene_layer);
 
 				/* couldnt find any useful camera, bail out */
 				if (v3d->camera == NULL)
@@ -4039,7 +4043,7 @@ void VIEW3D_OT_viewnumpad(wmOperatorType *ot)
 	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 }
 
-static EnumPropertyItem prop_view_orbit_items[] = {
+static const EnumPropertyItem prop_view_orbit_items[] = {
 	{V3D_VIEW_STEPLEFT, "ORBITLEFT", 0, "Orbit Left", "Orbit the view around to the Left"},
 	{V3D_VIEW_STEPRIGHT, "ORBITRIGHT", 0, "Orbit Right", "Orbit the view around to the Right"},
 	{V3D_VIEW_STEPUP, "ORBITUP", 0, "Orbit Up", "Orbit the view Up"},
@@ -4262,7 +4266,7 @@ static int viewroll_modal(bContext *C, wmOperator *op, const wmEvent *event)
 	return ret;
 }
 
-static EnumPropertyItem prop_view_roll_items[] = {
+static const EnumPropertyItem prop_view_roll_items[] = {
 	{0, "ANGLE", 0, "Roll Angle", "Roll the view using an angle value"},
 	{V3D_VIEW_STEPLEFT, "LEFT", 0, "Roll Left", "Roll the view around to the Left"},
 	{V3D_VIEW_STEPRIGHT, "RIGHT", 0, "Roll Right", "Roll the view around to the Right"},
@@ -4397,7 +4401,7 @@ void VIEW3D_OT_view_roll(wmOperatorType *ot)
 	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 }
 
-static EnumPropertyItem prop_view_pan_items[] = {
+static const EnumPropertyItem prop_view_pan_items[] = {
 	{V3D_VIEW_PANLEFT, "PANLEFT", 0, "Pan Left", "Pan the view to the Left"},
 	{V3D_VIEW_PANRIGHT, "PANRIGHT", 0, "Pan Right", "Pan the view to the Right"},
 	{V3D_VIEW_PANUP, "PANUP", 0, "Pan Up", "Pan the view Up"},
@@ -4513,11 +4517,11 @@ void VIEW3D_OT_navigate(wmOperatorType *ot)
 
 /* ******************** add background image operator **************** */
 
-static BGpic *background_image_add(bContext *C)
+static CameraBGImage *background_image_add(bContext *C)
 {
-	View3D *v3d = CTX_wm_view3d(C);
+	Camera *cam = CTX_data_pointer_get_type(C, "camera", &RNA_Camera).data;
 
-	return ED_view3D_background_image_new(v3d);
+	return BKE_camera_background_image_new(cam);
 }
 
 static int background_image_add_exec(bContext *C, wmOperator *UNUSED(op))
@@ -4529,9 +4533,9 @@ static int background_image_add_exec(bContext *C, wmOperator *UNUSED(op))
 
 static int background_image_add_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
 {
-	View3D *v3d = CTX_wm_view3d(C);
+	Camera *cam = CTX_data_pointer_get_type(C, "camera", &RNA_Camera).data;
 	Image *ima;
-	BGpic *bgpic;
+	CameraBGImage *bgpic;
 	
 	ima = (Image *)WM_operator_drop_load_path(C, op, ID_IM);
 	/* may be NULL, continue anyway */
@@ -4539,10 +4543,10 @@ static int background_image_add_invoke(bContext *C, wmOperator *op, const wmEven
 	bgpic = background_image_add(C);
 	bgpic->ima = ima;
 
-	v3d->flag |= V3D_DISPBGPICS;
-	
-	WM_event_add_notifier(C, NC_SPACE | ND_SPACE_VIEW3D, v3d);
-	
+	cam->flag |= CAM_SHOW_BG_IMAGE;
+
+	WM_event_add_notifier(C, NC_CAMERA | ND_DRAW_RENDER_VIEWPORT, cam);
+
 	return OPERATOR_FINISHED;
 }
 
@@ -4558,7 +4562,7 @@ void VIEW3D_OT_background_image_add(wmOperatorType *ot)
 	/* api callbacks */
 	ot->invoke = background_image_add_invoke;
 	ot->exec   = background_image_add_exec;
-	ot->poll   = ED_operator_view3d_active;
+	ot->poll   = ED_operator_camera;
 
 	/* flags */
 	ot->flag   = OPTYPE_UNDO;
@@ -4574,21 +4578,22 @@ void VIEW3D_OT_background_image_add(wmOperatorType *ot)
 /* ***** remove image operator ******* */
 static int background_image_remove_exec(bContext *C, wmOperator *op)
 {
-	View3D *v3d = CTX_wm_view3d(C);
+	Camera *cam = CTX_data_pointer_get_type(C, "camera", &RNA_Camera).data;
 	const int index = RNA_int_get(op->ptr, "index");
-	BGpic *bgpic_rem = BLI_findlink(&v3d->bgpicbase, index);
+	CameraBGImage *bgpic_rem = BLI_findlink(&cam->bg_images, index);
 
 	if (bgpic_rem) {
-		if (bgpic_rem->source == V3D_BGPIC_IMAGE) {
+		if (bgpic_rem->source == CAM_BGIMG_SOURCE_IMAGE) {
 			id_us_min((ID *)bgpic_rem->ima);
 		}
-		else if (bgpic_rem->source == V3D_BGPIC_MOVIE) {
+		else if (bgpic_rem->source == CAM_BGIMG_SOURCE_MOVIE) {
 			id_us_min((ID *)bgpic_rem->clip);
 		}
 
-		ED_view3D_background_image_remove(v3d, bgpic_rem);
+		BKE_camera_background_image_remove(cam, bgpic_rem);
 
-		WM_event_add_notifier(C, NC_SPACE | ND_SPACE_VIEW3D, v3d);
+		WM_event_add_notifier(C, NC_CAMERA | ND_DRAW_RENDER_VIEWPORT, cam);
+
 		return OPERATOR_FINISHED;
 	}
 	else {
@@ -4606,7 +4611,7 @@ void VIEW3D_OT_background_image_remove(wmOperatorType *ot)
 
 	/* api callbacks */
 	ot->exec   = background_image_remove_exec;
-	ot->poll   = ED_operator_view3d_active;
+	ot->poll   = ED_operator_camera;
 
 	/* flags */
 	ot->flag   = 0;
@@ -4668,7 +4673,7 @@ static int view3d_clipping_invoke(bContext *C, wmOperator *op, const wmEvent *ev
 		return OPERATOR_FINISHED;
 	}
 	else {
-		return WM_border_select_invoke(C, op, event);
+		return WM_gesture_border_invoke(C, op, event);
 	}
 }
 
@@ -4684,8 +4689,8 @@ void VIEW3D_OT_clip_border(wmOperatorType *ot)
 	/* api callbacks */
 	ot->invoke = view3d_clipping_invoke;
 	ot->exec = view3d_clipping_exec;
-	ot->modal = WM_border_select_modal;
-	ot->cancel = WM_border_select_cancel;
+	ot->modal = WM_gesture_border_modal;
+	ot->cancel = WM_gesture_border_cancel;
 
 	ot->poll = ED_operator_region_view3d_active;
 
@@ -4936,8 +4941,7 @@ bool ED_view3d_autodist(
 		float centx = (float)mval[0] + 0.5f;
 		float centy = (float)mval[1] + 0.5f;
 
-		if (ED_view3d_unproject(ar, centx, centy, depth_close, mouse_worldloc))
-		{
+		if (ED_view3d_unproject(ar, centx, centy, depth_close, mouse_worldloc)) {
 			return true;
 		}
 	}
@@ -5182,43 +5186,6 @@ void ED_view3d_lastview_store(RegionView3D *rv3d)
 	rv3d->lview = rv3d->view;
 	if (rv3d->persp != RV3D_CAMOB) {
 		rv3d->lpersp = rv3d->persp;
-	}
-}
-
-BGpic *ED_view3D_background_image_new(View3D *v3d)
-{
-	BGpic *bgpic = MEM_callocN(sizeof(BGpic), "Background Image");
-
-	bgpic->rotation = 0.0f;
-	bgpic->size = 5.0f;
-	bgpic->blend = 0.5f;
-	bgpic->iuser.fie_ima = 2;
-	bgpic->iuser.ok = 1;
-	bgpic->view = 0; /* 0 for all */
-	bgpic->flag |= V3D_BGPIC_EXPANDED;
-
-	BLI_addtail(&v3d->bgpicbase, bgpic);
-
-	return bgpic;
-}
-
-void ED_view3D_background_image_remove(View3D *v3d, BGpic *bgpic)
-{
-	BLI_remlink(&v3d->bgpicbase, bgpic);
-
-	MEM_freeN(bgpic);
-}
-
-void ED_view3D_background_image_clear(View3D *v3d)
-{
-	BGpic *bgpic = v3d->bgpicbase.first;
-
-	while (bgpic) {
-		BGpic *next_bgpic = bgpic->next;
-
-		ED_view3D_background_image_remove(v3d, bgpic);
-
-		bgpic = next_bgpic;
 	}
 }
 

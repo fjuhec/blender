@@ -42,17 +42,22 @@ struct ViewportEngineData;
 struct View3D;
 struct rcti;
 struct GPUOffScreen;
+struct RenderEngineType;
+struct WorkSpace;
 
 #include "BLI_sys_types.h"  /* for bool */
 
 /* Buffer and textures used by the viewport by default */
 typedef struct DefaultFramebufferList {
 	struct GPUFrameBuffer *default_fb;
+	struct GPUFrameBuffer *multisample_fb;
 } DefaultFramebufferList;
 
 typedef struct DefaultTextureList {
 	struct GPUTexture *color;
 	struct GPUTexture *depth;
+	struct GPUTexture *multisample_color;
+	struct GPUTexture *multisample_depth;
 } DefaultTextureList;
 
 void DRW_engines_register(void);
@@ -63,10 +68,13 @@ void DRW_engine_viewport_data_size_get(
         const void *engine_type,
         int *r_fbl_len, int *r_txl_len, int *r_psl_len, int *r_stl_len);
 
+void DRW_notify_view_update(const struct bContext *C);
+
 void DRW_draw_view(const struct bContext *C);
 
 void DRW_draw_render_loop_ex(
         struct Depsgraph *graph,
+        struct RenderEngineType *engine,
         struct ARegion *ar, struct View3D *v3d,
         const struct bContext *evil_C);
 void DRW_draw_render_loop(
@@ -74,6 +82,7 @@ void DRW_draw_render_loop(
         struct ARegion *ar, struct View3D *v3d);
 void DRW_draw_render_loop_offscreen(
         struct Depsgraph *graph,
+        struct RenderEngineType *engine,
         struct ARegion *ar, struct View3D *v3d,
         struct GPUOffScreen *ofs);
 void DRW_draw_select_loop(

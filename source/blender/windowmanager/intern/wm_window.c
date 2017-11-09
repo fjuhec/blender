@@ -59,9 +59,9 @@
 #include "BKE_screen.h"
 #include "BKE_workspace.h"
 
-
 #include "RNA_access.h"
 #include "RNA_define.h"
+#include "RNA_enum_types.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -516,8 +516,12 @@ static void wm_window_ghostwindow_add(wmWindowManager *wm, const char *title, wm
 		
 		/* store actual window size in blender window */
 		bounds = GHOST_GetClientBounds(win->ghostwin);
-		win->sizex = GHOST_GetWidthRectangle(bounds);
-		win->sizey = GHOST_GetHeightRectangle(bounds);
+
+		/* win32: gives undefined window size when minimized */
+		if (GHOST_GetWindowState(win->ghostwin) != GHOST_kWindowStateMinimized) {
+			win->sizex = GHOST_GetWidthRectangle(bounds);
+			win->sizey = GHOST_GetHeightRectangle(bounds);
+		}
 		GHOST_DisposeRectangle(bounds);
 		
 #ifndef __APPLE__
@@ -876,9 +880,12 @@ int wm_window_new_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(even
 	}
 }
 
-struct EnumPropertyItem *wm_window_new_screen_itemf(
+const EnumPropertyItem *wm_window_new_screen_itemf(
         bContext *C, struct PointerRNA *UNUSED(ptr), struct PropertyRNA *UNUSED(prop), bool *r_free)
 {
+	if (C == NULL) {
+		return DummyRNA_NULL_items;
+	}
 	wmWindow *win = CTX_wm_window(C);
 	WorkSpace *workspace = WM_window_get_active_workspace(win);
 	ListBase *listbase = BKE_workspace_layouts_get(workspace);
@@ -1934,6 +1941,16 @@ Scene *WM_windows_scene_get_from_screen(const wmWindowManager *wm, const bScreen
 	return NULL;
 }
 
+WorkSpace *WM_windows_workspace_get_from_screen(const wmWindowManager *wm, const bScreen *screen)
+{
+	for (wmWindow *win = wm->windows.first; win; win = win->next) {
+		if (WM_window_get_active_screen(win) == screen) {
+			return WM_window_get_active_workspace(win);
+		}
+	}
+	return NULL;
+}
+
 Scene *WM_window_get_active_scene(const wmWindow *win)
 {
 	return win->scene;
@@ -1963,7 +1980,7 @@ void WM_window_set_active_workspace(wmWindow *win, WorkSpace *workspace)
 WorkSpaceLayout *WM_window_get_active_layout(const wmWindow *win)
 {
 	const WorkSpace *workspace = WM_window_get_active_workspace(win);
-	return (LIKELY(workspace != NULL) ? BKE_workspace_active_layout_get(win->workspace_hook): NULL);
+	return (LIKELY(workspace != NULL) ? BKE_workspace_active_layout_get(win->workspace_hook) : NULL);
 }
 void WM_window_set_active_layout(wmWindow *win, WorkSpace *workspace, WorkSpaceLayout *layout)
 {

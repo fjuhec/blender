@@ -282,7 +282,7 @@ static void ruler_state_set(bContext *C, RulerInfo *ruler_info, int state)
 	}
 	else if (state == RULER_STATE_DRAG) {
 		ruler_info->snap_context = ED_transform_snap_object_context_create_view3d(
-		        CTX_data_main(C), CTX_data_scene(C), CTX_data_scene_layer(C), 0,
+		        CTX_data_main(C), CTX_data_scene(C), CTX_data_scene_layer(C), CTX_data_engine(C), 0,
 		        ruler_info->ar, CTX_wm_view3d(C));
 	}
 	else {
@@ -704,7 +704,7 @@ static void ruler_info_draw_pixel(const struct bContext *C, ARegion *ar, void *a
 			immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 			immUniformColor4fv(color_act);
 
-			imm_draw_circle_wire(pos, co_ss[0], co_ss[1], size * U.pixelsize, 32);
+			imm_draw_circle_wire_2d(pos, co_ss[0], co_ss[1], size * U.pixelsize, 32);
 
 			immUnbindProgram();
 		}
@@ -1041,9 +1041,12 @@ static int view3d_ruler_modal(bContext *C, wmOperator *op, const wmEvent *event)
 		}
 		case RETKEY:
 		{
-			view3d_ruler_to_gpencil(C, ruler_info);
-			do_draw = true;
-			exit_code = OPERATOR_FINISHED;
+			/* Enter may be used to invoke from search. */
+			if (event->val == KM_PRESS) {
+				view3d_ruler_to_gpencil(C, ruler_info);
+				do_draw = true;
+				exit_code = OPERATOR_FINISHED;
+			}
 			break;
 		}
 		case DELKEY:

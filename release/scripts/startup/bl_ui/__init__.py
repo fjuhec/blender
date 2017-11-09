@@ -42,6 +42,7 @@ _modules = [
     "properties_data_modifier",
     "properties_data_lightprobe",
     "properties_data_speaker",
+    "properties_data_workspace",
     "properties_game",
     "properties_hair",
     "properties_mask_common",
@@ -64,6 +65,13 @@ _modules = [
     "properties_scene",
     "properties_texture",
     "properties_world",
+
+    # Generic Space Modules
+    #
+    # Depends on DNA_WORKSPACE_TOOL (C define).
+    "space_toolsystem_common",
+    "space_toolsystem_toolbar",
+
     "space_clip",
     "space_console",
     "space_dopesheet",

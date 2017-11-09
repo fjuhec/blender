@@ -42,6 +42,7 @@
 #include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
 #include "DNA_userdef_types.h"
+#include "DNA_view3d_types.h"
 
 #include "BKE_brush.h"
 #include "BKE_context.h"
@@ -248,12 +249,12 @@ static int load_tex(Brush *br, ViewContext *vc, float zoom, bool col, bool prima
 	TexSnapshot *target;
 
 	MTex *mtex = (primary) ? &br->mtex : &br->mask_mtex;
-	OverlayControlFlags overlay_flags = BKE_paint_get_overlay_flags();
+	eOverlayControlFlags overlay_flags = BKE_paint_get_overlay_flags();
 	GLubyte *buffer = NULL;
 
 	int size;
 	bool refresh;
-	OverlayControlFlags invalid = (primary) ? (overlay_flags & PAINT_INVALID_OVERLAY_TEXTURE_PRIMARY) :
+	eOverlayControlFlags invalid = (primary) ? (overlay_flags & PAINT_INVALID_OVERLAY_TEXTURE_PRIMARY) :
 	                                          (overlay_flags & PAINT_INVALID_OVERLAY_TEXTURE_SECONDARY);
 
 	target = (primary) ? &primary_snap : &secondary_snap;
@@ -396,7 +397,7 @@ static int load_tex_cursor(Brush *br, ViewContext *vc, float zoom)
 {
 	bool init;
 
-	OverlayControlFlags overlay_flags = BKE_paint_get_overlay_flags();
+	eOverlayControlFlags overlay_flags = BKE_paint_get_overlay_flags();
 	GLubyte *buffer = NULL;
 
 	int size;
@@ -777,11 +778,11 @@ static void paint_draw_cursor_overlay(UnifiedPaintSettings *ups, Brush *brush,
 }
 
 static void paint_draw_alpha_overlay(UnifiedPaintSettings *ups, Brush *brush,
-                                     ViewContext *vc, int x, int y, float zoom, PaintMode mode)
+                                     ViewContext *vc, int x, int y, float zoom, ePaintMode mode)
 {
 	/* color means that primary brush texture is colured and secondary is used for alpha/mask control */
 	bool col = ELEM(mode, ePaintTextureProjective, ePaintTexture2D, ePaintVertex) ? true : false;
-	OverlayControlFlags flags = BKE_paint_get_overlay_flags();
+	eOverlayControlFlags flags = BKE_paint_get_overlay_flags();
 	gpuPushAttrib(GPU_DEPTH_BUFFER_BIT | GPU_BLEND_BIT);
 
 	/* coloured overlay should be drawn separately */
@@ -849,12 +850,12 @@ BLI_INLINE void draw_rect_point(
 	float maxx = co[0] + w;
 	float maxy = co[1] + w;
 
-	imm_draw_line_box(pos, minx, miny, maxx, maxy);
+	imm_draw_box_wire_2d(pos, minx, miny, maxx, maxy);
 
 	immUniformColor4f(1.0f, 1.0f, 1.0f, 0.5f);
 	glLineWidth(1.0f);
 
-	imm_draw_line_box(pos, minx, miny, maxx, maxy);
+	imm_draw_box_wire_2d(pos, minx, miny, maxx, maxy);
 }
 
 
@@ -996,7 +997,7 @@ static void paint_cursor_on_hit(UnifiedPaintSettings *ups, Brush *brush, ViewCon
 	}
 }
 
-static bool ommit_cursor_drawing(Paint *paint, PaintMode mode, Brush *brush)
+static bool ommit_cursor_drawing(Paint *paint, ePaintMode mode, Brush *brush)
 {
 	if (paint->flags & PAINT_SHOW_BRUSH) {
 		if (ELEM(mode, ePaintTexture2D, ePaintTextureProjective) && brush->imagepaint_tool == PAINT_TOOL_FILL) {
@@ -1013,7 +1014,7 @@ static void paint_draw_cursor(bContext *C, int x, int y, void *UNUSED(unused))
 	UnifiedPaintSettings *ups = &scene->toolsettings->unified_paint_settings;
 	Paint *paint = BKE_paint_get_active_from_context(C);
 	Brush *brush = BKE_paint_brush(paint);
-	PaintMode mode = BKE_paintmode_get_active_from_context(C);
+	ePaintMode mode = BKE_paintmode_get_active_from_context(C);
 
 	/* check that brush drawing is enabled */
 	if (ommit_cursor_drawing(paint, mode, brush))
@@ -1024,15 +1025,19 @@ static void paint_draw_cursor(bContext *C, int x, int y, void *UNUSED(unused))
 	ViewContext vc;
 	view3d_set_viewcontext(C, &vc);
 
-	float zoomx, zoomy;
-	get_imapaint_zoom(C, &zoomx, &zoomy);
-	zoomx = max_ff(zoomx, zoomy);
+	if (vc.rv3d && (vc.rv3d->rflag & RV3D_NAVIGATING)) {
+		return;
+	}
 
 	/* skip everything and draw brush here */
 	if (brush->flag & BRUSH_CURVE) {
 		paint_draw_curve_cursor(brush);
 		return;
 	}
+
+	float zoomx, zoomy;
+	get_imapaint_zoom(C, &zoomx, &zoomy);
+	zoomx = max_ff(zoomx, zoomy);
 
 	/* set various defaults */
 	const float *outline_col = brush->add_col;
@@ -1064,11 +1069,8 @@ static void paint_draw_cursor(bContext *C, int x, int y, void *UNUSED(unused))
 		/* check if brush is subtracting, use different color then */
 		/* TODO: no way currently to know state of pen flip or
 		 * invert key modifier without starting a stroke */
-		if (((ups->draw_inverted == 0) ^
-		     ((brush->flag & BRUSH_DIR_IN) == 0)) &&
-		    ELEM(brush->sculpt_tool, SCULPT_TOOL_DRAW,
-		          SCULPT_TOOL_INFLATE, SCULPT_TOOL_CLAY,
-		          SCULPT_TOOL_PINCH, SCULPT_TOOL_CREASE))
+		if (((ups->draw_inverted == 0) ^ ((brush->flag & BRUSH_DIR_IN) == 0)) &&
+		    BKE_brush_sculpt_has_secondary_color(brush))
 		{
 			outline_col = brush->sub_col;
 		}
@@ -1098,11 +1100,11 @@ static void paint_draw_cursor(bContext *C, int x, int y, void *UNUSED(unused))
 	/* draw brush outline */
 	if (ups->stroke_active && BKE_brush_use_size_pressure(scene, brush)) {
 		/* inner at full alpha */
-		imm_draw_circle_wire(pos, translation[0], translation[1], final_radius * ups->size_pressure_value, 40);
+		imm_draw_circle_wire_2d(pos, translation[0], translation[1], final_radius * ups->size_pressure_value, 40);
 		/* outer at half alpha */
 		immUniformColor3fvAlpha(outline_col, outline_alpha * 0.5f);
 	}
-	imm_draw_circle_wire(pos, translation[0], translation[1], final_radius, 40);
+	imm_draw_circle_wire_2d(pos, translation[0], translation[1], final_radius, 40);
 
 	immUnbindProgram();
 

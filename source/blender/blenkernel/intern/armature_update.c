@@ -559,12 +559,11 @@ void BKE_splineik_execute_tree(
 
 /* *************** Depsgraph evaluation callbacks ************ */
 
-void BKE_pose_eval_init(const struct EvaluationContext *eval_ctx,
-                        Scene *scene,
+void BKE_pose_eval_init(const struct EvaluationContext *UNUSED(eval_ctx),
+                        Scene *UNUSED(scene),
                         Object *ob,
                         bPose *pose)
 {
-	float ctime = BKE_scene_frame_get(scene); /* not accurate... */
 	bPoseChannel *pchan;
 
 	DEBUG_PRINT("%s on %s\n", __func__, ob->id.name);
@@ -582,6 +581,16 @@ void BKE_pose_eval_init(const struct EvaluationContext *eval_ctx,
 	for (pchan = pose->chanbase.first; pchan != NULL; pchan = pchan->next) {
 		pchan->flag &= ~(POSE_DONE | POSE_CHAIN | POSE_IKTREE | POSE_IKSPLINE);
 	}
+}
+
+void BKE_pose_eval_init_ik(const struct EvaluationContext *eval_ctx,
+                           Scene *scene,
+                           Object *ob,
+                           bPose *UNUSED(pose))
+{
+	float ctime = BKE_scene_frame_get(scene); /* not accurate... */
+
+	DEBUG_PRINT("%s on %s\n", __func__, ob->id.name);
 
 	/* 2a. construct the IK tree (standard IK) */
 	BIK_initialize_tree(eval_ctx, scene, ob, ctime);
@@ -697,7 +706,7 @@ void BKE_pose_eval_flush(const struct EvaluationContext *UNUSED(eval_ctx),
 
 void BKE_pose_eval_proxy_copy(const struct EvaluationContext *UNUSED(eval_ctx), Object *ob)
 {
-	BLI_assert(ID_IS_LINKED_DATABLOCK(ob) && ob->proxy_from != NULL);
+	BLI_assert(ID_IS_LINKED(ob) && ob->proxy_from != NULL);
 	DEBUG_PRINT("%s on %s\n", __func__, ob->id.name);
 	if (BKE_pose_copy_result(ob->pose, ob->proxy_from->pose) == false) {
 		printf("Proxy copy error, lib Object: %s proxy Object: %s\n",

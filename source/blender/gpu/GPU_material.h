@@ -70,6 +70,7 @@ typedef struct GPUParticleInfo GPUParticleInfo;
 /* Functions to create GPU Materials nodes */
 
 typedef enum GPUType {
+	/* Keep in sync with GPU_DATATYPE_STR */
 	/* The value indicates the number of elements in each type */
 	GPU_NONE = 0,
 	GPU_FLOAT = 1,
@@ -79,11 +80,16 @@ typedef enum GPUType {
 	GPU_MAT3 = 9,
 	GPU_MAT4 = 16,
 
-	GPU_CLOSURE = 17,
-
+	/* Values not in GPU_DATATYPE_STR */
 	GPU_TEX2D = 1002,
-	GPU_SHADOW2D = 1003,
-	GPU_TEXCUBE = 1004,
+	GPU_TEX3D = 1003,
+	GPU_SHADOW2D = 1004,
+	GPU_TEXCUBE = 1005,
+
+	/* GLSL Struct types */
+	GPU_CLOSURE = 1006,
+
+	/* Opengl Attributes */
 	GPU_ATTRIB = 3001
 } GPUType;
 
@@ -103,7 +109,9 @@ typedef enum GPUBuiltin {
 	GPU_PARTICLE_ANG_VELOCITY = (1 << 12),
 	GPU_LOC_TO_VIEW_MATRIX =    (1 << 13),
 	GPU_INVERSE_LOC_TO_VIEW_MATRIX = (1 << 14),
-	GPU_OBJECT_INFO =           (1 << 15)
+	GPU_OBJECT_INFO =           (1 << 15),
+	GPU_VOLUME_DENSITY =        (1 << 16),
+	GPU_VOLUME_FLAME =          (1 << 17)
 } GPUBuiltin;
 
 typedef enum GPUOpenGLBuiltin {
@@ -262,6 +270,8 @@ void GPU_material_vertex_attributes(GPUMaterial *material,
 bool GPU_material_do_color_management(GPUMaterial *mat);
 bool GPU_material_use_new_shading_nodes(GPUMaterial *mat);
 bool GPU_material_use_world_space_shading(GPUMaterial *mat);
+bool GPU_material_use_domain_surface(GPUMaterial *mat);
+bool GPU_material_use_domain_volume(GPUMaterial *mat);
 
 /* Exported shading */
 

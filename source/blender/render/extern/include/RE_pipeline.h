@@ -51,6 +51,7 @@ struct Scene;
 struct SceneRenderLayer;
 struct EnvMap;
 struct StampData;
+struct ViewRender;
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 /* this include is what is exposed of render to outside world */
@@ -196,6 +197,10 @@ typedef struct RenderStats {
 struct Render *RE_NewRender(const char *name);
 struct Render *RE_GetRender(const char *name);
 
+struct Scene;
+struct Render *RE_NewSceneRender(const struct Scene *scene);
+struct Render *RE_GetSceneRender(const struct Scene *scene);
+
 /* assign default dummy callbacks */
 void RE_InitRenderCB(struct Render *re);
 
@@ -239,7 +244,7 @@ struct RenderPass *RE_create_gp_pass(struct RenderResult *rr, const char *layern
 
 /* obligatory initialize call, disprect is optional */
 void RE_InitState(struct Render *re, struct Render *source, struct RenderData *rd,
-                  struct SceneRenderLayer *srl,
+                  struct ViewRender *view_render, struct SceneRenderLayer *srl,
                   int winx, int winy, rcti *disprect);
 void RE_ChangeResolution(struct Render *re, int winx, int winy, rcti *disprect);
 void RE_ChangeModeFlag(struct Render *re, int flag, bool clear);
@@ -300,16 +305,18 @@ void RE_RenderFreestyleExternal(struct Render *re);
 void RE_SetActiveRenderView(struct Render *re, const char *viewname);
 const char *RE_GetActiveRenderView(struct Render *re);
 
+void RE_SetEngineByID(struct Render *re, const char *engine_id);
+
 /* error reporting */
 void RE_SetReports(struct Render *re, struct ReportList *reports);
 
 /* main preview render call */
-void RE_PreviewRender(struct Render *re, struct Main *bmain, struct Scene *scene);
+void RE_PreviewRender(struct Render *re, struct Main *bmain, struct Scene *scene, struct ViewRender *render_view);
 
 bool RE_ReadRenderResult(struct Scene *scene, struct Scene *scenode);
 bool RE_WriteRenderResult(
         struct ReportList *reports, RenderResult *rr, const char *filename,
-        struct ImageFormatData *imf, const bool multiview, const char *view);
+        struct ImageFormatData *imf, const char *view, const int layer);
 struct RenderResult *RE_MultilayerConvert(
         void *exrhandle, const char *colorspace, bool predivide, int rectx, int recty);
 
@@ -341,6 +348,7 @@ void RE_zbuf_accumulate_vecblur(
 int RE_seq_render_active(struct Scene *scene, struct RenderData *rd);
 
 bool RE_layers_have_name(struct RenderResult *result);
+bool RE_passes_have_name(struct RenderLayer *rl);
 
 struct RenderPass *RE_pass_find_by_name(volatile struct RenderLayer *rl, const char *name, const char *viewname);
 struct RenderPass *RE_pass_find_by_type(volatile struct RenderLayer *rl, int passtype, const char *viewname);
@@ -386,7 +394,7 @@ void RE_updateRenderInstances(Render *re, int flag);
 
 /******* defined in render_result.c *********/
 
-bool RE_HasFakeLayer(RenderResult *res);
+bool RE_HasCombinedLayer(RenderResult *res);
 bool RE_RenderResult_is_stereo(RenderResult *res);
 struct RenderView *RE_RenderViewGetById(struct RenderResult *res, const int view_id);
 struct RenderView *RE_RenderViewGetByName(struct RenderResult *res, const char *viewname);

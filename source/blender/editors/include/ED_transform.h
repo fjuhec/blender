@@ -151,13 +151,15 @@ int BIF_countTransformOrientation(const struct bContext *C);
 #define P_CORRECT_UV    (1 << 8)
 #define P_NO_DEFAULTS   (1 << 10)
 #define P_NO_TEXSPACE   (1 << 11)
-#define P_GPENCIL_EDIT  (1 << 12)
+#define P_CENTER        (1 << 12)
+#define P_GPENCIL_EDIT  (1 << 13)
 
 void Transform_Properties(struct wmOperatorType *ot, int flags);
 
 /* transform manipulators */
 
 void TRANSFORM_WGT_manipulator(struct wmManipulatorGroupType *wgt);
+void VIEW3D_WGT_xform_cage(struct wmManipulatorGroupType *wgt);
 
 bool ED_widgetgroup_manipulator2d_poll(const struct bContext *C, struct wmManipulatorGroupType *wgt);
 void ED_widgetgroup_manipulator2d_setup(const struct bContext *C, struct wmManipulatorGroup *mgroup);

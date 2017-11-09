@@ -30,28 +30,26 @@
 
 #include "intern/builder/deg_builder.h"
 
-#include "DNA_anim_types.h"
 #include "DNA_object_types.h"
 #include "DNA_ID.h"
-
-#include "BLI_utildefines.h"
-#include "BLI_ghash.h"
 
 #include "intern/depsgraph.h"
 #include "intern/depsgraph_types.h"
 #include "intern/nodes/deg_node.h"
 
+#include "util/deg_util_foreach.h"
+
 #include "DEG_depsgraph.h"
 
 namespace DEG {
 
-void deg_graph_build_finalize(Depsgraph *graph)
+void deg_graph_build_finalize(Main *bmain, Depsgraph *graph)
 {
+	const bool use_copy_on_write = DEG_depsgraph_use_copy_on_write();
 	/* Re-tag IDs for update if it was tagged before the relations
 	 * update tag.
 	 */
-	GHASH_FOREACH_BEGIN(IDDepsNode *, id_node, graph->id_hash)
-	{
+	foreach (IDDepsNode *id_node, graph->id_nodes) {
 		ID *id = id_node->id_orig;
 		id_node->finalize_build(graph);
 		if ((id->tag & LIB_TAG_ID_RECALC_ALL)) {
@@ -63,11 +61,13 @@ void deg_graph_build_finalize(Depsgraph *graph)
 				id_node->tag_update(graph);
 			}
 		}
-#ifdef WITH_COPY_ON_WRITE
-		DEG_id_tag_update_ex(graph->bmain, id_node->id_orig, DEG_TAG_COPY_ON_WRITE);
-#endif
+		/* TODO(sergey): This is not ideal at all, since this forces
+		 * re-evaluaiton of the whole tree.
+		 */
+		if (use_copy_on_write) {
+			DEG_id_tag_update_ex(bmain, id_node->id_orig, DEG_TAG_COPY_ON_WRITE);
+		}
 	}
-	GHASH_FOREACH_END();
 }
 
 }  // namespace DEG

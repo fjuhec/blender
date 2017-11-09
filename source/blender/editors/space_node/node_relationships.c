@@ -567,7 +567,13 @@ static void node_link_exit(bContext *C, wmOperator *op, bool apply_links)
 	ntree->is_updating = true;
 	for (linkdata = nldrag->links.first; linkdata; linkdata = linkdata->next) {
 		bNodeLink *link = linkdata->data;
-		
+
+		/* See note below, but basically TEST flag means that the link
+		 * was connected to output (or to a node which affects the
+		 * output).
+		 */
+		do_tag_update |= (link->flag & NODE_LINK_TEST) != 0;
+
 		if (apply_links && link->tosock && link->fromsock) {
 			/* before actually adding the link,
 			 * let nodes perform special link insertion handling
@@ -593,11 +599,6 @@ static void node_link_exit(bContext *C, wmOperator *op, bool apply_links)
 			}
 		}
 		else {
-			/* See note below, but basically TEST flag means that the link
-			 * was connected to output (or to a node which affects the
-			 * output).
-			 */
-			do_tag_update |= (link->flag & NODE_LINK_TEST) != 0;
 			nodeRemLink(ntree, link);
 		}
 	}
@@ -1006,8 +1007,6 @@ static int cut_links_exec(bContext *C, wmOperator *op)
 
 void NODE_OT_links_cut(wmOperatorType *ot)
 {
-	PropertyRNA *prop;
-
 	ot->name = "Cut Links";
 	ot->idname = "NODE_OT_links_cut";
 	ot->description = "Use the mouse to cut (remove) some links";
@@ -1022,8 +1021,11 @@ void NODE_OT_links_cut(wmOperatorType *ot)
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
-	prop = RNA_def_property(ot->srna, "path", PROP_COLLECTION, PROP_NONE);
-	RNA_def_property_struct_runtime(prop, &RNA_OperatorMousePath);
+	/* properties */
+	PropertyRNA *prop;
+	prop = RNA_def_collection_runtime(ot->srna, "path", &RNA_OperatorMousePath, "Path", "");
+	RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
+
 	/* internal */
 	RNA_def_int(ot->srna, "cursor", BC_KNIFECURSOR, 0, INT_MAX, "Cursor", "", 0, INT_MAX);
 }

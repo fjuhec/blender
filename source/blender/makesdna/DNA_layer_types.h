@@ -74,7 +74,6 @@ typedef struct LayerCollection {
 typedef struct SceneLayer {
 	struct SceneLayer *next, *prev;
 	char name[64]; /* MAX_NAME */
-	char engine[32]; /* render engine */
 	short active_collection;
 	short flag;
 	short pad[2];
@@ -114,6 +113,7 @@ enum {
 enum {
 	COLLECTION_VISIBLE    = (1 << 0),
 	COLLECTION_SELECTABLE = (1 << 1),
+	COLLECTION_DISABLED   = (1 << 2),
 };
 
 /* SceneLayer->flag */

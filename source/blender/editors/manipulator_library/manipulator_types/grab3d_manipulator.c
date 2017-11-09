@@ -77,7 +77,7 @@ static void manipulator_grab_matrix_basis_get(const wmManipulator *mpr, float r_
 	add_v3_v3(r_matrix[3], grab->prop_co);
 }
 
-static void manipulator_grab_modal(
+static int manipulator_grab_modal(
         bContext *C, wmManipulator *mpr, const wmEvent *event,
         eWM_ManipulatorTweak tweak_flag);
 
@@ -115,10 +115,10 @@ static void grab_geom_draw(
 
 	if (draw_style == ED_MANIPULATOR_GRAB_STYLE_RING_2D) {
 		if (filled) {
-			imm_draw_circle_fill(pos, 0, 0, 1.0f, DIAL_RESOLUTION);
+			imm_draw_circle_fill_2d(pos, 0, 0, 1.0f, DIAL_RESOLUTION);
 		}
 		else {
-			imm_draw_circle_wire(pos, 0, 0, 1.0f, DIAL_RESOLUTION);
+			imm_draw_circle_wire_2d(pos, 0, 0, 1.0f, DIAL_RESOLUTION);
 		}
 	}
 	else if (draw_style == ED_MANIPULATOR_GRAB_STYLE_CROSS_2D) {
@@ -175,15 +175,7 @@ static void grab3d_draw_intern(
 	float matrix_align[4][4];
 
 	manipulator_color_get(mpr, highlight, color);
-
-	{
-		float matrix_basis_adjust[4][4];
-		manipulator_grab_matrix_basis_get(mpr, matrix_basis_adjust);
-		WM_manipulator_calc_matrix_final_params(
-		        mpr, &((struct WM_ManipulatorMatrixParams) {
-		            .matrix_basis = matrix_basis_adjust,
-		        }), matrix_final);
-	}
+	WM_manipulator_calc_matrix_final(mpr, matrix_final);
 
 	gpuPushMatrix();
 	gpuMultMatrix(matrix_final);
@@ -236,7 +228,7 @@ static void manipulator_grab_draw(const bContext *C, wmManipulator *mpr)
 	glDisable(GL_BLEND);
 }
 
-static void manipulator_grab_modal(
+static int manipulator_grab_modal(
         bContext *C, wmManipulator *mpr, const wmEvent *event,
         eWM_ManipulatorTweak UNUSED(tweak_flag))
 {
@@ -255,7 +247,7 @@ static void manipulator_grab_modal(
 		    (manipulator_window_project_2d(
 		         C, mpr, (const float[2]){UNPACK2(event->mval)}, 2, false, mval_proj_curr) == false))
 		{
-			return;
+			return OPERATOR_RUNNING_MODAL;
 		}
 		sub_v2_v2v2(prop_delta, mval_proj_curr, mval_proj_init);
 		prop_delta[2] = 0.0f;
@@ -267,11 +259,16 @@ static void manipulator_grab_modal(
 	if (WM_manipulator_target_property_is_valid(mpr_prop)) {
 		WM_manipulator_target_property_value_set_array(C, mpr, mpr_prop, grab->prop_co);
 	}
+	else {
+		zero_v3(grab->prop_co);
+	}
 
 	ED_region_tag_redraw(ar);
+
+	return OPERATOR_RUNNING_MODAL;
 }
 
-static void manipulator_grab_invoke(
+static int manipulator_grab_invoke(
         bContext *UNUSED(C), wmManipulator *mpr, const wmEvent *event)
 {
 	GrabInteraction *inter = MEM_callocN(sizeof(GrabInteraction), __func__);
@@ -288,16 +285,11 @@ static void manipulator_grab_invoke(
 	}
 #endif
 
-	{
-		float matrix_basis_adjust[4][4];
-		manipulator_grab_matrix_basis_get(mpr, matrix_basis_adjust);
-		WM_manipulator_calc_matrix_final_params(
-		        mpr, &((struct WM_ManipulatorMatrixParams) {
-		            .matrix_basis = matrix_basis_adjust,
-		        }), inter->init_matrix_final);
-	}
+	WM_manipulator_calc_matrix_final(mpr, inter->init_matrix_final);
 
 	mpr->interaction_data = inter;
+
+	return OPERATOR_RUNNING_MODAL;
 }
 
 
@@ -309,20 +301,25 @@ static int manipulator_grab_test_select(
 	if (manipulator_window_project_2d(
 	        C, mpr, (const float[2]){UNPACK2(event->mval)}, 2, true, point_local) == false)
 	{
-		return 0;
+		return -1;
 	}
 
 	if (len_squared_v2(point_local) < SQUARE(mpr->scale_final)) {
-		return true;
+		return 0;
 	}
 
-	return 0;
+	return -1;
 }
 
 static void manipulator_grab_property_update(wmManipulator *mpr, wmManipulatorProperty *mpr_prop)
 {
 	GrabManipulator3D *grab = (GrabManipulator3D *)mpr;
-	WM_manipulator_target_property_value_get_array(mpr, mpr_prop, grab->prop_co);
+	if (WM_manipulator_target_property_is_valid(mpr_prop)) {
+		WM_manipulator_target_property_value_get_array(mpr, mpr_prop, grab->prop_co);
+	}
+	else {
+		zero_v3(grab->prop_co);
+	}
 }
 
 static int manipulator_grab_cursor_get(wmManipulator *UNUSED(mpr))

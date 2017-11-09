@@ -32,6 +32,8 @@
 
 #include "intern/depsgraph_types.h"
 
+#include "DEG_depsgraph.h"  /* used for DEG_depsgraph_use_copy_on_write() */
+
 struct CacheFile;
 struct bGPdata;
 struct ListBase;
@@ -98,16 +100,18 @@ struct DepsgraphNodeBuilder {
 	/* For a given COW datablock get corresponding original one. */
 	template<typename T>
 	T *get_orig_datablock(const T *cow) const {
-#ifdef WITH_COPY_ON_WRITE
-		return (T *)cow->id.newid;
-#else
-		return (T *)cow;
-#endif
+		if (DEG_depsgraph_use_copy_on_write()) {
+			return (T *)cow->id.newid;
+		}
+		else {
+			return (T *)cow;
+		}
 	}
 
 	void begin_build(Main *bmain);
 
 	IDDepsNode *add_id_node(ID *id, bool do_tag = true);
+	IDDepsNode *find_id_node(ID *id);
 	TimeSourceDepsNode *add_time_source();
 
 	ComponentDepsNode *add_component_node(ID *id,
@@ -153,9 +157,13 @@ struct DepsgraphNodeBuilder {
 	                                       const char *name = "",
 	                                       int name_tag = -1);
 
-	void build_scene(Main *bmain, Scene *scene);
+	void build_scene(Main *bmain,
+	                 Scene *scene,
+	                 eDepsNode_LinkedState_Type linked_state);
 	void build_group(Scene *scene, Group *group);
-	void build_object(Scene *scene, Object *ob);
+	void build_object(Scene *scene,
+	                  Object *ob,
+	                  eDepsNode_LinkedState_Type linked_state);
 	void build_object_transform(Scene *scene, Object *ob);
 	void build_object_constraints(Scene *scene, Object *ob);
 	void build_pose_constraints(Scene *scene, Object *ob, bPoseChannel *pchan);

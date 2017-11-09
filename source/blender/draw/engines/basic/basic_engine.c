@@ -19,7 +19,7 @@
  *
  */
 
-/** \file basic_engine.h
+/** \file basic_engine.c
  *  \ingroup draw_engine
  *
  * Simple engine for drawing color and/or depth.
@@ -261,7 +261,8 @@ DrawEngineType draw_engine_basic_type = {
 	&BASIC_cache_populate,
 	&BASIC_cache_finish,
 	NULL,
-	&BASIC_draw_scene
+	&BASIC_draw_scene,
+	NULL,
 };
 
 /* Note: currently unused, we may want to register so we can see this when debugging the view. */

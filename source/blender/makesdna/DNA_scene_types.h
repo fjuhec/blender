@@ -96,43 +96,7 @@ typedef struct AviCodecData {
 	char			avicodecname[128];
 } AviCodecData;
 
-typedef struct QuicktimeCodecData {
-	/*Old quicktime implementation compatibility fields, read only in 2.5 - deprecated*/
-	void			*cdParms;   /* codec/compressor options */
-	void			*pad;	    /* padding */
-
-	unsigned int	cdSize;		    /* size of cdParms buffer */
-	unsigned int	pad2;		    /* padding */
-
-	char			qtcodecname[128];
-} QuicktimeCodecData;
-	
-typedef struct QuicktimeCodecSettings {
-	/* Codec settings detailed for 2.5 implementation*/
-	int codecType; /* Types defined in quicktime_export.h */
-	int	codecSpatialQuality; /* in 0-100 scale, to be translated in 0-1024 for qt use */
-
-	/* Settings not available in current QTKit API */
-	int	codec;
-	int	codecFlags;
-	int	colorDepth;
-	int	codecTemporalQuality; /* in 0-100 scale, to be translated in 0-1024 for qt use */
-	int	minSpatialQuality; /* in 0-100 scale, to be translated in 0-1024 for qt use */
-	int	minTemporalQuality; /* in 0-100 scale, to be translated in 0-1024 for qt use */
-	int	keyFrameRate;
-	int	bitRate;	/* bitrate in bps */
-	
-	/* Audio Codec settings */
-	int audiocodecType;
-	int audioSampleRate;
-	short audioBitDepth;
-	short audioChannels;
-	int audioCodecFlags;
-	int audioBitRate;
-	int pad1;
-} QuicktimeCodecSettings;
-
-typedef enum FFMpegPreset {
+typedef enum eFFMpegPreset {
 	FFM_PRESET_NONE,
 	FFM_PRESET_ULTRAFAST,
 	FFM_PRESET_SUPERFAST,
@@ -143,7 +107,7 @@ typedef enum FFMpegPreset {
 	FFM_PRESET_SLOW,
 	FFM_PRESET_SLOWER,
 	FFM_PRESET_VERYSLOW,
-} FFMpegPreset;
+} eFFMpegPreset;
 
 
 /* Mapping from easily-understandable descriptions to CRF values.
@@ -152,7 +116,7 @@ typedef enum FFMpegPreset {
  * We use a slightly wider than "subjectively sane range" according
  * to https://trac.ffmpeg.org/wiki/Encode/H.264#a1.ChooseaCRFvalue
  */
-typedef enum FFMpegCrf {
+typedef enum eFFMpegCrf {
 	FFM_CRF_NONE = -1,
 	FFM_CRF_LOSSLESS = 0,
 	FFM_CRF_PERC_LOSSLESS = 17,
@@ -161,7 +125,7 @@ typedef enum FFMpegCrf {
 	FFM_CRF_LOW = 26,
 	FFM_CRF_VERYLOW = 29,
 	FFM_CRF_LOWEST = 32,
-} FFMpegCrf;
+} eFFMpegCrf;
 
 typedef struct FFMpegCodecData {
 	int type;
@@ -177,7 +141,7 @@ typedef struct FFMpegCodecData {
 	int max_b_frames; /* only used if FFMPEG_USE_MAX_B_FRAMES flag is set. */
 	int flags;
 	int constant_rate_factor;
-	int ffmpeg_preset; /* see FFMpegPreset */
+	int ffmpeg_preset; /* see eFFMpegPreset */
 
 	int rc_min_rate;
 	int rc_max_rate;
@@ -250,7 +214,7 @@ typedef struct SceneRenderLayer {
 #define SCE_LAY_NEG_ZMASK	0x80000
 
 /* srl->passflag */
-typedef enum ScenePassType {
+typedef enum eScenePassType {
 	SCE_PASS_COMBINED                 = (1 << 0),
 	SCE_PASS_Z                        = (1 << 1),
 	SCE_PASS_RGBA                     = (1 << 2),
@@ -282,7 +246,7 @@ typedef enum ScenePassType {
 	SCE_PASS_SUBSURFACE_DIRECT        = (1 << 28),
 	SCE_PASS_SUBSURFACE_INDIRECT      = (1 << 29),
 	SCE_PASS_SUBSURFACE_COLOR         = (1 << 30),
-} ScenePassType;
+} eScenePassType;
 
 #define RE_PASSNAME_COMBINED "Combined"
 #define RE_PASSNAME_Z "Depth"
@@ -453,7 +417,7 @@ typedef struct ImageFormatData {
 #define R_IMF_IMTYPE_AVIJPEG        16
 #define R_IMF_IMTYPE_PNG            17
 /* #define R_IMF_IMTYPE_AVICODEC    18 */ /* avicodec is nomore */
-#define R_IMF_IMTYPE_QUICKTIME      19
+/* #define R_IMF_IMTYPE_QUICKTIME   19 */ /* quicktime is nomore */
 #define R_IMF_IMTYPE_BMP            20
 #define R_IMF_IMTYPE_RADHDR         21
 #define R_IMF_IMTYPE_TIFF           22
@@ -544,23 +508,23 @@ typedef struct BakeData {
 } BakeData;
 
 /* (char) normal_swizzle */
-typedef enum BakeNormalSwizzle {
+typedef enum eBakeNormalSwizzle {
 	R_BAKE_POSX = 0,
 	R_BAKE_POSY = 1,
 	R_BAKE_POSZ = 2,
 	R_BAKE_NEGX = 3,
 	R_BAKE_NEGY = 4,
 	R_BAKE_NEGZ = 5,
-} BakeNormalSwizzle;
+} eBakeNormalSwizzle;
 
 /* (char) save_mode */
-typedef enum BakeSaveMode {
+typedef enum eBakeSaveMode {
 	R_BAKE_SAVE_INTERNAL = 0,
 	R_BAKE_SAVE_EXTERNAL = 1,
-} BakeSaveMode;
+} eBakeSaveMode;
 
 /* bake->pass_filter */
-typedef enum BakePassFilter {
+typedef enum eBakePassFilter {
 	R_BAKE_PASS_FILTER_NONE           = 0,
 	R_BAKE_PASS_FILTER_AO             = (1 << 0),
 	R_BAKE_PASS_FILTER_EMIT           = (1 << 1),
@@ -571,7 +535,7 @@ typedef enum BakePassFilter {
 	R_BAKE_PASS_FILTER_DIRECT         = (1 << 6),
 	R_BAKE_PASS_FILTER_INDIRECT       = (1 << 7),
 	R_BAKE_PASS_FILTER_COLOR          = (1 << 8),
-} BakePassFilter;
+} eBakePassFilter;
 
 #define R_BAKE_PASS_FILTER_ALL (~0)
 
@@ -588,8 +552,6 @@ typedef struct RenderData {
 	struct ImageFormatData im_format;
 	
 	struct AviCodecData *avicodecdata;
-	struct QuicktimeCodecData *qtcodecdata;
-	struct QuicktimeCodecSettings qtcodecsettings;
 	struct FFMpegCodecData ffcodecdata;
 
 	int cfra, sfra, efra;	/* frames as in 'images' */
@@ -787,7 +749,7 @@ typedef struct RenderData {
 	float unit_line_thickness; /* in pixels */
 
 	/* render engine */
-	char engine[32];
+	char engine[32] DNA_DEPRECATED; // XXX deprecated since 2.8
 
 	/* Cycles baking */
 	struct BakeData bake;
@@ -809,6 +771,12 @@ typedef struct RenderData {
 	/* Motion blur shutter */
 	struct CurveMapping mblur_shutter_curve;
 } RenderData;
+
+/* *************************************************************** */
+/* Settings related to viewport drawing/render, only settings used by WorkSpace and Scene. */
+typedef struct ViewRender {
+	char engine_id[32];
+} ViewRender;
 
 /* *************************************************************** */
 /* Render Conversion/Simplfication Settings */
@@ -921,7 +889,6 @@ typedef struct GameData {
 	/* Scene LoD */
 	short lodflag, pad2;
 	int scehysteresis, pad5;
-
 } GameData;
 
 #define STEREO_NOSTEREO		1
@@ -1013,12 +980,12 @@ enum {
 #define STEREO_RIGHT_SUFFIX "_R"
 #define STEREO_LEFT_SUFFIX "_L"
 
-typedef enum StereoViews {
+typedef enum eStereoViews {
 	STEREO_LEFT_ID = 0,
 	STEREO_RIGHT_ID = 1,
 	STEREO_3D_ID = 2,
 	STEREO_MONO_ID = 3,
-} StereoViews;
+} eStereoViews;
 
 /* *************************************************************** */
 /* Markers */
@@ -1046,7 +1013,7 @@ typedef struct Paint {
 	void *paint_cursor;
 	unsigned char paint_cursor_col[4];
 
-	/* enum PaintFlags */
+	/* enum ePaintFlags */
 	int flags;
 
 	/* Paint stroke can use up to PAINT_MAX_INPUT_SAMPLES inputs to
@@ -1195,23 +1162,15 @@ typedef struct UvSculpt {
 /* Vertex Paint */
 typedef struct VPaint {
 	Paint paint;
-
-	short flag, pad;
-	int tot;							/* allocation size of prev buffers */
-	unsigned int *vpaint_prev;			/* previous mesh colors */
-	struct MDeformVert *wpaint_prev;	/* previous vertex weights */
-	
-	void *paintcursor;					/* wm handle */
+	char flag;
+	char pad[3];
+	int radial_symm[3]; /* For mirrored painting */
 } VPaint;
 
 /* VPaint.flag */
 enum {
-	// VP_COLINDEX  = (1 << 0),  /* only paint onto active material*/  /* deprecated since before 2.49 */
-	// VP_AREA      = (1 << 1),  /* deprecated since 2.70 */
-	VP_NORMALS      = (1 << 3),
-	VP_SPRAY        = (1 << 4),
-	// VP_MIRROR_X  = (1 << 5),  /* deprecated in 2.5x use (me->editflag & ME_EDIT_MIRROR_X) */
-	VP_ONLYVGROUP   = (1 << 7)   /* weight paint only */
+	/* weight paint only */
+	VP_FLAG_VGROUP_RESTRICT     = (1 << 7)
 };
 
 /* ------------------------------------------- */
@@ -1426,7 +1385,7 @@ typedef enum {
 	/* only used if unified alpha is enabled, mirrors the brush flag
 	 * BRUSH_ALPHA_PRESSURE */
 	UNIFIED_PAINT_BRUSH_ALPHA_PRESSURE  = (1 << 4)
-} UnifiedPaintSettingsFlags;
+} eUnifiedPaintSettingsFlags;
 
 
 typedef struct CurvePaintSettings {
@@ -1694,13 +1653,12 @@ typedef struct Scene {
 	
 	struct Scene *set;
 	
-	ListBase base;
+	ListBase base DNA_DEPRECATED;
 	struct BaseLegacy *basact;		/* active base */
 	struct Object *obedit;		/* name replaces old G.obedit */
 	
 	float cursor[3];			/* 3d cursor location */
-	float twcent[3];			/* center for transform widget */
-	float twmin[3], twmax[3];	/* boundbox of selection for transform widget */
+	char _pad[4];
 	
 	unsigned int lay;			/* bitflags for layer visibility */
 	int layact;		/* active layer */
@@ -1735,11 +1693,8 @@ typedef struct Scene {
 	void *fps_info;					/* (runtime) info/cache used for presenting playback framerate info to the user */
 	
 	/* none of the dependency graph  vars is mean to be saved */
-	struct Depsgraph *depsgraph_legacy;
-	void *pad1;
-	struct  DagForest *theDag;
-	short dagflags;
-	short pad3;
+	struct GHash *depsgraph_hash;
+	int pad7;
 
 	/* User-Defined KeyingSets */
 	int active_keyingset;			/* index of the active KeyingSet. first KeyingSet has index 1, 'none' active is 0, 'add new' is -1 */
@@ -1757,6 +1712,8 @@ typedef struct Scene {
 
 	/* Physics simulation settings */
 	struct PhysicsSettings physics_settings;
+
+	void *pad6;
 
 	uint64_t customdata_mask;	/* XXX. runtime flag for drawing, actually belongs in the window, only used by BKE_object_handle_update() */
 	uint64_t customdata_mask_modal; /* XXX. same as above but for temp operator use (gl renders) */
@@ -1783,6 +1740,8 @@ typedef struct Scene {
 	IDProperty *layer_properties;  /* settings to be override by workspaces */
 
 	int pad5[2];
+
+	ViewRender view_render;
 } Scene;
 
 /* **************** RENDERDATA ********************* */
@@ -1978,16 +1937,18 @@ extern const char *RE_engine_id_CYCLES;
 /* **************** SCENE ********************* */
 
 /* note that much higher maxframes give imprecise sub-frames, see: T46859 */
+/* Current precision is 16 for the sub-frames closer to MAXFRAME. */
+
 /* for general use */
-#define MAXFRAME	500000
-#define MAXFRAMEF	500000.0f
+#define MAXFRAME	1048574
+#define MAXFRAMEF	1048574.0f
 
 #define MINFRAME	0
 #define MINFRAMEF	0.0f
 
 /* (minimum frame number for current-frame) */
-#define MINAFRAME	-500000
-#define MINAFRAMEF	-500000.0f
+#define MINAFRAME	-1048574
+#define MINAFRAMEF	-1048574.0f
 
 /* depricate this! */
 #define TESTBASE(v3d, base)  (                                                \
@@ -2153,16 +2114,16 @@ enum {
 };
 
 /* Paint.flags */
-typedef enum {
+typedef enum ePaintFlags {
 	PAINT_SHOW_BRUSH = (1 << 0),
 	PAINT_FAST_NAVIGATE = (1 << 1),
 	PAINT_SHOW_BRUSH_ON_SURFACE = (1 << 2),
 	PAINT_USE_CAVITY_MASK = (1 << 3)
-} PaintFlags;
+} ePaintFlags;
 
 /* Paint.symmetry_flags
  * (for now just a duplicate of sculpt symmetry flags) */
-typedef enum SymmetryFlags {
+typedef enum ePaintSymmetryFlags {
 	PAINT_SYMM_X = (1 << 0),
 	PAINT_SYMM_Y = (1 << 1),
 	PAINT_SYMM_Z = (1 << 2),
@@ -2170,13 +2131,13 @@ typedef enum SymmetryFlags {
 	PAINT_TILE_X = (1 << 4),
 	PAINT_TILE_Y = (1 << 5),
 	PAINT_TILE_Z = (1 << 6),
-} SymmetryFlags;
+} ePaintSymmetryFlags;
 
 #define PAINT_SYMM_AXIS_ALL (PAINT_SYMM_X | PAINT_SYMM_Y | PAINT_SYMM_Z)
 
 /* Sculpt.flags */
 /* These can eventually be moved to paint flags? */
-typedef enum SculptFlags {
+typedef enum eSculptFlags {
 #ifdef DNA_DEPRECATED
 	/* deprecated, part of paint struct symmetry_flags now */
 	SCULPT_SYMM_X = (1 << 0),
@@ -2206,12 +2167,12 @@ typedef enum SculptFlags {
 	/* If set, dynamic-topology detail size will be constant in object space */
 	SCULPT_DYNTOPO_DETAIL_CONSTANT = (1 << 13),
 	SCULPT_DYNTOPO_DETAIL_BRUSH = (1 << 14),
-} SculptFlags;
+} eSculptFlags;
 
-typedef enum ImagePaintMode {
+typedef enum eImageePaintMode {
 	IMAGEPAINT_MODE_MATERIAL, /* detect texture paint slots from the material */
 	IMAGEPAINT_MODE_IMAGE,    /* select texture paint image directly */
-} ImagePaintMode;
+} eImageePaintMode;
 
 /* ImagePaintSettings.flag */
 #define IMAGEPAINT_DRAWING				1

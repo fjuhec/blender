@@ -25,6 +25,9 @@ in vec3 worldNormal;
 in vec3 viewNormal;
 #endif
 
+uniform float maxRoughness;
+uniform int rayCount;
+
 /* ----------- default -----------  */
 
 vec3 eevee_surface_lit(vec3 N, vec3 albedo, vec3 f0, float roughness, float ao, int ssr_id, out vec3 ssr_spec)
@@ -63,7 +66,7 @@ vec3 eevee_surface_lit(vec3 N, vec3 albedo, vec3 f0, float roughness, float ao, 
 		l_vector.xyz = ld.l_position - worldPosition;
 		l_vector.w = length(l_vector.xyz);
 
-		vec3 l_color_vis = ld.l_color * light_visibility(ld, worldPosition, l_vector);
+		vec3 l_color_vis = ld.l_color * light_visibility(ld, worldPosition, viewPosition, viewNormal, l_vector);
 
 #ifdef HAIR_SHADER
 		vec3 norm_lamp, view_vec;
@@ -136,7 +139,10 @@ vec3 eevee_surface_lit(vec3 N, vec3 albedo, vec3 f0, float roughness, float ao, 
 	vec2 uv = lut_coords(dot(N, V), roughness);
 	vec2 brdf_lut = texture(utilTex, vec3(uv, 1.0)).rg;
 
-	ssr_spec = F_ibl(f0, brdf_lut) * specular_occlusion(dot(N, V), final_ao, roughness);
+	ssr_spec = F_ibl(f0, brdf_lut);
+	if (!(ssrToggle && ssr_id == outputSsrId)) {
+		ssr_spec *= specular_occlusion(dot(N, V), final_ao, roughness);
+	}
 	out_light += spec_accum.rgb * ssr_spec * float(specToggle);
 
 	/* ---------------- DIFFUSE ENVIRONMENT LIGHTING ----------------- */
@@ -218,7 +224,7 @@ vec3 eevee_surface_clearcoat_lit(
 		l_vector.xyz = ld.l_position - worldPosition;
 		l_vector.w = length(l_vector.xyz);
 
-		vec3 l_color_vis = ld.l_color * light_visibility(ld, worldPosition, l_vector);
+		vec3 l_color_vis = ld.l_color * light_visibility(ld, worldPosition, viewPosition, viewNormal, l_vector);
 
 #ifdef HAIR_SHADER
 		vec3 norm_lamp, view_vec;
@@ -308,7 +314,10 @@ vec3 eevee_surface_clearcoat_lit(
 	vec2 uv = lut_coords(dot(N, V), roughness);
 	vec2 brdf_lut = texture(utilTex, vec3(uv, 1.0)).rg;
 
-	ssr_spec = F_ibl(f0, brdf_lut) * specular_occlusion(dot(N, V), final_ao, roughness);
+	ssr_spec = F_ibl(f0, brdf_lut);
+	if (!(ssrToggle && ssr_id == outputSsrId)) {
+		ssr_spec *= specular_occlusion(dot(N, V), final_ao, roughness);
+	}
 	out_light += spec_accum.rgb * ssr_spec * float(specToggle);
 
 	uv = lut_coords(dot(C_N, V), C_roughness);
@@ -379,7 +388,7 @@ vec3 eevee_surface_diffuse_lit(vec3 N, vec3 albedo, float ao)
 		l_vector.xyz = ld.l_position - worldPosition;
 		l_vector.w = length(l_vector.xyz);
 
-		vec3 l_color_vis = ld.l_color * light_visibility(ld, worldPosition, l_vector);
+		vec3 l_color_vis = ld.l_color * light_visibility(ld, worldPosition, viewPosition, viewNormal, l_vector);
 
 #ifdef HAIR_SHADER
 		vec3 norm_lamp, view_vec;
@@ -471,7 +480,7 @@ vec3 eevee_surface_glossy_lit(vec3 N, vec3 f0, float roughness, float ao, int ss
 		l_vector.xyz = ld.l_position - worldPosition;
 		l_vector.w = length(l_vector.xyz);
 
-		vec3 l_color_vis = ld.l_color * light_visibility(ld, worldPosition, l_vector);
+		vec3 l_color_vis = ld.l_color * light_visibility(ld, worldPosition, viewPosition, viewNormal, l_vector);
 
 #ifdef HAIR_SHADER
 		vec3 norm_lamp, view_vec;
@@ -533,15 +542,18 @@ vec3 eevee_surface_glossy_lit(vec3 N, vec3 f0, float roughness, float ao, int ss
 
 	vec4 rand = texture(utilTex, vec3(gl_FragCoord.xy / LUT_SIZE, 2.0));
 
-	/* Ambient Occlusion */
-	vec3 bent_normal;
-	float final_ao = occlusion_compute(N, viewPosition, ao, rand.rg, bent_normal);
-
 	/* Get Brdf intensity */
 	vec2 uv = lut_coords(dot(N, V), roughness);
 	vec2 brdf_lut = texture(utilTex, vec3(uv, 1.0)).rg;
 
-	ssr_spec = F_ibl(f0, brdf_lut) * specular_occlusion(dot(N, V), final_ao, roughness);
+	ssr_spec = F_ibl(f0, brdf_lut);
+	if (!(ssrToggle && ssr_id == outputSsrId)) {
+		/* Ambient Occlusion */
+		vec3 bent_normal;
+		float final_ao = occlusion_compute(N, viewPosition, ao, rand.rg, bent_normal);
+
+		ssr_spec *= specular_occlusion(dot(N, V), final_ao, roughness);
+	}
 	out_light += spec_accum.rgb * ssr_spec * float(specToggle);
 
 	return out_light;
@@ -669,7 +681,7 @@ vec3 eevee_surface_glass(vec3 N, vec3 transmission_col, float roughness, float i
 		l_vector.xyz = ld.l_position - worldPosition;
 		l_vector.w = length(l_vector.xyz);
 
-		vec3 l_color_vis = ld.l_color * light_visibility(ld, worldPosition, l_vector);
+		vec3 l_color_vis = ld.l_color * light_visibility(ld, worldPosition, viewPosition, viewNormal, l_vector);
 
 #ifdef HAIR_SHADER
 		vec3 norm_lamp, view_vec;
@@ -785,7 +797,10 @@ vec3 eevee_surface_glass(vec3 N, vec3 transmission_col, float roughness, float i
 	/* Apply fresnel on lamps. */
 	out_light *= vec3(fresnel);
 
-	ssr_spec = vec3(fresnel) * F_ibl(vec3(1.0), brdf_lut) * specular_occlusion(NV, final_ao, roughness);
+	ssr_spec = vec3(fresnel) * F_ibl(vec3(1.0), brdf_lut);
+	if (!(ssrToggle && ssr_id == outputSsrId)) {
+		ssr_spec *= specular_occlusion(dot(N, V), final_ao, roughness);
+	}
 	out_light += spec_accum.rgb * ssr_spec;
 
 

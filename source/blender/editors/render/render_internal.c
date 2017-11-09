@@ -56,6 +56,7 @@
 #include "BKE_colortools.h"
 #include "BKE_global.h"
 #include "BKE_image.h"
+#include "BKE_layer.h"
 #include "BKE_library.h"
 #include "BKE_main.h"
 #include "BKE_node.h"
@@ -64,6 +65,7 @@
 #include "BKE_sequencer.h"
 #include "BKE_screen.h"
 #include "BKE_scene.h"
+#include "BKE_workspace.h"
 
 #include "DEG_depsgraph.h"
 
@@ -100,6 +102,10 @@ typedef struct RenderJob {
 	Main *main;
 	Scene *scene;
 	Scene *current_scene;
+	/* TODO(sergey): Should not be needed once engine will have own
+	 * depsgraph and copy-on-write will be implemented.
+	 */
+	Depsgraph *depsgraph;
 	Render *re;
 	SceneRenderLayer *srl;
 	struct Object *camera_override;
@@ -307,7 +313,7 @@ static int screen_render_exec(bContext *C, wmOperator *op)
 		return OPERATOR_CANCELLED;
 	}
 
-	re = RE_NewRender(scene->id.name);
+	re = RE_NewSceneRender(scene);
 	RE_SetDepsgraph(re, CTX_data_depsgraph(C));
 	lay_override = (v3d && v3d->lay != scene->lay) ? v3d->lay : 0;
 
@@ -336,7 +342,7 @@ static int screen_render_exec(bContext *C, wmOperator *op)
 	RE_SetReports(re, NULL);
 
 	// no redraw needed, we leave state as we entered it
-	ED_update_for_newframe(mainp, scene, 1);
+	ED_update_for_newframe(mainp, scene, CTX_data_depsgraph(C));
 
 	WM_event_add_notifier(C, NC_SCENE | ND_RENDER_RESULT, scene);
 
@@ -650,7 +656,7 @@ static void render_endjob(void *rjv)
 	if (rj->anim && !(rj->scene->r.scemode & R_NO_FRAME_UPDATE)) {
 		/* possible this fails of loading new file while rendering */
 		if (G.main->wm.first) {
-			ED_update_for_newframe(G.main, rj->scene, 1);
+			ED_update_for_newframe(G.main, rj->scene, rj->depsgraph);
 		}
 	}
 	
@@ -787,33 +793,46 @@ static void screen_render_cancel(bContext *C, wmOperator *op)
 	WM_jobs_kill_type(wm, scene, WM_JOB_TYPE_RENDER);
 }
 
+static void clean_viewport_memory_base(Base *base)
+{
+	if ((base->flag & BASE_VISIBLED) == 0) {
+		return;
+	}
+
+	Object *object = base->object;
+
+	if (object->id.tag & LIB_TAG_DOIT) {
+		return;
+	}
+
+	object->id.tag &= ~LIB_TAG_DOIT;
+	if (RE_allow_render_generic_object(object)) {
+		BKE_object_free_derived_caches(object);
+	}
+}
+
 static void clean_viewport_memory(Main *bmain, Scene *scene)
 {
-	Object *object;
 	Scene *sce_iter;
 	Base *base;
 
-	for (object = bmain->object.first; object; object = object->id.next) {
-		object->id.tag |= LIB_TAG_DOIT;
+	/* Tag all the available objects. */
+	BKE_main_id_tag_listbase(&bmain->object, LIB_TAG_DOIT, true);
+
+	/* Go over all the visible objects. */
+	for (wmWindowManager *wm = bmain->wm.first; wm; wm = wm->id.next) {
+		for (wmWindow *win = wm->windows.first; win; win = win->next) {
+			WorkSpace *workspace = BKE_workspace_active_get(win->workspace_hook);
+			SceneLayer *scene_layer = BKE_scene_layer_from_workspace_get(scene, workspace);
+
+			for (base = scene_layer->object_bases.first; base; base = base->next) {
+				clean_viewport_memory_base(base);
+			}
+		}
 	}
 
-	for (SETLOOPER(scene, sce_iter, base)) {
-		if ((base->flag & BASE_VISIBLED) == 0) {
-			continue;
-		}
-		if (RE_allow_render_generic_object(base->object)) {
-			base->object->id.tag &= ~LIB_TAG_DOIT;
-		}
-	}
-
-	for (SETLOOPER(scene, sce_iter, base)) {
-		object = base->object;
-		if ((object->id.tag & LIB_TAG_DOIT) == 0) {
-			continue;
-		}
-		object->id.tag &= ~LIB_TAG_DOIT;
-
-		BKE_object_free_derived_caches(object);
+    for (SETLOOPER_SET_ONLY(scene, sce_iter, base)) {
+		clean_viewport_memory_base(base);
 	}
 }
 
@@ -900,6 +919,8 @@ static int screen_render_invoke(bContext *C, wmOperator *op, const wmEvent *even
 	rj->main = mainp;
 	rj->scene = scene;
 	rj->current_scene = rj->scene;
+	/* TODO(sergey): Render engine should be using own depsgraph. */
+	rj->depsgraph = CTX_data_depsgraph(C);
 	rj->srl = srl;
 	rj->camera_override = camera_override;
 	rj->lay_override = 0;
@@ -967,7 +988,7 @@ static int screen_render_invoke(bContext *C, wmOperator *op, const wmEvent *even
 	rj->image = ima;
 
 	/* setup new render */
-	re = RE_NewRender(scene->id.name);
+	re = RE_NewSceneRender(scene);
 	RE_test_break_cb(re, rj, render_breakjob);
 	RE_draw_lock_cb(re, rj, render_drawlock);
 	RE_display_update_cb(re, rj, image_rect_update);
@@ -1019,9 +1040,11 @@ void RENDER_OT_render(wmOperatorType *ot)
 
 	/*ot->poll = ED_operator_screenactive;*/ /* this isn't needed, causes failer in background mode */
 
-	RNA_def_boolean(ot->srna, "animation", 0, "Animation", "Render files from the animation range of this scene");
+	prop = RNA_def_boolean(ot->srna, "animation", 0, "Animation", "Render files from the animation range of this scene");
+	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 	RNA_def_boolean(ot->srna, "write_still", 0, "Write Image", "Save rendered the image to the output path (used only when animation is disabled)");
-	RNA_def_boolean(ot->srna, "use_viewport", 0, "Use 3D Viewport", "When inside a 3D viewport, use layers and camera of the viewport");
+	prop = RNA_def_boolean(ot->srna, "use_viewport", 0, "Use 3D Viewport", "When inside a 3D viewport, use layers and camera of the viewport");
+	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 	prop = RNA_def_string(ot->srna, "layer", NULL, RE_MAXNAME, "Render Layer", "Single render layer to re-render (used only when animation is disabled)");
 	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 	prop = RNA_def_string(ot->srna, "scene", NULL, MAX_ID_NAME - 2, "Scene", "Scene to render, current scene if not specified");
@@ -1256,10 +1279,10 @@ static void render_view3d_startjob(void *customdata, short *stop, short *do_upda
 		/* initalize always */
 		if (use_border) {
 			rdata.mode |= R_BORDER;
-			RE_InitState(re, NULL, &rdata, NULL, rp->ar->winx, rp->ar->winy, &cliprct);
+			RE_InitState(re, NULL, &rdata, &rp->scene->view_render, NULL, rp->ar->winx, rp->ar->winy, &cliprct);
 		}
 		else
-			RE_InitState(re, NULL, &rdata, NULL, rp->ar->winx, rp->ar->winy, NULL);
+			RE_InitState(re, NULL, &rdata, &rp->scene->view_render, NULL, rp->ar->winx, rp->ar->winy, NULL);
 	}
 
 	if (orth)
@@ -1321,7 +1344,7 @@ static void render_view3d_startjob(void *customdata, short *stop, short *do_upda
 				if (restore)
 					RE_DataBase_IncrementalView(re, rp->viewmat, 1);
 
-				rp->resolution_divider = MAX2(rp->resolution_divider/2, pixel_size);
+				rp->resolution_divider = MAX2(rp->resolution_divider / 2, pixel_size);
 				*do_update = 1;
 
 				render_update_resolution(re, rp, use_border, &cliprct);
@@ -1679,7 +1702,7 @@ static int render_shutter_curve_preset_exec(bContext *C, wmOperator *op)
 void RENDER_OT_shutter_curve_preset(wmOperatorType *ot)
 {
 	PropertyRNA *prop;
-	static EnumPropertyItem prop_shape_items[] = {
+	static const EnumPropertyItem prop_shape_items[] = {
 		{CURVE_PRESET_SHARP, "SHARP", 0, "Sharp", ""},
 		{CURVE_PRESET_SMOOTH, "SMOOTH", 0, "Smooth", ""},
 		{CURVE_PRESET_MAX, "MAX", 0, "Max", ""},

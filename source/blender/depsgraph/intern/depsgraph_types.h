@@ -79,6 +79,17 @@ typedef enum eDepsNode_Class {
 	DEG_NODE_CLASS_OPERATION       = 2,
 } eDepsNode_Class;
 
+/* Note: We use max comparison to mark an id node that is linked more than once
+ * So keep this enum ordered accordingly. */
+typedef enum eDepsNode_LinkedState_Type {
+	/* Generic indirectly linked id node. */
+	DEG_ID_LINKED_INDIRECTLY       = 0,
+	/* Id node present in the set (background) only. */
+	DEG_ID_LINKED_VIA_SET          = 1,
+	/* Id node directly linked via the ScenLayer. */
+	DEG_ID_LINKED_DIRECTLY         = 2,
+} eDepsNode_LinkedState_Type;
+
 /* Types of Nodes */
 typedef enum eDepsNode_Type {
 	/* Fallback type for invalid return value */
@@ -130,6 +141,7 @@ typedef enum eDepsNode_Type {
 	DEG_NODE_TYPE_EVAL_PARTICLES,
 	/* Material Shading Component */
 	DEG_NODE_TYPE_SHADING,
+	DEG_NODE_TYPE_SHADING_PARAMETERS,
 	/* Cache Component */
 	DEG_NODE_TYPE_CACHE,
 } eDepsNode_Type;
@@ -175,12 +187,14 @@ typedef enum eDepsOperation_Code {
 	/* Geometry. ---------------------------------------- */
 	/* Evaluate the whole geometry, including modifiers. */
 	DEG_OPCODE_GEOMETRY_UBEREVAL,
-	/* Curve Objects - Path Calculation (used for path-following tools, */
-	DEG_OPCODE_GEOMETRY_PATH,
+	DEG_OPCODE_GEOMETRY_CLOTH_MODIFIER,
+	DEG_OPCODE_GEOMETRY_SHAPEKEY,
 
 	/* Pose. -------------------------------------------- */
-	/* Init IK Trees, etc. */
+	/* Init pose, clear flags, etc. */
 	DEG_OPCODE_POSE_INIT,
+	/* Initialize IK solver related pose stuff. */
+	DEG_OPCODE_POSE_INIT_IK,
 	/* Free IK Trees + Compute Deform Matrices */
 	DEG_OPCODE_POSE_DONE,
 	/* IK/Spline Solvers */
@@ -227,6 +241,13 @@ typedef enum eDepsOperation_Code {
 	DEG_OPCODE_SHADING,
 	DEG_OPCODE_MATERIAL_UPDATE,
 	DEG_OPCODE_WORLD_UPDATE,
+
+	/* Masks. ------------------------------------------ */
+	DEG_OPCODE_MASK_ANIMATION,
+	DEG_OPCODE_MASK_EVAL,
+
+	/* Movie clips. ------------------------------------ */
+	DEG_OPCODE_MOVIECLIP_EVAL,
 
 	DEG_NUM_OPCODES,
 } eDepsOperation_Code;

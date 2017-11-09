@@ -43,11 +43,11 @@
 #include "BKE_camera.h"
 #include "BKE_curve.h"
 #include "BKE_global.h"
+#include "BKE_object.h"
 #include "BKE_particle.h"
 #include "BKE_image.h"
 #include "BKE_texture.h"
 
-#include "ED_view3d.h"
 #include "ED_view3d.h"
 
 #include "GPU_shader.h"
@@ -70,11 +70,15 @@ extern char datatoc_object_grid_frag_glsl[];
 extern char datatoc_object_grid_vert_glsl[];
 extern char datatoc_object_empty_image_frag_glsl[];
 extern char datatoc_object_empty_image_vert_glsl[];
+extern char datatoc_object_lightprobe_grid_vert_glsl[];
 extern char datatoc_object_particle_prim_vert_glsl[];
 extern char datatoc_object_particle_prim_frag_glsl[];
 extern char datatoc_object_particle_dot_vert_glsl[];
 extern char datatoc_object_particle_dot_frag_glsl[];
 extern char datatoc_common_globals_lib_glsl[];
+extern char datatoc_common_fxaa_lib_glsl[];
+extern char datatoc_gpu_shader_fullscreen_vert_glsl[];
+extern char datatoc_gpu_shader_uniform_color_frag_glsl[];
 
 /* *********** LISTS *********** */
 typedef struct OBJECT_PassList {
@@ -83,17 +87,14 @@ typedef struct OBJECT_PassList {
 	struct DRWPass *outlines;
 	struct DRWPass *outlines_search;
 	struct DRWPass *outlines_expand;
-	struct DRWPass *outlines_fade1;
-	struct DRWPass *outlines_fade2;
-	struct DRWPass *outlines_fade3;
-	struct DRWPass *outlines_fade4;
-	struct DRWPass *outlines_fade5;
+	struct DRWPass *outlines_bleed;
 	struct DRWPass *outlines_resolve;
 	struct DRWPass *grid;
 	struct DRWPass *bone_solid;
 	struct DRWPass *bone_wire;
 	struct DRWPass *bone_envelope;
 	struct DRWPass *particle;
+	struct DRWPass *lightprobes;
 	/* use for empty/background images */
 	struct DRWPass *reference_image;
 } OBJECT_PassList;
@@ -117,7 +118,7 @@ typedef struct OBJECT_Data {
 
 /* *********** STATIC *********** */
 
-typedef struct OBJECT_PrivateData{
+typedef struct OBJECT_PrivateData {
 	/* Empties */
 	DRWShadingGroup *plain_axes;
 	DRWShadingGroup *cube;
@@ -192,6 +193,10 @@ typedef struct OBJECT_PrivateData{
 	DRWShadingGroup *outlines_select_group;
 	DRWShadingGroup *outlines_transform;
 
+	/* Lightprobes */
+	DRWShadingGroup *lightprobes_cube;
+	DRWShadingGroup *lightprobes_planar;
+
 	/* Wire */
 	DRWShadingGroup *wire;
 	DRWShadingGroup *wire_active;
@@ -204,6 +209,7 @@ typedef struct OBJECT_PrivateData{
 static struct {
 	/* fullscreen shaders */
 	GPUShader *outline_resolve_sh;
+	GPUShader *outline_resolve_aa_sh;
 	GPUShader *outline_detect_sh;
 	GPUShader *outline_fade_sh;
 
@@ -214,10 +220,10 @@ static struct {
 	GPUShader *part_dot_sh;
 	GPUShader *part_prim_sh;
 	GPUShader *part_axis_sh;
+	GPUShader *lightprobe_grid_sh;
 	float camera_pos[3];
 	float screenvecs[3][4];
 	float grid_settings[5];
-	float grid_mat[4][4];
 	int grid_flag;
 	float grid_normal[3];
 	float grid_axes[3];
@@ -225,6 +231,7 @@ static struct {
 	int zneg_flag;
 	float zplane_normal[3];
 	float zplane_axes[3];
+	float inv_viewport_size[2];
 	bool draw_grid;
 	/* Temp buffer textures */
 	struct GPUTexture *outlines_depth_tx;
@@ -275,6 +282,15 @@ static void OBJECT_engine_init(void *vedata)
 		e_data.outline_resolve_sh = DRW_shader_create_fullscreen(datatoc_object_outline_resolve_frag_glsl, NULL);
 	}
 
+	if (!e_data.outline_resolve_aa_sh) {
+		e_data.outline_resolve_aa_sh = DRW_shader_create_with_lib(
+		            datatoc_gpu_shader_fullscreen_vert_glsl, NULL,
+		            datatoc_object_outline_resolve_frag_glsl,
+		            datatoc_common_fxaa_lib_glsl,
+		            "#define FXAA_ALPHA\n"
+		            "#define USE_FXAA\n");
+	}
+
 	if (!e_data.outline_detect_sh) {
 		e_data.outline_detect_sh = DRW_shader_create_fullscreen(datatoc_object_outline_detect_frag_glsl, NULL);
 	}
@@ -321,6 +337,11 @@ static void OBJECT_engine_init(void *vedata)
 		        datatoc_object_particle_dot_vert_glsl, NULL, datatoc_object_particle_dot_frag_glsl, NULL);
 	}
 
+	if (!e_data.lightprobe_grid_sh) {
+		e_data.lightprobe_grid_sh = DRW_shader_create(
+		        datatoc_object_lightprobe_grid_vert_glsl, NULL, datatoc_gpu_shader_uniform_color_frag_glsl, NULL);
+	}
+
 	{
 		/* Grid precompute */
 		float invviewmat[4][4], invwinmat[4][4];
@@ -330,7 +351,7 @@ static void OBJECT_engine_init(void *vedata)
 		Scene *scene = draw_ctx->scene;
 		RegionView3D *rv3d = draw_ctx->rv3d;
 		float grid_scale = ED_view3d_grid_scale(scene, v3d, NULL);
-		float grid_res, offs;
+		float grid_res;
 
 		const bool show_axis_x = (v3d->gridflag & V3D_SHOW_X) != 0;
 		const bool show_axis_y = (v3d->gridflag & V3D_SHOW_Y) != 0;
@@ -363,10 +384,6 @@ static void OBJECT_engine_init(void *vedata)
 			fov = angle_v3v3(viewvecs[0], viewvecs[1]) / 2.0f;
 			grid_res = fabsf(tanf(fov)) / grid_scale;
 
-			/* Grid matrix polygon offset (fix depth fighting) */
-			/* see ED_view3d_polygon_offset */
-			offs = winmat[3][2] * -0.0025f;
-
 			e_data.grid_flag = (1 << 4); /* XY plane */
 			if (show_axis_x)
 				e_data.grid_flag |= SHOW_AXIS_X;
@@ -380,9 +397,6 @@ static void OBJECT_engine_init(void *vedata)
 			float viewdist = 1.0f / max_ff(fabsf(winmat[0][0]), fabsf(winmat[1][1]));
 			grid_res = viewdist / grid_scale;
 
-			/* Grid matrix polygon offset (fix depth fighting) */
-			/* see ED_view3d_polygon_offset */
-			offs = 0.00001f * viewdist;
 			if (ELEM(rv3d->view, RV3D_VIEW_RIGHT, RV3D_VIEW_LEFT)) {
 				e_data.grid_flag = PLANE_YZ;
 				e_data.grid_flag |= SHOW_AXIS_Y;
@@ -464,7 +478,8 @@ static void OBJECT_engine_init(void *vedata)
 			/* Persp : If camera is below floor plane, we switch clipping
 			 * Ortho : If eye vector is looking up, we switch clipping */
 			if (((winmat[3][3] == 0.0f) && (e_data.camera_pos[2] > 0.0f)) ||
-				((winmat[3][3] != 0.0f) && (zvec[2] < 0.0f))) {
+			    ((winmat[3][3] != 0.0f) && (zvec[2] < 0.0f)))
+			{
 				e_data.zpos_flag |= CLIP_ZPOS;
 				e_data.zneg_flag |= CLIP_ZNEG;
 			}
@@ -486,9 +501,6 @@ static void OBJECT_engine_init(void *vedata)
 			e_data.zneg_flag = e_data.zpos_flag = CLIP_ZNEG | CLIP_ZPOS;
 		}
 
-		winmat[3][2] -= offs;
-		mul_m4_m4m4(e_data.grid_mat, winmat, viewmat);
-
 		float dist = (rv3d->persp == RV3D_CAMOB && v3d->camera)
 		             ? ((Camera *)v3d->camera)->clipend : v3d->far;
 
@@ -498,11 +510,15 @@ static void OBJECT_engine_init(void *vedata)
 		e_data.grid_settings[3] = v3d->gridsubdiv; /* gridSubdiv */
 		e_data.grid_settings[4] = (v3d->gridsubdiv > 1) ? 1.0f / logf(v3d->gridsubdiv) : 0.0f; /* 1/log(gridSubdiv) */
 	}
+
+	copy_v2_v2(e_data.inv_viewport_size, DRW_viewport_size_get());
+	invert_v2(e_data.inv_viewport_size);
 }
 
 static void OBJECT_engine_free(void)
 {
 	DRW_SHADER_FREE_SAFE(e_data.outline_resolve_sh);
+	DRW_SHADER_FREE_SAFE(e_data.outline_resolve_aa_sh);
 	DRW_SHADER_FREE_SAFE(e_data.outline_detect_sh);
 	DRW_SHADER_FREE_SAFE(e_data.outline_fade_sh);
 	DRW_SHADER_FREE_SAFE(e_data.object_empty_image_sh);
@@ -511,6 +527,7 @@ static void OBJECT_engine_free(void)
 	DRW_SHADER_FREE_SAFE(e_data.part_prim_sh);
 	DRW_SHADER_FREE_SAFE(e_data.part_axis_sh);
 	DRW_SHADER_FREE_SAFE(e_data.part_dot_sh);
+	DRW_SHADER_FREE_SAFE(e_data.lightprobe_grid_sh);
 }
 
 static DRWShadingGroup *shgroup_outline(DRWPass *pass, const float col[4], GPUShader *sh)
@@ -713,15 +730,20 @@ static void OBJECT_cache_init(void *vedata)
 	}
 
 	{
+		DRWState state = DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS;
+		psl->lightprobes = DRW_pass_create("Object Probe Pass", state);
+
+		/* Cubemap */
+		stl->g_data->lightprobes_cube = shgroup_instance(psl->lightprobes, DRW_cache_sphere_get());
+
+		/* Planar */
+		stl->g_data->lightprobes_planar = shgroup_instance(psl->lightprobes, DRW_cache_quad_get());
+	}
+
+	{
 		DRWState state = DRW_STATE_WRITE_COLOR;
 		struct Gwn_Batch *quad = DRW_cache_fullscreen_quad_get();
 		static float alphaOcclu = 0.35f;
-		static float one = 1.0f;
-		static float alpha1 = 5.0f / 6.0f;
-		static float alpha2 = 4.0f / 5.0f;
-		static float alpha3 = 3.0f / 4.0f;
-		static float alpha4 = 2.0f / 3.0f;
-		static float alpha5 = 1.0f / 2.0f;
 		static bool bTrue = true;
 		static bool bFalse = false;
 
@@ -738,53 +760,13 @@ static void OBJECT_cache_init(void *vedata)
 
 		grp = DRW_shgroup_create(e_data.outline_fade_sh, psl->outlines_expand);
 		DRW_shgroup_uniform_buffer(grp, "outlineColor", &e_data.outlines_blur_tx);
-		DRW_shgroup_uniform_buffer(grp, "outlineDepth", &e_data.outlines_depth_tx);
-		DRW_shgroup_uniform_float(grp, "alpha", &one, 1);
 		DRW_shgroup_uniform_bool(grp, "doExpand", &bTrue, 1);
 		DRW_shgroup_call_add(grp, quad, NULL);
 
-		psl->outlines_fade1 = DRW_pass_create("Outlines Fade 1 Pass", state);
+		psl->outlines_bleed = DRW_pass_create("Outlines Bleed Pass", state);
 
-		grp = DRW_shgroup_create(e_data.outline_fade_sh, psl->outlines_fade1);
+		grp = DRW_shgroup_create(e_data.outline_fade_sh, psl->outlines_bleed);
 		DRW_shgroup_uniform_buffer(grp, "outlineColor", &e_data.outlines_color_tx);
-		DRW_shgroup_uniform_buffer(grp, "outlineDepth", &e_data.outlines_depth_tx);
-		DRW_shgroup_uniform_float(grp, "alpha", &alpha1, 1);
-		DRW_shgroup_uniform_bool(grp, "doExpand", &bFalse, 1);
-		DRW_shgroup_call_add(grp, quad, NULL);
-
-		psl->outlines_fade2 = DRW_pass_create("Outlines Fade 2 Pass", state);
-
-		grp = DRW_shgroup_create(e_data.outline_fade_sh, psl->outlines_fade2);
-		DRW_shgroup_uniform_buffer(grp, "outlineColor", &e_data.outlines_blur_tx);
-		DRW_shgroup_uniform_buffer(grp, "outlineDepth", &e_data.outlines_depth_tx);
-		DRW_shgroup_uniform_float(grp, "alpha", &alpha2, 1);
-		DRW_shgroup_uniform_bool(grp, "doExpand", &bFalse, 1);
-		DRW_shgroup_call_add(grp, quad, NULL);
-
-		psl->outlines_fade3 = DRW_pass_create("Outlines Fade 3 Pass", state);
-
-		grp = DRW_shgroup_create(e_data.outline_fade_sh, psl->outlines_fade3);
-		DRW_shgroup_uniform_buffer(grp, "outlineColor", &e_data.outlines_color_tx);
-		DRW_shgroup_uniform_buffer(grp, "outlineDepth", &e_data.outlines_depth_tx);
-		DRW_shgroup_uniform_float(grp, "alpha", &alpha3, 1);
-		DRW_shgroup_uniform_bool(grp, "doExpand", &bFalse, 1);
-		DRW_shgroup_call_add(grp, quad, NULL);
-
-		psl->outlines_fade4 = DRW_pass_create("Outlines Fade 4 Pass", state);
-
-		grp = DRW_shgroup_create(e_data.outline_fade_sh, psl->outlines_fade4);
-		DRW_shgroup_uniform_buffer(grp, "outlineColor", &e_data.outlines_blur_tx);
-		DRW_shgroup_uniform_buffer(grp, "outlineDepth", &e_data.outlines_depth_tx);
-		DRW_shgroup_uniform_float(grp, "alpha", &alpha4, 1);
-		DRW_shgroup_uniform_bool(grp, "doExpand", &bFalse, 1);
-		DRW_shgroup_call_add(grp, quad, NULL);
-
-		psl->outlines_fade5 = DRW_pass_create("Outlines Fade 5 Pass", state);
-
-		grp = DRW_shgroup_create(e_data.outline_fade_sh, psl->outlines_fade5);
-		DRW_shgroup_uniform_buffer(grp, "outlineColor", &e_data.outlines_color_tx);
-		DRW_shgroup_uniform_buffer(grp, "outlineDepth", &e_data.outlines_depth_tx);
-		DRW_shgroup_uniform_float(grp, "alpha", &alpha5, 1);
 		DRW_shgroup_uniform_bool(grp, "doExpand", &bFalse, 1);
 		DRW_shgroup_call_add(grp, quad, NULL);
 	}
@@ -795,14 +777,15 @@ static void OBJECT_cache_init(void *vedata)
 
 		struct Gwn_Batch *quad = DRW_cache_fullscreen_quad_get();
 
-		DRWShadingGroup *grp = DRW_shgroup_create(e_data.outline_resolve_sh, psl->outlines_resolve);
+		DRWShadingGroup *grp = DRW_shgroup_create(e_data.outline_resolve_aa_sh, psl->outlines_resolve);
 		DRW_shgroup_uniform_buffer(grp, "outlineBluredColor", &e_data.outlines_blur_tx);
+		DRW_shgroup_uniform_vec2(grp, "rcpDimensions", e_data.inv_viewport_size, 1);
 		DRW_shgroup_call_add(grp, quad, NULL);
 	}
 
 	{
 		/* Grid pass */
-		DRWState state = DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_LESS | DRW_STATE_BLEND;
+		DRWState state = DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND;
 		psl->grid = DRW_pass_create("Infinite Grid Pass", state);
 
 		struct Gwn_Batch *quad = DRW_cache_fullscreen_quad_get();
@@ -814,25 +797,29 @@ static void OBJECT_cache_init(void *vedata)
 		DRW_shgroup_uniform_int(grp, "gridFlag", &e_data.zneg_flag, 1);
 		DRW_shgroup_uniform_vec3(grp, "planeNormal", e_data.zplane_normal, 1);
 		DRW_shgroup_uniform_vec3(grp, "planeAxes", e_data.zplane_axes, 1);
-		DRW_shgroup_uniform_mat4(grp, "ViewProjectionOffsetMatrix", (float *)e_data.grid_mat);
 		DRW_shgroup_uniform_vec3(grp, "cameraPos", e_data.camera_pos, 1);
 		DRW_shgroup_uniform_vec4(grp, "screenvecs[0]", e_data.screenvecs[0], 3);
 		DRW_shgroup_uniform_vec4(grp, "gridSettings", e_data.grid_settings, 1);
 		DRW_shgroup_uniform_float(grp, "gridOneOverLogSubdiv", &e_data.grid_settings[4], 1);
 		DRW_shgroup_uniform_block(grp, "globalsBlock", globals_ubo);
 		DRW_shgroup_uniform_vec2(grp, "viewportSize", DRW_viewport_size_get(), 1);
+		DRW_shgroup_uniform_buffer(grp, "depthBuffer", &dtxl->depth);
 		DRW_shgroup_call_add(grp, quad, mat);
 
 		grp = DRW_shgroup_create(e_data.grid_sh, psl->grid);
 		DRW_shgroup_uniform_int(grp, "gridFlag", &e_data.grid_flag, 1);
 		DRW_shgroup_uniform_vec3(grp, "planeNormal", e_data.grid_normal, 1);
 		DRW_shgroup_uniform_vec3(grp, "planeAxes", e_data.grid_axes, 1);
+		DRW_shgroup_uniform_block(grp, "globalsBlock", globals_ubo);
+		DRW_shgroup_uniform_buffer(grp, "depthBuffer", &dtxl->depth);
 		DRW_shgroup_call_add(grp, quad, mat);
 
 		grp = DRW_shgroup_create(e_data.grid_sh, psl->grid);
 		DRW_shgroup_uniform_int(grp, "gridFlag", &e_data.zpos_flag, 1);
 		DRW_shgroup_uniform_vec3(grp, "planeNormal", e_data.zplane_normal, 1);
 		DRW_shgroup_uniform_vec3(grp, "planeAxes", e_data.zplane_axes, 1);
+		DRW_shgroup_uniform_block(grp, "globalsBlock", globals_ubo);
+		DRW_shgroup_uniform_buffer(grp, "depthBuffer", &dtxl->depth);
 		DRW_shgroup_call_add(grp, quad, mat);
 	}
 
@@ -1424,12 +1411,91 @@ static void DRW_shgroup_speaker(OBJECT_StorageList *stl, Object *ob, SceneLayer 
 	DRW_shgroup_call_dynamic_add(stl->g_data->speaker, color, &one, ob->obmat);
 }
 
-static void DRW_shgroup_lightprobe(OBJECT_StorageList *stl, Object *ob, SceneLayer *sl)
+typedef struct OBJECT_LightProbeEngineData {
+	float prb_mats[6][4][4];
+	float probe_cube_mat[4][4];
+	float draw_size;
+	float increment_x[3];
+	float increment_y[3];
+	float increment_z[3];
+	float corner[3];
+} OBJECT_LightProbeEngineData;
+
+static void DRW_shgroup_lightprobe(OBJECT_StorageList *stl, OBJECT_PassList *psl, Object *ob, SceneLayer *sl)
 {
 	float *color;
 	static float one = 1.0f;
 	LightProbe *prb = (LightProbe *)ob->data;
+	bool do_outlines = ((ob->base_flag & BASE_SELECTED) != 0);
 	DRW_object_wire_theme_get(ob, sl, &color);
+
+	OBJECT_LightProbeEngineData *prb_data;
+	OBJECT_LightProbeEngineData **prb_data_pt = (OBJECT_LightProbeEngineData **)DRW_object_engine_data_get(ob, &draw_engine_object_type, NULL);
+	if (*prb_data_pt == NULL) {
+		*prb_data_pt = MEM_mallocN(sizeof(OBJECT_LightProbeEngineData), "Probe Clip distances Matrices");
+	}
+
+	prb_data = *prb_data_pt;
+
+	if ((DRW_state_is_select() || do_outlines) && ((prb->flag & LIGHTPROBE_FLAG_SHOW_DATA) != 0)) {
+
+		if (prb->type == LIGHTPROBE_TYPE_GRID) {
+			/* Update transforms */
+			float cell_dim[3], half_cell_dim[3];
+			cell_dim[0] = 2.0f / (float)(prb->grid_resolution_x);
+			cell_dim[1] = 2.0f / (float)(prb->grid_resolution_y);
+			cell_dim[2] = 2.0f / (float)(prb->grid_resolution_z);
+
+			mul_v3_v3fl(half_cell_dim, cell_dim, 0.5f);
+
+			/* First cell. */
+			copy_v3_fl(prb_data->corner, -1.0f);
+			add_v3_v3(prb_data->corner, half_cell_dim);
+			mul_m4_v3(ob->obmat, prb_data->corner);
+
+			/* Opposite neighbor cell. */
+			copy_v3_fl3(prb_data->increment_x, cell_dim[0], 0.0f, 0.0f);
+			add_v3_v3(prb_data->increment_x, half_cell_dim);
+			add_v3_fl(prb_data->increment_x, -1.0f);
+			mul_m4_v3(ob->obmat, prb_data->increment_x);
+			sub_v3_v3(prb_data->increment_x, prb_data->corner);
+
+			copy_v3_fl3(prb_data->increment_y, 0.0f, cell_dim[1], 0.0f);
+			add_v3_v3(prb_data->increment_y, half_cell_dim);
+			add_v3_fl(prb_data->increment_y, -1.0f);
+			mul_m4_v3(ob->obmat, prb_data->increment_y);
+			sub_v3_v3(prb_data->increment_y, prb_data->corner);
+
+			copy_v3_fl3(prb_data->increment_z, 0.0f, 0.0f, cell_dim[2]);
+			add_v3_v3(prb_data->increment_z, half_cell_dim);
+			add_v3_fl(prb_data->increment_z, -1.0f);
+			mul_m4_v3(ob->obmat, prb_data->increment_z);
+			sub_v3_v3(prb_data->increment_z, prb_data->corner);
+
+			DRWShadingGroup *grp = DRW_shgroup_instance_create(e_data.lightprobe_grid_sh, psl->lightprobes, DRW_cache_sphere_get());
+			/* Dummy call just to save select ID */
+			DRW_shgroup_call_dynamic_add_empty(grp);
+			/* Then overide the instance count */
+			DRW_shgroup_set_instance_count(grp, prb->grid_resolution_x * prb->grid_resolution_y * prb->grid_resolution_z);
+			DRW_shgroup_uniform_vec4(grp, "color", color, 1);
+			DRW_shgroup_uniform_vec3(grp, "corner", prb_data->corner, 1);
+			DRW_shgroup_uniform_vec3(grp, "increment_x", prb_data->increment_x, 1);
+			DRW_shgroup_uniform_vec3(grp, "increment_y", prb_data->increment_y, 1);
+			DRW_shgroup_uniform_vec3(grp, "increment_z", prb_data->increment_z, 1);
+			DRW_shgroup_uniform_ivec3(grp, "grid_resolution", &prb->grid_resolution_x, 1);
+			DRW_shgroup_uniform_float(grp, "sphere_size", &prb->data_draw_size, 1);
+		}
+		else if (prb->type == LIGHTPROBE_TYPE_CUBE) {
+			prb_data->draw_size = prb->data_draw_size * 0.1f;
+			unit_m4(prb_data->probe_cube_mat);
+			copy_v3_v3(prb_data->probe_cube_mat[3], ob->obmat[3]);
+			DRW_shgroup_call_dynamic_add(stl->g_data->lightprobes_cube, color, &prb_data->draw_size, prb_data->probe_cube_mat);
+		}
+		else {
+			prb_data->draw_size = 1.0f;
+			DRW_shgroup_call_dynamic_add(stl->g_data->lightprobes_planar, color, &prb_data->draw_size, ob->obmat);
+		}
+	}
 
 	switch (prb->type) {
 		case LIGHTPROBE_TYPE_PLANAR:
@@ -1444,22 +1510,18 @@ static void DRW_shgroup_lightprobe(OBJECT_StorageList *stl, Object *ob, SceneLay
 			break;
 	}
 
-	float **prb_mats = (float **)DRW_object_engine_data_get(ob, &draw_engine_object_type, NULL);
-	if (*prb_mats == NULL) {
-		/* we need 6 matrices */
-		*prb_mats = MEM_mallocN(sizeof(float) * 16 * 6, "Probe Clip distances Matrices");
-	}
+
 
 	if (prb->type == LIGHTPROBE_TYPE_PLANAR) {
 		float (*mat)[4];
-		mat = (float (*)[4])(*prb_mats);
+		mat = (float (*)[4])(prb_data->prb_mats[0]);
 		copy_m4_m4(mat, ob->obmat);
 		normalize_m4(mat);
 
 		DRW_shgroup_call_dynamic_add(stl->g_data->single_arrow, color, &ob->empty_drawsize, mat);
 		DRW_shgroup_call_dynamic_add(stl->g_data->single_arrow_line, color, &ob->empty_drawsize, mat);
 
-		mat = (float (*)[4])(*prb_mats + 16);
+		mat = (float (*)[4])(prb_data->prb_mats[1]);
 		copy_m4_m4(mat, ob->obmat);
 		zero_v3(mat[2]);
 
@@ -1477,21 +1539,21 @@ static void DRW_shgroup_lightprobe(OBJECT_StorageList *stl, Object *ob, SceneLay
 		}
 
 		if (prb->type == LIGHTPROBE_TYPE_GRID ||
-			prb->attenuation_type == LIGHTPROBE_SHAPE_BOX)
+		    prb->attenuation_type == LIGHTPROBE_SHAPE_BOX)
 		{
 			DRW_shgroup_call_dynamic_add(stl->g_data->cube, color, &prb->distgridinf, ob->obmat);
 			DRW_shgroup_call_dynamic_add(stl->g_data->cube, color, &prb->distfalloff, ob->obmat);
 		}
 		else if (prb->type == LIGHTPROBE_TYPE_PLANAR) {
 			float (*rangemat)[4];
-			rangemat = (float (*)[4])(*prb_mats + 32);
+			rangemat = (float (*)[4])(prb_data->prb_mats[2]);
 			copy_m4_m4(rangemat, ob->obmat);
 			normalize_v3(rangemat[2]);
 			mul_v3_fl(rangemat[2], prb->distinf);
 
 			DRW_shgroup_call_dynamic_add(stl->g_data->cube, color, &one, rangemat);
 
-			rangemat = (float (*)[4])(*prb_mats + 64);
+			rangemat = (float (*)[4])(prb_data->prb_mats[3]);
 			copy_m4_m4(rangemat, ob->obmat);
 			normalize_v3(rangemat[2]);
 			mul_v3_fl(rangemat[2], prb->distfalloff);
@@ -1519,10 +1581,10 @@ static void DRW_shgroup_lightprobe(OBJECT_StorageList *stl, Object *ob, SceneLay
 			}
 
 			if (prb->parallax_type == LIGHTPROBE_SHAPE_BOX) {
-				DRW_shgroup_call_dynamic_add(stl->g_data->cube, color, &dist, obmat);
+				DRW_shgroup_call_dynamic_add(stl->g_data->cube, color, dist, obmat);
 			}
 			else {
-				DRW_shgroup_call_dynamic_add(stl->g_data->sphere, color, &dist, obmat);
+				DRW_shgroup_call_dynamic_add(stl->g_data->sphere, color, dist, obmat);
 			}
 		}
 	}
@@ -1540,7 +1602,7 @@ static void DRW_shgroup_lightprobe(OBJECT_StorageList *stl, Object *ob, SceneLay
 
 			for (int i = 0; i < 6; ++i) {
 				float (*clipmat)[4];
-				clipmat = (float (*)[4])(*prb_mats + 16 * i);
+				clipmat = (float (*)[4])(prb_data->prb_mats[i]);
 
 				normalize_m4_m4(clipmat, ob->obmat);
 				mul_m4_m4m4(clipmat, clipmat, cubefacemat[i]);
@@ -1560,7 +1622,7 @@ static void DRW_shgroup_lightprobe(OBJECT_StorageList *stl, Object *ob, SceneLay
 
 static void DRW_shgroup_relationship_lines(OBJECT_StorageList *stl, Object *ob)
 {
-	if (ob->parent && ((ob->parent->base_flag & BASE_VISIBLED) != 0)) {
+	if (ob->parent && BKE_object_is_visible(ob->parent)) {
 		DRW_shgroup_call_dynamic_add(stl->g_data->relationship_lines, ob->obmat[3]);
 		DRW_shgroup_call_dynamic_add(stl->g_data->relationship_lines, ob->parent->obmat[3]);
 	}
@@ -1568,7 +1630,7 @@ static void DRW_shgroup_relationship_lines(OBJECT_StorageList *stl, Object *ob)
 
 static void DRW_shgroup_object_center(OBJECT_StorageList *stl, Object *ob, SceneLayer *sl, View3D *v3d)
 {
-	const bool is_library = ob->id.us > 1 || ID_IS_LINKED_DATABLOCK(ob);
+	const bool is_library = ob->id.us > 1 || ID_IS_LINKED(ob);
 	DRWShadingGroup *shgroup;
 
 	if (ob == OBACT_NEW(sl)) {
@@ -1677,6 +1739,10 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 	const bool is_edited = (ob == scene->obedit) ||
 	                       ((ob == draw_ctx->obact) && (ob->mode & OB_MODE_ALL_BRUSH));
 
+	if (!BKE_object_is_visible(ob)) {
+		return;
+	}
+
 	//CollectionEngineSettings *ces_mode_ob = BKE_layer_collection_engine_evaluated_get(ob, COLLECTION_MODE_OBJECT, "");
 
 	//bool do_wire = BKE_collection_engine_property_value_get_bool(ces_mode_ob, "show_wire");
@@ -1757,7 +1823,7 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 			DRW_shgroup_speaker(stl, ob, sl);
 			break;
 		case OB_LIGHTPROBE:
-			DRW_shgroup_lightprobe(stl, ob, sl);
+			DRW_shgroup_lightprobe(stl, psl, ob, sl);
 			break;
 		case OB_ARMATURE:
 		{
@@ -1810,6 +1876,8 @@ static void OBJECT_draw_scene(void *vedata)
 	OBJECT_StorageList *stl = ((OBJECT_Data *)vedata)->stl;
 	OBJECT_FramebufferList *fbl = ((OBJECT_Data *)vedata)->fbl;
 	DefaultFramebufferList *dfbl = DRW_viewport_framebuffer_list_get();
+	DefaultTextureList *dtxl = DRW_viewport_texture_list_get();
+
 	float clearcol[4] = {0.0f, 0.0f, 0.0f, 0.0f};
 
 	if (DRW_state_is_fbo()) {
@@ -1823,7 +1891,7 @@ static void OBJECT_draw_scene(void *vedata)
 		DRW_framebuffer_bind(fbl->outlines);
 		DRW_framebuffer_clear(true, true, false, clearcol, 1.0f);
 		DRW_draw_pass(psl->outlines);
-
+		DRW_draw_pass(psl->lightprobes);
 
 		/* detach textures */
 		DRW_framebuffer_texture_detach(e_data.outlines_depth_tx);
@@ -1832,24 +1900,13 @@ static void OBJECT_draw_scene(void *vedata)
 		DRW_framebuffer_bind(fbl->blur);
 		DRW_draw_pass(psl->outlines_search);
 
-		/* Expand and fade gradually */
+		/* Expand outline to form a 3px wide line */
 		DRW_framebuffer_bind(fbl->outlines);
 		DRW_draw_pass(psl->outlines_expand);
 
+		/* Bleed color so the AA can do it's stuff */
 		DRW_framebuffer_bind(fbl->blur);
-		DRW_draw_pass(psl->outlines_fade1);
-
-		DRW_framebuffer_bind(fbl->outlines);
-		DRW_draw_pass(psl->outlines_fade2);
-
-		DRW_framebuffer_bind(fbl->blur);
-		DRW_draw_pass(psl->outlines_fade3);
-
-		DRW_framebuffer_bind(fbl->outlines);
-		DRW_draw_pass(psl->outlines_fade4);
-
-		DRW_framebuffer_bind(fbl->blur);
-		DRW_draw_pass(psl->outlines_fade5);
+		DRW_draw_pass(psl->outlines_bleed);
 
 		/* detach temp textures */
 		DRW_framebuffer_texture_detach(e_data.outlines_color_tx);
@@ -1859,19 +1916,30 @@ static void OBJECT_draw_scene(void *vedata)
 		DRW_framebuffer_bind(dfbl->default_fb);
 		DRW_stats_group_end();
 	}
+	else if (DRW_state_is_select()) {
+		/* Render probes spheres/planes so we can select them. */
+		DRW_draw_pass(psl->lightprobes);
+	}
+
+	MULTISAMPLE_SYNC_ENABLE(dfbl)
 
 	/* This needs to be drawn after the oultine */
 //	DRW_draw_pass(psl->bone_envelope);  /* Never drawn in Object mode currently. */
 	DRW_draw_pass(psl->bone_wire);
 	DRW_draw_pass(psl->bone_solid);
 	DRW_draw_pass(psl->non_meshes);
-	DRW_draw_pass(psl->ob_center);
 	DRW_draw_pass(psl->particle);
 	DRW_draw_pass(psl->reference_image);
 
-	if (!DRW_state_is_select()) {
+	MULTISAMPLE_SYNC_DISABLE(dfbl)
+
+	DRW_draw_pass(psl->ob_center);
+
+	if (DRW_state_is_fbo()) {
 		if (e_data.draw_grid) {
+			DRW_framebuffer_texture_detach(dtxl->depth);
 			DRW_draw_pass(psl->grid);
+			DRW_framebuffer_texture_attach(dfbl->default_fb, dtxl->depth, 0, 0);
 		}
 
 		/* Combine with scene buffer last */
@@ -1905,5 +1973,6 @@ DrawEngineType draw_engine_object_type = {
 	&OBJECT_cache_populate,
 	NULL,
 	NULL,
-	&OBJECT_draw_scene
+	&OBJECT_draw_scene,
+	NULL,
 };

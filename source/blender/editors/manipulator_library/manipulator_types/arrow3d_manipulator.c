@@ -184,16 +184,11 @@ static void arrow_draw_intern(ArrowManipulator3D *arrow, const bool select, cons
 {
 	wmManipulator *mpr = &arrow->manipulator;
 	float color[4];
-	float matrix_basis_adjust[4][4];
 	float matrix_final[4][4];
 
 	manipulator_color_get(mpr, highlight, color);
-	manipulator_arrow_matrix_basis_get(mpr, matrix_basis_adjust);
 
-	WM_manipulator_calc_matrix_final_params(
-	        mpr, &((struct WM_ManipulatorMatrixParams) {
-	            .matrix_basis = matrix_basis_adjust,
-	        }), matrix_final);
+	WM_manipulator_calc_matrix_final(mpr, matrix_final);
 
 	gpuPushMatrix();
 	gpuMultMatrix(matrix_final);
@@ -235,7 +230,7 @@ static void manipulator_arrow_draw(const bContext *UNUSED(C), wmManipulator *mpr
  * Calculate arrow offset independent from prop min value,
  * meaning the range will not be offset by min value first.
  */
-static void manipulator_arrow_modal(
+static int manipulator_arrow_modal(
         bContext *C, wmManipulator *mpr, const wmEvent *event,
         eWM_ManipulatorTweak tweak_flag)
 {
@@ -352,6 +347,8 @@ static void manipulator_arrow_modal(
 	/* tag the region for redraw */
 	ED_region_tag_redraw(ar);
 	WM_event_add_mousemove(C);
+
+	return OPERATOR_RUNNING_MODAL;
 }
 
 static void manipulator_arrow_setup(wmManipulator *mpr)
@@ -363,7 +360,7 @@ static void manipulator_arrow_setup(wmManipulator *mpr)
 	arrow->data.range_fac = 1.0f;
 }
 
-static void manipulator_arrow_invoke(
+static int manipulator_arrow_invoke(
         bContext *UNUSED(C), wmManipulator *mpr, const wmEvent *event)
 {
 	ArrowManipulator3D *arrow = (ArrowManipulator3D *)mpr;
@@ -384,6 +381,8 @@ static void manipulator_arrow_invoke(
 	WM_manipulator_calc_matrix_final(mpr, inter->init_matrix_final);
 
 	mpr->interaction_data = inter;
+
+	return OPERATOR_RUNNING_MODAL;
 }
 
 static void manipulator_arrow_property_update(wmManipulator *mpr, wmManipulatorProperty *mpr_prop)
@@ -400,17 +399,21 @@ static void manipulator_arrow_exit(bContext *C, wmManipulator *mpr, const bool c
 	ArrowManipulator3D *arrow = (ArrowManipulator3D *)mpr;
 	ManipulatorCommonData *data = &arrow->data;
 	wmManipulatorProperty *mpr_prop = WM_manipulator_target_property_find(mpr, "offset");
+	const bool is_prop_valid = WM_manipulator_target_property_is_valid(mpr_prop);
 
 	if (!cancel) {
 		/* Assign incase applying the opetration needs an updated offset
 		 * editmesh bisect needs this. */
-		data->offset = WM_manipulator_target_property_value_get(mpr, mpr_prop);
+		if (is_prop_valid) {
+			data->offset = WM_manipulator_target_property_value_get(mpr, mpr_prop);
+		}
 		return;
 	}
 
 	ManipulatorInteraction *inter = mpr->interaction_data;
-
-	manipulator_property_value_reset(C, mpr, inter, mpr_prop);
+	if (is_prop_valid) {
+		manipulator_property_value_reset(C, mpr, inter, mpr_prop);
+	}
 	data->offset = inter->init_offset;
 }
 

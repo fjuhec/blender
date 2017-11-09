@@ -90,6 +90,29 @@ typedef char DRWViewportEmptyList;
 	DRW_VIEWPORT_LIST_SIZE(*(((ty *)NULL)->stl)) \
 }
 
+/* Use of multisample framebuffers. */
+#define MULTISAMPLE_SYNC_ENABLE(dfbl) { \
+	if (dfbl->multisample_fb != NULL) { \
+		DRW_stats_query_start("Multisample Blit"); \
+		DRW_framebuffer_blit(dfbl->default_fb, dfbl->multisample_fb, false); \
+		DRW_framebuffer_blit(dfbl->default_fb, dfbl->multisample_fb, true); \
+		DRW_framebuffer_bind(dfbl->multisample_fb); \
+		DRW_stats_query_end(); \
+	} \
+}
+
+#define MULTISAMPLE_SYNC_DISABLE(dfbl) { \
+	if (dfbl->multisample_fb != NULL) { \
+		DRW_stats_query_start("Multisample Resolve"); \
+		DRW_framebuffer_blit(dfbl->multisample_fb, dfbl->default_fb, false); \
+		DRW_framebuffer_blit(dfbl->multisample_fb, dfbl->default_fb, true); \
+		DRW_framebuffer_bind(dfbl->default_fb); \
+		DRW_stats_query_end(); \
+	} \
+}
+
+
+
 typedef struct DrawEngineDataSize {
 	int fbl_len;
 	int txl_len;
@@ -113,17 +136,22 @@ typedef struct DrawEngineType {
 
 	void (*draw_background)(void *vedata);
 	void (*draw_scene)(void *vedata);
+
+	void (*view_update)(void *vedata);
 } DrawEngineType;
 
 #ifndef __DRW_ENGINE_H__
 /* Buffer and textures used by the viewport by default */
 typedef struct DefaultFramebufferList {
 	struct GPUFrameBuffer *default_fb;
+	struct GPUFrameBuffer *multisample_fb;
 } DefaultFramebufferList;
 
 typedef struct DefaultTextureList {
 	struct GPUTexture *color;
 	struct GPUTexture *depth;
+	struct GPUTexture *multisample_color;
+	struct GPUTexture *multisample_depth;
 } DefaultTextureList;
 #endif
 
@@ -162,9 +190,12 @@ struct GPUTexture *DRW_texture_create_2D(
         int w, int h, DRWTextureFormat format, DRWTextureFlag flags, const float *fpixels);
 struct GPUTexture *DRW_texture_create_2D_array(
         int w, int h, int d, DRWTextureFormat format, DRWTextureFlag flags, const float *fpixels);
+struct GPUTexture *DRW_texture_create_3D(
+        int w, int h, int d, DRWTextureFormat format, DRWTextureFlag flags, const float *fpixels);
 struct GPUTexture *DRW_texture_create_cube(
         int w, DRWTextureFormat format, DRWTextureFlag flags, const float *fpixels);
 void DRW_texture_generate_mipmaps(struct GPUTexture *tex);
+void DRW_texture_update(struct GPUTexture *tex, const float *pixels);
 void DRW_texture_free(struct GPUTexture *tex);
 #define DRW_TEXTURE_FREE_SAFE(tex) do { \
 	if (tex != NULL) { \
@@ -269,7 +300,9 @@ typedef enum {
 
 DRWShadingGroup *DRW_shgroup_create(struct GPUShader *shader, DRWPass *pass);
 DRWShadingGroup *DRW_shgroup_material_create(struct GPUMaterial *material, DRWPass *pass);
-DRWShadingGroup *DRW_shgroup_material_instance_create(struct GPUMaterial *material, DRWPass *pass, struct Gwn_Batch *geom);
+DRWShadingGroup *DRW_shgroup_material_instance_create(
+        struct GPUMaterial *material, DRWPass *pass, struct Gwn_Batch *geom, struct Object *ob);
+DRWShadingGroup *DRW_shgroup_material_empty_tri_batch_create(struct GPUMaterial *material, DRWPass *pass, int size);
 DRWShadingGroup *DRW_shgroup_instance_create(struct GPUShader *shader, DRWPass *pass, struct Gwn_Batch *geom);
 DRWShadingGroup *DRW_shgroup_point_batch_create(struct GPUShader *shader, DRWPass *pass);
 DRWShadingGroup *DRW_shgroup_line_batch_create(struct GPUShader *shader, DRWPass *pass);
@@ -293,9 +326,11 @@ void DRW_shgroup_call_dynamic_add_array(DRWShadingGroup *shgroup, const void *at
 	const void *array[] = {__VA_ARGS__}; \
 	DRW_shgroup_call_dynamic_add_array(shgroup, array, (sizeof(array) / sizeof(*array))); \
 } while (0)
+/* Use this only to make your instances selectable. */
 #define DRW_shgroup_call_dynamic_add_empty(shgroup) do { \
 	DRW_shgroup_call_dynamic_add_array(shgroup, NULL, 0); \
 } while (0)
+/* Use this to set a high number of instances. */
 void DRW_shgroup_set_instance_count(DRWShadingGroup *shgroup, int count);
 
 void DRW_shgroup_state_enable(DRWShadingGroup *shgroup, DRWState state);
@@ -407,6 +442,8 @@ typedef struct DRWContextState {
 
 	/* Use 'scene->obedit' for edit-mode */
 	struct Object *obact;   /* 'OBACT_NEW' */
+
+	struct RenderEngineType *engine;
 
 	/* Last resort (some functions take this as an arg so we can't easily avoid).
 	 * May be NULL when used for selection or depth buffer. */

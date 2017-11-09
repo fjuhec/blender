@@ -50,6 +50,7 @@ set(INC
 	../../../intern/smoke/extern
 	../../../intern/atomic
 	../../../intern/libmv
+	../../../extern/curve_fit_nd
 )
 
 set(INC_SYS
@@ -93,6 +94,7 @@ set(SRC
 	intern/context.c
 	intern/crazyspace.c
 	intern/curve.c
+	intern/curve_decimate.c
 	intern/customdata.c
 	intern/customdata_file.c
 	intern/data_transfer.c
@@ -404,16 +406,6 @@ if(WITH_CODEC_AVI)
 	add_definitions(-DWITH_AVI)
 endif()
 
-if(WITH_CODEC_QUICKTIME)
-	list(APPEND INC
-		../quicktime
-	)
-	list(APPEND INC_SYS
-		${QUICKTIME_INCLUDE_DIRS}
-	)
-	add_definitions(-DWITH_QUICKTIME)
-endif()
-
 if(WITH_CODEC_FFMPEG)
 	list(APPEND SRC
 		intern/writeffmpeg.c
@@ -557,9 +549,5 @@ endif()
 #if(MSVC)
 #	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /WX")
 #endif()
-
-if(WITH_DEPSGRAPH_COPY_ON_WRITE)
-	add_definitions(-DWITH_COPY_ON_WRITE)
-endif()
 
 blender_add_lib(bf_blenkernel "${SRC}" "${INC}" "${INC_SYS}")

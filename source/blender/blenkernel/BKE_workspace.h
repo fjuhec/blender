@@ -28,6 +28,9 @@
 #include "BLI_compiler_attrs.h"
 
 struct bScreen;
+struct EvaluationContext;
+struct Main;
+struct Scene;
 struct TransformOrientation;
 
 /**
@@ -95,9 +98,9 @@ void             BKE_workspace_active_layout_set(struct WorkSpaceInstanceHook *h
 struct bScreen *BKE_workspace_active_screen_get(const struct WorkSpaceInstanceHook *hook) GETTER_ATTRS;
 void            BKE_workspace_active_screen_set(
         struct WorkSpaceInstanceHook *hook, struct WorkSpace *workspace, struct bScreen *screen) SETTER_ATTRS;
-enum ObjectMode BKE_workspace_object_mode_get(const struct WorkSpace *workspace) GETTER_ATTRS;
+enum eObjectMode BKE_workspace_object_mode_get(const struct WorkSpace *workspace) GETTER_ATTRS;
 #ifdef USE_WORKSPACE_MODE
-void            BKE_workspace_object_mode_set(struct WorkSpace *workspace, const enum ObjectMode mode) SETTER_ATTRS;
+void            BKE_workspace_object_mode_set(struct WorkSpace *workspace, const enum eObjectMode mode) SETTER_ATTRS;
 #endif
 struct ListBase *BKE_workspace_transform_orientations_get(struct WorkSpace *workspace) GETTER_ATTRS;
 struct SceneLayer *BKE_workspace_render_layer_get(const struct WorkSpace *workspace) GETTER_ATTRS;
@@ -114,6 +117,18 @@ struct WorkSpaceLayout *BKE_workspace_hook_layout_for_workspace_get(
         const struct WorkSpaceInstanceHook *hook, const struct WorkSpace *workspace) GETTER_ATTRS;
 void             BKE_workspace_hook_layout_for_workspace_set(
         struct WorkSpaceInstanceHook *hook, struct WorkSpace *workspace, struct WorkSpaceLayout *layout) ATTR_NONNULL();
+
+struct ViewRender *BKE_workspace_view_render_get(struct WorkSpace *workspace) GETTER_ATTRS;
+
+/* flags */
+bool BKE_workspace_use_scene_settings_get(const struct WorkSpace *workspace) GETTER_ATTRS;
+void BKE_workspace_use_scene_settings_set(struct WorkSpace *workspace, bool value) SETTER_ATTRS;
+
+/* Update / evaluate */
+void BKE_workspace_update_tagged(struct EvaluationContext *eval_ctx,
+                                 struct Main *bmain,
+                                 struct WorkSpace *workspace,
+                                 struct Scene *scene);
 
 #undef GETTER_ATTRS
 #undef SETTER_ATTRS

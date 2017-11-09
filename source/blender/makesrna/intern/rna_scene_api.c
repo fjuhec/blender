@@ -49,7 +49,7 @@
 #  include "../../alembic/ABC_alembic.h"
 #endif
 
-EnumPropertyItem rna_enum_abc_compression_items[] = {
+const EnumPropertyItem rna_enum_abc_compression_items[] = {
 #ifdef WITH_ALEMBIC
 	{ ABC_ARCHIVE_OGAWA, "OGAWA", 0, "Ogawa", "" },
 	{ ABC_ARCHIVE_HDF5, "HDF5", 0, "HDF5", "" },
@@ -74,7 +74,7 @@ EnumPropertyItem rna_enum_abc_compression_items[] = {
 #  include "BPY_extern.h"
 #endif
 
-static void rna_Scene_frame_set(Scene *scene, int frame, float subframe)
+static void rna_Scene_frame_set(Scene *scene, Main *bmain, int frame, float subframe)
 {
 	double cfra = (double)frame + (double)subframe;
 
@@ -85,7 +85,13 @@ static void rna_Scene_frame_set(Scene *scene, int frame, float subframe)
 	BPy_BEGIN_ALLOW_THREADS;
 #endif
 
-	BKE_scene_update_for_newframe(G.main->eval_ctx, G.main, scene);
+	for (SceneLayer *scene_layer = scene->render_layers.first;
+	     scene_layer != NULL;
+	     scene_layer = scene_layer->next)
+	{
+		Depsgraph *depsgraph = BKE_scene_get_depsgraph(scene, scene_layer, true);
+		BKE_scene_graph_update_for_newframe(bmain->eval_ctx, depsgraph, bmain, scene);
+	}
 
 #ifdef WITH_PYTHON
 	BPy_END_ALLOW_THREADS;
@@ -97,7 +103,7 @@ static void rna_Scene_frame_set(Scene *scene, int frame, float subframe)
 	 * redrawing while the data is being modified for render */
 	if (!G.is_rendering) {
 		/* cant use NC_SCENE|ND_FRAME because this causes wm_event_do_notifiers to call
-		 * BKE_scene_update_for_newframe which will loose any un-keyed changes [#24690] */
+		 * BKE_scene_graph_update_for_newframe which will loose any un-keyed changes [#24690] */
 		/* WM_main_add_notifier(NC_SCENE|ND_FRAME, scene); */
 		
 		/* instead just redraw the views */
@@ -119,13 +125,19 @@ static void rna_Scene_uvedit_aspect(Scene *scene, Object *ob, float *aspect)
 	aspect[0] = aspect[1] = 1.0f;
 }
 
-static void rna_Scene_update_tagged(Scene *scene)
+static void rna_Scene_update_tagged(Scene *scene, Main *bmain)
 {
 #ifdef WITH_PYTHON
 	BPy_BEGIN_ALLOW_THREADS;
 #endif
 
-	BKE_scene_update_tagged(G.main->eval_ctx, G.main, scene);
+	for (SceneLayer *scene_layer = scene->render_layers.first;
+	     scene_layer != NULL;
+	     scene_layer = scene_layer->next)
+	{
+		Depsgraph *depsgraph = BKE_scene_get_depsgraph(scene, scene_layer, true);
+		BKE_scene_graph_update_tagged(bmain->eval_ctx, depsgraph, bmain, scene);
+	}
 
 #ifdef WITH_PYTHON
 	BPy_END_ALLOW_THREADS;
@@ -151,14 +163,24 @@ static void rna_SceneRender_get_frame_path(RenderData *rd, int frame, int previe
 }
 
 static void rna_Scene_ray_cast(
-        Scene *scene, SceneLayer *sl, float origin[3], float direction[3], float ray_dist,
+        Scene *scene, SceneLayer *scene_layer, const char *engine_id,
+        float origin[3], float direction[3], float ray_dist,
         int *r_success, float r_location[3], float r_normal[3], int *r_index,
         Object **r_ob, float r_obmat[16])
 {
+	RenderEngineType *engine;
+
+	if (engine_id == NULL || engine_id[0] == '\0') {
+		engine = RE_engines_find(scene->view_render.engine_id);
+	}
+	else {
+		engine = RE_engines_find(engine_id);
+	}
+
 	normalize_v3(direction);
 
 	SnapObjectContext *sctx = ED_transform_snap_object_context_create(
-	        G.main, scene, sl, 0);
+	        G.main, scene, scene_layer, engine, 0);
 
 	bool ret = ED_transform_snap_object_project_ray_ex(
 	        sctx,
@@ -336,10 +358,12 @@ void RNA_api_scene(StructRNA *srna)
 	parm = RNA_def_int(func, "frame", 0, MINAFRAME, MAXFRAME, "", "Frame number to set", MINAFRAME, MAXFRAME);
 	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	RNA_def_float(func, "subframe", 0.0, 0.0, 1.0, "", "Sub-frame time, between 0.0 and 1.0", 0.0, 1.0);
+	RNA_def_function_flag(func, FUNC_USE_MAIN);
 
 	func = RNA_def_function(srna, "update", "rna_Scene_update_tagged");
 	RNA_def_function_ui_description(func,
 	                                "Update data tagged to be updated from previous access to data or operators");
+	RNA_def_function_flag(func, FUNC_USE_MAIN);
 
 	func = RNA_def_function(srna, "uvedit_aspect", "rna_Scene_uvedit_aspect");
 	RNA_def_function_ui_description(func, "Get uv aspect for current object");
@@ -354,6 +378,7 @@ void RNA_api_scene(StructRNA *srna)
 	RNA_def_function_ui_description(func, "Cast a ray onto in object space");
 	parm = RNA_def_pointer(func, "scene_layer", "SceneLayer", "", "Scene Layer");
 	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED);
+	parm = RNA_def_string(func, "engine", NULL, MAX_NAME, "Engine", "Render engine, use scene one by default");
 	/* ray start and end */
 	parm = RNA_def_float_vector(func, "origin", 3, NULL, -FLT_MAX, FLT_MAX, "", "", -1e4, 1e4);
 	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);

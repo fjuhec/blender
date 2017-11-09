@@ -2018,6 +2018,10 @@ static void write_camera(WriteData *wd, Camera *cam)
 		if (cam->adt) {
 			write_animdata(wd, cam->adt);
 		}
+
+		for (CameraBGImage *bgpic = cam->bg_images.first; bgpic; bgpic = bgpic->next) {
+			writestruct(wd, DATA, CameraBGImage, 1, bgpic);
+		}
 	}
 }
 
@@ -2627,10 +2631,6 @@ static void write_scene(WriteData *wd, Scene *sce)
 	write_keyingsets(wd, &sce->keyingsets);
 
 	/* direct data */
-	for (BaseLegacy *base = sce->base.first; base; base = base->next) {
-		writestruct(wd, DATA, BaseLegacy, 1, base);
-	}
-
 	ToolSettings *tos = sce->toolsettings;
 	writestruct(wd, DATA, ToolSettings, 1, tos);
 	if (tos->vpaint) {
@@ -2764,13 +2764,6 @@ static void write_scene(WriteData *wd, Scene *sce)
 		}
 		if (sce->r.avicodecdata->lpParms) {
 			writedata(wd, DATA, sce->r.avicodecdata->cbParms, sce->r.avicodecdata->lpParms);
-		}
-	}
-
-	if (sce->r.qtcodecdata) {
-		writestruct(wd, DATA, QuicktimeCodecData, 1, sce->r.qtcodecdata);
-		if (sce->r.qtcodecdata->cdParms) {
-			writedata(wd, DATA, sce->r.qtcodecdata->cdSize, sce->r.qtcodecdata->cdParms);
 		}
 	}
 	if (sce->r.ffcodecdata.properties) {
@@ -3026,12 +3019,8 @@ static void write_screen(WriteData *wd, bScreen *sc)
 
 			if (sl->spacetype == SPACE_VIEW3D) {
 				View3D *v3d = (View3D *)sl;
-				BGpic *bgpic;
 				writestruct(wd, DATA, View3D, 1, v3d);
 
-				for (bgpic = v3d->bgpicbase.first; bgpic; bgpic = bgpic->next) {
-					writestruct(wd, DATA, BGpic, 1, bgpic);
-				}
 				if (v3d->localvd) {
 					writestruct(wd, DATA, View3D, 1, v3d->localvd);
 				}

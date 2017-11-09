@@ -409,7 +409,8 @@ static void action_main_region_listener(
 
 /* editor level listener */
 static void action_listener(
-        bScreen *UNUSED(sc), ScrArea *sa, wmNotifier *wmn, const Scene *UNUSED(scene))
+        bScreen *UNUSED(sc), ScrArea *sa, wmNotifier *wmn, Scene *UNUSED(scene),
+        WorkSpace *UNUSED(workspace))
 {
 	SpaceAction *saction = (SpaceAction *)sa->spacedata.first;
 	
@@ -637,13 +638,17 @@ static void action_id_remap(ScrArea *UNUSED(sa), SpaceLink *slink, ID *old_id, I
 {
 	SpaceAction *sact = (SpaceAction *)slink;
 
-	if (!ELEM(GS(old_id->name), ID_GR)) {
-		return;
+	if ((ID *)sact->action == old_id) {
+		sact->action = (bAction *)new_id;
 	}
 
 	if ((ID *)sact->ads.filter_grp == old_id) {
 		sact->ads.filter_grp = (Group *)new_id;
 	}
+	if ((ID *)sact->ads.source == old_id) {
+		sact->ads.source = new_id;
+	}
+
 }
 
 /* only called once, from space/spacetypes.c */

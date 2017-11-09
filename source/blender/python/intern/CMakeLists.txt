@@ -47,6 +47,8 @@ set(INC_SYS
 set(SRC
 	gpu.c
 	gpu_offscreen.c
+	gpu_py_matrix.c
+	gpu_py_select.c
 	bpy.c
 	bpy_app.c
 	bpy_app_alembic.c
@@ -149,10 +151,6 @@ if(WITH_CODEC_FFMPEG)
 		${FFMPEG_INCLUDE_DIRS}
 	)
 	add_definitions(-DWITH_FFMPEG)
-endif()
-
-if(WITH_CODEC_QUICKTIME)
-	add_definitions(-DWITH_QUICKTIME)
 endif()
 
 if(WITH_CODEC_SNDFILE)

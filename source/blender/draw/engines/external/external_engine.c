@@ -19,7 +19,7 @@
  *
  */
 
-/** \file external_engine.h
+/** \file external_engine.c
  *  \ingroup draw_engine
  *
  * Base engine for external render engines.
@@ -151,17 +151,16 @@ static void external_draw_scene(void *vedata)
 
 	/* Create render engine. */
 	if (!rv3d->render_engine) {
-		RenderEngine *engine;
-		type = RE_engines_find(scene->r.engine);
+		RenderEngineType *engine_type = draw_ctx->engine;
 
-		if (!(type->view_update && type->render_to_view)) {
+		if (!(engine_type->view_update && engine_type->render_to_view)) {
 			return;
 		}
 
-		engine = RE_engine_create_ex(type, true);
+		RenderEngine *engine = RE_engine_create_ex(engine_type, true);
 		engine->tile_x = scene->r.tilex;
 		engine->tile_y = scene->r.tiley;
-		type->view_update(engine, draw_ctx->evil_C);
+		engine_type->view_update(engine, draw_ctx->evil_C);
 		rv3d->render_engine = engine;
 	}
 
@@ -216,7 +215,8 @@ DrawEngineType draw_engine_external_type = {
 	&EXTERNAL_cache_populate,
 	&EXTERNAL_cache_finish,
 	NULL,
-	&EXTERNAL_draw_scene
+	&EXTERNAL_draw_scene,
+	NULL,
 };
 
 /* Note: currently unused, we should not register unless we want to see this when debugging the view. */

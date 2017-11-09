@@ -39,6 +39,7 @@ struct BaseLegacy;
 struct bContext;
 struct Bone;
 struct bPoseChannel;
+struct EvaluationContext;
 struct IDProperty;
 struct ListBase;
 struct MeshDeformModifierData;
@@ -74,12 +75,15 @@ typedef struct EditBone {
 	
 	float dist, weight;
 	float xwidth, length, zwidth;  /* put them in order! transform uses this as scale */
-	float ease1, ease2;
 	float rad_head, rad_tail;
+
+	/* Bendy-Bone parameters */
 	float roll1, roll2;
 	float curveOutX, curveOutY;
 	float curveInX, curveInY;
+	float ease1, ease2;
 	float scaleIn, scaleOut;
+
 	float oldlength;        /* for envelope scaling */
 	
 	short segments;
@@ -174,8 +178,9 @@ void ED_armature_transform(struct bArmature *arm, float mat[4][4], const bool do
 #define ARM_GROUPS_ENVELOPE 2
 #define ARM_GROUPS_AUTO     3
 
-void create_vgroups_from_armature(struct ReportList *reports, const struct bContext *C, struct Scene *scene,
-                                  struct Object *ob, struct Object *par, const int mode, const bool mirror);
+void create_vgroups_from_armature(
+        struct ReportList *reports, const struct EvaluationContext *eval_ctx, struct Scene *scene,
+        struct Object *ob, struct Object *par, const int mode, const bool mirror);
 
 /* if bone is already in list, pass it as param to ignore it */
 void unique_editbone_name(struct ListBase *ebones, char *name, EditBone *bone);

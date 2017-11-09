@@ -253,6 +253,7 @@ static void *read_struct(FileData *fd, BHead *bh, const char *blockname);
 static void direct_link_modifiers(FileData *fd, ListBase *lb);
 static BHead *find_bhead_from_code_name(FileData *fd, const short idcode, const char *name);
 static BHead *find_bhead_from_idname(FileData *fd, const char *idname);
+static SceneCollection *get_scene_collection_active_or_create(struct Scene *scene, struct SceneLayer *sl, const short flag);
 
 /* this function ensures that reports are printed,
  * in the case of libraray linking errors this is important!
@@ -884,7 +885,7 @@ BHead *blo_nextbhead(FileData *fd, BHead *thisblock)
 	return(bhead);
 }
 
-/* Warning! Caller's responsability to ensure given bhead **is** and ID one! */
+/* Warning! Caller's responsibility to ensure given bhead **is** and ID one! */
 const char *bhead_id_name(const FileData *fd, const BHead *bhead)
 {
 	return (const char *)POINTER_OFFSET(bhead, sizeof(*bhead) + fd->id_name_offs);
@@ -2454,13 +2455,14 @@ static void lib_link_fcurves(FileData *fd, ID *id, ListBase *list)
 
 
 /* NOTE: this assumes that link_list has already been called on the list */
-static void direct_link_fmodifiers(FileData *fd, ListBase *list)
+static void direct_link_fmodifiers(FileData *fd, ListBase *list, FCurve *curve)
 {
 	FModifier *fcm;
 	
 	for (fcm = list->first; fcm; fcm = fcm->next) {
 		/* relink general data */
 		fcm->data  = newdataadr(fd, fcm->data);
+		fcm->curve = curve;
 		
 		/* do relinking of data for specific types */
 		switch (fcm->type) {
@@ -2550,7 +2552,7 @@ static void direct_link_fcurves(FileData *fd, ListBase *list)
 		
 		/* modifiers */
 		link_list(fd, &fcu->modifiers);
-		direct_link_fmodifiers(fd, &fcu->modifiers);
+		direct_link_fmodifiers(fd, &fcu->modifiers, fcu);
 	}
 }
 
@@ -2655,7 +2657,7 @@ static void direct_link_nladata_strips(FileData *fd, ListBase *list)
 		
 		/* strip's F-Modifiers */
 		link_list(fd, &strip->modifiers);
-		direct_link_fmodifiers(fd, &strip->modifiers);
+		direct_link_fmodifiers(fd, &strip->modifiers, NULL);
 	}
 }
 
@@ -2806,7 +2808,7 @@ static void lib_link_workspaces(FileData *fd, Main *bmain)
 			if (screen) {
 				BKE_workspace_layout_screen_set(layout, screen);
 
-				if (ID_IS_LINKED_DATABLOCK(id)) {
+				if (ID_IS_LINKED(id)) {
 					screen->winid = 0;
 					if (screen->temp) {
 						/* delete temp layouts when appending */
@@ -2834,7 +2836,7 @@ static void direct_link_workspace(FileData *fd, WorkSpace *workspace, const Main
 		relation->value = newdataadr(fd, relation->value);
 	}
 
-	if (ID_IS_LINKED_DATABLOCK(&workspace->id)) {
+	if (ID_IS_LINKED(&workspace->id)) {
 		/* Appending workspace so render layer is likely from a different scene. Unset
 		 * now, when activating workspace later we set a valid one from current scene. */
 		BKE_workspace_render_layer_set(workspace, NULL);
@@ -3504,6 +3506,11 @@ static void lib_link_camera(FileData *fd, Main *main)
 
 			ca->dof_ob = newlibadr(fd, ca->id.lib, ca->dof_ob);
 			
+			for (CameraBGImage *bgpic = ca->bg_images.first; bgpic; bgpic = bgpic->next) {
+				bgpic->ima = newlibadr_us(fd, ca->id.lib, bgpic->ima);
+				bgpic->clip = newlibadr_us(fd, ca->id.lib, bgpic->clip);
+			}
+
 			ca->id.tag &= ~LIB_TAG_NEED_LINK;
 		}
 	}
@@ -3513,6 +3520,12 @@ static void direct_link_camera(FileData *fd, Camera *ca)
 {
 	ca->adt = newdataadr(fd, ca->adt);
 	direct_link_animdata(fd, ca->adt);
+
+	link_list(fd, &ca->bg_images);
+
+	for (CameraBGImage *bgpic = ca->bg_images.first; bgpic; bgpic = bgpic->next) {
+		bgpic->iuser.ok = 1;
+	}
 }
 
 
@@ -5859,7 +5872,7 @@ static void lib_link_scene(FileData *fd, Main *main)
 					hair_edit->shape_object = newlibadr(fd, sce->id.lib, hair_edit->shape_object);
 			}
 			
-			for (BaseLegacy *base_legacy_next, *base_legacy = sce->base.first; base_legacy; base_legacy = base_legacy_next) {
+			for (Base *base_legacy_next, *base_legacy = sce->base.first; base_legacy; base_legacy = base_legacy_next) {
 				base_legacy_next = base_legacy->next;
 				
 				base_legacy->object = newlibadr_us(fd, sce->id.lib, base_legacy->object);
@@ -6134,8 +6147,7 @@ static void direct_link_scene(FileData *fd, Scene *sce, Main *bmain)
 	SceneLayer *sl;
 	SceneRenderLayer *srl;
 	
-	sce->theDag = NULL;
-	sce->depsgraph_legacy = NULL;
+	sce->depsgraph_hash = NULL;
 	sce->obedit = NULL;
 	sce->fps_info = NULL;
 	sce->customdata_mask_modal = 0;
@@ -6172,16 +6184,6 @@ static void direct_link_scene(FileData *fd, Scene *sce, Main *bmain)
 		sce->toolsettings->particle.object = NULL;
 		sce->toolsettings->gp_sculpt.paintcursor = NULL;
 		sce->toolsettings->hair_edit.paint_cursor = NULL;
-		
-		/* in rare cases this is needed, see [#33806] */
-		if (sce->toolsettings->vpaint) {
-			sce->toolsettings->vpaint->vpaint_prev = NULL;
-			sce->toolsettings->vpaint->tot = 0;
-		}
-		if (sce->toolsettings->wpaint) {
-			sce->toolsettings->wpaint->wpaint_prev = NULL;
-			sce->toolsettings->wpaint->tot = 0;
-		}
 		
 		/* relink grease pencil drawing brushes */
 		link_list(fd, &sce->toolsettings->gp_brushes);
@@ -6330,11 +6332,6 @@ static void direct_link_scene(FileData *fd, Scene *sce, Main *bmain)
 	if (sce->r.avicodecdata) {
 		sce->r.avicodecdata->lpFormat = newdataadr(fd, sce->r.avicodecdata->lpFormat);
 		sce->r.avicodecdata->lpParms = newdataadr(fd, sce->r.avicodecdata->lpParms);
-	}
-	
-	sce->r.qtcodecdata = newdataadr(fd, sce->r.qtcodecdata);
-	if (sce->r.qtcodecdata) {
-		sce->r.qtcodecdata->cdParms = newdataadr(fd, sce->r.qtcodecdata->cdParms);
 	}
 	if (sce->r.ffcodecdata.properties) {
 		sce->r.ffcodecdata.properties = newdataadr(fd, sce->r.ffcodecdata.properties);
@@ -6615,22 +6612,10 @@ static void lib_link_screen(FileData *fd, Main *main)
 						case SPACE_VIEW3D:
 						{
 							View3D *v3d = (View3D*) sl;
-							BGpic *bgpic = NULL;
 
 							v3d->camera= newlibadr(fd, sc->id.lib, v3d->camera);
 							v3d->ob_centre= newlibadr(fd, sc->id.lib, v3d->ob_centre);
 
-							/* should be do_versions but not easy adding into the listbase */
-							if (v3d->bgpic) {
-								v3d->bgpic = newlibadr(fd, sc->id.lib, v3d->bgpic);
-								BLI_addtail(&v3d->bgpicbase, bgpic);
-								v3d->bgpic = NULL;
-							}
-
-							for (bgpic = v3d->bgpicbase.first; bgpic; bgpic = bgpic->next) {
-								bgpic->ima = newlibadr_us(fd, sc->id.lib, bgpic->ima);
-								bgpic->clip = newlibadr_us(fd, sc->id.lib, bgpic->clip);
-							}
 							if (v3d->localvd) {
 								v3d->localvd->camera = newlibadr(fd, sc->id.lib, v3d->localvd->camera);
 							}
@@ -6960,21 +6945,11 @@ static void lib_link_workspace_layout_restore(struct IDNameLib_Map *id_map, Main
 			for (SpaceLink *sl = sa->spacedata.first; sl; sl = sl->next) {
 				if (sl->spacetype == SPACE_VIEW3D) {
 					View3D *v3d = (View3D *)sl;
-					BGpic *bgpic;
 					ARegion *ar;
 					
 					v3d->camera = restore_pointer_by_name(id_map, (ID *)v3d->camera, USER_REAL);
 					v3d->ob_centre = restore_pointer_by_name(id_map, (ID *)v3d->ob_centre, USER_REAL);
-					
-					for (bgpic= v3d->bgpicbase.first; bgpic; bgpic= bgpic->next) {
-						if ((bgpic->ima = restore_pointer_by_name(id_map, (ID *)bgpic->ima, USER_IGNORE))) {
-							id_us_plus((ID *)bgpic->ima);
-						}
-						if ((bgpic->clip = restore_pointer_by_name(id_map, (ID *)bgpic->clip, USER_IGNORE))) {
-							id_us_plus((ID *)bgpic->clip);
-						}
-					}
-					
+
 					/* not very nice, but could help */
 					if ((v3d->layact & v3d->lay) == 0) v3d->layact = v3d->lay;
 
@@ -7397,21 +7372,7 @@ static bool direct_link_screen(FileData *fd, bScreen *sc)
 			
 			if (sl->spacetype == SPACE_VIEW3D) {
 				View3D *v3d= (View3D*) sl;
-				BGpic *bgpic;
-				
 				v3d->flag |= V3D_INVALID_BACKBUF;
-				
-				link_list(fd, &v3d->bgpicbase);
-				
-				/* should be do_versions except this doesnt fit well there */
-				if (v3d->bgpic) {
-					bgpic = newdataadr(fd, v3d->bgpic);
-					BLI_addtail(&v3d->bgpicbase, bgpic);
-					v3d->bgpic = NULL;
-				}
-			
-				for (bgpic = v3d->bgpicbase.first; bgpic; bgpic = bgpic->next)
-					bgpic->iuser.ok = 1;
 				
 				if (v3d->gpd) {
 					v3d->gpd = newdataadr(fd, v3d->gpd);
@@ -9859,13 +9820,12 @@ static void expand_scene_collection(FileData *fd, Main *mainvar, SceneCollection
 
 static void expand_scene(FileData *fd, Main *mainvar, Scene *sce)
 {
-	BaseLegacy *base;
 	SceneRenderLayer *srl;
 	FreestyleModuleConfig *module;
 	FreestyleLineSet *lineset;
 	
-	for (base = sce->base.first; base; base = base->next) {
-		expand_doit(fd, mainvar, base->object);
+	for (Base *base_legacy = sce->base.first; base_legacy; base_legacy = base_legacy->next) {
+		expand_doit(fd, mainvar, base_legacy->object);
 	}
 	expand_doit(fd, mainvar, sce->camera);
 	expand_doit(fd, mainvar, sce->world);
@@ -10167,6 +10127,7 @@ void BLO_expand_main(void *fdhandle, Main *mainvar)
 						break;
 					case ID_WS:
 						expand_workspace(fd, mainvar, (WorkSpace *)id);
+					default:
 						break;
 					}
 					
@@ -10188,7 +10149,7 @@ static bool object_in_any_scene(Main *mainvar, Object *ob)
 	Scene *sce;
 	
 	for (sce = mainvar->scene.first; sce; sce = sce->id.next) {
-		if (BKE_scene_base_find(sce, ob)) {
+		if (BKE_scene_object_find(sce, ob)) {
 			return true;
 		}
 	}
@@ -10197,15 +10158,16 @@ static bool object_in_any_scene(Main *mainvar, Object *ob)
 }
 
 static void give_base_to_objects(
-        Main *mainvar, Scene *scene, SceneLayer *sl, SceneCollection *sc, Library *lib, const short flag)
+        Main *mainvar, Scene *scene, SceneLayer *scene_layer, Library *lib, const short flag)
 {
 	Object *ob;
 	Base *base;
+	SceneCollection *scene_collection = NULL;
 	const bool is_link = (flag & FILE_LINK) != 0;
 
 	BLI_assert(scene);
 
-	/* give all objects which are LIB_TAG_INDIRECT a base, or for a group when *lib has been set */
+	/* Give all objects which are LIB_TAG_INDIRECT a base, or for a group when *lib has been set. */
 	for (ob = mainvar->object.first; ob; ob = ob->id.next) {
 		if ((ob->id.tag & LIB_TAG_INDIRECT) && (ob->id.tag & LIB_TAG_PRE_EXISTING) == 0) {
 			bool do_it = false;
@@ -10222,8 +10184,12 @@ static void give_base_to_objects(
 			if (do_it) {
 				CLAMP_MIN(ob->id.us, 0);
 
-				BKE_collection_object_add(scene, sc, ob);
-				base = BKE_scene_layer_base_find(sl, ob);
+				if (scene_collection == NULL) {
+					scene_collection = get_scene_collection_active_or_create(scene, scene_layer, FILE_ACTIVE_COLLECTION);
+				}
+
+				BKE_collection_object_add(scene, scene_collection, ob);
+				base = BKE_scene_layer_base_find(scene_layer, ob);
 				BKE_scene_object_base_flag_sync_from_base(base);
 
 				if (flag & FILE_AUTOSELECT) {
@@ -10233,9 +10199,8 @@ static void give_base_to_objects(
 						base->flag |= BASE_SELECTED;
 						BKE_scene_base_flag_sync_from_base(base);
 					}
-					/* do NOT make base active here! screws up GUI stuff, if you want it do it on src/ level */
+					/* Do NOT make base active here! screws up GUI stuff, if you want it do it on src/ level. */
 				}
-
 
 				ob->id.tag &= ~LIB_TAG_INDIRECT;
 				ob->id.tag |= LIB_TAG_EXTERN;
@@ -10245,25 +10210,28 @@ static void give_base_to_objects(
 }
 
 static void give_base_to_groups(
-        Main *mainvar, Scene *scene, SceneLayer *sl, SceneCollection *sc,
-        Library *UNUSED(lib), const short UNUSED(flag))
+        Main *mainvar, Scene *scene, SceneLayer *scene_layer, Library *UNUSED(lib), const short UNUSED(flag))
 {
 	Group *group;
 	Base *base;
 	Object *ob;
+	SceneCollection *scene_collection;
 
-	/* give all objects which are tagged a base */
+	/* If the group is empty this function is not even called, so it's safe to ensure a collection at this point. */
+	scene_collection = get_scene_collection_active_or_create(scene, scene_layer, FILE_ACTIVE_COLLECTION);
+
+	/* Give all objects which are tagged a base. */
 	for (group = mainvar->group.first; group; group = group->id.next) {
 		if (group->id.tag & LIB_TAG_DOIT) {
-			/* any indirect group should not have been tagged */
+			/* Any indirect group should not have been tagged. */
 			BLI_assert((group->id.tag & LIB_TAG_INDIRECT) == 0);
 
-			/* BKE_object_add(...) messes with the selection */
+			/* BKE_object_add(...) messes with the selection. */
 			ob = BKE_object_add_only_object(mainvar, OB_EMPTY, group->id.name + 2);
 			ob->type = OB_EMPTY;
 
-			BKE_collection_object_add(scene, sc, ob);
-			base = BKE_scene_layer_base_find(sl, ob);
+			BKE_collection_object_add(scene, scene_collection, ob);
+			base = BKE_scene_layer_base_find(scene_layer, ob);
 
 			if (base->flag & BASE_SELECTABLED) {
 				base->flag |= BASE_SELECTED;
@@ -10271,9 +10239,9 @@ static void give_base_to_groups(
 
 			BKE_scene_object_base_flag_sync_from_base(base);
 			DEG_id_tag_update(&ob->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
-			sl->basact = base;
+			scene_layer->basact = base;
 
-			/* assign the group */
+			/* Assign the group. */
 			ob->dup_group = group;
 			ob->transflag |= OB_DUPLIGROUP;
 			copy_v3_v3(ob->loc, scene->cursor);
@@ -10648,11 +10616,10 @@ static void library_link_end(Main *mainl, FileData **fd, const short flag, Scene
 	 * Only directly linked objects & groups are instantiated by `BLO_library_link_named_part_ex()` & co,
 	 * here we handle indirect ones and other possible edge-cases. */
 	if (scene) {
-		SceneCollection *sc = get_scene_collection_active_or_create(scene, sl, FILE_ACTIVE_COLLECTION);
-		give_base_to_objects(mainvar, scene, sl, sc, curlib, flag);
+		give_base_to_objects(mainvar, scene, sl, curlib, flag);
 
 		if (flag & FILE_GROUP_INSTANCE) {
-			give_base_to_groups(mainvar, scene, sl, sc, curlib, flag);
+			give_base_to_groups(mainvar, scene, sl, curlib, flag);
 		}
 	}
 	else {

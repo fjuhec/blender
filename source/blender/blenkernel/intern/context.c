@@ -57,6 +57,8 @@
 #include "BKE_sound.h"
 #include "BKE_workspace.h"
 
+#include "RE_engine.h"
+
 #include "RNA_access.h"
 
 #ifdef WITH_PYTHON
@@ -927,8 +929,28 @@ SceneLayer *CTX_data_scene_layer(const bContext *C)
 		return sl;
 	}
 	else {
-		return BKE_scene_layer_from_workspace_get(CTX_wm_workspace(C));
+		return BKE_scene_layer_from_workspace_get(CTX_data_scene(C), CTX_wm_workspace(C));
 	}
+}
+
+ViewRender *CTX_data_view_render(const bContext *C)
+{
+	ViewRender *view_render;
+
+	if (ctx_data_pointer_verify(C, "view_render", (void *)&view_render)) {
+		return view_render;
+	}
+	else {
+		Scene *scene = CTX_data_scene(C);
+		WorkSpace *workspace = CTX_wm_workspace(C);
+		return BKE_viewrender_get(scene, workspace);
+	}
+}
+
+RenderEngineType *CTX_data_engine(const bContext *C)
+{
+	ViewRender *view_render = CTX_data_view_render(C);
+	return RE_engines_find(view_render->engine_id);
 }
 
 /**
@@ -1240,7 +1262,7 @@ Depsgraph *CTX_data_depsgraph(const bContext *C)
 {
 	Scene *scene = CTX_data_scene(C);
 	SceneLayer *scene_layer = CTX_data_scene_layer(C);
-	return BKE_scene_get_depsgraph(scene, scene_layer);
+	return BKE_scene_get_depsgraph(scene, scene_layer, true);
 }
 
 void CTX_data_eval_ctx(const bContext *C, EvaluationContext *eval_ctx)
@@ -1249,7 +1271,8 @@ void CTX_data_eval_ctx(const bContext *C, EvaluationContext *eval_ctx)
 
 	Scene *scene = CTX_data_scene(C);
 	SceneLayer *scene_layer = CTX_data_scene_layer(C);
+	RenderEngineType *engine = CTX_data_engine(C);
 	DEG_evaluation_context_init_from_scene(eval_ctx,
-	                                       scene, scene_layer,
+	                                       scene, scene_layer, engine,
 	                                       DAG_EVAL_VIEWPORT);
 }

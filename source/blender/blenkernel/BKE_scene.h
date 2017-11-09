@@ -43,8 +43,6 @@ struct Depsgraph;
 struct EvaluationContext;
 struct Main;
 struct Object;
-struct Base;
-struct QuicktimeCodecData;
 struct RenderData;
 struct SceneLayer;
 struct SceneRenderLayer;
@@ -52,7 +50,8 @@ struct Scene;
 struct SceneCollection;
 struct SceneLayer;
 struct UnitSettings;
-struct Main;
+struct ViewRender;
+struct WorkSpace;
 
 typedef enum eSceneCopyMethod {
 	SCE_COPY_NEW       = 0,
@@ -64,14 +63,23 @@ typedef enum eSceneCopyMethod {
 
 /* Use as the contents of a 'for' loop: for (SETLOOPER(...)) { ... */
 #define SETLOOPER(_sce_basis, _sce_iter, _base)                               \
-	_sce_iter = _sce_basis, _base = _setlooper_base_step(&_sce_iter, NULL);   \
+	_sce_iter = _sce_basis, _base = _setlooper_base_step(&_sce_iter, BKE_scene_layer_from_scene_get(_sce_basis), NULL); \
 	_base;                                                                    \
-	_base = _setlooper_base_step(&_sce_iter, _base)
+	_base = _setlooper_base_step(&_sce_iter, NULL, _base)
 
-struct Base *_setlooper_base_step(struct Scene **sce_iter, struct Base *base);
+#define SETLOOPER_SCENE_LAYER(_sce_basis, _scene_layer, _sce_iter, _base)     \
+	_sce_iter = _sce_basis, _base = _setlooper_base_step(&_sce_iter, _scene_layer, NULL);   \
+	_base;                                                                    \
+	_base = _setlooper_base_step(&_sce_iter, NULL, _base)
+
+#define SETLOOPER_SET_ONLY(_sce_basis, _sce_iter, _base)     \
+	_sce_iter = _sce_basis, _base = _setlooper_base_step(&_sce_iter, NULL, NULL);   \
+	_base;                                                                    \
+	_base = _setlooper_base_step(&_sce_iter, NULL, _base)
+
+struct Base *_setlooper_base_step(struct Scene **sce_iter, struct SceneLayer *scene_layer, struct Base *base);
 
 void free_avicodecdata(struct AviCodecData *acd);
-void free_qtcodecdata(struct QuicktimeCodecData *acd);
 
 void BKE_scene_free_ex(struct Scene *sce, const bool do_id_user);
 void BKE_scene_free(struct Scene *sce);
@@ -80,13 +88,8 @@ struct Scene *BKE_scene_add(struct Main *bmain, const char *name);
 
 void BKE_scene_remove_rigidbody_object(struct Scene *scene, struct Object *ob);
 
-/* base functions */
-struct BaseLegacy *BKE_scene_base_find_by_name(struct Scene *scene, const char *name);
-struct BaseLegacy *BKE_scene_base_find(struct Scene *scene, struct Object *ob);
-struct BaseLegacy *BKE_scene_base_add(struct Scene *sce, struct Object *ob);
-void         BKE_scene_base_unlink(struct Scene *sce, struct BaseLegacy *base);
-void         BKE_scene_base_deselect_all(struct Scene *sce);
-void         BKE_scene_base_select(struct Scene *sce, struct BaseLegacy *selbase);
+bool BKE_scene_object_find(struct Scene *scene, struct Object *ob);
+struct Object *BKE_scene_object_find_by_name(struct Scene *scene, const char *name);
 
 /* Scene base iteration function.
  * Define struct here, so no need to bother with alloc/free it.
@@ -121,7 +124,6 @@ void BKE_scene_make_local(struct Main *bmain, struct Scene *sce, const bool lib_
 
 struct Scene *BKE_scene_find_from_collection(const struct Main *bmain, const struct SceneCollection *scene_collection);
 
-struct Object *BKE_scene_camera_find(struct Scene *sc);
 #ifdef DURIAN_CAMERA_SWITCH
 struct Object *BKE_scene_camera_switch_find(struct Scene *scene); // DURIAN_CAMERA_SWITCH
 #endif
@@ -138,8 +140,16 @@ float BKE_scene_frame_get_from_ctime(const struct Scene *scene, const float fram
 void  BKE_scene_frame_set(struct Scene *scene, double cfra);
 
 /* **  Scene evaluation ** */
-void BKE_scene_update_tagged(struct EvaluationContext *eval_ctx, struct Main *bmain, struct Scene *sce);
-void BKE_scene_update_for_newframe(struct EvaluationContext *eval_ctx, struct Main *bmain, struct Scene *sce);
+
+void BKE_scene_graph_update_tagged(struct EvaluationContext *eval_ctx,
+                                   struct Depsgraph *depsgraph,
+                                   struct Main *bmain,
+                                   struct Scene *scene);
+
+void BKE_scene_graph_update_for_newframe(struct EvaluationContext *eval_ctx,
+                                         struct Depsgraph *depsgraph,
+                                         struct Main *bmain,
+                                         struct Scene *sce);
 
 struct SceneRenderLayer *BKE_scene_add_render_layer(struct Scene *sce, const char *name);
 bool BKE_scene_remove_render_layer(struct Main *main, struct Scene *scene, struct SceneRenderLayer *srl);
@@ -171,6 +181,22 @@ int BKE_render_num_threads(const struct RenderData *r);
 
 int BKE_render_preview_pixel_size(const struct RenderData *r);
 
+/**********************************/
+
+struct ViewRender *BKE_viewrender_get(struct Scene *scene, struct WorkSpace *workspace);
+void BKE_viewrender_init(struct ViewRender *view_render);
+void BKE_viewrender_free(struct ViewRender *view_render);
+void BKE_viewrender_copy(struct ViewRender *view_render_dst, const struct ViewRender *view_render_src);
+bool BKE_viewrender_use_new_shading_nodes(const struct ViewRender *view_render);
+bool BKE_viewrender_use_shading_nodes_custom(const struct ViewRender *view_render);
+bool BKE_viewrender_use_world_space_shading(const struct ViewRender *view_render);
+bool BKE_viewrender_use_spherical_stereo(const struct ViewRender *view_render);
+bool BKE_viewrender_uses_blender_internal(const struct ViewRender *view_render);
+bool BKE_viewrender_uses_blender_game(const struct ViewRender *view_render);
+bool BKE_viewrender_uses_blender_eevee(const struct ViewRender *view_render);
+
+/**********************************/
+
 double BKE_scene_unit_scale(const struct UnitSettings *unit, const int unit_type, double value);
 
 /* multiview */
@@ -191,11 +217,14 @@ void        BKE_scene_multiview_videos_dimensions_get(const struct RenderData *r
 int         BKE_scene_multiview_num_videos_get(const struct RenderData *rd);
 
 /* depsgraph */
-struct Depsgraph* BKE_scene_get_depsgraph(struct Scene *scene, struct SceneLayer *scene_layer);
+void BKE_scene_allocate_depsgraph_hash(struct Scene *scene);
+void BKE_scene_ensure_depsgraph_hash(struct Scene *scene);
+void BKE_scene_free_depsgraph_hash(struct Scene *scene);
+
+struct Depsgraph *BKE_scene_get_depsgraph(struct Scene *scene, struct SceneLayer *scene_layer, bool allocate);
 
 #ifdef __cplusplus
 }
 #endif
 
 #endif
-

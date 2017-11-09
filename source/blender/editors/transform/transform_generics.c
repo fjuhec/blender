@@ -106,6 +106,8 @@
 #include "WM_types.h"
 #include "WM_api.h"
 
+#include "RE_engine.h"
+
 #include "UI_resources.h"
 #include "UI_view2d.h"
 
@@ -318,7 +320,7 @@ static bool fcu_test_selected(FCurve *fcu)
 /* helper for recalcData() - for Action Editor transforms */
 static void recalcData_actedit(TransInfo *t)
 {
-	SceneLayer *sl= t->scene_layer;
+	SceneLayer *sl = t->scene_layer;
 	SpaceAction *saction = (SpaceAction *)t->sa->spacedata.first;
 	
 	bAnimContext ac = {NULL};
@@ -1129,10 +1131,12 @@ void initTransInfo(bContext *C, TransInfo *t, wmOperator *op, const wmEvent *eve
 	Object *obedit = CTX_data_edit_object(C);
 	Object *ob = CTX_data_active_object(C);
 	bGPdata *gpd = CTX_data_gpencil_data(C);
+	RenderEngineType *engine = CTX_data_engine(C);
 	PropertyRNA *prop;
 	
 	t->scene = sce;
 	t->scene_layer = sl;
+	t->engine = engine;
 	t->sa = sa;
 	t->ar = ar;
 	t->obedit = obedit;
@@ -1467,6 +1471,13 @@ void initTransInfo(bContext *C, TransInfo *t, wmOperator *op, const wmEvent *eve
 #endif
 
 	setTransformViewAspect(t, t->aspect);
+
+	if (op && (prop = RNA_struct_find_property(op->ptr, "center_override")) && RNA_property_is_set(op->ptr, prop)) {
+		RNA_property_float_get_array(op->ptr, prop, t->center);
+		mul_v3_v3(t->center, t->aspect);
+		t->flag |= T_OVERRIDE_CENTER;
+	}
+
 	setTransformViewMatrices(t);
 	initNumInput(&t->num);
 }
@@ -1868,7 +1879,9 @@ static void calculateCenter_FromAround(TransInfo *t, int around, float r_center[
 
 void calculateCenter(TransInfo *t)
 {
-	calculateCenter_FromAround(t, t->around, t->center);
+	if ((t->flag & T_OVERRIDE_CENTER) == 0) {
+		calculateCenter_FromAround(t, t->around, t->center);
+	}
 	calculateCenterGlobal(t, t->center, t->center_global);
 
 	/* avoid calculating again */
@@ -1882,7 +1895,7 @@ void calculateCenter(TransInfo *t)
 	calculateCenter2D(t);
 
 	/* for panning from cameraview */
-	if (t->flag & T_OBJECT) {
+	if ((t->flag & T_OBJECT) && (t->flag & T_OVERRIDE_CENTER) == 0) {
 		if (t->spacetype == SPACE_VIEW3D && t->ar && t->ar->regiontype == RGN_TYPE_WINDOW) {
 			
 			if (t->flag & T_CAMERA) {

@@ -10,12 +10,16 @@ uniform sampler2DArray utilTex;
 #define BRDF_BIAS 0.7
 #define MAX_MIP 9.0
 
+uniform float fireflyFactor;
+uniform float maxRoughness;
+
 #ifdef STEP_RAYTRACE
 
 uniform sampler2D normalBuffer;
 uniform sampler2D specroughBuffer;
 
 uniform int planar_count;
+uniform float noiseOffset;
 
 layout(location = 0) out vec4 hitData0;
 layout(location = 1) out vec4 hitData1;
@@ -53,7 +57,7 @@ vec4 do_planar_ssr(int index, vec3 V, vec3 N, vec3 T, vec3 B, vec3 planeNormal, 
 	 * below the reflection plane). This way it's garanted that the hit will
 	 * be in front of the camera. That let us tag the bad rays with a negative
 	 * sign in the Z component. */
-	vec3 hit_pos = raycast(index, viewPosition, R, 1e16, jitter, a2);
+	vec3 hit_pos = raycast(index, viewPosition, R * 1e16, 1e16, jitter, ssrQuality, a2, false);
 
 	return vec4(hit_pos, pdf);
 }
@@ -72,7 +76,7 @@ vec4 do_ssr(vec3 V, vec3 N, vec3 T, vec3 B, vec3 viewPosition, float a2, vec3 ra
 	vec3 R = reflect(-V, H);
 	pdf = min(1024e32, pdf); /* Theoretical limit of 16bit float */
 
-	vec3 hit_pos = raycast(-1, viewPosition, R, ssrThickness, jitter, a2);
+	vec3 hit_pos = raycast(-1, viewPosition, R * 1e16, ssrThickness, jitter, ssrQuality, a2, true);
 
 	return vec4(hit_pos, pdf);
 }
@@ -110,7 +114,6 @@ void main()
 	if (dot(speccol_roughness.rgb, vec3(1.0)) == 0.0)
 		discard;
 
-
 	float roughness = speccol_roughness.a;
 	float roughnessSquared = max(1e-3, roughness * roughness);
 	float a2 = roughnessSquared * roughnessSquared;
@@ -128,8 +131,6 @@ void main()
 	vec3 T, B;
 	make_orthonormal_basis(N, T, B); /* Generate tangent space */
 
-	float ray_ofs = 1.0 / float(rayCount);
-
 	/* Planar Reflections */
 	for (int i = 0; i < MAX_PLANAR && i < planar_count; ++i) {
 		PlanarData pd = planars_data[i];
@@ -143,20 +144,31 @@ void main()
 			tracePosition = transform_point(ViewMatrix, tracePosition);
 			vec3 planeNormal = transform_direction(ViewMatrix, pd.pl_normal);
 
-			/* TODO : Raytrace together if textureGather is supported. */
 			hitData0 = do_planar_ssr(i, V, N, T, B, planeNormal, tracePosition, a2, rand, 0.0);
-			if (rayCount > 1) hitData1 = do_planar_ssr(i, V, N, T, B, planeNormal, tracePosition, a2, rand.xyz * vec3(1.0, -1.0, -1.0), 1.0 * ray_ofs);
-			if (rayCount > 2) hitData2 = do_planar_ssr(i, V, N, T, B, planeNormal, tracePosition, a2, rand.xzy * vec3(1.0,  1.0, -1.0), 2.0 * ray_ofs);
-			if (rayCount > 3) hitData3 = do_planar_ssr(i, V, N, T, B, planeNormal, tracePosition, a2, rand.xzy * vec3(1.0, -1.0,  1.0), 3.0 * ray_ofs);
+#if (RAY_COUNT > 1)
+			hitData1 = do_planar_ssr(i, V, N, T, B, planeNormal, tracePosition, a2, rand.xyz * vec3(1.0, -1.0, -1.0), 1.0 / float(RAY_COUNT));
+#endif
+#if (RAY_COUNT > 2)
+			hitData2 = do_planar_ssr(i, V, N, T, B, planeNormal, tracePosition, a2, rand.xzy * vec3(1.0,  1.0, -1.0), 2.0 / float(RAY_COUNT));
+#endif
+#if (RAY_COUNT > 3)
+			hitData3 = do_planar_ssr(i, V, N, T, B, planeNormal, tracePosition, a2, rand.xzy * vec3(1.0, -1.0,  1.0), 3.0 / float(RAY_COUNT));
+#endif
 			return;
 		}
 	}
 
 	/* TODO : Raytrace together if textureGather is supported. */
 	hitData0 = do_ssr(V, N, T, B, viewPosition, a2, rand, 0.0);
-	if (rayCount > 1) hitData1 = do_ssr(V, N, T, B, viewPosition, a2, rand.xyz * vec3(1.0, -1.0, -1.0), 1.0 * ray_ofs);
-	if (rayCount > 2) hitData2 = do_ssr(V, N, T, B, viewPosition, a2, rand.xzy * vec3(1.0,  1.0, -1.0), 2.0 * ray_ofs);
-	if (rayCount > 3) hitData3 = do_ssr(V, N, T, B, viewPosition, a2, rand.xzy * vec3(1.0, -1.0,  1.0), 3.0 * ray_ofs);
+#if (RAY_COUNT > 1)
+	hitData1 = do_ssr(V, N, T, B, viewPosition, a2, rand.xyz * vec3(1.0, -1.0, -1.0), 1.0 / float(RAY_COUNT));
+#endif
+#if (RAY_COUNT > 2)
+	hitData2 = do_ssr(V, N, T, B, viewPosition, a2, rand.xzy * vec3(1.0,  1.0, -1.0), 2.0 / float(RAY_COUNT));
+#endif
+#if (RAY_COUNT > 3)
+	hitData3 = do_ssr(V, N, T, B, viewPosition, a2, rand.xzy * vec3(1.0, -1.0,  1.0), 3.0 / float(RAY_COUNT));
+#endif
 }
 
 #else /* STEP_RESOLVE */
@@ -177,10 +189,15 @@ uniform mat4 PastViewProjectionMatrix;
 
 out vec4 fragColor;
 
-void fallback_cubemap(vec3 N, vec3 V, vec3 W, float roughness, float roughnessSquared, inout vec4 spec_accum)
+void fallback_cubemap(vec3 N, vec3 V, vec3 W, vec3 viewPosition, float roughness, float roughnessSquared, inout vec4 spec_accum)
 {
 	/* Specular probes */
 	vec3 spec_dir = get_specular_reflection_dominant_dir(N, V, roughnessSquared);
+
+	vec4 rand = texture(utilTex, vec3(gl_FragCoord.xy / LUT_SIZE, 2.0));
+	vec3 bent_normal;
+	float final_ao = occlusion_compute(N, viewPosition, 1.0, rand.rg, bent_normal);
+	final_ao = specular_occlusion(dot(N, V), final_ao, roughness);
 
 	/* Starts at 1 because 0 is world probe */
 	for (int i = 1; i < MAX_PROBE && i < probe_count && spec_accum.a < 0.999; ++i) {
@@ -189,14 +206,14 @@ void fallback_cubemap(vec3 N, vec3 V, vec3 W, float roughness, float roughnessSq
 		float fade = probe_attenuation_cube(cd, W);
 
 		if (fade > 0.0) {
-			vec3 spec = probe_evaluate_cube(float(i), cd, W, spec_dir, roughness);
+			vec3 spec = final_ao * probe_evaluate_cube(float(i), cd, W, spec_dir, roughness);
 			accumulate_light(spec, fade, spec_accum);
 		}
 	}
 
 	/* World Specular */
 	if (spec_accum.a < 0.999) {
-		vec3 spec = probe_evaluate_world_spec(spec_dir, roughness);
+		vec3 spec = final_ao * probe_evaluate_world_spec(spec_dir, roughness);
 		accumulate_light(spec, 1.0, spec_accum);
 	}
 }
@@ -243,12 +260,13 @@ vec4 get_ssr_sample(
         inout float weight_acc)
 {
 	vec4 hit_co_pdf = texelFetch(hitBuffer, target_texel, 0).rgba;
-	bool has_hit = (hit_co_pdf.z < 0.0);
+	bool has_hit = (hit_co_pdf.z > 0.0);
 	bool is_planar = (hit_co_pdf.w < 0.0);
-	hit_co_pdf.z = -abs(hit_co_pdf.z);
+	hit_co_pdf.z = abs(hit_co_pdf.z);
 	hit_co_pdf.w = abs(hit_co_pdf.w);
 
 	/* Hit position in world space. */
+	hit_co_pdf.xyz = get_view_space_from_depth(hit_co_pdf.xy, hit_co_pdf.z);
 	vec3 hit_pos = transform_point(ViewMatrixInverse, hit_co_pdf.xyz);
 
 	vec2 ref_uvs;
@@ -292,7 +310,7 @@ vec4 get_ssr_sample(
 
 	vec3 sample;
 	if (is_planar) {
-		sample = textureLod(probePlanars, vec3(ref_uvs, planar_index), mip).rgb;
+		sample = textureLod(probePlanars, vec3(ref_uvs, planar_index), min(mip, lodPlanarMax)).rgb;
 	}
 	else {
 		sample = textureLod(prevColorBuffer, ref_uvs, mip).rgb;
@@ -305,9 +323,13 @@ vec4 get_ssr_sample(
 	/* Do not add light if ray has failed. */
 	sample *= float(has_hit);
 
-#if 0 /* Enable to see where NANs come from. */
-	sample = (any(isnan(sample))) ? vec3(0.0) : sample;
-#endif
+	/* Protection against NaNs in the history buffer.
+	 * This could be removed if some previous pass has already
+	 * sanitized the input. */
+	if (any(isnan(sample))) {
+		sample = vec3(0.0);
+		weight = 0.0;
+	}
 
 	return vec4(sample, mask) * weight;
 }
@@ -394,21 +416,21 @@ void main()
 			ssr_accum += get_ssr_sample(hitBuffer0, pd, planar_index, worldPosition, N, V,
 			                            roughnessSquared, cone_tan, source_uvs,
 			                            texture_size, target_texel, weight_acc);
-			if (rayCount > 1) {
-				ssr_accum += get_ssr_sample(hitBuffer1, pd, planar_index, worldPosition, N, V,
-				                            roughnessSquared, cone_tan, source_uvs,
-				                            texture_size, target_texel, weight_acc);
-			}
-			if (rayCount > 2) {
-				ssr_accum += get_ssr_sample(hitBuffer2, pd, planar_index, worldPosition, N, V,
-				                            roughnessSquared, cone_tan, source_uvs,
-				                            texture_size, target_texel, weight_acc);
-			}
-			if (rayCount > 3) {
-				ssr_accum += get_ssr_sample(hitBuffer3, pd, planar_index, worldPosition, N, V,
-				                            roughnessSquared, cone_tan, source_uvs,
-				                            texture_size, target_texel, weight_acc);
-			}
+#if (RAY_COUNT > 1)
+			ssr_accum += get_ssr_sample(hitBuffer1, pd, planar_index, worldPosition, N, V,
+			                            roughnessSquared, cone_tan, source_uvs,
+			                            texture_size, target_texel, weight_acc);
+#endif
+#if (RAY_COUNT > 2)
+			ssr_accum += get_ssr_sample(hitBuffer2, pd, planar_index, worldPosition, N, V,
+			                            roughnessSquared, cone_tan, source_uvs,
+			                            texture_size, target_texel, weight_acc);
+#endif
+#if (RAY_COUNT > 3)
+			ssr_accum += get_ssr_sample(hitBuffer3, pd, planar_index, worldPosition, N, V,
+			                            roughnessSquared, cone_tan, source_uvs,
+			                            texture_size, target_texel, weight_acc);
+#endif
 		}
 	}
 
@@ -422,7 +444,7 @@ void main()
 
 	/* If SSR contribution is not 1.0, blend with cubemaps */
 	if (spec_accum.a < 1.0) {
-		fallback_cubemap(N, V, worldPosition, roughness, roughnessSquared, spec_accum);
+		fallback_cubemap(N, V, worldPosition, viewPosition, roughness, roughnessSquared, spec_accum);
 	}
 
 	fragColor = vec4(spec_accum.rgb * speccol_roughness.rgb, 1.0);
