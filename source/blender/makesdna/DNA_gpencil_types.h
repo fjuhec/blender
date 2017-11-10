@@ -42,7 +42,7 @@ struct GHash;
 #define GP_OBGPENCIL_DEFAULT_SIZE  0.2f 
 #define GP_DEFAULT_PIX_FACTOR 500 
 
-#define GP_MIN_STROKE_SEGMENT_PX 60.0f 
+#define GP_MIN_STROKE_SEGMENT_PX 8.0f 
 #define GP_MIN_STROKE_SEGMENT_ANGLE 0.005f 
 
 /* ***************************************** */

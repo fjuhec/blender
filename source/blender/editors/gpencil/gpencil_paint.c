@@ -499,6 +499,7 @@ static bool gp_smooth_buffer_point(bGPdata *gpd, bGPDbrush *brush)
 	float sco[3] = { 0.0f };
 	float inf = brush->draw_stabifac;
 	const float draw_stabangle = 1.0f - brush->draw_stabangle;
+	const float draw_pxdensity = brush->draw_pxdensity * brush->draw_pxdensity;
 	/* if no stabilization, return */
 	if (brush->draw_stabifac == 0) {
 		return false;
@@ -535,7 +536,7 @@ static bool gp_smooth_buffer_point(bGPdata *gpd, bGPDbrush *brush)
 	float sqsize_ac = len_squared_v2v2(fpta, fpt);
 	float lambda = closest_to_line_v2(estimated_co, fpt, fpta, fptb);
 	/* need a minimum space between points to apply */
-	if ((lambda > 0.0f) && (sqsize_ac > brush->draw_pxdensity)) {
+	if ((lambda > 0.0f) && (sqsize_ac > draw_pxdensity)) {
 		/* blend between original and optimal smoothed coordinate */
 		interp_v2_v2v2(fpt, fpt, estimated_co, inf);
 		copy_v2int_v2float(&pt->x, fpt);
@@ -563,7 +564,7 @@ static bool gp_smooth_buffer_point(bGPdata *gpd, bGPDbrush *brush)
 	/* as the vectors are normalized, we can use dot product to calculate cosine */
 	float angle = dot_v2v2(vab, vac);
 	/* if the angle is minimun, means the point can be removed, so rollback one point */
-	if ((angle > draw_stabangle) && (sqsize_ab < brush->draw_pxdensity * 3.0f)) {
+	if ((angle > draw_stabangle) && (sqsize_ab < draw_pxdensity * 3.0f)) {
 		ptb->x = pt->x;
 		ptb->y = pt->y;
 		ptb->pressure = pt->pressure;

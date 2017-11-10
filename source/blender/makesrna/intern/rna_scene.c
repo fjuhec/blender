@@ -2334,7 +2334,7 @@ static void rna_def_gpencil_brush(BlenderRNA *brna)
 	/* maximum distance between control points  for new strokes while drawing */
 	prop = RNA_def_property(srna, "pen_density", PROP_INT, PROP_PIXEL);
 	RNA_def_property_int_sdna(prop, NULL, "draw_pxdensity");
-	RNA_def_property_range(prop, 1, 2000);
+	RNA_def_property_range(prop, 1, 500);
 	RNA_def_property_int_default(prop, GP_MIN_STROKE_SEGMENT_PX);
 	RNA_def_property_ui_text(prop, "Density",
 		"Maximum space in pixels between control points while drawing");
