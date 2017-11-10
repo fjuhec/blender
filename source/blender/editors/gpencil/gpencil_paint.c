@@ -558,9 +558,9 @@ static void gp_smooth_buffer_point(bGPdata *gpd, bGPDbrush *brush)
 	 * point-1 and point to get smoother strokes. This reduces the jitter between
 	 * the previous point and the point that is being created.
 	 */
-	madd_v2_v2fl(sco, fpt, 0.20f); 
-	madd_v2_v2fl(sco, fpta, 0.50f);
-	madd_v2_v2fl(sco, fptb, 0.30f);
+	madd_v2_v2fl(sco, fpta, 0.20f);
+	madd_v2_v2fl(sco, fptb, 0.50f);
+	madd_v2_v2fl(sco, fpt, 0.30f);
 	interp_v2_v2v2(fptb, fptb, sco, inf);
 	copy_v2int_v2float(&ptb->x, fptb);
 
