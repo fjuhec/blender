@@ -589,7 +589,7 @@ static void gp_smooth_buffer_point(bGPdata *gpd, bGPDbrush *brush)
 	float press = pta->pressure * 0.20f;
 	press += ptb->pressure * 0.60f;
 	press += pt->pressure * 0.20f;
-	interpf(ptb->pressure, ptb->pressure, press, 0.5f);
+	ptb->pressure = interpf(ptb->pressure, press, 0.5f);
 
 	return;
 }
