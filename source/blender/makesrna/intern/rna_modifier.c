@@ -4806,7 +4806,7 @@ static void rna_def_modifier_hair(BlenderRNA *brna)
 	RNA_def_struct_sdna(srna, "HairModifierData");
 	RNA_def_struct_ui_icon(srna, ICON_STRANDS);
 
-	prop = RNA_def_property(srna, "hair", PROP_POINTER, PROP_NONE);
+	prop = RNA_def_property(srna, "hair_system", PROP_POINTER, PROP_NONE);
 	RNA_def_property_ui_text(prop, "Hair", "Hair data");
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 }

@@ -1289,7 +1289,7 @@ static void material_particle_hair(EEVEE_SceneLayerData *sldata, EEVEE_Data *ved
 	}
 }
 
-static void material_hair(EEVEE_SceneLayerData *sldata, EEVEE_Data *vedata, Object *ob, HairGroup *group)
+static void material_hair(EEVEE_SceneLayerData *sldata, EEVEE_Data *vedata, Object *ob, HairSystem *hsys)
 {
 	EEVEE_PassList *psl = ((EEVEE_Data *)vedata)->psl;
 	EEVEE_StorageList *stl = ((EEVEE_Data *)vedata)->stl;
@@ -1302,25 +1302,13 @@ static void material_hair(EEVEE_SceneLayerData *sldata, EEVEE_Data *vedata, Obje
 	copy_m4_m4(mat, ob->obmat);
 	
 	const DRWHairFiberTextureBuffer *fiber_buffer = NULL;
-	struct Gwn_Batch *hair_geom;
-	{
-		DerivedMesh *scalp = NULL;
-		if (ob->derivedFinal) {
-			scalp = ob->derivedFinal;
-		}
-		else {
-			EvaluationContext eval_ctx = {0};
-			DEG_evaluation_context_init(&eval_ctx, DAG_EVAL_VIEWPORT);
-			scalp = mesh_get_derived_final(&eval_ctx, scene, ob, CD_MASK_BAREMESH);
-		}
-		hair_geom = DRW_cache_hair_get_fibers(group, subdiv, scalp, &fiber_buffer);
-	}
+	struct Gwn_Batch *hair_geom = DRW_cache_hair_get_fibers(hsys, subdiv, &fiber_buffer);
 	
-	if (!group->draw_texture_cache) {
-		group->draw_texture_cache = DRW_texture_create_2D(fiber_buffer->width, fiber_buffer->height,
+	if (!hsys->draw_texture_cache) {
+		hsys->draw_texture_cache = DRW_texture_create_2D(fiber_buffer->width, fiber_buffer->height,
 		                                                  DRW_TEX_RG_32, 0, fiber_buffer->data);
 	}
-	GPUTexture **fiber_texture = (GPUTexture **)(&group->draw_texture_cache);
+	GPUTexture **fiber_texture = (GPUTexture **)(&hsys->draw_texture_cache);
 
 	// TODO
 	Material *ma = NULL;/*give_current_material(ob, omat);*/
@@ -1537,9 +1525,7 @@ void EEVEE_materials_cache_populate(EEVEE_Data *vedata, EEVEE_SceneLayerData *sl
 				}
 				else if (md->type == eModifierType_Hair) {
 					HairModifierData *hmd = (HairModifierData *)md;
-					for (HairGroup *group = hmd->hair->groups.first; group; group = group->next) {
-						material_hair(sldata, vedata, ob, group);
-					}
+					material_hair(sldata, vedata, ob, hmd->hair_system);
 				}
 			}
 		}

@@ -54,7 +54,7 @@ static void initData(ModifierData *md)
 {
 	HairModifierData *hmd = (HairModifierData *) md;
 	
-	hmd->hair = BKE_hair_new();
+	hmd->hair_system = BKE_hair_new();
 	
 	hmd->flag |= 0;
 }
@@ -64,14 +64,14 @@ static void copyData(ModifierData *md, ModifierData *target)
 	HairModifierData *hmd = (HairModifierData *) md;
 	HairModifierData *thmd = (HairModifierData *) target;
 
-	if (thmd->hair) {
-		BKE_hair_free(thmd->hair);
+	if (thmd->hair_system) {
+		BKE_hair_free(thmd->hair_system);
 	}
 
 	modifier_copyData_generic(md, target);
 	
-	if (hmd->hair) {
-		thmd->hair = BKE_hair_copy(hmd->hair);
+	if (hmd->hair_system) {
+		thmd->hair_system = BKE_hair_copy(hmd->hair_system);
 	}
 }
 
@@ -79,8 +79,8 @@ static void freeData(ModifierData *md)
 {
 	HairModifierData *hmd = (HairModifierData *) md;
 	
-	if (hmd->hair) {
-		BKE_hair_free(hmd->hair);
+	if (hmd->hair_system) {
+		BKE_hair_free(hmd->hair_system);
 	}
 }
 

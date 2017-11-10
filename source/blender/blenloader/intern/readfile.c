@@ -5131,25 +5131,16 @@ static void direct_link_pose(FileData *fd, bPose *pose)
 	}
 }
 
-static void direct_link_hair(FileData *fd, HairPattern *hair)
+static void direct_link_hair(FileData *fd, HairSystem* hsys)
 {
-	if (!hair) {
+	if (!hsys) {
 		return;
 	}
 	
-	// cache the old pointer to calculate offsets for groups
-	const HairFollicle *old_follicles = hair->follicles;
-	hair->follicles = newdataadr(fd, hair->follicles);
-	
-	link_list(fd, &hair->groups);
-	for (HairGroup *group = hair->groups.first; group; group = group->next) {
-		group->follicles = hair->follicles + (int)(group->follicles - old_follicles);
-		
-		group->strands_parent_index = newdataadr(fd, group->strands_parent_index);
-		group->strands_parent_weight = newdataadr(fd, group->strands_parent_weight);
-		
-		group->draw_batch_cache = NULL;
-		group->draw_texture_cache = NULL;
+	hsys->pattern = newdataadr(fd, hsys->pattern);
+	if ( hsys->pattern )
+	{
+		hsys->pattern->follicles = newdataadr(fd, hsys->pattern->follicles);
 	}
 }
 
@@ -5477,8 +5468,8 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb)
 		else if (md->type == eModifierType_Hair) {
 			HairModifierData *hmd = (HairModifierData *)md;
 			
-			hmd->hair = newdataadr(fd, hmd->hair);
-			direct_link_hair(fd, hmd->hair);
+			hmd->hair_system = newdataadr(fd, hmd->hair_system);
+			direct_link_hair(fd, hmd->hair_system);
 		}
 	}
 }

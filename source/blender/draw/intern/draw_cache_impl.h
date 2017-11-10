@@ -32,7 +32,7 @@ struct ListBase;
 struct CurveCache;
 struct ParticleSystem;
 struct ModifierData;
-struct HairGroup;
+struct HairSystem;
 struct DRWHairFiberTextureBuffer;
 struct DerivedMesh;
 
@@ -53,8 +53,8 @@ void DRW_lattice_batch_cache_free(struct Lattice *lt);
 void DRW_particle_batch_cache_dirty(struct ParticleSystem *psys, int mode);
 void DRW_particle_batch_cache_free(struct ParticleSystem *psys);
 
-void DRW_hair_batch_cache_dirty(struct HairGroup *group, int mode);
-void DRW_hair_batch_cache_free(struct HairGroup *group);
+void DRW_hair_batch_cache_dirty(struct HairSystem *hsys, int mode);
+void DRW_hair_batch_cache_free(struct HairSystem *hsys);
 
 /* Curve */
 struct Gwn_Batch *DRW_curve_batch_cache_get_wire_edge(struct Curve *cu, struct CurveCache *ob_curve_cache);
@@ -114,7 +114,7 @@ struct Gwn_Batch *DRW_particles_batch_cache_get_hair(struct ParticleSystem *psys
 struct Gwn_Batch *DRW_particles_batch_cache_get_dots(struct ParticleSystem *psys);
 
 /* Hair */
-struct Gwn_Batch *DRW_hair_batch_cache_get_fibers(struct HairGroup *group, int subdiv, struct DerivedMesh *scalp,
+struct Gwn_Batch *DRW_hair_batch_cache_get_fibers(struct HairSystem *hsys, int subdiv,
                                                   const struct DRWHairFiberTextureBuffer **r_buffer);
 
 #endif /* __DRAW_CACHE_IMPL_H__ */

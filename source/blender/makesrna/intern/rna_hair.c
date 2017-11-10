@@ -53,51 +53,6 @@
 #include "WM_api.h"
 #include "WM_types.h"
 
-static void rna_HairGroup_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)
-{
-	HairGroup *group = ptr->data;
-	UNUSED_VARS(group);
-}
-
-static HairPattern* find_hair_group_pattern(ID *id, HairGroup *group)
-{
-	Object *ob = (Object *)id;
-	for (ModifierData *md = ob->modifiers.first; md; md = md->next) {
-		if (md->type == eModifierType_Hair) {
-			HairModifierData *hmd = (HairModifierData *)md;
-			for (HairGroup *g = hmd->hair->groups.first; g; g = g->next) {
-				if (g == group) {
-					return hmd->hair;
-				}
-			}
-		}
-	}
-	return NULL;
-}
-
-static void rna_HairGroup_name_set(PointerRNA *ptr, const char *value)
-{
-	HairGroup *group = ptr->data;
-	HairPattern *hair = find_hair_group_pattern(ptr->id.data, group);
-	BLI_assert(hair != NULL);
-	
-	BKE_hair_group_name_set(hair, group, value);
-}
-
-static void rna_HairPattern_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)
-{
-	HairPattern *hair = ptr->data;
-	UNUSED_VARS(hair);
-}
-
-PointerRNA rna_HairPattern_active_group_get(PointerRNA *ptr)
-{
-	HairPattern *hair = ptr->data;
-	PointerRNA result;
-	RNA_pointer_create(ptr->id.data, &RNA_HairGroup, BLI_findlink(&hair->groups, hair->active_group), &result);
-	return result;
-}
-
 #else
 
 static void rna_def_hair_follicle(BlenderRNA *brna)
@@ -111,40 +66,6 @@ static void rna_def_hair_follicle(BlenderRNA *brna)
 	
 	prop = RNA_def_property(srna, "mesh_sample", PROP_POINTER, PROP_NONE);
 	RNA_def_property_struct_type(prop, "MeshSample");
-}
-
-static void rna_def_hair_group(BlenderRNA *brna)
-{
-	StructRNA *srna;
-	PropertyRNA *prop;
-	
-	static EnumPropertyItem type_items[] = {
-	    {HAIR_GROUP_TYPE_NORMALS, "NORMALS", 0, "Normals", "Hair grows straight along surface normals"},
-	    {HAIR_GROUP_TYPE_STRANDS, "STRANDS", 0, "Strands", "Hair is interpolated between control strands"},
-	    {0, NULL, 0, NULL, NULL}
-	};
-	
-	srna = RNA_def_struct(brna, "HairGroup", NULL);
-	RNA_def_struct_ui_text(srna, "Hair Group", "Group of hairs that are generated in the same way");
-	RNA_def_struct_sdna(srna, "HairGroup");
-	
-	prop = RNA_def_property(srna, "type", PROP_ENUM, PROP_NONE);
-	RNA_def_property_enum_items(prop, type_items);
-	RNA_def_property_enum_default(prop, HAIR_GROUP_TYPE_NORMALS);
-	RNA_def_property_ui_text(prop, "Type", "Generator type");
-	RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_HairGroup_update");
-	
-	prop = RNA_def_property(srna, "name", PROP_STRING, PROP_NONE);
-	RNA_def_property_string_funcs(prop, NULL, NULL, "rna_HairGroup_name_set");
-	RNA_def_property_ui_text(prop, "Name", "");
-	RNA_def_struct_name_property(srna, prop);
-	RNA_def_property_update(prop, NC_OBJECT | ND_DRAW | NA_RENAME, NULL);
-	
-	prop = RNA_def_property(srna, "normals_max_length", PROP_FLOAT, PROP_NONE);
-	RNA_def_property_range(prop, 0.0f, FLT_MAX);
-	RNA_def_property_ui_range(prop, 0.0, 10.0, 0.1, 4);
-	RNA_def_property_ui_text(prop, "Maximum Length", "Maximum length of hair fibers in this group");
-	RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_HairGroup_update");
 }
 
 static void rna_def_hair_pattern(BlenderRNA *brna)
@@ -161,29 +82,28 @@ static void rna_def_hair_pattern(BlenderRNA *brna)
 	RNA_def_property_collection_sdna(prop, NULL, "follicles", "num_follicles");
 	RNA_def_property_struct_type(prop, "HairFollicle");
 	RNA_def_property_ui_text(prop, "Follicles", "Hair fiber follicles");
+}
+
+static void rna_def_hair_system(BlenderRNA *brna)
+{
+	StructRNA *srna;
+	PropertyRNA *prop;
 	
-	prop = RNA_def_property(srna, "groups", PROP_COLLECTION, PROP_NONE);
-	RNA_def_property_collection_sdna(prop, NULL, "groups", NULL);
-	RNA_def_property_struct_type(prop, "HairGroup");
-	RNA_def_property_ui_text(prop, "Groups", "Hair group using a the same generator method");
+	srna = RNA_def_struct(brna, "HairSystem", NULL);
+	RNA_def_struct_ui_text(srna, "Hair System", "Hair rendering and deformation data");
+	RNA_def_struct_sdna(srna, "HairSystem");
+	RNA_def_struct_ui_icon(srna, ICON_STRANDS);
 	
-	prop = RNA_def_property(srna, "active_group", PROP_POINTER, PROP_NONE);
-	RNA_def_property_pointer_funcs(prop, "rna_HairPattern_active_group_get", NULL, NULL, NULL);
-	RNA_def_property_struct_type(prop, "HairGroup");
-	RNA_def_property_ui_text(prop, "Active Group", "");
-	RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_HairPattern_update");
-	
-	prop = RNA_def_property(srna, "active_group_index", PROP_INT, PROP_NONE);
-	RNA_def_property_int_sdna(prop, NULL, "active_group");
-	RNA_def_property_ui_text(prop, "Active Group Index", "");
-	RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_HairPattern_update");
+	prop = RNA_def_property(srna, "pattern", PROP_POINTER, PROP_NONE);
+	RNA_def_property_struct_type(prop, "HairPattern");
+	RNA_def_property_ui_text(prop, "Pattern", "Hair pattern");
 }
 
 void RNA_def_hair(BlenderRNA *brna)
 {
 	rna_def_hair_follicle(brna);
-	rna_def_hair_group(brna);
 	rna_def_hair_pattern(brna);
+	rna_def_hair_system(brna);
 }
 
 #endif

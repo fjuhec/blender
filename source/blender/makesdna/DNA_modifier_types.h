@@ -1634,7 +1634,7 @@ typedef struct HairModifierData {
 	int flag;
 	int pad;
 	
-	struct HairPattern *hair;
+	struct HairSystem *hair_system;
 } HairModifierData;
 
 #endif  /* __DNA_MODIFIER_TYPES_H__ */
