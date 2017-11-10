@@ -585,6 +585,12 @@ static void gp_smooth_buffer_point(bGPdata *gpd, bGPDbrush *brush)
 		gpd->sbuffer_size--;
 	}
 
+	/* smooth the thickness 20%-60%-20% */
+	float press = pt->pressure * 0.25f;
+	press += pta->pressure * 0.25f;
+	press += ptb->pressure * 0.60f;
+	interpf(ptb->pressure, ptb->pressure, press, 0.5f);
+
 	return;
 }
 
