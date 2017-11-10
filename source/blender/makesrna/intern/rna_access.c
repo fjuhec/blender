@@ -8205,6 +8205,9 @@ bool RNA_struct_auto_override(PointerRNA *local, PointerRNA *reference, IDOverri
 		if (!(prop->flag & PROP_OVERRIDABLE)) {
 			continue;
 		}
+		if (RNA_property_animated(local, prop)) {
+			continue;
+		}
 
 		/* XXX TODO this will have to be refined to handle collections insertions, and array items */
 		char *rna_path;
