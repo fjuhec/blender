@@ -91,11 +91,14 @@ Scene *DEG_get_evaluated_scene(Depsgraph *graph)
 
 SceneLayer *DEG_get_evaluated_scene_layer(Depsgraph *graph)
 {
-	Scene *scene = DEG_get_evaluated_scene(graph);
-	if (scene != NULL) {
-		return BKE_scene_layer_context_active_PLACEHOLDER(scene);
-	}
-	return NULL;
+	DEG::Depsgraph *deg_graph = reinterpret_cast<DEG::Depsgraph *>(graph);
+	Scene *scene_cow = DEG_get_evaluated_scene(graph);
+	SceneLayer *scene_layer_orig = deg_graph->scene_layer;
+	SceneLayer *scene_layer_cow =
+	        (SceneLayer *)BLI_findstring(&scene_cow->render_layers,
+	                                     scene_layer_orig->name,
+	                                     offsetof(SceneLayer, name));
+	return scene_layer_cow;
 }
 
 Object *DEG_get_evaluated_object(Depsgraph *depsgraph, Object *object)
@@ -134,7 +137,7 @@ static bool deg_flush_base_flags_and_settings(
 {
 	Base *base;
 	Depsgraph *graph = data->graph;
-	SceneLayer *scene_layer = DEG_get_evaluated_scene_layer(graph);
+	SceneLayer *scene_layer = data->eval_ctx.scene_layer;
 	int flag = is_dupli ? BASE_FROMDUPLI : 0;
 
 	/* First attempt, see if object is in the current SceneLayer. */
@@ -256,26 +259,32 @@ static void deg_objects_iterator_step(BLI_Iterator *iter, DEG::IDDepsNode *id_no
 
 void DEG_objects_iterator_begin(BLI_Iterator *iter, DEGObjectsIteratorData *data)
 {
-	Depsgraph *graph = data->graph;
+	Depsgraph *depsgraph = data->graph;
+	DEG::Depsgraph *deg_graph = reinterpret_cast<DEG::Depsgraph *>(depsgraph);
+	const size_t num_id_nodes = deg_graph->id_nodes.size();
+
+	if (num_id_nodes == 0) {
+		iter->valid = false;
+		return;
+	}
+
+	/* TODO(sergey): What evaluation type we want here? */
+	DEG_evaluation_context_init(&data->eval_ctx, DAG_EVAL_RENDER);
+	data->eval_ctx.scene_layer = DEG_get_evaluated_scene_layer(depsgraph);
 
 	iter->data = data;
-	iter->valid = true;
-
-	DEG_evaluation_context_init(&data->eval_ctx, DAG_EVAL_RENDER);
-
 	data->dupli_parent = NULL;
 	data->dupli_list = NULL;
 	data->dupli_object_next = NULL;
 	data->dupli_object_current = NULL;
-	data->scene = DEG_get_evaluated_scene(graph);
+	data->scene = DEG_get_evaluated_scene(depsgraph);
+	data->id_node_index = 0;
+	data->num_id_nodes = num_id_nodes;
 
-	DEG::Depsgraph *deg_graph = reinterpret_cast<DEG::Depsgraph *>(graph);
-	BLI_ghashIterator_init(&data->gh_iter, deg_graph->id_hash);
-
-	DEG::IDDepsNode *id_node = (DEG::IDDepsNode *) BLI_ghashIterator_getValue(&data->gh_iter);
+	DEG::IDDepsNode *id_node = deg_graph->id_nodes[data->id_node_index];
 	deg_objects_iterator_step(iter, id_node);
 
-	if (iter->valid && iter->skip) {
+	if (iter->skip) {
 		DEG_objects_iterator_next(iter);
 	}
 }
@@ -283,6 +292,8 @@ void DEG_objects_iterator_begin(BLI_Iterator *iter, DEGObjectsIteratorData *data
 void DEG_objects_iterator_next(BLI_Iterator *iter)
 {
 	DEGObjectsIteratorData *data = (DEGObjectsIteratorData *)iter->data;
+	Depsgraph *depsgraph = data->graph;
+	DEG::Depsgraph *deg_graph = reinterpret_cast<DEG::Depsgraph *>(depsgraph);
 	do {
 		if (data->dupli_list) {
 			if (deg_objects_dupli_iterator_next(iter)) {
@@ -297,17 +308,15 @@ void DEG_objects_iterator_next(BLI_Iterator *iter)
 			}
 		}
 
-		BLI_ghashIterator_step(&data->gh_iter);
-		if (BLI_ghashIterator_done(&data->gh_iter)) {
-			iter->current = NULL;
+		++data->id_node_index;
+		if (data->id_node_index == data->num_id_nodes) {
 			iter->valid = false;
 			return;
 		}
 
-		DEG::IDDepsNode *id_node = (DEG::IDDepsNode *) BLI_ghashIterator_getValue(&data->gh_iter);
-
+		DEG::IDDepsNode *id_node = deg_graph->id_nodes[data->id_node_index];
 		deg_objects_iterator_step(iter, id_node);
-	} while (iter->valid && iter->skip);
+	} while (iter->skip);
 }
 
 void DEG_objects_iterator_end(BLI_Iterator *iter)
