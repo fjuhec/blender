@@ -209,7 +209,6 @@ BlenderStrokeRenderer::~BlenderStrokeRenderer()
 	}
 	FOREACH_SCENE_COLLECTION_END
 	BLI_freelistN(&scene_layer->object_bases);
-	BLI_freelistN(&freestyle_scene->base);
 
 	// release materials
 	Link *lnk = (Link *)freestyle_bmain->mat.first;
@@ -951,8 +950,6 @@ Object *BlenderStrokeRenderer::NewMesh() const
 
 	SceneCollection *sc_master = BKE_collection_master(freestyle_scene);
 	BKE_collection_object_add(freestyle_scene, sc_master, ob);
-
-	BKE_scene_base_add(freestyle_scene, ob);
 	DEG_graph_tag_relations_update(freestyle_depsgraph);
 
 	DEG_graph_id_tag_update(freestyle_bmain,
@@ -975,7 +972,8 @@ Render *BlenderStrokeRenderer::RenderScene(Render * /*re*/, bool render)
 #endif
 
 	Render *freestyle_render = RE_NewSceneRender(freestyle_scene);
-	DEG_graph_relations_update(freestyle_depsgraph, freestyle_bmain, freestyle_scene);
+	SceneLayer *scene_layer = (SceneLayer *)freestyle_scene->render_layers.first;
+	DEG_graph_relations_update(freestyle_depsgraph, freestyle_bmain, freestyle_scene, scene_layer);
 	freestyle_render->depsgraph = freestyle_depsgraph;
 
 	RE_RenderFreestyleStrokes(freestyle_render, freestyle_bmain, freestyle_scene,

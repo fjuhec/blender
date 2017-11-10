@@ -46,7 +46,7 @@ struct ExportSettings {
 	ExportSettings();
 
 	Scene *scene;
-	SceneLayer *sl;  // Scene layer to export; all its objects will be exported, unless selected_only=true
+	SceneLayer *scene_layer;  // Scene layer to export; all its objects will be exported, unless selected_only=true
 	Depsgraph *depsgraph;
 	SimpleLogger logger;
 
@@ -95,6 +95,7 @@ class AbcExporter {
 
 	EvaluationContext *m_eval_ctx;
 	Scene *m_scene;
+	SceneLayer *m_scene_layer;
 	Depsgraph *m_depsgraph;
 
 	ArchiveWriter *m_writer;
@@ -106,7 +107,8 @@ class AbcExporter {
 	std::vector<AbcObjectWriter *> m_shapes;
 
 public:
-	AbcExporter(Main *bmain, EvaluationContext *eval_ctx, Scene *scene, Depsgraph *depsgraph,
+	AbcExporter(Main *bmain, EvaluationContext *eval_ctx, Scene *scene, SceneLayer *scene_layer,
+	            Depsgraph *depsgraph,
 	            const char *filename, ExportSettings &settings);
 	~AbcExporter();
 

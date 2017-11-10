@@ -52,6 +52,7 @@
 #include "BKE_camera.h"
 #include "BKE_context.h"
 #include "BKE_font.h"
+#include "BKE_layer.h"
 #include "BKE_library.h"
 #include "BKE_object.h"
 #include "BKE_paint.h"
@@ -624,7 +625,7 @@ static bool view3d_orbit_calc_center(bContext *C, float r_dyn_ofs[3])
 
 	Scene *scene = CTX_data_scene(C);
 	SceneLayer *sl = CTX_data_scene_layer(C);
-	Object *ob_act = OBACT_NEW(sl);
+	Object *ob_act = OBACT(sl);
 
 	if (ob_act && (ob_act->mode & OB_MODE_ALL_PAINT) &&
 	    /* with weight-paint + pose-mode, fall through to using calculateTransformCenter */
@@ -666,8 +667,8 @@ static bool view3d_orbit_calc_center(bContext *C, float r_dyn_ofs[3])
 		float select_center[3];
 
 		zero_v3(select_center);
-		for (base = FIRSTBASE_NEW(sl); base; base = base->next) {
-			if (TESTBASE_NEW(base)) {
+		for (base = FIRSTBASE(sl); base; base = base->next) {
+			if (TESTBASE(base)) {
 				/* use the boundbox if we can */
 				Object *ob = base->object;
 
@@ -3014,7 +3015,7 @@ static int view3d_all_exec(bContext *C, wmOperator *op) /* was view3d_home() in 
 	}
 
 	for (base = sl->object_bases.first; base; base = base->next) {
-		if (BASE_VISIBLE_NEW(base)) {
+		if (BASE_VISIBLE(base)) {
 			changed = true;
 
 			if (skip_camera && base->object == v3d->camera) {
@@ -3079,7 +3080,7 @@ static int viewselected_exec(bContext *C, wmOperator *op)
 	const bool is_gp_edit = ((gpd) && (gpd->flag & GP_DATA_STROKE_EDITMODE));
 	const bool is_face_map = ((is_gp_edit == false) && ar->manipulator_map &&
 	                          WM_manipulatormap_is_any_selected(ar->manipulator_map));
-	Object *ob = OBACT_NEW(sl);
+	Object *ob = OBACT(sl);
 	Object *obedit = CTX_data_edit_object(C);
 	float min[3], max[3];
 	bool ok = false, ok_dist = true;
@@ -3099,7 +3100,7 @@ static int viewselected_exec(bContext *C, wmOperator *op)
 		/* this is weak code this way, we should make a generic active/selection callback interface once... */
 		Base *base;
 		for (base = sl->object_bases.first; base; base = base->next) {
-			if (TESTBASELIB_NEW(base)) {
+			if (TESTBASELIB(base)) {
 				if (base->object->type == OB_ARMATURE)
 					if (base->object->mode & OB_MODE_POSE)
 						break;
@@ -3147,8 +3148,8 @@ static int viewselected_exec(bContext *C, wmOperator *op)
 	}
 	else {
 		Base *base;
-		for (base = FIRSTBASE_NEW(sl); base; base = base->next) {
-			if (TESTBASE_NEW(base)) {
+		for (base = FIRSTBASE(sl); base; base = base->next) {
+			if (TESTBASE(base)) {
 
 				if (skip_camera && base->object == v3d->camera) {
 					continue;
@@ -3914,7 +3915,7 @@ static int viewnumpad_exec(bContext *C, wmOperator *op)
 	ARegion *ar;
 	RegionView3D *rv3d;
 	Scene *scene = CTX_data_scene(C);
-	SceneLayer *sl = CTX_data_scene_layer(C);
+	SceneLayer *scene_layer = CTX_data_scene_layer(C);
 	static int perspo = RV3D_PERSP;
 	int viewnum, nextperspo;
 	bool align_active;
@@ -3949,7 +3950,7 @@ static int viewnumpad_exec(bContext *C, wmOperator *op)
 			/* lastview -  */
 
 			if (rv3d->persp != RV3D_CAMOB) {
-				Object *ob = OBACT_NEW(sl);
+				Object *ob = OBACT(scene_layer);
 
 				if (!rv3d->smooth_timer) {
 					/* store settings of current view before allowing overwriting with camera view
@@ -3984,7 +3985,7 @@ static int viewnumpad_exec(bContext *C, wmOperator *op)
 					v3d->camera = ob;
 
 				if (v3d->camera == NULL)
-					v3d->camera = BKE_scene_camera_find(scene);
+					v3d->camera = BKE_scene_layer_camera_find(scene_layer);
 
 				/* couldnt find any useful camera, bail out */
 				if (v3d->camera == NULL)
