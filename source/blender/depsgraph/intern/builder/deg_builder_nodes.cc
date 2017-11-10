@@ -212,14 +212,16 @@ IDDepsNode *DepsgraphNodeBuilder::add_id_node(ID *id, bool do_tag)
 
 	if (is_idnode_created) {
 		if (id->override != NULL && (id->flag & LIB_AUTOOVERRIDE) != 0) {
+			printf("new idnode for overriding ID %s, adding overide_generator component...\n", id->name);
 			ComponentDepsNode *comp_node = id_node->add_component(DEG_NODE_TYPE_PARAMETERS, "override_generator");
-			comp_node->owner = id_node;
 
-			/* TDOD We most certainly do not want to run this on every deg evaluation! Especially not during animation? */
+			/* TODO We most certainly do not want to run this on every deg evaluation! Especially not during animation? */
 			/* Ideally, putting this in some kind of queue (only one entry per ID in whole queue) and consuming it in a
 			 * low-priority background thread would be ideal, but we need to ensure IDs remain valid for the thread? */
+			/* However currently, operation is essentially a NOP most of the time
+			 * (uses a delay to only actually run at most every 200ms or so). */
 			add_operation_node(comp_node, function_bind(BKE_override_operations_create, id, false),
-			                   DEG_OPCODE_OPERATION, "override_generator", 0);
+			                   DEG_OPCODE_PARAMETERS_EVAL, "override_generator", -1);
 		}
 	}
 
