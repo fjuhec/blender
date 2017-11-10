@@ -490,19 +490,19 @@ static void copy_v2float_v2int(float r[2], const int a[2])
 * \param gpd              Current gp datablock
 * \param inf              Amount of smoothing to apply
 */
-static bool gp_smooth_buffer_point(bGPdata *gpd, bGPDbrush *brush)
+static void gp_smooth_buffer_point(bGPdata *gpd, bGPDbrush *brush)
 {
 
 	tGPspoint *pt, *pta, *ptb;
-	float fpt[2], fpta[2], fptb[2], vab[2], vac[2];
+	float fpt[2], fpta[2], fptb[2], vab[2], vac[2], vba[2], vbc[2];
 	float estimated_co[2] = { 0.0f };
 	float sco[3] = { 0.0f };
 	float inf = brush->draw_stabifac;
-	const float draw_stabangle = 1.0f - brush->draw_stabangle;
+	const float draw_stabangle = cos(brush->draw_stabangle);
 	const float draw_pxdensity = brush->draw_pxdensity * brush->draw_pxdensity;
 	/* if no stabilization, return */
 	if (brush->draw_stabifac == 0) {
-		return false;
+		return;
 	}
 
 	/* the influence never can be 1. We keep the range between 0 and 1 on the UI for 
@@ -514,7 +514,7 @@ static bool gp_smooth_buffer_point(bGPdata *gpd, bGPDbrush *brush)
 
 	/* Do nothing if not enough points to smooth out */
 	if (gpd->sbuffer_size < 3) {
-		return false;
+		return;
 	}
 
 	int i = gpd->sbuffer_size - 1;
@@ -532,6 +532,18 @@ static bool gp_smooth_buffer_point(bGPdata *gpd, bGPDbrush *brush)
 	copy_v2float_v2int(fpta, &pta->x);
 	copy_v2float_v2int(fptb, &ptb->x);
 	copy_v2float_v2int(fpt, &pt->x);
+
+	/* verify the new point is not changing in oposite direction and return to avoid
+	 * that sharp corners can be cleared by smooth process 
+	 */
+	sub_v2_v2v2(vba, fpta, fptb);
+	sub_v2_v2v2(vbc, fpt, fptb);
+	normalize_v2(vba);
+	normalize_v2(vbc);
+	float angle_ba_bc = dot_v2v2(vba, vbc);
+	if (angle_ba_bc >= 0.0f) {
+		return;
+	}
 
 	float sqsize_ac = len_squared_v2v2(fpta, fpt);
 	float lambda = closest_to_line_v2(estimated_co, fpt, fpta, fptb);
@@ -562,8 +574,8 @@ static bool gp_smooth_buffer_point(bGPdata *gpd, bGPDbrush *brush)
 	normalize_v2(vac);
 
 	/* as the vectors are normalized, we can use dot product to calculate cosine */
-	float angle = dot_v2v2(vab, vac);
-	/* if the angle is minimun, means the point can be removed, so rollback one point */
+	float angle = fabs(dot_v2v2(vab, vac));
+	/* if the angle is below minimun, means the point can be removed, so rollback one point */
 	if ((angle > draw_stabangle) && (sqsize_ab < draw_pxdensity * 3.0f)) {
 		ptb->x = pt->x;
 		ptb->y = pt->y;
@@ -573,7 +585,7 @@ static bool gp_smooth_buffer_point(bGPdata *gpd, bGPDbrush *brush)
 		gpd->sbuffer_size--;
 	}
 
-	return true;
+	return;
 }
 
 

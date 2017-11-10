@@ -43,7 +43,7 @@ struct GHash;
 #define GP_DEFAULT_PIX_FACTOR 500 
 
 #define GP_MIN_STROKE_SEGMENT_PX 8.0f 
-#define GP_MIN_STROKE_SEGMENT_ANGLE 0.005f 
+#define GP_MIN_STROKE_SEGMENT_ANGLE DEG2RAD(2.0f) 
 
 /* ***************************************** */
 /* GP Point Weights */
