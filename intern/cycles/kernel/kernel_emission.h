@@ -124,15 +124,12 @@ ccl_device_noinline float3 direct_emissive_eval(KernelGlobals *kg,
 	return direct_emissive_eval_finish(kg, emission_sd, ls, state, I, shader_eval_task);
 }
 
-ccl_device_noinline bool direct_emission(KernelGlobals *kg,
+ccl_device bool direct_emission_setup(KernelGlobals *kg,
                                          ShaderData *sd,
                                          ShaderData *emission_sd,
                                          LightSample *ls,
                                          ccl_addr_space PathState *state,
-                                         Ray *ray,
-                                         BsdfEval *eval,
-                                         bool *is_lamp,
-                                         float rand_terminate)
+                                         ShaderEvalTask *eval_task)
 {
 	if(ls->pdf == 0.0f)
 		return false;
@@ -141,15 +138,23 @@ ccl_device_noinline bool direct_emission(KernelGlobals *kg,
 	differential3 dD = differential3_zero();
 
 	/* evaluate closure */
+	direct_emissive_eval_setup(kg, emission_sd, ls, state, -ls->D, dD, ls->t, sd->time, eval_task);
+	return true;
+}
 
-	float3 light_eval = direct_emissive_eval(kg,
-	                                         emission_sd,
-	                                         ls,
-	                                         state,
-	                                         -ls->D,
-	                                         dD,
-	                                         ls->t,
-	                                         sd->time);
+ccl_device bool direct_emission_finish(KernelGlobals *kg,
+                                         ShaderData *sd,
+                                         ShaderData *emission_sd,
+                                         LightSample *ls,
+                                         ccl_addr_space PathState *state,
+                                         Ray *ray,
+                                         BsdfEval *eval,
+                                         bool *is_lamp,
+                                         float rand_terminate,
+                                         ShaderEvalTask *eval_task)
+{
+	/* evaluate closure */
+	float3 light_eval = direct_emissive_eval_finish(kg, emission_sd, ls, state, -ls->D, eval_task);
 
 	if(is_zero(light_eval))
 		return false;
@@ -236,6 +241,24 @@ ccl_device_noinline bool direct_emission(KernelGlobals *kg,
 	*is_lamp = (ls->prim == PRIM_NONE && ls->type != LIGHT_BACKGROUND);
 
 	return true;
+}
+
+ccl_device_noinline bool direct_emission(KernelGlobals *kg,
+                                         ShaderData *sd,
+                                         ShaderData *emission_sd,
+                                         LightSample *ls,
+                                         ccl_addr_space PathState *state,
+                                         Ray *ray,
+                                         BsdfEval *eval,
+                                         bool *is_lamp,
+                                         float rand_terminate)
+{
+	MAKE_POINTER_TO_LOCAL_OBJ(ShaderEvalTask, shader_eval_task);
+	if(!direct_emission_setup(kg, sd, emission_sd, ls, state, shader_eval_task)) {
+		return false;
+	}
+	shader_eval(kg, emission_sd, state, shader_eval_task);
+	return direct_emission_finish(kg, sd, emission_sd, ls, state, ray, eval, is_lamp, rand_terminate, shader_eval_task);
 }
 
 /* Indirect Primitive Emission */
