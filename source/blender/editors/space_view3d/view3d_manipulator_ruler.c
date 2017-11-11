@@ -34,6 +34,7 @@
 #include "BKE_object.h"
 #include "BKE_gpencil.h"
 #include "BKE_unit.h"
+#include "BKE_paint.h"
 
 #include "DNA_object_types.h"
 #include "DNA_gpencil_types.h"
@@ -376,20 +377,19 @@ static bool view3d_ruler_to_gpencil(bContext *C, wmManipulatorGroup *mgroup)
 {
 	// RulerInfo *ruler_info = mgroup->customdata;
 	Scene *scene = CTX_data_scene(C);
+	bGPdata *gpd;
 	bGPDlayer *gpl;
 	bGPDframe *gpf;
 	bGPDstroke *gps;
-	bGPDpalette *palette;
-	bGPDpalettecolor *palcolor;
+	bGPDpaletteref *palslot;
+	Palette *palette = NULL;
+	PaletteColor *palcolor = NULL;
 	RulerItem *ruler_item;
 	const char *ruler_name = RULER_ID;
 	bool changed = false;
 
-	if (scene->gpd == NULL) {
-		scene->gpd = BKE_gpencil_data_addnew("GPencil");
-	}
-
-	gpl = BLI_findstring(&scene->gpd->layers, ruler_name, offsetof(bGPDlayer, info));
+	gpd = BKE_gpencil_data_addnew(CTX_data_main(C), "GPencil");
+	gpl = BLI_findstring(&gpd->layers, ruler_name, offsetof(bGPDlayer, info));
 	if (gpl == NULL) {
 		gpl = BKE_gpencil_layer_addnew(scene->gpd, ruler_name, false);
 		gpl->thickness = 1;
@@ -397,14 +397,14 @@ static bool view3d_ruler_to_gpencil(bContext *C, wmManipulatorGroup *mgroup)
 	}
 
 	/* try to get active palette or create a new one */
-	palette = BKE_gpencil_palette_getactive(scene->gpd);
-	if (palette == NULL) {
-		palette = BKE_gpencil_palette_addnew(scene->gpd, DATA_("GP_Palette"), true);
-	}
+	palslot = BKE_gpencil_paletteslot_validate(CTX_data_main(C), gpd);
+	palette = palslot->palette;
+	palcolor = BKE_palette_color_get_active(palette);
+
 	/* try to get color with the ruler name or create a new one */
-	palcolor = BKE_gpencil_palettecolor_getbyname(palette, (char *)ruler_name);
+	palcolor = BKE_palette_color_getbyname(palette, (char *)ruler_name);
 	if (palcolor == NULL) {
-		palcolor = BKE_gpencil_palettecolor_addnew(palette, (char *)ruler_name, true);
+		palcolor = BKE_palette_color_add_name(palette, (char *)ruler_name);
 	}
 
 	gpf = BKE_gpencil_layer_getframe(gpl, CFRA, true);
