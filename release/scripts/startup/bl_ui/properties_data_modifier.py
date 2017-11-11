@@ -1543,22 +1543,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
             layout.operator("object.correctivesmooth_bind", text="Unbind" if is_bind else "Bind")
 
     def HAIR(self, layout, ob, md):
-        hair = md.hair
-
-        col = layout.column()
-        col.label(text="Follicles:")
-        col.label(text="Count: %d" % len(hair.follicles))
-        col.operator("object.hair_follicles_generate", text="Generate")
-
-        col = layout.column()
-        col.template_list("HAIR_UL_groups", "", hair, "groups", hair, "active_group_index")
-
-        layout.separator()
-
-        group = hair.active_group
-        if group:
-            col = layout.column()
-            col.prop(group, "type")
+        pass
 
 
 classes = (
