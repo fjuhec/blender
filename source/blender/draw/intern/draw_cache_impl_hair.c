@@ -40,6 +40,8 @@
 
 #include "BKE_hair.h"
 
+#include "DEG_depsgraph.h"
+
 #include "GPU_batch.h"
 #include "GPU_extensions.h"
 #include "GPU_texture.h"
@@ -256,6 +258,10 @@ static void hair_batch_cache_ensure_fibers(HairSystem *hsys, int subdiv, HairBat
 
 static void hair_batch_cache_ensure_texbuffer(HairSystem *hsys, int subdiv, HairBatchCache *cache)
 {
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	EvaluationContext eval_ctx = {0};
+	DEG_evaluation_context_init(&eval_ctx, DAG_EVAL_VIEWPORT);
+
 	DRWHairFiberTextureBuffer *buffer = &cache->texbuffer;
 	static const int elemsize = 8;
 	const int width = GPU_max_texture_size();
@@ -273,7 +279,7 @@ static void hair_batch_cache_ensure_texbuffer(HairSystem *hsys, int subdiv, Hair
 	const int height = size / width;
 	
 	buffer->data = MEM_mallocN(b_size, "hair fiber texture buffer");
-	BKE_hair_get_texture_buffer(hsys, subdiv, buffer->data);
+	BKE_hair_get_texture_buffer(hsys, draw_ctx->scene, &eval_ctx, subdiv, buffer->data);
 	
 	buffer->width = width;
 	buffer->height = height;

@@ -39,8 +39,6 @@
 #include "BKE_paint.h"
 #include "BKE_pbvh.h"
 
-#include "DEG_depsgraph.h"
-
 #include "GPU_material.h"
 #include "GPU_texture.h"
 

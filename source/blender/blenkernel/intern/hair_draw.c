@@ -43,221 +43,6 @@
 #include "BKE_mesh_sample.h"
 #include "BKE_hair.h"
 
-#if 0
-bool BKE_hair_fiber_get_location(const HairFiber *fiber, DerivedMesh *root_dm, float loc[3])
-{
-	float nor[3], tang[3];
-	if (BKE_mesh_sample_eval(root_dm, &fiber->root, loc, nor, tang)) {
-		return true;
-	}
-	else {
-		zero_v3(loc);
-		return false;
-	}
-}
-
-bool BKE_hair_fiber_get_vectors(const HairFiber *fiber, DerivedMesh *root_dm,
-                                float loc[3], float nor[3], float tang[3])
-{
-	if (BKE_mesh_sample_eval(root_dm, &fiber->root, loc, nor, tang)) {
-		return true;
-	}
-	else {
-		zero_v3(loc);
-		zero_v3(nor);
-		zero_v3(tang);
-		return false;
-	}
-}
-
-bool BKE_hair_fiber_get_matrix(const HairFiber *fiber, DerivedMesh *root_dm, float mat[4][4])
-{
-	if (BKE_mesh_sample_eval(root_dm, &fiber->root, mat[3], mat[2], mat[0])) {
-		cross_v3_v3v3(mat[1], mat[2], mat[0]);
-		mat[0][3] = 0.0f;
-		mat[1][3] = 0.0f;
-		mat[2][3] = 0.0f;
-		mat[3][3] = 1.0f;
-		return true;
-	}
-	else {
-		unit_m4(mat);
-		return false;
-	}
-}
-
-BLI_INLINE void verify_fiber_weights(HairFiber *fiber)
-{
-	const float *w = fiber->parent_weight;
-	
-	BLI_assert(w[0] >= 0.0f && w[1] >= 0.0f && w[2] >= 0.0f && w[3] >= 0.0f);
-	float sum = w[0] + w[1] + w[2] + w[3];
-	float epsilon = 1.0e-2;
-	BLI_assert(sum > 1.0f - epsilon && sum < 1.0f + epsilon);
-	UNUSED_VARS(sum, epsilon);
-	
-	BLI_assert(w[0] >= w[1] && w[1] >= w[2] && w[2] >= w[3]);
-}
-
-static void sort_fiber_weights(HairFiber *fiber)
-{
-	unsigned int *idx = fiber->parent_index;
-	float *w = fiber->parent_weight;
-
-#define FIBERSWAP(a, b) \
-	SWAP(unsigned int, idx[a], idx[b]); \
-	SWAP(float, w[a], w[b]);
-
-	for (int k = 0; k < 3; ++k) {
-		int maxi = k;
-		float maxw = w[k];
-		for (int i = k+1; i < 4; ++i) {
-			if (w[i] > maxw) {
-				maxi = i;
-				maxw = w[i];
-			}
-		}
-		if (maxi != k)
-			FIBERSWAP(k, maxi);
-	}
-	
-#undef FIBERSWAP
-}
-
-static void strand_find_closest(HairFiber *fiber, const float loc[3],
-                                const KDTree *tree, const float (*strandloc)[3])
-{
-	/* Use the 3 closest strands for interpolation.
-	 * Note that we have up to 4 possible weights, but we
-	 * only look for a triangle with this method.
-	 */
-	KDTreeNearest nearest[3];
-	const float *sloc[3] = {NULL};
-	int k, found = BLI_kdtree_find_nearest_n(tree, loc, nearest, 3);
-	for (k = 0; k < found; ++k) {
-		fiber->parent_index[k] = nearest[k].index;
-		sloc[k] = strandloc[nearest[k].index];
-	}
-	for (; k < 4; ++k) {
-		fiber->parent_index[k] = STRAND_INDEX_NONE;
-		fiber->parent_weight[k] = 0.0f;
-	}
-	
-	/* calculate barycentric interpolation weights */
-	if (found == 3) {
-		float closest[3];
-		closest_on_tri_to_point_v3(closest, loc, sloc[0], sloc[1], sloc[2]);
-		
-		float w[3];
-		interp_weights_tri_v3(w, sloc[0], sloc[1], sloc[2], closest);
-		copy_v3_v3(fiber->parent_weight, w);
-		/* float precisions issues can cause slightly negative weights */
-		CLAMP3(fiber->parent_weight, 0.0f, 1.0f);
-	}
-	else if (found == 2) {
-		fiber->parent_weight[1] = line_point_factor_v3(loc, sloc[0], sloc[1]);
-		fiber->parent_weight[0] = 1.0f - fiber->parent_weight[1];
-		/* float precisions issues can cause slightly negative weights */
-		CLAMP2(fiber->parent_weight, 0.0f, 1.0f);
-	}
-	else if (found == 1) {
-		fiber->parent_weight[0] = 1.0f;
-	}
-	
-	sort_fiber_weights(fiber);
-}
-
-static void strand_calc_root_distance(HairFiber *fiber, const float loc[3], const float nor[3], const float tang[3],
-                                      const float (*strandloc)[3])
-{
-	if (fiber->parent_index[0] == STRAND_INDEX_NONE)
-		return;
-	
-	float cotang[3];
-	cross_v3_v3v3(cotang, nor, tang);
-	
-	const float *sloc0 = strandloc[fiber->parent_index[0]];
-	float dist[3];
-	sub_v3_v3v3(dist, loc, sloc0);
-	fiber->root_distance[0] = dot_v3v3(dist, tang);
-	fiber->root_distance[1] = dot_v3v3(dist, cotang);
-}
-
-static void strands_calc_weights(const HairDrawDataInterface *hairdata, struct DerivedMesh *scalp, HairFiber *fibers, int num_fibers)
-{
-	const int num_strands = hairdata->get_num_strands(hairdata);
-	if (num_strands == 0)
-		return;
-	
-	float (*strandloc)[3] = MEM_mallocN(sizeof(float) * 3 * num_strands, "strand locations");
-	{
-		MeshSample *roots = MEM_mallocN(sizeof(MeshSample) * num_strands, "strand roots");
-		hairdata->get_strand_roots(hairdata, roots);
-		for (int i = 0; i < num_strands; ++i) {
-			float nor[3], tang[3];
-			if (!BKE_mesh_sample_eval(scalp, &roots[i], strandloc[i], nor, tang)) {
-				zero_v3(strandloc[i]);
-			}
-		}
-		MEM_freeN(roots);
-	}
-	
-	KDTree *tree = BLI_kdtree_new(num_strands);
-	for (int c = 0; c < num_strands; ++c) {
-		BLI_kdtree_insert(tree, c, strandloc[c]);
-	}
-	BLI_kdtree_balance(tree);
-	
-	HairFiber *fiber = fibers;
-	for (int i = 0; i < num_fibers; ++i, ++fiber) {
-		float loc[3], nor[3], tang[3];
-		if (BKE_mesh_sample_eval(scalp, &fiber->root, loc, nor, tang)) {
-			
-			strand_find_closest(fiber, loc, tree, strandloc);
-			verify_fiber_weights(fiber);
-			
-			strand_calc_root_distance(fiber, loc, nor, tang, strandloc);
-		}
-	}
-	
-	BLI_kdtree_free(tree);
-	MEM_freeN(strandloc);
-}
-
-HairFiber* BKE_hair_fibers_create(const HairDrawDataInterface *hairdata,
-                                  struct DerivedMesh *scalp, unsigned int amount,
-                                  unsigned int seed)
-{
-	MeshSampleGenerator *gen = BKE_mesh_sample_gen_surface_random(scalp, seed);
-	unsigned int i;
-	
-	HairFiber *fibers = MEM_mallocN(sizeof(HairFiber) * amount, "HairFiber");
-	HairFiber *fiber;
-	
-	for (i = 0, fiber = fibers; i < amount; ++i, ++fiber) {
-		if (BKE_mesh_sample_generate(gen, &fiber->root)) {
-			int k;
-			/* influencing control strands are determined later */
-			for (k = 0; k < 4; ++k) {
-				fiber->parent_index[k] = STRAND_INDEX_NONE;
-				fiber->parent_weight[k] = 0.0f;
-			}
-		}
-		else {
-			/* clear remaining samples */
-			memset(fiber, 0, sizeof(HairFiber) * (amount - i));
-			break;
-		}
-	}
-	
-	BKE_mesh_sample_free_generator(gen);
-	
-	strands_calc_weights(hairdata, scalp, fibers, amount);
-	
-	return fibers;
-}
-#endif
-
 static int hair_get_strand_subdiv_numverts(int numstrands, int numverts, int subdiv)
 {
 	return ((numverts - numstrands) << subdiv) + numstrands;
@@ -533,33 +318,45 @@ void BKE_hair_get_texture_buffer_size(
 
 void BKE_hair_get_texture_buffer(
         const HairSystem *hsys,
+        struct Scene *scene,
+        struct EvaluationContext *eval_ctx,
         int subdiv,
         void *buffer)
 {
 	HairPattern* pattern = hsys->pattern;
-	DerivedMesh *scalp = BKE_hair_get_scalp(hsys);
+	DerivedMesh *scalp = BKE_hair_get_scalp(hsys, scene, eval_ctx);
 	const int totstrands = BKE_hair_get_num_strands(hsys);
 	const int totverts_orig = BKE_hair_get_num_strands_verts(hsys);
 	int size, strand_map_start, strand_vertex_start, fiber_start;
 	hair_get_texture_buffer_size(totstrands, totverts_orig, subdiv, pattern->num_follicles,
 	                             &size, &strand_map_start, &strand_vertex_start, &fiber_start);
 	
-	int *lengths_orig = MEM_mallocN(sizeof(int) * totstrands, "strand lengths");
-	float (*vertco_orig)[3] = MEM_mallocN(sizeof(float[3]) * totverts_orig, "strand vertex positions");
-	MeshSample *roots = MEM_mallocN(sizeof(MeshSample) * totstrands, "strand roots");
-	BKE_hair_get_strand_lengths(hsys, lengths_orig);
-	BKE_hair_get_strand_vertices(hsys, vertco_orig);
-	BKE_hair_get_strand_roots(hsys, roots);
-	
-	hair_get_strand_buffer(scalp, totstrands, totverts_orig, subdiv,
-	                       lengths_orig, vertco_orig, roots,
-	                       (HairStrandMapTextureBuffer*)((char*)buffer + strand_map_start),
-	                       (HairStrandVertexTextureBuffer*)((char*)buffer + strand_vertex_start));
-	hair_get_fiber_buffer(hsys, scalp, (HairFiberTextureBuffer*)((char*)buffer + fiber_start));
-	
-	MEM_freeN(lengths_orig);
-	MEM_freeN(vertco_orig);
-	MEM_freeN(roots);
+	if (scalp)
+	{
+		HairStrandMapTextureBuffer *strand_map = (HairStrandMapTextureBuffer*)((char*)buffer + strand_map_start);
+		HairStrandVertexTextureBuffer *strand_verts = (HairStrandVertexTextureBuffer*)((char*)buffer + strand_vertex_start);
+		HairFiberTextureBuffer *fibers = (HairFiberTextureBuffer*)((char*)buffer + fiber_start);
+
+		int *lengths_orig = MEM_mallocN(sizeof(int) * totstrands, "strand lengths");
+		float (*vertco_orig)[3] = MEM_mallocN(sizeof(float[3]) * totverts_orig, "strand vertex positions");
+		MeshSample *roots = MEM_mallocN(sizeof(MeshSample) * totstrands, "strand roots");
+		BKE_hair_get_strand_lengths(hsys, lengths_orig);
+		BKE_hair_get_strand_vertices(hsys, vertco_orig);
+		BKE_hair_get_strand_roots(hsys, roots);
+		
+		hair_get_strand_buffer(scalp, totstrands, totverts_orig, subdiv,
+		                       lengths_orig, vertco_orig, roots,
+		                       strand_map, strand_verts);
+		hair_get_fiber_buffer(hsys, scalp, fibers);
+		
+		MEM_freeN(lengths_orig);
+		MEM_freeN(vertco_orig);
+		MEM_freeN(roots);
+	}
+	else
+	{
+		memset(buffer, 0, size);
+	}
 }
 
 void (*BKE_hair_batch_cache_dirty_cb)(HairSystem* hsys, int mode) = NULL;
