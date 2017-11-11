@@ -104,17 +104,6 @@ typedef ccl_global struct SplitBranchedState {
 #  define SPLIT_DATA_VOLUME_ENTRIES
 #endif /* __VOLUME__ */
 
-typedef ccl_global struct ShaderEvalTask {
-	union {
-		struct {
-			uint sd_offset; /* offset into split_data */
-			ShaderEvalIntent intent;
-			uint max_closure;
-		};
-		float3 eval_result;
-	};
-} ShaderEvalTask;
-
 #define SPLIT_DATA_ENTRIES \
 	SPLIT_DATA_ENTRY(ccl_global float3, throughput, 1) \
 	SPLIT_DATA_ENTRY(PathRadiance, path_radiance, 1) \

@@ -1025,6 +1025,21 @@ typedef ccl_addr_space struct ShaderDataTinyStorage {
 } ShaderDataTinyStorage;
 #define AS_SHADER_DATA(shader_data_tiny_storage) ((ShaderData*)shader_data_tiny_storage)
 
+typedef ccl_addr_space struct ShaderEvalTask {
+#ifdef __cplusplus
+	ShaderEvalTask() {}; /* needed to work around default constructor being deleted */
+#endif
+	union {
+		struct {
+			ShaderEvalIntent intent;
+			uint path_flag;
+			uint max_closure;
+			uint sd_offset; /* offset into split_data when using split kernel */
+		};
+		float3 eval_result;
+	};
+} ShaderEvalTask;
+
 /* Path State */
 
 #ifdef __VOLUME__
@@ -1497,6 +1512,16 @@ typedef struct WorkTile {
 
 	ccl_global float *buffer;
 } WorkTile;
+
+/* Utility macro to get a pointer to an object that can be used locally, while avoiding
+ * address space issues of the split kernel. `name` must exist in split data entries.
+ */
+
+#ifdef __SPLIT_KERNEL__
+#  define MAKE_POINTER_TO_LOCAL_OBJ(type, name) type *name = &kernel_split_state.name[ccl_global_id(0) + ccl_global_id(1) * ccl_global_size(0)];
+#else
+#  define MAKE_POINTER_TO_LOCAL_OBJ(type, name) type _local_##name; type *name = &_local_##name;
+#endif
 
 CCL_NAMESPACE_END
 

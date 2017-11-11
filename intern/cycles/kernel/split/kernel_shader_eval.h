@@ -44,7 +44,7 @@ ccl_device void kernel_shader_eval(KernelGlobals *kg)
 		ShaderData *sd = (ShaderData*)(((ccl_global char*)&kernel_split_state) + eval_task->sd_offset);
 		ccl_global PathState *state = &kernel_split_state.path_state[ray_index];
 
-		eval_task->eval_result = shader_eval(kg, sd, state, state->flag, eval_task->intent, eval_task->max_closure);
+		shader_eval(kg, sd, state, eval_task);
 	}
 }
 
