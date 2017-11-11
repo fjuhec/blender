@@ -21,23 +21,16 @@ CCL_NAMESPACE_BEGIN
  */
 ccl_device void kernel_shader_eval(KernelGlobals *kg)
 {
-
 	int ray_index = ccl_global_id(1) * ccl_global_size(0) + ccl_global_id(0);
-	/* Sorting on cuda split is not implemented */
-#ifdef __KERNEL_CUDA__
-	int queue_index = kernel_split_params.queue_index[QUEUE_ACTIVE_AND_REGENERATED_RAYS];
-#else
-	int queue_index = kernel_split_params.queue_index[QUEUE_SHADER_SORTED_RAYS];
-#endif
+
+	int queue = kernel_split_params.shader_eval_queue;
+	int queue_index = kernel_split_params.queue_index[queue];
+
 	if(ray_index >= queue_index) {
 		return;
 	}
 	ray_index = get_ray_index(kg, ray_index,
-#ifdef __KERNEL_CUDA__
-	                          QUEUE_ACTIVE_AND_REGENERATED_RAYS,
-#else
-	                          QUEUE_SHADER_SORTED_RAYS,
-#endif
+	                          queue,
 	                          kernel_split_state.queue_data,
 	                          kernel_split_params.queue_size,
 	                          0);
@@ -46,20 +39,12 @@ ccl_device void kernel_shader_eval(KernelGlobals *kg)
 		return;
 	}
 
-	ccl_global char *ray_state = kernel_split_state.ray_state;
-	if(IS_STATE(ray_state, ray_index, RAY_ACTIVE)) {
+	if(IS_STATE(kernel_split_state.ray_state, ray_index, RAY_ACTIVE)) {
+		ShaderEvalTask *eval_task = &kernel_split_state.shader_eval_task[ray_index];
+		ShaderData *sd = (ShaderData*)(((ccl_global char*)&kernel_split_state) + eval_task->sd_offset);
 		ccl_global PathState *state = &kernel_split_state.path_state[ray_index];
 
-		shader_eval_surface(kg, kernel_split_sd(sd, ray_index), state, state->flag, kernel_data.integrator.max_closures);
-#ifdef __BRANCHED_PATH__
-		if(kernel_data.integrator.branched) {
-			shader_merge_closures(kernel_split_sd(sd, ray_index));
-		}
-		else
-#endif
-		{
-			shader_prepare_closures(kernel_split_sd(sd, ray_index), state);
-		}
+		eval_task->eval_result = shader_eval(kg, sd, state, state->flag, eval_task->intent, eval_task->max_closure);
 	}
 }
 

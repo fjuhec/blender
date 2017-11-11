@@ -20,11 +20,17 @@ CCL_NAMESPACE_BEGIN
 ccl_device void kernel_shader_sort(KernelGlobals *kg,
                                    ccl_local_param ShaderSortLocals *locals)
 {
-#ifndef __KERNEL_CUDA__
 	int tid = ccl_global_id(1) * ccl_global_size(0) + ccl_global_id(0);
+#ifdef __KERNEL_CUDA__
+	/* Sorting on cuda split is not implemented */
+	if(tid == 0) {
+		kernel_split_params.shader_eval_queue = QUEUE_ACTIVE_AND_REGENERATED_RAYS;
+	}
+#else
 	uint qsize = kernel_split_params.queue_index[QUEUE_ACTIVE_AND_REGENERATED_RAYS];
 	if(tid == 0) {
 		kernel_split_params.queue_index[QUEUE_SHADER_SORTED_RAYS] = qsize;
+		kernel_split_params.shader_eval_queue = QUEUE_SHADER_SORTED_RAYS;
 	}
 
 	uint offset = (tid/SHADER_SORT_LOCAL_SIZE)*SHADER_SORT_BLOCK_SIZE;

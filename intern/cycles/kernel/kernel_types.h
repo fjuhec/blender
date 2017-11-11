@@ -929,6 +929,12 @@ enum ShaderDataObjectFlag {
 	                   SD_OBJECT_SHADOW_CATCHER)
 };
 
+typedef enum ShaderEvalIntent {
+	SHADER_EVAL_INTENT_SURFACE,
+	SHADER_EVAL_INTENT_BACKGROUND,
+	SHADER_EVAL_INTENT_CONSTANT,
+} ShaderEvalIntent;
+
 typedef ccl_addr_space struct ShaderData {
 	/* position */
 	float3 P;
@@ -1385,7 +1391,7 @@ static_assert_align(KernelData, 16);
  */
 
 /* Queue names */
-enum QueueNumber {
+typedef enum QueueNumber {
 	/* All active rays and regenerated rays are enqueued here. */
 	QUEUE_ACTIVE_AND_REGENERATED_RAYS = 0,
 
@@ -1426,7 +1432,7 @@ enum QueueNumber {
 #endif  /* __BRANCHED_PATH__ */
 
 	NUM_QUEUES
-};
+} QueueNumber;
 
 /* We use RAY_STATE_MASK to get ray_state */
 #define RAY_STATE_MASK 0x0F

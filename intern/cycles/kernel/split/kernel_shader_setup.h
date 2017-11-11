@@ -64,6 +64,12 @@ ccl_device void kernel_shader_setup(KernelGlobals *kg,
 		                      kernel_split_sd(sd, ray_index),
 		                      &isect,
 		                      &ray);
+
+		ShaderEvalTask *eval_task = &kernel_split_state.shader_eval_task[ray_index];
+
+		eval_task->sd_offset = ((ccl_global char*)kernel_split_sd(sd, ray_index)) - ((ccl_global char*)&kernel_split_state);
+		eval_task->intent = SHADER_EVAL_INTENT_SURFACE;
+		eval_task->max_closure = kernel_data.integrator.max_closures;
 	}
 }
 

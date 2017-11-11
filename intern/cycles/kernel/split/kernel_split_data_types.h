@@ -31,6 +31,9 @@ typedef struct SplitParams {
 	int queue_size;
 	ccl_global char *use_queues_flag;
 
+	/* queue for kernel_shader_eval */
+	QueueNumber shader_eval_queue;
+
 	/* Place for storing sd->flag. AMD GPU OpenCL compiler workaround */
 	int dummy_sd_flag;
 } SplitParams;
@@ -101,6 +104,17 @@ typedef ccl_global struct SplitBranchedState {
 #  define SPLIT_DATA_VOLUME_ENTRIES
 #endif /* __VOLUME__ */
 
+typedef ccl_global struct ShaderEvalTask {
+	union {
+		struct {
+			uint sd_offset; /* offset into split_data */
+			ShaderEvalIntent intent;
+			uint max_closure;
+		};
+		float3 eval_result;
+	};
+} ShaderEvalTask;
+
 #define SPLIT_DATA_ENTRIES \
 	SPLIT_DATA_ENTRY(ccl_global float3, throughput, 1) \
 	SPLIT_DATA_ENTRY(PathRadiance, path_radiance, 1) \
@@ -110,6 +124,7 @@ typedef ccl_global struct SplitBranchedState {
 	SPLIT_DATA_ENTRY(ccl_global BsdfEval, bsdf_eval, 1) \
 	SPLIT_DATA_ENTRY(ccl_global int, is_lamp, 1) \
 	SPLIT_DATA_ENTRY(ccl_global Ray, light_ray, 1) \
+	SPLIT_DATA_ENTRY(ShaderEvalTask, shader_eval_task, 1) \
 	SPLIT_DATA_ENTRY(ccl_global int, queue_data, (NUM_QUEUES*2)) /* TODO(mai): this is too large? */ \
 	SPLIT_DATA_ENTRY(ccl_global uint, buffer_offset, 1) \
 	SPLIT_DATA_ENTRY(ShaderDataTinyStorage, sd_DL_shadow, 1) \

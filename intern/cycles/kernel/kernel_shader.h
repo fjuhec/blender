@@ -952,34 +952,75 @@ ccl_device float3 shader_holdout_eval(KernelGlobals *kg, ShaderData *sd)
 	return weight;
 }
 
+ccl_device float3 shader_eval(KernelGlobals *kg, ShaderData *sd,
+	ccl_addr_space PathState *state, int path_flag, ShaderEvalIntent intent, int max_closure)
+{
+	sd->num_closure = 0;
+	sd->num_closure_left = max_closure;
+
+	/* constant shader value */
+	if(intent == SHADER_EVAL_INTENT_CONSTANT) {
+		float3 eval;
+		eval.x = __int_as_float(kernel_tex_fetch(__shader_flag, (sd->shader & SHADER_MASK)*SHADER_SIZE + 2));
+		eval.y = __int_as_float(kernel_tex_fetch(__shader_flag, (sd->shader & SHADER_MASK)*SHADER_SIZE + 3));
+		eval.z = __int_as_float(kernel_tex_fetch(__shader_flag, (sd->shader & SHADER_MASK)*SHADER_SIZE + 4));
+		return eval;
+	}
+
+#ifdef __OSL__
+	/* OSL */
+	if(kg->osl) {
+		if(intent == SHADER_EVAL_INTENT_SURFACE) {
+			OSLShader::eval_surface(kg, sd, state, path_flag);
+		else if(sd->intent == SHADER_EVAL_INTENT_BACKGROUND) {
+			OSLShader::eval_background(kg, sd, state, path_flag);
+		}
+	}
+	else
+#endif  /* __OSL__ */
+	{
+#ifdef __SVM__
+		/* eval nodes */
+		svm_eval_nodes(kg, sd, state, SHADER_TYPE_SURFACE, path_flag);
+#else
+		/* defaults when svm not built in */
+		if(intent == SHADER_EVAL_INTENT_SURFACE) {
+			DiffuseBsdf *bsdf = (DiffuseBsdf*)bsdf_alloc(sd,
+				                                         sizeof(DiffuseBsdf),
+				                                         make_float3(0.8f, 0.8f, 0.8f));
+			bsdf->N = sd->N;
+			sd->flag |= bsdf_diffuse_setup(bsdf);
+		}
+		else if(intent == SHADER_EVAL_INTENT_BACKGROUND) {
+			return make_float3(0.8f, 0.8f, 0.8f);
+		}
+#endif
+	}
+
+	/* finalization */
+	if(intent == SHADER_EVAL_INTENT_SURFACE) {
+		if(sd->flag & SD_BSDF_NEEDS_LCG) {
+			sd->lcg_state = lcg_state_init_addrspace(state, 0xb4bc3953);
+		}
+	}
+	else if(intent == SHADER_EVAL_INTENT_BACKGROUND) {
+		if(sd->flag & SD_EMISSION) {
+			return sd->closure_emission_background;
+		}
+		else {
+			return make_float3(0.0f, 0.0f, 0.0f);
+		}
+	}
+
+	return make_float3(0.0f, 0.0f, 0.0f);
+}
+
 /* Surface Evaluation */
 
 ccl_device void shader_eval_surface(KernelGlobals *kg, ShaderData *sd,
 	ccl_addr_space PathState *state, int path_flag, int max_closure)
 {
-	sd->num_closure = 0;
-	sd->num_closure_left = max_closure;
-
-#ifdef __OSL__
-	if(kg->osl)
-		OSLShader::eval_surface(kg, sd, state, path_flag);
-	else
-#endif
-	{
-#ifdef __SVM__
-		svm_eval_nodes(kg, sd, state, SHADER_TYPE_SURFACE, path_flag);
-#else
-		DiffuseBsdf *bsdf = (DiffuseBsdf*)bsdf_alloc(sd,
-		                                             sizeof(DiffuseBsdf),
-		                                             make_float3(0.8f, 0.8f, 0.8f));
-		bsdf->N = sd->N;
-		sd->flag |= bsdf_diffuse_setup(bsdf);
-#endif
-	}
-
-	if(sd->flag & SD_BSDF_NEEDS_LCG) {
-		sd->lcg_state = lcg_state_init_addrspace(state, 0xb4bc3953);
-	}
+	shader_eval(kg, sd, state, path_flag, SHADER_EVAL_INTENT_SURFACE, max_closure);
 }
 
 /* Background Evaluation */
@@ -987,29 +1028,7 @@ ccl_device void shader_eval_surface(KernelGlobals *kg, ShaderData *sd,
 ccl_device float3 shader_eval_background(KernelGlobals *kg, ShaderData *sd,
 	ccl_addr_space PathState *state, int path_flag)
 {
-	sd->num_closure = 0;
-	sd->num_closure_left = 0;
-
-#ifdef __SVM__
-#  ifdef __OSL__
-	if(kg->osl) {
-		OSLShader::eval_background(kg, sd, state, path_flag);
-	}
-	else
-#  endif  /* __OSL__ */
-	{
-		svm_eval_nodes(kg, sd, state, SHADER_TYPE_SURFACE, path_flag);
-	}
-
-	if(sd->flag & SD_EMISSION) {
-		return sd->closure_emission_background;
-	}
-	else {
-		return make_float3(0.0f, 0.0f, 0.0f);
-	}
-#else  /* __SVM__ */
-	return make_float3(0.8f, 0.8f, 0.8f);
-#endif  /* __SVM__ */
+	return shader_eval(kg, sd, state, path_flag, SHADER_EVAL_INTENT_BACKGROUND, 0);
 }
 
 /* Volume */
