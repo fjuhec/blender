@@ -68,14 +68,14 @@ ccl_device void kernel_direct_lighting(KernelGlobals *kg,
 #  ifdef __BRANCHED_PATH__
 		if(flag && kernel_data.integrator.branched) {
 			flag = false;
-			enqueue_flag = 1;
+			enqueue_flag = 1; // XXX
 		}
 #  endif  /* __BRANCHED_PATH__ */
 
 #  ifdef __SHADOW_TRICKS__
 		if(flag && state->flag & PATH_RAY_SHADOW_CATCHER) {
 			flag = false;
-			enqueue_flag = 1;
+			enqueue_flag = 1; // XXX
 		}
 #  endif  /* __SHADOW_TRICKS__ */
 
@@ -83,7 +83,6 @@ ccl_device void kernel_direct_lighting(KernelGlobals *kg,
 			/* Sample illumination from lights to find path contribution. */
 			float light_u, light_v;
 			path_state_rng_2D(kg, state, PRNG_LIGHT_U, &light_u, &light_v);
-			float terminate = path_state_rng_light_termination(kg, state);
 
 			LightSample ls;
 			if(light_sample(kg,
@@ -91,29 +90,17 @@ ccl_device void kernel_direct_lighting(KernelGlobals *kg,
 			                sd->time,
 			                sd->P,
 			                state->bounce,
-			                &ls)) {
+			                &ls))
+			{
+				ShaderData *emission_sd = AS_SHADER_DATA(&kernel_split_state.sd_DL_shadow[ray_index]);
+				ShaderEvalTask *eval_task = &kernel_split_state.shader_eval_task[ray_index];
 
-				Ray light_ray;
-				light_ray.time = sd->time;
-
-				BsdfEval L_light;
-				bool is_lamp;
-				if(direct_emission(kg,
-				                   sd,
-				                   AS_SHADER_DATA(&kernel_split_state.sd_DL_shadow[ray_index]),
-				                   &ls,
-				                   state,
-				                   &light_ray,
-				                   &L_light,
-				                   &is_lamp,
-				                   terminate))
-				{
+				if(direct_emission_setup(kg, sd, emission_sd, &ls, state, eval_task)) {
 					/* Write intermediate data to global memory to access from
 					 * the next kernel.
 					 */
-					kernel_split_state.light_ray[ray_index] = light_ray;
-					kernel_split_state.bsdf_eval[ray_index] = L_light;
-					kernel_split_state.is_lamp[ray_index] = is_lamp;
+					kernel_split_state.light_sample[ray_index] = ls;
+
 					/* Mark ray state for next shadow kernel. */
 					enqueue_flag = 1;
 				}
@@ -131,6 +118,10 @@ ccl_device void kernel_direct_lighting(KernelGlobals *kg,
 	                        local_queue_atomics,
 	                        kernel_split_state.queue_data,
 	                        kernel_split_params.queue_index);
+
+	if(ccl_global_id(1) * ccl_global_size(0) + ccl_global_id(0) == 0) {
+		kernel_split_params.shader_eval_queue = QUEUE_SHADOW_RAY_CAST_DL_RAYS;
+	}
 #endif
 
 #ifdef __BRANCHED_PATH__

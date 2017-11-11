@@ -110,9 +110,7 @@ typedef ccl_global struct SplitBranchedState {
 	SPLIT_DATA_ENTRY(ccl_global Ray, ray, 1) \
 	SPLIT_DATA_ENTRY(ccl_global PathState, path_state, 1) \
 	SPLIT_DATA_ENTRY(ccl_global Intersection, isect, 1) \
-	SPLIT_DATA_ENTRY(ccl_global BsdfEval, bsdf_eval, 1) \
-	SPLIT_DATA_ENTRY(ccl_global int, is_lamp, 1) \
-	SPLIT_DATA_ENTRY(ccl_global Ray, light_ray, 1) \
+	SPLIT_DATA_ENTRY(ccl_global LightSample, light_sample, 1) \
 	SPLIT_DATA_ENTRY(ShaderEvalTask, shader_eval_task, 1) \
 	SPLIT_DATA_ENTRY(ccl_global int, queue_data, (NUM_QUEUES*2)) /* TODO(mai): this is too large? */ \
 	SPLIT_DATA_ENTRY(ccl_global uint, buffer_offset, 1) \
@@ -129,9 +127,6 @@ typedef ccl_global struct SplitBranchedState {
 	SPLIT_DATA_ENTRY(ccl_global Ray, ray, 1) \
 	SPLIT_DATA_ENTRY(ccl_global PathState, path_state, 1) \
 	SPLIT_DATA_ENTRY(ccl_global Intersection, isect, 1) \
-	SPLIT_DATA_ENTRY(ccl_global BsdfEval, bsdf_eval, 1) \
-	SPLIT_DATA_ENTRY(ccl_global int, is_lamp, 1) \
-	SPLIT_DATA_ENTRY(ccl_global Ray, light_ray, 1) \
 	SPLIT_DATA_ENTRY(ShaderDataTinyStorage, sd_DL_shadow, 1) \
 	SPLIT_DATA_SUBSURFACE_ENTRIES \
 	SPLIT_DATA_VOLUME_ENTRIES \

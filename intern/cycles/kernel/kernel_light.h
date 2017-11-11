@@ -16,23 +16,6 @@
 
 CCL_NAMESPACE_BEGIN
 
-/* Light Sample result */
-
-typedef struct LightSample {
-	float3 P;			/* position on light, or direction for distant light */
-	float3 Ng;			/* normal on light */
-	float3 D;			/* direction from shading point to light */
-	float t;			/* distance to light (FLT_MAX for distant light) */
-	float u, v;			/* parametric coordinate on primitive */
-	float pdf;			/* light sampling probability density function */
-	float eval_fac;		/* intensity multiplier */
-	int object;			/* object id for triangle/curve lights */
-	int prim;			/* primitive id for triangle/curve lights */
-	int shader;			/* shader id */
-	int lamp;			/* lamp id */
-	LightType type;		/* type of light */
-} LightSample;
-
 /* Area light sampling */
 
 /* Uses the following paper:
