@@ -41,6 +41,7 @@ struct HairPattern;
 struct HairSystem;
 struct DerivedMesh;
 struct EvaluationContext;
+struct MeshSample;
 struct Scene;
 
 struct HairSystem* BKE_hair_new(void);
@@ -51,13 +52,12 @@ void BKE_hair_generate_follicles(struct HairSystem* hsys, unsigned int seed);
 
 /* === Guide Strands === */
 
+void BKE_hair_guide_curves_begin(struct HairSystem *hsys, int totcurves, int totverts);
+void BKE_hair_set_guide_curve(struct HairSystem *hsys, int index, const struct MeshSample *mesh_sample, int numverts);
+void BKE_hair_set_guide_vertex(struct HairSystem *hsys, int index, int flag, const float co[3]);
+void BKE_hair_guide_curves_end(struct HairSystem *hsys);
+
 struct DerivedMesh* BKE_hair_get_scalp(const struct HairSystem *hsys, struct Scene *scene, const struct EvaluationContext *eval_ctx);
-int BKE_hair_get_num_strands(const struct HairSystem *hsys);
-int BKE_hair_get_num_strands_verts(const struct HairSystem *hsys);
-void BKE_hair_get_strand_lengths(const struct HairSystem *hsys, int *r_lengths);
-void BKE_hair_get_strand_roots(const struct HairSystem *hsys, struct MeshSample *r_roots);
-void BKE_hair_get_strand_vertices(const struct HairSystem *hsys, float (*r_positions)[3]);
-void BKE_hair_get_follicle_weights(const struct HairSystem *hsys, unsigned int (*r_parents)[4], float (*r_weights)[4]);
 
 /* === Draw Cache === */
 

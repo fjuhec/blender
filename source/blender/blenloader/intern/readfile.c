@@ -5142,6 +5142,12 @@ static void direct_link_hair(FileData *fd, HairSystem* hsys)
 	{
 		hsys->pattern->follicles = newdataadr(fd, hsys->pattern->follicles);
 	}
+	
+	hsys->curves = newdataadr(fd, hsys->curves);
+	hsys->verts = newdataadr(fd, hsys->verts);
+	
+	hsys->draw_batch_cache = NULL;
+	hsys->draw_texture_cache = NULL;
 }
 
 static void direct_link_modifiers(FileData *fd, ListBase *lb)

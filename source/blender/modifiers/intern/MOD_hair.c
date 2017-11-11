@@ -95,6 +95,17 @@ static DerivedMesh *applyModifier(ModifierData *md, const struct EvaluationConte
 	return dm;
 }
 
+static void foreachObjectLink(
+        ModifierData *md,
+        Object *ob,
+        ObjectWalkFunc walk,
+        void *userData)
+{
+	HairModifierData *hmd = (HairModifierData *) md;
+
+	walk(userData, ob, &hmd->hair_system->guide_object, IDWALK_CB_NOP);
+}
+
 ModifierTypeInfo modifierType_Hair = {
 	/* name */              "Hair",
 	/* structName */        "HairModifierData",
@@ -114,11 +125,10 @@ ModifierTypeInfo modifierType_Hair = {
 	/* requiredDataMask */  NULL,
 	/* freeData */          freeData,
 	/* isDisabled */        NULL,
-	/* updateDepgraph */    NULL,
 	/* updateDepsgraph */   NULL,
 	/* dependsOnTime */     NULL,
 	/* dependsOnNormals */	NULL,
-	/* foreachObjectLink */ NULL,
+	/* foreachObjectLink */ foreachObjectLink,
 	/* foreachIDLink */     NULL,
 	/* foreachTexLink */    NULL,
 };

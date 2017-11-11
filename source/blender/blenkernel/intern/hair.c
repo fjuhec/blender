@@ -311,6 +311,56 @@ HairFiber* BKE_hair_fibers_create(const HairDrawDataInterface *hairdata,
 
 /* ================================= */
 
+void BKE_hair_guide_curves_begin(HairSystem *hsys, int totcurves, int totverts)
+{
+	if (totcurves != hsys->totcurves)
+	{
+		hsys->curves = MEM_reallocN(hsys->curves, sizeof(HairGuideCurve) * totcurves);
+		hsys->flag |= HAIR_GUIDE_CURVES_DIRTY;
+	}
+	if (totverts != hsys->totverts)
+	{
+		hsys->verts = MEM_reallocN(hsys->curves, sizeof(HairGuideCurve) * totverts);
+		hsys->flag |= HAIR_GUIDE_VERTS_DIRTY;
+	}
+}
+
+void BKE_hair_set_guide_curve(HairSystem *hsys, int index, const MeshSample *mesh_sample, int numverts)
+{
+	BLI_assert(index <= hsys->totcurves);
+	
+	HairGuideCurve *curve = &hsys->curves[index];
+	memcpy(&curve->mesh_sample, mesh_sample, sizeof(MeshSample));
+	curve->numverts = numverts;
+	
+	hsys->flag |= HAIR_GUIDE_CURVES_DIRTY;
+}
+
+void BKE_hair_set_guide_vertex(HairSystem *hsys, int index, int flag, const float co[3])
+{
+	BLI_assert(index <= hsys->totverts);
+	
+	HairGuideVertex *vertex = &hsys->verts[index];
+	vertex->flag = flag;
+	copy_v3_v3(vertex->co, co);
+	
+	hsys->flag |= HAIR_GUIDE_VERTS_DIRTY;
+}
+
+void BKE_hair_guide_curves_end(HairSystem *hsys)
+{
+	/* Recalculate vertex offsets */
+	if (hsys->flag & HAIR_GUIDE_CURVES_DIRTY)
+	{
+		int vertstart = 0;
+		for (int i = 0; i < hsys->totcurves; ++i)
+		{
+			hsys->curves[i].vertstart = vertstart;
+			vertstart += hsys->curves[i].numverts;
+		}
+	}
+}
+
 DerivedMesh* BKE_hair_get_scalp(const HairSystem *hsys, struct Scene *scene, const struct EvaluationContext *eval_ctx)
 {
 	Object *ob = hsys->guide_object;

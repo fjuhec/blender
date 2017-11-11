@@ -53,8 +53,10 @@ typedef struct HairPattern {
 typedef struct HairGuideCurve {
 	/* Sample on the scalp mesh for the root vertex */
 	MeshSample mesh_sample;
+	/* Offset in the vertex array where the curve starts */
 	int vertstart;
-	int totvert;
+	/* Number of vertices in the curve */
+	int numverts;
 } HairGuideCurve;
 
 typedef struct HairGuideVertex {
@@ -62,22 +64,38 @@ typedef struct HairGuideVertex {
 	float co[3];
 } HairGuideVertex;
 
-typedef struct HairGuideData {
-	struct HairGuideCurve *guides;
-	struct HairGuideVertex *verts;
-	int num_guides;
-	int totvert;
-} HairGuideData;
-
 typedef struct HairSystem {
-	struct HairGuide *guide;
+	int flag;
+	int pad;
+	
+	/* Object of the curve generator */
 	struct Object *guide_object;
 	
+	/* Set of hair follicles on the scalp mesh */
 	struct HairPattern *pattern;
 	
+	/* Curves for guiding hair fibers */
+	struct HairGuideCurve *curves;
+	/* Control vertices on guide curves */
+	struct HairGuideVertex *verts;
+	/* Number of guide curves */
+	int totcurves;
+	/* Number of guide curve vertices */
+	int totverts;
+	
+	/* Data buffers for drawing */
 	void *draw_batch_cache;
+	/* Info texture for drawing */
 	void *draw_texture_cache;
 } HairSystem;
+
+typedef enum eHairSystemFlag
+{
+	/* Guide curves have been changed */
+	HAIR_GUIDE_CURVES_DIRTY = (1 << 8),
+	/* Guide curve vertices have been changed */
+	HAIR_GUIDE_VERTS_DIRTY = (1 << 9),
+} eHairSystemFlag;
 
 #ifdef __cplusplus
 }
