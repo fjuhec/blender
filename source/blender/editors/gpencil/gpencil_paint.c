@@ -499,10 +499,6 @@ static void gp_smooth_buffer_point(bGPdata *gpd, bGPDbrush *brush)
 	float inf = brush->draw_stabifac;
 	const float draw_stabangle = cos(brush->draw_stabangle);
 	const float draw_pxdensity = brush->draw_pxdensity * brush->draw_pxdensity;
-	/* if no stabilization, return */
-	if (brush->draw_stabifac == 0) {
-		return;
-	}
 
 	/* the influence never can be 1. We keep the range between 0 and 1 on the UI for 
 	 * consistency, but internally never can be 1 because then the estimated position 
