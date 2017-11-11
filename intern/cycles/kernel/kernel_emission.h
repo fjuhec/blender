@@ -17,18 +17,17 @@
 CCL_NAMESPACE_BEGIN
 
 /* Direction Emission */
-ccl_device_noinline float3 direct_emissive_eval(KernelGlobals *kg,
+ccl_device void direct_emissive_eval_setup(KernelGlobals *kg,
                                                 ShaderData *emission_sd,
                                                 LightSample *ls,
                                                 ccl_addr_space PathState *state,
                                                 float3 I,
                                                 differential3 dI,
                                                 float t,
-                                                float time)
+                                                float time,
+                                                ShaderEvalTask *eval_task)
 {
 	/* setup shading at emitter */
-	float3 eval;
-
 	int shader_flag = kernel_tex_fetch(__shader_flag, (ls->shader & SHADER_MASK)*SHADER_SIZE);
 
 #ifdef __BACKGROUND_MIS__
@@ -44,19 +43,14 @@ ccl_device_noinline float3 direct_emissive_eval(KernelGlobals *kg,
 		shader_setup_from_background(kg, emission_sd, &ray);
 
 		path_state_modify_bounce(state, true);
-		eval = shader_eval_background(kg, emission_sd, state, 0);
-		path_state_modify_bounce(state, false);
+		shader_eval_task_setup(kg, eval_task, emission_sd, SHADER_EVAL_INTENT_BACKGROUND, 0, 0);
 	}
 	else
 #endif
 	if(shader_flag & SD_HAS_CONSTANT_EMISSION)
 	{
-		eval.x = __int_as_float(kernel_tex_fetch(__shader_flag, (ls->shader & SHADER_MASK)*SHADER_SIZE + 2));
-		eval.y = __int_as_float(kernel_tex_fetch(__shader_flag, (ls->shader & SHADER_MASK)*SHADER_SIZE + 3));
-		eval.z = __int_as_float(kernel_tex_fetch(__shader_flag, (ls->shader & SHADER_MASK)*SHADER_SIZE + 4));
-		if((ls->prim != PRIM_NONE) && dot(ls->Ng, I) < 0.0f) {
-			ls->Ng = -ls->Ng;
-		}
+		emission_sd->shader = ls->shader;
+		shader_eval_task_setup(kg, eval_task, emission_sd, SHADER_EVAL_INTENT_CONSTANT, 0, 0);
 	}
 	else
 	{
@@ -70,7 +64,39 @@ ccl_device_noinline float3 direct_emissive_eval(KernelGlobals *kg,
 		/* no path flag, we're evaluating this for all closures. that's weak but
 		 * we'd have to do multiple evaluations otherwise */
 		path_state_modify_bounce(state, true);
-		shader_eval_surface(kg, emission_sd, state, 0, 0);
+		shader_eval_task_setup(kg, eval_task, emission_sd, SHADER_EVAL_INTENT_SURFACE, 0, 0);
+	}
+}
+
+/* Direction Emission */
+ccl_device float3 direct_emissive_eval_finish(KernelGlobals *kg,
+                                                ShaderData *emission_sd,
+                                                LightSample *ls,
+                                                ccl_addr_space PathState *state,
+                                                float3 I,
+                                                ShaderEvalTask *eval_task)
+{
+	/* setup shading at emitter */
+	float3 eval;
+
+	int shader_flag = kernel_tex_fetch(__shader_flag, (ls->shader & SHADER_MASK)*SHADER_SIZE);
+
+#ifdef __BACKGROUND_MIS__
+	if(ls->type == LIGHT_BACKGROUND) {
+		eval = eval_task->eval_result;
+		path_state_modify_bounce(state, false);
+	}
+	else
+#endif
+	if(shader_flag & SD_HAS_CONSTANT_EMISSION)
+	{
+		eval = eval_task->eval_result;
+		if((ls->prim != PRIM_NONE) && dot(ls->Ng, I) < 0.0f) {
+			ls->Ng = -ls->Ng;
+		}
+	}
+	else
+	{
 		path_state_modify_bounce(state, false);
 
 		/* evaluate emissive closure */
@@ -80,6 +106,22 @@ ccl_device_noinline float3 direct_emissive_eval(KernelGlobals *kg,
 	eval *= ls->eval_fac;
 
 	return eval;
+}
+
+/* Direction Emission */
+ccl_device_noinline float3 direct_emissive_eval(KernelGlobals *kg,
+                                                ShaderData *emission_sd,
+                                                LightSample *ls,
+                                                ccl_addr_space PathState *state,
+                                                float3 I,
+                                                differential3 dI,
+                                                float t,
+                                                float time)
+{
+	MAKE_POINTER_TO_LOCAL_OBJ(ShaderEvalTask, shader_eval_task);
+	direct_emissive_eval_setup(kg, emission_sd, ls, state, I, dI, t, time, shader_eval_task);
+	shader_eval(kg, emission_sd, state, shader_eval_task);
+	return direct_emissive_eval_finish(kg, emission_sd, ls, state, I, shader_eval_task);
 }
 
 ccl_device_noinline bool direct_emission(KernelGlobals *kg,
