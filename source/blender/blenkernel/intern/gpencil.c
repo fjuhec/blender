@@ -541,6 +541,8 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->draw_stabifac = 1.0f;
 	brush->draw_pxdensity = GP_MIN_STROKE_SEGMENT_PX;
 	brush->draw_stabangle = GP_MIN_STROKE_SEGMENT_ANGLE;
+	brush->draw_thicknesfac = GP_DEFAULT_SMOOTH_THICKNESS;
+	brush->draw_strengthfac = GP_DEFAULT_SMOOTH_STRENGTH;
 
 	/* Pencil brush */
 	brush = BKE_gpencil_brush_addnew(ts, "Pencil", true);
@@ -571,6 +573,8 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->draw_stabifac = 1.0f;
 	brush->draw_pxdensity = GP_MIN_STROKE_SEGMENT_PX;
 	brush->draw_stabangle = GP_MIN_STROKE_SEGMENT_ANGLE;
+	brush->draw_thicknesfac = GP_DEFAULT_SMOOTH_THICKNESS;
+	brush->draw_strengthfac = GP_DEFAULT_SMOOTH_STRENGTH;
 
 	/* Ink brush */
 	brush = BKE_gpencil_brush_addnew(ts, "Ink", false);
@@ -601,6 +605,8 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->draw_stabifac = 1.0f;
 	brush->draw_pxdensity = GP_MIN_STROKE_SEGMENT_PX;
 	brush->draw_stabangle = GP_MIN_STROKE_SEGMENT_ANGLE;
+	brush->draw_thicknesfac = GP_DEFAULT_SMOOTH_THICKNESS;
+	brush->draw_strengthfac = GP_DEFAULT_SMOOTH_STRENGTH;
 
 	/* Ink Noise brush */
 	brush = BKE_gpencil_brush_addnew(ts, "Ink noise", false);
@@ -631,6 +637,8 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->draw_stabifac = 1.0f;
 	brush->draw_pxdensity = GP_MIN_STROKE_SEGMENT_PX;
 	brush->draw_stabangle = GP_MIN_STROKE_SEGMENT_ANGLE;
+	brush->draw_thicknesfac = GP_DEFAULT_SMOOTH_THICKNESS;
+	brush->draw_strengthfac = GP_DEFAULT_SMOOTH_STRENGTH;
 
 	/* Marker brush */
 	brush = BKE_gpencil_brush_addnew(ts, "Marker", false);
@@ -661,6 +669,8 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->draw_stabifac = 1.0f;
 	brush->draw_pxdensity = GP_MIN_STROKE_SEGMENT_PX;
 	brush->draw_stabangle = GP_MIN_STROKE_SEGMENT_ANGLE;
+	brush->draw_thicknesfac = GP_DEFAULT_SMOOTH_THICKNESS;
+	brush->draw_strengthfac = GP_DEFAULT_SMOOTH_STRENGTH;
 
 	/* Crayon brush */
 	brush = BKE_gpencil_brush_addnew(ts, "Crayon", false);
@@ -691,6 +701,8 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->draw_stabifac = 1.0f;
 	brush->draw_pxdensity = GP_MIN_STROKE_SEGMENT_PX;
 	brush->draw_stabangle = GP_MIN_STROKE_SEGMENT_ANGLE;
+	brush->draw_thicknesfac = GP_DEFAULT_SMOOTH_THICKNESS;
+	brush->draw_strengthfac = GP_DEFAULT_SMOOTH_STRENGTH;
 }
 
 /* add a new gp-brush and make it the active */
@@ -722,6 +734,8 @@ bGPDbrush *BKE_gpencil_brush_addnew(ToolSettings *ts, const char *name, bool set
 	brush->draw_stabifac = 1.0f;
 	brush->draw_pxdensity = GP_MIN_STROKE_SEGMENT_PX;
 	brush->draw_stabangle = GP_MIN_STROKE_SEGMENT_ANGLE;
+	brush->draw_thicknesfac = GP_DEFAULT_SMOOTH_THICKNESS;
+	brush->draw_strengthfac = GP_DEFAULT_SMOOTH_STRENGTH;
 
 	/* curves */
 	brush->cur_sensitivity = curvemapping_add(1, 0.0f, 0.0f, 1.0f, 1.0f);

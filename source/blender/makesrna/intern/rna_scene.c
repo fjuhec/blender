@@ -2349,6 +2349,25 @@ static void rna_def_gpencil_brush(BlenderRNA *brna)
 		"Factor to determine below what noise the point must not be used to define stroke shape");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, NULL);
 
+	/* Smooth factor for thickness while drawing */
+	prop = RNA_def_property(srna, "pen_smooth_thickness_factor", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_sdna(prop, NULL, "draw_thicknesfac");
+	RNA_def_property_range(prop, 0.0, 1.0f);
+	RNA_def_property_float_default(prop, 0.5f);
+	RNA_def_property_ui_text(prop, "Thickness",
+		"Amount of smoothing while drawing for thickness");
+	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, NULL);
+
+	/* Smooth factor for strength while drawing */
+	prop = RNA_def_property(srna, "pen_smooth_strength_factor", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_sdna(prop, NULL, "draw_strengthfac");
+	RNA_def_property_range(prop, 0.0, 1.0f);
+	RNA_def_property_float_default(prop, 0.5f);
+	RNA_def_property_ui_text(prop, "Strength",
+		"Amount of smoothing while drawing for strength");
+	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, NULL);
+
+
 	/* Subdivision level for new strokes */
 	prop = RNA_def_property(srna, "pen_subdivision_steps", PROP_INT, PROP_NONE);
 	RNA_def_property_int_sdna(prop, NULL, "sublevel");

@@ -488,13 +488,12 @@ static void copy_v2float_v2int(float r[2], const int a[2])
 * reduces the stroke changes when apply the post stroke smooth.
 *
 * \param gpd              Current gp datablock
-* \param inf              Amount of smoothing to apply
+* \param brush            Current brush
 */
 static void gp_smooth_buffer_point(bGPdata *gpd, bGPDbrush *brush)
 {
-
-	tGPspoint *pt, *pta, *ptb;
-	float fpt[2], fpta[2], fptb[2], vab[2], vac[2], vba[2], vbc[2];
+	tGPspoint *ptc, *pta, *ptb;
+	float fptc[2], fpta[2], fptb[2], vab[2], vac[2], vba[2], vbc[2];
 	float estimated_co[2] = { 0.0f };
 	float sco[3] = { 0.0f };
 	float inf = brush->draw_stabifac;
@@ -524,20 +523,20 @@ static void gp_smooth_buffer_point(bGPdata *gpd, bGPDbrush *brush)
 	ptb = (tGPspoint *)gpd->sbuffer + i - 1;
 
 	/* current point */
-	pt = (tGPspoint *)gpd->sbuffer + i;
+	ptc = (tGPspoint *)gpd->sbuffer + i;
 
 	/* compute estimated position projecting over last two points vector the
 	 * vector to new point.
 	 */
 	copy_v2float_v2int(fpta, &pta->x);
 	copy_v2float_v2int(fptb, &ptb->x);
-	copy_v2float_v2int(fpt, &pt->x);
+	copy_v2float_v2int(fptc, &ptc->x);
 
 	/* verify the new point is not changing in oposite direction and return to avoid
 	 * that sharp corners can be cleared by smooth process 
 	 */
 	sub_v2_v2v2(vba, fpta, fptb);
-	sub_v2_v2v2(vbc, fpt, fptb);
+	sub_v2_v2v2(vbc, fptc, fptb);
 	normalize_v2(vba);
 	normalize_v2(vbc);
 	float angle_ba_bc = dot_v2v2(vba, vbc);
@@ -545,13 +544,13 @@ static void gp_smooth_buffer_point(bGPdata *gpd, bGPDbrush *brush)
 		return;
 	}
 
-	float sqsize_ac = len_squared_v2v2(fpta, fpt);
-	float lambda = closest_to_line_v2(estimated_co, fpt, fpta, fptb);
+	float sqsize_ac = len_squared_v2v2(fpta, fptc);
+	float lambda = closest_to_line_v2(estimated_co, fptc, fpta, fptb);
 	/* need a minimum space between points to apply */
 	if ((lambda > 0.0f) && (sqsize_ac > draw_pxdensity)) {
 		/* blend between original and optimal smoothed coordinate */
-		interp_v2_v2v2(fpt, fpt, estimated_co, inf);
-		copy_v2int_v2float(&pt->x, fpt);
+		interp_v2_v2v2(fptc, fptc, estimated_co, inf);
+		copy_v2int_v2float(&ptc->x, fptc);
 	}
 
 	/* smooth point-1 (previous) using an average of 20%-50%-30% between point-2, 
@@ -560,7 +559,7 @@ static void gp_smooth_buffer_point(bGPdata *gpd, bGPDbrush *brush)
 	 */
 	madd_v2_v2fl(sco, fpta, 0.20f);
 	madd_v2_v2fl(sco, fptb, 0.50f);
-	madd_v2_v2fl(sco, fpt, 0.30f);
+	madd_v2_v2fl(sco, fptc, 0.30f);
 	interp_v2_v2v2(fptb, fptb, sco, inf);
 	copy_v2int_v2float(&ptb->x, fptb);
 
@@ -568,7 +567,7 @@ static void gp_smooth_buffer_point(bGPdata *gpd, bGPDbrush *brush)
 	 * to verify if the angle is too small and can be noise 
 	 */
 	sub_v2_v2v2(vab, fptb, fpta);
-	sub_v2_v2v2(vac, fpt, fpta);
+	sub_v2_v2v2(vac, fptc, fpta);
 	float sqsize_ab = len_squared_v2v2(fptb, fpta);
 	normalize_v2(vab);
 	normalize_v2(vac);
@@ -577,23 +576,61 @@ static void gp_smooth_buffer_point(bGPdata *gpd, bGPDbrush *brush)
 	float angle = fabs(dot_v2v2(vab, vac));
 	/* if the angle is below minimun, means the point can be removed, so rollback one point */
 	if ((angle > draw_stabangle) && (sqsize_ab < draw_pxdensity * 3.0f)) {
-		ptb->x = pt->x;
-		ptb->y = pt->y;
-		ptb->pressure = pt->pressure;
-		ptb->strength = pt->strength;
-		ptb->time = pt->time;
+		ptb->x = ptc->x;
+		ptb->y = ptc->y;
+		ptb->pressure = ptc->pressure;
+		ptb->strength = ptc->strength;
+		ptb->time = ptc->time;
 		gpd->sbuffer_size--;
 	}
-
-	/* smooth the thickness 20%-60%-20% */
-	float press = pta->pressure * 0.20f;
-	press += ptb->pressure * 0.60f;
-	press += pt->pressure * 0.20f;
-	ptb->pressure = interpf(ptb->pressure, press, 0.5f);
 
 	return;
 }
 
+/**
+* Apply smooth while drawing for thickness and strength (alpha)
+*
+* \param gpd              Current gp datablock
+* \param brush            Current brush
+*/
+static void gp_smooth_buffer_thickness(bGPdata *gpd, bGPDbrush *brush)
+{
+	tGPspoint *ptc, *pta, *ptb;
+	float fptc[2], fpta[2], fptb[2];
+
+	/* Do nothing if not enough points to smooth out */
+	if (gpd->sbuffer_size < 3) {
+		return;
+	}
+
+	int i = gpd->sbuffer_size - 1;
+
+	/* points used as reference */
+	pta = (tGPspoint *)gpd->sbuffer + i - 2;
+	ptb = (tGPspoint *)gpd->sbuffer + i - 1;
+
+	/* current point */
+	ptc = (tGPspoint *)gpd->sbuffer + i;
+
+	/* compute estimated thickness and strength	*/
+	copy_v2float_v2int(fpta, &pta->x);
+	copy_v2float_v2int(fptb, &ptb->x);
+	copy_v2float_v2int(fptc, &ptc->x);
+
+	float sqsize_ab = len_squared_v2v2(fpta, fptb);
+	float sqsize_bc = len_squared_v2v2(fptb, fptc);
+	float factor = sqsize_ab / (sqsize_ab + sqsize_bc);
+
+	/* estimate values in the point B using points A and C interpolation */
+	float optimal_pressure = interpf(pta->pressure, ptc->pressure, factor);
+	float optimal_strength = interpf(pta->strength, ptc->strength, factor);
+
+	/* blend between original and optimal to smooth */
+	ptb->pressure = interpf(ptb->pressure, optimal_pressure, brush->draw_thicknesfac);
+	ptb->strength = interpf(ptb->strength, optimal_strength, brush->draw_strengthfac);
+
+	return;
+}
 
 /* add current stroke-point to buffer (returns whether point was successfully added) */
 static short gp_stroke_addpoint(
@@ -714,8 +751,9 @@ static short gp_stroke_addpoint(
 		/* increment counters */
 		gpd->sbuffer_size++;
 
-		/* apply dynamic smooth to point */
+		/* apply dynamic smooths to point */
 		gp_smooth_buffer_point(gpd, brush);
+		gp_smooth_buffer_thickness(gpd, brush);
 
 		/* check if another operation can still occur */
 		if (gpd->sbuffer_size == GP_STROKE_BUFFER_MAX)
