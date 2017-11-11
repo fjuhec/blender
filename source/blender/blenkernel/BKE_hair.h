@@ -48,8 +48,6 @@ struct HairSystem* BKE_hair_new(void);
 struct HairSystem* BKE_hair_copy(struct HairSystem *hsys);
 void BKE_hair_free(struct HairSystem *hsys);
 
-void BKE_hair_generate_follicles(struct HairSystem* hsys, unsigned int seed);
-
 /* === Guide Strands === */
 
 void BKE_hair_guide_curves_begin(struct HairSystem *hsys, int totcurves, int totverts);
@@ -58,6 +56,12 @@ void BKE_hair_set_guide_vertex(struct HairSystem *hsys, int index, int flag, con
 void BKE_hair_guide_curves_end(struct HairSystem *hsys);
 
 struct DerivedMesh* BKE_hair_get_scalp(const struct HairSystem *hsys, struct Scene *scene, const struct EvaluationContext *eval_ctx);
+
+/* === Follicles === */
+
+void BKE_hair_generate_follicles(struct HairSystem* hsys, unsigned int seed);
+
+void BKE_hair_bind_follicles(struct HairSystem *hsys, struct Scene *scene);
 
 /* === Draw Cache === */
 

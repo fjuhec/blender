@@ -41,6 +41,10 @@ extern "C" {
 typedef struct HairFollicle {
 	/* Sample on the scalp mesh for the root vertex */
 	MeshSample mesh_sample;
+	/* Parent curve indices for shape interpolation */
+	unsigned int parent_index[4];
+	/* Parent curve weights for shape interpolation */
+	float parent_weight[4];
 } HairFollicle;
 
 /* Collection of hair roots on a surface */
@@ -85,7 +89,7 @@ typedef struct HairSystem {
 	
 	/* Data buffers for drawing */
 	void *draw_batch_cache;
-	/* Info texture for drawing */
+	/* Texture buffer for drawing */
 	void *draw_texture_cache;
 } HairSystem;
 

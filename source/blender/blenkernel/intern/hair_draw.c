@@ -70,17 +70,13 @@ int* BKE_hair_get_fiber_lengths(const HairSystem *hsys, int subdiv)
 	}
 	
 	// Calculate the length of the fiber from the weighted average of its guide strands
-	unsigned int (*parent_indices)[4] = MEM_mallocN(sizeof(unsigned int) * 4 * totfibers, "parent index");
-	float (*parent_weights)[4] = MEM_mallocN(sizeof(float) * 4 * totfibers, "parent weight");
-	BKE_hair_get_follicle_weights(hsys, parent_indices, parent_weights);
-	for (int i = 0; i < totfibers; ++i) {
+	HairFollicle *follicle = hsys->pattern->follicles;
+	for (int i = 0; i < totfibers; ++i, ++follicle) {
 		float fiblen = 0.0f;
-		const unsigned int *parent_index = parent_indices[i];
-		const float *parent_weight = parent_weights[i];
 		
 		for (int k = 0; k < 4; ++k) {
-			int si = parent_index[k];
-			float sw = parent_weight[k];
+			int si = follicle->parent_index[k];
+			float sw = follicle->parent_weight[k];
 			if (si == HAIR_STRAND_INDEX_NONE || sw == 0.0f) {
 				break;
 			}
@@ -92,8 +88,6 @@ int* BKE_hair_get_fiber_lengths(const HairSystem *hsys, int subdiv)
 		// use rounded number of segments
 		fiber_length[i] = (int)(fiblen + 0.5f);
 	}
-	MEM_freeN(parent_indices);
-	MEM_freeN(parent_weights);
 	
 	MEM_freeN(lengths);
 	
@@ -268,12 +262,15 @@ static void hair_get_fiber_buffer(const HairSystem* hsys, DerivedMesh *scalp,
 	const int totfibers = hsys->pattern->num_follicles;
 	HairFiberTextureBuffer *fb = fiber_buf;
 	
-	BKE_hair_get_follicle_weights(hsys, &fb->parent_index, &fb->parent_weight);
-	
-	HairFollicle *foll = hsys->pattern->follicles;
+	HairFollicle *follicle = hsys->pattern->follicles;
 	float nor[3], tang[3];
-	for (int i = 0; i < totfibers; ++i, ++fb, ++foll) {
-		BKE_mesh_sample_eval(scalp, &foll->mesh_sample, fb->root_position, nor, tang);
+	for (int i = 0; i < totfibers; ++i, ++fb, ++follicle) {
+		BKE_mesh_sample_eval(scalp, &follicle->mesh_sample, fb->root_position, nor, tang);
+		for (int k = 0; k < 4; ++k)
+		{
+			fb->parent_index[k] = follicle->parent_index[k];
+			fb->parent_weight[k] = follicle->parent_weight[k];
+		}
 	}
 }
 
