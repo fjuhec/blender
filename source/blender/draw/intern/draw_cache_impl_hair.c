@@ -180,7 +180,7 @@ static void hair_batch_cache_ensure_fibers(HairSystem *hsys, int subdiv, HairBat
 	GWN_VERTBUF_DISCARD_SAFE(cache->verts);
 	GWN_INDEXBUF_DISCARD_SAFE(cache->segments);
 	
-	const int totfibers = hsys->pattern->num_follicles;
+	const int totfibers = hsys->pattern ? hsys->pattern->num_follicles : 0;
 	int *fiber_lengths = BKE_hair_get_fiber_lengths(hsys, subdiv);
 	int totpoint = 0;
 	for (int i = 0; i < totfibers; ++i) {
@@ -249,7 +249,10 @@ static void hair_batch_cache_ensure_fibers(HairSystem *hsys, int subdiv, HairBat
 	fflush(stdout);
 	TIMEIT_END(data_fill);
 	
-	MEM_freeN(fiber_lengths);
+	if (fiber_lengths)
+	{
+		MEM_freeN(fiber_lengths);
+	}
 	
 	TIMEIT_BENCH(cache->segments = GWN_indexbuf_build(&elb), indexbuf_build);
 

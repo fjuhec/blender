@@ -300,7 +300,7 @@ void BKE_hair_bind_follicles(HairSystem *hsys, struct Scene *scene)
 {
 	HairPattern *pattern = hsys->pattern;
 	const int num_strands = hsys->totcurves;
-	if (num_strands == 0)
+	if (num_strands == 0 || !pattern)
 		return;
 	
 	EvaluationContext eval_ctx = {0};
