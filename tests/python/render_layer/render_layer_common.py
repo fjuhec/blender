@@ -25,7 +25,7 @@ def get_layer_collection(layer_collection):
 
     data['is_visible'] = (flag & (1 << 0)) != 0
     data['is_selectable'] = (flag & (1 << 1)) != 0
-    data['is_folded'] = True
+    data['is_disabled'] = (flag & (1 << 2)) != 0
 
     scene_collection = layer_collection.get_pointer(b'scene_collection')
     if scene_collection is None:
@@ -159,6 +159,7 @@ def dump(data):
 
 PDB = False
 DUMP_DIFF = True
+UPDATE_DIFF = False # HACK used to update tests when something change
 
 
 def compare_files(file_a, file_b):
@@ -171,6 +172,11 @@ def compare_files(file_a, file_b):
         if DUMP_DIFF:
             import subprocess
             subprocess.call(["diff", "-u", file_a, file_b])
+
+        if UPDATE_DIFF:
+            import subprocess
+            subprocess.call(["cp", "-u", file_a, file_b])
+
 
         if PDB:
             import pdb
