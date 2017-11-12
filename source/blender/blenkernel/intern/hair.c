@@ -70,11 +70,16 @@ HairSystem* BKE_hair_copy(HairSystem *hsys)
 		nhsys->pattern->follicles = MEM_dupallocN(hsys->pattern->follicles);
 	}
 	
+	nhsys->draw_batch_cache = NULL;
+	nhsys->draw_texture_cache = NULL;
+	
 	return nhsys;
 }
 
 void BKE_hair_free(HairSystem *hsys)
 {
+	BKE_hair_batch_cache_free(hsys);
+	
 	if (hsys->pattern)
 	{
 		if (hsys->pattern->follicles)
