@@ -637,7 +637,7 @@ static int view3d_ima_bg_drop_poll(bContext *C, wmDrag *drag, const wmEvent *eve
 
 static int view3d_ima_empty_drop_poll(bContext *C, wmDrag *drag, const wmEvent *event)
 {
-	BaseLegacy *base = ED_view3d_give_base_under_cursor(C, event->mval);
+	Base *base = ED_view3d_give_base_under_cursor(C, event->mval);
 
 	/* either holding and ctrl and no object, or dropping to empty */
 	if (((base == NULL) && event->ctrl) ||
@@ -651,7 +651,7 @@ static int view3d_ima_empty_drop_poll(bContext *C, wmDrag *drag, const wmEvent *
 
 static int view3d_ima_mesh_drop_poll(bContext *C, wmDrag *drag, const wmEvent *event)
 {
-	BaseLegacy *base = ED_view3d_give_base_under_cursor(C, event->mval);
+	Base *base = ED_view3d_give_base_under_cursor(C, event->mval);
 
 	if (base && base->object->type == OB_MESH)
 		return view3d_ima_drop_poll(C, drag, event);
@@ -724,6 +724,9 @@ static void view3d_widgets(void)
 	WM_manipulatorgrouptype_append_and_link(mmap_type, VIEW3D_WGT_armature_spline);
 
 	WM_manipulatorgrouptype_append(VIEW3D_WGT_xform_cage);
+
+	WM_manipulatorgrouptype_append(VIEW3D_WGT_ruler);
+	WM_manipulatortype_append(VIEW3D_WT_ruler_item);
 }
 
 

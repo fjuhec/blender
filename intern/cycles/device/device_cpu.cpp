@@ -712,11 +712,9 @@ public:
 		}
 	}
 
-	void denoise(DeviceTask &task, RenderTile &tile)
+	void denoise(DeviceTask &task, DenoisingTask& denoising, RenderTile &tile)
 	{
 		tile.sample = tile.start_sample + tile.num_samples;
-
-		DenoisingTask denoising(this);
 
 		denoising.functions.construct_transform = function_bind(&CPUDevice::denoising_construct_transform, this, &denoising);
 		denoising.functions.reconstruct = function_bind(&CPUDevice::denoising_reconstruct, this, _1, _2, _3, &denoising);
@@ -760,7 +758,6 @@ public:
 		CPUSplitKernel *split_kernel = NULL;
 		if(use_split_kernel) {
 			split_kernel = new CPUSplitKernel(this);
-			requested_features.max_closure = MAX_CLOSURE;
 			if(!split_kernel->load_kernels(requested_features)) {
 				thread_kernel_globals_free((KernelGlobals*)kgbuffer.device_pointer);
 				kgbuffer.free();
@@ -770,6 +767,8 @@ public:
 		}
 
 		RenderTile tile;
+		DenoisingTask denoising(this);
+
 		while(task.acquire_tile(this, tile)) {
 			if(tile.task == RenderTile::PATH_TRACE) {
 				if(use_split_kernel) {
@@ -781,7 +780,7 @@ public:
 				}
 			}
 			else if(tile.task == RenderTile::DENOISE) {
-				denoise(task, tile);
+				denoise(task, denoising, tile);
 			}
 
 			task.release_tile(tile);

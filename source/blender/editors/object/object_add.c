@@ -925,7 +925,7 @@ static int empty_drop_named_image_invoke(bContext *C, wmOperator *op, const wmEv
 {
 	Scene *scene = CTX_data_scene(C);
 
-	BaseLegacy *base = NULL;
+	Base *base = NULL;
 	Image *ima = NULL;
 	Object *ob = NULL;
 
@@ -1204,7 +1204,7 @@ static void object_delete_check_glsl_update(Object *ob)
 
 /* remove base from a specific scene */
 /* note: now unlinks constraints as well */
-void ED_base_object_free_and_unlink(Main *bmain, Scene *scene, Object *ob)
+void ED_object_base_free_and_unlink(Main *bmain, Scene *scene, Object *ob)
 {
 	if (BKE_library_ID_is_indirectly_used(bmain, ob) &&
 	    ID_REAL_USERS(ob) <= 1 && ID_EXTRA_USERS(ob) == 0)
@@ -1272,7 +1272,7 @@ static int object_delete_exec(bContext *C, wmOperator *op)
 		}
 
 		/* remove from current scene only */
-		ED_base_object_free_and_unlink(bmain, scene, ob);
+		ED_object_base_free_and_unlink(bmain, scene, ob);
 		changed = true;
 
 		if (use_global) {
@@ -1285,7 +1285,7 @@ static int object_delete_exec(bContext *C, wmOperator *op)
 						            ob->id.name + 2, scene_iter->id.name + 2);
 						break;
 					}
-					ED_base_object_free_and_unlink(bmain, scene_iter, ob);
+					ED_object_base_free_and_unlink(bmain, scene_iter, ob);
 				}
 			}
 		}
@@ -1765,7 +1765,7 @@ static int convert_exec(bContext *C, wmOperator *op)
 		Depsgraph *depsgraph = BKE_scene_get_depsgraph(scene, sl, true);
 		uint64_t customdata_mask_prev = scene->customdata_mask;
 		scene->customdata_mask |= CD_MASK_MESH;
-		BKE_scene_graph_update_tagged(bmain->eval_ctx, depsgraph, bmain, scene);
+		BKE_scene_graph_update_tagged(bmain->eval_ctx, depsgraph, bmain, scene, sl);
 		scene->customdata_mask = customdata_mask_prev;
 	}
 
@@ -2013,7 +2013,7 @@ static int convert_exec(bContext *C, wmOperator *op)
 						if (BKE_mball_is_basis(ob_mball) ||
 						    ((ob_basis = BKE_mball_basis_find(scene, ob_mball)) && (ob_basis->flag & OB_DONE)))
 						{
-							ED_base_object_free_and_unlink(bmain, scene, ob_mball);
+							ED_object_base_free_and_unlink(bmain, scene, ob_mball);
 						}
 					}
 				}
@@ -2031,11 +2031,11 @@ static int convert_exec(bContext *C, wmOperator *op)
 	if (basact) {
 		/* active base was changed */
 		ED_object_base_activate(C, basact);
-		BASACT_NEW(sl) = basact;
+		BASACT(sl) = basact;
 	}
-	else if (BASACT_NEW(sl)->object->flag & OB_DONE) {
-		WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, BASACT_NEW(sl)->object);
-		WM_event_add_notifier(C, NC_OBJECT | ND_DATA, BASACT_NEW(sl)->object);
+	else if (BASACT(sl)->object->flag & OB_DONE) {
+		WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, BASACT(sl)->object);
+		WM_event_add_notifier(C, NC_OBJECT | ND_DATA, BASACT(sl)->object);
 	}
 
 	DEG_relations_tag_update(bmain);
@@ -2373,7 +2373,7 @@ static int duplicate_exec(bContext *C, wmOperator *op)
 		}
 
 		/* new object becomes active */
-		if (BASACT_NEW(sl) == base)
+		if (BASACT(sl) == base)
 			ED_object_base_activate(C, basen);
 
 		if (basen->object->data) {

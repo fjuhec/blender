@@ -272,7 +272,7 @@ void BKE_scene_copy_data(Main *bmain, Scene *sce_dst, const Scene *sce_src, cons
 		/* Now we handle the syncing for visibility, selectability, ... */
 		layer_collections_sync_flags(&sl_dst->layer_collections, &sl_src->layer_collections);
 
-		Object *active_ob = OBACT_NEW(sl_src);
+		Object *active_ob = OBACT(sl_src);
 		for (Base *base_src = sl_src->object_bases.first, *base_dst = sl_dst->object_bases.first;
 		     base_src;
 		     base_src = base_src->next, base_dst = base_dst->next)
@@ -579,7 +579,6 @@ void BKE_scene_free_ex(Scene *sce, const bool do_id_user)
 	/* check all sequences */
 	BKE_sequencer_clear_scene_in_allseqs(G.main, sce);
 
-	sce->basact = NULL;
 	BKE_sequencer_editing_free(sce);
 
 	BKE_keyingsets_free(&sce->keyingsets);
@@ -1154,7 +1153,7 @@ Scene *BKE_scene_set_name(Main *bmain, const char *name)
 /* Used by metaballs, return *all* objects (including duplis) existing in the scene (including scene's sets) */
 int BKE_scene_base_iter_next(
         const EvaluationContext *eval_ctx, SceneBaseIter *iter,
-        Scene **scene, int val, BaseLegacy **base, Object **ob)
+        Scene **scene, int val, Base **base, Object **ob)
 {
 	bool run_again = true;
 	
@@ -1537,13 +1536,19 @@ static void prepare_mesh_for_viewport_render(Main *bmain, Scene *scene)
 void BKE_scene_graph_update_tagged(EvaluationContext *eval_ctx,
                                    Depsgraph *depsgraph,
                                    Main *bmain,
-                                   Scene *scene)
+                                   Scene *scene,
+                                   SceneLayer *scene_layer)
 {
+	/* TODO(sergey): Temporary solution for until pipeline.c is ported. */
+	if (scene_layer == NULL) {
+		scene_layer = DEG_get_evaluated_scene_layer(depsgraph);
+		BLI_assert(scene_layer != NULL);
+	}
 	/* TODO(sergey): Some functions here are changing global state,
 	 * for example, clearing update tags from bmain.
 	 */
 	/* (Re-)build dependency graph if needed. */
-	DEG_graph_relations_update(depsgraph, bmain, scene);
+	DEG_graph_relations_update(depsgraph, bmain, scene, scene_layer);
 	/* Uncomment this to check if graph was properly tagged for update. */
 	// DEG_debug_graph_relations_validate(depsgraph, bmain, scene);
 	/* Flush editing data if needed. */
@@ -1566,8 +1571,14 @@ void BKE_scene_graph_update_tagged(EvaluationContext *eval_ctx,
 void BKE_scene_graph_update_for_newframe(EvaluationContext *eval_ctx,
                                          Depsgraph *depsgraph,
                                          Main *bmain,
-                                         Scene *scene)
+                                         Scene *scene,
+                                         SceneLayer *scene_layer)
 {
+	/* TODO(sergey): Temporary solution for until pipeline.c is ported. */
+	if (scene_layer == NULL) {
+		scene_layer = DEG_get_evaluated_scene_layer(depsgraph);
+		BLI_assert(scene_layer != NULL);
+	}
 	/* TODO(sergey): Some functions here are changing global state,
 	 * for example, clearing update tags from bmain.
 	 */
@@ -1583,7 +1594,7 @@ void BKE_scene_graph_update_for_newframe(EvaluationContext *eval_ctx,
 	 */
 	BKE_image_update_frame(bmain, scene->r.cfra);
 	BKE_sound_set_cfra(scene->r.cfra);
-	DEG_graph_relations_update(depsgraph, bmain, scene);
+	DEG_graph_relations_update(depsgraph, bmain, scene, scene_layer);
 	/* Update animated cache files for modifiers.
 	 *
 	 * TODO(sergey): Make this a depsgraph node?
@@ -1820,24 +1831,14 @@ bool BKE_scene_uses_blender_eevee(const Scene *scene)
 	return BKE_viewrender_uses_blender_eevee(&scene->view_render);
 }
 
-void BKE_scene_base_flag_to_objects(SceneLayer *sl)
+void BKE_scene_base_flag_to_objects(SceneLayer *scene_layer)
 {
-	Base *base = sl->object_bases.first;
+	Base *base = scene_layer->object_bases.first;
 
 	while (base) {
 		BKE_scene_object_base_flag_sync_from_base(base);
 		base = base->next;
 	}
-}
-
-void BKE_scene_base_flag_sync_from_base(BaseLegacy *base)
-{
-	BKE_scene_object_base_flag_sync_from_base(base);
-}
-
-void BKE_scene_base_flag_sync_from_object(BaseLegacy *base)
-{
-	BKE_scene_object_base_flag_sync_from_object(base);
 }
 
 void BKE_scene_object_base_flag_sync_from_base(Base *base)
