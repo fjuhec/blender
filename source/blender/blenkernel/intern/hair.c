@@ -150,12 +150,12 @@ void BKE_hair_guide_curves_begin(HairSystem *hsys, int totcurves, int totverts)
 	if (totcurves != hsys->totcurves)
 	{
 		hsys->curves = MEM_reallocN(hsys->curves, sizeof(HairGuideCurve) * totcurves);
-		hsys->flag |= HAIR_GUIDE_CURVES_DIRTY;
+		hsys->flag |= HAIR_SYSTEM_CURVES_DIRTY;
 	}
 	if (totverts != hsys->totverts)
 	{
 		hsys->verts = MEM_reallocN(hsys->curves, sizeof(HairGuideCurve) * totverts);
-		hsys->flag |= HAIR_GUIDE_VERTS_DIRTY;
+		hsys->flag |= HAIR_SYSTEM_VERTS_DIRTY;
 	}
 }
 
@@ -167,7 +167,7 @@ void BKE_hair_set_guide_curve(HairSystem *hsys, int index, const MeshSample *mes
 	memcpy(&curve->mesh_sample, mesh_sample, sizeof(MeshSample));
 	curve->numverts = numverts;
 	
-	hsys->flag |= HAIR_GUIDE_CURVES_DIRTY;
+	hsys->flag |= HAIR_SYSTEM_CURVES_DIRTY;
 }
 
 void BKE_hair_set_guide_vertex(HairSystem *hsys, int index, int flag, const float co[3])
@@ -178,13 +178,13 @@ void BKE_hair_set_guide_vertex(HairSystem *hsys, int index, int flag, const floa
 	vertex->flag = flag;
 	copy_v3_v3(vertex->co, co);
 	
-	hsys->flag |= HAIR_GUIDE_VERTS_DIRTY;
+	hsys->flag |= HAIR_SYSTEM_VERTS_DIRTY;
 }
 
 void BKE_hair_guide_curves_end(HairSystem *hsys)
 {
 	/* Recalculate vertex offsets */
-	if (hsys->flag & HAIR_GUIDE_CURVES_DIRTY)
+	if (hsys->flag & HAIR_SYSTEM_CURVES_DIRTY)
 	{
 		int vertstart = 0;
 		for (int i = 0; i < hsys->totcurves; ++i)

@@ -44,8 +44,11 @@ struct EvaluationContext;
 struct MeshSample;
 struct Scene;
 
+/* Create a new hair system instance */
 struct HairSystem* BKE_hair_new(void);
+/* Copy an existing hair system */
 struct HairSystem* BKE_hair_copy(struct HairSystem *hsys);
+/* Delete a hair system */
 void BKE_hair_free(struct HairSystem *hsys);
 
 /* === Guide Strands === */

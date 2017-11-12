@@ -96,9 +96,9 @@ typedef struct HairSystem {
 typedef enum eHairSystemFlag
 {
 	/* Guide curves have been changed */
-	HAIR_GUIDE_CURVES_DIRTY = (1 << 8),
+	HAIR_SYSTEM_CURVES_DIRTY = (1 << 8),
 	/* Guide curve vertices have been changed */
-	HAIR_GUIDE_VERTS_DIRTY = (1 << 9),
+	HAIR_SYSTEM_VERTS_DIRTY = (1 << 9),
 } eHairSystemFlag;
 
 #ifdef __cplusplus
