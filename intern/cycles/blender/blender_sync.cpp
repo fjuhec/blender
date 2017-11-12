@@ -640,7 +640,7 @@ void BlenderSync::sync_film(BL::RenderLayer& b_rlay,
 		}
 		if(get_boolean(crp, "pass_debug_bvh_traversed_instances")) {
 			b_engine.add_pass("Debug BVH Traversed Instances", 1, "X", b_srlay.name().c_str(), 0);
-			Pass::add(PASS_BVH_TRAVERSED_INSTANCES);
+			passes.add(PASS_BVH_TRAVERSED_INSTANCES);
 		}
 		if(get_boolean(crp, "pass_debug_bvh_intersections")) {
 			b_engine.add_pass("Debug BVH Intersections", 1, "X", b_srlay.name().c_str(), 0);
