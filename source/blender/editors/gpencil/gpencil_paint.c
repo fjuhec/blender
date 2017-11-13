@@ -964,13 +964,9 @@ static void gp_stroke_newfrombuffer(tGPsdata *p)
 	gps->flag |= GP_STROKE_RECALC_CACHES;
 
 	/* allocate enough memory for a continuous array for storage points */
-	int sublevel = brush->sublevel;
-	int new_totpoints = gps->totpoints;
-	
-	for (i = 0; i < sublevel; i++) {
-		new_totpoints += new_totpoints - 1;
-	}
-	gps->points = MEM_callocN(sizeof(bGPDspoint) * new_totpoints, "gp_stroke_points");
+	const int sublevel = brush->sublevel;
+
+	gps->points = MEM_callocN(sizeof(bGPDspoint) * gps->totpoints, "gp_stroke_points");
 	/* initialize triangle memory to dummy data */
 	gps->triangles = MEM_callocN(sizeof(bGPDtriangle), "GP Stroke triangulation");
 	gps->flag |= GP_STROKE_RECALC_CACHES;
@@ -1124,15 +1120,9 @@ static void gp_stroke_newfrombuffer(tGPsdata *p)
 			pt->weights = NULL;
 		}
 
-		/* subdivide the stroke */
+		/* subdivide and smooth the stroke */
 		if (sublevel > 0) {
-			int totpoints = gps->totpoints;
-			for (i = 0; i < sublevel; i++) {
-				/* we're adding one new point between each pair of verts on each step */
-				totpoints += totpoints - 1;
-
-				gp_subdivide_stroke(gps, totpoints);
-			}
+			gp_subdivide_stroke(gps, sublevel);
 		}
 		/* apply randomness to stroke */
 		if (brush->draw_random_sub > 0.0f) {

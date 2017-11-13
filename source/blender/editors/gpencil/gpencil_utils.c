@@ -702,34 +702,77 @@ bool gp_point_xy_to_3d(GP_SpaceConversion *gsc, Scene *scene, const float screen
 /**
  * Subdivide a stroke once, by adding a point half way between each pair of existing points
  * \param gps           Stroke data
- * \param new_totpoints Total number of points (after subdividing)
+ * \param sublevel      Number of times to subdivide
  */
-void gp_subdivide_stroke(bGPDstroke *gps, const int new_totpoints)
+void gp_subdivide_stroke(bGPDstroke *gps, const int sublevel)
 {
-	/* Move points towards end of enlarged points array to leave space for new points */
-	int y = 1;
-	for (int i = gps->totpoints - 1; i > 0; i--) {
-		gps->points[new_totpoints - y] = gps->points[i];
-		y += 2;
+	bGPDspoint *temp_points;
+	int totnewpoints, oldtotpoints;
+	int i2;
+
+	/* loop as many times as levels */
+	for (int s = 0; s < sublevel; s++) {
+		totnewpoints = gps->totpoints - 1;
+		/* duplicate points in a temp area */
+		temp_points = MEM_dupallocN(gps->points);
+		oldtotpoints = gps->totpoints;
+
+		/* resize the points arrys */
+		gps->totpoints += totnewpoints;
+		gps->points = MEM_recallocN(gps->points, sizeof(*gps->points) * gps->totpoints);
+		gps->flag |= GP_STROKE_RECALC_CACHES;
+
+		/* move points from last to first to new place */
+		i2 = gps->totpoints - 1;
+		for (int i = oldtotpoints - 1; i > 0; i--) {
+			bGPDspoint *pt = &temp_points[i];
+			bGPDspoint *pt_final = &gps->points[i2];
+
+			copy_v3_v3(&pt_final->x, &pt->x);
+			pt_final->pressure = pt->pressure;
+			pt_final->strength = pt->strength;
+			pt_final->time = pt->time;
+			pt_final->flag = pt->flag;
+			pt_final->totweight = pt->totweight;
+			pt_final->weights = pt->weights;
+			i2 -= 2;
+		}
+		/* interpolate mid points */
+		i2 = 1;
+		for (int i = 0; i < oldtotpoints - 1; i++) {
+			bGPDspoint *pt = &temp_points[i];
+			bGPDspoint *next = &temp_points[i + 1];
+			bGPDspoint *pt_final = &gps->points[i2];
+
+			/* add a half way point */
+			interp_v3_v3v3(&pt_final->x, &pt->x, &next->x, 0.5f);
+			pt_final->pressure = interpf(pt->pressure, next->pressure, 0.5f);
+			pt_final->strength = interpf(pt->strength, next->strength, 0.5f);
+			CLAMP(pt_final->strength, GPENCIL_STRENGTH_MIN, 1.0f);
+			pt_final->time = interpf(pt->time, next->time, 0.5f);
+			pt_final->totweight = 0;
+			pt_final->weights = NULL;
+			i2 += 2;
+		}
+
+		MEM_SAFE_FREE(temp_points);
+
+		/* move points to smooth stroke */
+		/* duplicate points in a temp area with the new subdivide data */
+		temp_points = MEM_dupallocN(gps->points);
+
+		/* extreme points are not changed */
+		for (int i = 0; i < gps->totpoints - 2; i++) {
+			bGPDspoint *pt = &temp_points[i];
+			bGPDspoint *next = &temp_points[i + 1];
+			bGPDspoint *pt_final = &gps->points[i + 1];
+
+			/* move point */
+			interp_v3_v3v3(&pt_final->x, &pt->x, &next->x, 0.5f);
+		}
+		/* free temp memory */
+		MEM_SAFE_FREE(temp_points);
 	}
-	
-	/* Create interpolated points */
-	for (int i = 0; i < new_totpoints - 1; i += 2) {
-		bGPDspoint *prev  = &gps->points[i];
-		bGPDspoint *pt    = &gps->points[i + 1];
-		bGPDspoint *next  = &gps->points[i + 2];
-		
-		/* Interpolate all values */
-		interp_v3_v3v3(&pt->x, &prev->x, &next->x, 0.5f);
-		
-		pt->pressure = interpf(prev->pressure, next->pressure, 0.5f);
-		pt->strength = interpf(prev->strength, next->strength, 0.5f);
-		CLAMP(pt->strength, GPENCIL_STRENGTH_MIN, 1.0f);
-		pt->time = interpf(prev->time, next->time, 0.5f);
-	}
-	
-	/* Update to new total number of points */
-	gps->totpoints = new_totpoints;
 }
 
 /**

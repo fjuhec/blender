@@ -118,7 +118,7 @@ void gp_stroke_delete_tagged_points(bGPDframe *gpf, bGPDstroke *gps, bGPDstroke 
 bool gp_smooth_stroke(bGPDstroke *gps, int i, float inf, bool affect_pressure);
 bool gp_smooth_stroke_strength(bGPDstroke *gps, int i, float inf);
 bool gp_smooth_stroke_thickness(bGPDstroke *gps, int i, float inf);
-void gp_subdivide_stroke(bGPDstroke *gps, const int new_totpoints);
+void gp_subdivide_stroke(bGPDstroke *gps, const int sublevel);
 void gp_randomize_stroke(bGPDstroke *gps, bGPDbrush *brush);
 
 /* Layers Enums -------------------------------------- */
