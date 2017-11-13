@@ -87,7 +87,6 @@ static void deformStroke(ModifierData *md, const EvaluationContext *UNUSED(eval_
 
 	/* smooth stroke */
 	if (mmd->factor > 0.0f) {
-		float reduce = 0.0f;
 		for (int r = 0; r < mmd->step; ++r) {
 			for (int i = 0; i < gps->totpoints; i++) {
 				pt = &gps->points[i];
@@ -97,7 +96,7 @@ static void deformStroke(ModifierData *md, const EvaluationContext *UNUSED(eval_
 					continue;
 				}
 
-				val = (mmd->factor - reduce) * weight;
+				val = mmd->factor * weight;
 				/* perform smoothing */
 				if (mmd->flag & GP_SMOOTH_MOD_LOCATION) {
 					BKE_gp_smooth_stroke(gps, i, val, false);
@@ -109,7 +108,6 @@ static void deformStroke(ModifierData *md, const EvaluationContext *UNUSED(eval_
 					BKE_gp_smooth_stroke_thickness(gps, i, val);
 				}
 			}
-			//reduce += 0.25f;  // reduce the factor
 		}
 	}
 }

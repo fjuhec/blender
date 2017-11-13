@@ -1580,10 +1580,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
 
     def GP_SMOOTH(self, layout, ob, md):
         gpd = ob.data
-        split = layout.split()
-
-        col = split.column()
-        row = col.row(align=False)
+        row = layout.row(align=False)
         row.prop(md, "factor")
         row.prop(md, "step")
 
@@ -1594,6 +1591,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         row.prop_search(md, "layer", gpd, "layers", text="", icon='GREASEPENCIL')
         row.prop(md, "inverse_layers", text="", icon="ARROW_LEFTRIGHT")
 
+        col = split.column()
         col.label("Vertex Group:")
         row = col.row(align=True)
         row.prop_search(md, "vertex_group", ob, "vertex_groups", text="")
