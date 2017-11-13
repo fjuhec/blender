@@ -1137,8 +1137,9 @@ static void gp_stroke_newfrombuffer(tGPsdata *p)
 			float reduce = 0.0f;
 			for (int r = 0; r < brush->draw_smoothlvl; ++r) {
 				for (i = 0; i < gps->totpoints; i++) {
-					/* NOTE: No pressure smoothing, or else we get annoying thickness changes while drawing... */
 					BKE_gp_smooth_stroke(gps, i, brush->draw_smoothfac - reduce, false);
+					BKE_gp_smooth_stroke_strength(gps, i, brush->draw_smoothfac - reduce);
+					BKE_gp_smooth_stroke_thickness(gps, i, brush->draw_smoothfac - reduce);
 				}
 				reduce += 0.25f;  // reduce the factor
 			}
