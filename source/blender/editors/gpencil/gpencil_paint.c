@@ -279,11 +279,15 @@ static bool gp_stroke_filtermval(tGPsdata *p, const int mval[2], int pmval[2])
 {
 	int dx = abs(mval[0] - pmval[0]);
 	int dy = abs(mval[1] - pmval[1]);
-	
+
+	/* check a minimum amount of pressure (some tablets send very low values at the end of stroke) */
+	if (p->pressure < p->brush->draw_threshold)
+		return false;
+
 	/* if buffer is empty, just let this go through (i.e. so that dots will work) */
 	if (p->gpd->sbuffer_size == 0)
 		return true;
-	
+
 	/* check if mouse moved at least certain distance on both axes (best case)
 	 *	- aims to eliminate some jitter-noise from input when trying to draw straight lines freehand
 	 */

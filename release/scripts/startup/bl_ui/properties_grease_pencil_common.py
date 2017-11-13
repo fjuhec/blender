@@ -417,7 +417,11 @@ class GreasePencilBrushOptionsPanel:
             col.label(text="Stroke Quality:")
             col.prop(brush, "pen_smooth_factor")
             col.prop(brush, "pen_smooth_steps")
-            col.prop(brush, "pen_stabilize_factor")
+
+            row = col.row(align=True)
+            row.prop(brush, "pen_stabilize_factor")
+            row.prop(brush, "pen_pressure_threshold")
+
             row = col.row(align=True)
             row.prop(brush, "pen_density")
             row.prop(brush, "pen_noise_factor")

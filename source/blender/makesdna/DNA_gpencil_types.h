@@ -130,6 +130,8 @@ typedef struct bGPDbrush {
 	float draw_stabangle;     /* factor to determine if the point is noise or not */
 	float draw_thicknesfac;   /* factor to smooth thickness */
 	float draw_strengthfac;   /* factor to smooth strength (alpha) */
+	float draw_threshold;     /* minimum pressure to consider is drawing */
+	char pad[4];
 } bGPDbrush;
 
 /* bGPDbrush->flag */
