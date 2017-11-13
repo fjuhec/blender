@@ -2349,3 +2349,160 @@ bool BKE_gpencil_vgroup_remove_point_weight(bGPDspoint *pt, int index)
 
 
 /* ************************************************** */
+/**
+* Apply smooth to stroke point
+* \param gps              Stroke to smooth
+* \param i                Point index
+* \param inf              Amount of smoothing to apply
+* \param affect_pressure  Apply smoothing to pressure values too?
+*/
+bool BKE_gp_smooth_stroke(bGPDstroke *gps, int i, float inf, bool affect_pressure)
+{
+	bGPDspoint *pt = &gps->points[i];
+	float pressure = 0.0f;
+	float sco[3] = { 0.0f };
+
+	/* Do nothing if not enough points to smooth out */
+	if (gps->totpoints <= 2) {
+		return false;
+	}
+
+	/* Only affect endpoints by a fraction of the normal strength,
+	* to prevent the stroke from shrinking too much
+	*/
+	if ((i == 0) || (i == gps->totpoints - 1)) {
+		inf *= 0.1f;
+	}
+
+	/* Compute smoothed coordinate by taking the ones nearby */
+	/* XXX: This is potentially slow, and suffers from accumulation error as earlier points are handled before later ones */
+	{
+		// XXX: this is hardcoded to look at 2 points on either side of the current one (i.e. 5 items total)
+		const int   steps = 2;
+		const float average_fac = 1.0f / (float)(steps * 2 + 1);
+		int step;
+
+		/* add the point itself */
+		madd_v3_v3fl(sco, &pt->x, average_fac);
+
+		if (affect_pressure) {
+			pressure += pt->pressure * average_fac;
+		}
+
+		/* n-steps before/after current point */
+		// XXX: review how the endpoints are treated by this algorithm
+		// XXX: falloff measures should also introduce some weighting variations, so that further-out points get less weight
+		for (step = 1; step <= steps; step++) {
+			bGPDspoint *pt1, *pt2;
+			int before = i - step;
+			int after = i + step;
+
+			CLAMP_MIN(before, 0);
+			CLAMP_MAX(after, gps->totpoints - 1);
+
+			pt1 = &gps->points[before];
+			pt2 = &gps->points[after];
+
+			/* add both these points to the average-sum (s += p[i]/n) */
+			madd_v3_v3fl(sco, &pt1->x, average_fac);
+			madd_v3_v3fl(sco, &pt2->x, average_fac);
+
+#if 0
+			/* XXX: Disabled because get weird result */
+			/* do pressure too? */
+			if (affect_pressure) {
+				pressure += pt1->pressure * average_fac;
+				pressure += pt2->pressure * average_fac;
+			}
+#endif
+		}
+	}
+
+	/* Based on influence factor, blend between original and optimal smoothed coordinate */
+	interp_v3_v3v3(&pt->x, &pt->x, sco, inf);
+
+#if 0
+	/* XXX: Disabled because get weird result */
+	if (affect_pressure) {
+		pt->pressure = pressure;
+	}
+#endif
+
+	return true;
+}
+
+/**
+* Apply smooth for strength to stroke point
+* \param gps              Stroke to smooth
+* \param i                Point index
+* \param inf              Amount of smoothing to apply
+*/
+bool BKE_gp_smooth_stroke_strength(bGPDstroke *gps, int i, float inf)
+{
+	bGPDspoint *ptb = &gps->points[i];
+
+	/* Do nothing if not enough points */
+	if (gps->totpoints <= 2) {
+		return false;
+	}
+
+	/* Compute theoretical optimal value using distances */
+	bGPDspoint *pta, *ptc;
+	int before = i - 1;
+	int after = i + 1;
+
+	CLAMP_MIN(before, 0);
+	CLAMP_MAX(after, gps->totpoints - 1);
+
+	pta = &gps->points[before];
+	ptc = &gps->points[after];
+
+	/* the optimal value is the corresponding to the interpolation of the strength
+	*  at the distance of point b
+	*/
+	const float fac = line_point_factor_v3(&ptb->x, &pta->x, &ptc->x);
+	const float optimal = (1.0f - fac) * pta->strength + fac * ptc->strength;
+
+	/* Based on influence factor, blend between original and optimal */
+	ptb->strength = (1.0f - inf) * ptb->strength + inf * optimal;
+
+	return true;
+}
+
+/**
+* Apply smooth for thickness to stroke point (use pressure)
+* \param gps              Stroke to smooth
+* \param i                Point index
+* \param inf              Amount of smoothing to apply
+*/
+bool BKE_gp_smooth_stroke_thickness(bGPDstroke *gps, int i, float inf)
+{
+	bGPDspoint *ptb = &gps->points[i];
+
+	/* Do nothing if not enough points */
+	if (gps->totpoints <= 2) {
+		return false;
+	}
+
+	/* Compute theoretical optimal value using distances */
+	bGPDspoint *pta, *ptc;
+	int before = i - 1;
+	int after = i + 1;
+
+	CLAMP_MIN(before, 0);
+	CLAMP_MAX(after, gps->totpoints - 1);
+
+	pta = &gps->points[before];
+	ptc = &gps->points[after];
+
+	/* the optimal value is the corresponding to the interpolation of the pressure
+	*  at the distance of point b
+	*/
+	float fac = line_point_factor_v3(&ptb->x, &pta->x, &ptc->x);
+	float optimal = (1.0f - fac) * pta->pressure + fac * ptc->pressure;
+
+	/* Based on influence factor, blend between original and optimal */
+	ptb->pressure = (1.0f - inf) * ptb->pressure + inf * optimal;
+
+	return true;
+}

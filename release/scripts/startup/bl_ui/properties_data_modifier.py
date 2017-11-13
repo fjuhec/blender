@@ -1578,6 +1578,38 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         row.prop(md, "affect_strength", text="Strength", icon='COLOR', toggle=True)
         row.prop(md, "affect_thickness", text="Thickness", icon='LINE_DATA', toggle=True)
 
+    def GP_SMOOTH(self, layout, ob, md):
+        gpd = ob.data
+        split = layout.split()
+
+        col = split.column()
+        row = col.row(align=False)
+        row.prop(md, "factor")
+        row.prop(md, "step")
+
+        split = layout.split()
+        col = split.column()
+        col.label("Layer:")
+        row = col.row(align=True)
+        row.prop_search(md, "layer", gpd, "layers", text="", icon='GREASEPENCIL')
+        row.prop(md, "inverse_layers", text="", icon="ARROW_LEFTRIGHT")
+
+        col.label("Vertex Group:")
+        row = col.row(align=True)
+        row.prop_search(md, "vertex_group", ob, "vertex_groups", text="")
+        row.prop(md, "inverse_vertex", text="", icon="ARROW_LEFTRIGHT")
+
+        row = col.row(align=True)
+        row.prop(md, "pass_index", text="Pass")
+        row.prop(md, "inverse_pass", text="", icon="ARROW_LEFTRIGHT")
+
+        row = layout.row(align=True)
+        row.label("Affect:")
+        row = layout.row(align=True)
+        row.prop(md, "affect_position", text="Position", icon='MESH_DATA', toggle=True)
+        row.prop(md, "affect_strength", text="Strength", icon='COLOR', toggle=True)
+        row.prop(md, "affect_thickness", text="Thickness", icon='LINE_DATA', toggle=True)
+
     def GP_SUBDIV(self, layout, ob, md):
         gpd = ob.data
         split = layout.split()

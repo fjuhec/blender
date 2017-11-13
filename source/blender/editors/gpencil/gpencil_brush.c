@@ -276,13 +276,13 @@ static bool gp_brush_smooth_apply(
 
 	/* perform smoothing */
 	if (gso->settings->flag & GP_BRUSHEDIT_FLAG_APPLY_POSITION) {
-		gp_smooth_stroke(gps, pt_index, inf, affect_pressure);
+		BKE_gp_smooth_stroke(gps, pt_index, inf, affect_pressure);
 	}
 	if (gso->settings->flag & GP_BRUSHEDIT_FLAG_APPLY_STRENGTH) {
-		gp_smooth_stroke_strength(gps, pt_index, inf);
+		BKE_gp_smooth_stroke_strength(gps, pt_index, inf);
 	}
 	if (gso->settings->flag & GP_BRUSHEDIT_FLAG_APPLY_THICKNESS) {
-		gp_smooth_stroke_thickness(gps, pt_index, inf);
+		BKE_gp_smooth_stroke_thickness(gps, pt_index, inf);
 	}
 	
 	return true;

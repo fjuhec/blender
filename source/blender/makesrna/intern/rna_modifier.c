@@ -124,6 +124,7 @@ const EnumPropertyItem rna_enum_object_modifier_type_items[] = {
 	{eModifierType_GpencilArray, "GP_ARRAY", ICON_MOD_ARRAY, "Array", "Create grid of duplicate instances" },
 	{eModifierType_GpencilBuild, "GP_BUILD", ICON_MOD_BUILD, "Build", "Create duplication of strokes" },
 	{eModifierType_GpencilNoise, "GP_NOISE", ICON_RNDCURVE, "Noise", "Add noise to strokes" },
+	{eModifierType_GpencilSmooth, "GP_SMOOTH", ICON_MOD_SMOOTH, "Smooth", "Smooth stroke" },
 	{eModifierType_GpencilSubdiv, "GP_SUBDIV", ICON_MOD_SUBSURF, "Subdivide", "Subdivide stroke adding more control points" },
 	{eModifierType_GpencilSimplify, "GP_SIMPLIFY", ICON_MOD_DECIM, "Simplify", "Simplify stroke reducing number of points" },
 	{eModifierType_GpencilLattice, "GP_LATTICE", ICON_MOD_LATTICE, "Lattice", "Change stroke using lattice to deform" },
@@ -465,6 +466,8 @@ static StructRNA *rna_Modifier_refine(struct PointerRNA *ptr)
 			return &RNA_GpencilPixelModifier;
 		case eModifierType_GpencilSwirl:
 			return &RNA_GpencilSwirlModifier;
+		case eModifierType_GpencilSmooth:
+			return &RNA_GpencilSmoothModifier;
 			/* Default */
 		case eModifierType_None:
 		case eModifierType_ShapeKey:
@@ -560,6 +563,7 @@ RNA_MOD_VGROUP_NAME_SET(GpencilNoise, vgname);
 RNA_MOD_VGROUP_NAME_SET(GpencilThick, vgname);
 RNA_MOD_VGROUP_NAME_SET(GpencilOpacity, vgname);
 RNA_MOD_VGROUP_NAME_SET(GpencilLattice, vgname);
+RNA_MOD_VGROUP_NAME_SET(GpencilSmooth, vgname);
 
 static void rna_ExplodeModifier_vgroup_get(PointerRNA *ptr, char *value)
 {
@@ -4935,6 +4939,76 @@ static void rna_def_modifier_gpencilnoise(BlenderRNA *brna)
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }
 
+static void rna_def_modifier_gpencilsmooth(BlenderRNA *brna)
+{
+	StructRNA *srna;
+	PropertyRNA *prop;
+
+	srna = RNA_def_struct(brna, "GpencilSmoothModifier", "Modifier");
+	RNA_def_struct_ui_text(srna, "Smooth Modifier", "Smooth effect modifier");
+	RNA_def_struct_sdna(srna, "GpencilSmoothModifierData");
+	RNA_def_struct_ui_icon(srna, ICON_MOD_SMOOTH);
+
+	prop = RNA_def_property(srna, "layer", PROP_STRING, PROP_NONE);
+	RNA_def_property_string_sdna(prop, NULL, "layername");
+	RNA_def_property_ui_text(prop, "Layer", "Layer name");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "vertex_group", PROP_STRING, PROP_NONE);
+	RNA_def_property_string_sdna(prop, NULL, "vgname");
+	RNA_def_property_ui_text(prop, "Vertex Group", "Vertex group name for modulating the deform");
+	RNA_def_property_string_funcs(prop, NULL, NULL, "rna_GpencilSmoothModifier_vgname_set");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "factor", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_sdna(prop, NULL, "factor");
+	RNA_def_property_range(prop, 0, 2);
+	RNA_def_property_ui_text(prop, "Factor", "Amount of smooth to apply");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "affect_position", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_SMOOTH_MOD_LOCATION);
+	RNA_def_property_ui_text(prop, "Affect Position", "The modifier affects the position of the point");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "affect_strength", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_SMOOTH_MOD_STRENGTH);
+	RNA_def_property_ui_text(prop, "Affect Strength", "The modifier affects the color strength of the point");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "affect_thickness", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_SMOOTH_MOD_THICKNESS);
+	RNA_def_property_ui_text(prop, "Affect Thickness", "The modifier affects the thickness of the point");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+	
+	prop = RNA_def_property(srna, "pass_index", PROP_INT, PROP_NONE);
+	RNA_def_property_int_sdna(prop, NULL, "pass_index");
+	RNA_def_property_range(prop, 0, 100);
+	RNA_def_property_ui_text(prop, "Pass", "Pass index");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "step", PROP_INT, PROP_NONE);
+	RNA_def_property_int_sdna(prop, NULL, "step");
+	RNA_def_property_range(prop, 1, 10);
+	RNA_def_property_ui_text(prop, "Step", "Number of times to apply smooth (high numbers can reduce fps)");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "inverse_layers", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_SMOOTH_INVERSE_LAYER);
+	RNA_def_property_ui_text(prop, "Inverse Layers", "Inverse filter");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "inverse_pass", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_SMOOTH_INVERSE_PASS);
+	RNA_def_property_ui_text(prop, "Inverse Pass", "Inverse filter");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "inverse_vertex", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_SMOOTH_INVERSE_VGROUP);
+	RNA_def_property_ui_text(prop, "Inverse VertexGroup", "Inverse filter");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+}
+
 static void rna_def_modifier_gpencilsubdiv(BlenderRNA *brna)
 {
 	StructRNA *srna;
@@ -5645,6 +5719,7 @@ void RNA_def_modifier(BlenderRNA *brna)
 	rna_def_modifier_meshseqcache(brna);
 	rna_def_modifier_surfacedeform(brna);
 	rna_def_modifier_gpencilnoise(brna);
+	rna_def_modifier_gpencilsmooth(brna);
 	rna_def_modifier_gpencilsubdiv(brna);
 	rna_def_modifier_gpencilsimplify(brna);
 	rna_def_modifier_gpencilthick(brna);

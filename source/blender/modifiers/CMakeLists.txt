@@ -129,6 +129,7 @@ set(SRC
 	intern/MOD_gpencilwave.c
 	intern/MOD_gpencilpixel.c
 	intern/MOD_gpencilswirl.c
+	intern/MOD_gpencilsmooth.c
 )
 
 if(WITH_ALEMBIC)

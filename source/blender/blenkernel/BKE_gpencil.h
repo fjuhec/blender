@@ -211,5 +211,8 @@ void BKE_gpencil_simplify_stroke(struct bGPDlayer *gpl, struct bGPDstroke *gps, 
 
 void BKE_gpencil_transform(struct bGPdata *gpd, float mat[4][4]);
 
+bool BKE_gp_smooth_stroke(struct bGPDstroke *gps, int i, float inf, bool affect_pressure);
+bool BKE_gp_smooth_stroke_strength(struct bGPDstroke *gps, int i, float inf);
+bool BKE_gp_smooth_stroke_thickness(struct bGPDstroke *gps, int i, float inf);
 
 #endif /*  __BKE_GPENCIL_H__ */

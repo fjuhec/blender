@@ -97,6 +97,7 @@ extern ModifierTypeInfo modifierType_GpencilArray;
 extern ModifierTypeInfo modifierType_GpencilBuild;
 extern ModifierTypeInfo modifierType_GpencilOpacity;
 extern ModifierTypeInfo modifierType_GpencilLattice;
+extern ModifierTypeInfo modifierType_GpencilSmooth;
 
 extern ModifierTypeInfo modifierType_GpencilBlur;
 extern ModifierTypeInfo modifierType_GpencilWave;

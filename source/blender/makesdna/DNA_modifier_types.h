@@ -101,6 +101,7 @@ typedef enum ModifierType {
 	eModifierType_GpencilWave       = 65,
 	eModifierType_GpencilPixel      = 66,
 	eModifierType_GpencilSwirl      = 67,
+	eModifierType_GpencilSmooth     = 68,
 	NUM_MODIFIER_TYPES
 } ModifierType;
 
@@ -1662,7 +1663,6 @@ typedef enum eGpencilNoise_Flag {
 	GP_NOISE_INVERSE_VGROUP = (1 << 8)
 } eGpencilNoise_Flag;
 
-
 typedef struct GpencilSubdivModifierData {
 	ModifierData modifier;
 	char layername[64];          /* layer name */
@@ -1854,6 +1854,25 @@ typedef enum eGpencilSwirl_Flag {
 	GP_SWIRL_MAKE_TRANSPARENT = (1 << 0),
 	GP_SWIRL_USE_OB_LOC       = (1 << 1),
 } eGpencilSwirl_Flag;
+
+typedef struct GpencilSmoothModifierData {
+	ModifierData modifier;
+	char layername[64];          /* layer name */
+	char vgname[64];             /* optional vertexgroup name, MAX_VGROUP_NAME */
+	int pass_index;              /* custom index for passes */
+	int flag;                    /* several flags */
+	float factor;                /* factor of noise */
+	int step;                    /* how many times apply smooth */
+} GpencilSmoothModifierData;
+
+typedef enum eGpencilSmooth_Flag {
+	GP_SMOOTH_MOD_LOCATION = (1 << 0),
+	GP_SMOOTH_MOD_STRENGTH = (1 << 1),
+	GP_SMOOTH_MOD_THICKNESS = (1 << 2),
+	GP_SMOOTH_INVERSE_LAYER = (1 << 3),
+	GP_SMOOTH_INVERSE_PASS = (1 << 4),
+	GP_SMOOTH_INVERSE_VGROUP = (1 << 5)
+} eGpencilSmooth_Flag;
 
 #define MOD_MESHSEQ_READ_ALL \
 	(MOD_MESHSEQ_READ_VERT | MOD_MESHSEQ_READ_POLY | MOD_MESHSEQ_READ_UV | MOD_MESHSEQ_READ_COLOR)
