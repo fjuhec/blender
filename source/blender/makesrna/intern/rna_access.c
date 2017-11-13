@@ -7026,34 +7026,40 @@ static bool rna_property_override_equals_propptr(
 	}
 
 	if (is_id) {
-		/* In case this is an ID, do not compare structs!
-		 * This is a quite safe path to infinite loop.
-		 * Instead, just compare ID pointers themselves (we assume sub-ID structs cannot loop). */
-		const bool equals = (propptr_a->id.data == propptr_b->id.data);
-
-		if (!equals && rna_path) {
-			bool created = false;
-			IDOverrideProperty *op = BKE_override_property_get(override, rna_path, &created);
-
-			if (op != NULL && created) {  /* If not yet overridden... */
-				BKE_override_property_operation_get(op, IDOVERRIDE_OP_REPLACE, NULL, NULL, -1, -1, true, NULL, NULL);
-				if (r_override_changed) {
-					*r_override_changed = created;
-				}
-			}
-		}
-
-		return equals;
+		BLI_assert(propptr_a->data == propptr_a->id.data && propptr_b->data == propptr_b->id.data);
 	}
-	else if (!is_type_null && override) {  /* We cannot override struct if one is NULL pointer... */
+
+	if (override) {
 		if (rna_path) {
-			const bool changed = RNA_struct_auto_override(propptr_a, propptr_b, override, rna_path);
-			if (r_override_changed) {
-				*r_override_changed = *r_override_changed || changed;
+			if (is_type_null || is_id) {
+				/* In case this is an ID (or one of the pointers is NULL), do not compare structs!
+				 * This is a quite safe path to infinite loop.
+				 * Instead, just compare pointers themselves (we assume sub-ID structs cannot loop). */
+				const bool equals = (propptr_a->data == propptr_b->data);
+
+				if (!equals && rna_path) {
+					bool created = false;
+					IDOverrideProperty *op = BKE_override_property_get(override, rna_path, &created);
+
+					if (op != NULL && created) {  /* If not yet overridden... */
+						BKE_override_property_operation_get(op, IDOVERRIDE_OP_REPLACE, NULL, NULL, -1, -1, true, NULL, NULL);
+						if (r_override_changed) {
+							*r_override_changed = created;
+						}
+					}
+				}
+
+				return equals;
 			}
-			/* XXX Simplification here, if no override was added we assume they are equal,
-			 *     this may not be good behavior, time will say. */
-			return !changed;
+			else {
+				const bool changed = RNA_struct_auto_override(propptr_a, propptr_b, override, rna_path);
+				if (r_override_changed) {
+					*r_override_changed = *r_override_changed || changed;
+				}
+				/* XXX Simplification here, if no override was added we assume they are equal,
+				 *     this may not be good behavior, time will say. */
+				return !changed;
+			}
 		}
 		else {
 			return RNA_struct_override_matches(

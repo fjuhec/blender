@@ -3963,7 +3963,9 @@ static bool write_file_handle(
 				/* We should never attempt to write non-regular IDs (i.e. all kind of temp/runtime ones). */
 				BLI_assert((id->tag & (LIB_TAG_NO_MAIN | LIB_TAG_NO_USER_REFCOUNT | LIB_TAG_NOT_ALLOCATED)) == 0);
 
-				if (!ELEM(override_storage, NULL, main) && id->override) {
+				const bool do_override = !ELEM(override_storage, NULL, main) && id->override;
+
+				if (do_override) {
 					BKE_override_operations_store_start(override_storage, id);
 				}
 
@@ -4083,7 +4085,7 @@ static bool write_file_handle(
 						break;
 				}
 
-				if (!ELEM(override_storage, NULL, main) && id->override) {
+				if (do_override) {
 					BKE_override_operations_store_end(override_storage, id);
 				}
 			}
