@@ -53,8 +53,8 @@ struct GPENCIL_StorageList;
 #define MULTISAMPLE_GP_SYNC_ENABLE(dfbl, fbl) { \
 	if ((U.ogl_multisamples > 0) && (dfbl->multisample_fb != NULL)) { \
 		DRW_stats_query_start("GP Multisample Blit"); \
-		DRW_framebuffer_blit(fbl->temp_color_fb, dfbl->multisample_fb, false); \
-		DRW_framebuffer_blit(fbl->temp_color_fb, dfbl->multisample_fb, true); \
+		DRW_framebuffer_blit(fbl->temp_color_fb, dfbl->multisample_fb, false, false); \
+		DRW_framebuffer_blit(fbl->temp_color_fb, dfbl->multisample_fb, true, false); \
 		DRW_framebuffer_bind(dfbl->multisample_fb); \
 		DRW_stats_query_end(); \
 	} \
@@ -63,8 +63,8 @@ struct GPENCIL_StorageList;
 #define MULTISAMPLE_GP_SYNC_DISABLE(dfbl, fbl) { \
 	if ((U.ogl_multisamples > 0) && (dfbl->multisample_fb != NULL)) { \
 		DRW_stats_query_start("GP Multisample Resolve"); \
-		DRW_framebuffer_blit(dfbl->multisample_fb, fbl->temp_color_fb, false); \
-		DRW_framebuffer_blit(dfbl->multisample_fb, fbl->temp_color_fb, true); \
+		DRW_framebuffer_blit(dfbl->multisample_fb, fbl->temp_color_fb, false, false); \
+		DRW_framebuffer_blit(dfbl->multisample_fb, fbl->temp_color_fb, true, false); \
 		DRW_framebuffer_bind(fbl->temp_color_fb); \
 		DRW_stats_query_end(); \
 	} \
