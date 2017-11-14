@@ -1234,18 +1234,20 @@ StructRNA *ID_code_to_RNA_type(short idcode);
 
 void _RNA_warning(const char *format, ...) ATTR_PRINTF_FORMAT(1, 2);
 
-/* Equals test (skips pointers and collections)
- * is_strict false assumes uninitialized properties are equal */
+/* Equals test. */
 
-typedef enum eRNAEqualsMode {
+/* Note: In practice, EQ_STRICT and EQ_COMPARE have same behavior currently, and will yield same result. */
+typedef enum eRNACompareMode {
+	/* Only care about equality, not full comparison. */
 	RNA_EQ_STRICT,           /* set/unset ignored */
 	RNA_EQ_UNSET_MATCH_ANY,  /* unset property matches anything */
 	RNA_EQ_UNSET_MATCH_NONE, /* unset property never matches set property */
-} eRNAEqualsMode;
+	/* Full comparison. */
+	RNA_EQ_COMPARE,
+} eRNACompareMode;
 
-bool RNA_property_equals(struct PointerRNA *a, struct PointerRNA *b, struct PropertyRNA *prop, eRNAEqualsMode mode);
-bool RNA_struct_equals(struct PointerRNA *a, struct PointerRNA *b, eRNAEqualsMode mode);
-
+bool RNA_property_equals(struct PointerRNA *a, struct PointerRNA *b, struct PropertyRNA *prop, eRNACompareMode mode);
+bool RNA_struct_equals(struct PointerRNA *a, struct PointerRNA *b, eRNACompareMode mode);
 
 /* Override. */
 
