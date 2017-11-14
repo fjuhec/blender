@@ -86,6 +86,8 @@ ccl_device void kernel_queue_enqueue(KernelGlobals *kg,
 		                                  locals->queue_atomics);
 		kernel_split_state.queue_data[my_gqidx] = ray_index;
 	}
+
+	kernel_split_params.queue_index[QUEUE_SHADER_EVAL] = 0;
 }
 
 CCL_NAMESPACE_END

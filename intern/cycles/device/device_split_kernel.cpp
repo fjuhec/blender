@@ -245,6 +245,7 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 				ENQUEUE_SPLIT_KERNEL(do_volume, global_size, local_size);
 				ENQUEUE_SPLIT_KERNEL(queue_enqueue, global_size, local_size);
 				ENQUEUE_SPLIT_KERNEL(indirect_background, global_size, local_size);
+				ENQUEUE_SPLIT_KERNEL(shader_eval, global_size, local_size);
 				ENQUEUE_SPLIT_KERNEL(shader_setup, global_size, local_size);
 				ENQUEUE_SPLIT_KERNEL(shader_sort, global_size, local_size);
 				ENQUEUE_SPLIT_KERNEL(shader_eval, global_size, local_size);

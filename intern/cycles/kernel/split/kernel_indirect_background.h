@@ -16,8 +16,14 @@
 
 CCL_NAMESPACE_BEGIN
 
-ccl_device void kernel_indirect_background(KernelGlobals *kg)
+ccl_device void kernel_indirect_background(KernelGlobals *kg, ccl_local_param unsigned int *local_queue_atomics)
 {
+	if(ccl_local_id(0) == 0 && ccl_local_id(1) == 0) {
+		*local_queue_atomics = 0;
+	}
+	ccl_barrier(CCL_LOCAL_MEM_FENCE);
+	char enqueue_flag = 0;
+
 	ccl_global char *ray_state = kernel_split_state.ray_state;
 
 	int thread_index = ccl_global_id(1) * ccl_global_size(0) + ccl_global_id(0);
@@ -40,6 +46,11 @@ ccl_device void kernel_indirect_background(KernelGlobals *kg)
 		}
 	}
 
+	if(ccl_global_id(1) * ccl_global_size(0) + ccl_global_id(0) == 0) {
+		kernel_split_params.shader_eval_queue = QUEUE_SHADER_EVAL;
+		kernel_split_params.shader_eval_state = RAY_HIT_BACKGROUND;
+	}
+
 	ray_index = get_ray_index(kg, thread_index,
 	                          QUEUE_HITBG_BUFF_UPDATE_TOREGEN_RAYS,
 	                          kernel_split_state.queue_data,
@@ -56,10 +67,23 @@ ccl_device void kernel_indirect_background(KernelGlobals *kg)
 		ccl_global Ray *ray = &kernel_split_state.ray[ray_index];
 		float3 throughput = kernel_split_state.throughput[ray_index];
 		ShaderData *sd = kernel_split_sd(sd, ray_index);
+		ShaderEvalTask *eval_task = &kernel_split_state.shader_eval_task[ray_index];
 
-		kernel_path_background(kg, state, ray, throughput, sd, L);
-		kernel_split_path_end(kg, ray_index);
+		if(kernel_path_background_setup(kg, state, ray, throughput, sd, L, eval_task)) {
+			enqueue_flag = 1;
+		}
+		else {
+			kernel_split_path_end(kg, ray_index);
+		}
 	}
+
+	enqueue_ray_index_local(ray_index,
+	                        QUEUE_SHADER_EVAL,
+	                        enqueue_flag,
+	                        kernel_split_params.queue_size,
+	                        local_queue_atomics,
+	                        kernel_split_state.queue_data,
+	                        kernel_split_params.queue_index);
 }
 
 CCL_NAMESPACE_END

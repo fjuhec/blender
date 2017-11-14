@@ -19,6 +19,8 @@
 #include "kernel/split/kernel_indirect_background.h"
 
 #define KERNEL_NAME indirect_background
+#define LOCALS_TYPE unsigned int
 #include "kernel/kernels/opencl/kernel_split_function.h"
 #undef KERNEL_NAME
+#undef LOCALS_TYPE
 

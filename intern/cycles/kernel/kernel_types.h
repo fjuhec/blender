@@ -1447,6 +1447,9 @@ typedef enum QueueNumber {
 #  endif
 #endif  /* __BRANCHED_PATH__ */
 
+	/* For temporarily holding rays that need to be shaded. */
+	QUEUE_SHADER_EVAL,
+
 	NUM_QUEUES
 } QueueNumber;
 

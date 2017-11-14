@@ -66,8 +66,31 @@ ccl_device void kernel_holdout_emission_blurring_pathtermination_ao(
 #ifdef __AO__
 	char enqueue_flag = 0;
 #endif
-	int ray_index = ccl_global_id(1) * ccl_global_size(0) + ccl_global_id(0);
-	ray_index = get_ray_index(kg, ray_index,
+	int ray_index;
+
+	ccl_global char *ray_state = kernel_split_state.ray_state;
+
+#ifdef __BACKGROUND__
+	ray_index = get_ray_index(kg, ccl_global_id(1) * ccl_global_size(0) + ccl_global_id(0),
+	                          QUEUE_SHADER_EVAL,
+	                          kernel_split_state.queue_data,
+	                          kernel_split_params.queue_size,
+	                          1);
+
+	if(IS_STATE(ray_state, ray_index, RAY_HIT_BACKGROUND)) {
+		ccl_global PathState *state = &kernel_split_state.path_state[ray_index];
+		ccl_global Ray *ray = &kernel_split_state.ray[ray_index];
+		float3 throughput = kernel_split_state.throughput[ray_index];
+		ShaderData *sd = kernel_split_sd(sd, ray_index);
+		PathRadiance *L = &kernel_split_state.path_radiance[ray_index];
+		ShaderEvalTask *eval_task = &kernel_split_state.shader_eval_task[ray_index];
+
+		kernel_path_background_finish(kg, state, ray, throughput, sd, L, eval_task);
+		kernel_split_path_end(kg, ray_index);
+	}
+#endif  /* __BACKGROUND__ */
+
+	ray_index = get_ray_index(kg, ccl_global_id(1) * ccl_global_size(0) + ccl_global_id(0),
 	                          QUEUE_ACTIVE_AND_REGENERATED_RAYS,
 	                          kernel_split_state.queue_data,
 	                          kernel_split_params.queue_size,
@@ -93,7 +116,6 @@ ccl_device void kernel_holdout_emission_blurring_pathtermination_ao(
 	ccl_global PathState *state = 0x0;
 	float3 throughput;
 
-	ccl_global char *ray_state = kernel_split_state.ray_state;
 	ShaderData *sd = kernel_split_sd(sd, ray_index);
 
 	if(IS_STATE(ray_state, ray_index, RAY_ACTIVE)) {
