@@ -1659,7 +1659,7 @@ static size_t animdata_filter_gpencil_data(ListBase *anim_data, bDopeSheet *ads,
 	 */
 	if (filter_mode & ANIMFILTER_ANIMDATA) {
 		/* just add GPD as a channel - this will add everything needed */
-		ANIMCHANNEL_NEW_CHANNEL(gpd, ANIMTYPE_GPDATABLOCK, NULL);
+		ANIMCHANNEL_NEW_CHANNEL(gpd, ANIMTYPE_GPDATABLOCK, gpd);
 	}
 	else {
 		ListBase tmp_data = {NULL, NULL};
