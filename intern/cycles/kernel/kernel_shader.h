@@ -964,6 +964,10 @@ ccl_device float3 shader_holdout_eval(KernelGlobals *kg, ShaderData *sd)
 ccl_device void shader_eval(KernelGlobals *kg, ShaderData *sd,
 	ccl_addr_space PathState *state, ShaderEvalTask *eval_task)
 {
+	if(eval_task->intent == SHADER_EVAL_INTENT_SKIP) {
+		return;
+	}
+
 	sd->num_closure = 0;
 	sd->num_closure_left = eval_task->max_closure;
 

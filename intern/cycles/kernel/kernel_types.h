@@ -933,6 +933,7 @@ typedef enum ShaderEvalIntent {
 	SHADER_EVAL_INTENT_SURFACE,
 	SHADER_EVAL_INTENT_BACKGROUND,
 	SHADER_EVAL_INTENT_CONSTANT,
+	SHADER_EVAL_INTENT_SKIP, /* dont evaluate shader, used by the split kernel */
 } ShaderEvalIntent;
 
 typedef ccl_addr_space struct ShaderData {

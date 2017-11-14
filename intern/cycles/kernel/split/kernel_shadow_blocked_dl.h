@@ -45,20 +45,6 @@ ccl_device void kernel_shadow_blocked_dl(KernelGlobals *kg)
 	ShaderData *sd = kernel_split_sd(sd, ray_index);
 	float3 throughput = kernel_split_state.throughput[ray_index];
 	ShaderData *emission_sd = AS_SHADER_DATA(&kernel_split_state.sd_DL_shadow[ray_index]);
-	LightSample ls = kernel_split_state.light_sample[ray_index];
-	ShaderEvalTask *eval_task = &kernel_split_state.shader_eval_task[ray_index];
-
-	float terminate = path_state_rng_light_termination(kg, state);
-
-	Ray ray;
-	ray.time = sd->time;
-
-	BsdfEval L_light;
-	bool is_lamp;
-
-	if(!direct_emission_finish(kg, sd, emission_sd, &ls, state, &ray, &L_light, &is_lamp, terminate, eval_task)) {
-		return;
-	}
 
 #  if defined(__BRANCHED_PATH__) || defined(__SHADOW_TRICKS__)
 	bool use_branched = false;
@@ -95,21 +81,34 @@ ccl_device void kernel_shadow_blocked_dl(KernelGlobals *kg)
 	else
 #  endif  /* defined(__BRANCHED_PATH__) || defined(__SHADOW_TRICKS__)*/
 	{
-		/* trace shadow ray */
-		float3 shadow;
+		LightSample ls = kernel_split_state.light_sample[ray_index];
+		ShaderEvalTask *eval_task = &kernel_split_state.shader_eval_task[ray_index];
 
-		if(!shadow_blocked(kg,
-		                   sd,
-		                   emission_sd,
-		                   state,
-		                   &ray,
-		                   &shadow))
-		{
-			/* accumulate */
-			path_radiance_accum_light(L, state, throughput, &L_light, shadow, 1.0f, is_lamp);
-		}
-		else {
-			path_radiance_accum_total_light(L, state, throughput, &L_light);
+		float terminate = path_state_rng_light_termination(kg, state);
+
+		Ray ray;
+		ray.time = sd->time;
+
+		BsdfEval L_light;
+		bool is_lamp;
+
+		if(direct_emission_finish(kg, sd, emission_sd, &ls, state, &ray, &L_light, &is_lamp, terminate, eval_task)) {
+			/* trace shadow ray */
+			float3 shadow;
+
+			if(!shadow_blocked(kg,
+				               sd,
+				               emission_sd,
+				               state,
+				               &ray,
+				               &shadow))
+			{
+				/* accumulate */
+				path_radiance_accum_light(L, state, throughput, &L_light, shadow, 1.0f, is_lamp);
+			}
+			else {
+				path_radiance_accum_total_light(L, state, throughput, &L_light);
+			}
 		}
 	}
 }

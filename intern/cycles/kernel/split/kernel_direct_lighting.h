@@ -59,6 +59,7 @@ ccl_device void kernel_direct_lighting(KernelGlobals *kg,
 	if(IS_STATE(kernel_split_state.ray_state, ray_index, RAY_ACTIVE)) {
 		ccl_global PathState *state = &kernel_split_state.path_state[ray_index];
 		ShaderData *sd = kernel_split_sd(sd, ray_index);
+		ShaderEvalTask *eval_task = &kernel_split_state.shader_eval_task[ray_index];
 
 		/* direct lighting */
 #ifdef __EMISSION__
@@ -68,14 +69,16 @@ ccl_device void kernel_direct_lighting(KernelGlobals *kg,
 #  ifdef __BRANCHED_PATH__
 		if(flag && kernel_data.integrator.branched) {
 			flag = false;
-			enqueue_flag = 1; // XXX
+			eval_task->intent = SHADER_EVAL_INTENT_SKIP;
+			enqueue_flag = 1;
 		}
 #  endif  /* __BRANCHED_PATH__ */
 
 #  ifdef __SHADOW_TRICKS__
 		if(flag && state->flag & PATH_RAY_SHADOW_CATCHER) {
 			flag = false;
-			enqueue_flag = 1; // XXX
+			eval_task->intent = SHADER_EVAL_INTENT_SKIP;
+			enqueue_flag = 1;
 		}
 #  endif  /* __SHADOW_TRICKS__ */
 
@@ -93,7 +96,6 @@ ccl_device void kernel_direct_lighting(KernelGlobals *kg,
 			                &ls))
 			{
 				ShaderData *emission_sd = AS_SHADER_DATA(&kernel_split_state.sd_DL_shadow[ray_index]);
-				ShaderEvalTask *eval_task = &kernel_split_state.shader_eval_task[ray_index];
 
 				if(direct_emission_setup(kg, sd, emission_sd, &ls, state, eval_task)) {
 					/* Write intermediate data to global memory to access from
