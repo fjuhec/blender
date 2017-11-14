@@ -351,10 +351,11 @@ ccl_device_noinline bool indirect_lamp_emission(KernelGlobals *kg,
 
 /* Indirect Background */
 
-ccl_device_noinline float3 indirect_background(KernelGlobals *kg,
+ccl_device_noinline bool indirect_background_setup(KernelGlobals *kg,
                                                ShaderData *emission_sd,
                                                ccl_addr_space PathState *state,
-                                               ccl_addr_space Ray *ray)
+                                               ccl_addr_space Ray *ray,
+                                               ShaderEvalTask *eval_task)
 {
 #ifdef __BACKGROUND__
 	int shader = kernel_data.background.surface_shader;
@@ -367,7 +368,7 @@ ccl_device_noinline float3 indirect_background(KernelGlobals *kg,
 		   ((shader & SHADER_EXCLUDE_TRANSMIT) && (state->flag & PATH_RAY_TRANSMIT)) ||
 		   ((shader & SHADER_EXCLUDE_CAMERA) && (state->flag & PATH_RAY_CAMERA)) ||
 		   ((shader & SHADER_EXCLUDE_SCATTER) && (state->flag & PATH_RAY_VOLUME_SCATTER)))
-			return make_float3(0.0f, 0.0f, 0.0f);
+			return false;
 	}
 
 	/* evaluate background closure */
@@ -376,13 +377,25 @@ ccl_device_noinline float3 indirect_background(KernelGlobals *kg,
 	shader_setup_from_background(kg, emission_sd, &priv_ray);
 #  else
 	shader_setup_from_background(kg, emission_sd, ray);
-#  endif
+#  endif  /* __SPLIT_KERNEL__ */
 
 	path_state_modify_bounce(state, true);
-	float3 L = shader_eval_background(kg, emission_sd, state, state->flag);
+	shader_eval_task_setup(kg, eval_task, emission_sd, SHADER_EVAL_INTENT_BACKGROUND, state->flag, 0);
+#endif  /* __BACKGROUND__ */
+	return true;
+}
+
+ccl_device_noinline float3 indirect_background_finish(KernelGlobals *kg,
+                                               ShaderData *emission_sd,
+                                               ccl_addr_space PathState *state,
+                                               ccl_addr_space Ray *ray,
+                                               ShaderEvalTask *eval_task)
+{
+#ifdef __BACKGROUND__
+	float3 L = eval_task->eval_result;
 	path_state_modify_bounce(state, false);
 
-#ifdef __BACKGROUND_MIS__
+#  ifdef __BACKGROUND_MIS__
 	/* check if background light exists or if we should skip pdf */
 	int res = kernel_data.integrator.pdf_background_res;
 
@@ -394,12 +407,29 @@ ccl_device_noinline float3 indirect_background(KernelGlobals *kg,
 
 		return L*mis_weight;
 	}
-#endif
+#  endif  /* __BACKGROUND_MIS__ */
 
 	return L;
 #else
 	return make_float3(0.8f, 0.8f, 0.8f);
-#endif
+#endif  /* __BACKGROUND__ */
+}
+
+ccl_device_noinline float3 indirect_background(KernelGlobals *kg,
+                                               ShaderData *emission_sd,
+                                               ccl_addr_space PathState *state,
+                                               ccl_addr_space Ray *ray)
+{
+#ifdef __BACKGROUND__
+	MAKE_POINTER_TO_LOCAL_OBJ(ShaderEvalTask, shader_eval_task);
+	if(!indirect_background_setup(kg, emission_sd, state, ray, shader_eval_task)) {
+		return make_float3(0.0f, 0.0f, 0.0f);
+	}
+	shader_eval(kg, emission_sd, state, shader_eval_task);
+	return indirect_background_finish(kg, emission_sd, state, ray, shader_eval_task);
+#else
+	return make_float3(0.8f, 0.8f, 0.8f);
+#endif  /* __BACKGROUND__ */
 }
 
 CCL_NAMESPACE_END
