@@ -34,6 +34,7 @@
 #include "DNA_object_types.h"
 #include "DNA_gpencil_types.h"
 
+#include "BLI_blenlib.h"
 #include "BLI_ghash.h"
 #include "BLI_math_vector.h"
 #include "BLI_utildefines.h"
