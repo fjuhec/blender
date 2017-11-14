@@ -123,6 +123,7 @@ ccl_device void kernel_direct_lighting(KernelGlobals *kg,
 
 	if(ccl_global_id(1) * ccl_global_size(0) + ccl_global_id(0) == 0) {
 		kernel_split_params.shader_eval_queue = QUEUE_SHADOW_RAY_CAST_DL_RAYS;
+		kernel_split_params.shader_eval_state = RAY_ACTIVE;
 	}
 #endif
 

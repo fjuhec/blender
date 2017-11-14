@@ -33,6 +33,7 @@ typedef struct SplitParams {
 
 	/* queue for kernel_shader_eval */
 	QueueNumber shader_eval_queue;
+	char shader_eval_state;
 
 	/* Place for storing sd->flag. AMD GPU OpenCL compiler workaround */
 	int dummy_sd_flag;

@@ -25,12 +25,14 @@ ccl_device void kernel_shader_sort(KernelGlobals *kg,
 	/* Sorting on cuda split is not implemented */
 	if(tid == 0) {
 		kernel_split_params.shader_eval_queue = QUEUE_ACTIVE_AND_REGENERATED_RAYS;
+		kernel_split_params.shader_eval_state = RAY_ACTIVE;
 	}
 #else
 	uint qsize = kernel_split_params.queue_index[QUEUE_ACTIVE_AND_REGENERATED_RAYS];
 	if(tid == 0) {
 		kernel_split_params.queue_index[QUEUE_SHADER_SORTED_RAYS] = qsize;
 		kernel_split_params.shader_eval_queue = QUEUE_SHADER_SORTED_RAYS;
+		kernel_split_params.shader_eval_state = RAY_ACTIVE;
 	}
 
 	uint offset = (tid/SHADER_SORT_LOCAL_SIZE)*SHADER_SORT_BLOCK_SIZE;

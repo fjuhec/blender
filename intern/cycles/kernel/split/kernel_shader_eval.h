@@ -24,6 +24,7 @@ ccl_device void kernel_shader_eval(KernelGlobals *kg)
 	int ray_index = ccl_global_id(1) * ccl_global_size(0) + ccl_global_id(0);
 
 	int queue = kernel_split_params.shader_eval_queue;
+	int shade_state = kernel_split_params.shader_eval_state;
 	int queue_index = kernel_split_params.queue_index[queue];
 
 	if(ray_index >= queue_index) {
@@ -39,7 +40,7 @@ ccl_device void kernel_shader_eval(KernelGlobals *kg)
 		return;
 	}
 
-	if(IS_STATE(kernel_split_state.ray_state, ray_index, RAY_ACTIVE)) {
+	if(IS_STATE(kernel_split_state.ray_state, ray_index, shade_state)) {
 		ShaderEvalTask *eval_task = &kernel_split_state.shader_eval_task[ray_index];
 		ShaderData *sd = (ShaderData*)(((ccl_global char*)&kernel_split_state) + eval_task->sd_offset);
 		ccl_global PathState *state = &kernel_split_state.path_state[ray_index];
