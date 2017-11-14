@@ -156,7 +156,6 @@ enum {
 
 /* IDOverridePropertyOperation->flag. */
 enum {
-	/* Basic operations. */
 	IDOVERRIDE_FLAG_MANDATORY     =   1 << 0,  /* User cannot remove that override operation. */
 	IDOVERRIDE_FLAG_LOCKED        =   1 << 1,  /* User cannot change that override operation. */
 };
@@ -171,7 +170,7 @@ typedef struct IDOverrideProperty {
 	ListBase operations;  /* List of overriding operations (IDOverridePropertyOperation) applied to this property. */
 } IDOverrideProperty;
 
-/* Main container for all overriding data info. */
+/* Main container for all overriding data info of a data-block. */
 typedef struct IDOverride {
 	struct ID *reference;  /* Reference linked ID which this one overrides. */
 	ListBase properties;  /* List of IDOverrideProperty structs. */

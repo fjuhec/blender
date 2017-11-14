@@ -501,7 +501,7 @@ void BKE_override_update(Main *bmain, ID *local)
 	 *     also remain correct). */
 
 	ID *tmp_id;
-	id_copy(bmain, local->override->reference, &tmp_id, false);  /* XXX ...and worse of all, this won't work with scene! */
+	id_copy(bmain, local->override->reference, &tmp_id, false);
 
 	if (tmp_id == NULL) {
 		return;
