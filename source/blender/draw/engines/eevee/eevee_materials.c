@@ -1287,7 +1287,7 @@ static void material_particle_hair(EEVEE_SceneLayerData *sldata, EEVEE_Data *ved
 	}
 }
 
-static void material_hair(EEVEE_SceneLayerData *sldata, EEVEE_Data *vedata, Object *ob, HairSystem *hsys)
+static void material_hair(EEVEE_SceneLayerData *sldata, EEVEE_Data *vedata, Object *ob, HairSystem *hsys, DerivedMesh *scalp)
 {
 	EEVEE_PassList *psl = ((EEVEE_Data *)vedata)->psl;
 	EEVEE_StorageList *stl = ((EEVEE_Data *)vedata)->stl;
@@ -1300,7 +1300,7 @@ static void material_hair(EEVEE_SceneLayerData *sldata, EEVEE_Data *vedata, Obje
 	copy_m4_m4(mat, ob->obmat);
 	
 	const DRWHairFiberTextureBuffer *fiber_buffer = NULL;
-	struct Gwn_Batch *hair_geom = DRW_cache_hair_get_fibers(hsys, subdiv, &fiber_buffer);
+	struct Gwn_Batch *hair_geom = DRW_cache_hair_get_fibers(hsys, scalp, subdiv, &fiber_buffer);
 	
 	if (!hsys->draw_texture_cache) {
 		hsys->draw_texture_cache = DRW_texture_create_2D(fiber_buffer->width, fiber_buffer->height,
@@ -1523,7 +1523,7 @@ void EEVEE_materials_cache_populate(EEVEE_Data *vedata, EEVEE_SceneLayerData *sl
 				}
 				else if (md->type == eModifierType_Hair) {
 					HairModifierData *hmd = (HairModifierData *)md;
-					material_hair(sldata, vedata, ob, hmd->hair_system);
+					material_hair(sldata, vedata, ob, hmd->hair_system, ob->derivedFinal);
 				}
 			}
 		}

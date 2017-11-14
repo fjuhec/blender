@@ -114,7 +114,7 @@ struct Gwn_Batch *DRW_particles_batch_cache_get_hair(struct ParticleSystem *psys
 struct Gwn_Batch *DRW_particles_batch_cache_get_dots(struct ParticleSystem *psys);
 
 /* Hair */
-struct Gwn_Batch *DRW_hair_batch_cache_get_fibers(struct HairSystem *hsys, int subdiv,
+struct Gwn_Batch *DRW_hair_batch_cache_get_fibers(struct HairSystem *hsys, struct DerivedMesh *scalp, int subdiv,
                                                   const struct DRWHairFiberTextureBuffer **r_buffer);
 
 #endif /* __DRAW_CACHE_IMPL_H__ */

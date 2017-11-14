@@ -286,13 +286,10 @@ void BKE_hair_get_texture_buffer_size(
 
 void BKE_hair_get_texture_buffer(
         const HairSystem *hsys,
-        struct Scene *scene,
-        struct EvaluationContext *eval_ctx,
+        DerivedMesh *scalp,
         int subdiv,
         void *buffer)
 {
-	DerivedMesh *scalp = BKE_hair_get_scalp(hsys, scene, eval_ctx);
-	
 	int size, strand_map_start, strand_vertex_start, fiber_start;
 	BKE_hair_get_texture_buffer_size(hsys, subdiv, &size, &strand_map_start, &strand_vertex_start, &fiber_start);
 	

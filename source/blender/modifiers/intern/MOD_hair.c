@@ -102,8 +102,7 @@ static void foreachObjectLink(
         void *userData)
 {
 	HairModifierData *hmd = (HairModifierData *) md;
-
-	walk(userData, ob, &hmd->hair_system->guide_object, IDWALK_CB_NOP);
+	UNUSED_VARS(ob, walk, userData, hmd);
 }
 
 ModifierTypeInfo modifierType_Hair = {

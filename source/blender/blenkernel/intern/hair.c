@@ -49,8 +49,6 @@
 #include "BKE_mesh_sample.h"
 #include "BKE_hair.h"
 
-#include "DEG_depsgraph.h"
-
 #include "BLT_translation.h"
 
 HairSystem* BKE_hair_new(void)
@@ -195,26 +193,6 @@ void BKE_hair_guide_curves_end(HairSystem *hsys)
 	}
 }
 
-DerivedMesh* BKE_hair_get_scalp(const HairSystem *hsys, struct Scene *scene, const struct EvaluationContext *eval_ctx)
-{
-	Object *ob = hsys->guide_object;
-	
-	if (ob)
-	{
-		if (eval_ctx)
-		{
-			CustomDataMask datamask = CD_MASK_BAREMESH;
-			return mesh_get_derived_final(eval_ctx, scene, ob, datamask);
-		}
-		else
-		{
-			return ob->derivedFinal;
-		}
-	}
-	
-	return NULL;
-}
-
 /* ================================= */
 
 BLI_INLINE void hair_fiber_verify_weights(HairFollicle *follicle)
@@ -301,16 +279,12 @@ static void hair_fiber_find_closest_strand(
 	hair_fiber_sort_weights(follicle);
 }
 
-void BKE_hair_bind_follicles(HairSystem *hsys, struct Scene *scene)
+void BKE_hair_bind_follicles(HairSystem *hsys, DerivedMesh *scalp)
 {
 	HairPattern *pattern = hsys->pattern;
 	const int num_strands = hsys->totcurves;
 	if (num_strands == 0 || !pattern)
 		return;
-	
-	EvaluationContext eval_ctx = {0};
-	DEG_evaluation_context_init(&eval_ctx, DAG_EVAL_VIEWPORT);
-	DerivedMesh *scalp = BKE_hair_get_scalp(hsys, scene, &eval_ctx);
 	
 	float (*strandloc)[3] = MEM_mallocN(sizeof(float) * 3 * num_strands, "strand locations");
 	{

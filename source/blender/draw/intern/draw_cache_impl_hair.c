@@ -259,12 +259,8 @@ static void hair_batch_cache_ensure_fibers(HairSystem *hsys, int subdiv, HairBat
 	TIMEIT_END(hair_batch_cache_ensure_fibers);
 }
 
-static void hair_batch_cache_ensure_texbuffer(HairSystem *hsys, int subdiv, HairBatchCache *cache)
+static void hair_batch_cache_ensure_texbuffer(HairSystem *hsys, struct DerivedMesh *scalp, int subdiv, HairBatchCache *cache)
 {
-	const DRWContextState *draw_ctx = DRW_context_state_get();
-	EvaluationContext eval_ctx = {0};
-	DEG_evaluation_context_init(&eval_ctx, DAG_EVAL_VIEWPORT);
-
 	DRWHairFiberTextureBuffer *buffer = &cache->texbuffer;
 	static const int elemsize = 8;
 	const int width = GPU_max_texture_size();
@@ -282,7 +278,7 @@ static void hair_batch_cache_ensure_texbuffer(HairSystem *hsys, int subdiv, Hair
 	const int height = size / width;
 	
 	buffer->data = MEM_mallocN(b_size, "hair fiber texture buffer");
-	BKE_hair_get_texture_buffer(hsys, draw_ctx->scene, &eval_ctx, subdiv, buffer->data);
+	BKE_hair_get_texture_buffer(hsys, scalp, subdiv, buffer->data);
 	
 	buffer->width = width;
 	buffer->height = height;
@@ -291,7 +287,7 @@ static void hair_batch_cache_ensure_texbuffer(HairSystem *hsys, int subdiv, Hair
 	buffer->fiber_start = b_fiber_start / elemsize;
 }
 
-Gwn_Batch *DRW_hair_batch_cache_get_fibers(HairSystem *hsys, int subdiv,
+Gwn_Batch *DRW_hair_batch_cache_get_fibers(HairSystem *hsys, struct DerivedMesh *scalp, int subdiv,
                                            const DRWHairFiberTextureBuffer **r_buffer)
 {
 	HairBatchCache *cache = hair_batch_cache_get(hsys);
@@ -305,7 +301,7 @@ Gwn_Batch *DRW_hair_batch_cache_get_fibers(HairSystem *hsys, int subdiv,
 		TIMEIT_BENCH(cache->fibers = GWN_batch_create(GWN_PRIM_TRIS, cache->verts, cache->segments),
 		             GWN_batch_create);
 
-		TIMEIT_BENCH(hair_batch_cache_ensure_texbuffer(hsys, subdiv, cache),
+		TIMEIT_BENCH(hair_batch_cache_ensure_texbuffer(hsys, scalp, subdiv, cache),
 		             hair_batch_cache_ensure_texbuffer);
 	}
 

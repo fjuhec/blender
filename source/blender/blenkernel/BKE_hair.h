@@ -40,9 +40,8 @@ struct HairFollicle;
 struct HairPattern;
 struct HairSystem;
 struct DerivedMesh;
-struct EvaluationContext;
 struct MeshSample;
-struct Scene;
+struct Object;
 
 /* Create a new hair system instance */
 struct HairSystem* BKE_hair_new(void);
@@ -58,13 +57,11 @@ void BKE_hair_set_guide_curve(struct HairSystem *hsys, int index, const struct M
 void BKE_hair_set_guide_vertex(struct HairSystem *hsys, int index, int flag, const float co[3]);
 void BKE_hair_guide_curves_end(struct HairSystem *hsys);
 
-struct DerivedMesh* BKE_hair_get_scalp(const struct HairSystem *hsys, struct Scene *scene, const struct EvaluationContext *eval_ctx);
-
 /* === Follicles === */
 
 void BKE_hair_generate_follicles(struct HairSystem* hsys, unsigned int seed);
 
-void BKE_hair_bind_follicles(struct HairSystem *hsys, struct Scene *scene);
+void BKE_hair_bind_follicles(struct HairSystem *hsys, struct DerivedMesh *scalp);
 
 /* === Draw Cache === */
 
@@ -75,9 +72,17 @@ void BKE_hair_batch_cache_dirty(struct HairSystem* hsys, int mode);
 void BKE_hair_batch_cache_free(struct HairSystem* hsys);
 
 int* BKE_hair_get_fiber_lengths(const struct HairSystem* hsys, int subdiv);
-void BKE_hair_get_texture_buffer_size(const struct HairSystem* hsys, int subdiv,
-                                              int *r_size, int *r_strand_map_start, int *r_strand_vertex_start, int *r_fiber_start);
-void BKE_hair_get_texture_buffer(const struct HairSystem* hsys, struct Scene *scene,
-                                 struct EvaluationContext *eval_ctx, int subdiv, void *texbuffer);
+void BKE_hair_get_texture_buffer_size(
+        const struct HairSystem* hsys,
+        int subdiv,
+        int *r_size,
+        int *r_strand_map_start,
+        int *r_strand_vertex_start,
+        int *r_fiber_start);
+void BKE_hair_get_texture_buffer(
+        const struct HairSystem* hsys,
+        struct DerivedMesh *scalp,
+        int subdiv,
+        void *texbuffer);
 
 #endif

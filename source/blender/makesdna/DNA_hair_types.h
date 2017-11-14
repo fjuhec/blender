@@ -72,9 +72,6 @@ typedef struct HairSystem {
 	int flag;
 	int pad;
 	
-	/* Object of the curve generator */
-	struct Object *guide_object;
-	
 	/* Set of hair follicles on the scalp mesh */
 	struct HairPattern *pattern;
 	

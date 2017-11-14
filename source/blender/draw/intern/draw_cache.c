@@ -2579,8 +2579,8 @@ Gwn_Batch *DRW_cache_particles_get_prim(int type)
 
 /** \name Hair */
 
-Gwn_Batch *DRW_cache_hair_get_fibers(struct HairSystem *hsys, int subdiv,
+Gwn_Batch *DRW_cache_hair_get_fibers(struct HairSystem *hsys, struct DerivedMesh *scalp, int subdiv,
                                      const struct DRWHairFiberTextureBuffer **r_buffer)
 {
-	return DRW_hair_batch_cache_get_fibers(hsys, subdiv, r_buffer);
+	return DRW_hair_batch_cache_get_fibers(hsys, scalp, subdiv, r_buffer);
 }
