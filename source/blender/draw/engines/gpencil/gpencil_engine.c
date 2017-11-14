@@ -620,7 +620,12 @@ static void GPENCIL_draw_scene(void *vedata)
 	/* if we have a painting session, we use fast viewport drawing method */
 	if (stl->g_data->session_flag & GP_DRW_PAINT_PAINTING) {
 		DRW_framebuffer_bind(dfbl->default_fb);
+
+		MULTISAMPLE_SYNC_ENABLE(dfbl);
+		
 		DRW_draw_pass(psl->painting_pass);
+		
+		MULTISAMPLE_SYNC_DISABLE(dfbl);
 
 		/* Current stroke must pass through the temp framebuffer to get same alpha values in blend */
 		DRW_framebuffer_texture_attach(fbl->temp_color_fb, e_data.temp_fbcolor_depth_tx, 0, 0);
