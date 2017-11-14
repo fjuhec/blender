@@ -127,13 +127,14 @@ ccl_device_forceinline void kernel_path_lamp_emission(
 #endif  /* __LAMP_MIS__ */
 }
 
-ccl_device_forceinline void kernel_path_background(
+ccl_device_forceinline bool kernel_path_background_setup(
 	KernelGlobals *kg,
 	ccl_addr_space PathState *state,
 	ccl_addr_space Ray *ray,
 	float3 throughput,
 	ShaderData *sd,
-	PathRadiance *L)
+	PathRadiance *L,
+	ShaderEvalTask *eval_task)
 {
 	/* eval background shader if nothing hit */
 	if(kernel_data.background.transparent && (state->flag & PATH_RAY_CAMERA)) {
@@ -142,7 +143,7 @@ ccl_device_forceinline void kernel_path_background(
 #ifdef __PASSES__
 		if(!(kernel_data.film.pass_flag & PASS_BACKGROUND))
 #endif  /* __PASSES__ */
-			return;
+			return false;
 	}
 
 	/* When using the ao bounces approximation, adjust background
@@ -153,8 +154,44 @@ ccl_device_forceinline void kernel_path_background(
 
 #ifdef __BACKGROUND__
 	/* sample background shader */
-	float3 L_background = indirect_background(kg, sd, state, ray);
+	return indirect_background_setup(kg, sd, state, ray, eval_task);
+#else
+	return false;
+#endif  /* __BACKGROUND__ */
+}
+
+ccl_device_forceinline void kernel_path_background_finish(
+	KernelGlobals *kg,
+	ccl_addr_space PathState *state,
+	ccl_addr_space Ray *ray,
+	float3 throughput,
+	ShaderData *sd,
+	PathRadiance *L,
+	ShaderEvalTask *eval_task)
+{
+#ifdef __BACKGROUND__
+	/* sample background shader */
+	float3 L_background = indirect_background_finish(kg, sd, state, ray, eval_task);
 	path_radiance_accum_background(L, state, throughput, L_background);
+#endif  /* __BACKGROUND__ */
+}
+
+ccl_device_forceinline void kernel_path_background(
+	KernelGlobals *kg,
+	ccl_addr_space PathState *state,
+	ccl_addr_space Ray *ray,
+	float3 throughput,
+	ShaderData *sd,
+	PathRadiance *L)
+{
+#ifdef __BACKGROUND__
+	MAKE_POINTER_TO_LOCAL_OBJ(ShaderEvalTask, shader_eval_task);
+	if(kernel_path_background_setup(kg, state, ray, throughput, sd, L, shader_eval_task)) {
+		shader_eval(kg, sd, state, shader_eval_task);
+		kernel_path_background_finish(kg, state, ray, throughput, sd, L, shader_eval_task);
+	}
+#else
+	kernel_path_background_setup(kg, state, ray, throughput, sd, L, NULL);
 #endif  /* __BACKGROUND__ */
 }
 
