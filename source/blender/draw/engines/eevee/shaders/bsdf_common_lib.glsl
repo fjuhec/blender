@@ -580,6 +580,9 @@ Closure closure_add(Closure cl1, Closure cl2)
 struct Closure {
 	vec3 radiance;
 	float opacity;
+#ifdef USE_SSS
+	vec4 sss_data;
+#endif
 	vec4 ssr_data;
 	vec2 ssr_normal;
 	int ssr_id;
@@ -589,19 +592,30 @@ struct Closure {
 #define TRANSPARENT_CLOSURE_FLAG -2
 #define REFRACT_CLOSURE_FLAG -3
 
+#ifdef USE_SSS
+#define CLOSURE_DEFAULT Closure(vec3(0.0), 1.0, vec4(0.0), vec4(0.0), vec2(0.0), -1)
+#else
 #define CLOSURE_DEFAULT Closure(vec3(0.0), 1.0, vec4(0.0), vec2(0.0), -1)
+#endif
 
 uniform int outputSsrId;
 
 Closure closure_mix(Closure cl1, Closure cl2, float fac)
 {
 	Closure cl;
+
+#ifdef USE_SSS
+	cl.sss_data.rgb = mix(cl1.sss_data.rgb, cl2.sss_data.rgb, fac);
+	cl.sss_data.a = (cl1.sss_data.a > 0.0) ? cl1.sss_data.a : cl2.sss_data.a;
+#endif
+
 	if (cl1.ssr_id == outputSsrId) {
 		cl.ssr_data = mix(cl1.ssr_data.xyzw, vec4(vec3(0.0), cl1.ssr_data.w), fac); /* do not blend roughness */
 		cl.ssr_normal = cl1.ssr_normal;
 		cl.ssr_id = cl1.ssr_id;
 	}
 	else {
+		cl.ssr_data = mix(vec4(vec3(0.0), cl2.ssr_data.w), cl2.ssr_data.xyzw, fac); /* do not blend roughness */
 		cl.ssr_data = mix(vec4(vec3(0.0), cl2.ssr_data.w), cl2.ssr_data.xyzw, fac); /* do not blend roughness */
 		cl.ssr_normal = cl2.ssr_normal;
 		cl.ssr_id = cl2.ssr_id;
@@ -627,8 +641,14 @@ Closure closure_add(Closure cl1, Closure cl2)
 
 #if defined(MESH_SHADER) && !defined(USE_ALPHA_HASH) && !defined(USE_ALPHA_CLIP) && !defined(SHADOW_SHADER) && !defined(USE_MULTIPLY)
 layout(location = 0) out vec4 fragColor;
+#ifdef USE_SSS
+layout(location = 1) out vec4 sssData;
+layout(location = 2) out vec4 ssrNormals;
+layout(location = 3) out vec4 ssrData;
+#else
 layout(location = 1) out vec4 ssrNormals;
 layout(location = 2) out vec4 ssrData;
+#endif
 
 Closure nodetree_exec(void); /* Prototype */
 
@@ -652,6 +672,9 @@ void main()
 
 	ssrNormals = cl.ssr_normal.xyyy;
 	ssrData = cl.ssr_data;
+#ifdef USE_SSS
+	sssData = cl.sss_data;
+#endif
 }
 
 #endif /* MESH_SHADER && !SHADOW_SHADER */
