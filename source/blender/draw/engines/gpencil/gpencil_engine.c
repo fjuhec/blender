@@ -70,7 +70,7 @@ static void GPENCIL_engine_init(void *vedata)
 		const float *viewport_size = DRW_viewport_size_get();
 
 		DRWFboTexture tex_color[2] = {
-			{&e_data.temp_fbcolor_depth_tx, DRW_TEX_DEPTH_24, DRW_TEX_TEMP},
+			{&e_data.temp_fbcolor_depth_tx, DRW_TEX_DEPTH_24_STENCIL_8, DRW_TEX_TEMP},
 			{&e_data.temp_fbcolor_color_tx, DRW_TEX_RGBA_16, DRW_TEX_TEMP}
 		};
 		/* init temp framebuffer */
@@ -81,7 +81,7 @@ static void GPENCIL_engine_init(void *vedata)
 
 		/* vfx */
 		DRWFboTexture vfx_color_a[2] = {
-			{&e_data.vfx_fbcolor_depth_tx_a, DRW_TEX_DEPTH_24, DRW_TEX_TEMP},
+			{&e_data.vfx_fbcolor_depth_tx_a, DRW_TEX_DEPTH_24_STENCIL_8, DRW_TEX_TEMP},
 			{&e_data.vfx_fbcolor_color_tx_a, DRW_TEX_RGBA_16, DRW_TEX_TEMP}
 		};
 		DRW_framebuffer_init(
@@ -90,7 +90,7 @@ static void GPENCIL_engine_init(void *vedata)
 		        vfx_color_a, ARRAY_SIZE(vfx_color_a));
 
 		DRWFboTexture vfx_color_b[2] = {
-			{&e_data.vfx_fbcolor_depth_tx_b, DRW_TEX_DEPTH_24, DRW_TEX_TEMP},
+			{&e_data.vfx_fbcolor_depth_tx_b, DRW_TEX_DEPTH_24_STENCIL_8, DRW_TEX_TEMP},
 			{&e_data.vfx_fbcolor_color_tx_b, DRW_TEX_RGBA_16, DRW_TEX_TEMP}
 		};
 		DRW_framebuffer_init(
@@ -100,7 +100,7 @@ static void GPENCIL_engine_init(void *vedata)
 
 		/* painting framebuffer to speed up drawing process */
 		DRWFboTexture tex_painting[2] = {
-			{&e_data.painting_depth_tx, DRW_TEX_DEPTH_24, DRW_TEX_TEMP},
+			{&e_data.painting_depth_tx, DRW_TEX_DEPTH_24_STENCIL_8, DRW_TEX_TEMP},
 			{&e_data.painting_color_tx, DRW_TEX_RGBA_16, DRW_TEX_TEMP}
 		};
 		DRW_framebuffer_init(
