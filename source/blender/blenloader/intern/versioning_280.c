@@ -571,9 +571,12 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 		for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
 			if (scene->gpd) {
 				Object *ob;
-				SceneLayer *sl = scene->render_layers.first;
-				
-				ob = BKE_object_add_for_data(main, scene, sl, OB_GPENCIL, "GP_Scene", &scene->gpd->id, false);
+				SceneLayer *scene_layer = BKE_scene_layer_from_scene_get(scene);
+				if (scene_layer == NULL) {
+					scene_layer = BKE_scene_layer_add(scene, "Viewport");
+				}
+
+				ob = BKE_object_add_for_data(main, scene, scene_layer, OB_GPENCIL, "GP_Scene", &scene->gpd->id, false);
 				zero_v3(ob->loc);
 				scene->gpd = NULL;
 
