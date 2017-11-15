@@ -171,7 +171,7 @@ int ED_operator_screen_mainwinactive(bContext *C)
 int ED_operator_scene_editable(bContext *C)
 {
 	Scene *scene = CTX_data_scene(C);
-	if (scene && !ID_IS_LINKED_DATABLOCK(scene))
+	if (scene && !ID_IS_LINKED(scene))
 		return 1;
 	return 0;
 }
@@ -181,7 +181,7 @@ int ED_operator_objectmode(bContext *C)
 	Scene *scene = CTX_data_scene(C);
 	Object *obact = CTX_data_active_object(C);
 
-	if (scene == NULL || ID_IS_LINKED_DATABLOCK(scene))
+	if (scene == NULL || ID_IS_LINKED(scene))
 		return 0;
 	if (CTX_data_edit_object(C))
 		return 0;
@@ -282,7 +282,7 @@ int ED_operator_node_editable(bContext *C)
 {
 	SpaceNode *snode = CTX_wm_space_node(C);
 	
-	if (snode && snode->edittree && !ID_IS_LINKED_DATABLOCK(snode->edittree))
+	if (snode && snode->edittree && !ID_IS_LINKED(snode->edittree))
 		return 1;
 	
 	return 0;
@@ -344,20 +344,20 @@ int ED_operator_object_active(bContext *C)
 int ED_operator_object_active_editable(bContext *C)
 {
 	Object *ob = ED_object_active_context(C);
-	return ((ob != NULL) && !ID_IS_LINKED_DATABLOCK(ob) && !ed_object_hidden(ob));
+	return ((ob != NULL) && !ID_IS_LINKED(ob) && !ed_object_hidden(ob));
 }
 
 int ED_operator_object_active_editable_mesh(bContext *C)
 {
 	Object *ob = ED_object_active_context(C);
-	return ((ob != NULL) && !ID_IS_LINKED_DATABLOCK(ob) && !ed_object_hidden(ob) &&
-	        (ob->type == OB_MESH) && !ID_IS_LINKED_DATABLOCK(ob->data));
+	return ((ob != NULL) && !ID_IS_LINKED(ob) && !ed_object_hidden(ob) &&
+	        (ob->type == OB_MESH) && !ID_IS_LINKED(ob->data));
 }
 
 int ED_operator_object_active_editable_font(bContext *C)
 {
 	Object *ob = ED_object_active_context(C);
-	return ((ob != NULL) && !ID_IS_LINKED_DATABLOCK(ob) && !ed_object_hidden(ob) &&
+	return ((ob != NULL) && !ID_IS_LINKED(ob) && !ed_object_hidden(ob) &&
 	        (ob->type == OB_FONT));
 }
 
@@ -450,8 +450,8 @@ int ED_operator_posemode_local(bContext *C)
 	if (ED_operator_posemode(C)) {
 		Object *ob = BKE_object_pose_armature_get(CTX_data_active_object(C));
 		bArmature *arm = ob->data;
-		return !(ID_IS_LINKED_DATABLOCK(&ob->id) ||
-		         ID_IS_LINKED_DATABLOCK(&arm->id));
+		return !(ID_IS_LINKED(&ob->id) ||
+		         ID_IS_LINKED(&arm->id));
 	}
 	return false;
 }
@@ -2805,12 +2805,12 @@ static int screen_area_options_invoke(bContext *C, wmOperator *op, const wmEvent
 	pup = UI_popup_menu_begin(C, RNA_struct_ui_name(op->type->srna), ICON_NONE);
 	layout = UI_popup_menu_layout(pup);
 	
-	ptr = uiItemFullO(layout, "SCREEN_OT_area_split", NULL, ICON_NONE, NULL, WM_OP_INVOKE_DEFAULT, UI_ITEM_O_RETURN_PROPS);
+	uiItemFullO(layout, "SCREEN_OT_area_split", NULL, ICON_NONE, NULL, WM_OP_INVOKE_DEFAULT, 0, &ptr);
 	/* store initial mouse cursor position */
 	RNA_int_set(&ptr, "mouse_x", event->x);
 	RNA_int_set(&ptr, "mouse_y", event->y);
 
-	ptr = uiItemFullO(layout, "SCREEN_OT_area_join", NULL, ICON_NONE, NULL, WM_OP_INVOKE_DEFAULT, UI_ITEM_O_RETURN_PROPS);
+	uiItemFullO(layout, "SCREEN_OT_area_join", NULL, ICON_NONE, NULL, WM_OP_INVOKE_DEFAULT, 0, &ptr);
 	/* mouse cursor on edge, '4' can fail on wide edges... */
 	RNA_int_set(&ptr, "min_x", event->x + 4);
 	RNA_int_set(&ptr, "min_y", event->y + 4);
@@ -3429,6 +3429,8 @@ static int screen_animation_step(bContext *C, wmOperator *UNUSED(op), const wmEv
 	if (screen->animtimer && screen->animtimer == event->customdata) {
 		Main *bmain = CTX_data_main(C);
 		Scene *scene = CTX_data_scene(C);
+		SceneLayer *scene_layer = CTX_data_scene_layer(C);
+		struct Depsgraph *depsgraph = CTX_data_depsgraph(C);
 		wmTimer *wt = screen->animtimer;
 		ScreenAnimData *sad = wt->customdata;
 		wmWindowManager *wm = CTX_wm_manager(C);
@@ -3539,7 +3541,7 @@ static int screen_animation_step(bContext *C, wmOperator *UNUSED(op), const wmEv
 		}
 		
 		/* since we follow drawflags, we can't send notifier but tag regions ourselves */
-		ED_update_for_newframe(bmain, scene);
+		ED_update_for_newframe(bmain, scene, scene_layer, depsgraph);
 
 		for (window = wm->windows.first; window; window = window->next) {
 			const bScreen *win_screen = WM_window_get_active_screen(window);

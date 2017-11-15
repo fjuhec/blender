@@ -46,7 +46,6 @@ struct ARegionType;
 struct bFaceMap;
 struct BMEditMesh;
 struct Base;
-struct BaseLegacy;
 struct bContext;
 struct BoundBox;
 struct Brush;
@@ -262,7 +261,7 @@ void RE_SetActiveRenderView(struct Render *re, const char *viewname) RET_NONE
 
 struct RenderPass *RE_pass_find_by_name(volatile struct RenderLayer *rl, const char *name, const char *viewname) RET_NULL
 struct RenderPass *RE_pass_find_by_type(volatile struct RenderLayer *rl, int passtype, const char *viewname) RET_NULL
-bool RE_HasFakeLayer(RenderResult *res) RET_ZERO
+bool RE_HasCombinedLayer(RenderResult *res) RET_ZERO
 
 /* zbuf.c stub */
 void antialias_tagbuf(int xsize, int ysize, char *rectmove) RET_NONE
@@ -551,8 +550,7 @@ struct bScreen *ED_screen_animation_playing(const struct wmWindowManager *wm) RE
 struct Scene *ED_screen_scene_find(const struct bScreen *screen, const struct wmWindowManager *wm) RET_NULL
 void ED_screen_global_topbar_area_create(const struct bContext *C, struct wmWindow *win, const struct bScreen *screen) RET_NONE
 bool ED_scene_render_layer_delete(struct Main *bmain, Scene *scene, SceneLayer *layer, ReportList *reports) RET_ZERO
-void ED_base_object_select(struct BaseLegacy *base, short mode) RET_NONE
-void ED_object_base_select(struct Base *base, short mode) RET_NONE
+void ED_object_base_select(struct Base *base, eObjectSelect_Mode mode) RET_NONE
 bool ED_object_modifier_remove(struct ReportList *reports, struct Main *bmain, struct Object *ob, struct ModifierData *md) RET_ZERO
 struct ModifierData *ED_object_modifier_add(struct ReportList *reports, struct Main *bmain, struct Scene *scene, struct Object *ob, const char *name, int type) RET_ZERO
 void ED_object_modifier_clear(struct Main *bmain, struct Object *ob) RET_NONE
@@ -573,7 +571,7 @@ void uiLayoutSetAlignment(uiLayout *layout, char alignment) RET_NONE
 void uiLayoutSetScaleX(struct uiLayout *layout, float scale) RET_NONE
 void uiLayoutSetScaleY(struct uiLayout *layout, float scale) RET_NONE
 void uiTemplateIconView(struct uiLayout *layout, struct PointerRNA *ptr, const char *propname, int show_labels, float icon_scale) RET_NONE
-void ED_base_object_free_and_unlink(struct Main *bmain, struct Scene *scene, struct Object *base) RET_NONE
+void ED_object_base_free_and_unlink(struct Main *bmain, struct Scene *scene, struct Object *base) RET_NONE
 void ED_mesh_update(struct Mesh *mesh, struct bContext *C, int calc_edges, int calc_tessface) RET_NONE
 void ED_mesh_vertices_add(struct Mesh *mesh, struct ReportList *reports, int count) RET_NONE
 void ED_mesh_edges_add(struct Mesh *mesh, struct ReportList *reports, int count) RET_NONE
@@ -633,8 +631,9 @@ void ED_curve_editnurb_make(struct Object *obedit) RET_NONE
 
 void uiItemR(uiLayout *layout, struct PointerRNA *ptr, const char *propname, int flag, const char *name, int icon) RET_NONE
 
-struct PointerRNA uiItemFullO(uiLayout *layout, const char *idname, const char *name, int icon, struct IDProperty *properties, int context, int flag) RET_STRUCT(PointerRNA)
-PointerRNA uiItemFullO_ptr(struct uiLayout *layout, struct wmOperatorType *ot, const char *name, int icon, struct IDProperty *properties, int context, int flag) RET_STRUCT(PointerRNA)
+void uiItemFullO(uiLayout *layout, const char *idname, const char *name, int icon, struct IDProperty *properties, int context, int flag, struct PointerRNA *r_opptr) RET_NONE
+void uiItemFullO_ptr(struct uiLayout *layout, struct wmOperatorType *ot, const char *name, int icon, struct IDProperty *properties, int context, int flag, struct PointerRNA *r_opptr) RET_NONE
+void uiItemFullOMenuHold_ptr( uiLayout *layout, struct wmOperatorType *ot, const char *name, int icon, struct IDProperty *properties, int context, int flag, const char *menu_id,  /* extra menu arg. */ PointerRNA *r_opptr) RET_NONE
 struct uiLayout *uiLayoutRow(uiLayout *layout, int align) RET_NULL
 struct uiLayout *uiLayoutColumn(uiLayout *layout, int align) RET_NULL
 struct uiLayout *uiLayoutColumnFlow(uiLayout *layout, int number, int align) RET_NULL
@@ -650,6 +649,7 @@ void uiItemPointerR(uiLayout *layout, struct PointerRNA *ptr, const char *propna
 void uiItemsEnumO(uiLayout *layout, const char *opname, const char *propname) RET_NONE
 void uiItemEnumO_string(uiLayout *layout, const char *name, int icon, const char *opname, const char *propname, const char *value) RET_NONE
 void uiItemMenuEnumO(uiLayout *layout, struct bContext *C, const char *opname, const char *propname, const char *name, int icon) RET_NONE
+void uiItemMenuEnumO_ptr(uiLayout *layout, struct bContext *C, struct wmOperatorType *ot, const char *propname, const char *name, int icon) RET_NONE
 void uiItemBooleanO(uiLayout *layout, const char *name, int icon, const char *opname, const char *propname, int value) RET_NONE
 void uiItemIntO(uiLayout *layout, const char *name, int icon, const char *opname, const char *propname, int value) RET_NONE
 void uiItemFloatO(uiLayout *layout, const char *name, int icon, const char *opname, const char *propname, float value) RET_NONE
@@ -738,6 +738,7 @@ void uiTemplateOperatorRedo(uiLayout *layout, struct bContext *C) RET_NONE
 struct RenderResult *RE_engine_begin_result(RenderEngine *engine, int x, int y, int w, int h, const char *layername, const char *viewname) RET_NULL
 struct RenderResult *RE_AcquireResultRead(struct Render *re) RET_NULL
 struct RenderResult *RE_AcquireResultWrite(struct Render *re) RET_NULL
+struct RenderResult *RE_engine_get_result(struct RenderEngine *re) RET_NULL
 struct RenderStats *RE_GetStats(struct Render *re) RET_NULL
 struct RenderData *RE_engine_get_render_data(struct Render *re) RET_NULL
 void RE_engine_update_result(struct RenderEngine *engine, struct RenderResult *result) RET_NONE
@@ -772,6 +773,7 @@ void RE_FreeAllPersistentData(void) RET_NONE
 float RE_fresnel_dielectric(float incoming[3], float normal[3], float eta) RET_ZERO
 void RE_engine_register_pass(struct RenderEngine *engine, struct Scene *scene, struct SceneRenderLayer *srl, const char *name, int channels, const char *chanid, int type) RET_NONE
 struct SceneLayer *RE_engine_get_scene_layer(struct Render *re) RET_NULL
+void RE_SetDepsgraph(struct Render *re, struct Depsgraph *graph) RET_NONE
 
 /* Draw */
 void OBJECT_collection_settings_create(struct IDProperty *properties) RET_NONE

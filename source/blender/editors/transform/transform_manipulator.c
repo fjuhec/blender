@@ -596,7 +596,7 @@ static int calc_manipulator_stats(
 	View3D *v3d = sa->spacedata.first;
 	RegionView3D *rv3d = ar->regiondata;
 	Base *base;
-	Object *ob = OBACT_NEW(sl);
+	Object *ob = OBACT(sl);
 	bGPdata *gpd = CTX_data_gpencil_data(C);
 	const bool is_gp_edit = ((gpd) && (gpd->flag & GP_DATA_STROKE_EDITMODE));
 	int a, totsel = 0;
@@ -998,12 +998,12 @@ static int calc_manipulator_stats(
 	else {
 
 		/* we need the one selected object, if its not active */
-		base = BASACT_NEW(sl);
-		ob = OBACT_NEW(sl);
+		base = BASACT(sl);
+		ob = OBACT(sl);
 		if (base && ((base->flag & BASE_SELECTED) == 0)) ob = NULL;
 
 		for (base = sl->object_bases.first; base; base = base->next) {
-			if (TESTBASELIB_NEW(base)) {
+			if (TESTBASELIB(base)) {
 				if (ob == NULL)
 					ob = base->object;
 				if (use_only_center || base->object->bb == NULL) {
@@ -1062,7 +1062,7 @@ static void manipulator_prepare_mat(
 		case V3D_AROUND_ACTIVE:
 		{
 			bGPdata *gpd = CTX_data_gpencil_data(C);
-			Object *ob = OBACT_NEW(sl);
+			Object *ob = OBACT(sl);
 
 			if (((v3d->around == V3D_AROUND_ACTIVE) && (scene->obedit == NULL)) &&
 			    ((gpd == NULL) || !(gpd->flag & GP_DATA_STROKE_EDITMODE)) &&
@@ -1441,8 +1441,16 @@ static bool WIDGETGROUP_manipulator_poll(const struct bContext *C, struct wmMani
 	const ScrArea *sa = CTX_wm_area(C);
 	const View3D *v3d = sa->spacedata.first;
 
-	return (((v3d->twflag & V3D_MANIPULATOR_DRAW) != 0) &&
-	        ((v3d->twtype & (V3D_MANIP_TRANSLATE | V3D_MANIP_ROTATE | V3D_MANIP_SCALE)) != 0));
+	if (((v3d->twflag & V3D_MANIPULATOR_DRAW) != 0) &&
+	        ((v3d->twtype & (V3D_MANIP_TRANSLATE | V3D_MANIP_ROTATE | V3D_MANIP_SCALE)) != 0))
+	{
+		/* Don't show when tools have a manipulator. */
+		WorkSpace *workspace = CTX_wm_workspace(C);
+		if (workspace->tool.manipulator_group[0] == '\0') {
+			return true;
+		}
+	}
+	return false;
 }
 
 void TRANSFORM_WGT_manipulator(wmManipulatorGroupType *wgt)
@@ -1583,7 +1591,7 @@ static void WIDGETGROUP_xform_cage_draw_prepare(const bContext *C, wmManipulator
 	wmManipulator *mpr = xmgroup->manipulator;
 
 	SceneLayer *sl = CTX_data_scene_layer(C);
-	Object *ob = OBACT_NEW(sl);
+	Object *ob = OBACT(sl);
 	if (ob && ob->mode & OB_MODE_EDIT) {
 		copy_m4_m4(mpr->matrix_space, ob->obmat);
 	}
