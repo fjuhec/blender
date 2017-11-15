@@ -28,7 +28,7 @@
  *
  */
 
-/** \file blender/modifiers/intern/MOD_displace.c
+/** \file blender/modifiers/intern/MOD_fur.c
  *  \ingroup modifiers
  */
 
@@ -52,35 +52,35 @@
 
 static void initData(ModifierData *md)
 {
-	HairModifierData *hmd = (HairModifierData *) md;
+	FurModifierData *fmd = (FurModifierData *) md;
 	
-	hmd->hair_system = BKE_hair_new();
+	fmd->hair_system = BKE_hair_new();
 	
-	hmd->flag |= 0;
+	fmd->flag |= 0;
 }
 
 static void copyData(ModifierData *md, ModifierData *target)
 {
-	HairModifierData *hmd = (HairModifierData *) md;
-	HairModifierData *thmd = (HairModifierData *) target;
+	FurModifierData *fmd = (FurModifierData *) md;
+	FurModifierData *tfmd = (FurModifierData *) target;
 
-	if (thmd->hair_system) {
-		BKE_hair_free(thmd->hair_system);
+	if (tfmd->hair_system) {
+		BKE_hair_free(tfmd->hair_system);
 	}
 
 	modifier_copyData_generic(md, target);
 	
-	if (hmd->hair_system) {
-		thmd->hair_system = BKE_hair_copy(hmd->hair_system);
+	if (fmd->hair_system) {
+		tfmd->hair_system = BKE_hair_copy(fmd->hair_system);
 	}
 }
 
 static void freeData(ModifierData *md)
 {
-	HairModifierData *hmd = (HairModifierData *) md;
+	FurModifierData *fmd = (FurModifierData *) md;
 	
-	if (hmd->hair_system) {
-		BKE_hair_free(hmd->hair_system);
+	if (fmd->hair_system) {
+		BKE_hair_free(fmd->hair_system);
 	}
 }
 
@@ -88,9 +88,9 @@ static DerivedMesh *applyModifier(ModifierData *md, const struct EvaluationConte
                                   Object *UNUSED(ob), DerivedMesh *dm,
                                   ModifierApplyFlag UNUSED(flag))
 {
-	HairModifierData *hmd = (HairModifierData *) md;
+	FurModifierData *fmd = (FurModifierData *) md;
 	
-	UNUSED_VARS(hmd);
+	UNUSED_VARS(fmd);
 	
 	return dm;
 }
@@ -101,14 +101,14 @@ static void foreachObjectLink(
         ObjectWalkFunc walk,
         void *userData)
 {
-	HairModifierData *hmd = (HairModifierData *) md;
-	UNUSED_VARS(ob, walk, userData, hmd);
+	FurModifierData *fmd = (FurModifierData *) md;
+	UNUSED_VARS(ob, walk, userData, fmd);
 }
 
-ModifierTypeInfo modifierType_Hair = {
-	/* name */              "Hair",
-	/* structName */        "HairModifierData",
-	/* structSize */        sizeof(HairModifierData),
+ModifierTypeInfo modifierType_Fur = {
+	/* name */              "Fur",
+	/* structName */        "FurModifierData",
+	/* structSize */        sizeof(FurModifierData),
 	/* type */              eModifierTypeType_NonGeometrical,
 	/* flags */             eModifierTypeFlag_AcceptsMesh |
 	                        eModifierTypeFlag_SupportsEditmode,

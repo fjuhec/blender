@@ -87,7 +87,7 @@ typedef enum ModifierType {
 	eModifierType_CorrectiveSmooth  = 51,
 	eModifierType_MeshSequenceCache = 52,
 	eModifierType_SurfaceDeform     = 53,
-	eModifierType_Hair              = 54,
+	eModifierType_Fur               = 54,
 	NUM_MODIFIER_TYPES
 } ModifierType;
 
@@ -1627,14 +1627,14 @@ enum {
 #define MOD_MESHSEQ_READ_ALL \
 	(MOD_MESHSEQ_READ_VERT | MOD_MESHSEQ_READ_POLY | MOD_MESHSEQ_READ_UV | MOD_MESHSEQ_READ_COLOR)
 
-/* Hair modifier */
-typedef struct HairModifierData {
+/* Fur modifier */
+typedef struct FurModifierData {
 	ModifierData modifier;
 	
 	int flag;
 	int pad;
 	
 	struct HairSystem *hair_system;
-} HairModifierData;
+} FurModifierData;
 
 #endif  /* __DNA_MODIFIER_TYPES_H__ */

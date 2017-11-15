@@ -5471,11 +5471,11 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb)
 				}
 			}
 		}
-		else if (md->type == eModifierType_Hair) {
-			HairModifierData *hmd = (HairModifierData *)md;
+		else if (md->type == eModifierType_Fur) {
+			FurModifierData *fmd = (FurModifierData *)md;
 			
-			hmd->hair_system = newdataadr(fd, hmd->hair_system);
-			direct_link_hair(fd, hmd->hair_system);
+			fmd->hair_system = newdataadr(fd, fmd->hair_system);
+			direct_link_hair(fd, fmd->hair_system);
 		}
 	}
 }

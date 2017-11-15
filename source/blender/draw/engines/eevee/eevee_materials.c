@@ -1521,9 +1521,9 @@ void EEVEE_materials_cache_populate(EEVEE_Data *vedata, EEVEE_SceneLayerData *sl
 					ParticleSystem *psys = ((ParticleSystemModifierData *)md)->psys;
 					material_particle_hair(sldata, vedata, ob, psys, md);
 				}
-				else if (md->type == eModifierType_Hair) {
-					HairModifierData *hmd = (HairModifierData *)md;
-					material_hair(sldata, vedata, ob, hmd->hair_system, ob->derivedFinal);
+				else if (md->type == eModifierType_Fur) {
+					FurModifierData *fmd = (FurModifierData *)md;
+					material_hair(sldata, vedata, ob, fmd->hair_system, ob->derivedFinal);
 				}
 			}
 		}

@@ -114,7 +114,7 @@ const EnumPropertyItem rna_enum_object_modifier_type_items[] = {
 	{eModifierType_DynamicPaint, "DYNAMIC_PAINT", ICON_MOD_DYNAMICPAINT, "Dynamic Paint", ""},
 	{eModifierType_Explode, "EXPLODE", ICON_MOD_EXPLODE, "Explode", ""},
 	{eModifierType_Fluidsim, "FLUID_SIMULATION", ICON_MOD_FLUIDSIM, "Fluid Simulation", ""},
-	{eModifierType_Hair, "HAIR", ICON_STRANDS, "Hair", ""},
+	{eModifierType_Fur, "FUR", ICON_STRANDS, "Fur", ""},
 	{eModifierType_Ocean, "OCEAN", ICON_MOD_OCEAN, "Ocean", ""},
 	{eModifierType_ParticleInstance, "PARTICLE_INSTANCE", ICON_MOD_PARTICLES, "Particle Instance", ""},
 	{eModifierType_ParticleSystem, "PARTICLE_SYSTEM", ICON_MOD_PARTICLES, "Particle System", ""},
@@ -414,8 +414,8 @@ static StructRNA *rna_Modifier_refine(struct PointerRNA *ptr)
 			return &RNA_MeshSequenceCacheModifier;
 		case eModifierType_SurfaceDeform:
 			return &RNA_SurfaceDeformModifier;
-		case eModifierType_Hair:
-			return &RNA_HairModifier;
+		case eModifierType_Fur:
+			return &RNA_FurModifier;
 		/* Default */
 		case eModifierType_None:
 		case eModifierType_ShapeKey:
@@ -4796,14 +4796,14 @@ static void rna_def_modifier_surfacedeform(BlenderRNA *brna)
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 }
 
-static void rna_def_modifier_hair(BlenderRNA *brna)
+static void rna_def_modifier_fur(BlenderRNA *brna)
 {
 	StructRNA *srna;
 	PropertyRNA *prop;
 
-	srna = RNA_def_struct(brna, "HairModifier", "Modifier");
-	RNA_def_struct_ui_text(srna, "Hair Modifier", "");
-	RNA_def_struct_sdna(srna, "HairModifierData");
+	srna = RNA_def_struct(brna, "FurModifier", "Modifier");
+	RNA_def_struct_ui_text(srna, "Fur Modifier", "");
+	RNA_def_struct_sdna(srna, "FurModifierData");
 	RNA_def_struct_ui_icon(srna, ICON_STRANDS);
 
 	prop = RNA_def_property(srna, "hair_system", PROP_POINTER, PROP_NONE);
@@ -4929,7 +4929,7 @@ void RNA_def_modifier(BlenderRNA *brna)
 	rna_def_modifier_normaledit(brna);
 	rna_def_modifier_meshseqcache(brna);
 	rna_def_modifier_surfacedeform(brna);
-	rna_def_modifier_hair(brna);
+	rna_def_modifier_fur(brna);
 }
 
 #endif

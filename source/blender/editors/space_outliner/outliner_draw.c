@@ -1052,7 +1052,7 @@ static void tselem_draw_icon(uiBlock *block, int xmax, float x, float y, TreeSto
 					case eModifierType_NormalEdit:
 						ICON_DRAW(ICON_MOD_NORMALEDIT);
 						break;
-					case eModifierType_Hair:
+					case eModifierType_Fur:
 						ICON_DRAW(ICON_STRANDS);
 						break;
 					/* Default */
