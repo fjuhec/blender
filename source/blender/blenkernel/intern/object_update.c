@@ -58,6 +58,7 @@
 #include "BKE_pointcache.h"
 #include "BKE_scene.h"
 #include "BKE_material.h"
+#include "BKE_mball.h"
 #include "BKE_mesh.h"
 #include "BKE_image.h"
 #include "BKE_gpencil.h"
@@ -322,6 +323,9 @@ void BKE_object_eval_uber_data(const EvaluationContext *eval_ctx,
 		case OB_FONT:
 		case OB_SURF:
 			BKE_curve_batch_cache_dirty(ob->data, BKE_CURVE_BATCH_DIRTY_ALL);
+			break;
+		case OB_MBALL:
+			BKE_mball_batch_cache_dirty(ob->data, BKE_MBALL_BATCH_DIRTY_ALL);
 			break;
 		case OB_GPENCIL:
 			BKE_gpencil_batch_cache_dirty(ob->data);
