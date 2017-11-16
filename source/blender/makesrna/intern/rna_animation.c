@@ -586,26 +586,26 @@ static FCurve *rna_Driver_find(AnimData *adt, ReportList *reports, const char *d
 }
 
 bool rna_AnimaData_override_apply(
-        PointerRNA *ptr_local, PointerRNA *ptr_reference, PointerRNA *ptr_storage,
-        PropertyRNA *prop_local, PropertyRNA *prop_reference, PropertyRNA *UNUSED(prop_storage),
-        const int len_local, const int len_reference, const int len_storage,
+        PointerRNA *ptr_dst, PointerRNA *ptr_src, PointerRNA *ptr_storage,
+        PropertyRNA *prop_dst, PropertyRNA *prop_src, PropertyRNA *UNUSED(prop_storage),
+        const int len_dst, const int len_src, const int len_storage,
         IDOverridePropertyOperation *opop)
 {
-	BLI_assert(len_local == len_reference && (!ptr_storage || len_local == len_storage));
+	BLI_assert(len_dst == len_src && (!ptr_storage || len_dst == len_storage) && len_dst == 0);
 	BLI_assert(opop->operation == IDOVERRIDE_OP_REPLACE && "Unsupported RNA override operation on animdata pointer");
 
 	/* AnimData is a special case, since you cannot edit/replace it, it's either existent or not. */
-	AnimData *adt_local = RNA_property_pointer_get(ptr_local, prop_local).data;
-	AnimData *adt_reference = RNA_property_pointer_get(ptr_reference, prop_reference).data;
+	AnimData *adt_dst = RNA_property_pointer_get(ptr_dst, prop_dst).data;
+	AnimData *adt_src = RNA_property_pointer_get(ptr_src, prop_src).data;
 
-	if (adt_local == NULL && adt_reference != NULL) {
+	if (adt_dst == NULL && adt_src != NULL) {
 		/* Copy anim data from reference into final local ID. */
-		BKE_animdata_copy_id(NULL, ptr_local->id.data, ptr_reference->id.data, false);
+		BKE_animdata_copy_id(NULL, ptr_dst->id.data, ptr_src->id.data, false);
 		return true;
 	}
-	else if (adt_local != NULL && adt_reference == NULL) {
+	else if (adt_dst != NULL && adt_src == NULL) {
 		/* Override has cleared/removed anim data from its reference. */
-		BKE_animdata_free(ptr_local->id.data, true);
+		BKE_animdata_free(ptr_dst->id.data, true);
 		return true;
 	}
 

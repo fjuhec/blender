@@ -162,16 +162,16 @@ typedef bool (*RNAPropOverrideStore)(
         struct IDOverridePropertyOperation *opop);
 
 /**
- * Apply given override operation from reference to local (using value from storage as second operand
+ * Apply given override operation from src to dst (using value from storage as second operand
  * for differential operations).
  *
  * \note Given PropertyRNA are final (in case of IDProps...).
  * \note In non-array cases, \a len values are 0.
  */
 typedef bool (*RNAPropOverrideApply)(
-        struct PointerRNA *ptr_local, struct PointerRNA *ptr_reference, struct PointerRNA *ptr_storage,
-        struct PropertyRNA *prop_local, struct PropertyRNA *prop_reference, struct PropertyRNA *prop_storage,
-        const int len_local, const int len_reference, const int len_storage,
+        struct PointerRNA *ptr_dst, struct PointerRNA *ptr_src, struct PointerRNA *ptr_storage,
+        struct PropertyRNA *prop_dst, struct PropertyRNA *prop_src, struct PropertyRNA *prop_storage,
+        const int len_dst, const int len_src, const int len_storage,
         struct IDOverridePropertyOperation *opop);
 
 /* Container - generic abstracted container of RNA properties */
