@@ -203,6 +203,12 @@ void RNA_def_mask(struct BlenderRNA *brna);
 
 void rna_def_animdata_common(struct StructRNA *srna);
 
+bool rna_AnimaData_override_apply(
+        struct PointerRNA *ptr_local, struct PointerRNA *ptr_reference, struct PointerRNA *ptr_storage,
+        struct PropertyRNA *prop_local, struct PropertyRNA *prop_reference, struct PropertyRNA *prop_storage,
+        const int len_local, const int len_reference, const int len_storage,
+        struct IDOverridePropertyOperation *opop);
+
 void rna_def_animviz_common(struct StructRNA *srna);
 void rna_def_motionpath_common(struct StructRNA *srna);
 

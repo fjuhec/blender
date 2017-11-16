@@ -585,6 +585,33 @@ static FCurve *rna_Driver_find(AnimData *adt, ReportList *reports, const char *d
 	return list_find_fcurve(&adt->drivers, data_path, index);
 }
 
+bool rna_AnimaData_override_apply(
+        PointerRNA *ptr_local, PointerRNA *ptr_reference, PointerRNA *ptr_storage,
+        PropertyRNA *prop_local, PropertyRNA *prop_reference, PropertyRNA *UNUSED(prop_storage),
+        const int len_local, const int len_reference, const int len_storage,
+        IDOverridePropertyOperation *opop)
+{
+	BLI_assert(len_local == len_reference && (!ptr_storage || len_local == len_storage));
+	BLI_assert(opop->operation == IDOVERRIDE_OP_REPLACE && "Unsupported RNA override operation on animdata pointer");
+
+	/* AnimData is a special case, since you cannot edit/replace it, it's either existent or not. */
+	AnimData *adt_local = RNA_property_pointer_get(ptr_local, prop_local).data;
+	AnimData *adt_reference = RNA_property_pointer_get(ptr_reference, prop_reference).data;
+
+	if (adt_local == NULL && adt_reference != NULL) {
+		/* Copy anim data from reference into final local ID. */
+		BKE_animdata_copy_id(NULL, ptr_local->id.data, ptr_reference->id.data, false);
+		return true;
+	}
+	else if (adt_local != NULL && adt_reference == NULL) {
+		/* Override has cleared/removed anim data from its reference. */
+		BKE_animdata_free(ptr_local->id.data, true);
+		return true;
+	}
+
+	return false;
+}
+
 #else
 
 /* helper function for Keying Set -> keying settings */
@@ -1000,6 +1027,7 @@ void rna_def_animdata_common(StructRNA *srna)
 	RNA_def_property_pointer_sdna(prop, NULL, "adt");
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 	RNA_def_property_flag(prop, PROP_OVERRIDABLE);
+	RNA_def_property_override_funcs(prop, NULL, NULL, "rna_AnimaData_override_apply");
 	RNA_def_property_ui_text(prop, "Animation Data", "Animation data for this data-block");
 }
 
