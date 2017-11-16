@@ -102,7 +102,7 @@ void BKE_override_copy(ID *dst_id, const ID *src_id)
 		BKE_override_init(dst_id, NULL);
 	}
 
-	/* Source is already overriding data, we copy it but reuse it's reference for dest ID.
+	/* Source is already overriding data, we copy it but reuse its reference for dest ID.
 	 * otherwise, source is only an override template, it then becomes reference of dest ID. */
 	dst_id->override->reference = src_id->override->reference ? src_id->override->reference : (ID *)src_id;
 	id_us_plus(dst_id->override->reference);
@@ -491,7 +491,7 @@ void BKE_override_update(Main *bmain, ID *local)
 
 	/* We want to avoid having to remap here, however creating up-to-date override is much simpler if based
 	 * on reference than on current override.
-	 * So we work on temp copy of reference. */
+	 * So we work on temp copy of reference, and 'swap' its content with local. */
 
 	/* XXX We need a way to get off-Main copies of IDs (similar to localized mats/texts/ etc.)!
 	 *     However, this is whole bunch of code work in itself, so for now plain stupid ID copy will do,
@@ -499,6 +499,9 @@ void BKE_override_update(Main *bmain, ID *local)
 	 *     Actually, maybe not! Since we are swapping with original ID's local content, we want to keep
 	 *     usercount in correct state when freeing tmp_id (and that usercounts of IDs used by 'new' local data
 	 *     also remain correct). */
+	/* This would imply change in handling of usercout all over RNA (and possibly all over Blender code).
+	 * Not impossible to do, but would rather see first if extra useless usual user handling is actually
+	 * a (performances) issue here. */
 
 	ID *tmp_id;
 	id_copy(bmain, local->override->reference, &tmp_id, false);
@@ -507,22 +510,19 @@ void BKE_override_update(Main *bmain, ID *local)
 		return;
 	}
 
-	PointerRNA rnaptr_local, rnaptr_final, rnaptr_storage_stack, *rnaptr_storage = NULL;
-	RNA_id_pointer_create(local, &rnaptr_local);
-	RNA_id_pointer_create(tmp_id, &rnaptr_final);
+	PointerRNA rnaptr_src, rnaptr_dst, rnaptr_storage_stack, *rnaptr_storage = NULL;
+	RNA_id_pointer_create(local, &rnaptr_src);
+	RNA_id_pointer_create(tmp_id, &rnaptr_dst);
 	if (local->override->storage) {
 		rnaptr_storage = &rnaptr_storage_stack;
 		RNA_id_pointer_create(local->override->storage, rnaptr_storage);
 	}
 
-	RNA_struct_override_apply(&rnaptr_final, &rnaptr_local, rnaptr_storage, local->override);
+	RNA_struct_override_apply(&rnaptr_dst, &rnaptr_src, rnaptr_storage, local->override);
 
 	/* This also transfers all pointers (memory) owned by local to tmp_id, and vice-versa. So when we'll free tmp_id,
 	 * we'll actually free old, outdated data from local. */
-	BKE_id_swap(local, tmp_id);
-	/* Swap above may have broken internal references to itself. */
-	BKE_libblock_relink_ex(bmain, local, tmp_id, local, false);
-	BKE_libblock_relink_ex(bmain, tmp_id, local, tmp_id, false);  /* Grrrr... */
+	BKE_id_swap(bmain, local, tmp_id);
 
 	/* Again, horribly innefficient in our case, we need something off-Main (aka moar generic nolib copy/free stuff)! */
 	/* XXX And crashing in complex cases (e.g. because depsgraph uses same data...). */
@@ -605,7 +605,10 @@ ID *BKE_override_operations_store_start(OverrideStorage *override_storage, ID *l
 
 	/* XXX TODO We may also want a specialized handling of things here too, to avoid copying heavy never-overridable
 	 *          data (like Mesh geometry etc.)? And also maybe avoid lib refcounting completely (shallow copy...). */
-	id_copy((Main *)override_storage, local, &storage_id, false);  /* XXX ...and worse of all, this won't work with scene! */
+	/* This would imply change in handling of usercout all over RNA (and possibly all over Blender code).
+	 * Not impossible to do, but would rather see first is extra useless usual user handling is actually
+	 * a (performances) issue here, before doing it. */
+	id_copy((Main *)override_storage, local, &storage_id, false);
 
 	if (storage_id != NULL) {
 		PointerRNA rnaptr_reference, rnaptr_final, rnaptr_storage;

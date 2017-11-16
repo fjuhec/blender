@@ -204,6 +204,12 @@ void RNA_def_mask(struct BlenderRNA *brna);
 
 void rna_def_animdata_common(struct StructRNA *srna);
 
+bool rna_AnimaData_override_apply(
+        struct PointerRNA *ptr_local, struct PointerRNA *ptr_reference, struct PointerRNA *ptr_storage,
+        struct PropertyRNA *prop_local, struct PropertyRNA *prop_reference, struct PropertyRNA *prop_storage,
+        const int len_local, const int len_reference, const int len_storage,
+        struct IDOverridePropertyOperation *opop);
+
 void rna_def_animviz_common(struct StructRNA *srna);
 void rna_def_motionpath_common(struct StructRNA *srna);
 
@@ -391,9 +397,10 @@ bool rna_property_override_store_default(
         const int len_local, const int len_reference, const int len_storage,
         struct IDOverridePropertyOperation *opop);
 
-bool rna_property_override_apply_default(struct PointerRNA *ptr_local, struct PointerRNA *ptr_reference, struct PointerRNA *ptr_storage,
-        struct PropertyRNA *prop_local, struct PropertyRNA *prop_reference, struct PropertyRNA *prop_storage,
-        const int len_local, const int len_reference, const int len_storage,
+bool rna_property_override_apply_default(
+        struct PointerRNA *ptr_dst, struct PointerRNA *ptr_src, struct PointerRNA *ptr_storage,
+        struct PropertyRNA *prop_dst, struct PropertyRNA *prop_src, struct PropertyRNA *prop_storage,
+        const int len_dst, const int len_src, const int len_storage,
         struct IDOverridePropertyOperation *opop);
 
 

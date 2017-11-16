@@ -696,7 +696,7 @@ bool id_copy(Main *bmain, const ID *id, ID **newid, bool test)
 
 /** Does a mere memory swap over the whole IDs data (including type-specific memory).
  *  \note Most internal ID data itself is not swapped (only IDProperties are). */
-void BKE_id_swap(ID *id_a, ID *id_b)
+void BKE_id_swap(Main *bmain, ID *id_a, ID *id_b)
 {
 	BLI_assert(GS(id_a->name) == GS(id_b->name));
 
@@ -757,6 +757,10 @@ void BKE_id_swap(ID *id_a, ID *id_b)
 	/* Exception: IDProperties. */
 	id_a->properties = id_b_back.properties;
 	id_b->properties = id_a_back.properties;
+
+	/* Swap will have broken internal references to itself, restore them. */
+	BKE_libblock_relink_ex(bmain, id_a, id_b, id_a, false);
+	BKE_libblock_relink_ex(bmain, id_b, id_a, id_b, false);
 }
 
 /** Does *not* set ID->newid pointer. */
