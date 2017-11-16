@@ -475,6 +475,60 @@ void do_versions_after_linking_280(Main *main)
 	if (!MAIN_VERSION_ATLEAST(main, 280, 1)) {
 		do_version_workspaces_after_lib_link(main);
 	}
+	
+	/* Grease Pencil Object */
+	if (!MAIN_VERSION_ATLEAST(main, 280, 2)) {
+		/* Convert grease pencil datablock to GP object */
+		for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
+			if (scene->gpd) {
+				Object *ob;
+				SceneLayer *scene_layer = BKE_scene_layer_from_scene_get(scene);
+				if (scene_layer == NULL) {
+					scene_layer = BKE_scene_layer_add(scene, "Viewport");
+					printf("added scene layer again - %p\n", scene_layer);
+				}
+
+				ob = BKE_object_add_for_data(main, scene, scene_layer, OB_GPENCIL, "GP_Scene", &scene->gpd->id, false);
+				zero_v3(ob->loc);
+				scene->gpd = NULL;
+
+				/* set cache as dirty */
+				BKE_gpencil_batch_cache_dirty(ob->data);
+			}
+		}
+	}
+	
+	/* XXX: Merge back into previous case... leaving like this so the Hero animatic/production files so far don't break */
+	if (!MAIN_VERSION_ATLEAST(main, 280, 3)) {
+		/* Handle object-linked grease pencil datablocks */
+		for (Object *ob = main->object.first; ob; ob = ob->id.next) {
+			if (ob->gpd) {
+				if (ob->type == OB_GPENCIL) {
+					/* GP Object - remap the links */
+					ob->data = ob->gpd;
+					ob->gpd = NULL;
+				}
+				else if (ob->type == OB_EMPTY) {
+					/* Empty with GP data - This should be able to be converted
+					 * to a GP object with little data loss
+					 */
+					ob->data = ob->gpd;
+					ob->gpd = NULL;
+					ob->type = OB_GPENCIL;
+				}
+				else {
+					/* FIXME: What to do in this case?
+					 *
+					 * We cannot create new objects for these, as we don't have a scene & scene layer
+					 * to put them into from here...
+					 */
+					printf("WARNING: Old Grease Pencil data ('%s') still exists on Object '%s'\n",
+					       ob->gpd->id.name+2, ob->id.name+2);
+				}
+			}
+		}
+	}
+	
 }
 
 static void do_version_layer_collections_idproperties(ListBase *lb)
@@ -567,23 +621,10 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 	}
 
 	if (!MAIN_VERSION_ATLEAST(main, 280, 2)) {
-		/* Convert grease pencil datablock to GP object */
-		for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
-			if (scene->gpd) {
-				Object *ob;
-				SceneLayer *scene_layer = BKE_scene_layer_from_scene_get(scene);
-				if (scene_layer == NULL) {
-					scene_layer = BKE_scene_layer_add(scene, "Viewport");
-				}
-
-				ob = BKE_object_add_for_data(main, scene, scene_layer, OB_GPENCIL, "GP_Scene", &scene->gpd->id, false);
-				zero_v3(ob->loc);
-				scene->gpd = NULL;
-
-				/* set cache as dirty */
-				BKE_gpencil_batch_cache_dirty(ob->data);
-			}
-		}
+		/* NOTE: See also do_versions_after_linking_280()
+		 * Some GP datablock link changes happen there instead, otherwise we get weird
+		 * crashes and corrupt data when trying to move linked datablocks around.
+		 */
 
 		/* Convert grease pencil palettes to blender palettes */
 		if (!DNA_struct_elem_find(fd->filesdna, "bGPDstroke", "Palette", "*palette")) {
@@ -624,7 +665,7 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 						}
 					}
 				}
-				gpd->id.tag &= ~LIB_TAG_NEED_LINK;
+				gpd->id.tag &= ~LIB_TAG_NEED_LINK; // XXX: WHY?!
 			}
 		}
 
@@ -693,37 +734,6 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 		if (!DNA_struct_elem_find(fd->filesdna, "bGPDdata", "int", "pixfactor")) {
 			for (bGPdata *gpd = main->gpencil.first; gpd; gpd = gpd->id.next) {
 				gpd->pixfactor = GP_DEFAULT_PIX_FACTOR;
-			}
-		}
-	}
-	
-	/* XXX: Merge back into previous case... leaving like this so the Hero animatic/production files so far don't break */
-	if (!MAIN_VERSION_ATLEAST(main, 280, 3)) {
-		/* Handle object-linked grease pencil datablocks */
-		for (Object *ob = main->object.first; ob; ob = ob->id.next) {
-			if (ob->gpd) {
-				if (ob->type == OB_GPENCIL) {
-					/* GP Object - remap the links */
-					ob->data = ob->gpd;
-					ob->gpd = NULL;
-				}
-				else if (ob->type == OB_EMPTY) {
-					/* Empty with GP data - This should be able to be converted
-					 * to a GP object with little data loss
-					 */
-					ob->data = ob->gpd;
-					ob->gpd = NULL;
-					ob->type = OB_GPENCIL;
-				}
-				else {
-					/* FIXME: What to do in this case?
-					 *
-					 * We cannot create new objects for these, as we don't have a scene & scene layer
-					 * to put them into from here...
-					 */
-					printf("WARNING: Old Grease Pencil data ('%s') still exists on Object '%s'\n",
-					       ob->gpd->id.name+2, ob->id.name+2);
-				}
 			}
 		}
 	}
