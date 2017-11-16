@@ -7242,7 +7242,9 @@ bool RNA_struct_override_store(PointerRNA *local, PointerRNA *reference, Pointer
 {
 	bool changed = false;
 
+#ifdef DEBUG_OVERRIDE_TIMEIT
 	TIMEIT_START_AVERAGED(RNA_struct_override_store);
+#endif
 	for (IDOverrideProperty *op = override->properties.first; op; op = op->next) {
 		/* Simplified for now! */
 		PointerRNA src_data, dst_data;
@@ -7264,7 +7266,9 @@ bool RNA_struct_override_store(PointerRNA *local, PointerRNA *reference, Pointer
 			}
 		}
 	}
+#ifdef DEBUG_OVERRIDE_TIMEIT
 	TIMEIT_END_AVERAGED(RNA_struct_override_store);
+#endif
 
 	return changed;
 }
@@ -7284,7 +7288,9 @@ void RNA_property_override_apply(
 /** Apply given \a override operations on \a dst, using \a src as source. */
 void RNA_struct_override_apply(PointerRNA *dst, PointerRNA *src, PointerRNA *storage, IDOverride *override)
 {
+#ifdef DEBUG_OVERRIDE_TIMEIT
 	TIMEIT_START_AVERAGED(RNA_struct_override_apply);
+#endif
 	for (IDOverrideProperty *op = override->properties.first; op; op = op->next) {
 		/* Simplified for now! */
 		PointerRNA src_data, dst_data;
@@ -7305,7 +7311,9 @@ void RNA_struct_override_apply(PointerRNA *dst, PointerRNA *src, PointerRNA *sto
 			RNA_property_override_apply(&dst_data, &src_data, storage_prop ? &storage_data : NULL, src_prop, op);
 		}
 	}
+#ifdef DEBUG_OVERRIDE_TIMEIT
 	TIMEIT_END_AVERAGED(RNA_struct_override_apply);
+#endif
 }
 
 /** Automatically define override rules by comparing \a local and \a reference RNA structs. */
@@ -7322,12 +7330,14 @@ bool RNA_struct_auto_override(PointerRNA *local, PointerRNA *reference, IDOverri
 		return changed;
 	}
 
+#ifdef DEBUG_OVERRIDE_TIMEIT
 	static float _sum_time = 0.0f;
 	static float _num_time = 0.0f;
 	double _timeit_time;
 	if (!root_path) {
 		_timeit_time = PIL_check_seconds_timer();
 	}
+#endif
 
 	iterprop = RNA_struct_iterator_property(local->type);
 
@@ -7361,6 +7371,7 @@ bool RNA_struct_auto_override(PointerRNA *local, PointerRNA *reference, IDOverri
 	}
 	RNA_property_collection_end(&iter);
 
+#ifdef DEBUG_OVERRIDE_TIMEIT
 	if (!root_path) {
 		const float _delta_time = (float)(PIL_check_seconds_timer() - _timeit_time);
 		_sum_time += _delta_time;
@@ -7369,6 +7380,7 @@ bool RNA_struct_auto_override(PointerRNA *local, PointerRNA *reference, IDOverri
 		printf("time end      (%s): %.6f\n", __func__, _delta_time);
 		printf("time averaged (%s): %.6f (total: %.6f, in %d runs)\n", __func__, (_sum_time / _num_time), _sum_time, (int)_num_time);
 	}
+#endif
 
 	return changed;
 }

@@ -601,7 +601,9 @@ ID *BKE_override_operations_store_start(OverrideStorage *override_storage, ID *l
 	BKE_override_operations_create(local, true);
 
 	ID *storage_id;
+#ifdef DEBUG_OVERRIDE_TIMEIT
 	TIMEIT_START_AVERAGED(BKE_override_operations_store_start);
+#endif
 
 	/* XXX TODO We may also want a specialized handling of things here too, to avoid copying heavy never-overridable
 	 *          data (like Mesh geometry etc.)? And also maybe avoid lib refcounting completely (shallow copy...). */
@@ -624,7 +626,9 @@ ID *BKE_override_operations_store_start(OverrideStorage *override_storage, ID *l
 
 	local->override->storage = storage_id;
 
+#ifdef DEBUG_OVERRIDE_TIMEIT
 	TIMEIT_END_AVERAGED(BKE_override_operations_store_start);
+#endif
 	return storage_id;
 }
 
