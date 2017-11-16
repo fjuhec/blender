@@ -59,7 +59,20 @@ void BKE_hair_guide_curves_end(struct HairSystem *hsys);
 
 /* === Follicles === */
 
-void BKE_hair_generate_follicles(struct HairSystem* hsys, unsigned int seed);
+/* Calculate surface area of a scalp mesh */
+float BKE_hair_calc_surface_area(struct DerivedMesh *scalp);
+/* Calculate a density value based on surface area and count */
+float BKE_hair_calc_density_from_count(float area, int count);
+/* Calculate a density value based on a minimum distance */
+float BKE_hair_calc_density_from_min_distance(float min_distance);
+
+/* Distribute hair follicles on a scalp mesh */
+void BKE_hair_generate_follicles(
+        struct HairSystem* hsys,
+        struct DerivedMesh *scalp,
+        unsigned int seed,
+        float min_distance,
+        int max_count);
 
 void BKE_hair_bind_follicles(struct HairSystem *hsys, struct DerivedMesh *scalp);
 

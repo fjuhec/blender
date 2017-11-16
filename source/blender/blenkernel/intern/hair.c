@@ -46,14 +46,17 @@
 #include "DNA_object_types.h"
 
 #include "BKE_DerivedMesh.h"
-#include "BKE_mesh_sample.h"
 #include "BKE_hair.h"
+#include "BKE_mesh.h"
+#include "BKE_mesh_sample.h"
 
 #include "BLT_translation.h"
 
 HairSystem* BKE_hair_new(void)
 {
 	HairSystem *hair = MEM_callocN(sizeof(HairSystem), "hair system");
+	
+	hair->pattern = MEM_callocN(sizeof(HairPattern), "hair pattern");
 	
 	return hair;
 }
@@ -140,6 +143,78 @@ void BKE_hair_follicles_generate(HairPattern *hair, DerivedMesh *scalp, int coun
 	BKE_hair_update_groups(hair);
 }
 #endif
+
+/* Calculate surface area of a scalp mesh */
+float BKE_hair_calc_surface_area(struct DerivedMesh *scalp)
+{
+	BLI_assert(scalp != NULL);
+	
+	int numpolys = scalp->getNumPolys(scalp);
+	MPoly *mpolys = scalp->getPolyArray(scalp);
+	MLoop *mloops = scalp->getLoopArray(scalp);
+	MVert *mverts = scalp->getVertArray(scalp);
+
+	float area = 0.0f;
+	for (int i = 0; i < numpolys; ++i)
+	{
+		area += BKE_mesh_calc_poly_area(&mpolys[i], mloops + mpolys[i].loopstart, mverts);
+	}
+	return area;
+}
+
+/* Calculate a density value based on surface area and count */
+float BKE_hair_calc_density_from_count(float area, int count)
+{
+	return area > 0.0f ? count / area : 0.0f;
+}
+
+/* Calculate a density value based on a minimum distance */
+float BKE_hair_calc_density_from_min_distance(float min_distance)
+{
+	// max. circle packing density (sans pi factor): 1 / (2 * sqrt(3))
+	static const float max_factor = 0.288675135;
+	
+	return min_distance > 0.0f ? max_factor / (min_distance * min_distance) : 0.0f;
+}
+
+/* Distribute hair follicles on a scalp mesh */
+void BKE_hair_generate_follicles(
+        HairSystem* hsys,
+        struct DerivedMesh *scalp,
+        unsigned int seed,
+        float min_distance,
+        int max_count)
+{
+	HairPattern *pattern = hsys->pattern;
+	
+	// Limit max_count to theoretical limit based on area
+	float scalp_area = BKE_hair_calc_surface_area(scalp);
+	float density = BKE_hair_calc_density_from_min_distance(min_distance);
+	max_count = min_ii(max_count, (int)(density * scalp_area));
+	
+	if (pattern->follicles)
+	{
+		MEM_freeN(pattern->follicles);
+	}
+	pattern->follicles = MEM_callocN(sizeof(HairFollicle) * max_count, "hair follicles");
+	
+	{
+		MeshSampleGenerator *gen = BKE_mesh_sample_gen_surface_poissondisk(seed, min_distance, max_count, NULL, NULL);
+		
+		BKE_mesh_sample_generator_bind(gen, scalp);
+		
+		pattern->num_follicles = BKE_mesh_sample_generate_batch_ex(
+		            gen,
+		            &pattern->follicles->mesh_sample,
+		            sizeof(HairFollicle),
+		            max_count,
+		            true);
+		
+		BKE_mesh_sample_free_generator(gen);
+	}
+	
+	BKE_hair_batch_cache_dirty(hsys, BKE_HAIR_BATCH_DIRTY_ALL);
+}
 
 /* ================================= */
 

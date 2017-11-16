@@ -41,17 +41,42 @@
 
 #include "BLI_listbase.h"
 
-#include "DNA_modifier_types.h"
 #include "DNA_object_types.h"
 
+#include "BKE_context.h"
+#include "BKE_DerivedMesh.h"
 #include "BKE_hair.h"
 #include "BKE_main.h"
+
 #include "DEG_depsgraph.h"
 
 #include "RNA_access.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
+
+static void rna_HairSystem_generate_follicles(
+        HairSystem *hsys,
+        struct bContext *C,
+        Object *scalp,
+        int seed,
+        float min_distance,
+        int max_count)
+{
+	if (!scalp)
+	{
+		return;
+	}
+	
+	struct Scene *scene = CTX_data_scene(C);
+	EvaluationContext eval_ctx;
+	CTX_data_eval_ctx(C, &eval_ctx);
+	
+	CustomDataMask datamask = CD_MASK_BAREMESH;
+	DerivedMesh *dm = mesh_get_derived_final(&eval_ctx, scene, scalp, datamask);
+	
+	BKE_hair_generate_follicles(hsys, dm, (unsigned int)seed, min_distance, max_count);
+}
 
 #else
 
@@ -87,7 +112,8 @@ static void rna_def_hair_pattern(BlenderRNA *brna)
 static void rna_def_hair_system(BlenderRNA *brna)
 {
 	StructRNA *srna;
-	PropertyRNA *prop;
+	FunctionRNA *func;
+	PropertyRNA *prop, *parm;
 	
 	srna = RNA_def_struct(brna, "HairSystem", NULL);
 	RNA_def_struct_ui_text(srna, "Hair System", "Hair rendering and deformation data");
@@ -97,6 +123,15 @@ static void rna_def_hair_system(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "pattern", PROP_POINTER, PROP_NONE);
 	RNA_def_property_struct_type(prop, "HairPattern");
 	RNA_def_property_ui_text(prop, "Pattern", "Hair pattern");
+	
+	func = RNA_def_function(srna, "generate_follicles", "rna_HairSystem_generate_follicles");
+	RNA_def_function_flag(func, FUNC_USE_CONTEXT);
+	parm = RNA_def_pointer(func, "scalp", "Object", "Scalp", "Scalp object on which to place hair follicles");
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
+	parm = RNA_def_int(func, "seed", 0, 0, INT_MAX, "Seed", "Seed value for random numbers", 0, INT_MAX);
+	parm = RNA_def_float(func, "min_distance", 0.01f, 0.0f, FLT_MAX, "Min Distance", "Minimum distance between follicles", 1.0e-5f, 1.0f);
+	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
+	parm = RNA_def_int(func, "max_count", 0, 0, INT_MAX, "Max Count", "Maximum number of follicles to generate", 1, 1e5);
 }
 
 void RNA_def_hair(BlenderRNA *brna)
