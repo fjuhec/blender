@@ -26,12 +26,9 @@
 #ifndef __DRAW_CACHE_IMPL_H__
 #define __DRAW_CACHE_IMPL_H__
 
-<<<<<<< HEAD
 struct bGPdata;
 struct Gwn_Batch;
-=======
 struct CurveCache;
->>>>>>> blender2.8
 struct GPUMaterial;
 struct Gwn_Batch;
 struct ListBase;
