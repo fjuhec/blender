@@ -57,6 +57,9 @@ static void initData(ModifierData *md)
 	fmd->hair_system = BKE_hair_new();
 	
 	fmd->flag |= 0;
+	
+	fmd->follicle_min_distance = 0.001f;
+	fmd->follicle_max_count = 1000;
 }
 
 static void copyData(ModifierData *md, ModifierData *target)

@@ -1635,6 +1635,12 @@ typedef struct FurModifierData {
 	int pad;
 	
 	struct HairSystem *hair_system;
+	
+	/* Follicle distribution parameters */
+	int follicle_seed;
+	float follicle_min_distance;
+	int follicle_max_count;
+	int pad2;
 } FurModifierData;
 
 #endif  /* __DNA_MODIFIER_TYPES_H__ */

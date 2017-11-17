@@ -58,6 +58,7 @@
 #include "BKE_DerivedMesh.h"
 #include "BKE_effect.h"
 #include "BKE_global.h"
+#include "BKE_hair.h"
 #include "BKE_key.h"
 #include "BKE_lattice.h"
 #include "BKE_main.h"
@@ -2365,6 +2366,68 @@ void OBJECT_OT_surfacedeform_bind(wmOperatorType *ot)
 	ot->poll = surfacedeform_bind_poll;
 	ot->invoke = surfacedeform_bind_invoke;
 	ot->exec = surfacedeform_bind_exec;
+
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_INTERNAL;
+	edit_modifier_properties(ot);
+}
+
+/************************ Fur follicle generate operator *********************/
+
+static int fur_generate_follicles_poll(bContext *C)
+{
+	return edit_modifier_poll_generic(C, &RNA_FurModifier, 0);
+}
+
+static int fur_generate_follicles_exec(bContext *C, wmOperator *op)
+{
+	Object *ob = ED_object_active_context(C);
+	FurModifierData *fmd = (FurModifierData *)edit_modifier_property_get(op, ob, eModifierType_Fur);
+
+	if (!fmd)
+		return OPERATOR_CANCELLED;
+
+	BLI_assert(fmd->hair_system != NULL);
+	
+	struct Scene *scene = CTX_data_scene(C);
+	EvaluationContext eval_ctx;
+	CTX_data_eval_ctx(C, &eval_ctx);
+	
+	CustomDataMask datamask = CD_MASK_BAREMESH;
+	DerivedMesh *dm = mesh_get_derived_final(&eval_ctx, scene, ob, datamask);
+	
+	BKE_hair_generate_follicles(
+	            fmd->hair_system,
+	            dm,
+	            (unsigned int)fmd->follicle_seed,
+	            fmd->follicle_min_distance,
+	            fmd->follicle_max_count);
+
+	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, ob);
+
+	return OPERATOR_FINISHED;
+}
+
+static int fur_generate_follicles_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
+{
+	if (edit_modifier_invoke_properties(C, op))
+		return fur_generate_follicles_exec(C, op);
+	else
+		return OPERATOR_CANCELLED;
+}
+
+void OBJECT_OT_fur_generate_follicles(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Fur Follicles Generate";
+	ot->description = "Generate hair follicles for a fur modifier";
+	ot->idname = "OBJECT_OT_fur_generate_follicles";
+
+	/* api callbacks */
+	ot->poll = fur_generate_follicles_poll;
+	ot->invoke = fur_generate_follicles_invoke;
+	ot->exec = fur_generate_follicles_exec;
 
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_INTERNAL;

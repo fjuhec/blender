@@ -4800,15 +4800,31 @@ static void rna_def_modifier_fur(BlenderRNA *brna)
 {
 	StructRNA *srna;
 	PropertyRNA *prop;
-
+	
 	srna = RNA_def_struct(brna, "FurModifier", "Modifier");
 	RNA_def_struct_ui_text(srna, "Fur Modifier", "");
 	RNA_def_struct_sdna(srna, "FurModifierData");
 	RNA_def_struct_ui_icon(srna, ICON_STRANDS);
-
+	
 	prop = RNA_def_property(srna, "hair_system", PROP_POINTER, PROP_NONE);
 	RNA_def_property_ui_text(prop, "Hair", "Hair data");
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+	
+	prop = RNA_def_property(srna, "follicle_seed", PROP_INT, PROP_NONE);
+	RNA_def_property_range(prop, 0, INT_MAX);
+	RNA_def_property_ui_text(prop, "Seed", "Follicle distribution random seed value");
+	
+	prop = RNA_def_property(srna, "follicle_min_distance", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_default(prop, 0.001f);
+	RNA_def_property_range(prop, 0.0f, FLT_MAX);
+	RNA_def_property_ui_range(prop, 1.0e-5f, 1.0f, 1.0e-4f, 5);
+	RNA_def_property_ui_text(prop, "Min Distance", "Minimum follicle distance");
+	
+	prop = RNA_def_property(srna, "follicle_max_count", PROP_INT, PROP_NONE);
+	RNA_def_property_int_default(prop, 1000);
+	RNA_def_property_range(prop, 0, INT_MAX);
+	RNA_def_property_ui_range(prop, 1, 1e5, 1, 1);
+	RNA_def_property_ui_text(prop, "Max Count", "Maximum follicle number");
 }
 
 void RNA_def_modifier(BlenderRNA *brna)

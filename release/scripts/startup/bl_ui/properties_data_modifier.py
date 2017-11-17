@@ -1543,7 +1543,14 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
             layout.operator("object.correctivesmooth_bind", text="Unbind" if is_bind else "Bind")
 
     def FUR(self, layout, ob, md):
-        pass
+        split = layout.split()
+
+        col = split.column()
+        col.label("Follicles:")
+        col.prop(md, "follicle_seed")
+        col.prop(md, "follicle_min_distance")
+        col.prop(md, "follicle_max_count")
+        col.operator("object.fur_generate_follicles", text="Generate")
 
 
 classes = (
