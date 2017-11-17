@@ -26,8 +26,6 @@
 #ifndef __DRAW_CACHE_IMPL_H__
 #define __DRAW_CACHE_IMPL_H__
 
-struct bGPdata;
-struct Gwn_Batch;
 struct CurveCache;
 struct GPUMaterial;
 struct Gwn_Batch;
@@ -39,6 +37,7 @@ struct ParticleSystem;
 struct Curve;
 struct Lattice;
 struct Mesh;
+struct bGPdata;
 
 /* Expose via BKE callbacks */
 void DRW_mball_batch_cache_dirty(struct MetaBall *mb, int mode);
