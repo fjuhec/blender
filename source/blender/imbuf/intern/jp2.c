@@ -315,14 +315,14 @@ static opj_stream_t *opj_stream_create_from_file(
 /** \} */
 
 static ImBuf *imb_load_jp2_stream(
-        opj_stream_t stream, OPJ_CODEC_FORMAT p_format,
+        opj_stream_t *stream, OPJ_CODEC_FORMAT p_format,
         int flags, char colorspace[IM_MAX_SPACE]);
 
 ImBuf *imb_load_jp2(const unsigned char *mem, size_t size, int flags, char colorspace[IM_MAX_SPACE])
 {
 	const OPJ_CODEC_FORMAT format = (size > JP2_FILEHEADER_SIZE) ? format_from_header(mem) : OPJ_CODEC_UNKNOWN;
 	struct BufInfo buf_wrapper = { .buf = mem, .cur = mem, .len = size, };
-	opj_stream_t stream = opj_stream_create_from_buffer(&buf_wrapper, OPJ_J2K_STREAM_CHUNK_SIZE, true);
+	opj_stream_t *stream = opj_stream_create_from_buffer(&buf_wrapper, OPJ_J2K_STREAM_CHUNK_SIZE, true);
 	ImBuf *ibuf = imb_load_jp2_stream(stream, format, flags, colorspace);
 	opj_stream_destroy(stream);
 	return ibuf;
@@ -354,7 +354,7 @@ ImBuf *imb_load_jp2_filepath(const char *filepath, int flags, char colorspace[IM
 
 
 static ImBuf *imb_load_jp2_stream(
-        opj_stream_t stream, const OPJ_CODEC_FORMAT format,
+        opj_stream_t *stream, const OPJ_CODEC_FORMAT format,
         int flags, char colorspace[IM_MAX_SPACE])
 {
 	if (format == OPJ_CODEC_UNKNOWN) {
@@ -1181,11 +1181,11 @@ static opj_image_t *ibuftoimage(ImBuf *ibuf, opj_cparameters_t *parameters)
 	return image;
 }
 
-int imb_save_jp2_stream(struct ImBuf *ibuf, opj_stream_t stream, int flags);
+int imb_save_jp2_stream(struct ImBuf *ibuf, opj_stream_t *stream, int flags);
 
 int imb_save_jp2(struct ImBuf *ibuf, const char *filepath, int flags)
 {
-	opj_stream_t stream = opj_stream_create_from_file(filepath, OPJ_J2K_STREAM_CHUNK_SIZE, false, NULL);
+	opj_stream_t *stream = opj_stream_create_from_file(filepath, OPJ_J2K_STREAM_CHUNK_SIZE, false, NULL);
 	if (stream == NULL) {
 		return 0;
 	}
@@ -1195,22 +1195,22 @@ int imb_save_jp2(struct ImBuf *ibuf, const char *filepath, int flags)
 }
 
 /* Found write info at http://users.ece.gatech.edu/~slabaugh/personal/c/bitmapUnix.c */
-int imb_save_jp2_stream(struct ImBuf *ibuf, opj_stream_t stream, int UNUSED(flags))
+int imb_save_jp2_stream(struct ImBuf *ibuf, opj_stream_t *stream, int UNUSED(flags))
 {
 	int quality = ibuf->foptions.quality;
-	
+
 	opj_cparameters_t parameters;   /* compression parameters */
 	opj_image_t *image = NULL;
-	
+
 	/* set encoding parameters to default values */
 	opj_set_default_encoder_parameters(&parameters);
-	
+
 	/* compression ratio */
 	/* invert range, from 10-100, 100-1
 	 * where jpeg see's 1 and highest quality (lossless) and 100 is very low quality*/
 	parameters.tcp_rates[0] = ((100 - quality) / 90.0f * 99.0f) + 1;
 
-	
+
 	parameters.tcp_numlayers = 1; /* only one resolution */
 	parameters.cp_disto_alloc = 1;
 
