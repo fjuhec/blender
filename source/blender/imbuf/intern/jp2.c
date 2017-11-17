@@ -332,7 +332,7 @@ ImBuf *imb_load_jp2_filepath(const char *filepath, int flags, char colorspace[IM
 {
 	FILE *p_file = NULL;
 	unsigned char mem[JP2_FILEHEADER_SIZE];
-	opj_stream_t *stream = opj_stream_create_from_file(filepath, OPJ_J2K_STREAM_CHUNK_SIZE, false, &p_file);
+	opj_stream_t *stream = opj_stream_create_from_file(filepath, OPJ_J2K_STREAM_CHUNK_SIZE, true, &p_file);
 	if (stream) {
 		return NULL;
 	}
