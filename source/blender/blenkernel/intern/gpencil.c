@@ -1340,8 +1340,6 @@ bool BKE_gpencil_layer_delframe(bGPDlayer *gpl, bGPDframe *gpf)
 	 */
 	if (gpl->actframe == gpf)
 		gpl->actframe = gpf->prev;
-	else
-		gpl->actframe = NULL;
 	
 	/* free the frame and its data */
 	changed = BKE_gpencil_free_strokes(gpf);
