@@ -1094,7 +1094,7 @@ static bool generator_poissondisk_make_sample(const MSurfaceSampleGenerator_Pois
 		}
 	}
 	
-	return false;
+	return found_sample;
 }
 
 MeshSampleGenerator *BKE_mesh_sample_gen_surface_poissondisk(unsigned int seed, float mindist, unsigned int max_samples,
