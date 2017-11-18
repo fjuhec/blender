@@ -678,27 +678,38 @@ static void ui_keymap_but_cb(bContext *UNUSED(C), void *but_v, void *UNUSED(key_
 	RNA_boolean_set(&but->rnapoin, "oskey", (but->modifier_key & KM_OSKEY) != 0);
 }
 
-/* create label + button for RNA property */
-static uiBut *ui_item_with_label(uiLayout *layout, uiBlock *block, const char *name, int icon, PointerRNA *ptr, PropertyRNA *prop, int index, int x, int y, int w, int h, int flag)
+/**
+ * Create label + button for RNA property
+ *
+ * \param w_hint: For varying width layout, this becomes the label width.
+ *                Otherwise it's used to fit both items into it.
+ **/
+static uiBut *ui_item_with_label(
+        uiLayout *layout, uiBlock *block, const char *name, int icon,
+        PointerRNA *ptr, PropertyRNA *prop, int index,
+        int x, int y, int w_hint, int h, int flag)
 {
 	uiLayout *sub;
 	uiBut *but = NULL;
 	PropertyType type;
 	PropertySubType subtype;
-	int labelw;
+	int prop_but_width = w_hint;
 
 	sub = uiLayoutRow(layout, layout->align);
 	UI_block_layout_set_current(block, sub);
 
 	if (name[0]) {
-		/* XXX UI_fontstyle_string_width is not accurate */
-#if 0
-		labelw = UI_fontstyle_string_width(fstyle, name);
-		CLAMP(labelw, w / 4, 3 * w / 4);
-#endif
-		labelw = w / 3;
-		uiDefBut(block, UI_BTYPE_LABEL, 0, name, x, y, labelw, h, NULL, 0.0, 0.0, 0, 0, "");
-		w = w - labelw;
+		int w_label;
+
+		if (ui_layout_vary_direction(layout) == UI_ITEM_VARY_X) {
+			/* w_hint is width for label in this case. Use a default width for property button(s) */
+			prop_but_width = UI_UNIT_X * 5;
+			w_label = w_hint;
+		}
+		else {
+			w_label = w_hint / 3;
+		}
+		uiDefBut(block, UI_BTYPE_LABEL, 0, name, x, y, w_label, h, NULL, 0.0, 0.0, 0, 0, "");
 	}
 
 	type = RNA_property_type(prop);
@@ -706,14 +717,14 @@ static uiBut *ui_item_with_label(uiLayout *layout, uiBlock *block, const char *n
 
 	if (subtype == PROP_FILEPATH || subtype == PROP_DIRPATH) {
 		UI_block_layout_set_current(block, uiLayoutRow(sub, true));
-		but = uiDefAutoButR(block, ptr, prop, index, "", icon, x, y, w - UI_UNIT_X, h);
+		but = uiDefAutoButR(block, ptr, prop, index, "", icon, x, y, prop_but_width - UI_UNIT_X, h);
 
 		/* BUTTONS_OT_file_browse calls UI_context_active_but_prop_get_filebrowser */
 		uiDefIconButO(block, UI_BTYPE_BUT, subtype == PROP_DIRPATH ? "BUTTONS_OT_directory_browse" : "BUTTONS_OT_file_browse",
 		              WM_OP_INVOKE_DEFAULT, ICON_FILESEL, x, y, UI_UNIT_X, h, NULL);
 	}
 	else if (flag & UI_ITEM_R_EVENT) {
-		but = uiDefButR_prop(block, UI_BTYPE_KEY_EVENT, 0, name, x, y, w, h, ptr, prop, index, 0, 0, -1, -1, NULL);
+		but = uiDefButR_prop(block, UI_BTYPE_KEY_EVENT, 0, name, x, y, prop_but_width, h, ptr, prop, index, 0, 0, -1, -1, NULL);
 	}
 	else if (flag & UI_ITEM_R_FULL_EVENT) {
 		if (RNA_struct_is_a(ptr->type, &RNA_KeyMapItem)) {
@@ -721,14 +732,17 @@ static uiBut *ui_item_with_label(uiLayout *layout, uiBlock *block, const char *n
 
 			WM_keymap_item_to_string(ptr->data, false, buf, sizeof(buf));
 
-			but = uiDefButR_prop(block, UI_BTYPE_HOTKEY_EVENT, 0, buf, x, y, w, h, ptr, prop, 0, 0, 0, -1, -1, NULL);
+			but = uiDefButR_prop(block, UI_BTYPE_HOTKEY_EVENT, 0, buf, x, y, prop_but_width, h, ptr, prop, 0, 0, 0, -1, -1, NULL);
 			UI_but_func_set(but, ui_keymap_but_cb, but, NULL);
 			if (flag & UI_ITEM_R_IMMEDIATE)
 				UI_but_flag_enable(but, UI_BUT_IMMEDIATE);
 		}
 	}
-	else
-		but = uiDefAutoButR(block, ptr, prop, index, (type == PROP_ENUM && !(flag & UI_ITEM_R_ICON_ONLY)) ? NULL : "", icon, x, y, w, h);
+	else {
+		const char *str = (type == PROP_ENUM && !(flag & UI_ITEM_R_ICON_ONLY)) ? NULL : "";
+		but = uiDefAutoButR(block, ptr, prop, index, str, icon,
+		                    x, y, prop_but_width, h);
+	}
 
 	UI_block_layout_set_current(block, layout);
 	return but;
