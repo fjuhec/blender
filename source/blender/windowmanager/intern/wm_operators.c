@@ -1434,13 +1434,15 @@ static uiBlock *wm_block_create_redo(bContext *C, ARegion *ar, void *arg_op)
 
 	if (op->type->flag & OPTYPE_MACRO) {
 		for (op = op->macro.first; op; op = op->next) {
-			uiTemplateOperatorPropertyButs(C, layout, op, NULL, 'H', UI_TEMPLATE_OP_PROPS_SHOW_TITLE);
+			uiTemplateOperatorPropertyButs(C, layout, op, NULL, UI_BUT_LABEL_ALIGN_SPLIT_COLUMN,
+			                               UI_TEMPLATE_OP_PROPS_SHOW_TITLE);
 			if (op->next)
 				uiItemS(layout);
 		}
 	}
 	else {
-		uiTemplateOperatorPropertyButs(C, layout, op, NULL, 'H', UI_TEMPLATE_OP_PROPS_SHOW_TITLE);
+		uiTemplateOperatorPropertyButs(C, layout, op, NULL, UI_BUT_LABEL_ALIGN_SPLIT_COLUMN,
+		                               UI_TEMPLATE_OP_PROPS_SHOW_TITLE);
 	}
 	
 	UI_block_bounds_set_popup(block, 4, 0, 0);
@@ -1509,7 +1511,8 @@ static uiBlock *wm_block_dialog_create(bContext *C, ARegion *ar, void *userData)
 
 	layout = UI_block_layout(block, UI_LAYOUT_VERTICAL, UI_LAYOUT_PANEL, 0, 0, data->width, data->height, 0, style);
 	
-	uiTemplateOperatorPropertyButs(C, layout, op, NULL, 'H', UI_TEMPLATE_OP_PROPS_SHOW_TITLE);
+	uiTemplateOperatorPropertyButs(C, layout, op, NULL, UI_BUT_LABEL_ALIGN_SPLIT_COLUMN,
+	                               UI_TEMPLATE_OP_PROPS_SHOW_TITLE);
 	
 	/* clear so the OK button is left alone */
 	UI_block_func_set(block, NULL, NULL, NULL);
@@ -1548,7 +1551,7 @@ static uiBlock *wm_operator_ui_create(bContext *C, ARegion *ar, void *userData)
 	layout = UI_block_layout(block, UI_LAYOUT_VERTICAL, UI_LAYOUT_PANEL, 0, 0, data->width, data->height, 0, style);
 
 	/* since ui is defined the auto-layout args are not used */
-	uiTemplateOperatorPropertyButs(C, layout, op, NULL, 'V', 0);
+	uiTemplateOperatorPropertyButs(C, layout, op, NULL, UI_BUT_LABEL_ALIGN_COLUMN, 0);
 
 	UI_block_func_set(block, NULL, NULL, NULL);
 

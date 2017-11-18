@@ -1421,11 +1421,12 @@ static void template_operator_redo_property_buts_draw(
 		}
 	}
 	else {
-		uiTemplateOperatorPropertyButs(C, layout, op, NULL, '\0', layout_flags);
+		/* Might want to make label_align adjustable somehow. */
+		uiTemplateOperatorPropertyButs(C, layout, op, NULL, UI_BUT_LABEL_ALIGN_NONE, layout_flags);
 	}
 }
 
-void uiTemplateOperatorRedo(uiLayout *layout, bContext *C)
+void uiTemplateOperatorRedoProperties(uiLayout *layout, bContext *C)
 {
 	wmOperator *op = WM_operator_last_redo(C);
 	uiBlock *block = uiLayoutGetBlock(layout);
@@ -3803,7 +3804,7 @@ static void ui_layout_operator_buts__reset_cb(bContext *UNUSED(C), void *op_pt, 
 void uiTemplateOperatorPropertyButs(
         const bContext *C, uiLayout *layout, wmOperator *op,
         bool (*check_prop)(struct PointerRNA *, struct PropertyRNA *),
-        const char label_align, const short flag)
+        const eButLabelAlign label_align, const short flag)
 {
 	uiBlock *block = uiLayoutGetBlock(layout);
 

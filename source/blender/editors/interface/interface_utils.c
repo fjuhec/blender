@@ -160,14 +160,12 @@ uiBut *uiDefAutoButR(uiBlock *block, PointerRNA *ptr, PropertyRNA *prop, int ind
 int uiDefAutoButsRNA(
         uiLayout *layout, PointerRNA *ptr,
         bool (*check_prop)(PointerRNA *, PropertyRNA *),
-        const char label_align, const bool compact)
+        const eButLabelAlign label_align, const bool compact)
 {
 	uiLayout *split, *col;
 	int flag;
 	const char *name;
 	int tot = 0;
-
-	assert(ELEM(label_align, '\0', 'H', 'V'));
 
 	RNA_STRUCT_BEGIN (ptr, prop)
 	{
@@ -175,36 +173,42 @@ int uiDefAutoButsRNA(
 		if (flag & PROP_HIDDEN || (check_prop && check_prop(ptr, prop) == 0))
 			continue;
 
-		if (label_align != '\0') {
-			PropertyType type = RNA_property_type(prop);
-			const bool is_boolean = (type == PROP_BOOLEAN && !RNA_property_array_check(prop));
+		switch (label_align) {
+			case UI_BUT_LABEL_ALIGN_COLUMN:
+			case UI_BUT_LABEL_ALIGN_SPLIT_COLUMN:
+			{
+				PropertyType type = RNA_property_type(prop);
+				const bool is_boolean = (type == PROP_BOOLEAN && !RNA_property_array_check(prop));
 
-			name = RNA_property_ui_name(prop);
+				name = RNA_property_ui_name(prop);
 
-			if (label_align == 'V') {
-				col = uiLayoutColumn(layout, true);
+				if (label_align == UI_BUT_LABEL_ALIGN_COLUMN) {
+					col = uiLayoutColumn(layout, true);
 
-				if (!is_boolean)
-					uiItemL(col, name, ICON_NONE);
+					if (!is_boolean)
+						uiItemL(col, name, ICON_NONE);
+				}
+				else {
+					BLI_assert(label_align == UI_BUT_LABEL_ALIGN_SPLIT_COLUMN);
+					split = uiLayoutSplit(layout, 0.5f, false);
+
+					col = uiLayoutColumn(split, false);
+					uiItemL(col, (is_boolean) ? "" : name, ICON_NONE);
+					col = uiLayoutColumn(split, false);
+				}
+
+				/* may meed to add more cases here.
+				 * don't override enum flag names */
+
+				/* name is shown above, empty name for button below */
+				name = (flag & PROP_ENUM_FLAG || is_boolean) ? NULL : "";
+
+				break;
 			}
-			else {  /* (label_align == 'H') */
-				BLI_assert(label_align == 'H');
-				split = uiLayoutSplit(layout, 0.5f, false);
-
-				col = uiLayoutColumn(split, false);
-				uiItemL(col, (is_boolean) ? "" : name, ICON_NONE);
-				col = uiLayoutColumn(split, false);
-			}
-
-			/* may meed to add more cases here.
-			 * don't override enum flag names */
-
-			/* name is shown above, empty name for button below */
-			name = (flag & PROP_ENUM_FLAG || is_boolean) ? NULL : "";
-		}
-		else {
-			col = layout;
-			name = NULL; /* no smart label alignment, show default name with button */
+			case UI_BUT_LABEL_ALIGN_NONE:
+				col = layout;
+				name = NULL; /* no smart label alignment, show default name with button */
+				break;
 		}
 
 		uiItemFullR(col, ptr, prop, -1, 0, compact ? UI_ITEM_R_COMPACT : 0, name, ICON_NONE);

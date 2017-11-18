@@ -93,7 +93,7 @@ class TOPBAR_HT_lower_bar(Header):
         elif region.alignment == 'RIGHT':
             self.draw_right(context)
         else:
-            layout.template_operator_redo()
+            layout.template_operator_redo_props()
 
     def draw_left(self, context):
         layout = self.layout

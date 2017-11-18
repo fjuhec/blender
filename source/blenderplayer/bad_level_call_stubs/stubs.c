@@ -732,7 +732,7 @@ void uiTemplateNodeSocket(struct uiLayout *layout, struct bContext *C, float *co
 void uiTemplatePalette(struct uiLayout *layout, struct PointerRNA *ptr, const char *propname, int color) RET_NONE
 void uiTemplateImageStereo3d(struct uiLayout *layout, struct PointerRNA *stereo3d_format_ptr) RET_NONE
 void uiTemplateCacheFile(uiLayout *layout, struct bContext *C, struct PointerRNA *ptr, const char *propname) RET_NONE
-void uiTemplateOperatorRedo(uiLayout *layout, struct bContext *C) RET_NONE
+void uiTemplateOperatorRedoProperties(uiLayout *layout, struct bContext *C) RET_NONE
 
 /* rna render */
 struct RenderResult *RE_engine_begin_result(RenderEngine *engine, int x, int y, int w, int h, const char *layername, const char *viewname) RET_NULL

@@ -688,11 +688,22 @@ uiBut *uiDefSearchButO_ptr(uiBlock *block, struct wmOperatorType *ot, struct IDP
                            void *arg, int retval, int icon, int maxlen, int x, int y,
                            short width, short height, float a1, float a2, const char *tip);
 
+
+/* For uiDefAutoButsRNA */
+typedef enum {
+	/* Keep current layout for aligning label with property button. */
+	UI_BUT_LABEL_ALIGN_NONE,
+	/* Align label and property button vertically. */
+	UI_BUT_LABEL_ALIGN_COLUMN,
+	/* Split layout into a column for the label and one for property button. */
+	UI_BUT_LABEL_ALIGN_SPLIT_COLUMN,
+} eButLabelAlign;
+
 uiBut *uiDefAutoButR(uiBlock *block, struct PointerRNA *ptr, struct PropertyRNA *prop, int index, const char *name, int icon, int x1, int y1, int x2, int y2);
 int uiDefAutoButsRNA(
         uiLayout *layout, struct PointerRNA *ptr,
         bool (*check_prop)(struct PointerRNA *, struct PropertyRNA *),
-        const char label_align, const bool compact);
+        eButLabelAlign label_align, const bool compact);
 
 /* Links
  *
@@ -956,7 +967,7 @@ void uiTemplateSearchPreview(
 void uiTemplatePathBuilder(uiLayout *layout, struct PointerRNA *ptr, const char *propname, 
                            struct PointerRNA *root_ptr, const char *text);
 uiLayout *uiTemplateModifier(uiLayout *layout, struct bContext *C, struct PointerRNA *ptr);
-void uiTemplateOperatorRedo(uiLayout *layout, struct bContext *C);
+void uiTemplateOperatorRedoProperties(uiLayout *layout, struct bContext *C);
 uiLayout *uiTemplateConstraint(uiLayout *layout, struct PointerRNA *ptr);
 void uiTemplatePreview(uiLayout *layout, struct bContext *C, struct ID *id, int show_buttons, struct ID *parent,
                        struct MTex *slot, const char *preview_id);
@@ -983,9 +994,10 @@ void uiTemplateImageInfo(uiLayout *layout, struct bContext *C, struct Image *ima
 void uiTemplateRunningJobs(uiLayout *layout, struct bContext *C);
 void UI_but_func_operator_search(uiBut *but);
 void uiTemplateOperatorSearch(uiLayout *layout);
-void uiTemplateOperatorPropertyButs(const struct bContext *C, uiLayout *layout, struct wmOperator *op,
-                                    bool (*check_prop)(struct PointerRNA *, struct PropertyRNA *),
-                                    const char label_align, const short flag);
+void uiTemplateOperatorPropertyButs(
+        const struct bContext *C, uiLayout *layout, struct wmOperator *op,
+        bool (*check_prop)(struct PointerRNA *, struct PropertyRNA *),
+        const eButLabelAlign label_align, const short flag);
 void uiTemplateHeader3D(uiLayout *layout, struct bContext *C);
 void uiTemplateEditModeSelection(uiLayout *layout, struct bContext *C);
 void uiTemplateReportsBanner(uiLayout *layout, struct bContext *C);
