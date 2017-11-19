@@ -1635,6 +1635,7 @@ typedef struct FurModifierData {
 	int pad;
 	
 	struct HairSystem *hair_system;
+	struct HairDrawSettings *draw_settings;
 	
 	/* Follicle distribution parameters */
 	int follicle_seed;

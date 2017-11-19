@@ -134,11 +134,33 @@ static void rna_def_hair_system(BlenderRNA *brna)
 	parm = RNA_def_int(func, "max_count", 0, 0, INT_MAX, "Max Count", "Maximum number of follicles to generate", 1, 1e5);
 }
 
+static void rna_def_hair_draw_settings(BlenderRNA *brna)
+{
+	StructRNA *srna;
+	PropertyRNA *prop;
+	
+	static const EnumPropertyItem follicle_mode_items[] = {
+	    {HAIR_DRAW_FOLLICLE_NONE, "NONE", 0, "None", ""},
+	    {HAIR_DRAW_FOLLICLE_POINTS, "POINTS", 0, "Points", "Draw a point for each follicle"},
+	    {HAIR_DRAW_FOLLICLE_AXES, "AXES", 0, "Axes", "Draw direction of hair for each follicle"},
+		{0, NULL, 0, NULL, NULL}
+	};
+	
+	srna = RNA_def_struct(brna, "HairDrawSettings", NULL);
+	RNA_def_struct_ui_text(srna, "Hair Draw Settings", "Settings for drawing hair systems");
+	RNA_def_struct_sdna(srna, "HairDrawSettings");
+	
+	prop = RNA_def_property(srna, "follicle_mode", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_items(prop, follicle_mode_items);
+	RNA_def_property_ui_text(prop, "Follicle Mode", "Draw follicles on the scalp surface");
+}
+
 void RNA_def_hair(BlenderRNA *brna)
 {
 	rna_def_hair_follicle(brna);
 	rna_def_hair_pattern(brna);
 	rna_def_hair_system(brna);
+	rna_def_hair_draw_settings(brna);
 }
 
 #endif

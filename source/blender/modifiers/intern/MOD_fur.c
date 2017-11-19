@@ -60,6 +60,8 @@ static void initData(ModifierData *md)
 	
 	fmd->follicle_min_distance = 0.001f;
 	fmd->follicle_max_count = 1000;
+	
+	fmd->draw_settings = BKE_hair_draw_settings_new();
 }
 
 static void copyData(ModifierData *md, ModifierData *target)
@@ -70,11 +72,19 @@ static void copyData(ModifierData *md, ModifierData *target)
 	if (tfmd->hair_system) {
 		BKE_hair_free(tfmd->hair_system);
 	}
+	if (tfmd->draw_settings)
+	{
+		BKE_hair_draw_settings_free(tfmd->draw_settings);
+	}
 
 	modifier_copyData_generic(md, target);
 	
 	if (fmd->hair_system) {
 		tfmd->hair_system = BKE_hair_copy(fmd->hair_system);
+	}
+	if (fmd->draw_settings)
+	{
+		tfmd->draw_settings = BKE_hair_draw_settings_copy(fmd->draw_settings);
 	}
 }
 
@@ -84,6 +94,10 @@ static void freeData(ModifierData *md)
 	
 	if (fmd->hair_system) {
 		BKE_hair_free(fmd->hair_system);
+	}
+	if (fmd->draw_settings)
+	{
+		BKE_hair_draw_settings_free(fmd->draw_settings);
 	}
 }
 

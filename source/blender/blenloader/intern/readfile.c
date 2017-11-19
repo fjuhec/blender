@@ -5476,6 +5476,8 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb)
 			
 			fmd->hair_system = newdataadr(fd, fmd->hair_system);
 			direct_link_hair(fd, fmd->hair_system);
+			
+			fmd->draw_settings = newdataadr(fd, fmd->draw_settings);
 		}
 	}
 }

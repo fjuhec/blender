@@ -98,6 +98,20 @@ typedef enum eHairSystemFlag
 	HAIR_SYSTEM_VERTS_DIRTY = (1 << 9),
 } eHairSystemFlag;
 
+typedef struct HairDrawSettings
+{
+	short follicle_mode;
+	short pad1;
+	int pad2;
+} HairDrawSettings;
+
+typedef enum eHairDrawFollicleMode
+{
+	HAIR_DRAW_FOLLICLE_NONE     = 0,
+	HAIR_DRAW_FOLLICLE_POINTS   = 1,
+	HAIR_DRAW_FOLLICLE_AXES     = 2,
+} eHairDrawFollicleMode;
+
 #ifdef __cplusplus
 }
 #endif

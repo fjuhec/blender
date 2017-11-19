@@ -43,6 +43,30 @@
 #include "BKE_mesh_sample.h"
 #include "BKE_hair.h"
 
+/* === Draw Settings === */
+
+HairDrawSettings* BKE_hair_draw_settings_new()
+{
+	HairDrawSettings *draw_settings = MEM_callocN(sizeof(HairDrawSettings), "hair draw settings");
+	
+	draw_settings->follicle_mode = HAIR_DRAW_FOLLICLE_NONE;
+	
+	return draw_settings;
+}
+
+HairDrawSettings* BKE_hair_draw_settings_copy(HairDrawSettings *draw_settings)
+{
+	HairDrawSettings *ndraw_settings = MEM_dupallocN(draw_settings);
+	return ndraw_settings;
+}
+
+void BKE_hair_draw_settings_free(HairDrawSettings *draw_settings)
+{
+	MEM_freeN(draw_settings);
+}
+
+/* === Draw Cache === */
+
 static int hair_get_strand_subdiv_numverts(int numstrands, int numverts, int subdiv)
 {
 	return ((numverts - numstrands) << subdiv) + numstrands;

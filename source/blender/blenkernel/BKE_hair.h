@@ -39,6 +39,7 @@ static const unsigned int HAIR_STRAND_INDEX_NONE = 0xFFFFFFFF;
 struct HairFollicle;
 struct HairPattern;
 struct HairSystem;
+struct HairDrawSettings;
 struct DerivedMesh;
 struct MeshSample;
 struct Object;
@@ -75,6 +76,12 @@ void BKE_hair_generate_follicles(
         int max_count);
 
 void BKE_hair_bind_follicles(struct HairSystem *hsys, struct DerivedMesh *scalp);
+
+/* === Draw Settings === */
+
+struct HairDrawSettings* BKE_hair_draw_settings_new();
+struct HairDrawSettings* BKE_hair_draw_settings_copy(struct HairDrawSettings *draw_settings);
+void BKE_hair_draw_settings_free(struct HairDrawSettings *draw_settings);
 
 /* === Draw Cache === */
 

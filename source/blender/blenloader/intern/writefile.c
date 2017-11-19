@@ -1897,6 +1897,10 @@ static void write_modifiers(WriteData *wd, ListBase *modbase)
 				writestruct(wd, DATA, HairSystem, 1, fmd->hair_system);
 				write_hair(wd, fmd->hair_system);
 			}
+			if (fmd->draw_settings)
+			{
+				writestruct(wd, DATA, HairDrawSettings, 1, fmd->draw_settings);
+			}
 		}
 	}
 }
