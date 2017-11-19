@@ -2599,3 +2599,23 @@ Gwn_Batch *DRW_cache_hair_get_fibers(struct HairSystem *hsys, struct DerivedMesh
 {
 	return DRW_hair_batch_cache_get_fibers(hsys, scalp, subdiv, r_buffer);
 }
+
+Gwn_Batch *DRW_cache_hair_get_follicle_points(struct HairSystem *hsys, struct DerivedMesh *scalp)
+{
+	return DRW_hair_batch_cache_get_follicle_points(hsys, scalp);
+}
+
+Gwn_Batch *DRW_cache_hair_get_follicle_axes(struct HairSystem *hsys, struct DerivedMesh *scalp)
+{
+	return DRW_hair_batch_cache_get_follicle_axes(hsys, scalp);
+}
+
+Gwn_Batch *DRW_cache_hair_get_guide_curve_points(struct HairSystem *hsys, struct DerivedMesh *scalp, int subdiv)
+{
+	return DRW_hair_batch_cache_get_guide_curve_points(hsys, scalp, subdiv);
+}
+
+Gwn_Batch *DRW_cache_hair_get_guide_curve_edges(struct HairSystem *hsys, struct DerivedMesh *scalp, int subdiv)
+{
+	return DRW_hair_batch_cache_get_guide_curve_edges(hsys, scalp, subdiv);
+}

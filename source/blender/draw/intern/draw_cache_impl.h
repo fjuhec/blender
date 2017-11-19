@@ -123,5 +123,9 @@ struct Gwn_Batch *DRW_particles_batch_cache_get_dots(struct ParticleSystem *psys
 /* Hair */
 struct Gwn_Batch *DRW_hair_batch_cache_get_fibers(struct HairSystem *hsys, struct DerivedMesh *scalp, int subdiv,
                                                   const struct DRWHairFiberTextureBuffer **r_buffer);
+struct Gwn_Batch *DRW_hair_batch_cache_get_follicle_points(struct HairSystem *hsys, struct DerivedMesh *scalp);
+struct Gwn_Batch *DRW_hair_batch_cache_get_follicle_axes(struct HairSystem *hsys, struct DerivedMesh *scalp);
+struct Gwn_Batch *DRW_hair_batch_cache_get_guide_curve_points(struct HairSystem *hsys, struct DerivedMesh *scalp, int subdiv);
+struct Gwn_Batch *DRW_hair_batch_cache_get_guide_curve_edges(struct HairSystem *hsys, struct DerivedMesh *scalp, int subdiv);
 
 #endif /* __DRAW_CACHE_IMPL_H__ */

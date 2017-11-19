@@ -39,6 +39,7 @@
 #include "DNA_scene_types.h"
 
 #include "BKE_hair.h"
+#include "BKE_mesh_sample.h"
 
 #include "DEG_depsgraph.h"
 
@@ -70,12 +71,18 @@
 /* Hair Gwn_Batch Cache */
 
 typedef struct HairBatchCache {
-	Gwn_VertBuf *verts;
-	Gwn_IndexBuf *segments;
-	
+	Gwn_VertBuf *fiber_verts;
+	Gwn_IndexBuf *fiber_edges;
 	Gwn_Batch *fibers;
-	
 	DRWHairFiberTextureBuffer texbuffer;
+	
+	Gwn_VertBuf *follicle_verts;
+	Gwn_IndexBuf *follicle_edges;
+	Gwn_Batch *follicles;
+	
+	Gwn_VertBuf *guide_curve_verts;
+	Gwn_IndexBuf *guide_curve_edges;
+	Gwn_Batch *guide_curves;
 	
 	/* settings to determine if cache is invalid */
 	bool is_dirty;
@@ -149,8 +156,16 @@ static void hair_batch_cache_clear(HairSystem *hsys)
 	
 	if (cache) {
 		GWN_BATCH_DISCARD_SAFE(cache->fibers);
-		GWN_VERTBUF_DISCARD_SAFE(cache->verts);
-		GWN_INDEXBUF_DISCARD_SAFE(cache->segments);
+		GWN_VERTBUF_DISCARD_SAFE(cache->fiber_verts);
+		GWN_INDEXBUF_DISCARD_SAFE(cache->fiber_edges);
+		
+		GWN_BATCH_DISCARD_SAFE(cache->follicles);
+		GWN_VERTBUF_DISCARD_SAFE(cache->follicle_verts);
+		GWN_INDEXBUF_DISCARD_SAFE(cache->follicle_edges);
+		
+		GWN_BATCH_DISCARD_SAFE(cache->guide_curves);
+		GWN_VERTBUF_DISCARD_SAFE(cache->guide_curve_verts);
+		GWN_INDEXBUF_DISCARD_SAFE(cache->guide_curve_edges);
 		
 		{
 			DRWHairFiberTextureBuffer *buffer = &cache->texbuffer;
@@ -177,8 +192,8 @@ static void hair_batch_cache_ensure_fibers(HairSystem *hsys, int subdiv, HairBat
 {
 	TIMEIT_START(hair_batch_cache_ensure_fibers);
 
-	GWN_VERTBUF_DISCARD_SAFE(cache->verts);
-	GWN_INDEXBUF_DISCARD_SAFE(cache->segments);
+	GWN_VERTBUF_DISCARD_SAFE(cache->fiber_verts);
+	GWN_INDEXBUF_DISCARD_SAFE(cache->fiber_edges);
 	
 	const int totfibers = hsys->pattern ? hsys->pattern->num_follicles : 0;
 	int *fiber_lengths = BKE_hair_get_fiber_lengths(hsys, subdiv);
@@ -197,7 +212,7 @@ static void hair_batch_cache_ensure_fibers(HairSystem *hsys, int subdiv, HairBat
 		curve_param_id = GWN_vertformat_attr_add(&format, "curve_param", GWN_COMP_F32, 1, GWN_FETCH_FLOAT);
 	}
 	
-	cache->verts = GWN_vertbuf_create_with_format(&format);
+	cache->fiber_verts = GWN_vertbuf_create_with_format(&format);
 
 	Gwn_IndexBufBuilder elb;
 	{
@@ -208,7 +223,7 @@ static void hair_batch_cache_ensure_fibers(HairSystem *hsys, int subdiv, HairBat
 		prim_ct = 2 * totseg;
 		vert_ct = 2 * totpoint;
 		
-		GWN_vertbuf_data_alloc(cache->verts, vert_ct);
+		GWN_vertbuf_data_alloc(cache->fiber_verts, vert_ct);
 		GWN_indexbuf_init(&elb, prim_type, prim_ct, vert_ct);
 		TIMEIT_END(data_alloc);
 	}
@@ -224,10 +239,10 @@ static void hair_batch_cache_ensure_fibers(HairSystem *hsys, int subdiv, HairBat
 		float a = 0.0f;
 		for (int k = 0; k < fiblen; ++k) {
 			TIMEIT_BLOCK_START(GWN_vertbuf_attr_set);
-			GWN_vertbuf_attr_set(cache->verts, fiber_index_id, vi, &i);
-			GWN_vertbuf_attr_set(cache->verts, curve_param_id, vi, &a);
-			GWN_vertbuf_attr_set(cache->verts, fiber_index_id, vi+1, &i);
-			GWN_vertbuf_attr_set(cache->verts, curve_param_id, vi+1, &a);
+			GWN_vertbuf_attr_set(cache->fiber_verts, fiber_index_id, vi, &i);
+			GWN_vertbuf_attr_set(cache->fiber_verts, curve_param_id, vi, &a);
+			GWN_vertbuf_attr_set(cache->fiber_verts, fiber_index_id, vi+1, &i);
+			GWN_vertbuf_attr_set(cache->fiber_verts, curve_param_id, vi+1, &a);
 			TIMEIT_BLOCK_END(GWN_vertbuf_attr_set);
 			
 			if (k > 0) {
@@ -254,12 +269,12 @@ static void hair_batch_cache_ensure_fibers(HairSystem *hsys, int subdiv, HairBat
 		MEM_freeN(fiber_lengths);
 	}
 	
-	TIMEIT_BENCH(cache->segments = GWN_indexbuf_build(&elb), indexbuf_build);
+	TIMEIT_BENCH(cache->fiber_edges = GWN_indexbuf_build(&elb), indexbuf_build);
 
 	TIMEIT_END(hair_batch_cache_ensure_fibers);
 }
 
-static void hair_batch_cache_ensure_texbuffer(HairSystem *hsys, struct DerivedMesh *scalp, int subdiv, HairBatchCache *cache)
+static void hair_batch_cache_ensure_fiber_texbuffer(HairSystem *hsys, struct DerivedMesh *scalp, int subdiv, HairBatchCache *cache)
 {
 	DRWHairFiberTextureBuffer *buffer = &cache->texbuffer;
 	static const int elemsize = 8;
@@ -287,8 +302,11 @@ static void hair_batch_cache_ensure_texbuffer(HairSystem *hsys, struct DerivedMe
 	buffer->fiber_start = b_fiber_start / elemsize;
 }
 
-Gwn_Batch *DRW_hair_batch_cache_get_fibers(HairSystem *hsys, struct DerivedMesh *scalp, int subdiv,
-                                           const DRWHairFiberTextureBuffer **r_buffer)
+Gwn_Batch *DRW_hair_batch_cache_get_fibers(
+        HairSystem *hsys,
+        struct DerivedMesh *scalp,
+        int subdiv,
+        const DRWHairFiberTextureBuffer **r_buffer)
 {
 	HairBatchCache *cache = hair_batch_cache_get(hsys);
 
@@ -298,11 +316,11 @@ Gwn_Batch *DRW_hair_batch_cache_get_fibers(HairSystem *hsys, struct DerivedMesh 
 		TIMEIT_BENCH(hair_batch_cache_ensure_fibers(hsys, subdiv, cache),
 		             hair_batch_cache_ensure_fibers);
 		
-		TIMEIT_BENCH(cache->fibers = GWN_batch_create(GWN_PRIM_TRIS, cache->verts, cache->segments),
+		TIMEIT_BENCH(cache->fibers = GWN_batch_create(GWN_PRIM_TRIS, cache->fiber_verts, cache->fiber_edges),
 		             GWN_batch_create);
 
-		TIMEIT_BENCH(hair_batch_cache_ensure_texbuffer(hsys, scalp, subdiv, cache),
-		             hair_batch_cache_ensure_texbuffer);
+		TIMEIT_BENCH(hair_batch_cache_ensure_fiber_texbuffer(hsys, scalp, subdiv, cache),
+		             hair_batch_cache_ensure_fiber_texbuffer);
 	}
 
 	if (r_buffer) {
@@ -312,4 +330,75 @@ Gwn_Batch *DRW_hair_batch_cache_get_fibers(HairSystem *hsys, struct DerivedMesh 
 	TIMEIT_END(DRW_hair_batch_cache_get_fibers);
 
 	return cache->fibers;
+}
+
+static void hair_batch_cache_ensure_follicles(
+        HairSystem *hsys,
+        struct DerivedMesh *scalp,
+        eHairDrawFollicleMode mode,
+        HairBatchCache *cache)
+{
+	GWN_VERTBUF_DISCARD_SAFE(cache->follicle_verts);
+	GWN_INDEXBUF_DISCARD_SAFE(cache->follicle_edges);
+	
+	const HairPattern *pattern = hsys->pattern;
+	
+	static Gwn_VertFormat format = { 0 };
+	static unsigned pos_id;
+	
+	/* initialize vertex format */
+	if (format.attrib_ct == 0) {
+		pos_id = GWN_vertformat_attr_add(&format, "pos", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
+	}
+	
+	cache->follicle_verts = GWN_vertbuf_create_with_format(&format);
+	
+	GWN_vertbuf_data_alloc(cache->follicle_verts, pattern->num_follicles);
+	
+	HairFollicle *follicle = pattern->follicles;
+	for (int i = 0; i < pattern->num_follicles; ++i, ++follicle) {
+		float co[3], nor[3], tang[3];
+		BKE_mesh_sample_eval(scalp, &follicle->mesh_sample, co, nor, tang);
+		
+		GWN_vertbuf_attr_set(cache->follicle_verts, pos_id, (unsigned int)i, co);
+	}
+}
+
+Gwn_Batch *DRW_hair_batch_cache_get_follicle_points(
+        HairSystem *hsys,
+        struct DerivedMesh *scalp)
+{
+	HairBatchCache *cache = hair_batch_cache_get(hsys);
+
+	if (cache->follicles == NULL) {
+		hair_batch_cache_ensure_follicles(hsys, scalp, HAIR_DRAW_FOLLICLE_POINTS, cache);
+		
+		cache->follicles = GWN_batch_create(GWN_PRIM_POINTS, cache->follicle_verts, NULL);
+	}
+
+	return cache->follicles;
+	
+}
+
+Gwn_Batch *DRW_hair_batch_cache_get_follicle_axes(
+        HairSystem *hsys,
+        struct DerivedMesh *scalp)
+{
+	return NULL;
+}
+
+Gwn_Batch *DRW_hair_batch_cache_get_guide_curve_points(
+        HairSystem *hsys,
+        struct DerivedMesh *scalp,
+        int subdiv)
+{
+	return NULL;
+}
+
+Gwn_Batch *DRW_hair_batch_cache_get_guide_curve_edges(
+        HairSystem *hsys,
+        struct DerivedMesh *scalp,
+        int subdiv)
+{
+	return NULL;
 }

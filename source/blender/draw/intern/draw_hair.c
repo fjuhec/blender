@@ -23,11 +23,14 @@
  *  \ingroup draw
  */
 
+#include "BLI_utildefines.h"
+
+#include "DNA_hair_types.h"
 #include "DNA_scene_types.h"
 
-#include "DRW_render.h"
+#include "BKE_hair.h"
 
-#include "BLI_utildefines.h"
+#include "DRW_render.h"
 
 #include "GPU_extensions.h"
 #include "GPU_texture.h"
@@ -56,4 +59,29 @@ void DRW_hair_shader_uniforms(DRWShadingGroup *shgrp, Scene *UNUSED(scene),
 	DRW_shgroup_uniform_int(shgrp, "strand_map_start", &texbuffer->strand_map_start, 1);
 	DRW_shgroup_uniform_int(shgrp, "strand_vertex_start", &texbuffer->strand_vertex_start, 1);
 	DRW_shgroup_uniform_int(shgrp, "fiber_start", &texbuffer->fiber_start, 1);
+}
+
+void DRW_shgroup_hair(
+        Object *ob,
+        HairSystem *hsys,
+        HairDrawSettings *draw_settings,
+        struct DerivedMesh *scalp,
+        DRWShadingGroup *shgrp_verts,
+        DRWShadingGroup *UNUSED(shgrp_edges))
+{
+	switch (draw_settings->follicle_mode)
+	{
+		case HAIR_DRAW_FOLLICLE_NONE:
+			break;
+		case HAIR_DRAW_FOLLICLE_POINTS:
+		{
+			struct Gwn_Batch *geom = DRW_cache_hair_get_follicle_points(hsys, scalp);
+			DRW_shgroup_call_add(shgrp_verts, geom, ob->obmat);
+			break;
+		}
+		case HAIR_DRAW_FOLLICLE_AXES:
+		{
+			break;
+		}
+	}
 }

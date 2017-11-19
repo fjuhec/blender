@@ -32,6 +32,7 @@
 #include "DNA_curve_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meta_types.h"
+#include "DNA_modifier_types.h"
 #include "DNA_object_force.h"
 #include "DNA_lightprobe_types.h"
 #include "DNA_particle_types.h"
@@ -45,6 +46,7 @@
 #include "BKE_curve.h"
 #include "BKE_global.h"
 #include "BKE_mball.h"
+#include "BKE_modifier.h"
 #include "BKE_object.h"
 #include "BKE_particle.h"
 #include "BKE_image.h"
@@ -96,6 +98,7 @@ typedef struct OBJECT_PassList {
 	struct DRWPass *bone_wire;
 	struct DRWPass *bone_envelope;
 	struct DRWPass *particle;
+	struct DRWPass *hair;
 	struct DRWPass *lightprobes;
 	/* use for empty/background images */
 	struct DRWPass *reference_image;
@@ -209,6 +212,10 @@ typedef struct OBJECT_PrivateData {
 	DRWShadingGroup *wire_select;
 	DRWShadingGroup *wire_select_group;
 	DRWShadingGroup *wire_transform;
+
+	/* Hair Systems */
+	DRWShadingGroup *hair_verts;
+	DRWShadingGroup *hair_edges;
 } OBJECT_PrivateData; /* Transient data */
 
 static struct {
@@ -1082,6 +1089,24 @@ static void OBJECT_cache_init(void *vedata)
 	}
 
 	{
+		/* Hair */
+		psl->hair = DRW_pass_create(
+		                "Hair Pass",
+		                DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS | DRW_STATE_BLEND |
+		                DRW_STATE_POINT | DRW_STATE_WIRE);
+
+		GPUShader *sh_verts = GPU_shader_get_builtin_shader(GPU_SHADER_3D_POINT_UNIFORM_SIZE_UNIFORM_COLOR_AA);
+		stl->g_data->hair_verts = DRW_shgroup_create(sh_verts, psl->hair);
+		DRW_shgroup_uniform_vec4(stl->g_data->hair_verts, "color", ts.colorVertex, 1);
+		DRW_shgroup_uniform_float(stl->g_data->hair_verts, "size", &ts.sizeVertex, 1);
+		DRW_shgroup_state_enable(stl->g_data->hair_verts, DRW_STATE_POINT);
+
+		GPUShader *sh_edges = GPU_shader_get_builtin_shader(GPU_SHADER_3D_UNIFORM_COLOR);
+		stl->g_data->hair_edges = DRW_shgroup_create(sh_edges, psl->hair);
+		DRW_shgroup_uniform_vec4(stl->g_data->hair_edges, "color", ts.colorWire, 1);
+	}
+
+	{
 		/* Empty/Background Image Pass */
 		psl->reference_image = DRW_pass_create(
 		        "Refrence Image Pass",
@@ -1877,6 +1902,27 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 			break;
 	}
 
+	{
+		struct DerivedMesh *scalp = ob->derivedFinal;
+		if (scalp)
+		{
+			for (ModifierData *md = ob->modifiers.first; md; md = md->next)
+			{
+				if (md->type == eModifierType_Fur)
+				{
+					FurModifierData *fmd = (FurModifierData*)md;
+					
+					if (!modifier_isEnabled(scene, md, eModifierMode_Realtime))
+					{
+						continue;
+					}
+					
+					DRW_shgroup_hair(ob, fmd->hair_system, fmd->draw_settings, scalp, stl->g_data->hair_verts, stl->g_data->hair_edges);
+				}
+			}
+		}
+	}
+
 	if (ob->pd && ob->pd->forcefield) {
 		DRW_shgroup_forcefield(stl, ob, scene_layer);
 	}
@@ -1965,6 +2011,7 @@ static void OBJECT_draw_scene(void *vedata)
 	DRW_draw_pass(psl->bone_solid);
 	DRW_draw_pass(psl->non_meshes);
 	DRW_draw_pass(psl->particle);
+	DRW_draw_pass(psl->hair);
 	DRW_draw_pass(psl->reference_image);
 
 	MULTISAMPLE_SYNC_DISABLE(dfbl)

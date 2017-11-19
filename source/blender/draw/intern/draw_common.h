@@ -26,10 +26,13 @@
 #ifndef __DRAW_COMMON_H__
 #define __DRAW_COMMON_H__
 
+struct DerivedMesh;
 struct DRWPass;
 struct DRWShadingGroup;
 struct Gwn_Batch;
 struct GPUTexture;
+struct HairDrawSettings;
+struct HairSystem;
 struct Object;
 struct Scene;
 struct SceneLayer;
@@ -145,5 +148,13 @@ const char* DRW_hair_shader_defines(void);
 
 void DRW_hair_shader_uniforms(struct DRWShadingGroup *shgrp, struct Scene *scene,
                               struct GPUTexture **fibertex, const struct DRWHairFiberTextureBuffer *texbuffer);
+
+void DRW_shgroup_hair(
+        struct Object *ob,
+        struct HairSystem *hsys,
+        struct HairDrawSettings *draw_settings,
+        struct DerivedMesh *scalp,
+        struct DRWShadingGroup *shgrp_verts,
+        struct DRWShadingGroup *shgrp_edges);
 
 #endif /* __DRAW_COMMON_H__ */
