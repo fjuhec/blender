@@ -79,7 +79,7 @@ void BKE_hair_bind_follicles(struct HairSystem *hsys, struct DerivedMesh *scalp)
 
 /* === Draw Settings === */
 
-struct HairDrawSettings* BKE_hair_draw_settings_new();
+struct HairDrawSettings* BKE_hair_draw_settings_new(void);
 struct HairDrawSettings* BKE_hair_draw_settings_copy(struct HairDrawSettings *draw_settings);
 void BKE_hair_draw_settings_free(struct HairDrawSettings *draw_settings);
 

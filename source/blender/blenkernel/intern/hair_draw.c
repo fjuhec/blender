@@ -45,7 +45,7 @@
 
 /* === Draw Settings === */
 
-HairDrawSettings* BKE_hair_draw_settings_new()
+HairDrawSettings* BKE_hair_draw_settings_new(void)
 {
 	HairDrawSettings *draw_settings = MEM_callocN(sizeof(HairDrawSettings), "hair draw settings");
 	
@@ -267,6 +267,8 @@ static void hair_get_strand_buffer(
 		++smap;
 		svert += len;
 	}
+	
+	MEM_freeN(vertco);
 }
 
 static void hair_get_fiber_buffer(const HairSystem* hsys, DerivedMesh *scalp,
