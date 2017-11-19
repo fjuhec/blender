@@ -26,12 +26,13 @@
 #ifndef __DRAW_CACHE_IMPL_H__
 #define __DRAW_CACHE_IMPL_H__
 
-struct Gwn_Batch;
-struct GPUMaterial;
-struct ListBase;
 struct CurveCache;
-struct ParticleSystem;
+struct GPUMaterial;
+struct Gwn_Batch;
+struct ListBase;
+struct MetaBall;
 struct ModifierData;
+struct ParticleSystem;
 struct HairSystem;
 struct DRWHairFiberTextureBuffer;
 struct DerivedMesh;
@@ -41,6 +42,9 @@ struct Lattice;
 struct Mesh;
 
 /* Expose via BKE callbacks */
+void DRW_mball_batch_cache_dirty(struct MetaBall *mb, int mode);
+void DRW_mball_batch_cache_free(struct MetaBall *mb);
+
 void DRW_curve_batch_cache_dirty(struct Curve *cu, int mode);
 void DRW_curve_batch_cache_free(struct Curve *cu);
 
@@ -64,6 +68,9 @@ struct Gwn_Batch *DRW_curve_batch_cache_get_overlay_edges(struct Curve *cu);
 struct Gwn_Batch *DRW_curve_batch_cache_get_overlay_verts(struct Curve *cu);
 
 struct Gwn_Batch *DRW_curve_batch_cache_get_triangles_with_normals(struct Curve *cu, struct CurveCache *ob_curve_cache);
+
+/* Metaball */
+struct Gwn_Batch *DRW_metaball_batch_cache_get_triangles_with_normals(struct Object *ob);
 
 /* Curve (Font) */
 struct Gwn_Batch *DRW_curve_batch_cache_get_overlay_cursor(struct Curve *cu);

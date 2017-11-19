@@ -60,6 +60,7 @@ set(SRC
 	intern/draw_cache_impl_hair.c
 	intern/draw_cache_impl_lattice.c
 	intern/draw_cache_impl_mesh.c
+	intern/draw_cache_impl_metaball.c
 	intern/draw_cache_impl_particles.c
 	intern/draw_common.c
 	intern/draw_hair.c
@@ -95,6 +96,7 @@ set(SRC
 	engines/eevee/eevee_motion_blur.c
 	engines/eevee/eevee_occlusion.c
 	engines/eevee/eevee_screen_raytrace.c
+	engines/eevee/eevee_subsurface.c
 	engines/eevee/eevee_temporal_sampling.c
 	engines/eevee/eevee_volumes.c
 	engines/external/external_engine.c
@@ -159,6 +161,7 @@ data_to_c_simple(engines/eevee/shaders/effect_gtao_frag.glsl SRC)
 data_to_c_simple(engines/eevee/shaders/effect_minmaxz_frag.glsl SRC)
 data_to_c_simple(engines/eevee/shaders/effect_motion_blur_frag.glsl SRC)
 data_to_c_simple(engines/eevee/shaders/effect_ssr_frag.glsl SRC)
+data_to_c_simple(engines/eevee/shaders/effect_subsurface_frag.glsl SRC)
 data_to_c_simple(engines/eevee/shaders/effect_temporal_aa.glsl SRC)
 data_to_c_simple(engines/eevee/shaders/lightprobe_planar_downsample_frag.glsl SRC)
 data_to_c_simple(engines/eevee/shaders/lightprobe_planar_downsample_geom.glsl SRC)

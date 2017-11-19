@@ -164,4 +164,7 @@ struct Gwn_Batch *DRW_cache_particles_get_prim(int type);
 struct Gwn_Batch *DRW_cache_hair_get_fibers(struct HairSystem *hsys, struct DerivedMesh *scalp, int subdiv,
                                             const struct DRWHairFiberTextureBuffer **r_buffer);
 
+/* Metaball */
+struct Gwn_Batch *DRW_cache_mball_surface_get(struct Object *ob);
+
 #endif /* __DRAW_CACHE_H__ */

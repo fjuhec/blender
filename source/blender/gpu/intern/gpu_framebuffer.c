@@ -532,9 +532,11 @@ void GPU_framebuffer_blit(
 
 	if (use_depth) {
 		BLI_assert(GPU_texture_depth(read_tex) && GPU_texture_depth(write_tex));
+		BLI_assert(GPU_texture_format(read_tex) == GPU_texture_format(write_tex));
 	}
 	else if (use_stencil) {
 		BLI_assert(GPU_texture_stencil(read_tex) && GPU_texture_stencil(write_tex));
+		BLI_assert(GPU_texture_format(read_tex) == GPU_texture_format(write_tex));
 	}
 
 	/* read from multi-sample buffer */
@@ -670,7 +672,7 @@ GPUOffScreen *GPU_offscreen_create(int width, int height, int samples, char err_
 		}
 	}
 
-	ofs->depth = GPU_texture_create_depth_multisample(width, height, samples, err_out);
+	ofs->depth = GPU_texture_create_depth_with_stencil_multisample(width, height, samples, err_out);
 	if (!ofs->depth) {
 		GPU_offscreen_free(ofs);
 		return NULL;
