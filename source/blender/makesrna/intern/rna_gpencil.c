@@ -1482,7 +1482,7 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
 
 	prop = RNA_def_property(srna, "use_multiedit", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_DATA_STROKE_MULTIEDIT);
-	RNA_def_property_ui_text(prop, "MultiEdit", "Edit strokes from multiple grease pencil keyframes at the same time (keyframes must be selected to be included)");
+	RNA_def_property_ui_text(prop, "MultiFrame", "Edit strokes from multiple grease pencil keyframes at the same time (keyframes must be selected to be included)");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
 	prop = RNA_def_property(srna, "show_edit_lines", PROP_BOOLEAN, PROP_NONE);

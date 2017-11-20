@@ -552,9 +552,9 @@ static int gpencil_multiedit_toggle_exec(bContext *C, wmOperator *op)
 void GPENCIL_OT_multiedit_toggle(wmOperatorType *ot)
 {
 	/* identifiers */
-	ot->name = "MultiEdit Toggle";
+	ot->name = "Multiframe Edit Toggle";
 	ot->idname = "GPENCIL_OT_multiedit_toggle";
-	ot->description = "Enable/Disable multiedit strokes support";
+	ot->description = "Enable/Disable multiframe edit strokes support";
 
 	/* callbacks */
 	ot->exec = gpencil_multiedit_toggle_exec;
