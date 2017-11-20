@@ -754,7 +754,7 @@ typedef struct IndexedMeshSample {
 	unsigned int orig_verts[3];
 	float orig_weights[3];
 	float co[3];
-	unsigned int cell_index;
+	int cell_index[3];
 } IndexedMeshSample;
 
 typedef struct MSurfaceSampleGenerator_PoissonDisk {
@@ -783,7 +783,7 @@ typedef struct MSurfaceSampleGenerator_PoissonDisk {
 } MSurfaceSampleGenerator_PoissonDisk;
 
 typedef struct MeshSampleCell {
-	unsigned int cell_index;
+	int cell_index[3];
 	unsigned int sample_start;
 	unsigned int sample;
 } MeshSampleCell;
@@ -794,20 +794,6 @@ typedef struct MSurfaceSampleGenerator_PoissonDisk_ThreadContext {
 	unsigned int trial;
 	GHashIterator iter;
 } MSurfaceSampleGenerator_PoissonDisk_ThreadContext;
-
-BLI_INLINE unsigned int poissondisk_index_from_grid(const MSurfaceSampleGenerator_PoissonDisk *gen, const int grid[3])
-{
-	return (unsigned int)(grid[0] + (grid[1] + grid[2] * gen->grid_size[1]) * gen->grid_size[0]);
-}
-
-BLI_INLINE void poissondisk_grid_from_index(const MSurfaceSampleGenerator_PoissonDisk *gen, int grid[3], unsigned int idx)
-{
-	div_t result = div((int)idx, gen->grid_size[0]);
-	grid[0] = result.rem;
-	result = div(result.quot, gen->grid_size[1]);
-	grid[1] = result.rem;
-	grid[2] = result.quot;
-}
 
 BLI_INLINE void poissondisk_loc_from_grid(const MSurfaceSampleGenerator_PoissonDisk *gen, float loc[3], const int grid[3])
 {
@@ -822,20 +808,6 @@ BLI_INLINE void poissondisk_grid_from_loc(const MSurfaceSampleGenerator_PoissonD
 	grid[0] = (int)floorf(gridco[0]) - gen->grid_offset[0];
 	grid[1] = (int)floorf(gridco[1]) - gen->grid_offset[1];
 	grid[2] = (int)floorf(gridco[2]) - gen->grid_offset[2];
-}
-
-BLI_INLINE unsigned int poissondisk_index_from_loc(const MSurfaceSampleGenerator_PoissonDisk *gen, const float loc[3])
-{
-	int grid[3];
-	poissondisk_grid_from_loc(gen, grid, loc);
-	return poissondisk_index_from_grid(gen, grid);
-}
-
-BLI_INLINE void poissondisk_loc_from_index(const MSurfaceSampleGenerator_PoissonDisk *gen, float loc[3], unsigned int index)
-{
-	int grid[3];
-	poissondisk_grid_from_index(gen, grid, index);
-	poissondisk_loc_from_grid(gen, loc, grid);
 }
 
 static void generator_poissondisk_free(MSurfaceSampleGenerator_PoissonDisk *gen)
@@ -859,24 +831,69 @@ static void generator_poissondisk_uniform_sample_eval(void *userdata, const int 
 	float nor[3], tang[3];
 	BKE_mesh_sample_eval(dm, sample, isample->co, nor, tang);
 	
-	isample->cell_index = poissondisk_index_from_loc(gen, isample->co);
+	poissondisk_grid_from_loc(gen, isample->cell_index, isample->co);
+}
+
+BLI_INLINE void copy_cell_index(int r[3], const int a[3])
+{
+	r[0] = a[0];
+	r[1] = a[1];
+	r[2] = a[2];
+}
+
+BLI_INLINE int cmp_cell_index(const int a[3], const int b[3])
+{
+	int d0 = a[0] - b[0];
+	int d1 = a[1] - b[1];
+	int d2 = a[2] - b[2];
+	if (d0 == 0)
+	{
+		if (d1 == 0)
+		{
+			if (d2 == 0)
+			{
+				return 0;
+			}
+			else
+			{
+				return d2 > 0 ? 1 : -1;
+			}
+		}
+		else
+		{
+			return d1 > 0 ? 1 : -1;
+		}
+	}
+	else
+	{
+		return d0 > 0 ? 1 : -1;
+	}
 }
 
 static int cmp_indexed_mesh_sample(const void *a, const void *b)
 {
-	return (int)((const IndexedMeshSample *)a)->cell_index - (int)((const IndexedMeshSample *)b)->cell_index;
+	return cmp_cell_index(((const IndexedMeshSample *)a)->cell_index, ((const IndexedMeshSample *)b)->cell_index);
 }
 
-static unsigned int mesh_sample_cell_hash(const void *key)
+BLI_INLINE bool cell_index_eq(const int *a, const int *b)
 {
-	return *(const unsigned int *)key;
-	//return ((const MeshSampleCell *)key)->cell_index;
+	return a[0] == b[0] && a[1] == b[1] && a[2] == b[2];
 }
 
-static bool mesh_sample_cell_cmp(const void *a, const void *b)
+/* hash key function */
+static unsigned int cell_hash_key(const void *key)
 {
-	return *(const unsigned int *)a != *(const unsigned int *)b;
-	//return ((const MeshSampleCell *)a)->cell_index != ((const MeshSampleCell *)b)->cell_index;
+	const int *cell_index = (const int *)key;
+	unsigned int hash0 = BLI_ghashutil_inthash(cell_index[0]);
+	unsigned int hash1 = BLI_ghashutil_inthash(cell_index[1]);
+	unsigned int hash2 = BLI_ghashutil_inthash(cell_index[2]);
+	return BLI_ghashutil_combine_hash(hash0, BLI_ghashutil_combine_hash(hash1, hash2));
+}
+
+/* hash function: return false when equal */
+static bool cell_hash_neq(const void *a, const void *b)
+{
+	return !cell_index_eq((const int *)a, (const int *)b);
 }
 
 static unsigned int generator_poissondisk_get_max_samples(const MSurfaceSampleGenerator_PoissonDisk *gen)
@@ -937,18 +954,19 @@ static void generator_poissondisk_bind(MSurfaceSampleGenerator_PoissonDisk *gen)
 	
 	// Build a hash table for indexing cells
 	{
-		gen->cell_table = BLI_ghash_new(mesh_sample_cell_hash, mesh_sample_cell_cmp, "MeshSampleCell hash table");
-		unsigned int cur_cell_index = 0xFFFFFFFF;
+		gen->cell_table = BLI_ghash_new(cell_hash_key, cell_hash_neq, "MeshSampleCell hash table");
+		int cur_cell_index[3] = {-1, -1, -1};
 		const IndexedMeshSample *sample = gen->uniform_samples;
 		for (unsigned int i = 0; i < gen->num_uniform_samples; ++i, ++sample) {
-			if (sample->cell_index != cur_cell_index) {
-				cur_cell_index = sample->cell_index;
+			BLI_assert(cmp_cell_index(cur_cell_index, sample->cell_index) <= 0);
+			if (cmp_cell_index(cur_cell_index, sample->cell_index) < 0) {
+				copy_cell_index(cur_cell_index, sample->cell_index);
 				
 				MeshSampleCell *cell = MEM_mallocN(sizeof(*cell), "MeshSampleCell");
-				cell->cell_index = cur_cell_index;
+				copy_cell_index(cell->cell_index, cur_cell_index);
 				cell->sample_start = (unsigned int)i;
 				cell->sample = SAMPLE_INDEX_INVALID;
-				BLI_ghash_insert(gen->cell_table, &cell->cell_index, cell);
+				BLI_ghash_insert(gen->cell_table, cell->cell_index, cell);
 			}
 		}
 	}
@@ -991,42 +1009,38 @@ static bool generator_poissondisk_make_sample(const MSurfaceSampleGenerator_Pois
 	
 	MSurfaceSampleGenerator_PoissonDisk_ThreadContext *ctx = thread_ctx;
 	
-	const int sx = 1;
-	const int sxx = sx << 1;
-	const int sy = sx * gen->grid_size[0];
-	const int syy = sy << 1;
-	const int sz = sy * gen->grid_size[1];
-	const int szz = sz << 1;
-	const int neighbors[] = {
-	                    -sxx -sy  -szz, -sxx      -szz, -sxx  +sy -szz,
-	    -sx  -syy -szz, -sx  -sy  -szz, -sx       -szz, -sx   +sy -szz, -sx  +syy -szz,
-	         -syy -szz,      -sy  -szz,           -szz,       +sy -szz,      +syy -szz,
-	    +sx  -syy -szz, +sx  -sy  -szz, +sx       -szz, +sx   +sy -szz, +sx  +syy -szz,
-	    +sxx -syy -szz, +sxx -sy  -szz, +sxx      -szz, +sxx  +sy -szz, +sxx +syy -szz,
+	// Offset of cells whose samples can potentially overlap a given cell
+	// Four corners are excluded because their samples can never overlap
+	const int neighbors[][3] = {
+	                  {-1, -2, -2}, { 0, -2, -2}, { 1, -2, -2},
+	    {-2, -1, -2}, {-1, -1, -2}, { 0, -1, -2}, { 1, -1, -2}, { 2, -1, -2},
+	    {-2,  0, -2}, {-1,  0, -2}, { 0,  0, -2}, { 1,  0, -2}, { 2,  0, -2},
+	    {-2,  1, -2}, {-1,  1, -2}, { 0,  1, -2}, { 1, -2, -2}, { 2,  1, -2},
+	    {-2,  2, -2}, {-1,  2, -2}, { 0,  2, -2}, { 1, -2, -2}, { 2,  2, -2},
 
-	    -sxx -syy  -sz, -sxx -sy   -sz, -sxx       -sz, -sxx  +sy  -sz, -sxx +syy  -sz,
-	    -sx  -syy  -sz, -sx  -sy   -sz, -sx        -sz, -sx   +sy  -sz, -sx  +syy  -sz,
-	         -syy  -sz,      -sy   -sz,            -sz,       +sy  -sz,      +syy  -sz,
-	    +sx  -syy  -sz, +sx  -sy   -sz, +sx        -sz, +sx   +sy  -sz, +sx  +syy  -sz,
-	    +sxx -syy  -sz, +sxx -sy   -sz, +sxx       -sz, +sxx  +sy  -sz, +sxx +syy  -sz,
+	    {-2, -2, -1}, {-1, -2, -1}, { 0, -2, -1}, { 1, -2, -1}, { 2, -2, -1},
+	    {-2, -1, -1}, {-1, -1, -1}, { 0, -1, -1}, { 1, -1, -1}, { 2, -1, -1},
+	    {-2,  0, -1}, {-1,  0, -1}, { 0,  0, -1}, { 1,  0, -1}, { 2,  0, -1},
+	    {-2,  1, -1}, {-1,  1, -1}, { 0,  1, -1}, { 1, -2, -1}, { 2,  1, -1},
+	    {-2,  2, -1}, {-1,  2, -1}, { 0,  2, -1}, { 1, -2, -1}, { 2,  2, -1},
 
-	    -sxx -syy     , -sxx -sy      , -sxx          , -sxx  +sy     , -sxx +syy     ,
-	    -sx  -syy     , -sx  -sy      , -sx           , -sx   +sy     , -sx  +syy     ,
-	         -syy     ,      -sy      ,                       +sy     ,      +syy     ,
-	    +sx  -syy     , +sx  -sy      , +sx           , +sx   +sy     , +sx  +syy     ,
-	    +sxx -syy     , +sxx -sy      , +sxx          , +sxx  +sy     , +sxx +syy     ,
+	    {-2, -2,  0}, {-1, -2,  0}, { 0, -2,  0}, { 1, -2,  0}, { 2, -2,  0},
+	    {-2, -1,  0}, {-1, -1,  0}, { 0, -1,  0}, { 1, -1,  0}, { 2, -1,  0},
+	    {-2,  0,  0}, {-1,  0,  0},               { 1,  0,  0}, { 2,  0,  0},
+	    {-2,  1,  0}, {-1,  1,  0}, { 0,  1,  0}, { 1, -2,  0}, { 2,  1,  0},
+	    {-2,  2,  0}, {-1,  2,  0}, { 0,  2,  0}, { 1, -2,  0}, { 2,  2,  0},
 
-	    -sxx -syy  +sz, -sxx -sy   +sz, -sxx       +sz, -sxx  +sy  +sz, -sxx +syy  +sz,
-	    -sx  -syy  +sz, -sx  -sy   +sz, -sx        +sz, -sx   +sy  +sz, -sx  +syy  +sz,
-	         -syy  +sz,      -sy   +sz,            +sz,       +sy  +sz,      +syy  +sz,
-	    +sx  -syy  +sz, +sx  -sy   +sz, +sx        +sz, +sx   +sy  +sz, +sx  +syy  +sz,
-	    +sxx -syy  +sz, +sxx -sy   +sz, +sxx       +sz, +sxx  +sy  +sz, +sxx +syy  +sz,
+	    {-2, -2,  1}, {-1, -2,  1}, { 0, -2,  1}, { 1, -2,  1}, { 2, -2,  1},
+	    {-2, -1,  1}, {-1, -1,  1}, { 0, -1,  1}, { 1, -1,  1}, { 2, -1,  1},
+	    {-2,  0,  1}, {-1,  0,  1}, { 0,  0,  1}, { 1,  0,  1}, { 2,  0,  1},
+	    {-2,  1,  1}, {-1,  1,  1}, { 0,  1,  1}, { 1, -2,  1}, { 2,  1,  1},
+	    {-2,  2,  1}, {-1,  2,  1}, { 0,  2,  1}, { 1, -2,  1}, { 2,  2,  1},
 
-	    -sxx -syy +szz, -sxx -sy  +szz, -sxx      +szz, -sxx  +sy +szz, -sxx +syy +szz,
-	    -sx  -syy +szz, -sx  -sy  +szz, -sx       +szz, -sx   +sy +szz, -sx  +syy +szz,
-	         -syy +szz,      -sy  +szz,           +szz,       +sy +szz,      +syy +szz,
-	    +sx  -syy +szz, +sx  -sy  +szz, +sx       +szz, +sx   +sy +szz, +sx  +syy +szz,
-	                    +sxx -sy  +szz, +sxx      +szz, +sxx  +sy +szz,
+	    {-2, -2,  2}, {-1, -2,  2}, { 0, -2,  2}, { 1, -2,  2}, { 2, -2,  2},
+	    {-2, -1,  2}, {-1, -1,  2}, { 0, -1,  2}, { 1, -1,  2}, { 2, -1,  2},
+	    {-2,  0,  2}, {-1,  0,  2}, { 0,  0,  2}, { 1,  0,  2}, { 2,  0,  2},
+	    {-2,  1,  2}, {-1,  1,  2}, { 0,  1,  2}, { 1, -2,  2}, { 2,  1,  2},
+	                  {-1,  2,  2}, { 0,  2,  2}, { 1, -2,  2}
 	};
 	const int num_neighbors = ARRAY_SIZE(neighbors);
 	
@@ -1045,23 +1059,28 @@ static bool generator_poissondisk_make_sample(const MSurfaceSampleGenerator_Pois
 			unsigned int sample_index = cell->sample_start + ctx->trial;
 			const IndexedMeshSample *isample = &gen->uniform_samples[sample_index];
 			/* Check if we ran out of sample candidates for this cell */
-			if (sample_index >= (unsigned int)gen->num_uniform_samples || isample->cell_index != cell->cell_index) {
+			if (sample_index >= (unsigned int)gen->num_uniform_samples ||
+			    !cell_index_eq(isample->cell_index, cell->cell_index)) {
+
 				cell_valid = false;
 				// TODO remove from hash table?
 				UNUSED_VARS(cell_valid);
+
 			}
 			else {
+
 				/* Check the sample candidate */
-				unsigned int idx = cell->cell_index;
+				const int *idx = cell->cell_index;
 				
 				bool conflict = false;
 				for (int i = 0; i < num_neighbors; ++i) {
-					unsigned int nidx = (unsigned int)((int)idx + neighbors[i]);
-					const MeshSampleCell *ncell = BLI_ghash_lookup(gen->cell_table, &nidx);
+					const int *idx_offset = neighbors[i];
+					const int nidx[3] = {idx[0] + idx_offset[0], idx[1] + idx_offset[1], idx[2] + idx_offset[2]};
+					const MeshSampleCell *ncell = BLI_ghash_lookup(gen->cell_table, nidx);
 					if (ncell) {
 						if (ncell->sample != SAMPLE_INDEX_INVALID) {
 							const IndexedMeshSample *nsample = &gen->uniform_samples[ncell->sample];
-							BLI_assert(nsample->cell_index == ncell->cell_index);
+							BLI_assert(cell_index_eq(nsample->cell_index, ncell->cell_index));
 							if (len_squared_v3v3(isample->co, nsample->co) < gen->mindist_squared) {
 								conflict = true;
 								break;
@@ -1079,6 +1098,7 @@ static bool generator_poissondisk_make_sample(const MSurfaceSampleGenerator_Pois
 					
 					found_sample = true;
 				}
+
 			}
 			
 			if (found_sample) {

@@ -203,7 +203,7 @@ void BKE_hair_generate_follicles(
 		
 		BKE_mesh_sample_generator_bind(gen, scalp);
 		
-		static const bool use_threads = true;
+		static const bool use_threads = false;
 		pattern->num_follicles = BKE_mesh_sample_generate_batch_ex(
 		            gen,
 		            &pattern->follicles->mesh_sample,
