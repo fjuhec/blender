@@ -88,7 +88,7 @@ void BKE_gpencil_batch_cache_free(bGPdata *gpd)
 void BKE_gpencil_batch_cache_alldirty_main(Main *bmain)
 {
 	/* XXX: disabled by default, so we can see how much is broken without this */
-	if (G.debug_value == 660) {
+	if (G.debug_value == 66) {
 		bGPdata *gpd;
 
 		for (gpd = bmain->gpencil.first; gpd; gpd = gpd->id.next) {
