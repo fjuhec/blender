@@ -3735,6 +3735,7 @@ static void direct_link_mball(FileData *fd, MetaBall *mb)
 	mb->editelems = NULL;
 /*	mb->edit_elems.first= mb->edit_elems.last= NULL;*/
 	mb->lastelem = NULL;
+	mb->batch_cache = NULL;
 }
 
 /* ************ READ WORLD ***************** */
