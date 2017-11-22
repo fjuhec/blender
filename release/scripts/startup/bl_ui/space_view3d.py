@@ -155,6 +155,11 @@ class VIEW3D_HT_header(Header):
                 row.operator("gpencil.copy", text="", icon='COPYDOWN')
                 row.operator("gpencil.paste", text="", icon='PASTEDOWN')
 
+            view = context.space_data
+            row = layout.row(align=True)
+            row.prop(view, "show_only_render", text="", icon='IMAGE_COL')
+            row.prop(view, "lock_camera", text="", icon='CAMERA_DATA')
+
             layout.prop(gpd, "use_onion_skinning", text="Onion Skins", icon='PARTICLE_PATH')
 
             if gpd.use_stroke_edit_mode or gpd.is_stroke_sculpt_mode:
