@@ -532,22 +532,6 @@ void do_versions_after_linking_280(Main *main)
 		do_version_workspaces_after_lib_link(main);
 	}
 
-	{
-		/* Cleanup any remaining SceneRenderLayer data for files that were created
-		 * with Blender 2.8 before the SceneRenderLayer > RenderLayer refactor. */
-		for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
-			for (SceneRenderLayer *srl = scene->r.layers.first; srl; srl = srl->next) {
-				if (srl->prop) {
-					IDP_FreeProperty(srl->prop);
-					MEM_freeN(srl->prop);
-				}
-				BKE_freestyle_config_free(&srl->freestyleConfig);
-			}
-			BLI_freelistN(&scene->r.layers);
-		}
-	}
-}
-	
 	/* Grease Pencil Object */
 	if (!MAIN_VERSION_ATLEAST(main, 280, 2)) {
 		/* Convert grease pencil datablock to GP object */
@@ -600,7 +584,21 @@ void do_versions_after_linking_280(Main *main)
 			}
 		}
 	}
-	
+
+	{
+		/* Cleanup any remaining SceneRenderLayer data for files that were created
+		* with Blender 2.8 before the SceneRenderLayer > RenderLayer refactor. */
+		for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
+			for (SceneRenderLayer *srl = scene->r.layers.first; srl; srl = srl->next) {
+				if (srl->prop) {
+					IDP_FreeProperty(srl->prop);
+					MEM_freeN(srl->prop);
+				}
+				BKE_freestyle_config_free(&srl->freestyleConfig);
+			}
+			BLI_freelistN(&scene->r.layers);
+		}
+	}
 }
 
 static void do_version_layer_collections_idproperties(ListBase *lb)
