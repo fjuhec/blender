@@ -33,6 +33,7 @@
 #include "BLT_translation.h"
 
 #include "BKE_collection.h"
+#include "BKE_freestyle.h"
 #include "BKE_global.h"
 #include "BKE_idprop.h"
 #include "BKE_layer.h"
@@ -113,7 +114,7 @@ SceneLayer *BKE_scene_layer_add(Scene *scene, const char *name)
 
 	IDPropertyTemplate val = {0};
 	SceneLayer *sl = MEM_callocN(sizeof(SceneLayer), "Scene Layer");
-	sl->flag |= SCENE_LAYER_RENDER;
+	sl->flag = SCENE_LAYER_RENDER | SCENE_LAYER_FREESTYLE;
 
 	sl->properties = IDP_New(IDP_GROUP, &val, ROOT_PROP);
 	layer_engine_settings_init(sl->properties, false);
@@ -126,6 +127,12 @@ SceneLayer *BKE_scene_layer_add(Scene *scene, const char *name)
 
 	SceneCollection *sc = BKE_collection_master(scene);
 	layer_collection_add(sl, NULL, sc);
+
+	/* Pure rendering pipeline settings. */
+	sl->layflag = 0x7FFF;   /* solid ztra halo edge strand */
+	sl->passflag = SCE_PASS_COMBINED | SCE_PASS_Z;
+	sl->pass_alpha_threshold = 0.5f;
+	BKE_freestyle_config_init(&sl->freestyle_config);
 
 	return sl;
 }
@@ -171,6 +178,13 @@ void BKE_scene_layer_free(SceneLayer *sl)
 	BLI_freelistN(&sl->drawdata);
 
 	MEM_SAFE_FREE(sl->stats);
+
+	BKE_freestyle_config_free(&sl->freestyle_config);
+
+	if (sl->id_properties) {
+		IDP_FreeProperty(sl->id_properties);
+		MEM_freeN(sl->id_properties);
+	}
 
 	MEM_freeN(sl);
 }
@@ -1060,8 +1074,27 @@ void BKE_layer_sync_object_unlink(const Scene *scene, SceneCollection *sc, Objec
 /**
  * Add a new datablock override
  */
-void BKE_collection_override_datablock_add(LayerCollection *UNUSED(lc), const char *UNUSED(data_path), ID *UNUSED(id))
+void BKE_override_scene_layer_datablock_add(SceneLayer *scene_layer, int id_type, const char *data_path, const ID *id)
 {
+	UNUSED_VARS(scene_layer, id_type, data_path, id);
+	TODO_LAYER_OVERRIDE;
+}
+
+/**
+ * Add a new int override
+ */
+void BKE_override_scene_layer_int_add(SceneLayer *scene_layer, int id_type, const char *data_path, const int value)
+{
+	UNUSED_VARS(scene_layer, id_type, data_path, value);
+	TODO_LAYER_OVERRIDE;
+}
+
+/**
+ * Add a new boolean override
+ */
+void BKE_override_layer_collection_boolean_add(struct LayerCollection *layer_collection, int id_type, const char *data_path, const bool value)
+{
+	UNUSED_VARS(layer_collection, id_type, data_path, value);
 	TODO_LAYER_OVERRIDE;
 }
 

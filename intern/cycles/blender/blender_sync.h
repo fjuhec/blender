@@ -69,7 +69,7 @@ public:
 	               const char *layer = 0);
 	void sync_render_layers(BL::SpaceView3D& b_v3d, const char *layer);
 	array<Pass> sync_render_passes(BL::RenderLayer& b_rlay,
-	                               BL::SceneRenderLayer& b_srlay,
+	                               BL::SceneLayer& b_slay,
 	                               const SessionParams &session_params);
 	void sync_integrator();
 	void sync_camera(BL::RenderSettings& b_render,
@@ -199,16 +199,16 @@ private:
 
 		string name;
 		uint scene_layer;
-		uint layer;
-		uint holdout_layer;
-		uint exclude_layer;
-		BL::Material material_override;
+		uint layer; /* This can be safely removed from Cycles. */
+		uint holdout_layer; /* This can be safely removed from Cycles. */
+		uint exclude_layer; /* This can be safely removed from Cycles. */
+		BL::Material material_override; /* This can be safely removed from Cycles. */
 		bool use_background_shader;
 		bool use_background_ao;
 		bool use_surfaces;
 		bool use_hair;
-		int samples;
-		bool bound_samples;
+		int samples; /* This can be safely removed from Cycles. */
+		bool bound_samples; /* This can be safely removed from Cycles. */
 	} render_layer;
 
 	Progress &progress;

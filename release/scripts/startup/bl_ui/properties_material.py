@@ -1183,7 +1183,7 @@ class EEVEE_MATERIAL_PT_options(MaterialButtonsPanel, Panel):
 
             row = layout.row()
             row.active = ((mat.blend_method == "CLIP") or (mat.transparent_shadow_method == "CLIP"))
-            layout.prop(mat, "alpha_threshold")
+            row.prop(mat, "alpha_threshold")
 
         if mat.blend_method not in {"OPAQUE", "CLIP", "HASHED"}:
             layout.prop(mat, "transparent_hide_backside")
@@ -1192,6 +1192,9 @@ class EEVEE_MATERIAL_PT_options(MaterialButtonsPanel, Panel):
         layout.prop(mat, "refraction_depth")
 
         layout.prop(mat, "use_screen_subsurface")
+        row = layout.row()
+        row.active = mat.use_screen_subsurface
+        row.prop(mat, "use_sss_translucency")
 
 
 classes = (

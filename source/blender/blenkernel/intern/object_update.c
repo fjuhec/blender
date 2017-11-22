@@ -72,7 +72,7 @@ void BKE_object_eval_local_transform(const EvaluationContext *UNUSED(eval_ctx),
                                      Scene *UNUSED(scene),
                                      Object *ob)
 {
-	DEBUG_PRINT("%s on %s\n", __func__, ob->id.name);
+	DEBUG_PRINT("%s on %s (%p)\n", __func__, ob->id.name, ob);
 
 	/* calculate local matrix */
 	BKE_object_to_mat4(ob, ob->obmat);
@@ -90,7 +90,7 @@ void BKE_object_eval_parent(const EvaluationContext *UNUSED(eval_ctx),
 	float tmat[4][4];
 	float locmat[4][4];
 
-	DEBUG_PRINT("%s on %s\n", __func__, ob->id.name);
+	DEBUG_PRINT("%s on %s (%p)\n", __func__, ob->id.name, ob);
 
 	/* get local matrix (but don't calculate it, as that was done already!) */
 	// XXX: redundant?
@@ -119,7 +119,7 @@ void BKE_object_eval_constraints(const EvaluationContext *eval_ctx,
 	bConstraintOb *cob;
 	float ctime = BKE_scene_frame_get(scene);
 
-	DEBUG_PRINT("%s on %s\n", __func__, ob->id.name);
+	DEBUG_PRINT("%s on %s (%p)\n", __func__, ob->id.name, ob);
 
 	/* evaluate constraints stack */
 	/* TODO: split this into:
@@ -137,7 +137,7 @@ void BKE_object_eval_constraints(const EvaluationContext *eval_ctx,
 
 void BKE_object_eval_done(const EvaluationContext *UNUSED(eval_ctx), Object *ob)
 {
-	DEBUG_PRINT("%s on %s\n", __func__, ob->id.name);
+	DEBUG_PRINT("%s on %s (%p)\n", __func__, ob->id.name, ob);
 
 	/* Set negative scale flag in object. */
 	if (is_negative_m4(ob->obmat)) ob->transflag |= OB_NEG_SCALE;
@@ -308,7 +308,7 @@ void BKE_object_eval_uber_data(const EvaluationContext *eval_ctx,
                                Scene *scene,
                                Object *ob)
 {
-	DEBUG_PRINT("%s on %s\n", __func__, ob->id.name);
+	DEBUG_PRINT("%s on %s (%p)\n", __func__, ob->id.name, ob);
 	BLI_assert(ob->type != OB_ARMATURE);
 	BKE_object_handle_data_update(eval_ctx, scene, ob);
 
@@ -357,6 +357,8 @@ void BKE_object_eval_uber_data(const EvaluationContext *eval_ctx,
 				 * something what we might want to change in the future.
 				 */
 				ob->data = new_mesh;
+				/* Special flags to help debugging. */
+				new_mesh->id.tag |= LIB_TAG_COPY_ON_WRITE_EVAL;
 				/* Save some memory by throwing DerivedMesh away. */
 				/* NOTE: Watch out, some tools might need it!
 				 * So keep around for now..
@@ -387,13 +389,13 @@ void BKE_object_eval_uber_data(const EvaluationContext *eval_ctx,
 
 void BKE_object_eval_cloth(const EvaluationContext *UNUSED(eval_ctx), Scene *scene, Object *object)
 {
-	DEBUG_PRINT("%s on %s\n", __func__, object->id.name);
+	DEBUG_PRINT("%s on %s (%p)\n", __func__, object->id.name, object);
 	BKE_ptcache_object_reset(scene, object, PTCACHE_RESET_DEPSGRAPH);
 }
 
 void BKE_object_eval_update_shading(const EvaluationContext *UNUSED(eval_ctx), Object *object)
 {
-	DEBUG_PRINT("%s on %s\n", __func__, object->id.name);
+	DEBUG_PRINT("%s on %s (%p)\n", __func__, object->id.name, object);
 	if (object->type == OB_MESH) {
 		BKE_mesh_batch_cache_dirty(object->data, BKE_MESH_BATCH_DIRTY_SHADING);
 	}

@@ -5956,7 +5956,6 @@ static void lib_link_scene(FileData *fd, Main *main)
 			
 			for (SceneRenderLayer *srl = sce->r.layers.first; srl; srl = srl->next) {
 				srl->mat_override = newlibadr_us(fd, sce->id.lib, srl->mat_override);
-				srl->light_override = newlibadr_us(fd, sce->id.lib, srl->light_override);
 				for (FreestyleModuleConfig *fmc = srl->freestyleConfig.modules.first; fmc; fmc = fmc->next) {
 					fmc->script = newlibadr(fd, sce->id.lib, fmc->script);
 				}
@@ -5976,6 +5975,16 @@ static void lib_link_scene(FileData *fd, Main *main)
 			for (SceneLayer *scene_layer = sce->render_layers.first; scene_layer; scene_layer = scene_layer->next) {
 				/* tag scene layer to update for collection tree evaluation */
 				scene_layer->flag |= SCENE_LAYER_ENGINE_DIRTY;
+
+				for (FreestyleModuleConfig *fmc = scene_layer->freestyle_config.modules.first; fmc; fmc = fmc->next) {
+					fmc->script = newlibadr(fd, sce->id.lib, fmc->script);
+				}
+
+				for (FreestyleLineSet *fls = scene_layer->freestyle_config.linesets.first; fls; fls = fls->next) {
+					fls->linestyle = newlibadr_us(fd, sce->id.lib, fls->linestyle);
+					fls->group = newlibadr_us(fd, sce->id.lib, fls->group);
+				}
+
 				for (Base *base = scene_layer->object_bases.first; base; base = base->next) {
 					/* we only bump the use count for the collection objects */
 					base->object = newlibadr(fd, sce->id.lib, base->object);
@@ -6346,11 +6355,7 @@ static void direct_link_scene(FileData *fd, Scene *sce, Main *bmain)
 	for (srl = sce->r.layers.first; srl; srl = srl->next) {
 		srl->prop = newdataadr(fd, srl->prop);
 		IDP_DirectLinkGroup_OrFree(&srl->prop, (fd->flags & FD_FLAGS_SWITCH_ENDIAN), fd);
-	}
-	for (srl = sce->r.layers.first; srl; srl = srl->next) {
 		link_list(fd, &(srl->freestyleConfig.modules));
-	}
-	for (srl = sce->r.layers.first; srl; srl = srl->next) {
 		link_list(fd, &(srl->freestyleConfig.linesets));
 	}
 	
@@ -6409,6 +6414,12 @@ static void direct_link_scene(FileData *fd, Scene *sce, Main *bmain)
 			IDP_DirectLinkGroup_OrFree(&scene_layer->properties, (fd->flags & FD_FLAGS_SWITCH_ENDIAN), fd);
 			BKE_scene_layer_engine_settings_validate_layer(scene_layer);
 		}
+
+		scene_layer->id_properties = newdataadr(fd, scene_layer->id_properties);
+		IDP_DirectLinkGroup_OrFree(&scene_layer->id_properties, (fd->flags & FD_FLAGS_SWITCH_ENDIAN), fd);
+
+		link_list(fd, &(scene_layer->freestyle_config.modules));
+		link_list(fd, &(scene_layer->freestyle_config.linesets));
 
 		scene_layer->properties_evaluated = NULL;
 
@@ -9934,7 +9945,6 @@ static void expand_scene(FileData *fd, Main *mainvar, Scene *sce)
 	
 	for (srl = sce->r.layers.first; srl; srl = srl->next) {
 		expand_doit(fd, mainvar, srl->mat_override);
-		expand_doit(fd, mainvar, srl->light_override);
 		for (module = srl->freestyleConfig.modules.first; module; module = module->next) {
 			if (module->script)
 				expand_doit(fd, mainvar, module->script);
@@ -9945,7 +9955,22 @@ static void expand_scene(FileData *fd, Main *mainvar, Scene *sce)
 			expand_doit(fd, mainvar, lineset->linestyle);
 		}
 	}
-	
+
+	for (SceneLayer *scene_layer = sce->render_layers.first; scene_layer; scene_layer = scene_layer->next) {
+		for (module = scene_layer->freestyle_config.modules.first; module; module = module->next) {
+			if (module->script) {
+				expand_doit(fd, mainvar, module->script);
+			}
+		}
+
+		for (lineset = scene_layer->freestyle_config.linesets.first; lineset; lineset = lineset->next) {
+			if (lineset->group) {
+				expand_doit(fd, mainvar, lineset->group);
+			}
+			expand_doit(fd, mainvar, lineset->linestyle);
+		}
+	}
+
 	if (sce->r.dometext)
 		expand_doit(fd, mainvar, sce->gm.dome.warptext);
 	

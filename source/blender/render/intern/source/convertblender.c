@@ -4030,16 +4030,6 @@ static void set_material_lightgroups(Render *re)
 	}
 }
 
-static void set_renderlayer_lightgroups(Render *re, Scene *sce)
-{
-	SceneRenderLayer *srl;
-	
-	for (srl= sce->r.layers.first; srl; srl= srl->next) {
-		if (srl->light_override)
-			add_lightgroup(re, srl->light_override, 0);
-	}
-}
-
 /* ------------------------------------------------------------------------- */
 /* World																	 */
 /* ------------------------------------------------------------------------- */
@@ -4949,16 +4939,9 @@ static void dupli_render_particle_set(Render *re, Object *ob, int timeoffset, in
 		dupli_render_particle_set(re, go->ob, timeoffset, level+1, enable);
 }
 
-static int get_vector_renderlayers(Scene *sce)
+static int get_vector_renderlayers(Scene *UNUSED(sce))
 {
-	SceneRenderLayer *srl;
-	unsigned int lay= 0;
-
-	for (srl= sce->r.layers.first; srl; srl= srl->next)
-		if (srl->passflag & SCE_PASS_VECTOR)
-			lay |= srl->lay;
-
-	return lay;
+	return 0;
 }
 
 static void add_group_render_dupli_obs(Render *re, Group *group, int nolamps, int onlyselected, Object *actob, int timeoffset, int level)
@@ -5184,7 +5167,6 @@ static void database_init_objects(Render *re, unsigned int UNUSED(renderlay), in
 /* used to be 'rotate scene' */
 void RE_Database_FromScene(Render *re, Main *bmain, Scene *scene, unsigned int lay, int use_camera_view)
 {
-	Scene *sce;
 	Object *camera;
 	float mat[4][4];
 	float amb[3];
@@ -5221,7 +5203,7 @@ void RE_Database_FromScene(Render *re, Main *bmain, Scene *scene, unsigned int l
 	/* applies changes fully */
 	if ((re->r.scemode & (R_NO_FRAME_UPDATE|R_BUTS_PREVIEW|R_VIEWPORT_PREVIEW))==0) {
 		BKE_scene_graph_update_for_newframe(re->eval_ctx, re->depsgraph, re->main, re->scene, NULL);
-		render_update_anim_renderdata(re, &re->scene->r);
+		render_update_anim_renderdata(re, &re->scene->r, &re->scene->render_layers);
 	}
 	
 	/* if no camera, viewmat should have been set! */
@@ -5261,8 +5243,6 @@ void RE_Database_FromScene(Render *re, Main *bmain, Scene *scene, unsigned int l
 	
 	if (!re->test_break(re->tbh)) {
 		set_material_lightgroups(re);
-		for (sce= re->scene; sce; sce= sce->set)
-			set_renderlayer_lightgroups(re, sce);
 		
 		/* for now some clumsy copying still */
 		re->i.totvert= re->totvert;

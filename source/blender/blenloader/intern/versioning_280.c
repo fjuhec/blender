@@ -53,6 +53,7 @@
 
 #include "BKE_collection.h"
 #include "BKE_customdata.h"
+#include "BKE_freestyle.h"
 #include "BKE_idprop.h"
 #include "BKE_layer.h"
 #include "BKE_main.h"
@@ -311,43 +312,88 @@ void do_versions_after_linking_280(Main *main)
 
 						SceneLayer *scene_layer = BKE_scene_layer_add(scene, srl->name);
 
+						if (srl->samples != 0) {
+							/* It is up to the external engine to handle
+							 * its own doversion in this case. */
+							BKE_override_scene_layer_int_add(
+										scene_layer,
+										ID_SCE,
+										"samples",
+										srl->samples);
+						}
+
 						if (srl->mat_override) {
-							BKE_collection_override_datablock_add((LayerCollection *)scene_layer->layer_collections.first, "material", (ID *)srl->mat_override);
+							BKE_override_scene_layer_datablock_add(
+							            scene_layer,
+							            ID_MA,
+							            "self",
+							            (ID *)srl->mat_override);
 						}
 
-						if (srl->light_override && BKE_scene_uses_blender_internal(scene)) {
-							/* not sure how we handle this, pending until we design the override system */
-							TODO_LAYER_OVERRIDE;
+						if (srl->layflag & SCE_LAY_DISABLE) {
+							scene_layer->flag &= ~SCENE_LAYER_RENDER;
 						}
 
-						if (srl->lay != scene->lay) {
-							/* unlink master collection  */
-							BKE_collection_unlink(scene_layer, scene_layer->layer_collections.first);
+						if ((srl->layflag & SCE_LAY_FRS) == 0) {
+							scene_layer->flag &= ~SCENE_LAYER_FREESTYLE;
+						}
 
-							/* Add new collection bases. */
-							for (int layer = 0; layer < 20; layer++) {
-								if ((srl->lay & (1 << layer)) && (scene->lay & (1 << layer))) {
-									if (collections[DO_VERSION_COLLECTION_VISIBLE].created & (1 << layer)) {
+						/* XXX If we are to keep layflag it should be merged with flag (dfelinto). */
+						scene_layer->layflag = srl->layflag;
+						/* XXX Not sure if we should keep the passes (dfelinto). */
+						scene_layer->passflag = srl->passflag;
+						scene_layer->pass_xor = srl->pass_xor;
+						scene_layer->pass_alpha_threshold = srl->pass_alpha_threshold;
 
-										LayerCollection *layer_collection_parent;
-										layer_collection_parent = BKE_collection_link(scene_layer,
-										        collections[DO_VERSION_COLLECTION_VISIBLE].collections[layer]);
+						BKE_freestyle_config_free(&scene_layer->freestyle_config);
+						scene_layer->freestyle_config = srl->freestyleConfig;
+						scene_layer->id_properties = srl->prop;
 
-										LayerCollection *layer_collection_child;
-										layer_collection_child = layer_collection_parent->layer_collections.first;
+						/* unlink master collection  */
+						BKE_collection_unlink(scene_layer, scene_layer->layer_collections.first);
 
-										for (int j = 1; j < 4; j++) {
-											if (collections[j].created & (1 << layer)) {
-												layer_collection_child->flag = collections[j].flag_render & (~COLLECTION_DISABLED);
+						/* Add new collection bases. */
+						for (int layer = 0; layer < 20; layer++) {
+							if ((scene->lay & srl->lay & ~(srl->lay_exclude) & (1 << layer)) ||
+								(srl->lay_zmask & (scene->lay | srl->lay_exclude) & (1 << layer)))
+							{
+								if (collections[DO_VERSION_COLLECTION_VISIBLE].created & (1 << layer)) {
 
-												if (collections[j].flag_render & COLLECTION_DISABLED) {
-													BKE_collection_disable(scene_layer, layer_collection_child);
-												}
-												layer_collection_child = layer_collection_child->next;
-											}
-										}
-										BLI_assert(layer_collection_child == NULL);
+									LayerCollection *layer_collection_parent;
+									layer_collection_parent = BKE_collection_link(scene_layer,
+											collections[DO_VERSION_COLLECTION_VISIBLE].collections[layer]);
+
+									if (srl->lay_zmask & (1 << layer)) {
+										BKE_override_layer_collection_boolean_add(
+													layer_collection_parent,
+													ID_OB,
+													"cycles.is_holdout",
+													true);
 									}
+
+									if ((srl->lay & (1 << layer)) == 0) {
+										BKE_override_layer_collection_boolean_add(
+													layer_collection_parent,
+													ID_OB,
+													"cycles_visibility.camera",
+													false);
+									}
+
+									LayerCollection *layer_collection_child;
+									layer_collection_child = layer_collection_parent->layer_collections.first;
+
+									for (int j = 1; j < 4; j++) {
+										if (collections[j].created & (1 << layer)) {
+											layer_collection_child->flag = collections[j].flag_render & (~COLLECTION_DISABLED);
+
+											if (collections[j].flag_render & COLLECTION_DISABLED) {
+												BKE_collection_disable(scene_layer, layer_collection_child);
+											}
+
+											layer_collection_child = layer_collection_child->next;
+										}
+									}
+									BLI_assert(layer_collection_child == NULL);
 								}
 							}
 						}
@@ -362,16 +408,28 @@ void do_versions_after_linking_280(Main *main)
 								base->flag |= BASE_SELECTED;
 							}
 						}
-
-						/* TODO: passes, samples, mask_layesr, exclude, ... */
 					}
 
 					if (BLI_findlink(&scene->render_layers, scene->r.actlay)) {
 						scene->active_layer = scene->r.actlay;
 					}
 				}
+				else {
+					for (SceneRenderLayer *srl = scene->r.layers.first; srl; srl = srl->next) {
+						if (srl->prop) {
+							IDP_FreeProperty(srl->prop);
+							MEM_freeN(srl->prop);
+						}
+						BKE_freestyle_config_free(&srl->freestyleConfig);
+					}
+				}
+				BLI_freelistN(&scene->r.layers);
 
 				SceneLayer *scene_layer = BKE_scene_layer_add(scene, "Viewport");
+				/* If we ported all the original render layers, we don't need to make the viewport layer renderable. */
+				if (!BLI_listbase_is_single(&scene->render_layers)) {
+					scene_layer->flag &= ~SCENE_LAYER_RENDER;
+				}
 
 				/* If layer was not set, disable it. */
 				LayerCollection *layer_collection_parent;
@@ -419,8 +477,6 @@ void do_versions_after_linking_280(Main *main)
 					/* keep lay around for forward compatibility (open those files in 2.79) */
 					base->lay = base->object->lay;
 				}
-
-				/* TODO: copy scene render data to layer */
 
 				/* Fallback name if only one layer was found in the original file */
 				if (BLI_listbase_count_ex(&sc_master->scene_collections, 2) == 1) {
@@ -845,6 +901,31 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 
 			for (WorkSpace *workspace = main->workspaces.first; workspace; workspace = workspace->id.next) {
 				BKE_viewrender_init(&workspace->view_render);
+			}
+		}
+	}
+
+	{
+		if ((DNA_struct_elem_find(fd->filesdna, "SceneLayer", "FreestyleConfig", "freestyle_config") == false) &&
+		    DNA_struct_elem_find(fd->filesdna, "Scene", "ListBase", "render_layers")) {
+			for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
+				SceneLayer *scene_layer;
+				for (scene_layer = scene->render_layers.first; scene_layer; scene_layer = scene_layer->next) {
+					scene_layer->flag |= SCENE_LAYER_FREESTYLE;
+					scene_layer->layflag = 0x7FFF;   /* solid ztra halo edge strand */
+					scene_layer->passflag = SCE_PASS_COMBINED | SCE_PASS_Z;
+					scene_layer->pass_alpha_threshold = 0.5f;
+					BKE_freestyle_config_init(&scene_layer->freestyle_config);
+				}
+
+				for (SceneRenderLayer *srl = scene->r.layers.first; srl; srl = srl->next) {
+					if (srl->prop) {
+						IDP_FreeProperty(srl->prop);
+						MEM_freeN(srl->prop);
+					}
+					BKE_freestyle_config_free(&srl->freestyleConfig);
+				}
+				BLI_freelistN(&scene->r.layers);
 			}
 		}
 	}

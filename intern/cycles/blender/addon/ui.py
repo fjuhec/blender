@@ -50,7 +50,7 @@ class CyclesButtonsPanel:
 
     @classmethod
     def poll(cls, context):
-        return context.engine in cls.COMPAT_ENGINES
+        return context.scene.view_render.engine in cls.COMPAT_ENGINES
 
 
 def get_device_type(context):
@@ -204,13 +204,6 @@ class CYCLES_RENDER_PT_sampling(CyclesButtonsPanel, Panel):
             col.prop(cscene, "sample_all_lights_indirect")
 
         layout.row().prop(cscene, "sampling_pattern", text="Pattern")
-
-        for rl in scene.render.layers:
-            if rl.samples > 0:
-                layout.separator()
-                layout.row().prop(cscene, "use_layer_samples")
-                break
-
         draw_samples_info(layout, context)
 
 
@@ -407,7 +400,7 @@ class CYCLES_RENDER_PT_performance(CyclesButtonsPanel, Panel):
 
         subsub = sub.column()
         subsub.active = not rd.use_save_buffers
-        for rl in rd.layers:
+        for rl in scene.render_layers:
             if rl.cycles.use_denoising:
                 subsub.active = False
         subsub.prop(cscene, "use_progressive_refine")
@@ -443,28 +436,9 @@ class CYCLES_RENDER_PT_layer_options(CyclesButtonsPanel, Panel):
         layout = self.layout
 
         scene = context.scene
-        rd = scene.render
-        rl = rd.layers.active
+        rl = scene.render_layers.active
 
-        split = layout.split()
-
-        col = split.column()
-        col.prop(scene, "layers", text="Scene")
-        col.prop(rl, "layers_exclude", text="Exclude")
-
-        col = split.column()
-        col.prop(rl, "layers", text="Layer")
-        col.prop(rl, "layers_zmask", text="Mask Layer")
-
-        split = layout.split()
-
-        col = split.column()
-        col.label(text="Material:")
-        col.prop(rl, "material_override", text="")
-        col.separator()
-        col.prop(rl, "samples")
-
-        col = split.column()
+        col = layout.column()
         col.prop(rl, "use_sky", "Use Environment")
         col.prop(rl, "use_ao", "Use AO")
         col.prop(rl, "use_solid", "Use Surfaces")
@@ -483,7 +457,7 @@ class CYCLES_RENDER_PT_layer_passes(CyclesButtonsPanel, Panel):
 
         scene = context.scene
         rd = scene.render
-        rl = rd.layers.active
+        rl = scene.render_layers.active
         crl = rl.cycles
 
         split = layout.split()
@@ -599,10 +573,10 @@ class CYCLES_RENDER_PT_denoising(CyclesButtonsPanel, Panel):
     bl_options = {'DEFAULT_CLOSED'}
 
     def draw_header(self, context):
-        rd = context.scene.render
-        rl = rd.layers.active
+        scene = context.scene
+        rl = scene.render_layers.active
         crl = rl.cycles
-        cscene = context.scene.cycles
+        cscene = scene.cycles
         layout = self.layout
 
         layout.prop(crl, "use_denoising", text="")
@@ -612,8 +586,7 @@ class CYCLES_RENDER_PT_denoising(CyclesButtonsPanel, Panel):
 
         scene = context.scene
         cscene = scene.cycles
-        rd = scene.render
-        rl = rd.layers.active
+        rl = scene.render_layers.active
         crl = rl.cycles
 
         layout.active = crl.use_denoising
@@ -1120,7 +1093,7 @@ class CYCLES_WORLD_PT_mist(CyclesButtonsPanel, Panel):
     def poll(cls, context):
         if CyclesButtonsPanel.poll(context):
             if context.world:
-                for rl in context.scene.render.layers:
+                for rl in context.scene.render_layers:
                     if rl.use_pass_mist:
                         return True
 
