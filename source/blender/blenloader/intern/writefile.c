@@ -3949,10 +3949,10 @@ static bool write_file_handle(
 
 	/* This outer loop allows to save first datablocks from real mainvar, then the temp ones from override process,
 	 * if needed, without duplicating whole code. */
-	Main *main = mainvar;
+	Main *bmain = mainvar;
 	do {
 		ListBase *lbarray[MAX_LIBARRAY];
-		int a = set_listbasepointers(main, lbarray);
+		int a = set_listbasepointers(bmain, lbarray);
 		while (a--) {
 			ID *id = lbarray[a]->first;
 
@@ -3964,7 +3964,7 @@ static bool write_file_handle(
 				/* We should never attempt to write non-regular IDs (i.e. all kind of temp/runtime ones). */
 				BLI_assert((id->tag & (LIB_TAG_NO_MAIN | LIB_TAG_NO_USER_REFCOUNT | LIB_TAG_NOT_ALLOCATED)) == 0);
 
-				const bool do_override = !ELEM(override_storage, NULL, main) && id->override;
+				const bool do_override = !ELEM(override_storage, NULL, bmain) && id->override;
 
 				if (do_override) {
 					BKE_override_operations_store_start(override_storage, id);
@@ -4093,7 +4093,7 @@ static bool write_file_handle(
 
 			mywrite_flush(wd);
 		}
-	} while ((main != override_storage) && (main = override_storage));
+	} while ((bmain != override_storage) && (bmain = override_storage));
 
 	if (override_storage) {
 		BKE_override_operations_store_finalize(override_storage);
