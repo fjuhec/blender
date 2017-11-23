@@ -5407,15 +5407,124 @@ static void rna_def_modifier_gpencilarray(BlenderRNA *brna)
 
 static void rna_def_modifier_gpencilbuild(BlenderRNA *brna)
 {
+	static EnumPropertyItem prop_gpencil_build_mode_items[] = {
+		{GP_BUILD_MODE_SEQUENTIAL, "SEQUENTIAL", ICON_PARTICLE_POINT, "Sequential",
+		 "Strokes appear/disappear one after the other, but only a single one changes at a time"},
+		{GP_BUILD_MODE_CONCURRENT, "CONCURRENT", ICON_PARTICLE_TIP, "Concurrent",
+		 "Multiple strokes appear/disappear at once"},
+		{0, NULL, 0, NULL, NULL}
+	};
+	
+	static EnumPropertyItem prop_gpencil_build_direction_items[] = {
+		{GP_BUILD_DIRECTION_GROW, "GROW", 0, "Grow",
+		 "Show points in the order they occur in each stroke "
+		 "(e.g. for animating lines being drawn)"},
+		{GP_BUILD_DIRECTION_SHRINK, "SHRINK", 0, "Shrink",
+		 "Hide points from the end of each stroke to the start "
+		 "(e.g. for animating lines being erased)"},
+		{GP_BUILD_DIRECTION_FADE, "FADE", 0, "Fade",
+		 "Hide points in the order they occur in each stroke "
+		 "(e.g. for animating ink fading or vanishing after getting drawn)"},
+		{0, NULL, 0, NULL, NULL}
+	};
+	
+	static EnumPropertyItem prop_gpencil_build_time_align_items[] = {
+		{GP_BUILD_TIMEALIGN_START, "START", 0, "Align Start",
+		 "All strokes start at same time (i.e. short strokes finish earlier)"},
+		{GP_BUILD_TIMEALIGN_END, "END", 0, "Align End",
+		 "All strokes end at same time (i.e. short strokes start later)"},
+		{0, NULL, 0, NULL, NULL}
+	};
+	
 	StructRNA *srna;
-	//PropertyRNA *prop;
+	PropertyRNA *prop;
 
 	srna = RNA_def_struct(brna, "GpencilBuildModifier", "Modifier");
 	RNA_def_struct_ui_text(srna, "Build Modifier", "Animate strokes appearing and disappearing");
 	RNA_def_struct_sdna(srna, "GpencilBuildModifierData");
 	RNA_def_struct_ui_icon(srna, ICON_MOD_BUILD);
 
-	/* FIXME: Not implemented yet */
+#if 0
+	prop = RNA_def_property(srna, "layer", PROP_STRING, PROP_NONE);
+	RNA_def_property_string_sdna(prop, NULL, "layername");
+	RNA_def_property_ui_text(prop, "Layer", "Layer name");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "pass_index", PROP_INT, PROP_NONE);
+	RNA_def_property_int_sdna(prop, NULL, "pass_index");
+	RNA_def_property_range(prop, 0, 100);
+	RNA_def_property_ui_text(prop, "Pass", "Pass index");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+	
+	prop = RNA_def_property(srna, "inverse_layers", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_BUILD_INVERSE_LAYER);
+	RNA_def_property_ui_text(prop, "Inverse Layers", "Inverse filter");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "inverse_pass", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_BUILD_INVERSE_PASS);
+	RNA_def_property_ui_text(prop, "Inverse Pass", "Inverse filter");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+#endif
+	
+	/* Mode */
+	prop = RNA_def_property(srna, "mode", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_items(prop, prop_gpencil_build_mode_items);
+	RNA_def_property_ui_text(prop, "Mode", "How many strokes are being animated at a time");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+	
+	/* Direction */
+	prop = RNA_def_property(srna, "direction", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_items(prop, prop_gpencil_build_direction_items);
+	RNA_def_property_ui_text(prop, "Direction", "How are strokes animated (i.e. are they appearing or disappearing)");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+	
+	
+	/* Transition Onset Delay + Length */
+	prop = RNA_def_property(srna, "start_delay", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_sdna(prop, NULL, "start_delay");
+	RNA_def_property_ui_text(prop, "Start Delay", "Number of frames after each GP keyframe before the modifier has any effect");
+	RNA_def_property_range(prop, 0, MAXFRAMEF);
+	RNA_def_property_ui_range(prop, 0, 200, 1, -1);
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+	
+	prop = RNA_def_property(srna, "length", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_sdna(prop, NULL, "length");
+	RNA_def_property_ui_text(prop, "Length",
+	                         "Maximum number of frames that the build effect can run for "
+	                         "(unless another GP keyframe occurs before this time has elapsed)");
+	RNA_def_property_range(prop, 1, MAXFRAMEF);
+	RNA_def_property_ui_range(prop, 1, 1000, 1, -1);
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+	
+	
+	/* Concurrent Mode Settings */
+	prop = RNA_def_property(srna, "concurrent_time_alignment", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_sdna(prop, NULL, "time_alignment");
+	RNA_def_property_enum_items(prop, prop_gpencil_build_time_align_items);
+	RNA_def_property_ui_text(prop, "Time Alignment", "When should strokes start to appear/disappear");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+	
+	
+	
+	/* Time Limits */
+	prop = RNA_def_property(srna, "use_restrict_frame_range", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_BUILD_RESTRICT_TIME);
+	RNA_def_property_ui_text(prop, "Restrict Frame Range", "Only modify strokes during the specified frame range");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "frame_start", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_sdna(prop, NULL, "start_frame");
+	RNA_def_property_ui_text(prop, "Start Frame", "Start Frame (when Restrict Frame Range is enabled)");
+	RNA_def_property_range(prop, MINAFRAMEF, MAXFRAMEF);
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+	
+	prop = RNA_def_property(srna, "frame_end", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_sdna(prop, NULL, "end_frame");
+	RNA_def_property_ui_text(prop, "End Frame", "End Frame (when Restrict Frame Range is enabled)");
+	RNA_def_property_range(prop, MINAFRAMEF, MAXFRAMEF);
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+	
 }
 
 static void rna_def_modifier_gpencillattice(BlenderRNA *brna)

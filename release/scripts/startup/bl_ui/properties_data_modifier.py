@@ -1784,7 +1784,28 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
 
     def GP_BUILD(self, layout, ob, md):
         gpd = ob.data
-        layout.label(icon='ERROR', text="Not Implemented")
+        
+        split = layout.split()
+
+        col = split.column()
+        col.label("Transition:")
+        col.prop(md, "direction")
+        col.separator()
+        sub = col.column(align=True)
+        sub.prop(md, "start_delay")
+        sub.prop(md, "length")
+
+        col = split.column()     
+        col.prop(md, "mode")
+        if md.mode == 'CONCURRENT':
+            col.prop(md, "concurrent_time_alignment")
+
+        col = layout.column()
+        col.prop(md, "use_restrict_frame_range")
+        sub = col.column(align=True)
+        sub.active = md.use_restrict_frame_range
+        sub.prop(md, "frame_start", text="Start")
+        sub.prop(md, "frame_end", text="End")
 
     def GP_LATTICE(self, layout, ob, md):
         gpd = ob.data
