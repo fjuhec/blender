@@ -244,6 +244,7 @@ data_to_c_simple(engines/gpencil/shaders/gpencil_wave_frag.glsl SRC)
 data_to_c_simple(engines/gpencil/shaders/gpencil_pixel_frag.glsl SRC)
 data_to_c_simple(engines/gpencil/shaders/gpencil_swirl_frag.glsl SRC)
 data_to_c_simple(engines/gpencil/shaders/gpencil_painting_frag.glsl SRC)
+data_to_c_simple(engines/gpencil/shaders/gpencil_paper_frag.glsl SRC)
 
 list(APPEND INC
 )

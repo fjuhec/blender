@@ -55,6 +55,7 @@ extern char datatoc_gpencil_wave_frag_glsl[];
 extern char datatoc_gpencil_pixel_frag_glsl[];
 extern char datatoc_gpencil_swirl_frag_glsl[];
 extern char datatoc_gpencil_painting_frag_glsl[];
+extern char datatoc_gpencil_paper_frag_glsl[];
 
 /* *********** STATIC *********** */
 static GPENCIL_e_data e_data = {NULL}; /* Engine data */
@@ -171,6 +172,7 @@ static void GPENCIL_engine_free(void)
 	DRW_SHADER_FREE_SAFE(e_data.gpencil_vfx_swirl_sh);
 	DRW_SHADER_FREE_SAFE(e_data.gpencil_painting_sh);
 	DRW_SHADER_FREE_SAFE(e_data.gpencil_front_depth_sh);
+	DRW_SHADER_FREE_SAFE(e_data.gpencil_paper_sh);
 
 	DRW_TEXTURE_FREE_SAFE(e_data.gpencil_blank_texture);
 }
@@ -244,6 +246,9 @@ static void GPENCIL_cache_init(void *vedata)
 	}
 	if (!e_data.gpencil_front_depth_sh) {
 		e_data.gpencil_front_depth_sh = DRW_shader_create_fullscreen(datatoc_gpencil_front_depth_mix_frag_glsl, NULL);
+	}
+	if (!e_data.gpencil_paper_sh) {
+		e_data.gpencil_paper_sh = DRW_shader_create_fullscreen(datatoc_gpencil_paper_frag_glsl, NULL);
 	}
 
 	{
@@ -377,6 +382,13 @@ static void GPENCIL_cache_init(void *vedata)
 		stl->g_data->tot_sh++;
 		DRW_shgroup_call_add(mix_front_shgrp, frontquad, NULL);
 		DRW_shgroup_uniform_buffer(mix_front_shgrp, "strokeColor", &e_data.temp_fbcolor_color_tx);
+
+		/* pass for drawing paper */
+		struct Gwn_Batch *paperquad = DRW_cache_fullscreen_quad_get();
+		psl->paper_pass = DRW_pass_create("GPencil Paper Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND);
+		DRWShadingGroup *paper_shgrp = DRW_shgroup_create(e_data.gpencil_paper_sh, psl->paper_pass);
+		DRW_shgroup_call_add(paper_shgrp, paperquad, NULL);
+		DRW_shgroup_uniform_vec4(paper_shgrp, "color", ts->gpencil_paper_color, 1);
 	}
 }
 
@@ -596,6 +608,7 @@ static void GPENCIL_draw_scene(void *vedata)
 	GPENCIL_PassList *psl = ((GPENCIL_Data *)vedata)->psl;
 	GPENCIL_FramebufferList *fbl = ((GPENCIL_Data *)vedata)->fbl;
 	DefaultFramebufferList *dfbl = DRW_viewport_framebuffer_list_get();
+
 	int init_grp, end_grp;
 	tGPencilObjectCache *cache;
 	float clearcol[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
@@ -603,7 +616,15 @@ static void GPENCIL_draw_scene(void *vedata)
 	const DRWContextState *draw_ctx = DRW_context_state_get();
 	Scene *scene = draw_ctx->scene;
 	ToolSettings *ts = scene->toolsettings;
+	Object *obact = draw_ctx->obact;
 	bool playing = (bool)stl->storage->playing;
+
+	/* paper pass to display a confortable area to draw over complex scenes with geometry */
+	if ((obact) && (obact->type == OB_GPENCIL)) {
+		if ((ts->gpencil_flags & GP_TOOL_FLAG_ENABLE_PAPER) && (stl->g_data->gp_cache_used > 0)) {
+			DRW_draw_pass(psl->paper_pass);
+		}
+	}
 
 	/* if we have a painting session, we use fast viewport drawing method */
 	if (stl->g_data->session_flag & GP_DRW_PAINT_PAINTING) {

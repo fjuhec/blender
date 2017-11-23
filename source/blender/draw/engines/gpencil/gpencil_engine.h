@@ -180,6 +180,7 @@ typedef struct GPENCIL_PassList {
 	struct DRWPass *vfx_pixel_pass;
 	struct DRWPass *vfx_swirl_pass;
 	struct DRWPass *painting_pass;
+	struct DRWPass *paper_pass;
 } GPENCIL_PassList;
 
 typedef struct GPENCIL_FramebufferList {
@@ -248,6 +249,7 @@ typedef struct GPENCIL_e_data {
 	struct GPUShader *gpencil_vfx_swirl_sh;
 	struct GPUShader *gpencil_painting_sh;
 	struct GPUShader *gpencil_front_depth_sh;
+	struct GPUShader *gpencil_paper_sh;
 	/* temp depth texture */
 	struct GPUTexture *temp_fbcolor_depth_tx;
 	struct GPUTexture *temp_fbcolor_color_tx;

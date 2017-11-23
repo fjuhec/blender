@@ -157,6 +157,7 @@ class VIEW3D_HT_header(Header):
 
             view = context.space_data
             row = layout.row(align=True)
+            row.prop(context.tool_settings, "use_gpencil_paper", text="", icon='GHOST')
             row.prop(view, "show_only_render", text="", icon='IMAGE_COL')
             row.prop(view, "lock_camera", text="", icon='CAMERA_DATA')
 

@@ -1474,6 +1474,7 @@ typedef struct ToolSettings {
 
 	short gpencil_simplify; /* simplify flags for grease pencil */
 	char pad6[6];
+	float gpencil_paper_color[4];
 
 	/* Grease Pencil Sculpt */
 	struct GP_BrushEdit_Settings gp_sculpt;
@@ -2193,6 +2194,8 @@ typedef enum eGPencil_Flags {
 	GP_TOOL_FLAG_RETAIN_LAST            = (1 << 1),
 	/* Add the strokes below all strokes in the layer */
 	GP_TOOL_FLAG_PAINT_ONBACK = (1 << 2),
+	/* Activate paper to cover all viewport (this is done to facilitate drawing over geometry) */
+	GP_TOOL_FLAG_ENABLE_PAPER = (1 << 3),
 } eGPencil_Flags;
 
 /* toolsettings->gpencil_simplify */

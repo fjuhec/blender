@@ -115,6 +115,21 @@ class SCENE_PT_unit(SceneButtonsPanel, Panel):
         split.row()
         split.prop(unit, "use_separate")
 
+class SCENE_PT_gp_paper(SceneButtonsPanel, Panel):
+    bl_label = "Grease Pencil Paper"
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME', 'BLENDER_CLAY', 'BLENDER_EEVEE'}
+
+    def draw(self, context):
+        layout = self.layout
+
+        ts = context.tool_settings
+        row = layout.row(align=True)
+        row.prop(ts, "use_gpencil_paper", text="Use Paper")
+
+        row = layout.row(align=True)
+        row.prop(ts, "gp_paper_color", text="Color")
+        row = layout.row(align=True)
+        row.prop(ts, "gp_paper_opacity", text="Opacity")
 
 class SceneKeyingSetsPanel:
 
@@ -501,6 +516,7 @@ classes = (
     SCENE_PT_rigid_body_field_weights,
     SCENE_PT_simplify,
     SCENE_PT_gp_simplify,
+    SCENE_PT_gp_paper,
     SCENE_PT_custom_props,
 )
 
