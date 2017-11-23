@@ -2226,60 +2226,6 @@ static void rna_def_gpencil_brush(BlenderRNA *brna)
 	                         "Number of times to smooth newly created strokes");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, NULL);
 
-	/* Stabilization factor for new strokes while drawing */
-	prop = RNA_def_property(srna, "pen_stabilize_factor", PROP_FLOAT, PROP_NONE);
-	RNA_def_property_float_sdna(prop, NULL, "draw_stabifac");
-	RNA_def_property_range(prop, 0.0, 1.0f);
-	RNA_def_property_float_default(prop, 0.6f);
-	RNA_def_property_ui_text(prop, "Stabilize",
-		"Amount of smoothing while drawing to reduce jitter/noise");
-	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, NULL);
-
-	/* maximum distance between control points  for new strokes while drawing */
-	prop = RNA_def_property(srna, "pen_density", PROP_INT, PROP_PIXEL);
-	RNA_def_property_int_sdna(prop, NULL, "draw_pxdensity");
-	RNA_def_property_range(prop, 1, 500);
-	RNA_def_property_int_default(prop, GP_MIN_STROKE_SEGMENT_PX);
-	RNA_def_property_ui_text(prop, "Density",
-		"Maximum space in pixels between control points while drawing");
-	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, NULL);
-
-	/* Noise factor for new strokes while drawing */
-	prop = RNA_def_property(srna, "pen_noise_factor", PROP_FLOAT, PROP_ANGLE);
-	RNA_def_property_float_sdna(prop, NULL, "draw_stabangle");
-	RNA_def_property_range(prop, DEG2RAD(0.0f), DEG2RAD(180.0f));
-	RNA_def_property_float_default(prop, GP_MIN_STROKE_SEGMENT_ANGLE);
-	RNA_def_property_ui_text(prop, "Noise",
-		"Factor to determine below what noise the point must not be used to define stroke shape");
-	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, NULL);
-
-	/* Smooth factor for thickness while drawing */
-	prop = RNA_def_property(srna, "pen_smooth_thickness_factor", PROP_FLOAT, PROP_NONE);
-	RNA_def_property_float_sdna(prop, NULL, "draw_thicknesfac");
-	RNA_def_property_range(prop, 0.0, 1.0f);
-	RNA_def_property_float_default(prop, 0.5f);
-	RNA_def_property_ui_text(prop, "Thickness",
-		"Amount of smoothing while drawing for thickness");
-	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, NULL);
-
-	/* Smooth factor for strength while drawing */
-	prop = RNA_def_property(srna, "pen_smooth_strength_factor", PROP_FLOAT, PROP_NONE);
-	RNA_def_property_float_sdna(prop, NULL, "draw_strengthfac");
-	RNA_def_property_range(prop, 0.0, 1.0f);
-	RNA_def_property_float_default(prop, 0.5f);
-	RNA_def_property_ui_text(prop, "Strength",
-		"Amount of smoothing while drawing for strength");
-	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, NULL);
-
-	/* Minimum amount of pressure in tablets while drawing */
-	prop = RNA_def_property(srna, "pen_pressure_threshold", PROP_FLOAT, PROP_NONE);
-	RNA_def_property_float_sdna(prop, NULL, "draw_threshold");
-	RNA_def_property_range(prop, 0.0, 1.0f);
-	RNA_def_property_float_default(prop, 0.0f);
-	RNA_def_property_ui_text(prop, "Threshold",
-		"Minimum tablet pressure to consider the pencil is drawing");
-	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, NULL);
-
 	/* Subdivision level for new strokes */
 	prop = RNA_def_property(srna, "pen_subdivision_steps", PROP_INT, PROP_NONE);
 	RNA_def_property_int_sdna(prop, NULL, "sublevel");

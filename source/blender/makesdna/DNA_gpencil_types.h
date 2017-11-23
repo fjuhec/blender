@@ -42,11 +42,6 @@ struct GHash;
 #define GP_OBGPENCIL_DEFAULT_SIZE  0.2f 
 #define GP_DEFAULT_PIX_FACTOR 500 
 
-#define GP_MIN_STROKE_SEGMENT_PX 8.0f 
-#define GP_MIN_STROKE_SEGMENT_ANGLE DEG2RAD(2.0f) 
-#define GP_DEFAULT_SMOOTH_THICKNESS 0.5f;
-#define GP_DEFAULT_SMOOTH_STRENGTH 0.5f;
-
 /* ***************************************** */
 /* GP Point Weights */
 
@@ -125,12 +120,6 @@ typedef struct bGPDbrush {
 	struct CurveMapping *cur_jitter;
 
 	float curcolor[3];
-	float draw_stabifac;      /* amount of stabilization while drawing */
-	int   draw_pxdensity;     /* maximum number of pixel between control points while drawing */
-	float draw_stabangle;     /* factor to determine if the point is noise or not */
-	float draw_thicknesfac;   /* factor to smooth thickness */
-	float draw_strengthfac;   /* factor to smooth strength (alpha) */
-	float draw_threshold;     /* minimum pressure to consider is drawing */
 	char pad[4];
 } bGPDbrush;
 
