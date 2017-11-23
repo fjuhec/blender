@@ -86,7 +86,6 @@ static EnumPropertyItem rna_enum_gpencil_onion_modes_items[] = {
 
 static void rna_GPencil_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)
 {
-	bGPdata *gpd = (bGPdata *)ptr->id.data;
 	DEG_id_tag_update(ptr->id.data, OB_RECALC_DATA);
 	WM_main_add_notifier(NC_GPENCIL | NA_EDITED, NULL);
 }
