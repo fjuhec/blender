@@ -669,14 +669,14 @@ extern bool BLI_memory_is_zero(const void *arr, const size_t arr_size);
    /* These can't be used after statements in c89. */
 #  if defined(__COUNTER__)  /* MSVC */
 #    define BLI_STATIC_ASSERT(a, msg) \
-         ; enum { ASSERT_CONCAT(static_assert_, __COUNTER__) = 1 / (int)(!!(a)) }
+         ; enum { ASSERT_CONCAT(static_assert_, __COUNTER__) = 1 / (int)(!!(a)) };
 #  else  /* older gcc, clang... */
     /* This can't be used twice on the same line so ensure if using in headers
      * that the headers are not included twice (by wrapping in #ifndef...#endif)
      * Note it doesn't cause an issue when used on same line of separate modules
      * compiled with gcc -combine -fwhole-program. */
 #    define BLI_STATIC_ASSERT(a, msg) \
-         ; enum { ASSERT_CONCAT(assert_line_, __LINE__) = 1 / (int)(!!(a)) }
+         ; enum { ASSERT_CONCAT(assert_line_, __LINE__) = 1 / (int)(!!(a)) };
 #  endif
 #endif
 
