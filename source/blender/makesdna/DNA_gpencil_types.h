@@ -120,7 +120,9 @@ typedef struct bGPDbrush {
 	struct CurveMapping *cur_jitter;
 
 	float curcolor[3];
-	char pad[4];
+	float thick_smoothfac;    /* amount of thickness smoothing to apply to newly created strokes */
+	short thick_smoothlvl;    /* number of times to apply thickness smooth factor to new strokes */
+	char pad[6];
 } bGPDbrush;
 
 /* bGPDbrush->flag */

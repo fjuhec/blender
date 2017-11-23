@@ -984,12 +984,16 @@ static void gp_stroke_newfrombuffer(tGPsdata *p)
 				for (i = 0; i < gps->totpoints; i++) {
 					BKE_gp_smooth_stroke(gps, i, brush->draw_smoothfac - reduce, false);
 					BKE_gp_smooth_stroke_strength(gps, i, brush->draw_smoothfac);
-					/* thickness needs to repeat process several times */
-					for (int r2 = 0; r2 < 10; ++r2) {
-						BKE_gp_smooth_stroke_thickness(gps, i, brush->draw_smoothfac);
-					}
 				}
 				reduce += 0.25f;  // reduce the factor
+			}
+		}
+		/* smooth thickness */
+		if (brush->thick_smoothfac > 0.0f) {
+			for (int r = 0; r < brush->thick_smoothlvl * 2; ++r) {
+				for (i = 0; i < gps->totpoints; i++) {
+					BKE_gp_smooth_stroke_thickness(gps, i, brush->thick_smoothfac);
+				}
 			}
 		}
 

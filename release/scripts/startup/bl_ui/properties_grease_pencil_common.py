@@ -418,6 +418,11 @@ class GreasePencilBrushOptionsPanel:
             col.prop(brush, "pen_smooth_factor")
             col.prop(brush, "pen_smooth_steps")
 
+            row = layout.row(align=True)
+            col = row.column(align=True)
+            col.prop(brush, "pen_thick_smooth_factor")
+            col.prop(brush, "pen_thick_smooth_steps")
+
             col.separator()
             row = col.row(align=False)
             row.prop(brush, "pen_subdivision_steps")
