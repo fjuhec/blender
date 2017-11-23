@@ -93,57 +93,6 @@ void BKE_hair_free(HairSystem *hsys)
 	MEM_freeN(hsys);
 }
 
-#if 0
-void BKE_hair_set_num_follicles(HairPattern *hair, int count)
-{
-	if (hair->num_follicles != count) {
-		if (count > 0) {
-			if (hair->follicles) {
-				hair->follicles = MEM_reallocN_id(hair->follicles, sizeof(HairFollicle) * count, "hair follicles");
-			}
-			else {
-				hair->follicles = MEM_callocN(sizeof(HairFollicle) * count, "hair follicles");
-			}
-		}
-		else {
-			if (hair->follicles) {
-				MEM_freeN(hair->follicles);
-				hair->follicles = NULL;
-			}
-		}
-		hair->num_follicles = count;
-	}
-}
-
-void BKE_hair_follicles_generate(HairPattern *hair, DerivedMesh *scalp, int count, unsigned int seed)
-{
-	BKE_hair_set_num_follicles(hair, count);
-	if (count == 0) {
-		return;
-	}
-	
-	MeshSampleGenerator *gen = BKE_mesh_sample_gen_surface_random(seed, true, NULL, NULL);
-	BKE_mesh_sample_generator_bind(gen, scalp);
-	unsigned int i;
-	
-	HairFollicle *foll = hair->follicles;
-	for (i = 0; i < count; ++i, ++foll) {
-		bool ok = BKE_mesh_sample_generate(gen, &foll->mesh_sample);
-		if (!ok) {
-			/* clear remaining samples */
-			memset(foll, 0, sizeof(HairFollicle) * (count - i));
-			break;
-		}
-	}
-	
-	BKE_mesh_sample_free_generator(gen);
-	
-	BKE_hair_batch_cache_dirty(hair, BKE_HAIR_BATCH_DIRTY_ALL);
-	
-	BKE_hair_update_groups(hair);
-}
-#endif
-
 /* Calculate surface area of a scalp mesh */
 float BKE_hair_calc_surface_area(struct DerivedMesh *scalp)
 {
