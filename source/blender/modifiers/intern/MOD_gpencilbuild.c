@@ -208,6 +208,8 @@ static void build_sequential(GpencilBuildModifierData *mmd, bGPDlayer *gpl, bGPD
 		
 		cell->gps = gps;
 		cell->totpoints = gps->totpoints;
+		
+		totpoints += cell->totpoints;
 	}
 	
 	/* 1.2) Second pass - Compute the overall indices for points */
@@ -297,7 +299,7 @@ static void build_concurrent(GpencilBuildModifierData *mmd, bGPDlayer *gpl, bGPD
 	bGPDstroke *gps, *gps_next;
 	int max_points = 0;
 	
-	const bool reverse = (mmd->mode != GP_BUILD_DIRECTION_GROW);
+	const bool reverse = (mmd->direction != GP_BUILD_DIRECTION_GROW);
 	
 	/* 1) Determine the longest stroke, to figure out when short strokes should start */
 	/* FIXME: A *really* long stroke here could dwarf everything else, causing bad timings */
@@ -399,7 +401,7 @@ static void generateStrokes(ModifierData *md, const EvaluationContext *eval_ctx,
 	                        int modifier_index)
 {
 	GpencilBuildModifierData *mmd = (GpencilBuildModifierData *)md;
-	const bool reverse = (mmd->mode != GP_BUILD_DIRECTION_GROW);
+	const bool reverse = (mmd->direction != GP_BUILD_DIRECTION_GROW);
 	
 	const float ctime = eval_ctx->ctime;
 	printf("Build Modifier - %f\n", ctime);
