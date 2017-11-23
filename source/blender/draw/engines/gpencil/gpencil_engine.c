@@ -255,10 +255,9 @@ static void GPENCIL_cache_init(void *vedata)
 		psl->edit_pass = DRW_pass_create("GPencil Edit Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND);
 		
 		/* detect if playing animation */
-		int oldsts = stl->storage->playing;
 		stl->storage->playing = 0;
 		if (draw_ctx->evil_C) {
-			stl->storage->playing = ED_screen_animation_playing(CTX_wm_manager(draw_ctx->evil_C));
+			stl->storage->playing = ED_screen_animation_playing(CTX_wm_manager(draw_ctx->evil_C)) != NULL ? 1 : 0;
 		}
 		/* detect if painting session */
 		bGPdata *obact_gpd = NULL;

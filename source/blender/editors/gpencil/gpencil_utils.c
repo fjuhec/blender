@@ -1071,7 +1071,7 @@ void ED_gpencil_add_to_cache(tGPencilSort *cache, RegionView3D *rv3d, Base *base
 }
 
 /* reproject the points of the stroke to a plane locked to axis to avoid stroke offset */
-void ED_gp_project_stroke_to_plane(Object *ob, RegionView3D *rv3d, bGPDstroke *gps, const float origin[3], const int axis, char type)
+void ED_gp_project_stroke_to_plane(Object *ob, RegionView3D *rv3d, bGPDstroke *gps, const float origin[3], const int axis, char UNUSED(type))
 {
 	float plane_normal[3];
 	float vn[3];
@@ -1114,7 +1114,7 @@ void ED_gp_project_stroke_to_plane(Object *ob, RegionView3D *rv3d, bGPDstroke *g
 }
 
 /* reproject one points to a plane locked to axis to avoid stroke offset */
-void ED_gp_project_point_to_plane(Object *ob, RegionView3D *rv3d, const float origin[3], const int axis, char type, bGPDspoint *pt)
+void ED_gp_project_point_to_plane(Object *ob, RegionView3D *rv3d, const float origin[3], const int axis, char UNUSED(type), bGPDspoint *pt)
 {
 	float plane_normal[3];
 	float vn[3];
