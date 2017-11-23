@@ -86,7 +86,9 @@ void BKE_hair_draw_settings_free(struct HairDrawSettings *draw_settings);
 /* === Draw Cache === */
 
 enum {
-	BKE_HAIR_BATCH_DIRTY_ALL = 0,
+	BKE_HAIR_BATCH_DIRTY_FIBERS = (1 << 0),
+	BKE_HAIR_BATCH_DIRTY_STRANDS = (1 << 1),
+	BKE_HAIR_BATCH_DIRTY_ALL = 0xFFFF,
 };
 void BKE_hair_batch_cache_dirty(struct HairSystem* hsys, int mode);
 void BKE_hair_batch_cache_free(struct HairSystem* hsys);

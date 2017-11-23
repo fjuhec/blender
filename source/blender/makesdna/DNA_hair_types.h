@@ -92,10 +92,10 @@ typedef struct HairSystem {
 
 typedef enum eHairSystemFlag
 {
-	/* Guide curves have been changed */
-	HAIR_SYSTEM_CURVES_DIRTY = (1 << 8),
-	/* Guide curve vertices have been changed */
-	HAIR_SYSTEM_VERTS_DIRTY = (1 << 9),
+	/* Guide curves vertices have been changed, recalc buffer offsets */
+	HAIR_SYSTEM_UPDATE_GUIDE_VERT_OFFSET = (1 << 8),
+	/* Guide curve positions have changed, rebind hair follicles */
+	HAIR_SYSTEM_UPDATE_FOLLICLE_BINDING = (1 << 9),
 } eHairSystemFlag;
 
 typedef struct HairDrawSettings

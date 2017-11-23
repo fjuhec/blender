@@ -163,6 +163,7 @@ void BKE_hair_generate_follicles(
 		BKE_mesh_sample_free_generator(gen);
 	}
 	
+	hsys->flag |= HAIR_SYSTEM_UPDATE_FOLLICLE_BINDING;
 	BKE_hair_batch_cache_dirty(hsys, BKE_HAIR_BATCH_DIRTY_ALL);
 }
 
@@ -173,12 +174,15 @@ void BKE_hair_guide_curves_begin(HairSystem *hsys, int totcurves, int totverts)
 	if (totcurves != hsys->totcurves)
 	{
 		hsys->curves = MEM_reallocN(hsys->curves, sizeof(HairGuideCurve) * totcurves);
-		hsys->flag |= HAIR_SYSTEM_CURVES_DIRTY;
+
+		hsys->flag |= HAIR_SYSTEM_UPDATE_GUIDE_VERT_OFFSET | HAIR_SYSTEM_UPDATE_FOLLICLE_BINDING;
+		BKE_hair_batch_cache_dirty(hsys, BKE_HAIR_BATCH_DIRTY_ALL);
 	}
 	if (totverts != hsys->totverts)
 	{
 		hsys->verts = MEM_reallocN(hsys->curves, sizeof(HairGuideCurve) * totverts);
-		hsys->flag |= HAIR_SYSTEM_VERTS_DIRTY;
+
+		BKE_hair_batch_cache_dirty(hsys, BKE_HAIR_BATCH_DIRTY_ALL);
 	}
 }
 
@@ -190,7 +194,8 @@ void BKE_hair_set_guide_curve(HairSystem *hsys, int index, const MeshSample *mes
 	memcpy(&curve->mesh_sample, mesh_sample, sizeof(MeshSample));
 	curve->numverts = numverts;
 	
-	hsys->flag |= HAIR_SYSTEM_CURVES_DIRTY;
+	hsys->flag |= HAIR_SYSTEM_UPDATE_GUIDE_VERT_OFFSET | HAIR_SYSTEM_UPDATE_FOLLICLE_BINDING;
+	BKE_hair_batch_cache_dirty(hsys, BKE_HAIR_BATCH_DIRTY_ALL);
 }
 
 void BKE_hair_set_guide_vertex(HairSystem *hsys, int index, int flag, const float co[3])
@@ -201,20 +206,23 @@ void BKE_hair_set_guide_vertex(HairSystem *hsys, int index, int flag, const floa
 	vertex->flag = flag;
 	copy_v3_v3(vertex->co, co);
 	
-	hsys->flag |= HAIR_SYSTEM_VERTS_DIRTY;
+	BKE_hair_batch_cache_dirty(hsys, BKE_HAIR_BATCH_DIRTY_ALL);
 }
 
 void BKE_hair_guide_curves_end(HairSystem *hsys)
 {
 	/* Recalculate vertex offsets */
-	if (hsys->flag & HAIR_SYSTEM_CURVES_DIRTY)
+	if (!(hsys->flag & HAIR_SYSTEM_UPDATE_GUIDE_VERT_OFFSET))
 	{
-		int vertstart = 0;
-		for (int i = 0; i < hsys->totcurves; ++i)
-		{
-			hsys->curves[i].vertstart = vertstart;
-			vertstart += hsys->curves[i].numverts;
-		}
+		return;
+	}
+	hsys->flag &= ~HAIR_SYSTEM_UPDATE_GUIDE_VERT_OFFSET;
+	
+	int vertstart = 0;
+	for (int i = 0; i < hsys->totcurves; ++i)
+	{
+		hsys->curves[i].vertstart = vertstart;
+		vertstart += hsys->curves[i].numverts;
 	}
 }
 
@@ -306,6 +314,12 @@ static void hair_fiber_find_closest_strand(
 
 void BKE_hair_bind_follicles(HairSystem *hsys, DerivedMesh *scalp)
 {
+	if (!(hsys->flag & HAIR_SYSTEM_UPDATE_FOLLICLE_BINDING))
+	{
+		return;
+	}
+	hsys->flag &= ~HAIR_SYSTEM_UPDATE_FOLLICLE_BINDING;
+	
 	HairPattern *pattern = hsys->pattern;
 	const int num_strands = hsys->totcurves;
 	if (num_strands == 0 || !pattern)
