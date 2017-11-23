@@ -337,14 +337,14 @@ void BKE_object_free_derived_caches(Object *ob)
 		Mesh *me = ob->data;
 
 		if (me && me->bb) {
-			atomic_fetch_and_or_uint32((uint *)&me->bb->flag, BOUNDBOX_DIRTY);
+			atomic_fetch_and_or_int32(&me->bb->flag, BOUNDBOX_DIRTY);
 		}
 	}
 	else if (ELEM(ob->type, OB_SURF, OB_CURVE, OB_FONT)) {
 		Curve *cu = ob->data;
 
 		if (cu && cu->bb) {
-			atomic_fetch_and_or_uint32((uint *)&cu->bb->flag, BOUNDBOX_DIRTY);
+			atomic_fetch_and_or_int32(&cu->bb->flag, BOUNDBOX_DIRTY);
 		}
 	}
 
@@ -911,9 +911,9 @@ static LodLevel *lod_level_select(Object *ob, const float camera_position[3])
 	return current;
 }
 
-bool BKE_object_lod_is_usable(Object *ob, ViewLayer *sl)
+bool BKE_object_lod_is_usable(Object *ob, ViewLayer *view_layer)
 {
-	bool active = (sl) ? ob == OBACT(sl) : false;
+	bool active = (view_layer) ? ob == OBACT(view_layer) : false;
 	return (ob->mode == OB_MODE_OBJECT || !active);
 }
 
@@ -927,11 +927,11 @@ void BKE_object_lod_update(Object *ob, const float camera_position[3])
 	}
 }
 
-static Object *lod_ob_get(Object *ob, ViewLayer *sl, int flag)
+static Object *lod_ob_get(Object *ob, ViewLayer *view_layer, int flag)
 {
 	LodLevel *current = ob->currentlod;
 
-	if (!current || !BKE_object_lod_is_usable(ob, sl))
+	if (!current || !BKE_object_lod_is_usable(ob, view_layer))
 		return ob;
 
 	while (current->prev && (!(current->flags & flag) || !current->source || current->source->type != OB_MESH)) {
@@ -941,14 +941,14 @@ static Object *lod_ob_get(Object *ob, ViewLayer *sl, int flag)
 	return current->source;
 }
 
-struct Object *BKE_object_lod_meshob_get(Object *ob, ViewLayer *sl)
+struct Object *BKE_object_lod_meshob_get(Object *ob, ViewLayer *view_layer)
 {
-	return lod_ob_get(ob, sl, OB_LOD_USE_MESH);
+	return lod_ob_get(ob, view_layer, OB_LOD_USE_MESH);
 }
 
-struct Object *BKE_object_lod_matob_get(Object *ob, ViewLayer *sl)
+struct Object *BKE_object_lod_matob_get(Object *ob, ViewLayer *view_layer)
 {
-	return lod_ob_get(ob, sl, OB_LOD_USE_MAT);
+	return lod_ob_get(ob, view_layer, OB_LOD_USE_MAT);
 }
 
 #endif  /* WITH_GAMEENGINE */
@@ -2622,13 +2622,13 @@ void BKE_object_foreach_display_point(
 }
 
 void BKE_scene_foreach_display_point(
-        Scene *scene, ViewLayer *sl,
+        Scene *scene, ViewLayer *view_layer,
         void (*func_cb)(const float[3], void *), void *user_data)
 {
 	Base *base;
 	Object *ob;
 
-	for (base = FIRSTBASE(sl); base; base = base->next) {
+	for (base = FIRSTBASE(view_layer); base; base = base->next) {
 		if (((base->flag & BASE_VISIBLED) != 0) && ((base->flag & BASE_SELECTED) != 0)) {
 			ob = base->object;
 

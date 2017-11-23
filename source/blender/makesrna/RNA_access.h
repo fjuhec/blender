@@ -775,6 +775,7 @@ const char *RNA_struct_translation_context(const StructRNA *type);
 int RNA_struct_ui_icon(const StructRNA *type);
 
 PropertyRNA *RNA_struct_name_property(const StructRNA *type);
+const EnumPropertyItem *RNA_struct_property_tag_defines(const StructRNA *type);
 PropertyRNA *RNA_struct_iterator_property(StructRNA *type);
 StructRNA *RNA_struct_base(StructRNA *type);
 const StructRNA *RNA_struct_base_child_of(const StructRNA *type, const StructRNA *parent_type);
@@ -803,6 +804,7 @@ bool RNA_struct_idprops_unset(PointerRNA *ptr, const char *identifier);
 
 PropertyRNA *RNA_struct_find_property(PointerRNA *ptr, const char *identifier);
 bool RNA_struct_contains_property(PointerRNA *ptr, PropertyRNA *prop_test);
+unsigned int RNA_struct_count_properties(StructRNA *srna);
 
 /* lower level functions for access to type properties */
 const struct ListBase *RNA_struct_type_properties(StructRNA *srna);
@@ -830,6 +832,7 @@ PropertyType RNA_property_type(PropertyRNA *prop);
 PropertySubType RNA_property_subtype(PropertyRNA *prop);
 PropertyUnit RNA_property_unit(PropertyRNA *prop);
 int RNA_property_flag(PropertyRNA *prop);
+int RNA_property_tags(PropertyRNA *prop);
 bool RNA_property_builtin(PropertyRNA *prop);
 void *RNA_property_py_data_get(PropertyRNA *prop);
 
@@ -866,6 +869,7 @@ bool RNA_enum_name(const EnumPropertyItem *item, const int value, const char **r
 bool RNA_enum_description(const EnumPropertyItem *item, const int value, const char **description);
 int  RNA_enum_from_value(const EnumPropertyItem *item, const int value);
 int  RNA_enum_from_identifier(const EnumPropertyItem *item, const char *identifier);
+unsigned int RNA_enum_items_count(const EnumPropertyItem *item);
 
 void RNA_property_enum_items_ex(
         struct bContext *C, PointerRNA *ptr, PropertyRNA *prop, const bool use_static,
