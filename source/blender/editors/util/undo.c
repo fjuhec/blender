@@ -395,19 +395,47 @@ void ED_OT_undo_redo(wmOperatorType *ot)
 	ot->poll = ed_undo_redo_poll;
 }
 
+struct OperatorRepeatContextHandle {
+	ScrArea *restore_area;
+	ARegion *restore_region;
+};
+
+/**
+ * Resets the context to the state \a op was executed in (or at least, was in when registering).
+ * #ED_operator_repeat_reset_context should be called when done repeating!
+ */
+const OperatorRepeatContextHandle *ED_operator_repeat_prepare_context(bContext *C, wmOperator *op)
+{
+	static OperatorRepeatContextHandle context_info;
+
+	context_info.restore_area = CTX_wm_area(C);
+	context_info.restore_region = CTX_wm_region(C);
+
+	CTX_wm_area_set(C, op->execution_area);
+	CTX_wm_region_set(C, op->execution_region);
+
+	return &context_info;
+}
+/**
+ * Resets context to the old state from before #ED_operator_repeat_prepare_context was called.
+ */
+void ED_operator_repeat_reset_context(bContext *C, const OperatorRepeatContextHandle *context_info)
+{
+	CTX_wm_area_set(C, context_info->restore_area);
+	CTX_wm_region_set(C, context_info->restore_region);
+}
+
 /* ui callbacks should call this rather than calling WM_operator_repeat() themselves */
-int ED_undo_operator_repeat(bContext *C, struct wmOperator *op)
+int ED_undo_operator_repeat(bContext *C, wmOperator *op)
 {
 	int ret = 0;
 
 	if (op) {
 		wmWindowManager *wm = CTX_wm_manager(C);
 		struct Scene *cur_scene = CTX_data_scene(C);
-		ScrArea *cur_area = CTX_wm_area(C);
-		ARegion *cur_region = CTX_wm_region(C);
+		const OperatorRepeatContextHandle *context_info;
 
-		CTX_wm_area_set(C, op->execution_area);
-		CTX_wm_region_set(C, op->execution_region);
+		context_info = ED_operator_repeat_prepare_context(C, op);
 
 		if ((WM_operator_repeat_check(C, op)) &&
 		    (WM_operator_poll(C, op->type)) &&
@@ -455,8 +483,7 @@ int ED_undo_operator_repeat(bContext *C, struct wmOperator *op)
 			}
 		}
 
-		CTX_wm_area_set(C, cur_area);
-		CTX_wm_region_set(C, cur_region);
+		ED_operator_repeat_reset_context(C, context_info);
 	}
 	else {
 		if (G.debug & G_DEBUG) {

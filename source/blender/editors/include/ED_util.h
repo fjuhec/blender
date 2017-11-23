@@ -31,10 +31,14 @@
 #ifndef __ED_UTIL_H__
 #define __ED_UTIL_H__
 
+#include "BLI_compiler_attrs.h"
+
 struct bContext;
 struct SpaceLink;
 struct wmOperator;
 struct wmOperatorType;
+
+typedef struct OperatorRepeatContextHandle OperatorRepeatContextHandle;
 
 /* ed_util.c */
 
@@ -67,6 +71,11 @@ int     ED_undo_operator_repeat(struct bContext *C, struct wmOperator *op);
 /* convenience since UI callbacks use this mostly*/
 void    ED_undo_operator_repeat_cb(struct bContext *C, void *arg_op, void *arg_unused);
 void    ED_undo_operator_repeat_cb_evt(struct bContext *C, void *arg_op, int arg_unused);
+/* Context sanity helpers for operator repeat. */
+const OperatorRepeatContextHandle *ED_operator_repeat_prepare_context(
+        bContext *C, struct wmOperator *op) ATTR_WARN_UNUSED_RESULT;
+void ED_operator_repeat_reset_context(
+        bContext *C, const OperatorRepeatContextHandle *context_info);
 
 bool    ED_undo_is_valid(const struct bContext *C, const char *undoname);
 
