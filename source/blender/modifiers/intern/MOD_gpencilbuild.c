@@ -89,7 +89,7 @@ static bool dependsOnTime(ModifierData *UNUSED(md))
  */
 
 /* Remove a particular stroke, freeing the palcolor too, since it is a local copy */
-static void clear_stroke(bGPDstroke *gps, int modifier_index)
+static void clear_stroke(bGPDframe *gpf, bGPDstroke *gps, int modifier_index)
 {
 	if (modifier_index > -1) {
 		/* This is part of the modifier stack, meaning that we're working on
@@ -98,6 +98,7 @@ static void clear_stroke(bGPDstroke *gps, int modifier_index)
 		MEM_SAFE_FREE(gps->palcolor);
 	}
 	
+	BLI_remlink(&gpf->strokes, gps);
 	BKE_gpencil_free_stroke(gps);
 }
 
@@ -107,7 +108,7 @@ static void gpf_clear_all_strokes(bGPDframe *gpf, int modifier_index)
 	bGPDstroke *gps, *gps_next;
 	for (gps = gpf->strokes.first; gps; gps = gps_next) {
 		gps_next = gps->next;
-		clear_stroke(gps, modifier_index);
+		clear_stroke(gpf, gps, modifier_index);
 	}
 	BLI_listbase_clear(&gpf->strokes);
 }
@@ -172,6 +173,7 @@ static void reduce_stroke_points(bGPDstroke *gps, const int num_points, const eG
 	/* mark stroke as needing to have its geometry caches rebuilt */
 	gps->flag |= GP_STROKE_RECALC_CACHES;
 	gps->tot_triangles = 0;
+	MEM_SAFE_FREE(gps->triangles);
 }
 
 /* --------------------------------------------- */
@@ -260,7 +262,7 @@ static void build_sequential(GpencilBuildModifierData *mmd, bGPDlayer *gpl, bGPD
 		/* Determine what portion of the stroke is visible */
 		if ((cell->end_idx < first_visible) || (cell->start_idx > last_visible)) {
 			/* Not visible at all - Either ended before */
-			clear_stroke(cell->gps, modifier_index);
+			clear_stroke(gpf, cell->gps, modifier_index);
 		}
 		else {
 			/* Some proportion of stroke is visible */
@@ -271,12 +273,12 @@ static void build_sequential(GpencilBuildModifierData *mmd, bGPDlayer *gpl, bGPD
 			else if (first_visible > cell->start_idx) {
 				/* Starts partway through this stroke */
 				int num_points = cell->end_idx - first_visible; // XXX: Check for off-by-1
-				reduce_stroke_points(gps, num_points, mmd->direction);
+				reduce_stroke_points(cell->gps, num_points, mmd->direction);
 			}
 			else {
 				/* Ends partway through this stroke */
 				int num_points = last_visible - cell->start_idx; // XXX: Check for off-by-1
-				reduce_stroke_points(gps, num_points, mmd->direction);
+				reduce_stroke_points(cell->gps, num_points, mmd->direction);
 			}
 		}
 	}
@@ -380,7 +382,7 @@ static void build_concurrent(GpencilBuildModifierData *mmd, bGPDlayer *gpl, bGPD
 		/* Modify the stroke geometry */
 		if (num_points == 0) {
 			/* Nothing Left - Delete the stroke */
-			clear_stroke(gps, modifier_index);
+			clear_stroke(gpf, gps, modifier_index);
 		}
 		else if (num_points < gps->totpoints) {
 			/* Remove some points */
