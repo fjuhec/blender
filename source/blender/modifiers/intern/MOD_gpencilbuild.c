@@ -320,7 +320,7 @@ static void build_concurrent(GpencilBuildModifierData *mmd, bGPDlayer *gpl, bGPD
 		/* Relative Length of Stroke - Relative to the longest stroke,
 		 * what proportion of the available time should this stroke use
 		 */
-		const float relative_len = (float)gps->totpoints / max_points;
+		const float relative_len = (float)gps->totpoints / (float)max_points;
 		
 		/* Determine how many points should be left in the stroke */
 		int num_points = 0;
@@ -329,13 +329,16 @@ static void build_concurrent(GpencilBuildModifierData *mmd, bGPDlayer *gpl, bGPD
 			case GP_BUILD_TIMEALIGN_START: /* all start on frame 1 */
 			{
 				/* Build effect occurs over when fac = 0, to fac = relative_len */
-				if (fac < relative_len) {
-					/* Use fac directly */
+				if (fac <= relative_len) {
+					/* Scale fac to fit relative_len */
+					/* FIXME: prevent potential div by zero (e.g. very short stroke vs one very long one) */
+					const float scaled_fac = fac / relative_len;
+					
 					if (reverse) {
-						num_points = (int)roundf((1.0f - fac) * gps->totpoints);
+						num_points = (int)roundf((1.0f - scaled_fac) * gps->totpoints);
 					}
 					else {
-						num_points = (int)roundf(fac * gps->totpoints);
+						num_points = (int)roundf(scaled_fac * gps->totpoints);
 					}
 				}
 				else {
@@ -357,12 +360,13 @@ static void build_concurrent(GpencilBuildModifierData *mmd, bGPDlayer *gpl, bGPD
 				
 				if (fac >= start_fac) {
 					/* FIXME: prevent potential div by zero (e.g. very short stroke vs one very long one) */
-					float f = fac - start_fac / relative_len;
+					const float scaled_fac = (fac - start_fac) / relative_len;
+					
 					if (reverse) {
-						num_points = (int)roundf((1.0f - f) * gps->totpoints);
+						num_points = (int)roundf((1.0f - scaled_fac) * gps->totpoints);
 					}
 					else {
-						num_points = (int)roundf(f * gps->totpoints);
+						num_points = (int)roundf(scaled_fac * gps->totpoints);
 					}	
 				}
 				else {
@@ -382,7 +386,7 @@ static void build_concurrent(GpencilBuildModifierData *mmd, bGPDlayer *gpl, bGPD
 		}
 		
 		/* Modify the stroke geometry */
-		if (num_points == 0) {
+		if (num_points <= 0) {
 			/* Nothing Left - Delete the stroke */
 			clear_stroke(gpf, gps, modifier_index);
 		}
