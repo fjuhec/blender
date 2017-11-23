@@ -389,6 +389,16 @@ static void GPENCIL_cache_init(void *vedata)
 		DRWShadingGroup *paper_shgrp = DRW_shgroup_create(e_data.gpencil_paper_sh, psl->paper_pass);
 		DRW_shgroup_call_add(paper_shgrp, paperquad, NULL);
 		DRW_shgroup_uniform_vec4(paper_shgrp, "color", ts->gpencil_paper_color, 1);
+		stl->storage->gridsize[0] = (float)ts->gpencil_grid_size[0];
+		stl->storage->gridsize[1] = (float)ts->gpencil_grid_size[1];
+		DRW_shgroup_uniform_vec2(paper_shgrp, "size", &stl->storage->gridsize[0], 1);
+		if (ts->gpencil_flags & GP_TOOL_FLAG_ENABLE_GRID) {
+			stl->storage->uselines = 1;
+		}
+		else {
+			stl->storage->uselines = 0;
+		}
+		DRW_shgroup_uniform_int(paper_shgrp, "uselines", &stl->storage->uselines, 1);
 	}
 }
 

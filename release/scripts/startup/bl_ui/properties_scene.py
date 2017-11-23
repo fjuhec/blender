@@ -123,13 +123,21 @@ class SCENE_PT_gp_paper(SceneButtonsPanel, Panel):
         layout = self.layout
 
         ts = context.tool_settings
-        row = layout.row(align=True)
+        row = layout.row(align=False)
         row.prop(ts, "use_gpencil_paper", text="Use Paper")
 
-        row = layout.row(align=True)
+        row = layout.row()
         row.prop(ts, "gp_paper_color", text="Color")
-        row = layout.row(align=True)
+        row = layout.row()
         row.prop(ts, "gp_paper_opacity", text="Opacity")
+
+        row = layout.row(align=False)
+        row.prop(ts, "use_gpencil_grid", text="Display Grid")
+
+        row = layout.row(align=False)
+        col = row.column(align=True)
+        col.enabled = ts.use_gpencil_grid
+        col.prop(ts, "gpencil_grid_size", text="")
 
 class SceneKeyingSetsPanel:
 

@@ -2666,12 +2666,27 @@ static void rna_def_tool_settings(BlenderRNA  *brna)
 	RNA_def_property_ui_text(prop, "Use Paper",
 		"Cover all viewport with a full color layer to improve visibility while drawing over complex scenes");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, NULL);
-	
+
+	prop = RNA_def_property(srna, "use_gpencil_grid", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "gpencil_flags", GP_TOOL_FLAG_ENABLE_GRID);
+	RNA_def_property_ui_text(prop, "Use Grid",
+		"Draw a grid over grease pencil paper");
+	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, NULL);
+
+	prop = RNA_def_property(srna, "gpencil_grid_size", PROP_INT, PROP_PIXEL);
+	RNA_def_property_int_sdna(prop, NULL, "gpencil_grid_size");
+	RNA_def_property_range(prop, 15, INT_MAX);
+	RNA_def_property_int_default(prop, 50);
+	RNA_def_property_ui_text(prop, "Size", "Grid size");
+	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, NULL);
+
 	/* Paper Color */
+	static float default_paper1[3] = { 1.0f, 1.0f, 1.0f };
 	prop = RNA_def_property(srna, "gp_paper_color", PROP_FLOAT, PROP_COLOR_GAMMA);
 	RNA_def_property_float_sdna(prop, NULL, "gpencil_paper_color");
 	RNA_def_property_array(prop, 3);
 	RNA_def_property_range(prop, 0.0f, 1.0f);
+	RNA_def_property_float_array_default(prop, default_paper1);
 	RNA_def_property_ui_text(prop, "Paper Color", "Color for paper");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
@@ -2679,6 +2694,7 @@ static void rna_def_tool_settings(BlenderRNA  *brna)
 	prop = RNA_def_property(srna, "gp_paper_opacity", PROP_FLOAT, PROP_NONE);
 	RNA_def_property_float_sdna(prop, NULL, "gpencil_paper_color[3]");
 	RNA_def_property_range(prop, 0.0, 1.0f);
+	RNA_def_property_float_default(prop, 0.7f);
 	RNA_def_property_ui_text(prop, "Opacity", "Paper opacity");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 

@@ -567,6 +567,12 @@ void do_versions_after_linking_280(Main *main)
 				BKE_gpencil_batch_cache_dirty(ob->data);
 			}
 		}
+		/* init grease pencil grids and paper */
+		for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
+			scene->toolsettings->gpencil_grid_size[0] = 50;
+			scene->toolsettings->gpencil_grid_size[1] = 50;
+			ARRAY_SET_ITEMS(scene->toolsettings->gpencil_paper_color, 1.0f, 1.0f, 1.0f, 0.7f);
+		}
 	}
 
 	/* XXX: Merge back into previous case... leaving like this so the Hero animatic/production files so far don't break */
