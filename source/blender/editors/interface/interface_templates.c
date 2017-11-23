@@ -1418,18 +1418,22 @@ static bool template_operator_redo_property_buts_poll(PointerRNA *UNUSED(ptr), P
 
 static void template_operator_redo_property_buts_draw(
         const bContext *C, wmOperator *op,
-        uiLayout *layout, int layout_flags)
+        uiLayout *layout, int layout_flags,
+        bool *r_has_advanced)
 {
 	if (op->type->flag & OPTYPE_MACRO) {
 		for (wmOperator *macro_op = op->macro.first; macro_op; macro_op = macro_op->next) {
-			template_operator_redo_property_buts_draw(C, macro_op, layout, layout_flags);
+			template_operator_redo_property_buts_draw(C, macro_op, layout, layout_flags, r_has_advanced);
 		}
 	}
 	else {
 		/* Might want to make label_align adjustable somehow. */
-		uiTemplateOperatorPropertyButs(
-	                        C, layout, op, template_operator_redo_property_buts_poll,
-	                        UI_BUT_LABEL_ALIGN_NONE, layout_flags);
+		eAutoPropButsReturn return_info = uiTemplateOperatorPropertyButs(
+		                                          C, layout, op, template_operator_redo_property_buts_poll,
+		                                          UI_BUT_LABEL_ALIGN_NONE, layout_flags);
+		if (return_info & UI_PROP_BUTS_ANY_FAILED_CHECK) {
+			*r_has_advanced = true;
+		}
 	}
 }
 
@@ -1437,7 +1441,6 @@ void uiTemplateOperatorRedoProperties(uiLayout *layout, bContext *C)
 {
 	wmOperator *op = WM_operator_last_redo(C);
 	uiBlock *block = uiLayoutGetBlock(layout);
-	const int layout_flags = (UI_TEMPLATE_OP_PROPS_COMPACT | UI_TEMPLATE_OP_PROPS_SKIP_ADVANCED);
 
 	if (op) {
 		/* Repeat button with operator name as text. */
@@ -1445,9 +1448,12 @@ void uiTemplateOperatorRedoProperties(uiLayout *layout, bContext *C)
 		            ICON_NONE, NULL, WM_OP_INVOKE_DEFAULT, 0, NULL);
 
 		if (WM_operator_repeat_check(C, op)) {
-			template_operator_redo_property_buts_draw(C, op, layout, layout_flags);
-			/* TODO check whether there are hidden advanced properties at all */
-			uiItemO(layout, IFACE_("More..."), ICON_NONE, "SCREEN_OT_redo_last");
+			bool has_advanced = false;
+
+			template_operator_redo_property_buts_draw(C, op, layout, UI_TEMPLATE_OP_PROPS_COMPACT, &has_advanced);
+			if (has_advanced) {
+				uiItemO(layout, IFACE_("More..."), ICON_NONE, "SCREEN_OT_redo_last");
+			}
 		}
 
 		UI_block_func_handle_set(block, ED_undo_operator_repeat_cb_evt, op);
@@ -3808,12 +3814,13 @@ static void ui_layout_operator_buts__reset_cb(bContext *UNUSED(C), void *op_pt, 
  * Draw Operator property buttons for redoing execution with different settings.
  * This function does not initialize the layout, functions can be called on the layout before and after.
  */
-void uiTemplateOperatorPropertyButs(
+eAutoPropButsReturn uiTemplateOperatorPropertyButs(
         const bContext *C, uiLayout *layout, wmOperator *op,
         bool (*check_prop)(struct PointerRNA *, struct PropertyRNA *),
         const eButLabelAlign label_align, const short flag)
 {
 	uiBlock *block = uiLayoutGetBlock(layout);
+	eAutoPropButsReturn return_info = 0;
 
 	if (!op->properties) {
 		IDPropertyTemplate val = {0};
@@ -3862,19 +3869,19 @@ void uiTemplateOperatorPropertyButs(
 		op->type->ui((bContext *)C, op);
 		op->layout = NULL;
 
-		/* UI_LAYOUT_OP_SHOW_EMPTY ignored */
+		/* UI_LAYOUT_OP_SHOW_EMPTY ignored. return_info is ignored too. We could
+		 * allow ot.ui callback to return this, but not needed right now. */
 	}
 	else {
 		wmWindowManager *wm = CTX_wm_manager(C);
 		PointerRNA ptr;
-		int empty;
 
 		RNA_pointer_create(&wm->id, op->type->srna, op->properties, &ptr);
 
 		/* main draw call */
-		empty = uiDefAutoButsRNA(layout, &ptr, check_prop, label_align, (flag & UI_TEMPLATE_OP_PROPS_COMPACT)) == 0;
+		return_info = uiDefAutoButsRNA(layout, &ptr, check_prop, label_align, (flag & UI_TEMPLATE_OP_PROPS_COMPACT));
 
-		if (empty && (flag & UI_TEMPLATE_OP_PROPS_SHOW_EMPTY)) {
+		if ((return_info & UI_PROP_BUTS_NONE_ADDED) && (flag & UI_TEMPLATE_OP_PROPS_SHOW_EMPTY)) {
 			uiItemL(layout, IFACE_("No Properties"), ICON_NONE);
 		}
 	}
@@ -3915,6 +3922,8 @@ void uiTemplateOperatorPropertyButs(
 			}
 		}
 	}
+
+	return return_info;
 }
 
 /************************* Running Jobs Template **************************/

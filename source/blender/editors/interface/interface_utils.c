@@ -157,21 +157,27 @@ uiBut *uiDefAutoButR(uiBlock *block, PointerRNA *ptr, PropertyRNA *prop, int ind
  * \a check_prop callback filters functions to avoid drawing certain properties,
  * in cases where PROP_HIDDEN flag can't be used for a property.
  */
-int uiDefAutoButsRNA(
+eAutoPropButsReturn uiDefAutoButsRNA(
         uiLayout *layout, PointerRNA *ptr,
         bool (*check_prop)(PointerRNA *, PropertyRNA *),
         const eButLabelAlign label_align, const bool compact)
 {
+	eAutoPropButsReturn return_info = UI_PROP_BUTS_NONE_ADDED;
 	uiLayout *split, *col;
 	int flag;
 	const char *name;
-	int tot = 0;
 
 	RNA_STRUCT_BEGIN (ptr, prop)
 	{
 		flag = RNA_property_flag(prop);
-		if (flag & PROP_HIDDEN || (check_prop && check_prop(ptr, prop) == 0))
+
+		if (flag & PROP_HIDDEN) {
 			continue;
+		}
+		if (check_prop && check_prop(ptr, prop) == 0) {
+			return_info |= UI_PROP_BUTS_ANY_FAILED_CHECK;
+			continue;
+		}
 
 		switch (label_align) {
 			case UI_BUT_LABEL_ALIGN_COLUMN:
@@ -212,11 +218,11 @@ int uiDefAutoButsRNA(
 		}
 
 		uiItemFullR(col, ptr, prop, -1, 0, compact ? UI_ITEM_R_COMPACT : 0, name, ICON_NONE);
-		tot++;
+		return_info &= ~UI_PROP_BUTS_NONE_ADDED;
 	}
 	RNA_STRUCT_END;
 
-	return tot;
+	return return_info;
 }
 
 /* *** RNA collection search menu *** */

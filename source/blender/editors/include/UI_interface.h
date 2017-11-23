@@ -699,8 +699,16 @@ typedef enum {
 	UI_BUT_LABEL_ALIGN_SPLIT_COLUMN,
 } eButLabelAlign;
 
+/* Return info for uiDefAutoButsRNA */
+typedef enum {
+	/* Returns when no buttons were added */
+	UI_PROP_BUTS_NONE_ADDED       = (1 << 0),
+	/* Returned when any property failed the custom check callback (check_prop) */
+	UI_PROP_BUTS_ANY_FAILED_CHECK = (1 << 1),
+} eAutoPropButsReturn;
+
 uiBut *uiDefAutoButR(uiBlock *block, struct PointerRNA *ptr, struct PropertyRNA *prop, int index, const char *name, int icon, int x1, int y1, int x2, int y2);
-int uiDefAutoButsRNA(
+eAutoPropButsReturn uiDefAutoButsRNA(
         uiLayout *layout, struct PointerRNA *ptr,
         bool (*check_prop)(struct PointerRNA *, struct PropertyRNA *),
         eButLabelAlign label_align, const bool compact);
@@ -867,8 +875,6 @@ enum {
 	UI_TEMPLATE_OP_PROPS_SHOW_TITLE       = (1 << 0),
 	UI_TEMPLATE_OP_PROPS_SHOW_EMPTY       = (1 << 1),
 	UI_TEMPLATE_OP_PROPS_COMPACT          = (1 << 2),
-	/* Don't show advanced properties */
-	UI_TEMPLATE_OP_PROPS_SKIP_ADVANCED    = (1 << 3),
 };
 
 /* used for transp checkers */
@@ -994,7 +1000,7 @@ void uiTemplateImageInfo(uiLayout *layout, struct bContext *C, struct Image *ima
 void uiTemplateRunningJobs(uiLayout *layout, struct bContext *C);
 void UI_but_func_operator_search(uiBut *but);
 void uiTemplateOperatorSearch(uiLayout *layout);
-void uiTemplateOperatorPropertyButs(
+eAutoPropButsReturn uiTemplateOperatorPropertyButs(
         const struct bContext *C, uiLayout *layout, struct wmOperator *op,
         bool (*check_prop)(struct PointerRNA *, struct PropertyRNA *),
         const eButLabelAlign label_align, const short flag);
