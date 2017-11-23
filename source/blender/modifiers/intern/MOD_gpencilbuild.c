@@ -43,7 +43,7 @@
 #include "MOD_modifiertypes.h"
 #include "MOD_gpencil_util.h"
 
-static void initData(ModifierData *UNUSED(md))
+static void initData(ModifierData *md)
 {
 	//GpencilBuildModifierData *gpmd = (GpencilBuildModifierData *)md;
 }
@@ -57,11 +57,11 @@ static void generateStrokes(ModifierData *md, const EvaluationContext *eval_ctx,
 	                        Object *ob, bGPDlayer *gpl, bGPDframe *gpf,
 	                        int modifier_index)
 {
-	UNUSED_VARS(md, eval_ctx, ob, gpl, gpf, modifier_index);
+
 }
 
-static void bakeModifierGP(const bContext *UNUSED(C), const EvaluationContext *UNUSED(eval_ctx),
-                           ModifierData *UNUSED(md), Object *ob)
+static void bakeModifierGP(const bContext *C, const EvaluationContext *UNUSED(eval_ctx),
+                           ModifierData *md, Object *ob)
 {
 	bGPdata *gpd = ob->data;
 
