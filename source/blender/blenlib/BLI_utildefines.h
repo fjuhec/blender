@@ -667,7 +667,7 @@ extern bool BLI_memory_is_zero(const void *arr, const size_t arr_size);
 #  define ASSERT_CONCAT_(a, b) a##b
 #  define ASSERT_CONCAT(a, b) ASSERT_CONCAT_(a, b)
    /* These can't be used after statements in c89. */
-#  ifdef (__COUNTER__)  /* MSVC */
+#  if defined(__COUNTER__)  /* MSVC */
 #    define BLI_STATIC_ASSERT(a, msg) \
          ; enum { ASSERT_CONCAT(static_assert_, __COUNTER__) = 1 / (int)(!!(a)) }
 #  else  /* older gcc, clang... */
