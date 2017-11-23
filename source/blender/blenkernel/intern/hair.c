@@ -71,6 +71,15 @@ HairSystem* BKE_hair_copy(HairSystem *hsys)
 		nhsys->pattern->follicles = MEM_dupallocN(hsys->pattern->follicles);
 	}
 	
+	if (hsys->curves)
+	{
+		nhsys->curves = MEM_dupallocN(hsys->curves);
+	}
+	if (hsys->verts)
+	{
+		nhsys->verts = MEM_dupallocN(hsys->verts);
+	}
+	
 	nhsys->draw_batch_cache = NULL;
 	nhsys->draw_texture_cache = NULL;
 	
@@ -80,6 +89,15 @@ HairSystem* BKE_hair_copy(HairSystem *hsys)
 void BKE_hair_free(HairSystem *hsys)
 {
 	BKE_hair_batch_cache_free(hsys);
+	
+	if (hsys->curves)
+	{
+		MEM_freeN(hsys->curves);
+	}
+	if (hsys->verts)
+	{
+		MEM_freeN(hsys->verts);
+	}
 	
 	if (hsys->pattern)
 	{
@@ -111,10 +129,16 @@ float BKE_hair_calc_surface_area(struct DerivedMesh *scalp)
 	return area;
 }
 
-/* Calculate a density value based on surface area and count */
+/* Calculate a density value based on surface area and sample count */
 float BKE_hair_calc_density_from_count(float area, int count)
 {
 	return area > 0.0f ? count / area : 0.0f;
+}
+
+/* Calculate maximum sample count based on surface area and density */
+int BKE_hair_calc_max_count_from_density(float area, float density)
+{
+	return (int)(density * area);
 }
 
 /* Calculate a density value based on a minimum distance */
@@ -124,6 +148,15 @@ float BKE_hair_calc_density_from_min_distance(float min_distance)
 	static const float max_factor = 0.288675135;
 	
 	return min_distance > 0.0f ? max_factor / (min_distance * min_distance) : 0.0f;
+}
+
+/* Calculate a minimum distance based on density */
+float BKE_hair_calc_min_distance_from_density(float density)
+{
+	// max. circle packing density (sans pi factor): 1 / (2 * sqrt(3))
+	static const float max_factor = 0.288675135;
+	
+	return density > 0.0f ? sqrt(max_factor / density) : 0.0f;
 }
 
 /* Distribute hair follicles on a scalp mesh */
@@ -174,13 +207,15 @@ void BKE_hair_guide_curves_begin(HairSystem *hsys, int totcurves, int totverts)
 	if (totcurves != hsys->totcurves)
 	{
 		hsys->curves = MEM_reallocN(hsys->curves, sizeof(HairGuideCurve) * totcurves);
+		hsys->totcurves = totcurves;
 
 		hsys->flag |= HAIR_SYSTEM_UPDATE_GUIDE_VERT_OFFSET | HAIR_SYSTEM_UPDATE_FOLLICLE_BINDING;
 		BKE_hair_batch_cache_dirty(hsys, BKE_HAIR_BATCH_DIRTY_ALL);
 	}
 	if (totverts != hsys->totverts)
 	{
-		hsys->verts = MEM_reallocN(hsys->curves, sizeof(HairGuideCurve) * totverts);
+		hsys->verts = MEM_reallocN(hsys->verts, sizeof(HairGuideVertex) * totverts);
+		hsys->totverts = totverts;
 
 		BKE_hair_batch_cache_dirty(hsys, BKE_HAIR_BATCH_DIRTY_ALL);
 	}

@@ -4826,6 +4826,12 @@ static void rna_def_modifier_fur(BlenderRNA *brna)
 	RNA_def_property_ui_range(prop, 1, 1e5, 1, 1);
 	RNA_def_property_ui_text(prop, "Max Count", "Maximum follicle number");
 	
+	prop = RNA_def_property(srna, "guides_count", PROP_INT, PROP_NONE);
+	RNA_def_property_int_default(prop, 100);
+	RNA_def_property_range(prop, 0, INT_MAX);
+	RNA_def_property_ui_range(prop, 1, 1e3, 1, 1);
+	RNA_def_property_ui_text(prop, "Guides Count", "Number of guide curves");
+	
 	prop = RNA_def_property(srna, "draw_settings", PROP_POINTER, PROP_NONE);
 	RNA_def_property_ui_text(prop, "Draw Settings", "Hair draw settings");
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);

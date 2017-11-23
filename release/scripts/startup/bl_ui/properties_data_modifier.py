@@ -1550,9 +1550,17 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         col.prop(md, "follicle_seed")
         col.prop(md, "follicle_min_distance")
         col.prop(md, "follicle_max_count")
-        col.operator("object.fur_generate_follicles", text="Generate")
 
         col = split.column()
+        col.label("Guide Curves:")
+        col.prop(md, "guides_count")
+
+        col = layout.column()
+        col.operator("object.fur_generate_follicles", text="Generate")
+
+        col.separator()
+
+        col = layout.column()
         col.label("Drawing:")
         ds = md.draw_settings
         col.prop(ds, "follicle_mode", expand=True)

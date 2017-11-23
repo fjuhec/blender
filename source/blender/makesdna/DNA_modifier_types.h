@@ -1641,7 +1641,8 @@ typedef struct FurModifierData {
 	int follicle_seed;
 	float follicle_min_distance;
 	int follicle_max_count;
-	int pad2;
+
+	int guides_count;
 } FurModifierData;
 
 #endif  /* __DNA_MODIFIER_TYPES_H__ */

@@ -62,10 +62,16 @@ void BKE_hair_guide_curves_end(struct HairSystem *hsys);
 
 /* Calculate surface area of a scalp mesh */
 float BKE_hair_calc_surface_area(struct DerivedMesh *scalp);
-/* Calculate a density value based on surface area and count */
+
+/* Calculate a density value based on surface area and sample count */
 float BKE_hair_calc_density_from_count(float area, int count);
+/* Calculate maximum sample count based on surface area and density */
+int BKE_hair_calc_max_count_from_density(float area, float density);
+
 /* Calculate a density value based on a minimum distance */
 float BKE_hair_calc_density_from_min_distance(float min_distance);
+/* Calculate a minimum distance based on density */
+float BKE_hair_calc_min_distance_from_density(float density);
 
 /* Distribute hair follicles on a scalp mesh */
 void BKE_hair_generate_follicles(
