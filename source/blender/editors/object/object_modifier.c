@@ -660,8 +660,13 @@ static int modifier_apply_obdata(ReportList *reports, const bContext *C, Scene *
 		DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	}
 	else if (ob->type == OB_GPENCIL) {
-		if (ELEM(NULL, mti->bakeModifierGP, ob, ob->data))
+		if (ELEM(NULL, ob, ob->data)) {
 			return 0;
+		}
+		else if (mti->bakeModifierGP == NULL) {
+			BKE_report(reports, RPT_ERROR, "Not implemented");
+			return 0;
+		}
 		
 		mti->bakeModifierGP(C, &eval_ctx, md, ob);
 		DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
