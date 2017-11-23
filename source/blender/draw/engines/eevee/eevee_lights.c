@@ -72,15 +72,15 @@ extern char datatoc_concentric_samples_lib_glsl[];
 
 /* *********** FUNCTIONS *********** */
 
-void EEVEE_lights_init(EEVEE_SceneLayerData *sldata)
+void EEVEE_lights_init(EEVEE_ViewLayerData *sldata)
 {
 	const unsigned int shadow_ubo_size = sizeof(EEVEE_Shadow) * MAX_SHADOW +
 	                                     sizeof(EEVEE_ShadowCube) * MAX_SHADOW_CUBE +
 	                                     sizeof(EEVEE_ShadowCascade) * MAX_SHADOW_CASCADE;
 
 	const DRWContextState *draw_ctx = DRW_context_state_get();
-	SceneLayer *scene_layer = draw_ctx->scene_layer;
-	IDProperty *props = BKE_scene_layer_engine_evaluated_get(scene_layer, COLLECTION_MODE_NONE, RE_engine_id_BLENDER_EEVEE);
+	ViewLayer *view_layer = draw_ctx->view_layer;
+	IDProperty *props = BKE_view_layer_engine_evaluated_get(view_layer, COLLECTION_MODE_NONE, RE_engine_id_BLENDER_EEVEE);
 
 	if (!e_data.shadow_sh) {
 		e_data.shadow_sh = DRW_shader_create(
@@ -169,7 +169,7 @@ void EEVEE_lights_init(EEVEE_SceneLayerData *sldata)
 	}
 }
 
-void EEVEE_lights_cache_init(EEVEE_SceneLayerData *sldata, EEVEE_PassList *psl)
+void EEVEE_lights_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_PassList *psl)
 {
 	EEVEE_LampsInfo *linfo = sldata->lamps;
 
@@ -244,7 +244,7 @@ void EEVEE_lights_cache_init(EEVEE_SceneLayerData *sldata, EEVEE_PassList *psl)
 	BLI_freelistN(&sldata->shadow_casters);
 }
 
-void EEVEE_lights_cache_add(EEVEE_SceneLayerData *sldata, Object *ob)
+void EEVEE_lights_cache_add(EEVEE_ViewLayerData *sldata, Object *ob)
 {
 	EEVEE_LampsInfo *linfo = sldata->lamps;
 
@@ -327,7 +327,7 @@ void EEVEE_lights_cache_add(EEVEE_SceneLayerData *sldata, Object *ob)
 
 /* Add a shadow caster to the shadowpasses */
 void EEVEE_lights_cache_shcaster_add(
-        EEVEE_SceneLayerData *sldata, EEVEE_PassList *psl, struct Gwn_Batch *geom, float (*obmat)[4])
+        EEVEE_ViewLayerData *sldata, EEVEE_PassList *psl, struct Gwn_Batch *geom, float (*obmat)[4])
 {
 	DRWShadingGroup *grp = DRW_shgroup_instance_create(e_data.shadow_sh, psl->shadow_cube_pass, geom);
 	DRW_shgroup_uniform_block(grp, "shadow_render_block", sldata->shadow_render_ubo);
@@ -341,7 +341,7 @@ void EEVEE_lights_cache_shcaster_add(
 }
 
 void EEVEE_lights_cache_shcaster_material_add(
-	EEVEE_SceneLayerData *sldata, EEVEE_PassList *psl, struct GPUMaterial *gpumat,
+	EEVEE_ViewLayerData *sldata, EEVEE_PassList *psl, struct GPUMaterial *gpumat,
 	struct Gwn_Batch *geom, struct Object *ob, float (*obmat)[4], float *alpha_threshold)
 {
 	DRWShadingGroup *grp = DRW_shgroup_material_instance_create(gpumat, psl->shadow_cube_pass, geom, ob);
@@ -366,7 +366,7 @@ void EEVEE_lights_cache_shcaster_material_add(
 	DRW_shgroup_set_instance_count(grp, MAX_CASCADE_NUM);
 }
 
-void EEVEE_lights_cache_finish(EEVEE_SceneLayerData *sldata)
+void EEVEE_lights_cache_finish(EEVEE_ViewLayerData *sldata)
 {
 	EEVEE_LampsInfo *linfo = sldata->lamps;
 	DRWTextureFormat shadow_pool_format = DRW_TEX_R_32;
@@ -530,6 +530,7 @@ static void eevee_shadow_cube_setup(Object *ob, EEVEE_LampsInfo *linfo, EEVEE_La
 	ubo_data->shadow_start = (float)(sh_data->layer_id);
 	ubo_data->data_start = (float)(sh_data->cube_id);
 	ubo_data->multi_shadow_count = (float)(sh_nbr);
+	ubo_data->shadow_blur = la->soft * 0.02f; /* Used by translucence shadowmap blur */
 
 	ubo_data->contact_dist = (la->mode & LA_SHAD_CONTACT) ? la->contact_dist : 0.0f;
 	ubo_data->contact_bias = 0.05f * la->contact_bias;
@@ -777,6 +778,7 @@ static void eevee_shadow_cascade_setup(Object *ob, EEVEE_LampsInfo *linfo, EEVEE
 	ubo_data->shadow_start = (float)(sh_data->layer_id);
 	ubo_data->data_start = (float)(sh_data->cascade_id);
 	ubo_data->multi_shadow_count = (float)(sh_nbr);
+	ubo_data->shadow_blur = la->soft * 0.02f; /* Used by translucence shadowmap blur */
 
 	ubo_data->contact_dist = (la->mode & LA_SHAD_CONTACT) ? la->contact_dist : 0.0f;
 	ubo_data->contact_bias = 0.05f * la->contact_bias;
@@ -860,7 +862,7 @@ static void light_tag_shadow_update(Object *lamp, Object *ob)
 	}
 }
 
-static void eevee_lights_shcaster_updated(EEVEE_SceneLayerData *sldata, Object *ob)
+static void eevee_lights_shcaster_updated(EEVEE_ViewLayerData *sldata, Object *ob)
 {
 	Object *lamp;
 	EEVEE_LampsInfo *linfo = sldata->lamps;
@@ -872,7 +874,7 @@ static void eevee_lights_shcaster_updated(EEVEE_SceneLayerData *sldata, Object *
 	}
 }
 
-void EEVEE_lights_update(EEVEE_SceneLayerData *sldata)
+void EEVEE_lights_update(EEVEE_ViewLayerData *sldata)
 {
 	EEVEE_LampsInfo *linfo = sldata->lamps;
 	Object *ob;
@@ -909,7 +911,7 @@ void EEVEE_lights_update(EEVEE_SceneLayerData *sldata)
 }
 
 /* this refresh lamps shadow buffers */
-void EEVEE_draw_shadows(EEVEE_SceneLayerData *sldata, EEVEE_PassList *psl)
+void EEVEE_draw_shadows(EEVEE_ViewLayerData *sldata, EEVEE_PassList *psl)
 {
 	EEVEE_LampsInfo *linfo = sldata->lamps;
 	Object *ob;

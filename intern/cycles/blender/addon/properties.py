@@ -1148,15 +1148,15 @@ class CyclesCurveRenderSettings(bpy.types.PropertyGroup):
 def update_render_passes(self, context):
     scene = context.scene
     rd = scene.render
-    rl = rd.layers.active
-    rl.update_render_passes()
+    view_layer = scene.view_layers.active
+    view_layer.update_render_passes()
 
 class CyclesRenderLayerSettings(bpy.types.PropertyGroup):
     @classmethod
     def register(cls):
-        bpy.types.SceneRenderLayer.cycles = PointerProperty(
-                name="Cycles SceneRenderLayer Settings",
-                description="Cycles SceneRenderLayer Settings",
+        bpy.types.ViewLayer.cycles = PointerProperty(
+                name="Cycles ViewLayer Settings",
+                description="Cycles ViewLayer Settings",
                 type=cls,
                 )
         cls.pass_debug_bvh_traversed_nodes = BoolProperty(
@@ -1280,7 +1280,7 @@ class CyclesRenderLayerSettings(bpy.types.PropertyGroup):
 
     @classmethod
     def unregister(cls):
-        del bpy.types.SceneRenderLayer.cycles
+        del bpy.types.ViewLayer.cycles
 
 
 class CyclesCurveSettings(bpy.types.PropertyGroup):

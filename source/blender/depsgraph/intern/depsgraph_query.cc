@@ -91,16 +91,16 @@ Scene *DEG_get_evaluated_scene(Depsgraph *graph)
 	return reinterpret_cast<Scene *>(deg_graph->get_cow_id(&scene_orig->id));
 }
 
-SceneLayer *DEG_get_evaluated_scene_layer(Depsgraph *graph)
+ViewLayer *DEG_get_evaluated_view_layer(Depsgraph *graph)
 {
 	DEG::Depsgraph *deg_graph = reinterpret_cast<DEG::Depsgraph *>(graph);
 	Scene *scene_cow = DEG_get_evaluated_scene(graph);
-	SceneLayer *scene_layer_orig = deg_graph->scene_layer;
-	SceneLayer *scene_layer_cow =
-	        (SceneLayer *)BLI_findstring(&scene_cow->render_layers,
-	                                     scene_layer_orig->name,
-	                                     offsetof(SceneLayer, name));
-	return scene_layer_cow;
+	ViewLayer *view_layer_orig = deg_graph->view_layer;
+	ViewLayer *view_layer_cow =
+	        (ViewLayer *)BLI_findstring(&scene_cow->view_layers,
+	                                     view_layer_orig->name,
+	                                     offsetof(ViewLayer, name));
+	return view_layer_cow;
 }
 
 Object *DEG_get_evaluated_object(Depsgraph *depsgraph, Object *object)
@@ -132,18 +132,18 @@ ID *DEG_get_evaluated_id(struct Depsgraph *depsgraph, ID *id)
  * and instead we should have a tag to the objects that were not directly part of the depsgraph).
  *
  * That means that the object is not in a collection but it's part of depsgraph, or the object is simply
- * not in the current SceneLayer - Depsgraph at the moment includes all the SceneLayer in the Scene.
+ * not in the current ViewLayer - Depsgraph at the moment includes all the ViewLayer in the Scene.
  */
 static bool deg_flush_base_flags_and_settings(
         DEGObjectsIteratorData *data, Object *ob_dst, Object *ob_src, const bool is_dupli)
 {
 	Base *base;
 	Depsgraph *graph = data->graph;
-	SceneLayer *scene_layer = data->eval_ctx.scene_layer;
+	ViewLayer *view_layer = data->eval_ctx.view_layer;
 	int flag = is_dupli ? BASE_FROMDUPLI : 0;
 
-	/* First attempt, see if object is in the current SceneLayer. */
-	base = (Base *)BLI_findptr(&scene_layer->object_bases, ob_src, offsetof(Base, object));
+	/* First attempt, see if object is in the current ViewLayer. */
+	base = (Base *)BLI_findptr(&view_layer->object_bases, ob_src, offsetof(Base, object));
 
 	/* Next attempt, see if object is in one of the sets. */
 	if (base == NULL) {
@@ -151,8 +151,8 @@ static bool deg_flush_base_flags_and_settings(
 		scene_iter = scene;
 
 		while ((scene_iter = (scene_iter)->set)) {
-			SceneLayer *scene_layer_set = BKE_scene_layer_from_scene_get(scene_iter);
-			base = (Base *)BLI_findptr(&scene_layer_set->object_bases, ob_src, offsetof(Base, object));
+			ViewLayer *view_layer_set = BKE_view_layer_from_scene_get(scene_iter);
+			base = (Base *)BLI_findptr(&view_layer_set->object_bases, ob_src, offsetof(Base, object));
 			if (base != NULL) {
 				flag |= BASE_FROM_SET;
 				flag &= ~(BASE_SELECTED | BASE_SELECTABLED);
@@ -242,21 +242,21 @@ static void deg_objects_iterator_step(BLI_Iterator *iter, DEG::IDDepsNode *id_no
 			return;
 	}
 
-	Object *ob = (Object *)id_node->id_cow;
-	BLI_assert(DEG::deg_validate_copy_on_write_datablock(&ob->id));
+	Object *object = (Object *)id_node->id_cow;
+	BLI_assert(DEG::deg_validate_copy_on_write_datablock(&object->id));
 
-	if (deg_flush_base_flags_and_settings(data, ob, ob, false) == false) {
+	if (deg_flush_base_flags_and_settings(data, object, object, false) == false) {
 		iter->skip = true;
 		return;
 	}
 
-	if ((data->flag & DEG_OBJECT_ITER_FLAG_DUPLI) && (ob->transflag & OB_DUPLI)) {
-		data->dupli_parent = ob;
-		data->dupli_list = object_duplilist(&data->eval_ctx, data->scene, ob);
+	if ((data->flag & DEG_OBJECT_ITER_FLAG_DUPLI) && (object->transflag & OB_DUPLI)) {
+		data->dupli_parent = object;
+		data->dupli_list = object_duplilist(&data->eval_ctx, data->scene, object);
 		data->dupli_object_next = (DupliObject *)data->dupli_list->first;
 	}
 
-	iter->current = ob;
+	iter->current = object;
 }
 
 void DEG_objects_iterator_begin(BLI_Iterator *iter, DEGObjectsIteratorData *data)
@@ -272,7 +272,7 @@ void DEG_objects_iterator_begin(BLI_Iterator *iter, DEGObjectsIteratorData *data
 
 	/* TODO(sergey): What evaluation type we want here? */
 	DEG_evaluation_context_init(&data->eval_ctx, DAG_EVAL_RENDER);
-	data->eval_ctx.scene_layer = DEG_get_evaluated_scene_layer(depsgraph);
+	data->eval_ctx.view_layer = DEG_get_evaluated_view_layer(depsgraph);
 
 	iter->data = data;
 	data->dupli_parent = NULL;
