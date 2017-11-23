@@ -1769,14 +1769,57 @@ typedef enum eGpencilArray_Flag {
 
 typedef struct GpencilBuildModifierData {
 	ModifierData modifier;
-	float start, length;
-	int flag;
-	int seed;             /* (int) random seed */
+	
+	char layername[64];   /* if set, restrict modifier to operating on this layer */
+	
+	float start_frame;    /* If GP_BUILD_RESTRICT_TIME is set, the defines the frame range where GP frames are considered */
+	float end_frame;
+	
+	/* TODO: color (paletteslot + colorname) used for appearance of stroke tips being drawn */
+	
+	float start_delay;    /* For each pair of gp keys, number of frames before strokes start appearing */
+	float length;         /* For each pair of gp keys, number of frames that build effect must be completed within */
+	
+	short flag;           /* (eGpencilBuild_Flag) Options for controlling modifier behaviour */
+	
+	short mode;           /* (eGpencilBuild_Mode) How are strokes ordered */
+	short direction;      /* (eGpencilBuild_Direction) In what order do stroke points appear/disappear */
+	
+	short time_alignment; /* (eGpencilBuild_TimeAlignment) For the "Concurrent" mode, when should "shorter" strips start/end */
 } GpencilBuildModifierData;
 
+typedef enum eGpencilBuild_Mode {
+	/* Strokes are shown one by one until all have appeared */
+	GP_BUILD_MODE_SEQUENTIAL = 0,
+	/* All strokes start at the same time */
+	GP_BUILD_MODE_CONCURRENT = 1,
+} eGpencilBuild_Mode;
+
+typedef enum eGpencilBuild_Direction {
+	/* Show in forward order */
+	GP_BUILD_DIRECTION_GROW    = 0,
+	/* Hide in reverse order */
+	GP_BUILD_DIRECTION_SHRINK  = 1,
+	/* Hide in forward order */
+	GP_BUILD_DIRECTION_FADE    = 2,
+} eGpencilBuild_Direction;
+
+typedef enum eGpencilBuild_TimeAlignment {
+	/* All strokes start at same time */
+	GP_BUILD_TIMEALIGN_START = 0,
+	/* All strokes end at same time */
+	GP_BUILD_TIMEALIGN_END   = 1,
+	
+	/* TODO: Random Offsets, Stretch-to-Fill */
+} eGpencilBuild_TimeAlignment;
+
 typedef enum eGpencilBuild_Flag {
-	GP_BUILD_FLAG_RANDOMIZE = (1 << 0),  /* order of vertices is randomized */
-	GP_BUILD_FLAG_REVERSE   = (1 << 1),  /* frame range is reversed, resulting in a deconstruction effect */
+	/* Restrict modifier to particular layer/passes? */
+	GP_BUILD_INVERSE_LAYER  = (1 << 0),
+	GP_BUILD_INVERSE_PASS   = (1 << 1),
+	
+	/* Restrict modifier to only operating between the nominated frames */
+	GP_BUILD_RESTRICT_TIME  = (1 << 2),
 } eGpencilBuild_Flag;
 
 
