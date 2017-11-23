@@ -147,6 +147,8 @@ void MESH_OT_subdivide(wmOperatorType *ot)
 
 	RNA_def_float(ot->srna, "smoothness", 0.0f, 0.0f, 1e3f, "Smoothness", "Smoothness factor", 0.0f, 1.0f);
 
+	WM_operatortype_props_advanced_begin(ot);
+
 	RNA_def_boolean(ot->srna, "quadtri", 0, "Quad/Tri Mode", "Tries to prevent ngons");
 	RNA_def_enum(ot->srna, "quadcorner", prop_mesh_cornervert_types, SUBD_CORNER_STRAIGHT_CUT,
 	             "Quad Corner Type", "How to subdivide quad corners (anything other than Straight Cut will prevent ngons)");
@@ -309,7 +311,7 @@ void EMBM_project_snap_verts(bContext *C, ARegion *ar, BMEditMesh *em)
 	ED_view3d_init_mats_rv3d(obedit, ar->regiondata);
 
 	struct SnapObjectContext *snap_context = ED_transform_snap_object_context_create_view3d(
-	        CTX_data_main(C), CTX_data_scene(C), CTX_data_scene_layer(C), CTX_data_engine(C), 0,
+	        CTX_data_main(C), CTX_data_scene(C), CTX_data_view_layer(C), CTX_data_engine(C), 0,
 	        ar, CTX_wm_view3d(C));
 
 	BM_ITER_MESH (eve, &iter, em->bm, BM_VERTS_OF_MESH) {
@@ -863,9 +865,11 @@ void MESH_OT_mark_seam(wmOperatorType *ot)
 	
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
-	
+
 	prop = RNA_def_boolean(ot->srna, "clear", 0, "Clear", "");
 	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
+
+	WM_operatortype_props_advanced_begin(ot);
 }
 
 static int edbm_mark_sharp_exec(bContext *C, wmOperator *op)
@@ -1655,12 +1659,13 @@ void MESH_OT_hide(wmOperatorType *ot)
 	RNA_def_boolean(ot->srna, "unselected", false, "Unselected", "Hide unselected rather than selected");
 }
 
-static int edbm_reveal_exec(bContext *C, wmOperator *UNUSED(op))
+static int edbm_reveal_exec(bContext *C, wmOperator *op)
 {
 	Object *obedit = CTX_data_edit_object(C);
 	BMEditMesh *em = BKE_editmesh_from_object(obedit);
-	
-	EDBM_mesh_reveal(em);
+	const bool select = RNA_boolean_get(op->ptr, "select");
+
+	EDBM_mesh_reveal(em, select);
 
 	EDBM_update_generic(em, true, false);
 
@@ -1680,6 +1685,8 @@ void MESH_OT_reveal(wmOperatorType *ot)
 	
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+	RNA_def_boolean(ot->srna, "select", true, "Select", "");
 }
 
 static int edbm_normals_make_consistent_exec(bContext *C, wmOperator *op)
@@ -1802,6 +1809,9 @@ void MESH_OT_vertices_smooth(wmOperatorType *ot)
 
 	RNA_def_float(ot->srna, "factor", 0.5f, -10.0f, 10.0f, "Smoothing", "Smoothing factor", 0.0f, 1.0f);
 	RNA_def_int(ot->srna, "repeat", 1, 1, 1000, "Repeat", "Number of times to smooth the mesh", 1, 100);
+
+	WM_operatortype_props_advanced_begin(ot);
+
 	RNA_def_boolean(ot->srna, "xaxis", true, "X-Axis", "Smooth along the X axis");
 	RNA_def_boolean(ot->srna, "yaxis", true, "Y-Axis", "Smooth along the Y axis");
 	RNA_def_boolean(ot->srna, "zaxis", true, "Z-Axis", "Smooth along the Z axis");
@@ -1885,6 +1895,9 @@ void MESH_OT_vertices_smooth_laplacian(wmOperatorType *ot)
 	              "Lambda factor", "", 1e-7f, 1000.0f);
 	RNA_def_float(ot->srna, "lambda_border", 5e-5f, 1e-7f, 1000.0f,
 	              "Lambda factor in border", "", 1e-7f, 1000.0f);
+
+	WM_operatortype_props_advanced_begin(ot);
+
 	RNA_def_boolean(ot->srna, "use_x", true, "Smooth X Axis", "Smooth object along X axis");
 	RNA_def_boolean(ot->srna, "use_y", true, "Smooth Y Axis", "Smooth object along Y axis");
 	RNA_def_boolean(ot->srna, "use_z", true, "Smooth Z Axis", "Smooth object along Z axis");
@@ -2340,6 +2353,9 @@ void MESH_OT_merge(wmOperatorType *ot)
 	/* properties */
 	ot->prop = RNA_def_enum(ot->srna, "type", merge_type_items, MESH_MERGE_CENTER, "Type", "Merge method to use");
 	RNA_def_enum_funcs(ot->prop, merge_type_itemf);
+
+	WM_operatortype_props_advanced_begin(ot);
+
 	RNA_def_boolean(ot->srna, "uvs", false, "UVs", "Move UVs according to merge");
 }
 
@@ -3014,7 +3030,7 @@ enum {
 	MESH_SEPARATE_LOOSE    = 2,
 };
 
-static Base *mesh_separate_tagged(Main *bmain, Scene *scene, SceneLayer *sl, Base *base_old, BMesh *bm_old)
+static Base *mesh_separate_tagged(Main *bmain, Scene *scene, ViewLayer *sl, Base *base_old, BMesh *bm_old)
 {
 	Base *base_new;
 	Object *obedit = base_old->object;
@@ -3061,7 +3077,7 @@ static Base *mesh_separate_tagged(Main *bmain, Scene *scene, SceneLayer *sl, Bas
 	return base_new;
 }
 
-static bool mesh_separate_selected(Main *bmain, Scene *scene, SceneLayer *sl, Base *base_old, BMesh *bm_old)
+static bool mesh_separate_selected(Main *bmain, Scene *scene, ViewLayer *sl, Base *base_old, BMesh *bm_old)
 {
 	/* we may have tags from previous operators */
 	BM_mesh_elem_hflag_disable_all(bm_old, BM_FACE | BM_EDGE | BM_VERT, BM_ELEM_TAG, false);
@@ -3168,7 +3184,7 @@ static void mesh_separate_material_assign_mat_nr(Main *bmain, Object *ob, const 
 	}
 }
 
-static bool mesh_separate_material(Main *bmain, Scene *scene, SceneLayer *sl, Base *base_old, BMesh *bm_old)
+static bool mesh_separate_material(Main *bmain, Scene *scene, ViewLayer *sl, Base *base_old, BMesh *bm_old)
 {
 	BMFace *f_cmp, *f;
 	BMIter iter;
@@ -3220,7 +3236,7 @@ static bool mesh_separate_material(Main *bmain, Scene *scene, SceneLayer *sl, Ba
 	return result;
 }
 
-static bool mesh_separate_loose(Main *bmain, Scene *scene, SceneLayer *sl, Base *base_old, BMesh *bm_old)
+static bool mesh_separate_loose(Main *bmain, Scene *scene, ViewLayer *sl, Base *base_old, BMesh *bm_old)
 {
 	int i;
 	BMEdge *e;
@@ -3283,7 +3299,7 @@ static int edbm_separate_exec(bContext *C, wmOperator *op)
 {
 	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
-	SceneLayer *sl = CTX_data_scene_layer(C);
+	ViewLayer *sl = CTX_data_view_layer(C);
 	const int type = RNA_enum_get(op->ptr, "type");
 	int retval = 0;
 	

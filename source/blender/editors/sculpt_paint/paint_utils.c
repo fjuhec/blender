@@ -452,7 +452,7 @@ void paint_sample_color(bContext *C, ARegion *ar, int x, int y, bool texpaint_pr
 
 	if (CTX_wm_view3d(C) && texpaint_proj) {
 		/* first try getting a colour directly from the mesh faces if possible */
-		SceneLayer *sl = CTX_data_scene_layer(C);
+		ViewLayer *sl = CTX_data_view_layer(C);
 		Object *ob = OBACT(sl);
 		bool sample_success = false;
 		ImagePaintSettings *imapaint = &scene->toolsettings->imapaint;
@@ -567,7 +567,7 @@ static int brush_curve_preset_exec(bContext *C, wmOperator *op)
 
 	if (br) {
 		Scene *scene = CTX_data_scene(C);
-		SceneLayer *sl = CTX_data_scene_layer(C);
+		ViewLayer *sl = CTX_data_view_layer(C);
 		BKE_brush_curve_preset(br, RNA_enum_get(op->ptr, "shape"));
 		BKE_paint_invalidate_cursor_overlay(scene, sl, br->curve);
 	}
@@ -753,10 +753,11 @@ void PAINT_OT_face_select_hide(wmOperatorType *ot)
 	RNA_def_boolean(ot->srna, "unselected", 0, "Unselected", "Hide unselected rather than selected objects");
 }
 
-static int face_select_reveal_exec(bContext *C, wmOperator *UNUSED(op))
+static int face_select_reveal_exec(bContext *C, wmOperator *op)
 {
+	const bool select = RNA_boolean_get(op->ptr, "select");
 	Object *ob = CTX_data_active_object(C);
-	paintface_reveal(ob);
+	paintface_reveal(ob, select);
 	ED_region_tag_redraw(CTX_wm_region(C));
 	return OPERATOR_FINISHED;
 }
@@ -772,5 +773,5 @@ void PAINT_OT_face_select_reveal(wmOperatorType *ot)
 
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
-	RNA_def_boolean(ot->srna, "unselected", 0, "Unselected", "Hide unselected rather than selected objects");
+	RNA_def_boolean(ot->srna, "select", true, "Select", "");
 }

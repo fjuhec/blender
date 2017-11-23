@@ -19,11 +19,10 @@
  *
  */
 
-/* Screen space subsurface scattering technique.
- */
-
 /** \file eevee_subsurface.c
  *  \ingroup draw_engine
+ *
+ * Screen space subsurface scattering technique.
  */
 
 #include "DRW_render.h"
@@ -45,7 +44,7 @@ static void eevee_create_shader_subsurface(void)
 	e_data.sss_sh[1] = DRW_shader_create_fullscreen(datatoc_effect_subsurface_frag_glsl, "#define SECOND_PASS\n");
 }
 
-int EEVEE_subsurface_init(EEVEE_SceneLayerData *UNUSED(sldata), EEVEE_Data *vedata)
+int EEVEE_subsurface_init(EEVEE_ViewLayerData *UNUSED(sldata), EEVEE_Data *vedata)
 {
 	EEVEE_StorageList *stl = vedata->stl;
 	EEVEE_EffectsInfo *effects = stl->effects;
@@ -54,8 +53,8 @@ int EEVEE_subsurface_init(EEVEE_SceneLayerData *UNUSED(sldata), EEVEE_Data *veda
 	const float *viewport_size = DRW_viewport_size_get();
 
 	const DRWContextState *draw_ctx = DRW_context_state_get();
-	SceneLayer *scene_layer = draw_ctx->scene_layer;
-	IDProperty *props = BKE_scene_layer_engine_evaluated_get(scene_layer, COLLECTION_MODE_NONE, RE_engine_id_BLENDER_EEVEE);
+	ViewLayer *view_layer = draw_ctx->view_layer;
+	IDProperty *props = BKE_view_layer_engine_evaluated_get(view_layer, COLLECTION_MODE_NONE, RE_engine_id_BLENDER_EEVEE);
 
 	if (BKE_collection_engine_property_value_get_bool(props, "sss_enable")) {
 		effects->sss_sample_count = 1 + BKE_collection_engine_property_value_get_int(props, "sss_samples") * 2;
@@ -93,7 +92,7 @@ int EEVEE_subsurface_init(EEVEE_SceneLayerData *UNUSED(sldata), EEVEE_Data *veda
 	return 0;
 }
 
-void EEVEE_subsurface_cache_init(EEVEE_SceneLayerData *UNUSED(sldata), EEVEE_Data *vedata)
+void EEVEE_subsurface_cache_init(EEVEE_ViewLayerData *UNUSED(sldata), EEVEE_Data *vedata)
 {
 	EEVEE_PassList *psl = vedata->psl;
 	EEVEE_StorageList *stl = vedata->stl;
@@ -124,7 +123,6 @@ void EEVEE_subsurface_add_pass(EEVEE_Data *vedata, unsigned int sss_id, struct G
 	DRW_shgroup_uniform_buffer(grp, "depthBuffer", &dtxl->depth);
 	DRW_shgroup_uniform_buffer(grp, "sssData", &txl->sss_data);
 	DRW_shgroup_uniform_block(grp, "sssProfile", sss_profile);
-	DRW_shgroup_uniform_int(grp, "sampleCount", &effects->sss_sample_count, 1);
 	DRW_shgroup_uniform_float(grp, "jitterThreshold", &effects->sss_jitter_threshold, 1);
 	DRW_shgroup_stencil_mask(grp, sss_id);
 	DRW_shgroup_call_add(grp, quad, NULL);
@@ -135,13 +133,12 @@ void EEVEE_subsurface_add_pass(EEVEE_Data *vedata, unsigned int sss_id, struct G
 	DRW_shgroup_uniform_buffer(grp, "depthBuffer", &dtxl->depth);
 	DRW_shgroup_uniform_buffer(grp, "sssData", &txl->sss_blur);
 	DRW_shgroup_uniform_block(grp, "sssProfile", sss_profile);
-	DRW_shgroup_uniform_int(grp, "sampleCount", &effects->sss_sample_count, 1);
 	DRW_shgroup_uniform_float(grp, "jitterThreshold", &effects->sss_jitter_threshold, 1);
 	DRW_shgroup_stencil_mask(grp, sss_id);
 	DRW_shgroup_call_add(grp, quad, NULL);
 }
 
-void EEVEE_subsurface_data_render(EEVEE_SceneLayerData *UNUSED(sldata), EEVEE_Data *vedata)
+void EEVEE_subsurface_data_render(EEVEE_ViewLayerData *UNUSED(sldata), EEVEE_Data *vedata)
 {
 	EEVEE_PassList *psl = vedata->psl;
 	EEVEE_TextureList *txl = vedata->txl;
@@ -190,7 +187,7 @@ void EEVEE_subsurface_data_render(EEVEE_SceneLayerData *UNUSED(sldata), EEVEE_Da
 	}
 }
 
-void EEVEE_subsurface_compute(EEVEE_SceneLayerData *UNUSED(sldata), EEVEE_Data *vedata)
+void EEVEE_subsurface_compute(EEVEE_ViewLayerData *UNUSED(sldata), EEVEE_Data *vedata)
 {
 	EEVEE_PassList *psl = vedata->psl;
 	EEVEE_FramebufferList *fbl = vedata->fbl;

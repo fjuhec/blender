@@ -566,6 +566,11 @@ PropertyRNA *RNA_struct_name_property(const StructRNA *type)
 	return type->nameproperty;
 }
 
+const EnumPropertyItem *RNA_struct_property_tag_defines(const StructRNA *type)
+{
+	return type->prop_tag_defines;
+}
+
 PropertyRNA *RNA_struct_iterator_property(StructRNA *type)
 {
 	return type->iteratorproperty;
@@ -720,6 +725,23 @@ bool RNA_struct_contains_property(PointerRNA *ptr, PropertyRNA *prop_test)
 	RNA_PROP_END;
 
 	return found;
+}
+
+unsigned int RNA_struct_count_properties(StructRNA *srna)
+{
+	PointerRNA struct_ptr;
+	unsigned int counter = 0;
+
+	RNA_pointer_create(NULL, srna, NULL, &struct_ptr);
+
+	RNA_STRUCT_BEGIN (&struct_ptr, prop)
+	{
+		counter++;
+		UNUSED_VARS(prop);
+	}
+	RNA_STRUCT_END;
+
+	return counter;
 }
 
 /* low level direct access to type->properties, note this ignores parent classes so should be used with care */
@@ -945,6 +967,17 @@ PropertyUnit RNA_property_unit(PropertyRNA *prop)
 int RNA_property_flag(PropertyRNA *prop)
 {
 	return rna_ensure_property(prop)->flag;
+}
+
+/**
+ * Get the tags set for \a prop as int bitfield.
+ * \note Doesn't perform any validity check on the set bits. #RNA_def_property_tags does this
+ *       in debug builds (to avoid performance issues in non-debug builds), which should be
+ *       the only way to set tags. Hence, at this point we assume the tag bitfield to be valid.
+ */
+int RNA_property_tags(PropertyRNA *prop)
+{
+	return rna_ensure_property(prop)->tags;
 }
 
 bool RNA_property_builtin(PropertyRNA *prop)
@@ -1611,6 +1644,18 @@ int RNA_enum_from_value(const EnumPropertyItem *item, const int value)
 		}
 	}
 	return -1;
+}
+
+unsigned int RNA_enum_items_count(const EnumPropertyItem *item)
+{
+	unsigned int i = 0;
+
+	while (item->identifier) {
+		item++;
+		i++;
+	}
+
+	return i;
 }
 
 bool RNA_property_enum_identifier(bContext *C, PointerRNA *ptr, PropertyRNA *prop, const int value,

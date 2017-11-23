@@ -1148,15 +1148,15 @@ class CyclesCurveRenderSettings(bpy.types.PropertyGroup):
 def update_render_passes(self, context):
     scene = context.scene
     rd = scene.render
-    rl = rd.layers.active
-    rl.update_render_passes()
+    view_layer = scene.view_layers.active
+    view_layer.update_render_passes()
 
 class CyclesRenderLayerSettings(bpy.types.PropertyGroup):
     @classmethod
     def register(cls):
-        bpy.types.SceneRenderLayer.cycles = PointerProperty(
-                name="Cycles SceneRenderLayer Settings",
-                description="Cycles SceneRenderLayer Settings",
+        bpy.types.ViewLayer.cycles = PointerProperty(
+                name="Cycles ViewLayer Settings",
+                description="Cycles ViewLayer Settings",
                 type=cls,
                 )
         cls.pass_debug_bvh_traversed_nodes = BoolProperty(
@@ -1180,6 +1180,24 @@ class CyclesRenderLayerSettings(bpy.types.PropertyGroup):
         cls.pass_debug_ray_bounces = BoolProperty(
                 name="Debug Ray Bounces",
                 description="Store Debug Ray Bounces pass",
+                default=False,
+                update=update_render_passes,
+                )
+        cls.pass_debug_render_time = BoolProperty(
+                name="Debug Render Time",
+                description="Render time in milliseconds per sample and pixel",
+                default=False,
+                update=update_render_passes,
+                )
+        cls.use_pass_volume_direct = BoolProperty(
+                name="Volume Direct",
+                description="Deliver direct volumetric scattering pass",
+                default=False,
+                update=update_render_passes,
+                )
+        cls.use_pass_volume_indirect = BoolProperty(
+                name="Volume Indirect",
+                description="Deliver indirect volumetric scattering pass",
                 default=False,
                 update=update_render_passes,
                 )
@@ -1262,7 +1280,7 @@ class CyclesRenderLayerSettings(bpy.types.PropertyGroup):
 
     @classmethod
     def unregister(cls):
-        del bpy.types.SceneRenderLayer.cycles
+        del bpy.types.ViewLayer.cycles
 
 
 class CyclesCurveSettings(bpy.types.PropertyGroup):

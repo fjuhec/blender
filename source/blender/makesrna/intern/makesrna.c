@@ -3000,7 +3000,7 @@ static void rna_generate_property(FILE *f, StructRNA *srna, const char *nest, Pr
 	else fprintf(f, "NULL,\n");
 	fprintf(f, "\t%d, ", prop->magic);
 	rna_print_c_string(f, prop->identifier);
-	fprintf(f, ", %d, %d, %d, ", prop->flag, prop->flag_parameter, prop->flag_internal);
+	fprintf(f, ", %d, %d, %d, %d, ", prop->flag, prop->flag_parameter, prop->flag_internal, prop->tags);
 	rna_print_c_string(f, prop->name); fprintf(f, ",\n\t");
 	rna_print_c_string(f, prop->description); fprintf(f, ",\n\t");
 	fprintf(f, "%d, ", prop->icon);
@@ -3244,7 +3244,7 @@ static void rna_generate_struct(BlenderRNA *UNUSED(brna), StructRNA *srna, FILE 
 	fprintf(f, "\t");
 	rna_print_c_string(f, srna->identifier);
 	fprintf(f, ", NULL, NULL"); /* PyType - Cant initialize here */
-	fprintf(f, ", %d, ", srna->flag);
+	fprintf(f, ", %d, NULL, ", srna->flag);
 	rna_print_c_string(f, srna->name);
 	fprintf(f, ",\n\t");
 	rna_print_c_string(f, srna->description);
@@ -3336,7 +3336,7 @@ static RNAProcessItem PROCESS_ITEMS[] = {
 	{"rna_key.c", NULL, RNA_def_key},
 	{"rna_lamp.c", NULL, RNA_def_lamp},
 	{"rna_lattice.c", "rna_lattice_api.c", RNA_def_lattice},
-	{"rna_layer.c", NULL, RNA_def_scene_layer},
+	{"rna_layer.c", NULL, RNA_def_view_layer},
 	{"rna_linestyle.c", NULL, RNA_def_linestyle},
 	{"rna_main.c", "rna_main_api.c", RNA_def_main},
 	{"rna_material.c", "rna_material_api.c", RNA_def_material},

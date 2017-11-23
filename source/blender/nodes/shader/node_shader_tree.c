@@ -85,8 +85,8 @@ static void shader_get_from_context(const bContext *C, bNodeTreeType *UNUSED(tre
 	SpaceNode *snode = CTX_wm_space_node(C);
 	Scene *scene = CTX_data_scene(C);
 	WorkSpace *workspace = CTX_wm_workspace(C);
-	SceneLayer *scene_layer = CTX_data_scene_layer(C);
-	Object *ob = OBACT(scene_layer);
+	ViewLayer *view_layer = CTX_data_view_layer(C);
+	Object *ob = OBACT(view_layer);
 	ViewRender *view_render = BKE_viewrender_get(scene, workspace);
 	
 	if ((snode->shaderfrom == SNODE_SHADER_OBJECT) ||
@@ -439,7 +439,7 @@ static void ntree_shader_link_builtin_normal(bNodeTree *ntree,
 static void ntree_shader_relink_displacement(bNodeTree *ntree,
                                              short compatibility)
 {
-	if (compatibility != NODE_NEW_SHADING) {
+	if ((compatibility & NODE_NEW_SHADING) == 0) {
 		/* We can only deal with new shading system here. */
 		return;
 	}
@@ -511,7 +511,7 @@ static bool ntree_tag_ssr_bsdf_cb(bNode *fromnode, bNode *UNUSED(tonode), void *
  */
 static void ntree_shader_tag_ssr_node(bNodeTree *ntree, short compatibility)
 {
-	if (compatibility & NODE_NEWER_SHADING) {
+	if ((compatibility & NODE_NEWER_SHADING) == 0) {
 		/* We can only deal with new shading system here. */
 		return;
 	}
@@ -523,8 +523,8 @@ static void ntree_shader_tag_ssr_node(bNodeTree *ntree, short compatibility)
 	/* Make sure sockets links pointers are correct. */
 	ntreeUpdateTree(G.main, ntree);
 
-	int lobe_count = 0;
-	nodeChainIter(ntree, output_node, ntree_tag_ssr_bsdf_cb, &lobe_count, true);
+	float lobe_id = 1;
+	nodeChainIter(ntree, output_node, ntree_tag_ssr_bsdf_cb, &lobe_id, true);
 }
 
 static bool ntree_tag_sss_bsdf_cb(bNode *fromnode, bNode *UNUSED(tonode), void *userdata, const bool UNUSED(reversed))
@@ -546,7 +546,7 @@ static bool ntree_tag_sss_bsdf_cb(bNode *fromnode, bNode *UNUSED(tonode), void *
  */
 static void ntree_shader_tag_sss_node(bNodeTree *ntree, short compatibility)
 {
-	if (compatibility & NODE_NEWER_SHADING) {
+	if ((compatibility & NODE_NEWER_SHADING) == 0) {
 		/* We can only deal with new shading system here. */
 		return;
 	}
@@ -558,8 +558,8 @@ static void ntree_shader_tag_sss_node(bNodeTree *ntree, short compatibility)
 	/* Make sure sockets links pointers are correct. */
 	ntreeUpdateTree(G.main, ntree);
 
-	int sss_count = 0;
-	nodeChainIter(ntree, output_node, ntree_tag_sss_bsdf_cb, &sss_count, true);
+	float sss_id = 1;
+	nodeChainIter(ntree, output_node, ntree_tag_sss_bsdf_cb, &sss_id, true);
 }
 
 /* EEVEE: Find which material domain are used (volume, surface ...).

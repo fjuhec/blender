@@ -19,20 +19,19 @@
  *
  */
 
-/* All specific data handler for Objects, Lights, SceneLayers, ...
- */
-
 /** \file eevee_data.c
  *  \ingroup draw_engine
+ *
+ * All specific data handler for Objects, Lights, ViewLayers, ...
  */
 
 #include "DRW_render.h"
 
 #include "eevee_private.h"
 
-static void eevee_scene_layer_data_free(void *storage)
+static void eevee_view_layer_data_free(void *storage)
 {
-	EEVEE_SceneLayerData *sldata = (EEVEE_SceneLayerData *)storage;
+	EEVEE_ViewLayerData *sldata = (EEVEE_ViewLayerData *)storage;
 
 	/* Lights */
 	MEM_SAFE_FREE(sldata->lamps);
@@ -79,12 +78,13 @@ static void eevee_lightprobe_data_free(void *storage)
 	BLI_freelistN(&ped->captured_object_list);
 }
 
-EEVEE_SceneLayerData *EEVEE_scene_layer_data_get(void)
+EEVEE_ViewLayerData *EEVEE_view_layer_data_get(void)
 {
-	EEVEE_SceneLayerData **sldata = (EEVEE_SceneLayerData **)DRW_scene_layer_engine_data_get(&draw_engine_eevee_type, &eevee_scene_layer_data_free);
+	EEVEE_ViewLayerData **sldata = (EEVEE_ViewLayerData **)DRW_view_layer_engine_data_get(
+	        &draw_engine_eevee_type, &eevee_view_layer_data_free);
 
 	if (*sldata == NULL) {
-		*sldata = MEM_callocN(sizeof(**sldata), "EEVEE_SceneLayerData");
+		*sldata = MEM_callocN(sizeof(**sldata), "EEVEE_ViewLayerData");
 	}
 
 	return *sldata;
@@ -92,7 +92,8 @@ EEVEE_SceneLayerData *EEVEE_scene_layer_data_get(void)
 
 EEVEE_ObjectEngineData *EEVEE_object_data_get(Object *ob)
 {
-	EEVEE_ObjectEngineData **oedata = (EEVEE_ObjectEngineData **)DRW_object_engine_data_get(ob, &draw_engine_eevee_type, NULL);
+	EEVEE_ObjectEngineData **oedata = (EEVEE_ObjectEngineData **)DRW_object_engine_data_get(
+	        ob, &draw_engine_eevee_type, NULL);
 
 	if (*oedata == NULL) {
 		*oedata = MEM_callocN(sizeof(**oedata), "EEVEE_ObjectEngineData");
@@ -103,7 +104,8 @@ EEVEE_ObjectEngineData *EEVEE_object_data_get(Object *ob)
 
 EEVEE_LightProbeEngineData *EEVEE_lightprobe_data_get(Object *ob)
 {
-	EEVEE_LightProbeEngineData **pedata = (EEVEE_LightProbeEngineData **)DRW_object_engine_data_get(ob, &draw_engine_eevee_type, &eevee_lightprobe_data_free);
+	EEVEE_LightProbeEngineData **pedata = (EEVEE_LightProbeEngineData **)DRW_object_engine_data_get(
+	        ob, &draw_engine_eevee_type, &eevee_lightprobe_data_free);
 
 	if (*pedata == NULL) {
 		*pedata = MEM_callocN(sizeof(**pedata), "EEVEE_LightProbeEngineData");
@@ -115,7 +117,8 @@ EEVEE_LightProbeEngineData *EEVEE_lightprobe_data_get(Object *ob)
 
 EEVEE_LampEngineData *EEVEE_lamp_data_get(Object *ob)
 {
-	EEVEE_LampEngineData **ledata = (EEVEE_LampEngineData **)DRW_object_engine_data_get(ob, &draw_engine_eevee_type, &eevee_lamp_data_free);
+	EEVEE_LampEngineData **ledata = (EEVEE_LampEngineData **)DRW_object_engine_data_get(
+	        ob, &draw_engine_eevee_type, &eevee_lamp_data_free);
 
 	if (*ledata == NULL) {
 		*ledata = MEM_callocN(sizeof(**ledata), "EEVEE_LampEngineData");
