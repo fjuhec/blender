@@ -1411,6 +1411,11 @@ uiLayout *uiTemplateModifier(uiLayout *layout, bContext *C, PointerRNA *ptr)
 
 /************************ Redo Buttons Template *************************/
 
+static bool template_operator_redo_property_buts_poll(PointerRNA *UNUSED(ptr), PropertyRNA *prop)
+{
+	return (RNA_property_tags(prop) & OP_PROP_TAG_ADVANCED) == 0;
+}
+
 static void template_operator_redo_property_buts_draw(
         const bContext *C, wmOperator *op,
         uiLayout *layout, int layout_flags)
@@ -1422,7 +1427,9 @@ static void template_operator_redo_property_buts_draw(
 	}
 	else {
 		/* Might want to make label_align adjustable somehow. */
-		uiTemplateOperatorPropertyButs(C, layout, op, NULL, UI_BUT_LABEL_ALIGN_NONE, layout_flags);
+		uiTemplateOperatorPropertyButs(
+	                        C, layout, op, template_operator_redo_property_buts_poll,
+	                        UI_BUT_LABEL_ALIGN_NONE, layout_flags);
 	}
 }
 
