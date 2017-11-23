@@ -5415,14 +5415,14 @@ static void rna_def_modifier_gpencilbuild(BlenderRNA *brna)
 		{0, NULL, 0, NULL, NULL}
 	};
 	
-	static EnumPropertyItem prop_gpencil_build_direction_items[] = {
-		{GP_BUILD_DIRECTION_GROW, "GROW", 0, "Grow",
+	static EnumPropertyItem prop_gpencil_build_transition_items[] = {
+		{GP_BUILD_TRANSITION_GROW, "GROW", 0, "Grow",
 		 "Show points in the order they occur in each stroke "
 		 "(e.g. for animating lines being drawn)"},
-		{GP_BUILD_DIRECTION_SHRINK, "SHRINK", 0, "Shrink",
+		{GP_BUILD_TRANSITION_SHRINK, "SHRINK", 0, "Shrink",
 		 "Hide points from the end of each stroke to the start "
 		 "(e.g. for animating lines being erased)"},
-		{GP_BUILD_DIRECTION_FADE, "FADE", 0, "Fade",
+		{GP_BUILD_TRANSITION_FADE, "FADE", 0, "Fade",
 		 "Hide points in the order they occur in each stroke "
 		 "(e.g. for animating ink fading or vanishing after getting drawn)"},
 		{0, NULL, 0, NULL, NULL}
@@ -5474,9 +5474,9 @@ static void rna_def_modifier_gpencilbuild(BlenderRNA *brna)
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 	
 	/* Direction */
-	prop = RNA_def_property(srna, "direction", PROP_ENUM, PROP_NONE);
-	RNA_def_property_enum_items(prop, prop_gpencil_build_direction_items);
-	RNA_def_property_ui_text(prop, "Direction", "How are strokes animated (i.e. are they appearing or disappearing)");
+	prop = RNA_def_property(srna, "transition", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_items(prop, prop_gpencil_build_transition_items);
+	RNA_def_property_ui_text(prop, "Transition", "How are strokes animated (i.e. are they appearing or disappearing)");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 	
 	

@@ -118,15 +118,15 @@ static void gpf_clear_all_strokes(bGPDframe *gpf, int modifier_index)
  * Note: This won't be called if all points are present/removed
  * TODO: Allow blending of growing/shrinking tip (e.g. for more gradual transitions)
  */
-static void reduce_stroke_points(bGPDstroke *gps, const int num_points, const eGpencilBuild_Direction direction)
+static void reduce_stroke_points(bGPDstroke *gps, const int num_points, const eGpencilBuild_Transition transition)
 {
 	bGPDspoint *new_points = MEM_callocN(sizeof(bGPDspoint) * num_points, "GP Build Modifier - Reduced Points");
 	
 	/* Which end should points be removed from */
 	// TODO: free stroke weights
-	switch (direction) {
-		case GP_BUILD_DIRECTION_GROW:   /* Show in forward order = Remove ungrown-points from end of stroke */
-		case GP_BUILD_DIRECTION_SHRINK: /* Hide in reverse order = Remove dead-points from end of stroke */
+	switch (transition) {
+		case GP_BUILD_TRANSITION_GROW:   /* Show in forward order = Remove ungrown-points from end of stroke */
+		case GP_BUILD_TRANSITION_SHRINK: /* Hide in reverse order = Remove dead-points from end of stroke */
 		{
 			/* copy over point data */
 			memcpy(new_points, gps->points, sizeof(bGPDspoint) * num_points);
@@ -141,7 +141,7 @@ static void reduce_stroke_points(bGPDstroke *gps, const int num_points, const eG
 		}
 		
 		/* Hide in forward order = Remove points from start of stroke */
-		case GP_BUILD_DIRECTION_FADE:
+		case GP_BUILD_TRANSITION_FADE:
 		{
 			/* num_points is the number of points left after reducing.
 			 * We need to know how many to remove
@@ -161,7 +161,7 @@ static void reduce_stroke_points(bGPDstroke *gps, const int num_points, const eG
 		}
 		
 		default:
-			printf("ERROR: Unknown direction %d in %s()\n", direction, __func__);
+			printf("ERROR: Unknown transition %d in %s()\n", transition, __func__);
 			break;
 	}
 	
@@ -230,11 +230,11 @@ static void build_sequential(GpencilBuildModifierData *mmd, bGPDlayer *gpl, bGPD
 	size_t first_visible = 0;
 	size_t last_visible = 0;
 	
-	switch (mmd->direction) {
+	switch (mmd->transition) {
 		/* Show in forward order
 		 *  - As fac increases, the number of visible points increases
 		 */
-		case GP_BUILD_DIRECTION_GROW:
+		case GP_BUILD_TRANSITION_GROW:
 			first_visible = 0; /* always visible */
 			last_visible  = (size_t)roundf(totpoints * fac);
 			break;
@@ -242,7 +242,7 @@ static void build_sequential(GpencilBuildModifierData *mmd, bGPDlayer *gpl, bGPD
 		/* Hide in reverse order
 		 *  - As fac increases, the number of points visible at the end decreases
 		 */
-		case GP_BUILD_DIRECTION_SHRINK:
+		case GP_BUILD_TRANSITION_SHRINK:
 			first_visible = 0; /* always visible (until last point removed) */
 			last_visible  = (size_t)(totpoints * (1.0f - fac));
 			break;
@@ -250,7 +250,7 @@ static void build_sequential(GpencilBuildModifierData *mmd, bGPDlayer *gpl, bGPD
 		/* Hide in forward order
 		 *  - As fac increases, the early points start getting hidden 
 		 */
-		case GP_BUILD_DIRECTION_FADE:
+		case GP_BUILD_TRANSITION_FADE:
 			first_visible = (size_t)(totpoints * fac);
 			last_visible  = totpoints; /* i.e. visible until the end, unless first overlaps this */
 			break;
@@ -268,19 +268,19 @@ static void build_sequential(GpencilBuildModifierData *mmd, bGPDlayer *gpl, bGPD
 		}
 		else {
 			/* Some proportion of stroke is visible */
-			/* XXX: Will the direction settings still be valid now? */
+			/* XXX: Will the transition settings still be valid now? */
 			if ((first_visible <= cell->start_idx) && (last_visible >= cell->end_idx)) {
 				/* Do nothing - whole stroke is visible */
 			}
 			else if (first_visible > cell->start_idx) {
 				/* Starts partway through this stroke */
 				int num_points = cell->end_idx - first_visible; // XXX: Check for off-by-1
-				reduce_stroke_points(cell->gps, num_points, mmd->direction);
+				reduce_stroke_points(cell->gps, num_points, mmd->transition);
 			}
 			else {
 				/* Ends partway through this stroke */
 				int num_points = last_visible - cell->start_idx; // XXX: Check for off-by-1
-				reduce_stroke_points(cell->gps, num_points, mmd->direction);
+				reduce_stroke_points(cell->gps, num_points, mmd->transition);
 			}
 		}
 	}
@@ -299,7 +299,7 @@ static void build_concurrent(GpencilBuildModifierData *mmd, bGPDlayer *gpl, bGPD
 	bGPDstroke *gps, *gps_next;
 	int max_points = 0;
 	
-	const bool reverse = (mmd->direction != GP_BUILD_DIRECTION_GROW);
+	const bool reverse = (mmd->transition != GP_BUILD_TRANSITION_GROW);
 	
 	/* 1) Determine the longest stroke, to figure out when short strokes should start */
 	/* FIXME: A *really* long stroke here could dwarf everything else, causing bad timings */
@@ -388,7 +388,7 @@ static void build_concurrent(GpencilBuildModifierData *mmd, bGPDlayer *gpl, bGPD
 		}
 		else if (num_points < gps->totpoints) {
 			/* Remove some points */
-			reduce_stroke_points(gps, num_points, mmd->direction);
+			reduce_stroke_points(gps, num_points, mmd->transition);
 		}
 	}
 }
@@ -401,7 +401,7 @@ static void generateStrokes(ModifierData *md, const EvaluationContext *eval_ctx,
 	                        int modifier_index)
 {
 	GpencilBuildModifierData *mmd = (GpencilBuildModifierData *)md;
-	const bool reverse = (mmd->direction != GP_BUILD_DIRECTION_GROW);
+	const bool reverse = (mmd->transition != GP_BUILD_TRANSITION_GROW);
 	
 	const float ctime = eval_ctx->ctime;
 	printf("Build Modifier - %f\n", ctime);

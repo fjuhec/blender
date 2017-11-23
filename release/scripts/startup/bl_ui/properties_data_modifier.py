@@ -1788,19 +1788,17 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         split = layout.split()
 
         col = split.column()
-        col.label("Transition:")
-        col.prop(md, "direction")
+        col.prop(md, "mode")
+        if md.mode == 'CONCURRENT':
+            col.prop(md, "concurrent_time_alignment")
         col.separator()
+
+        col.prop(md, "transition")
         sub = col.column(align=True)
         sub.prop(md, "start_delay")
         sub.prop(md, "length")
 
-        col = split.column()     
-        col.prop(md, "mode")
-        if md.mode == 'CONCURRENT':
-            col.prop(md, "concurrent_time_alignment")
-
-        col = layout.column()
+        col = split.column(align=True)
         col.prop(md, "use_restrict_frame_range")
         sub = col.column(align=True)
         sub.active = md.use_restrict_frame_range

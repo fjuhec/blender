@@ -1783,7 +1783,7 @@ typedef struct GpencilBuildModifierData {
 	short flag;           /* (eGpencilBuild_Flag) Options for controlling modifier behaviour */
 	
 	short mode;           /* (eGpencilBuild_Mode) How are strokes ordered */
-	short direction;      /* (eGpencilBuild_Direction) In what order do stroke points appear/disappear */
+	short transition;     /* (eGpencilBuild_Transition) In what order do stroke points appear/disappear */
 	
 	short time_alignment; /* (eGpencilBuild_TimeAlignment) For the "Concurrent" mode, when should "shorter" strips start/end */
 } GpencilBuildModifierData;
@@ -1795,14 +1795,14 @@ typedef enum eGpencilBuild_Mode {
 	GP_BUILD_MODE_CONCURRENT = 1,
 } eGpencilBuild_Mode;
 
-typedef enum eGpencilBuild_Direction {
+typedef enum eGpencilBuild_Transition {
 	/* Show in forward order */
-	GP_BUILD_DIRECTION_GROW    = 0,
+	GP_BUILD_TRANSITION_GROW    = 0,
 	/* Hide in reverse order */
-	GP_BUILD_DIRECTION_SHRINK  = 1,
+	GP_BUILD_TRANSITION_SHRINK  = 1,
 	/* Hide in forward order */
-	GP_BUILD_DIRECTION_FADE    = 2,
-} eGpencilBuild_Direction;
+	GP_BUILD_TRANSITION_FADE    = 2,
+} eGpencilBuild_Transition;
 
 typedef enum eGpencilBuild_TimeAlignment {
 	/* All strokes start at same time */
