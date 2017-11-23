@@ -274,12 +274,12 @@ static void build_sequential(GpencilBuildModifierData *mmd, bGPDlayer *gpl, bGPD
 			}
 			else if (first_visible > cell->start_idx) {
 				/* Starts partway through this stroke */
-				int num_points = cell->end_idx - first_visible; // XXX: Check for off-by-1
+				int num_points = cell->end_idx - first_visible;
 				reduce_stroke_points(cell->gps, num_points, mmd->transition);
 			}
 			else {
 				/* Ends partway through this stroke */
-				int num_points = last_visible - cell->start_idx; // XXX: Check for off-by-1
+				int num_points = last_visible - cell->start_idx;
 				reduce_stroke_points(cell->gps, num_points, mmd->transition);
 			}
 		}
@@ -408,11 +408,10 @@ static void generateStrokes(ModifierData *md, const EvaluationContext *eval_ctx,
 	const bool reverse = (mmd->transition != GP_BUILD_TRANSITION_GROW);
 	
 	const float ctime = eval_ctx->ctime;
-	printf("Build Modifier - %f\n", ctime);
+	//printf("GP Build Modifier - %f\n", ctime);
 	
 	/* Early exit if it's an empty frame */
 	if (gpf->strokes.first == NULL) {
-		printf("  No strokes\n"); // XXX: debug
 		return;
 	}
 	
@@ -423,7 +422,6 @@ static void generateStrokes(ModifierData *md, const EvaluationContext *eval_ctx,
 	 */
 	if (mmd->flag & GP_BUILD_RESTRICT_TIME) {
 		if ((ctime < mmd->start_frame) || (ctime > mmd->end_frame)) {
-			printf("  Outside of frame range\n");
 			return;
 		}
 	}
@@ -480,7 +478,7 @@ static void generateStrokes(ModifierData *md, const EvaluationContext *eval_ctx,
 	
 	/* Determine how far along we are between the keyframes */
 	float fac = (ctime - start_frame) / (end_frame - start_frame);
-	printf("  Progress on %d = %f (%f - %f)\n", gpf->framenum, fac, start_frame, end_frame);
+	//printf("  Progress on %d = %f (%f - %f)\n", gpf->framenum, fac, start_frame, end_frame);
 	
 	/* Time management mode */
 	switch (mmd->mode) {
