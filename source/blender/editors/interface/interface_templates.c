@@ -1442,21 +1442,24 @@ void uiTemplateOperatorRedoProperties(uiLayout *layout, bContext *C)
 	wmOperator *op = WM_operator_last_redo(C);
 	uiBlock *block = uiLayoutGetBlock(layout);
 
-	if (op) {
-		/* Repeat button with operator name as text. */
-		uiItemFullO(layout, "SCREEN_OT_repeat_last", RNA_struct_ui_name(op->type->srna),
-		            ICON_NONE, NULL, WM_OP_INVOKE_DEFAULT, 0, NULL);
+	if (op == NULL) {
+		return;
+	}
 
-		if (WM_operator_repeat_check(C, op)) {
-			bool has_advanced = false;
+	/* Repeat button with operator name as text. */
+	uiItemFullO(layout, "SCREEN_OT_repeat_last", RNA_struct_ui_name(op->type->srna),
+	            ICON_NONE, NULL, WM_OP_INVOKE_DEFAULT, 0, NULL);
 
-			template_operator_redo_property_buts_draw(C, op, layout, UI_TEMPLATE_OP_PROPS_COMPACT, &has_advanced);
-			if (has_advanced) {
-				uiItemO(layout, IFACE_("More..."), ICON_NONE, "SCREEN_OT_redo_last");
-			}
+	if (WM_operator_repeat_check(C, op)) {
+		bool has_advanced = false;
+
+		UI_block_func_set(block, ED_undo_operator_repeat_cb, op, NULL);
+		template_operator_redo_property_buts_draw(C, op, layout, UI_TEMPLATE_OP_PROPS_COMPACT, &has_advanced);
+		UI_block_func_set(block, NULL, NULL, NULL); /* may want to reset to old state instead of NULLing all */
+
+		if (has_advanced) {
+			uiItemO(layout, IFACE_("More..."), ICON_NONE, "SCREEN_OT_redo_last");
 		}
-
-		UI_block_func_handle_set(block, ED_undo_operator_repeat_cb_evt, op);
 	}
 }
 
