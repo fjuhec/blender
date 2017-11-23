@@ -74,6 +74,8 @@
 
 /* -------------------------- Selection ------------------------------------- */
 
+BLI_STATIC_ASSERT(sizeof(uint) == sizeof(double), "Size of uint is not size of double, chocking!");
+
 /* Set the given animation-channel as the active one for the active context */
 // TODO: extend for animdata types...
 void ANIM_set_active_channel(bAnimContext *ac, void *data, eAnimCont_Types datatype, eAnimFilter_Flags filter, void *channel_data, eAnim_ChannelType channel_type)
@@ -81,6 +83,8 @@ void ANIM_set_active_channel(bAnimContext *ac, void *data, eAnimCont_Types datat
 	ListBase anim_data = {NULL, NULL};
 	bAnimListElem *ale;
 	
+	BLI_STATIC_ASSERT(sizeof(char) == sizeof(double), "Size of char is not size of double, chocking!");
+
 	/* try to build list of filtered items */
 	ANIM_animdata_filter(ac, &anim_data, filter, data, datatype);
 	if (BLI_listbase_is_empty(&anim_data))
@@ -91,13 +95,16 @@ void ANIM_set_active_channel(bAnimContext *ac, void *data, eAnimCont_Types datat
 		/* skip if types don't match */
 		if (channel_type != ale->type)
 			continue;
-		
+
+		BLI_STATIC_ASSERT(sizeof(*ac) == sizeof(double), "Size of bAnimContext is not size of double, chocking!");
+
 		/* flag to set depends on type */
 		switch (ale->type) {
 			case ANIMTYPE_GROUP:
 			{
 				bActionGroup *agrp = (bActionGroup *)ale->data;
-				
+				BLI_STATIC_ASSERT(sizeof(*agrp) == sizeof(double), "Size of bActionGroup is not size of double, chocking!");
+
 				ACHANNEL_SET_FLAG(agrp, ACHANNEL_SETFLAG_CLEAR, AGRP_ACTIVE);
 				break;
 			}
