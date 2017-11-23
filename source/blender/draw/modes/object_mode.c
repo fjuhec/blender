@@ -1096,12 +1096,12 @@ static void OBJECT_cache_init(void *vedata)
 	}
 }
 
-static void DRW_shgroup_mball_helpers(OBJECT_StorageList *stl, Object *ob, SceneLayer *scene_layer)
+static void DRW_shgroup_mball_helpers(OBJECT_StorageList *stl, Object *ob, ViewLayer *view_layer)
 {
 	MetaBall *mb = ob->data;
 
 	float *color;
-	DRW_object_wire_theme_get(ob, scene_layer, &color);
+	DRW_object_wire_theme_get(ob, view_layer, &color);
 
 	for (MetaElem *ml = mb->elems.first; ml != NULL; ml = ml->next) {
 		/* draw radius */
@@ -1110,11 +1110,11 @@ static void DRW_shgroup_mball_helpers(OBJECT_StorageList *stl, Object *ob, Scene
 	}
 }
 
-static void DRW_shgroup_lamp(OBJECT_StorageList *stl, Object *ob, SceneLayer *scene_layer)
+static void DRW_shgroup_lamp(OBJECT_StorageList *stl, Object *ob, ViewLayer *view_layer)
 {
 	Lamp *la = ob->data;
 	float *color;
-	int theme_id = DRW_object_wire_theme_get(ob, scene_layer, &color);
+	int theme_id = DRW_object_wire_theme_get(ob, view_layer, &color);
 	static float zero = 0.0f;
 
 	float **la_mats = (float **)DRW_object_engine_data_get(ob, &draw_engine_object_type, NULL);
@@ -1215,7 +1215,7 @@ static void DRW_shgroup_lamp(OBJECT_StorageList *stl, Object *ob, SceneLayer *sc
 	DRW_shgroup_call_dynamic_add(stl->g_data->lamp_groundpoint, ob->obmat[3]);
 }
 
-static void DRW_shgroup_camera(OBJECT_StorageList *stl, Object *ob, SceneLayer *scene_layer)
+static void DRW_shgroup_camera(OBJECT_StorageList *stl, Object *ob, ViewLayer *view_layer)
 {
 	const DRWContextState *draw_ctx = DRW_context_state_get();
 	View3D *v3d = draw_ctx->v3d;
@@ -1224,7 +1224,7 @@ static void DRW_shgroup_camera(OBJECT_StorageList *stl, Object *ob, SceneLayer *
 	Camera *cam = ob->data;
 	const bool is_active = (ob == v3d->camera);
 	float *color;
-	DRW_object_wire_theme_get(ob, scene_layer, &color);
+	DRW_object_wire_theme_get(ob, view_layer, &color);
 
 	float vec[4][3], asp[2], shift[2], scale[3], drawsize;
 
@@ -1301,10 +1301,10 @@ static void DRW_shgroup_camera(OBJECT_StorageList *stl, Object *ob, SceneLayer *
 	}
 }
 
-static void DRW_shgroup_empty(OBJECT_StorageList *stl, OBJECT_PassList *psl, Object *ob, SceneLayer *scene_layer)
+static void DRW_shgroup_empty(OBJECT_StorageList *stl, OBJECT_PassList *psl, Object *ob, ViewLayer *view_layer)
 {
 	float *color;
-	DRW_object_wire_theme_get(ob, scene_layer, &color);
+	DRW_object_wire_theme_get(ob, view_layer, &color);
 
 	switch (ob->empty_drawtype) {
 		case OB_PLAINAXES:
@@ -1336,9 +1336,9 @@ static void DRW_shgroup_empty(OBJECT_StorageList *stl, OBJECT_PassList *psl, Obj
 	}
 }
 
-static void DRW_shgroup_forcefield(OBJECT_StorageList *stl, Object *ob, SceneLayer *scene_layer)
+static void DRW_shgroup_forcefield(OBJECT_StorageList *stl, Object *ob, ViewLayer *view_layer)
 {
-	int theme_id = DRW_object_wire_theme_get(ob, scene_layer, NULL);
+	int theme_id = DRW_object_wire_theme_get(ob, view_layer, NULL);
 	float *color = DRW_color_background_blend_get(theme_id);
 	PartDeflect *pd = ob->pd;
 	Curve *cu = (ob->type == OB_CURVE) ? ob->data : NULL;
@@ -1435,19 +1435,19 @@ static void DRW_shgroup_forcefield(OBJECT_StorageList *stl, Object *ob, SceneLay
 	}
 }
 
-static void DRW_shgroup_gpencil(OBJECT_StorageList *stl, Object *ob, SceneLayer *scene_layer)
+static void DRW_shgroup_gpencil(OBJECT_StorageList *stl, Object *ob, ViewLayer *view_layer)
 {
 	float *color;
-	DRW_object_wire_theme_get(ob, scene_layer, &color);
+	DRW_object_wire_theme_get(ob, view_layer, &color);
 
 	DRW_shgroup_call_dynamic_add(stl->g_data->gpencil_axes, color, &ob->empty_drawsize, ob->obmat);
 }
 
-static void DRW_shgroup_speaker(OBJECT_StorageList *stl, Object *ob, SceneLayer *scene_layer)
+static void DRW_shgroup_speaker(OBJECT_StorageList *stl, Object *ob, ViewLayer *view_layer)
 {
 	float *color;
 	static float one = 1.0f;
-	DRW_object_wire_theme_get(ob, scene_layer, &color);
+	DRW_object_wire_theme_get(ob, view_layer, &color);
 
 	DRW_shgroup_call_dynamic_add(stl->g_data->speaker, color, &one, ob->obmat);
 }
@@ -1462,13 +1462,13 @@ typedef struct OBJECT_LightProbeEngineData {
 	float corner[3];
 } OBJECT_LightProbeEngineData;
 
-static void DRW_shgroup_lightprobe(OBJECT_StorageList *stl, OBJECT_PassList *psl, Object *ob, SceneLayer *scene_layer)
+static void DRW_shgroup_lightprobe(OBJECT_StorageList *stl, OBJECT_PassList *psl, Object *ob, ViewLayer *view_layer)
 {
 	float *color;
 	static float one = 1.0f;
 	LightProbe *prb = (LightProbe *)ob->data;
 	bool do_outlines = ((ob->base_flag & BASE_SELECTED) != 0);
-	DRW_object_wire_theme_get(ob, scene_layer, &color);
+	DRW_object_wire_theme_get(ob, view_layer, &color);
 
 	OBJECT_LightProbeEngineData *prb_data;
 	OBJECT_LightProbeEngineData **prb_data_pt = (OBJECT_LightProbeEngineData **)DRW_object_engine_data_get(ob, &draw_engine_object_type, NULL);
@@ -1669,12 +1669,12 @@ static void DRW_shgroup_relationship_lines(OBJECT_StorageList *stl, Object *ob)
 	}
 }
 
-static void DRW_shgroup_object_center(OBJECT_StorageList *stl, Object *ob, SceneLayer *scene_layer, View3D *v3d)
+static void DRW_shgroup_object_center(OBJECT_StorageList *stl, Object *ob, ViewLayer *view_layer, View3D *v3d)
 {
 	const bool is_library = ob->id.us > 1 || ID_IS_LINKED(ob);
 	DRWShadingGroup *shgroup;
 
-	if (ob == OBACT(scene_layer)) {
+	if (ob == OBACT(view_layer)) {
 		shgroup = stl->g_data->center_active;
 	}
 	else if (ob->base_flag & BASE_SELECTED) {
@@ -1774,7 +1774,7 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 	OBJECT_StorageList *stl = ((OBJECT_Data *)vedata)->stl;
 	const DRWContextState *draw_ctx = DRW_context_state_get();
 	Scene *scene = draw_ctx->scene;
-	SceneLayer *scene_layer = draw_ctx->scene_layer;
+	ViewLayer *view_layer = draw_ctx->view_layer;
 	View3D *v3d = draw_ctx->v3d;
 	int theme_id = TH_UNDEFINED;
 
@@ -1792,7 +1792,7 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 		if (ob != obedit && !((ob == draw_ctx->obact) && (ob->mode & OB_MODE_ALL_PAINT))) {
 			struct Gwn_Batch *geom = DRW_cache_object_surface_get(ob);
 			if (geom) {
-				theme_id = DRW_object_wire_theme_get(ob, scene_layer, NULL);
+				theme_id = DRW_object_wire_theme_get(ob, view_layer, NULL);
 				DRWShadingGroup *shgroup = shgroup_theme_id_to_outline_or(stl, theme_id, NULL);
 				if (shgroup != NULL) {
 					DRW_shgroup_call_add(shgroup, geom, ob->obmat);
@@ -1811,7 +1811,7 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 					struct Gwn_Batch *geom = DRW_cache_mesh_edges_get(ob);
 					if (geom) {
 						if (theme_id == TH_UNDEFINED) {
-							theme_id = DRW_object_wire_theme_get(ob, scene_layer, NULL);
+							theme_id = DRW_object_wire_theme_get(ob, view_layer, NULL);
 						}
 
 						DRWShadingGroup *shgroup = shgroup_theme_id_to_wire_or(stl, theme_id, stl->g_data->wire);
@@ -1831,7 +1831,7 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 			if (ob != obedit) {
 				struct Gwn_Batch *geom = DRW_cache_lattice_wire_get(ob, false);
 				if (theme_id == TH_UNDEFINED) {
-					theme_id = DRW_object_wire_theme_get(ob, scene_layer, NULL);
+					theme_id = DRW_object_wire_theme_get(ob, view_layer, NULL);
 				}
 
 				DRWShadingGroup *shgroup = shgroup_theme_id_to_wire_or(stl, theme_id, stl->g_data->wire);
@@ -1846,7 +1846,7 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 			if (ob != obedit) {
 				struct Gwn_Batch *geom = DRW_cache_curve_edge_wire_get(ob);
 				if (theme_id == TH_UNDEFINED) {
-					theme_id = DRW_object_wire_theme_get(ob, scene_layer, NULL);
+					theme_id = DRW_object_wire_theme_get(ob, view_layer, NULL);
 				}
 				DRWShadingGroup *shgroup = shgroup_theme_id_to_wire_or(stl, theme_id, stl->g_data->wire);
 				DRW_shgroup_call_add(shgroup, geom, ob->obmat);
@@ -1857,27 +1857,27 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 		{
 			Object *obedit = scene->obedit;
 			if (ob != obedit) {
-				DRW_shgroup_mball_helpers(stl, ob, scene_layer);
+				DRW_shgroup_mball_helpers(stl, ob, view_layer);
 			}
 			break;
 		}
 		case OB_LAMP:
-			DRW_shgroup_lamp(stl, ob, scene_layer);
+			DRW_shgroup_lamp(stl, ob, view_layer);
 			break;
 		case OB_CAMERA:
-			DRW_shgroup_camera(stl, ob, scene_layer);
+			DRW_shgroup_camera(stl, ob, view_layer);
 			break;
 		case OB_EMPTY:
-			DRW_shgroup_empty(stl, psl, ob, scene_layer);
+			DRW_shgroup_empty(stl, psl, ob, view_layer);
 			break;
 		case OB_GPENCIL:
-			DRW_shgroup_gpencil(stl, ob, scene_layer);
+			DRW_shgroup_gpencil(stl, ob, view_layer);
 			break;
 		case OB_SPEAKER:
-			DRW_shgroup_speaker(stl, ob, scene_layer);
+			DRW_shgroup_speaker(stl, ob, view_layer);
 			break;
 		case OB_LIGHTPROBE:
-			DRW_shgroup_lightprobe(stl, psl, ob, scene_layer);
+			DRW_shgroup_lightprobe(stl, psl, ob, view_layer);
 			break;
 		case OB_ARMATURE:
 		{
@@ -1885,7 +1885,7 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 			if (arm->edbo == NULL) {
 				if (DRW_state_is_select() || !DRW_pose_mode_armature(ob, draw_ctx->obact)) {
 					DRW_shgroup_armature_object(
-					        ob, scene_layer, psl->bone_solid, psl->bone_wire, psl->bone_envelope,
+					        ob, view_layer, psl->bone_solid, psl->bone_wire, psl->bone_envelope,
 					        stl->g_data->relationship_lines);
 				}
 			}
@@ -1896,20 +1896,20 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 	}
 
 	if (ob->pd && ob->pd->forcefield) {
-		DRW_shgroup_forcefield(stl, ob, scene_layer);
+		DRW_shgroup_forcefield(stl, ob, view_layer);
 	}
 
 	/* don't show object extras in set's */
 	if ((ob->base_flag & (BASE_FROM_SET | BASE_FROMDUPLI)) == 0) {
 
-		DRW_shgroup_object_center(stl, ob, scene_layer, v3d);
+		DRW_shgroup_object_center(stl, ob, view_layer, v3d);
 
 		DRW_shgroup_relationship_lines(stl, ob);
 
 		if ((ob->dtx & OB_DRAWNAME) && DRW_state_show_text()) {
 			struct DRWTextStore *dt = DRW_text_cache_ensure();
 			if (theme_id == TH_UNDEFINED) {
-				theme_id = DRW_object_wire_theme_get(ob, scene_layer, NULL);
+				theme_id = DRW_object_wire_theme_get(ob, view_layer, NULL);
 			}
 
 			unsigned char color[4];

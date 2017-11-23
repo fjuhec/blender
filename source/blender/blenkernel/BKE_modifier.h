@@ -40,7 +40,7 @@ struct EvaluationContext;
 struct bContext;
 struct Object;
 struct Scene;
-struct SceneLayer;
+struct ViewLayer;
 struct ListBase;
 struct bArmature;
 struct Main;

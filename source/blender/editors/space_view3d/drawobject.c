@@ -315,7 +315,7 @@ static bool check_ob_drawface_dot(Scene *sce, View3D *vd, char dt)
 
 /* check for glsl drawing */
 
-bool draw_glsl_material(Scene *scene, SceneLayer *sl, Object *ob, View3D *v3d, const char dt)
+bool draw_glsl_material(Scene *scene, ViewLayer *sl, Object *ob, View3D *v3d, const char dt)
 {
 	if (G.f & G_PICKSEL)
 		return false;
@@ -3895,7 +3895,7 @@ static DMDrawOption draw_em_fancy__setGLSLFaceOpts(void *userData, int index)
 	}
 }
 
-static void draw_em_fancy(Scene *scene, SceneLayer *sl, ARegion *ar, View3D *v3d,
+static void draw_em_fancy(Scene *scene, ViewLayer *sl, ARegion *ar, View3D *v3d,
                           Object *ob, BMEditMesh *em, DerivedMesh *cageDM, DerivedMesh *finalDM, const char dt)
 
 {
@@ -4301,7 +4301,7 @@ static bool object_is_halo(Scene *scene, Object *ob)
 }
 
 static void draw_mesh_fancy(
-        const EvaluationContext *eval_ctx, Scene *scene, SceneLayer *sl, ARegion *ar, View3D *v3d, RegionView3D *rv3d, Base *base,
+        const EvaluationContext *eval_ctx, Scene *scene, ViewLayer *sl, ARegion *ar, View3D *v3d, RegionView3D *rv3d, Base *base,
         const char dt, const unsigned char ob_wire_col[4], const short dflag)
 {
 #ifdef WITH_GAMEENGINE
@@ -4566,7 +4566,7 @@ static void draw_mesh_fancy(
 
 /* returns true if nothing was drawn, for detecting to draw an object center */
 static bool draw_mesh_object(
-        const EvaluationContext *eval_ctx, Scene *scene, SceneLayer *sl, ARegion *ar, View3D *v3d, RegionView3D *rv3d, Base *base,
+        const EvaluationContext *eval_ctx, Scene *scene, ViewLayer *sl, ARegion *ar, View3D *v3d, RegionView3D *rv3d, Base *base,
         const char dt, const unsigned char ob_wire_col[4], const short dflag)
 {
 	Object *ob = base->object;
@@ -4710,7 +4710,7 @@ static void make_color_variations(const unsigned char base_ubyte[4], float low[4
 	high[3] = base[3];
 }
 
-static void draw_mesh_fancy_new(EvaluationContext *eval_ctx, Scene *scene, SceneLayer *sl, ARegion *ar, View3D *v3d, RegionView3D *rv3d, Base *base,
+static void draw_mesh_fancy_new(EvaluationContext *eval_ctx, Scene *scene, ViewLayer *sl, ARegion *ar, View3D *v3d, RegionView3D *rv3d, Base *base,
                                 const char dt, const unsigned char ob_wire_col[4], const short dflag, const bool other_obedit)
 {
 	if (dflag & (DRAW_PICKING | DRAW_CONSTCOLOR)) {
@@ -5028,7 +5028,7 @@ static void draw_mesh_fancy_new(EvaluationContext *eval_ctx, Scene *scene, Scene
 	dm->release(dm);
 }
 
-static bool UNUSED_FUNCTION(draw_mesh_object_new)(const bContext *C, Scene *scene, SceneLayer *sl, ARegion *ar, View3D *v3d, RegionView3D *rv3d, Base *base,
+static bool UNUSED_FUNCTION(draw_mesh_object_new)(const bContext *C, Scene *scene, ViewLayer *sl, ARegion *ar, View3D *v3d, RegionView3D *rv3d, Base *base,
                                  const char dt, const unsigned char ob_wire_col[4], const short dflag)
 {
 	EvaluationContext eval_ctx;
@@ -5428,7 +5428,7 @@ static void drawCurveDMWired(Object *ob)
 }
 
 /* return true when nothing was drawn */
-static bool drawCurveDerivedMesh(Scene *scene, SceneLayer *sl, View3D *v3d, RegionView3D *rv3d, Base *base, const char dt)
+static bool drawCurveDerivedMesh(Scene *scene, ViewLayer *sl, View3D *v3d, RegionView3D *rv3d, Base *base, const char dt)
 {
 	Object *ob = base->object;
 	DerivedMesh *dm = ob->derivedFinal;
@@ -5464,7 +5464,7 @@ static bool drawCurveDerivedMesh(Scene *scene, SceneLayer *sl, View3D *v3d, Regi
  * Only called by #drawDispList
  * \return true when nothing was drawn
  */
-static bool drawDispList_nobackface(Scene *scene, SceneLayer *sl, View3D *v3d, RegionView3D *rv3d, Base *base,
+static bool drawDispList_nobackface(Scene *scene, ViewLayer *sl, View3D *v3d, RegionView3D *rv3d, Base *base,
                                     const char dt, const short dflag, const unsigned char ob_wire_col[4])
 {
 	Object *ob = base->object;
@@ -5586,7 +5586,7 @@ static bool drawDispList_nobackface(Scene *scene, SceneLayer *sl, View3D *v3d, R
 	return false;
 }
 static bool drawDispList(
-        const EvaluationContext *eval_ctx, Scene *scene, SceneLayer *sl, View3D *v3d, RegionView3D *rv3d, Base *base,
+        const EvaluationContext *eval_ctx, Scene *scene, ViewLayer *sl, View3D *v3d, RegionView3D *rv3d, Base *base,
         const char dt, const short dflag, const unsigned char ob_wire_col[4])
 {
 	bool retval;
@@ -5942,7 +5942,7 @@ static void draw_new_particle_system(
 	if (pars == NULL) return;
 
 	/* don't draw normal paths in edit mode */
-	if (psys_in_edit_mode(eval_ctx->scene_layer, psys) && (pset->flag & PE_DRAW_PART) == 0)
+	if (psys_in_edit_mode(eval_ctx->view_layer, psys) && (pset->flag & PE_DRAW_PART) == 0)
 		return;
 
 	if (part->draw_as == PART_DRAW_REND)
@@ -6596,7 +6596,7 @@ static void draw_new_particle_system(
 }
 
 static void draw_update_ptcache_edit(
-        const EvaluationContext *eval_ctx, Scene *scene, SceneLayer *sl, Object *ob, PTCacheEdit *edit)
+        const EvaluationContext *eval_ctx, Scene *scene, ViewLayer *sl, Object *ob, PTCacheEdit *edit)
 {
 	if (edit->psys && edit->psys->flag & PSYS_HAIR_UPDATED)
 		PE_update_object(eval_ctx, scene, sl, ob, 0);
@@ -7338,7 +7338,7 @@ static void draw_editnurb_splines(Object *ob, Nurb *nurb, const bool sel)
 }
 
 static void draw_editnurb(
-        const EvaluationContext *eval_ctx, Scene *scene, SceneLayer *sl,
+        const EvaluationContext *eval_ctx, Scene *scene, ViewLayer *sl,
         View3D *v3d, RegionView3D *rv3d, Base *base, Nurb *nurb,
         const char dt, const short dflag, const unsigned char UNUSED(ob_wire_col[4]))
 {
@@ -7479,7 +7479,7 @@ static void draw_editfont_textcurs(RegionView3D *rv3d, float textcurs[4][2])
 }
 
 static void draw_editfont(
-        const EvaluationContext *eval_ctx, Scene *scene, SceneLayer *sl, View3D *v3d, RegionView3D *rv3d, Base *base,
+        const EvaluationContext *eval_ctx, Scene *scene, ViewLayer *sl, View3D *v3d, RegionView3D *rv3d, Base *base,
         const char dt, const short dflag, const unsigned char ob_wire_col[4])
 {
 	Object *ob = base->object;
@@ -7799,7 +7799,7 @@ static void imm_drawcone(const float vec[3], float radius, float height, float t
 
 /* return true if nothing was drawn */
 static bool drawmball(
-        const EvaluationContext *eval_ctx, Scene *scene, SceneLayer *sl, View3D *v3d, RegionView3D *rv3d, Base *base,
+        const EvaluationContext *eval_ctx, Scene *scene, ViewLayer *sl, View3D *v3d, RegionView3D *rv3d, Base *base,
         const char dt, const short dflag, const unsigned char ob_wire_col[4])
 {
 	Object *ob = base->object;
@@ -8270,7 +8270,7 @@ static void drawtexspace(Object *ob, const unsigned char ob_wire_col[3])
 
 /* draws wire outline */
 static void draw_object_selected_outline(
-        const EvaluationContext *eval_ctx, Scene *scene, SceneLayer *sl, View3D *v3d, ARegion *ar, Base *base,
+        const EvaluationContext *eval_ctx, Scene *scene, ViewLayer *sl, View3D *v3d, ARegion *ar, Base *base,
         const unsigned char ob_wire_col[4])
 {
 	RegionView3D *rv3d = ar->regiondata;
@@ -8427,7 +8427,7 @@ static void draw_rigid_body_pivot(bRigidBodyJointConstraint *data,
 	immUnbindProgram();
 }
 
-void draw_object_wire_color(Scene *scene, SceneLayer *sl, Base *base, unsigned char r_ob_wire_col[4])
+void draw_object_wire_color(Scene *scene, ViewLayer *sl, Base *base, unsigned char r_ob_wire_col[4])
 {
 	Object *ob = base->object;
 	int colindex = 0;
@@ -8573,7 +8573,7 @@ void draw_rigidbody_shape(Object *ob, const unsigned char ob_wire_col[4])
  * \param dflag (draw flag) can be DRAW_PICKING and/or DRAW_CONSTCOLOR, DRAW_SCENESET
  */
 void draw_object(
-        const EvaluationContext *eval_ctx, Scene *scene, SceneLayer *sl, ARegion *ar, View3D *v3d,
+        const EvaluationContext *eval_ctx, Scene *scene, ViewLayer *sl, ARegion *ar, View3D *v3d,
         Base *base, const short dflag)
 {
 	ModifierData *md = NULL;
@@ -9343,7 +9343,7 @@ afterdraw:
  * caller must have called 'GPU_select_load_id(base->selcode)' first.
  */
 void draw_object_select(
-        const EvaluationContext *eval_ctx, Scene *scene, SceneLayer *sl, ARegion *ar, View3D *v3d,
+        const EvaluationContext *eval_ctx, Scene *scene, ViewLayer *sl, ARegion *ar, View3D *v3d,
         Base *base, const short dflag)
 {
 	BLI_assert(dflag & DRAW_PICKING && dflag & DRAW_CONSTCOLOR);
@@ -9828,7 +9828,7 @@ void draw_object_backbufsel(
 
 /* helper function for drawing object instances - meshes */
 static void draw_object_mesh_instance(
-        const EvaluationContext *eval_ctx, Scene *scene, SceneLayer *sl, View3D *v3d, RegionView3D *rv3d,
+        const EvaluationContext *eval_ctx, Scene *scene, ViewLayer *sl, View3D *v3d, RegionView3D *rv3d,
         Object *ob, const short dt, int outline, const unsigned char ob_wire_col[4])
 {
 	Mesh *me = ob->data;
@@ -9875,7 +9875,7 @@ static void draw_object_mesh_instance(
 	if (dm) dm->release(dm);
 }
 
-void draw_object_instance(const EvaluationContext *eval_ctx, Scene *scene, SceneLayer *sl, View3D *v3d, RegionView3D *rv3d, Object *ob, const char dt, int outline, const float wire_col[4])
+void draw_object_instance(const EvaluationContext *eval_ctx, Scene *scene, ViewLayer *sl, View3D *v3d, RegionView3D *rv3d, Object *ob, const char dt, int outline, const float wire_col[4])
 {
 	if (ob == NULL)
 		return;

@@ -1577,17 +1577,17 @@ static bool gp_session_initdata(bContext *C, tGPsdata *p)
 					obact = p->scene->gp_object;
 					
 					/* temporarily activate the object */
-					SceneLayer *sl = CTX_data_scene_layer(C);
-					Base *base = BKE_scene_layer_base_find(sl, obact);
+					ViewLayer *view_layer = CTX_data_view_layer(C);
+					Base *base = BKE_view_layer_base_find(view_layer, obact);
 					if (base) {
 						if (CTX_data_edit_object(C)) 
 							ED_object_editmode_exit(C, EM_FREEDATA | EM_FREEUNDO | EM_WAITCURSOR | EM_DO_UNDO);  /* freedata, and undo */
 						
-						sl->basact = base;
+						view_layer->basact = base;
 						ED_object_base_activate(C, base);
 					}
 					else {
-						printf("ERROR: Couldn't find base for active gp_object (sl = %p, obact = %s)\n", sl, obact->id.name);
+						printf("ERROR: Couldn't find base for active gp_object (view_layer = %p, obact = %s)\n", view_layer, obact->id.name);
 					}
 				}
 				else {

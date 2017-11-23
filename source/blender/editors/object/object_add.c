@@ -430,7 +430,7 @@ Object *ED_object_add_type(
 {
 	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
-	SceneLayer *sl = CTX_data_scene_layer(C);
+	ViewLayer *sl = CTX_data_view_layer(C);
 	Object *ob;
 
 	/* for as long scene has editmode... */
@@ -1502,7 +1502,7 @@ static void make_object_duplilist_real(bContext *C, Scene *scene, Base *base,
                                        const bool use_hierarchy)
 {
 	Main *bmain = CTX_data_main(C);
-	SceneLayer *sl = CTX_data_scene_layer(C);
+	ViewLayer *sl = CTX_data_view_layer(C);
 	ListBase *lb_duplis;
 	DupliObject *dob;
 	GHash *dupli_gh, *parent_gh = NULL;
@@ -1536,7 +1536,7 @@ static void make_object_duplilist_real(bContext *C, Scene *scene, Base *base,
 		}
 
 		BKE_collection_object_add_from(scene, base->object, ob_dst);
-		base_dst = BKE_scene_layer_base_find(sl, ob_dst);
+		base_dst = BKE_view_layer_base_find(sl, ob_dst);
 		BLI_assert(base_dst != NULL);
 
 		BKE_scene_object_base_flag_sync_from_base(base_dst);
@@ -1750,7 +1750,7 @@ static int convert_poll(bContext *C)
 }
 
 /* Helper for convert_exec */
-static Base *duplibase_for_convert(Main *bmain, Scene *scene, SceneLayer *sl, Base *base, Object *ob)
+static Base *duplibase_for_convert(Main *bmain, Scene *scene, ViewLayer *sl, Base *base, Object *ob)
 {
 	Object *obn;
 	Base *basen;
@@ -1763,7 +1763,7 @@ static Base *duplibase_for_convert(Main *bmain, Scene *scene, SceneLayer *sl, Ba
 	DEG_id_tag_update(&ob->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
 	BKE_collection_object_add_from(scene, ob, obn);
 
-	basen = BKE_scene_layer_base_find(sl, obn);
+	basen = BKE_view_layer_base_find(sl, obn);
 	ED_object_base_select(basen, BA_SELECT);
 	ED_object_base_select(basen, BA_DESELECT);
 	return basen;
@@ -1773,7 +1773,7 @@ static int convert_exec(bContext *C, wmOperator *op)
 {
 	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
-	SceneLayer *sl = CTX_data_scene_layer(C);
+	ViewLayer *view_layer = CTX_data_view_layer(C);
 	EvaluationContext eval_ctx;
 	Base *basen = NULL, *basact = NULL;
 	Object *ob1, *newob, *obact = CTX_data_active_object(C);
@@ -1838,10 +1838,10 @@ static int convert_exec(bContext *C, wmOperator *op)
 			DEG_id_tag_update(&base->object->id, OB_RECALC_DATA);
 		}
 
-		Depsgraph *depsgraph = BKE_scene_get_depsgraph(scene, sl, true);
+		Depsgraph *depsgraph = BKE_scene_get_depsgraph(scene, view_layer, true);
 		uint64_t customdata_mask_prev = scene->customdata_mask;
 		scene->customdata_mask |= CD_MASK_MESH;
-		BKE_scene_graph_update_tagged(bmain->eval_ctx, depsgraph, bmain, scene, sl);
+		BKE_scene_graph_update_tagged(bmain->eval_ctx, depsgraph, bmain, scene, view_layer);
 		scene->customdata_mask = customdata_mask_prev;
 	}
 
@@ -1868,7 +1868,7 @@ static int convert_exec(bContext *C, wmOperator *op)
 			ob->flag |= OB_DONE;
 
 			if (keep_original) {
-				basen = duplibase_for_convert(bmain, scene, sl, base, NULL);
+				basen = duplibase_for_convert(bmain, scene, view_layer, base, NULL);
 				newob = basen->object;
 
 				/* decrement original mesh's usage count  */
@@ -1893,7 +1893,7 @@ static int convert_exec(bContext *C, wmOperator *op)
 			ob->flag |= OB_DONE;
 
 			if (keep_original) {
-				basen = duplibase_for_convert(bmain, scene, sl, base, NULL);
+				basen = duplibase_for_convert(bmain, scene, view_layer, base, NULL);
 				newob = basen->object;
 
 				/* decrement original mesh's usage count  */
@@ -1924,7 +1924,7 @@ static int convert_exec(bContext *C, wmOperator *op)
 			ob->flag |= OB_DONE;
 
 			if (keep_original) {
-				basen = duplibase_for_convert(bmain, scene, sl, base, NULL);
+				basen = duplibase_for_convert(bmain, scene, view_layer, base, NULL);
 				newob = basen->object;
 
 				/* decrement original curve's usage count  */
@@ -1995,7 +1995,7 @@ static int convert_exec(bContext *C, wmOperator *op)
 
 			if (target == OB_MESH) {
 				if (keep_original) {
-					basen = duplibase_for_convert(bmain, scene, sl, base, NULL);
+					basen = duplibase_for_convert(bmain, scene, view_layer, base, NULL);
 					newob = basen->object;
 
 					/* decrement original curve's usage count  */
@@ -2030,7 +2030,7 @@ static int convert_exec(bContext *C, wmOperator *op)
 			if (!(baseob->flag & OB_DONE)) {
 				baseob->flag |= OB_DONE;
 
-				basen = duplibase_for_convert(bmain, scene, sl, base, baseob);
+				basen = duplibase_for_convert(bmain, scene, view_layer, base, baseob);
 				newob = basen->object;
 
 				mb = newob->data;
@@ -2107,11 +2107,11 @@ static int convert_exec(bContext *C, wmOperator *op)
 	if (basact) {
 		/* active base was changed */
 		ED_object_base_activate(C, basact);
-		BASACT(sl) = basact;
+		BASACT(view_layer) = basact;
 	}
-	else if (BASACT(sl)->object->flag & OB_DONE) {
-		WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, BASACT(sl)->object);
-		WM_event_add_notifier(C, NC_OBJECT | ND_DATA, BASACT(sl)->object);
+	else if (BASACT(view_layer)->object->flag & OB_DONE) {
+		WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, BASACT(view_layer)->object);
+		WM_event_add_notifier(C, NC_OBJECT | ND_DATA, BASACT(view_layer)->object);
 	}
 
 	DEG_relations_tag_update(bmain);
@@ -2153,7 +2153,7 @@ void OBJECT_OT_convert(wmOperatorType *ot)
 /* used below, assumes id.new is correct */
 /* leaves selection of base/object unaltered */
 /* Does set ID->newid pointers. */
-static Base *object_add_duplicate_internal(Main *bmain, Scene *scene, SceneLayer *sl, Object *ob, int dupflag)
+static Base *object_add_duplicate_internal(Main *bmain, Scene *scene, ViewLayer *sl, Object *ob, int dupflag)
 {
 #define ID_NEW_REMAP_US(a)	if (      (a)->id.newid) { (a) = (void *)(a)->id.newid;       (a)->id.us++; }
 #define ID_NEW_REMAP_US2(a)	if (((ID *)a)->newid)    { (a) = ((ID  *)a)->newid;     ((ID *)a)->us++;    }
@@ -2172,7 +2172,7 @@ static Base *object_add_duplicate_internal(Main *bmain, Scene *scene, SceneLayer
 		DEG_id_tag_update(&obn->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
 
 		BKE_collection_object_add_from(scene, ob, obn);
-		basen = BKE_scene_layer_base_find(sl, obn);
+		basen = BKE_view_layer_base_find(sl, obn);
 
 		/* 1) duplis should end up in same group as the original
 		 * 2) Rigid Body sim participants MUST always be part of a group...
@@ -2405,7 +2405,7 @@ static Base *object_add_duplicate_internal(Main *bmain, Scene *scene, SceneLayer
  * note: don't call this within a loop since clear_* funcs loop over the entire database.
  * note: caller must do DAG_relations_tag_update(bmain);
  *       this is not done automatic since we may duplicate many objects in a batch */
-Base *ED_object_add_duplicate(Main *bmain, Scene *scene, SceneLayer *sl, Base *base, int dupflag)
+Base *ED_object_add_duplicate(Main *bmain, Scene *scene, ViewLayer *sl, Base *base, int dupflag)
 {
 	Base *basen;
 	Object *ob;
@@ -2439,7 +2439,7 @@ static int duplicate_exec(bContext *C, wmOperator *op)
 {
 	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
-	SceneLayer *sl = CTX_data_scene_layer(C);
+	ViewLayer *sl = CTX_data_view_layer(C);
 	const bool linked = RNA_boolean_get(op->ptr, "linked");
 	int dupflag = (linked) ? 0 : U.dupflag;
 
@@ -2511,7 +2511,7 @@ static int add_named_exec(bContext *C, wmOperator *op)
 	const wmEvent *event = win ? win->eventstate : NULL;
 	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
-	SceneLayer *sl = CTX_data_scene_layer(C);
+	ViewLayer *sl = CTX_data_view_layer(C);
 	Base *basen;
 	Object *ob;
 	const bool linked = RNA_boolean_get(op->ptr, "linked");
