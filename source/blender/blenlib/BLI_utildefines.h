@@ -509,6 +509,16 @@ extern bool BLI_memory_is_zero(const void *arr, const size_t arr_size);
 #define SET_UINT_IN_POINTER(i)    ((void *)(uintptr_t)(i))
 #define GET_UINT_FROM_POINTER(i)  ((void)0, ((unsigned int)(uintptr_t)(i)))
 
+/* Set flag from a single test */
+#define SET_FLAG_FROM_TEST(value, test, flag) \
+{ \
+	if (test) { \
+		(value) |=  (flag); \
+	} \
+	else { \
+		(value) &= ~(flag); \
+	} \
+} ((void)0)
 
 /* Macro to convert a value to string in the preprocessor
  * STRINGIFY_ARG: gives the argument as a string
@@ -609,6 +619,9 @@ extern bool BLI_memory_is_zero(const void *arr, const size_t arr_size);
 /* BLI_assert(), default only to print
  * for aborting need to define WITH_ASSERT_ABORT
  */
+/* For 'abort' only. */
+#include <stdlib.h>
+
 #ifndef NDEBUG
 #  include "BLI_system.h"
 #  ifdef WITH_ASSERT_ABORT
@@ -650,6 +663,9 @@ extern bool BLI_memory_is_zero(const void *arr, const size_t arr_size);
    /* TODO msvc, clang */
 #  define BLI_STATIC_ASSERT(a, msg)
 #endif
+
+#define BLI_STATIC_ASSERT_ALIGN(st, align) \
+  BLI_STATIC_ASSERT((sizeof(st) % (align) == 0), "Structure must be strictly aligned")
 
 /* hints for branch prediction, only use in code that runs a _lot_ where */
 #ifdef __GNUC__

@@ -133,7 +133,7 @@ Object *ED_object_active_context(bContext *C)
 
 
 /* ********* clear/set restrict view *********/
-static int object_hide_view_clear_exec(bContext *C, wmOperator *UNUSED(op))
+static int object_hide_view_clear_exec(bContext *C, wmOperator *op)
 {
 	Main *bmain = CTX_data_main(C);
 	ScrArea *sa = CTX_wm_area(C);
@@ -141,12 +141,13 @@ static int object_hide_view_clear_exec(bContext *C, wmOperator *UNUSED(op))
 	Scene *scene = CTX_data_scene(C);
 	Base *base;
 	bool changed = false;
+	const bool select = RNA_boolean_get(op->ptr, "select");
 	
 	/* XXX need a context loop to handle such cases */
 	for (base = FIRSTBASE; base; base = base->next) {
 		if ((base->lay & v3d->lay) && base->object->restrictflag & OB_RESTRICT_VIEW) {
 			if (!(base->object->restrictflag & OB_RESTRICT_SELECT)) {
-				base->flag |= SELECT;
+				SET_FLAG_FROM_TEST(base->flag, select, SELECT);
 			}
 			base->object->flag = base->flag;
 			base->object->restrictflag &= ~OB_RESTRICT_VIEW; 
@@ -176,6 +177,8 @@ void OBJECT_OT_hide_view_clear(wmOperatorType *ot)
 	
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+	RNA_def_boolean(ot->srna, "select", true, "Select", "");
 }
 
 static int object_hide_view_set_exec(bContext *C, wmOperator *op)
@@ -471,7 +474,7 @@ void ED_object_editmode_enter(bContext *C, int flag)
 	View3D *v3d = NULL;
 	bool ok = false;
 
-	if (ID_IS_LINKED_DATABLOCK(scene)) return;
+	if (ID_IS_LINKED(scene)) return;
 
 	if (sa && sa->spacetype == SPACE_VIEW3D)
 		v3d = sa->spacedata.first;
@@ -540,7 +543,7 @@ void ED_object_editmode_enter(bContext *C, int flag)
 		 * BKE_object_obdata_is_libdata that prevent the bugfix #6614, so
 		 * i add this little hack here.
 		 */
-		if (ID_IS_LINKED_DATABLOCK(arm)) {
+		if (ID_IS_LINKED(arm)) {
 			error_libdata();
 			return;
 		}
@@ -622,7 +625,7 @@ static int editmode_toggle_poll(bContext *C)
 	Object *ob = CTX_data_active_object(C);
 
 	/* covers proxies too */
-	if (ELEM(NULL, ob, ob->data) || ID_IS_LINKED_DATABLOCK(ob->data))
+	if (ELEM(NULL, ob, ob->data) || ID_IS_LINKED(ob->data))
 		return 0;
 
 	/* if hidden but in edit mode, we still display */
@@ -849,7 +852,7 @@ static void copy_attr(Main *bmain, Scene *scene, View3D *v3d, short event)
 	Nurb *nu;
 	bool do_depgraph_update = false;
 	
-	if (ID_IS_LINKED_DATABLOCK(scene)) return;
+	if (ID_IS_LINKED(scene)) return;
 
 	if (!(ob = OBACT)) return;
 	
@@ -1440,7 +1443,7 @@ static int shade_smooth_exec(bContext *C, wmOperator *op)
 	{
 		data = ob->data;
 
-		if (data && ID_IS_LINKED_DATABLOCK(data)) {
+		if (data && ID_IS_LINKED(data)) {
 			linked_data = true;
 			continue;
 		}
@@ -1523,7 +1526,7 @@ static void UNUSED_FUNCTION(image_aspect) (Scene *scene, View3D *v3d)
 	int a, b, done;
 	
 	if (scene->obedit) return;  // XXX get from context
-	if (ID_IS_LINKED_DATABLOCK(scene)) return;
+	if (ID_IS_LINKED(scene)) return;
 	
 	for (base = FIRSTBASE; base; base = base->next) {
 		if (TESTBASELIB(v3d, base)) {

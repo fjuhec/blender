@@ -116,7 +116,7 @@ RenderTile::RenderTile()
 
 RenderBuffers::RenderBuffers(Device *device)
 : buffer(device, "RenderBuffers", MEM_READ_WRITE),
-  map_neighbor_copied(false)
+  map_neighbor_copied(false), render_time(0.0f)
 {
 }
 
@@ -173,8 +173,8 @@ bool RenderBuffers::get_denoising_pass_rect(int offset, float exposure, int samp
 		/* Approximate variance as E[x^2] - 1/N * (E[x])^2, since online variance
 		 * update does not work efficiently with atomics in the kernel. */
 		int mean_offset = offset - components;
-		float *mean = (float*)buffer.data_pointer + mean_offset;
-		float *var = (float*)buffer.data_pointer + offset;
+		float *mean = buffer.data() + mean_offset;
+		float *var = buffer.data() + offset;
 		assert(mean_offset >= 0);
 
 		if(components == 1) {
@@ -194,7 +194,7 @@ bool RenderBuffers::get_denoising_pass_rect(int offset, float exposure, int samp
 		}
 	}
 	else {
-		float *in = (float*)buffer.data_pointer + offset;
+		float *in = buffer.data() + offset;
 
 		if(components == 1) {
 			for(int i = 0; i < size; i++, in += pass_stride, pixels++) {
@@ -228,7 +228,7 @@ bool RenderBuffers::get_pass_rect(PassType type, float exposure, int sample, int
 			continue;
 		}
 
-		float *in = (float*)buffer.data_pointer + pass_offset;
+		float *in = buffer.data() + pass_offset;
 		int pass_stride = params.get_passes_size();
 
 		float scale = (pass.filter)? 1.0f/(float)sample: 1.0f;
@@ -264,6 +264,12 @@ bool RenderBuffers::get_pass_rect(PassType type, float exposure, int sample, int
 				}
 			}
 #endif
+			else if(type == PASS_RENDER_TIME) {
+				float val = (float) (1000.0 * render_time/(params.width * params.height * sample));
+				for(int i = 0; i < size; i++, pixels++) {
+					pixels[0] = val;
+				}
+			}
 			else {
 				for(int i = 0; i < size; i++, in += pass_stride, pixels++) {
 					float f = *in;
@@ -295,7 +301,7 @@ bool RenderBuffers::get_pass_rect(PassType type, float exposure, int sample, int
 					pass_offset += color_pass.components;
 				}
 
-				float *in_divide = (float*)buffer.data_pointer + pass_offset;
+				float *in_divide = buffer.data() + pass_offset;
 
 				for(int i = 0; i < size; i++, in += pass_stride, in_divide += pass_stride, pixels += 3) {
 					float3 f = make_float3(in[0], in[1], in[2]);
@@ -344,7 +350,7 @@ bool RenderBuffers::get_pass_rect(PassType type, float exposure, int sample, int
 					pass_offset += color_pass.components;
 				}
 
-				float *in_weight = (float*)buffer.data_pointer + pass_offset;
+				float *in_weight = buffer.data() + pass_offset;
 
 				for(int i = 0; i < size; i++, in += pass_stride, in_weight += pass_stride, pixels += 4) {
 					float4 f = make_float4(in[0], in[1], in[2], in[3]);

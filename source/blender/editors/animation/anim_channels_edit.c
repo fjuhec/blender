@@ -34,11 +34,9 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "BKE_depsgraph.h"
 #include "BLI_blenlib.h"
 #include "BLI_utildefines.h"
 #include "BLI_listbase.h"
-#include "BKE_library.h"
 
 #include "DNA_anim_types.h"
 #include "DNA_object_types.h"
@@ -52,11 +50,13 @@
 
 #include "BKE_animsys.h"
 #include "BKE_action.h"
+#include "BKE_depsgraph.h"
 #include "BKE_fcurve.h"
 #include "BKE_gpencil.h"
 #include "BKE_context.h"
 #include "BKE_mask.h"
 #include "BKE_global.h"
+#include "BKE_library.h"
 
 #include "UI_view2d.h"
 
@@ -2687,41 +2687,43 @@ static int mouse_anim_channels(bContext *C, bAnimContext *ac, int channel_index,
 			AnimData *adt = ob->adt;
 			
 			/* set selection status */
-			if (selectmode == SELECT_INVERT) {
-				/* swap select */
-				base->flag ^= SELECT;
-				ob->flag = base->flag;
-				
-				if (adt) adt->flag ^= ADT_UI_SELECTED;
-			}
-			else {
-				Base *b;
-				
-				/* deselect all */
-				/* TODO: should this deselect all other types of channels too? */
-				for (b = sce->base.first; b; b = b->next) {
-					b->flag &= ~SELECT;
-					b->object->flag = b->flag;
-					if (b->object->adt) b->object->adt->flag &= ~(ADT_UI_SELECTED | ADT_UI_ACTIVE);
+			if ((ob->restrictflag & OB_RESTRICT_SELECT) == 0) {
+				if (selectmode == SELECT_INVERT) {
+					/* swap select */
+					base->flag ^= SELECT;
+					ob->flag = base->flag;
+
+					if (adt) adt->flag ^= ADT_UI_SELECTED;
 				}
-				
-				/* select object now */
-				base->flag |= SELECT;
-				ob->flag |= SELECT;
-				if (adt) adt->flag |= ADT_UI_SELECTED;
+				else {
+					Base *b;
+
+					/* deselect all */
+					/* TODO: should this deselect all other types of channels too? */
+					for (b = sce->base.first; b; b = b->next) {
+						b->flag &= ~SELECT;
+						b->object->flag = b->flag;
+						if (b->object->adt) b->object->adt->flag &= ~(ADT_UI_SELECTED | ADT_UI_ACTIVE);
+					}
+
+					/* select object now */
+					base->flag |= SELECT;
+					ob->flag |= SELECT;
+					if (adt) adt->flag |= ADT_UI_SELECTED;
+				}
+
+				/* change active object - regardless of whether it is now selected [T37883] */
+				ED_base_object_activate(C, base); /* adds notifier */
+
+				if ((adt) && (adt->flag & ADT_UI_SELECTED))
+					adt->flag |= ADT_UI_ACTIVE;
+
+				/* ensure we exit editmode on whatever object was active before to avoid getting stuck there - T48747 */
+				if (ob != sce->obedit)
+					ED_object_editmode_exit(C, EM_FREEDATA | EM_FREEUNDO | EM_WAITCURSOR | EM_DO_UNDO);
+
+				notifierFlags |= (ND_ANIMCHAN | NA_SELECTED);
 			}
-			
-			/* change active object - regardless of whether it is now selected [T37883] */
-			ED_base_object_activate(C, base); /* adds notifier */
-			
-			if ((adt) && (adt->flag & ADT_UI_SELECTED))
-				adt->flag |= ADT_UI_ACTIVE;
-			
-			/* ensure we exit editmode on whatever object was active before to avoid getting stuck there - T48747 */
-			if (ob != sce->obedit)
-				ED_object_editmode_exit(C, EM_FREEDATA | EM_FREEUNDO | EM_WAITCURSOR | EM_DO_UNDO);
-			
-			notifierFlags |= (ND_ANIMCHAN | NA_SELECTED);
 			break;
 		}
 		case ANIMTYPE_FILLACTD: /* Action Expander */

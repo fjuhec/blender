@@ -1223,7 +1223,7 @@ int WM_operator_confirm_message_ex(bContext *C, wmOperator *op,
 
 	pup = UI_popup_menu_begin(C, title, icon);
 	layout = UI_popup_menu_layout(pup);
-	uiItemFullO_ptr(layout, op->type, message, ICON_NONE, properties, WM_OP_EXEC_REGION_WIN, 0);
+	uiItemFullO_ptr(layout, op->type, message, ICON_NONE, properties, WM_OP_EXEC_REGION_WIN, 0, NULL);
 	UI_popup_menu_end(C, pup);
 	
 	return OPERATOR_INTERFACE;
@@ -1433,7 +1433,7 @@ static void dialog_exec_cb(bContext *C, void *arg1, void *arg2)
 	wmOpPopUp *data = arg1;
 	uiBlock *block = arg2;
 
-	/* Explicitly set UI_RETURN_OK flag, otherwise the menu might be cancelled
+	/* Explicitly set UI_RETURN_OK flag, otherwise the menu might be canceled
 	 * in case WM_operator_call_ex exits/reloads the current file (T49199). */
 	UI_popup_menu_retval_set(block, UI_RETURN_OK, true);
 
@@ -1892,10 +1892,7 @@ static uiBlock *wm_block_create_splash(bContext *C, ARegion *ar, void *UNUSED(ar
 	UI_block_emboss_set(block, UI_EMBOSS);
 	/* show the splash menu (containing interaction presets), using python */
 	if (mt) {
-		Menu menu = {NULL};
-		menu.layout = layout;
-		menu.type = mt;
-		mt->draw(C, &menu);
+		UI_menutype_draw(C, mt, layout);
 
 //		wmWindowManager *wm = CTX_wm_manager(C);
 //		uiItemM(layout, C, "USERPREF_MT_keyconfigs", U.keyconfigstr, ICON_NONE);
@@ -1922,13 +1919,11 @@ static uiBlock *wm_block_create_splash(bContext *C, ARegion *ar, void *UNUSED(ar
 	              "https://docs.blender.org/manual/en/dev/");
 	uiItemStringO(col, IFACE_("Blender Website"), ICON_URL, "WM_OT_url_open", "url", "http://www.blender.org");
 	if (STREQ(STRINGIFY(BLENDER_VERSION_CYCLE), "release")) {
-		BLI_snprintf(url, sizeof(url), "http://www.blender.org/documentation/blender_python_api_%d_%d"
-		                               STRINGIFY(BLENDER_VERSION_CHAR) "_release",
+		BLI_snprintf(url, sizeof(url), "https://docs.blender.org/api/%d.%d"STRINGIFY(BLENDER_VERSION_CHAR),
 		             BLENDER_VERSION / 100, BLENDER_VERSION % 100);
 	}
 	else {
-		BLI_snprintf(url, sizeof(url), "http://www.blender.org/documentation/blender_python_api_%d_%d_%d",
-		             BLENDER_VERSION / 100, BLENDER_VERSION % 100, BLENDER_SUBVERSION);
+		BLI_snprintf(url, sizeof(url), "https://docs.blender.org/api/master");
 	}
 	uiItemStringO(col, IFACE_("Python API Reference"), ICON_URL, "WM_OT_url_open", "url", url);
 	uiItemL(col, "", ICON_NONE);
@@ -1954,10 +1949,7 @@ static uiBlock *wm_block_create_splash(bContext *C, ARegion *ar, void *UNUSED(ar
 	
 	mt = WM_menutype_find("USERPREF_MT_splash_footer", false);
 	if (mt) {
-		Menu menu = {NULL};
-		menu.layout = uiLayoutColumn(layout, false);
-		menu.type = mt;
-		mt->draw(C, &menu);
+		UI_menutype_draw(C, mt, uiLayoutColumn(layout, false));
 	}
 
 	UI_block_bounds_set_centered(block, 0);
@@ -3278,7 +3270,7 @@ static void previews_id_ensure(bContext *C, Scene *scene, ID *id)
 
 	/* Only preview non-library datablocks, lib ones do not pertain to this .blend file!
 	 * Same goes for ID with no user. */
-	if (!ID_IS_LINKED_DATABLOCK(id) && (id->us != 0)) {
+	if (!ID_IS_LINKED(id) && (id->us != 0)) {
 		UI_id_icon_render(C, scene, id, false, false);
 		UI_id_icon_render(C, scene, id, true, false);
 	}
@@ -3860,15 +3852,30 @@ void wm_window_keymap(wmKeyConfig *keyconf)
 	gesture_straightline_modal_keymap(keyconf);
 }
 
+/**
+ * Filter functions that can be used with rna_id_itemf() below.
+ * Should return false if 'id' should be excluded.
+ */
+static bool rna_id_enum_filter_single(ID *id, void *user_data)
+{
+	return (id != user_data);
+}
+
 /* Generic itemf's for operators that take library args */
-static const EnumPropertyItem *rna_id_itemf(bContext *UNUSED(C), PointerRNA *UNUSED(ptr), bool *r_free, ID *id, bool local)
+static const EnumPropertyItem *rna_id_itemf(
+        bContext *UNUSED(C), PointerRNA *UNUSED(ptr),
+        bool *r_free, ID *id, bool local,
+        bool (*filter_ids)(ID *id, void *user_data), void *user_data)
 {
 	EnumPropertyItem item_tmp = {0}, *item = NULL;
 	int totitem = 0;
 	int i = 0;
 
 	for (; id; id = id->next) {
-		if (local == false || !ID_IS_LINKED_DATABLOCK(id)) {
+		if ((filter_ids != NULL) && filter_ids(user_data, id) == false) {
+			continue;
+		}
+		if (local == false || !ID_IS_LINKED(id)) {
 			item_tmp.identifier = item_tmp.name = id->name + 2;
 			item_tmp.value = i++;
 			RNA_enum_item_add(&item, &totitem, &item_tmp);
@@ -3884,7 +3891,7 @@ static const EnumPropertyItem *rna_id_itemf(bContext *UNUSED(C), PointerRNA *UNU
 /* can add more as needed */
 const EnumPropertyItem *RNA_action_itemf(bContext *C, PointerRNA *ptr, PropertyRNA *UNUSED(prop), bool *r_free)
 {
-	return rna_id_itemf(C, ptr, r_free, C ? (ID *)CTX_data_main(C)->action.first : NULL, false);
+	return rna_id_itemf(C, ptr, r_free, C ? (ID *)CTX_data_main(C)->action.first : NULL, false, NULL, NULL);
 }
 #if 0 /* UNUSED */
 const EnumPropertyItem *RNA_action_local_itemf(bContext *C, PointerRNA *ptr, PropertyRNA *UNUSED(prop), bool *r_free)
@@ -3895,45 +3902,51 @@ const EnumPropertyItem *RNA_action_local_itemf(bContext *C, PointerRNA *ptr, Pro
 
 const EnumPropertyItem *RNA_group_itemf(bContext *C, PointerRNA *ptr, PropertyRNA *UNUSED(prop), bool *r_free)
 {
-	return rna_id_itemf(C, ptr, r_free, C ? (ID *)CTX_data_main(C)->group.first : NULL, false);
+	return rna_id_itemf(C, ptr, r_free, C ? (ID *)CTX_data_main(C)->group.first : NULL, false, NULL, NULL);
 }
 const EnumPropertyItem *RNA_group_local_itemf(bContext *C, PointerRNA *ptr, PropertyRNA *UNUSED(prop), bool *r_free)
 {
-	return rna_id_itemf(C, ptr, r_free, C ? (ID *)CTX_data_main(C)->group.first : NULL, true);
+	return rna_id_itemf(C, ptr, r_free, C ? (ID *)CTX_data_main(C)->group.first : NULL, true, NULL, NULL);
 }
 
 const EnumPropertyItem *RNA_image_itemf(bContext *C, PointerRNA *ptr, PropertyRNA *UNUSED(prop), bool *r_free)
 {
-	return rna_id_itemf(C, ptr, r_free, C ? (ID *)CTX_data_main(C)->image.first : NULL, false);
+	return rna_id_itemf(C, ptr, r_free, C ? (ID *)CTX_data_main(C)->image.first : NULL, false, NULL, NULL);
 }
 const EnumPropertyItem *RNA_image_local_itemf(bContext *C, PointerRNA *ptr, PropertyRNA *UNUSED(prop), bool *r_free)
 {
-	return rna_id_itemf(C, ptr, r_free, C ? (ID *)CTX_data_main(C)->image.first : NULL, true);
+	return rna_id_itemf(C, ptr, r_free, C ? (ID *)CTX_data_main(C)->image.first : NULL, true, NULL, NULL);
 }
 
 const EnumPropertyItem *RNA_scene_itemf(bContext *C, PointerRNA *ptr, PropertyRNA *UNUSED(prop), bool *r_free)
 {
-	return rna_id_itemf(C, ptr, r_free, C ? (ID *)CTX_data_main(C)->scene.first : NULL, false);
+	return rna_id_itemf(C, ptr, r_free, C ? (ID *)CTX_data_main(C)->scene.first : NULL, false, NULL, NULL);
 }
 const EnumPropertyItem *RNA_scene_local_itemf(bContext *C, PointerRNA *ptr, PropertyRNA *UNUSED(prop), bool *r_free)
 {
-	return rna_id_itemf(C, ptr, r_free, C ? (ID *)CTX_data_main(C)->scene.first : NULL, true);
+	return rna_id_itemf(C, ptr, r_free, C ? (ID *)CTX_data_main(C)->scene.first : NULL, true, NULL, NULL);
 }
-
+const EnumPropertyItem *RNA_scene_without_active_itemf(bContext *C, PointerRNA *ptr, PropertyRNA *UNUSED(prop), bool *r_free)
+{
+	Scene *scene_active = C ? CTX_data_scene(C) : NULL;
+	return rna_id_itemf(
+	        C, ptr, r_free, C ? (ID *)CTX_data_main(C)->scene.first : NULL, true,
+	        rna_id_enum_filter_single, scene_active);
+}
 const EnumPropertyItem *RNA_movieclip_itemf(bContext *C, PointerRNA *ptr, PropertyRNA *UNUSED(prop), bool *r_free)
 {
-	return rna_id_itemf(C, ptr, r_free, C ? (ID *)CTX_data_main(C)->movieclip.first : NULL, false);
+	return rna_id_itemf(C, ptr, r_free, C ? (ID *)CTX_data_main(C)->movieclip.first : NULL, false, NULL, NULL);
 }
 const EnumPropertyItem *RNA_movieclip_local_itemf(bContext *C, PointerRNA *ptr, PropertyRNA *UNUSED(prop), bool *r_free)
 {
-	return rna_id_itemf(C, ptr, r_free, C ? (ID *)CTX_data_main(C)->movieclip.first : NULL, true);
+	return rna_id_itemf(C, ptr, r_free, C ? (ID *)CTX_data_main(C)->movieclip.first : NULL, true, NULL, NULL);
 }
 
 const EnumPropertyItem *RNA_mask_itemf(bContext *C, PointerRNA *ptr, PropertyRNA *UNUSED(prop), bool *r_free)
 {
-	return rna_id_itemf(C, ptr, r_free, C ? (ID *)CTX_data_main(C)->mask.first : NULL, false);
+	return rna_id_itemf(C, ptr, r_free, C ? (ID *)CTX_data_main(C)->mask.first : NULL, false, NULL, NULL);
 }
 const EnumPropertyItem *RNA_mask_local_itemf(bContext *C, PointerRNA *ptr, PropertyRNA *UNUSED(prop), bool *r_free)
 {
-	return rna_id_itemf(C, ptr, r_free, C ? (ID *)CTX_data_main(C)->mask.first : NULL, true);
+	return rna_id_itemf(C, ptr, r_free, C ? (ID *)CTX_data_main(C)->mask.first : NULL, true, NULL, NULL);
 }
