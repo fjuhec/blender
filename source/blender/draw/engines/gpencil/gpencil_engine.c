@@ -35,6 +35,8 @@
 
 #include "draw_mode_engines.h"
 
+#include "UI_resources.h"
+
 #include "gpencil_engine.h"
 
 #include "ED_screen.h"
@@ -389,6 +391,14 @@ static void GPENCIL_cache_init(void *vedata)
 		DRWShadingGroup *paper_shgrp = DRW_shgroup_create(e_data.gpencil_paper_sh, psl->paper_pass);
 		DRW_shgroup_call_add(paper_shgrp, paperquad, NULL);
 		DRW_shgroup_uniform_vec4(paper_shgrp, "color", ts->gpencil_paper_color, 1);
+
+		unsigned char gridcolor[3];
+		UI_GetThemeColor3ubv(TH_GRID, gridcolor);
+		stl->storage->gridcolor[0] = (float)gridcolor[0];
+		stl->storage->gridcolor[1] = (float)gridcolor[1];
+		stl->storage->gridcolor[2] = (float)gridcolor[2];
+		DRW_shgroup_uniform_vec3(paper_shgrp, "gridcolor", &stl->storage->gridcolor[0], 1);
+
 		stl->storage->gridsize[0] = (float)ts->gpencil_grid_size[0];
 		stl->storage->gridsize[1] = (float)ts->gpencil_grid_size[1];
 		DRW_shgroup_uniform_vec2(paper_shgrp, "size", &stl->storage->gridsize[0], 1);

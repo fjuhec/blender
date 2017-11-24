@@ -155,6 +155,7 @@ typedef struct GPENCIL_Storage {
 	int playing;
 	int uselines;
 	float gridsize[2];
+	float gridcolor[3];
 } GPENCIL_Storage;
 
 typedef struct GPENCIL_StorageList {
