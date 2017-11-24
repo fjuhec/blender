@@ -448,20 +448,13 @@ bool BKE_override_status_check_reference(ID *local)
  * are much cheaper.
  *
  * \return true is new overriding op was created, or some local data was reset. */
-bool BKE_override_operations_create(ID *local, const bool no_skip)
+bool BKE_override_operations_create(ID *local)
 {
 	BLI_assert(local->override != NULL);
 	const bool is_template = (local->override->reference == NULL);
 	bool ret = false;
 
 	if (!is_template && local->flag & LIB_AUTOOVERRIDE) {
-		/* This prevents running that (heavy) callback too often when editing data. */
-		const double currtime = PIL_check_seconds_timer();
-		if (!no_skip && (currtime - local->override->last_auto_run) < OVERRIDE_AUTO_CHECK_DELAY) {
-			return ret;
-		}
-		local->override->last_auto_run = currtime;
-
 		PointerRNA rnaptr_local, rnaptr_reference;
 		RNA_id_pointer_create(local, &rnaptr_local);
 		RNA_id_pointer_create(local->override->reference, &rnaptr_reference);
@@ -492,7 +485,7 @@ void BKE_main_override_operations_create(Main *bmain)
 		for (id = lb->first; id; id = id->next) {
 			/* TODO Maybe we could also add an 'override update' tag e.g. when tagging for DEG update? */
 			if (id->lib == NULL && id->override != NULL && id->override->reference != NULL && (id->flag & LIB_AUTOOVERRIDE)) {
-				BKE_override_operations_create(id, true);
+				BKE_override_operations_create(id);
 			}
 		}
 	}
@@ -619,7 +612,7 @@ ID *BKE_override_operations_store_start(OverrideStorage *override_storage, ID *l
 	}
 
 	/* Forcefully ensure we know about all needed override operations. */
-	BKE_override_operations_create(local, true);
+	BKE_override_operations_create(local);
 
 	ID *storage_id;
 #ifdef DEBUG_OVERRIDE_TIMEIT

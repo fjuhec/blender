@@ -180,9 +180,6 @@ typedef struct IDOverride {
 	/* Temp ID storing extra override data (used for differential operations only currently).
 	 * Always NULL outside of read/write context. */
 	struct ID *storage;
-
-	/* Runtime data. */
-	double last_auto_run;  /* Last time auto-override detection was run, to avoid too mush overhead on that. */
 } IDOverride;
 
 

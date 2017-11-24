@@ -64,7 +64,7 @@ void BKE_override_property_operation_delete(
 bool BKE_override_status_check_local(struct ID *local);
 bool BKE_override_status_check_reference(struct ID *local);
 
-bool BKE_override_operations_create(struct ID *local, const bool no_skip);
+bool BKE_override_operations_create(struct ID *local);
 void BKE_main_override_operations_create(struct Main *bmain);
 
 void BKE_override_update(struct Main *bmain, struct ID *local);
