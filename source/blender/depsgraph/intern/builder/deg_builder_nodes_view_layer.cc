@@ -69,6 +69,22 @@ void DepsgraphNodeBuilder::build_view_layer(Scene *scene,
                                             ViewLayer *view_layer,
                                             eDepsNode_LinkedState_Type linked_state)
 {
+	Scene *scene_cow;
+	ViewLayer *view_layer_cow;
+	if (DEG_depsgraph_use_copy_on_write()) {
+		/* Make sure we've got ID node, so we can get pointer to CoW datablock.
+		 */
+		scene_cow = expand_cow_datablock(scene);
+		view_layer_cow = (ViewLayer *)BLI_findstring(
+		        &scene_cow->view_layers,
+		        view_layer->name,
+		        offsetof(ViewLayer, name));
+	}
+	else {
+		scene_cow = scene;
+		view_layer_cow = view_layer;
+	}
+
 	/* scene ID block */
 	add_id_node(&scene->id);
 
@@ -88,13 +104,13 @@ void DepsgraphNodeBuilder::build_view_layer(Scene *scene,
 
 	/* scene objects */
 	int select_color = 1;
-	LINKLIST_FOREACH(Base *, base, &view_layer->object_bases) {
+	LINKLIST_FOREACH(Base *, base, &view_layer_cow->object_bases) {
 		/* object itself */
-		build_object(base->object, linked_state);
+		build_object(base, base->object, linked_state);
 		base->object->select_color = select_color++;
 	}
 	if (scene->camera != NULL) {
-		build_object(scene->camera, linked_state);
+		build_object(NULL, scene->camera, linked_state);
 	}
 
 	/* rigidbody */
@@ -146,7 +162,7 @@ void DepsgraphNodeBuilder::build_view_layer(Scene *scene,
 	}
 
 	/* Collections. */
-	build_view_layer_collections(view_layer);
+	build_view_layer_collections(scene_cow, view_layer_cow);
 
 	/* Parameters evaluation for scene relations mainly. */
 	add_operation_node(&scene->id,

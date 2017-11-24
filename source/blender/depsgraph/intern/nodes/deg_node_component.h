@@ -74,17 +74,25 @@ struct ComponentDepsNode : public DepsNode {
 
 	string identifier() const;
 
-	/* Find an existing operation, will throw an assert() if it does not exist. */
+	/* Find an existing operation, if requested operation does not exist
+	 * NULL will be returned.
+	 */
 	OperationDepsNode *find_operation(OperationIDKey key) const;
 	OperationDepsNode *find_operation(eDepsOperation_Code opcode,
-	                                  const char *name,
-	                                  int name_tag) const;
-
-	/* Check operation exists and return it. */
-	OperationDepsNode *has_operation(OperationIDKey key) const;
-	OperationDepsNode *has_operation(eDepsOperation_Code opcode,
 	                                 const char *name,
 	                                 int name_tag) const;
+
+	/* Find an existing operation, will throw an assert() if it does not exist. */
+	OperationDepsNode *get_operation(OperationIDKey key) const;
+	OperationDepsNode *get_operation(eDepsOperation_Code opcode,
+	                                 const char *name,
+	                                 int name_tag) const;
+
+	/* Check operation exists and return it. */
+	bool has_operation(OperationIDKey key) const;
+	bool has_operation(eDepsOperation_Code opcode,
+	                   const char *name,
+	                   int name_tag) const;
 
 	/**
 	 * Create a new node for representing an operation and add this to graph
@@ -162,6 +170,7 @@ struct ComponentDepsNode : public DepsNode {
 	}
 
 DEG_COMPONENT_DECLARE_GENERIC(Animation);
+DEG_COMPONENT_DECLARE_GENERIC(BatchCache);
 DEG_COMPONENT_DECLARE_GENERIC(Cache);
 DEG_COMPONENT_DECLARE_GENERIC(CopyOnWrite);
 DEG_COMPONENT_DECLARE_GENERIC(Geometry);
