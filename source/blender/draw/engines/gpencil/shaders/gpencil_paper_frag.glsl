@@ -10,7 +10,7 @@ void main()
 	vec2 uv = vec2(gl_FragCoord.xy);
 	float dx = size[0];
 	float dy = size[1];
-	vec4 gcolor = vec4(gridcolor.r / 255.0,gridcolor.g / 255.0,gridcolor.b / 255.0, 1.0);
+	vec4 gcolor = vec4(gridcolor.r, gridcolor.g, gridcolor.b, 1.0);
 	/* avoid too small grid */
 	if (dx < 15.0) {
 		dx = 15.0;
