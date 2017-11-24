@@ -169,7 +169,7 @@ ID *BKE_override_create_from(Main *bmain, ID *reference_id)
  */
 IDOverrideProperty *BKE_override_property_find(IDOverride *override, const char *rna_path)
 {
-	/* XXX TODO we'll most likely want a runtime ghash to store taht mapping at some point. */
+	/* XXX TODO we'll most likely want a runtime ghash to store that mapping at some point. */
 	return BLI_findstring_ptr(&override->properties, rna_path, offsetof(IDOverrideProperty, rna_path));
 }
 
@@ -477,6 +477,27 @@ bool BKE_override_operations_create(ID *local, const bool no_skip)
 	return ret;
 }
 
+/** Check all overrides from given \a bmain and create/update overriding operations as needed. */
+void BKE_main_override_operations_create(Main *bmain)
+{
+	ListBase *lbarray[MAX_LIBARRAY];
+	int base_count, i;
+
+	base_count = set_listbasepointers(bmain, lbarray);
+
+	for (i = 0; i < base_count; i++) {
+		ListBase *lb = lbarray[i];
+		ID *id;
+
+		for (id = lb->first; id; id = id->next) {
+			/* TODO Maybe we could also add an 'override update' tag e.g. when tagging for DEG update? */
+			if (id->lib == NULL && id->override != NULL && id->override->reference != NULL && (id->flag & LIB_AUTOOVERRIDE)) {
+				BKE_override_operations_create(id, true);
+			}
+		}
+	}
+}
+
 /** Update given override from its reference (re-applying overriden properties). */
 void BKE_override_update(Main *bmain, ID *local)
 {
@@ -597,7 +618,7 @@ ID *BKE_override_operations_store_start(OverrideStorage *override_storage, ID *l
 		return NULL;
 	}
 
-	/* Forcefully ensure we now about all needed override operations. */
+	/* Forcefully ensure we know about all needed override operations. */
 	BKE_override_operations_create(local, true);
 
 	ID *storage_id;
