@@ -9,6 +9,7 @@ void main()
 	vec2 uv = vec2(gl_FragCoord.xy);
 	float dx = size[0];
 	float dy = size[1];
+	vec4 gridcolor = vec4(0.8, 0.8, 0.8, 0.2);
 	/* avoid too small grid */
 	if (dx < 15.0) {
 		dx = 15.0;
@@ -22,11 +23,11 @@ void main()
 	if (uselines == 1) {
 		float difx = uv.x - (floor(uv.x / dx) * dx);
 		if (difx == 0.5) {
-			outcolor = vec4(0, 0, 0, 1);
+			outcolor = gridcolor;
 		}
 		float dify = uv.y - (floor(uv.y / dy) * dy);
 		if (dify == 0.5) {
-			outcolor = vec4(0, 0, 0, 1);
+			outcolor = gridcolor;
 		}
 	}
 	
