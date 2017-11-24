@@ -105,6 +105,8 @@ static const char *stringify_opcode(eDepsOperation_Code opcode)
 		/* Animation, Drivers, etc. */
 		STRINGIFY_OPCODE(ANIMATION);
 		STRINGIFY_OPCODE(DRIVER);
+		/* Object related. */
+		STRINGIFY_OPCODE(OBJECT_BASE_FLAGS);
 		/* Transform. */
 		STRINGIFY_OPCODE(TRANSFORM_LOCAL);
 		STRINGIFY_OPCODE(TRANSFORM_PARENT);
@@ -136,6 +138,8 @@ static const char *stringify_opcode(eDepsOperation_Code opcode)
 		STRINGIFY_OPCODE(PARTICLE_SYSTEM_EVAL);
 		STRINGIFY_OPCODE(PARTICLE_SETTINGS_EVAL);
 		STRINGIFY_OPCODE(PARTICLE_SETTINGS_RECALC_CLEAR);
+		/* Batch cache. */
+		STRINGIFY_OPCODE(GEOMETRY_SELECT_UPDATE);
 		/* Masks. */
 		STRINGIFY_OPCODE(MASK_ANIMATION);
 		STRINGIFY_OPCODE(MASK_EVAL);
