@@ -69,7 +69,8 @@ ccl_device void kernel_indirect_background(KernelGlobals *kg, ccl_local_param un
 		ShaderData *sd = kernel_split_sd(sd, ray_index);
 		ShaderEvalTask *eval_task = &kernel_split_state.shader_eval_task[ray_index];
 
-		if(kernel_path_background_setup(kg, state, ray, throughput, sd, L, eval_task)) {
+		if(kernel_path_background_setup(kg, state, ray, throughput, sd, L)) {
+			shader_eval_task_setup(kg, eval_task, sd, SHADER_EVAL_INTENT_BACKGROUND);
 			enqueue_flag = 1;
 		}
 		else {

@@ -83,11 +83,7 @@ ccl_device_forceinline bool shadow_handle_transparent_isect(
 	/* Attenuation from transparent surface. */
 	if(!(shadow_sd->flag & SD_HAS_ONLY_VOLUME)) {
 		path_state_modify_bounce(state, true);
-		shader_eval_surface(kg,
-		                    shadow_sd,
-		                    state,
-		                    PATH_RAY_SHADOW,
-		                    0);
+		shader_eval(kg, shadow_sd, state, SHADER_EVAL_INTENT_SHADOW);
 		path_state_modify_bounce(state, false);
 		*throughput *= shader_bsdf_transparency(kg, shadow_sd);
 	}

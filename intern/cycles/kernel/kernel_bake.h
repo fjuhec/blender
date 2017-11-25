@@ -51,7 +51,7 @@ ccl_device_inline void compute_light_pass(KernelGlobals *kg,
 	path_state_init(kg, &emission_sd, &state, rng_hash, sample, NULL);
 
 	/* evaluate surface shader */
-	shader_eval_surface(kg, sd, &state, state.flag, kernel_data.integrator.max_closures);
+	shader_eval(kg, sd, &state, SHADER_EVAL_INTENT_SURFACE);
 
 	/* TODO, disable more closures we don't need besides transparent */
 	shader_bsdf_disable_transparency(kg, sd);
@@ -228,12 +228,12 @@ ccl_device float3 kernel_bake_evaluate_direct_indirect(KernelGlobals *kg,
 		}
 		else {
 			/* surface color of the pass only */
-			shader_eval_surface(kg, sd, state, 0, kernel_data.integrator.max_closures);
+			shader_eval(kg, sd, state, SHADER_EVAL_INTENT_BAKE);
 			return kernel_bake_shader_bsdf(kg, sd, type);
 		}
 	}
 	else {
-		shader_eval_surface(kg, sd, state, 0, kernel_data.integrator.max_closures);
+		shader_eval(kg, sd, state, SHADER_EVAL_INTENT_BAKE);
 		color = kernel_bake_shader_bsdf(kg, sd, type);
 	}
 
@@ -333,7 +333,7 @@ ccl_device void kernel_bake_evaluate(KernelGlobals *kg, ccl_global uint4 *input,
 		{
 			float3 N = sd.N;
 			if((sd.flag & SD_HAS_BUMP)) {
-				shader_eval_surface(kg, &sd, &state, 0, kernel_data.integrator.max_closures);
+				shader_eval(kg, &sd, &state, SHADER_EVAL_INTENT_BAKE);
 				N = shader_bsdf_average_normal(kg, &sd);
 			}
 
@@ -348,7 +348,7 @@ ccl_device void kernel_bake_evaluate(KernelGlobals *kg, ccl_global uint4 *input,
 		}
 		case SHADER_EVAL_EMISSION:
 		{
-			shader_eval_surface(kg, &sd, &state, 0, 0);
+			shader_eval(kg, &sd, &state, SHADER_EVAL_INTENT_EMISSION);
 			out = shader_emissive_eval(kg, &sd);
 			break;
 		}
@@ -468,8 +468,8 @@ ccl_device void kernel_bake_evaluate(KernelGlobals *kg, ccl_global uint4 *input,
 			shader_setup_from_background(kg, &sd, &ray);
 
 			/* evaluate */
-			int flag = 0; /* we can't know which type of BSDF this is for */
-			out = shader_eval_background(kg, &sd, &state, flag);
+			shader_eval(kg, &sd, &state, SHADER_EVAL_INTENT_BACKGROUND);
+			out = shader_eval_background(kg, &sd);
 			break;
 		}
 		default:
@@ -547,8 +547,8 @@ ccl_device void kernel_background_evaluate(KernelGlobals *kg,
 	shader_setup_from_background(kg, &sd, &ray);
 
 	/* evaluate */
-	int flag = 0; /* we can't know which type of BSDF this is for */
-	float3 color = shader_eval_background(kg, &sd, &state, flag);
+	shader_eval(kg, &sd, &state, SHADER_EVAL_INTENT_BACKGROUND);
+	float3 color = shader_eval_background(kg, &sd);
 
 	/* write output */
 	output[i] += make_float4(color.x, color.y, color.z, 0.0f);

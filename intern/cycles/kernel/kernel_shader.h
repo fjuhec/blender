@@ -33,15 +33,6 @@
 
 CCL_NAMESPACE_BEGIN
 
-ccl_device void shader_eval_task_setup(KernelGlobals *kg, ShaderEvalTask *task, ShaderData *sd, ShaderEvalIntent intent, int path_flag, int max_closure) {
-	task->intent = intent;
-	task->path_flag = path_flag;
-	task->max_closure = max_closure;
-#ifdef __SPLIT_KERNEL__
-	task->sd_offset = ((ccl_global char*)sd) - ((ccl_global char*)&kernel_split_state);
-#endif  /* __SPLIT_KERNEL__ */
-}
-
 /* ShaderData setup from incoming ray */
 
 #ifdef __OBJECT_MOTION__
@@ -935,6 +926,21 @@ ccl_device float3 shader_bssrdf_sum(ShaderData *sd, float3 *N_, float *texture_b
 
 /* Emission */
 
+ccl_device bool shader_has_constant_emission(KernelGlobals *kg, ShaderData *sd)
+{
+	int shader_flag = kernel_tex_fetch(__shader_flag, (sd->shader & SHADER_MASK)*SHADER_SIZE);
+	return (shader_flag & SD_HAS_CONSTANT_EMISSION) != 0;
+}
+
+ccl_device float3 shader_get_constant_emission(KernelGlobals *kg, ShaderData *sd)
+{
+	float3 eval;
+	eval.x = __int_as_float(kernel_tex_fetch(__shader_flag, (sd->shader & SHADER_MASK)*SHADER_SIZE + 2));
+	eval.y = __int_as_float(kernel_tex_fetch(__shader_flag, (sd->shader & SHADER_MASK)*SHADER_SIZE + 3));
+	eval.z = __int_as_float(kernel_tex_fetch(__shader_flag, (sd->shader & SHADER_MASK)*SHADER_SIZE + 4));
+	return eval;
+}
+
 ccl_device float3 shader_emissive_eval(KernelGlobals *kg, ShaderData *sd)
 {
 	if(sd->flag & SD_EMISSION) {
@@ -961,33 +967,53 @@ ccl_device float3 shader_holdout_eval(KernelGlobals *kg, ShaderData *sd)
 	return weight;
 }
 
+/* Shader Evaluation */
+
 ccl_device void shader_eval(KernelGlobals *kg, ShaderData *sd,
-	ccl_addr_space PathState *state, ShaderEvalTask *eval_task)
+	ccl_addr_space PathState *state, ShaderEvalIntent intent)
 {
-	if(eval_task->intent == SHADER_EVAL_INTENT_SKIP) {
-		return;
-	}
-
+	uint path_flag = 0;
 	sd->num_closure = 0;
-	sd->num_closure_left = eval_task->max_closure;
+	sd->num_closure_left = 0;
 
-	/* constant shader value */
-	if(eval_task->intent == SHADER_EVAL_INTENT_CONSTANT) {
-		float3 eval;
-		eval.x = __int_as_float(kernel_tex_fetch(__shader_flag, (sd->shader & SHADER_MASK)*SHADER_SIZE + 2));
-		eval.y = __int_as_float(kernel_tex_fetch(__shader_flag, (sd->shader & SHADER_MASK)*SHADER_SIZE + 3));
-		eval.z = __int_as_float(kernel_tex_fetch(__shader_flag, (sd->shader & SHADER_MASK)*SHADER_SIZE + 4));
-		eval_task->eval_result = eval;
-		return;
+	switch(intent) {
+		case SHADER_EVAL_INTENT_SKIP:
+			return;
+		case SHADER_EVAL_INTENT_SURFACE:
+			path_flag = state->flag;
+			sd->num_closure_left = kernel_data.integrator.max_closures;
+			break;
+		case SHADER_EVAL_INTENT_EMISSION:
+			if(shader_has_constant_emission(kg, sd)) {
+				return;
+			}
+			intent = SHADER_EVAL_INTENT_SURFACE;
+			break;
+		case SHADER_EVAL_INTENT_SHADOW:
+			path_flag = PATH_RAY_SHADOW;
+			intent = SHADER_EVAL_INTENT_SURFACE;
+			break;
+		case SHADER_EVAL_INTENT_BACKGROUND:
+			break;
+		case SHADER_EVAL_INTENT_BAKE:
+			sd->num_closure_left = kernel_data.integrator.max_closures;
+			intent = SHADER_EVAL_INTENT_SURFACE;
+			break;
+		default:
+			return;
 	}
 
+	/* At this point `intent` has been set to either SHADER_EVAL_INTENT_SURFACE or SHADER_EVAL_INTENT_BACKGROUND. */
+	kernel_assert(intent == SHADER_EVAL_INTENT_SURFACE || intent == SHADER_EVAL_INTENT_BACKGROUND);
+
+	/* eval shader */
 #ifdef __OSL__
 	/* OSL */
 	if(kg->osl) {
-		if(eval_task->intent == SHADER_EVAL_INTENT_SURFACE) {
-			OSLShader::eval_surface(kg, sd, state, eval_task->path_flag);
-		else if(eval_task->intent == SHADER_EVAL_INTENT_BACKGROUND) {
-			OSLShader::eval_background(kg, sd, state, eval_task->path_flag);
+		if(intent == SHADER_EVAL_INTENT_SURFACE) {
+			OSLShader::eval_surface(kg, sd, state, path_flag);
+		else if(intent == SHADER_EVAL_INTENT_BACKGROUND) {
+			OSLShader::eval_background(kg, sd, state, path_flag);
 		}
 	}
 	else
@@ -995,62 +1021,41 @@ ccl_device void shader_eval(KernelGlobals *kg, ShaderData *sd,
 	{
 #ifdef __SVM__
 		/* eval nodes */
-		svm_eval_nodes(kg, sd, state, SHADER_TYPE_SURFACE, eval_task->path_flag);
+		svm_eval_nodes(kg, sd, state, SHADER_TYPE_SURFACE, path_flag);
 #else
 		/* defaults when svm not built in */
-		if(eval_task->intent == SHADER_EVAL_INTENT_SURFACE) {
+		if(intent == SHADER_EVAL_INTENT_SURFACE) {
 			DiffuseBsdf *bsdf = (DiffuseBsdf*)bsdf_alloc(sd,
 				                                         sizeof(DiffuseBsdf),
 				                                         make_float3(0.8f, 0.8f, 0.8f));
 			bsdf->N = sd->N;
 			sd->flag |= bsdf_diffuse_setup(bsdf);
 		}
-		else if(eval_task->intent == SHADER_EVAL_INTENT_BACKGROUND) {
-			eval_task->eval_result = make_float3(0.8f, 0.8f, 0.8f);
-			return;
-		}
 #endif
 	}
 
 	/* finalization */
-	if(eval_task->intent == SHADER_EVAL_INTENT_SURFACE) {
+	if(intent == SHADER_EVAL_INTENT_SURFACE) {
 		if(sd->flag & SD_BSDF_NEEDS_LCG) {
 			sd->lcg_state = lcg_state_init_addrspace(state, 0xb4bc3953);
 		}
 	}
-	else if(eval_task->intent == SHADER_EVAL_INTENT_BACKGROUND) {
-		if(sd->flag & SD_EMISSION) {
-			eval_task->eval_result = sd->closure_emission_background;
-			return;
-		}
-		else {
-			eval_task->eval_result = make_float3(0.0f, 0.0f, 0.0f);
-			return;
-		}
-	}
-
-	eval_task->eval_result = make_float3(0.0f, 0.0f, 0.0f);
-}
-
-/* Surface Evaluation */
-
-ccl_device void shader_eval_surface(KernelGlobals *kg, ShaderData *sd,
-	ccl_addr_space PathState *state, int path_flag, int max_closure)
-{
-	MAKE_POINTER_TO_LOCAL_OBJ(ShaderEvalTask, shader_eval_task);
-	shader_eval_task_setup(kg, shader_eval_task, sd, SHADER_EVAL_INTENT_SURFACE, path_flag, max_closure);
-	shader_eval(kg, sd, state, shader_eval_task);
 }
 
 /* Background Evaluation */
 
-ccl_device float3 shader_eval_background(KernelGlobals *kg, ShaderData *sd,
-	ccl_addr_space PathState *state, int path_flag)
+ccl_device float3 shader_eval_background(KernelGlobals *kg, ShaderData *sd)
 {
-	MAKE_POINTER_TO_LOCAL_OBJ(ShaderEvalTask, shader_eval_task);
-	shader_eval_task_setup(kg, shader_eval_task, sd, SHADER_EVAL_INTENT_BACKGROUND, path_flag, 0);
-	shader_eval(kg, sd, state, shader_eval_task);
-	return shader_eval_task->eval_result;
+#ifdef __SVM__
+	if(sd->flag & SD_EMISSION) {
+		return sd->closure_emission_background;
+	}
+	else {
+		return make_float3(0.0f, 0.0f, 0.0f);
+	}
+#else  /* __SVM__ */
+	return make_float3(0.8f, 0.8f, 0.8f);
+#endif  /* __SVM__ */
 }
 
 /* Volume */

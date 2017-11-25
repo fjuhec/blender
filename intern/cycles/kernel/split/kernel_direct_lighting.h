@@ -97,7 +97,10 @@ ccl_device void kernel_direct_lighting(KernelGlobals *kg,
 			{
 				ShaderData *emission_sd = AS_SHADER_DATA(&kernel_split_state.sd_DL_shadow[ray_index]);
 
-				if(direct_emission_setup(kg, sd, emission_sd, &ls, state, eval_task)) {
+				ShaderEvalIntent intent = direct_emission_setup(kg, sd, emission_sd, &ls, state);
+				if(intent) {
+					shader_eval_task_setup(kg, eval_task, emission_sd, intent);
+
 					/* Write intermediate data to global memory to access from
 					 * the next kernel.
 					 */

@@ -82,7 +82,6 @@ ccl_device void kernel_shadow_blocked_dl(KernelGlobals *kg)
 #  endif  /* defined(__BRANCHED_PATH__) || defined(__SHADOW_TRICKS__)*/
 	{
 		LightSample ls = kernel_split_state.light_sample[ray_index];
-		ShaderEvalTask *eval_task = &kernel_split_state.shader_eval_task[ray_index];
 
 		float terminate = path_state_rng_light_termination(kg, state);
 
@@ -92,7 +91,7 @@ ccl_device void kernel_shadow_blocked_dl(KernelGlobals *kg)
 		BsdfEval L_light;
 		bool is_lamp;
 
-		if(direct_emission_finish(kg, sd, emission_sd, &ls, state, &ray, &L_light, &is_lamp, terminate, eval_task)) {
+		if(direct_emission_finish(kg, sd, emission_sd, &ls, state, &ray, &L_light, &is_lamp, terminate)) {
 			/* trace shadow ray */
 			float3 shadow;
 

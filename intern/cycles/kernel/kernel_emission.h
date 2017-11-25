@@ -17,15 +17,14 @@
 CCL_NAMESPACE_BEGIN
 
 /* Direction Emission */
-ccl_device void direct_emissive_eval_setup(KernelGlobals *kg,
+ccl_device ShaderEvalIntent direct_emissive_eval_setup(KernelGlobals *kg,
                                                 ShaderData *emission_sd,
                                                 LightSample *ls,
                                                 ccl_addr_space PathState *state,
                                                 float3 I,
                                                 differential3 dI,
                                                 float t,
-                                                float time,
-                                                ShaderEvalTask *eval_task)
+                                                float time)
 {
 	/* setup shading at emitter */
 	int shader_flag = kernel_tex_fetch(__shader_flag, (ls->shader & SHADER_MASK)*SHADER_SIZE);
@@ -43,14 +42,14 @@ ccl_device void direct_emissive_eval_setup(KernelGlobals *kg,
 		shader_setup_from_background(kg, emission_sd, &ray);
 
 		path_state_modify_bounce(state, true);
-		shader_eval_task_setup(kg, eval_task, emission_sd, SHADER_EVAL_INTENT_BACKGROUND, 0, 0);
+		return SHADER_EVAL_INTENT_BACKGROUND;
 	}
 	else
 #endif
 	if(shader_flag & SD_HAS_CONSTANT_EMISSION)
 	{
 		emission_sd->shader = ls->shader;
-		shader_eval_task_setup(kg, eval_task, emission_sd, SHADER_EVAL_INTENT_CONSTANT, 0, 0);
+		return SHADER_EVAL_INTENT_EMISSION;
 	}
 	else
 	{
@@ -64,7 +63,7 @@ ccl_device void direct_emissive_eval_setup(KernelGlobals *kg,
 		/* no path flag, we're evaluating this for all closures. that's weak but
 		 * we'd have to do multiple evaluations otherwise */
 		path_state_modify_bounce(state, true);
-		shader_eval_task_setup(kg, eval_task, emission_sd, SHADER_EVAL_INTENT_SURFACE, 0, 0);
+		return SHADER_EVAL_INTENT_EMISSION;
 	}
 }
 
@@ -73,36 +72,31 @@ ccl_device float3 direct_emissive_eval_finish(KernelGlobals *kg,
                                                 ShaderData *emission_sd,
                                                 LightSample *ls,
                                                 ccl_addr_space PathState *state,
-                                                float3 I,
-                                                ShaderEvalTask *eval_task)
+                                                float3 I)
 {
 	/* setup shading at emitter */
 	float3 eval;
 
-	int shader_flag = kernel_tex_fetch(__shader_flag, (ls->shader & SHADER_MASK)*SHADER_SIZE);
-
 #ifdef __BACKGROUND_MIS__
 	if(ls->type == LIGHT_BACKGROUND) {
-		eval = eval_task->eval_result;
+		eval = shader_eval_background(kg, emission_sd);
 		path_state_modify_bounce(state, false);
 	}
 	else
 #endif
-	if(shader_flag & SD_HAS_CONSTANT_EMISSION)
-	{
-		eval = eval_task->eval_result;
+	if(shader_has_constant_emission(kg, emission_sd)) {
+		eval = shader_get_constant_emission(kg, emission_sd);
 		if((ls->prim != PRIM_NONE) && dot(ls->Ng, I) < 0.0f) {
 			ls->Ng = -ls->Ng;
 		}
 	}
-	else
-	{
+	else {
 		path_state_modify_bounce(state, false);
 
 		/* evaluate emissive closure */
 		eval = shader_emissive_eval(kg, emission_sd);
 	}
-	
+
 	eval *= ls->eval_fac;
 
 	return eval;
@@ -118,28 +112,25 @@ ccl_device_noinline float3 direct_emissive_eval(KernelGlobals *kg,
                                                 float t,
                                                 float time)
 {
-	MAKE_POINTER_TO_LOCAL_OBJ(ShaderEvalTask, shader_eval_task);
-	direct_emissive_eval_setup(kg, emission_sd, ls, state, I, dI, t, time, shader_eval_task);
-	shader_eval(kg, emission_sd, state, shader_eval_task);
-	return direct_emissive_eval_finish(kg, emission_sd, ls, state, I, shader_eval_task);
+	ShaderEvalIntent intent = direct_emissive_eval_setup(kg, emission_sd, ls, state, I, dI, t, time);
+	shader_eval(kg, emission_sd, state, intent);
+	return direct_emissive_eval_finish(kg, emission_sd, ls, state, I);
 }
 
-ccl_device bool direct_emission_setup(KernelGlobals *kg,
+ccl_device ShaderEvalIntent direct_emission_setup(KernelGlobals *kg,
                                          ShaderData *sd,
                                          ShaderData *emission_sd,
                                          LightSample *ls,
-                                         ccl_addr_space PathState *state,
-                                         ShaderEvalTask *eval_task)
+                                         ccl_addr_space PathState *state)
 {
 	if(ls->pdf == 0.0f)
-		return false;
+		return SHADER_EVAL_INTENT_SKIP;
 
 	/* todo: implement */
 	differential3 dD = differential3_zero();
 
 	/* evaluate closure */
-	direct_emissive_eval_setup(kg, emission_sd, ls, state, -ls->D, dD, ls->t, sd->time, eval_task);
-	return true;
+	return direct_emissive_eval_setup(kg, emission_sd, ls, state, -ls->D, dD, ls->t, sd->time);
 }
 
 ccl_device bool direct_emission_finish(KernelGlobals *kg,
@@ -150,11 +141,10 @@ ccl_device bool direct_emission_finish(KernelGlobals *kg,
                                          Ray *ray,
                                          BsdfEval *eval,
                                          bool *is_lamp,
-                                         float rand_terminate,
-                                         ShaderEvalTask *eval_task)
+                                         float rand_terminate)
 {
 	/* evaluate closure */
-	float3 light_eval = direct_emissive_eval_finish(kg, emission_sd, ls, state, -ls->D, eval_task);
+	float3 light_eval = direct_emissive_eval_finish(kg, emission_sd, ls, state, -ls->D);
 
 	if(is_zero(light_eval))
 		return false;
@@ -253,12 +243,12 @@ ccl_device_noinline bool direct_emission(KernelGlobals *kg,
                                          bool *is_lamp,
                                          float rand_terminate)
 {
-	MAKE_POINTER_TO_LOCAL_OBJ(ShaderEvalTask, shader_eval_task);
-	if(!direct_emission_setup(kg, sd, emission_sd, ls, state, shader_eval_task)) {
+	ShaderEvalIntent intent = direct_emission_setup(kg, sd, emission_sd, ls, state);
+	if(!intent) {
 		return false;
 	}
-	shader_eval(kg, emission_sd, state, shader_eval_task);
-	return direct_emission_finish(kg, sd, emission_sd, ls, state, ray, eval, is_lamp, rand_terminate, shader_eval_task);
+	shader_eval(kg, emission_sd, state, intent);
+	return direct_emission_finish(kg, sd, emission_sd, ls, state, ray, eval, is_lamp, rand_terminate);
 }
 
 /* Indirect Primitive Emission */
@@ -354,8 +344,7 @@ ccl_device_noinline bool indirect_lamp_emission(KernelGlobals *kg,
 ccl_device_noinline bool indirect_background_setup(KernelGlobals *kg,
                                                ShaderData *emission_sd,
                                                ccl_addr_space PathState *state,
-                                               ccl_addr_space Ray *ray,
-                                               ShaderEvalTask *eval_task)
+                                               ccl_addr_space Ray *ray)
 {
 #ifdef __BACKGROUND__
 	int shader = kernel_data.background.surface_shader;
@@ -380,7 +369,6 @@ ccl_device_noinline bool indirect_background_setup(KernelGlobals *kg,
 #  endif  /* __SPLIT_KERNEL__ */
 
 	path_state_modify_bounce(state, true);
-	shader_eval_task_setup(kg, eval_task, emission_sd, SHADER_EVAL_INTENT_BACKGROUND, state->flag, 0);
 #endif  /* __BACKGROUND__ */
 	return true;
 }
@@ -388,11 +376,11 @@ ccl_device_noinline bool indirect_background_setup(KernelGlobals *kg,
 ccl_device_noinline float3 indirect_background_finish(KernelGlobals *kg,
                                                ShaderData *emission_sd,
                                                ccl_addr_space PathState *state,
-                                               ccl_addr_space Ray *ray,
-                                               ShaderEvalTask *eval_task)
+                                               ccl_addr_space Ray *ray)
 {
 #ifdef __BACKGROUND__
-	float3 L = eval_task->eval_result;
+	float3 L = shader_eval_background(kg, emission_sd);
+
 	path_state_modify_bounce(state, false);
 
 #  ifdef __BACKGROUND_MIS__
@@ -421,12 +409,11 @@ ccl_device_noinline float3 indirect_background(KernelGlobals *kg,
                                                ccl_addr_space Ray *ray)
 {
 #ifdef __BACKGROUND__
-	MAKE_POINTER_TO_LOCAL_OBJ(ShaderEvalTask, shader_eval_task);
-	if(!indirect_background_setup(kg, emission_sd, state, ray, shader_eval_task)) {
+	if(!indirect_background_setup(kg, emission_sd, state, ray)) {
 		return make_float3(0.0f, 0.0f, 0.0f);
 	}
-	shader_eval(kg, emission_sd, state, shader_eval_task);
-	return indirect_background_finish(kg, emission_sd, state, ray, shader_eval_task);
+	shader_eval(kg, emission_sd, state, SHADER_EVAL_INTENT_BACKGROUND);
+	return indirect_background_finish(kg, emission_sd, state, ray);
 #else
 	return make_float3(0.8f, 0.8f, 0.8f);
 #endif  /* __BACKGROUND__ */

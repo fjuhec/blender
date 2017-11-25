@@ -133,8 +133,7 @@ ccl_device_forceinline bool kernel_path_background_setup(
 	ccl_addr_space Ray *ray,
 	float3 throughput,
 	ShaderData *sd,
-	PathRadiance *L,
-	ShaderEvalTask *eval_task)
+	PathRadiance *L)
 {
 	/* eval background shader if nothing hit */
 	if(kernel_data.background.transparent && (state->flag & PATH_RAY_CAMERA)) {
@@ -154,7 +153,7 @@ ccl_device_forceinline bool kernel_path_background_setup(
 
 #ifdef __BACKGROUND__
 	/* sample background shader */
-	return indirect_background_setup(kg, sd, state, ray, eval_task);
+	return indirect_background_setup(kg, sd, state, ray);
 #else
 	return false;
 #endif  /* __BACKGROUND__ */
@@ -166,12 +165,11 @@ ccl_device_forceinline void kernel_path_background_finish(
 	ccl_addr_space Ray *ray,
 	float3 throughput,
 	ShaderData *sd,
-	PathRadiance *L,
-	ShaderEvalTask *eval_task)
+	PathRadiance *L)
 {
 #ifdef __BACKGROUND__
 	/* sample background shader */
-	float3 L_background = indirect_background_finish(kg, sd, state, ray, eval_task);
+	float3 L_background = indirect_background_finish(kg, sd, state, ray);
 	path_radiance_accum_background(L, state, throughput, L_background);
 #endif  /* __BACKGROUND__ */
 }
@@ -185,13 +183,12 @@ ccl_device_forceinline void kernel_path_background(
 	PathRadiance *L)
 {
 #ifdef __BACKGROUND__
-	MAKE_POINTER_TO_LOCAL_OBJ(ShaderEvalTask, shader_eval_task);
-	if(kernel_path_background_setup(kg, state, ray, throughput, sd, L, shader_eval_task)) {
-		shader_eval(kg, sd, state, shader_eval_task);
-		kernel_path_background_finish(kg, state, ray, throughput, sd, L, shader_eval_task);
+	if(kernel_path_background_setup(kg, state, ray, throughput, sd, L)) {
+		shader_eval(kg, sd, state, SHADER_EVAL_INTENT_BACKGROUND);
+		kernel_path_background_finish(kg, state, ray, throughput, sd, L);
 	}
 #else
-	kernel_path_background_setup(kg, state, ray, throughput, sd, L, NULL);
+	kernel_path_background_setup(kg, state, ray, throughput, sd, L);
 #endif  /* __BACKGROUND__ */
 }
 
@@ -480,7 +477,7 @@ ccl_device void kernel_path_indirect(KernelGlobals *kg,
 		                      sd,
 		                      &isect,
 		                      ray);
-		shader_eval_surface(kg, sd, state, state->flag, kernel_data.integrator.max_closures);
+		shader_eval(kg, sd, state, SHADER_EVAL_INTENT_SURFACE);
 		shader_prepare_closures(sd, state);
 
 		/* Apply shadow catcher, holdout, emission. */
@@ -631,7 +628,7 @@ ccl_device_forceinline void kernel_path_integrate(
 
 		/* Setup and evaluate shader. */
 		shader_setup_from_ray(kg, &sd, &isect, ray);
-		shader_eval_surface(kg, &sd, state, state->flag, kernel_data.integrator.max_closures);
+		shader_eval(kg, &sd, state, SHADER_EVAL_INTENT_SURFACE);
 		shader_prepare_closures(&sd, state);
 
 		/* Apply shadow catcher, holdout, emission. */

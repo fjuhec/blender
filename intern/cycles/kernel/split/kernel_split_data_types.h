@@ -39,6 +39,11 @@ typedef struct SplitParams {
 	int dummy_sd_flag;
 } SplitParams;
 
+typedef ccl_addr_space struct ShaderEvalTask {
+	ShaderEvalIntent intent;
+	uint sd_offset; /* offset into split_data */
+} ShaderEvalTask;
+
 /* Global memory variables [porting]; These memory is used for
  * co-operation between different kernels; Data written by one
  * kernel will be available to another kernel via this global

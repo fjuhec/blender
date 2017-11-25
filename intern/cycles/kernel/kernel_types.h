@@ -930,10 +930,12 @@ enum ShaderDataObjectFlag {
 };
 
 typedef enum ShaderEvalIntent {
+	SHADER_EVAL_INTENT_SKIP = 0,
 	SHADER_EVAL_INTENT_SURFACE,
+	SHADER_EVAL_INTENT_EMISSION,
+	SHADER_EVAL_INTENT_SHADOW,
 	SHADER_EVAL_INTENT_BACKGROUND,
-	SHADER_EVAL_INTENT_CONSTANT,
-	SHADER_EVAL_INTENT_SKIP, /* dont evaluate shader, used by the split kernel */
+	SHADER_EVAL_INTENT_BAKE,
 } ShaderEvalIntent;
 
 typedef ccl_addr_space struct ShaderData {
@@ -1025,21 +1027,6 @@ typedef ccl_addr_space struct ShaderDataTinyStorage {
 	char pad[sizeof(ShaderData) - sizeof(ShaderClosure) * MAX_CLOSURE];
 } ShaderDataTinyStorage;
 #define AS_SHADER_DATA(shader_data_tiny_storage) ((ShaderData*)shader_data_tiny_storage)
-
-typedef ccl_addr_space struct ShaderEvalTask {
-#ifdef __cplusplus
-	ShaderEvalTask() {}; /* needed to work around default constructor being deleted */
-#endif
-	union {
-		struct {
-			ShaderEvalIntent intent;
-			uint path_flag;
-			uint max_closure;
-			uint sd_offset; /* offset into split_data when using split kernel */
-		};
-		float3 eval_result;
-	};
-} ShaderEvalTask;
 
 /* Path State */
 
@@ -1533,16 +1520,6 @@ typedef struct LightSample {
 	int lamp;			/* lamp id */
 	LightType type;		/* type of light */
 } LightSample;
-
-/* Utility macro to get a pointer to an object that can be used locally, while avoiding
- * address space issues of the split kernel. `name` must exist in split data entries.
- */
-
-#ifdef __SPLIT_KERNEL__
-#  define MAKE_POINTER_TO_LOCAL_OBJ(type, name) type *name = &kernel_split_state.name[ccl_global_id(0) + ccl_global_id(1) * ccl_global_size(0)];
-#else
-#  define MAKE_POINTER_TO_LOCAL_OBJ(type, name) type _local_##name; type *name = &_local_##name;
-#endif
 
 CCL_NAMESPACE_END
 
