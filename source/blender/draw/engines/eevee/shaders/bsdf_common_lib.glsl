@@ -103,6 +103,7 @@ struct ShadowCascadeData {
 #define sh_tex_start    shadow_data_start_end.x
 #define sh_data_start   shadow_data_start_end.y
 #define sh_multi_nbr    shadow_data_start_end.z
+#define sh_blur         shadow_data_start_end.w
 #define sh_contact_dist            contact_shadow_data.x
 #define sh_contact_offset          contact_shadow_data.y
 #define sh_contact_spread          contact_shadow_data.z
@@ -582,6 +583,9 @@ struct Closure {
 	float opacity;
 #ifdef USE_SSS
 	vec4 sss_data;
+#ifdef USE_SSS_ALBEDO
+	vec3 sss_albedo;
+#endif
 #endif
 	vec4 ssr_data;
 	vec2 ssr_normal;
@@ -593,7 +597,11 @@ struct Closure {
 #define REFRACT_CLOSURE_FLAG -3
 
 #ifdef USE_SSS
+#ifdef USE_SSS_ALBEDO
+#define CLOSURE_DEFAULT Closure(vec3(0.0), 1.0, vec4(0.0), vec3(0.0), vec4(0.0), vec2(0.0), -1)
+#else
 #define CLOSURE_DEFAULT Closure(vec3(0.0), 1.0, vec4(0.0), vec4(0.0), vec2(0.0), -1)
+#endif
 #else
 #define CLOSURE_DEFAULT Closure(vec3(0.0), 1.0, vec4(0.0), vec2(0.0), -1)
 #endif
@@ -607,6 +615,9 @@ Closure closure_mix(Closure cl1, Closure cl2, float fac)
 #ifdef USE_SSS
 	cl.sss_data.rgb = mix(cl1.sss_data.rgb, cl2.sss_data.rgb, fac);
 	cl.sss_data.a = (cl1.sss_data.a > 0.0) ? cl1.sss_data.a : cl2.sss_data.a;
+#ifdef USE_SSS_ALBEDO
+	cl.sss_albedo = (cl1.sss_data.a > 0.0) ? cl1.sss_albedo : cl2.sss_albedo;
+#endif
 #endif
 
 	if (cl1.ssr_id == outputSsrId) {
@@ -636,6 +647,9 @@ Closure closure_add(Closure cl1, Closure cl2)
 	Closure cl = (cl1.ssr_id == outputSsrId) ? cl1 : cl2;
 #ifdef USE_SSS
 	cl.sss_data = (cl1.sss_data.a > 0.0) ? cl1.sss_data : cl2.sss_data;
+#ifdef USE_SSS_ALBEDO
+	cl.sss_albedo = (cl1.sss_data.a > 0.0) ? cl1.sss_albedo : cl2.sss_albedo;
+#endif
 #endif
 	cl.radiance = cl1.radiance + cl2.radiance;
 	cl.opacity = cl1.opacity + cl2.opacity;
@@ -645,13 +659,20 @@ Closure closure_add(Closure cl1, Closure cl2)
 #if defined(MESH_SHADER) && !defined(USE_ALPHA_HASH) && !defined(USE_ALPHA_CLIP) && !defined(SHADOW_SHADER) && !defined(USE_MULTIPLY)
 layout(location = 0) out vec4 fragColor;
 #ifdef USE_SSS
+#ifdef USE_SSS_ALBEDO
+layout(location = 1) out vec4 sssData;
+layout(location = 2) out vec4 sssAlbedo;
+layout(location = 3) out vec4 ssrNormals;
+layout(location = 4) out vec4 ssrData;
+#else
 layout(location = 1) out vec4 sssData;
 layout(location = 2) out vec4 ssrNormals;
 layout(location = 3) out vec4 ssrData;
+#endif /* USE_SSS_ALBEDO */
 #else
 layout(location = 1) out vec4 ssrNormals;
 layout(location = 2) out vec4 ssrData;
-#endif
+#endif /* USE_SSS */
 
 Closure nodetree_exec(void); /* Prototype */
 
@@ -677,6 +698,9 @@ void main()
 	ssrData = cl.ssr_data;
 #ifdef USE_SSS
 	sssData = cl.sss_data;
+#ifdef USE_SSS_ALBEDO
+	sssAlbedo = cl.sss_albedo.rgbb;
+#endif
 #endif
 }
 

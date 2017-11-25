@@ -67,7 +67,7 @@ struct PointerRNA;
 struct PropertyRNA;
 struct RenderEngineType;
 struct Scene;
-struct SceneLayer;
+struct ViewLayer;
 
 typedef enum eEvaluationMode {
 	DAG_EVAL_VIEWPORT       = 0,    /* evaluate for OpenGL viewport */
@@ -85,7 +85,7 @@ typedef struct EvaluationContext {
 	float ctime;
 
 	struct Depsgraph *depsgraph;
-	struct SceneLayer *scene_layer;
+	struct ViewLayer *view_layer;
 	struct RenderEngineType *engine;
 } EvaluationContext;
 
@@ -165,6 +165,8 @@ enum {
 	 * Only parameters of material changed).
 	 */
 	DEG_TAG_SHADING_UPDATE  = (1 << 9),
+	DEG_TAG_SELECT_UPDATE   = (1 << 10),
+	DEG_TAG_BASE_FLAGS_UPDATE = (1 << 11),
 };
 void DEG_id_tag_update(struct ID *id, int flag);
 void DEG_id_tag_update_ex(struct Main *bmain, struct ID *id, int flag);
@@ -211,7 +213,7 @@ void DEG_evaluation_context_init(struct EvaluationContext *eval_ctx,
                                  eEvaluationMode mode);
 void DEG_evaluation_context_init_from_scene(struct EvaluationContext *eval_ctx,
                                             struct Scene *scene,
-                                            struct SceneLayer *scene_layer,
+                                            struct ViewLayer *view_layer,
                                             struct RenderEngineType *engine,
                                             eEvaluationMode mode);
 

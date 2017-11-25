@@ -19,11 +19,10 @@
  *
  */
 
-/* Gather all screen space effects technique such as Bloom, Motion Blur, DoF, SSAO, SSR, ...
- */
-
 /** \file eevee_effects.c
  *  \ingroup draw_engine
+ *
+ * Gather all screen space effects technique such as Bloom, Motion Blur, DoF, SSAO, SSR, ...
  */
 
 #include "DRW_render.h"
@@ -65,31 +64,48 @@ extern char datatoc_lightprobe_geom_glsl[];
 static void eevee_create_shader_downsample(void)
 {
 	e_data.downsample_sh = DRW_shader_create_fullscreen(datatoc_effect_downsample_frag_glsl, NULL);
-	e_data.downsample_cube_sh = DRW_shader_create(datatoc_lightprobe_vert_glsl,
-	                                              datatoc_lightprobe_geom_glsl,
-	                                              datatoc_effect_downsample_cube_frag_glsl, NULL);
+	e_data.downsample_cube_sh = DRW_shader_create(
+	        datatoc_lightprobe_vert_glsl,
+	        datatoc_lightprobe_geom_glsl,
+	        datatoc_effect_downsample_cube_frag_glsl, NULL);
 
-	e_data.minz_downlevel_sh = DRW_shader_create_fullscreen(datatoc_effect_minmaxz_frag_glsl, "#define MIN_PASS\n");
-	e_data.maxz_downlevel_sh = DRW_shader_create_fullscreen(datatoc_effect_minmaxz_frag_glsl, "#define MAX_PASS\n");
-	e_data.minz_downdepth_sh = DRW_shader_create_fullscreen(datatoc_effect_minmaxz_frag_glsl, "#define MIN_PASS\n"
-	                                                                                          "#define INPUT_DEPTH\n");
-	e_data.maxz_downdepth_sh = DRW_shader_create_fullscreen(datatoc_effect_minmaxz_frag_glsl, "#define MAX_PASS\n"
-	                                                                                          "#define INPUT_DEPTH\n");
-	e_data.minz_downdepth_layer_sh = DRW_shader_create_fullscreen(datatoc_effect_minmaxz_frag_glsl, "#define MIN_PASS\n"
-	                                                                                                "#define LAYERED\n"
-	                                                                                                "#define INPUT_DEPTH\n");
-	e_data.maxz_downdepth_layer_sh = DRW_shader_create_fullscreen(datatoc_effect_minmaxz_frag_glsl, "#define MAX_PASS\n"
-	                                                                                                "#define LAYERED\n"
-	                                                                                                "#define INPUT_DEPTH\n");
-	e_data.minz_copydepth_sh = DRW_shader_create_fullscreen(datatoc_effect_minmaxz_frag_glsl, "#define MIN_PASS\n"
-	                                                                                          "#define INPUT_DEPTH\n"
-	                                                                                          "#define COPY_DEPTH\n");
-	e_data.maxz_copydepth_sh = DRW_shader_create_fullscreen(datatoc_effect_minmaxz_frag_glsl, "#define MAX_PASS\n"
-	                                                                                          "#define INPUT_DEPTH\n"
-	                                                                                          "#define COPY_DEPTH\n");
+	e_data.minz_downlevel_sh = DRW_shader_create_fullscreen(
+	        datatoc_effect_minmaxz_frag_glsl,
+	        "#define MIN_PASS\n");
+	e_data.maxz_downlevel_sh = DRW_shader_create_fullscreen(
+	        datatoc_effect_minmaxz_frag_glsl,
+	        "#define MAX_PASS\n");
+	e_data.minz_downdepth_sh = DRW_shader_create_fullscreen(
+	        datatoc_effect_minmaxz_frag_glsl,
+	        "#define MIN_PASS\n"
+	        "#define INPUT_DEPTH\n");
+	e_data.maxz_downdepth_sh = DRW_shader_create_fullscreen(
+	        datatoc_effect_minmaxz_frag_glsl,
+	        "#define MAX_PASS\n"
+	        "#define INPUT_DEPTH\n");
+	e_data.minz_downdepth_layer_sh = DRW_shader_create_fullscreen(
+	        datatoc_effect_minmaxz_frag_glsl,
+	        "#define MIN_PASS\n"
+	        "#define LAYERED\n"
+	        "#define INPUT_DEPTH\n");
+	e_data.maxz_downdepth_layer_sh = DRW_shader_create_fullscreen(
+	        datatoc_effect_minmaxz_frag_glsl,
+	        "#define MAX_PASS\n"
+	        "#define LAYERED\n"
+	        "#define INPUT_DEPTH\n");
+	e_data.minz_copydepth_sh = DRW_shader_create_fullscreen(
+	        datatoc_effect_minmaxz_frag_glsl,
+	        "#define MIN_PASS\n"
+	        "#define INPUT_DEPTH\n"
+	        "#define COPY_DEPTH\n");
+	e_data.maxz_copydepth_sh = DRW_shader_create_fullscreen(
+	        datatoc_effect_minmaxz_frag_glsl,
+	        "#define MAX_PASS\n"
+	        "#define INPUT_DEPTH\n"
+	        "#define COPY_DEPTH\n");
 }
 
-void EEVEE_effects_init(EEVEE_SceneLayerData *sldata, EEVEE_Data *vedata)
+void EEVEE_effects_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
 {
 	EEVEE_StorageList *stl = vedata->stl;
 	EEVEE_FramebufferList *fbl = vedata->fbl;
@@ -191,7 +207,7 @@ void EEVEE_effects_init(EEVEE_SceneLayerData *sldata, EEVEE_Data *vedata)
 	}
 }
 
-void EEVEE_effects_cache_init(EEVEE_SceneLayerData *UNUSED(sldata), EEVEE_Data *vedata)
+void EEVEE_effects_cache_init(EEVEE_ViewLayerData *UNUSED(sldata), EEVEE_Data *vedata)
 {
 	EEVEE_PassList *psl = vedata->psl;
 	EEVEE_StorageList *stl = vedata->stl;

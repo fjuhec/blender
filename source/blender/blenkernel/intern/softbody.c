@@ -514,7 +514,7 @@ static void ccd_build_deflector_hash_single(GHash *hash, Object *ob)
 /**
  * \note group overrides scene when not NULL.
  */
-static void ccd_build_deflector_hash(SceneLayer *sl, Group *group, Object *vertexowner, GHash *hash)
+static void ccd_build_deflector_hash(ViewLayer *view_layer, Group *group, Object *vertexowner, GHash *hash)
 {
 	Object *ob;
 
@@ -532,7 +532,7 @@ static void ccd_build_deflector_hash(SceneLayer *sl, Group *group, Object *verte
 		}
 	}
 	else {
-		for (Base *base = FIRSTBASE(sl); base; base = base->next) {
+		for (Base *base = FIRSTBASE(view_layer); base; base = base->next) {
 			/*Only proceed for mesh object in same layer */
 			if (base->object->type == OB_MESH) {
 				ob = base->object;
@@ -560,7 +560,7 @@ static void ccd_update_deflector_hash_single(GHash *hash, Object *ob)
 /**
  * \note group overrides scene when not NULL.
  */
-static void ccd_update_deflector_hash(SceneLayer *sl, Group *group, Object *vertexowner, GHash *hash)
+static void ccd_update_deflector_hash(ViewLayer *view_layer, Group *group, Object *vertexowner, GHash *hash)
 {
 	Object *ob;
 
@@ -578,7 +578,7 @@ static void ccd_update_deflector_hash(SceneLayer *sl, Group *group, Object *vert
 		}
 	}
 	else {
-		for (Base *base = FIRSTBASE(sl); base; base = base->next) {
+		for (Base *base = FIRSTBASE(view_layer); base; base = base->next) {
 			/*Only proceed for mesh object in same layer */
 			if (base->object->type == OB_MESH) {
 				ob = base->object;
@@ -979,7 +979,7 @@ static void free_softbody_intern(SoftBody *sb)
 /**
  * \note group overrides scene when not NULL.
  */
-static bool are_there_deflectors(SceneLayer *sl, Group *group)
+static bool are_there_deflectors(ViewLayer *view_layer, Group *group)
 {
 	if (group) {
 		for (GroupObject *go = group->gobject.first; go; go = go->next) {
@@ -988,7 +988,7 @@ static bool are_there_deflectors(SceneLayer *sl, Group *group)
 		}
 	}
 	else {
-		for (Base *base = FIRSTBASE(sl); base; base = base->next) {
+		for (Base *base = FIRSTBASE(view_layer); base; base = base->next) {
 			if (base->object->pd) {
 				if (base->object->pd->deflect)
 					return 1;
@@ -999,9 +999,9 @@ static bool are_there_deflectors(SceneLayer *sl, Group *group)
 	return 0;
 }
 
-static int query_external_colliders(SceneLayer *sl, Group *group)
+static int query_external_colliders(ViewLayer *view_layer, Group *group)
 {
-	return(are_there_deflectors(sl, group));
+	return(are_there_deflectors(view_layer, group));
 }
 /* --- dependency information functions*/
 
@@ -2251,7 +2251,7 @@ static void softbody_calc_forcesEx(const struct EvaluationContext *eval_ctx, Sce
 	/* gravity = sb->grav * sb_grav_force_scale(ob); */ /* UNUSED */
 
 	/* check conditions for various options */
-	do_deflector= query_external_colliders(eval_ctx->scene_layer, sb->collision_group);
+	do_deflector= query_external_colliders(eval_ctx->view_layer, sb->collision_group);
 	/* do_selfcollision=((ob->softflag & OB_SB_EDGES) && (sb->bspring)&& (ob->softflag & OB_SB_SELF)); */ /* UNUSED */
 	do_springcollision=do_deflector && (ob->softflag & OB_SB_EDGES) &&(ob->softflag & OB_SB_EDGECOLL);
 	do_aero=((sb->aeroedge)&& (ob->softflag & OB_SB_EDGES));
@@ -2315,7 +2315,7 @@ static void softbody_calc_forces(const struct EvaluationContext *eval_ctx, Scene
 		}
 
 		/* check conditions for various options */
-		do_deflector= query_external_colliders(eval_ctx->scene_layer, sb->collision_group);
+		do_deflector= query_external_colliders(eval_ctx->view_layer, sb->collision_group);
 		do_selfcollision=((ob->softflag & OB_SB_EDGES) && (sb->bspring)&& (ob->softflag & OB_SB_SELF));
 		do_springcollision=do_deflector && (ob->softflag & OB_SB_EDGES) &&(ob->softflag & OB_SB_EDGECOLL);
 		do_aero=((sb->aeroedge)&& (ob->softflag & OB_SB_EDGES));
@@ -3526,11 +3526,11 @@ static void softbody_step(const struct EvaluationContext *eval_ctx, Scene *scene
 	 */
 	if (dtime < 0 || dtime > 10.5f) return;
 
-	ccd_update_deflector_hash(eval_ctx->scene_layer, sb->collision_group, ob, sb->scratch->colliderhash);
+	ccd_update_deflector_hash(eval_ctx->view_layer, sb->collision_group, ob, sb->scratch->colliderhash);
 
 	if (sb->scratch->needstobuildcollider) {
-		if (query_external_colliders(eval_ctx->scene_layer, sb->collision_group)) {
-			ccd_build_deflector_hash(eval_ctx->scene_layer, sb->collision_group, ob, sb->scratch->colliderhash);
+		if (query_external_colliders(eval_ctx->view_layer, sb->collision_group)) {
+			ccd_build_deflector_hash(eval_ctx->view_layer, sb->collision_group, ob, sb->scratch->colliderhash);
 		}
 		sb->scratch->needstobuildcollider=0;
 	}
