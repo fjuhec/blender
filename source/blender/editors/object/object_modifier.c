@@ -2445,9 +2445,8 @@ static int fur_generate_follicles_exec(bContext *C, wmOperator *op)
 	            fmd->hair_system,
 	            dm,
 	            (unsigned int)fmd->follicle_seed,
-	            fmd->follicle_min_distance,
-	            fmd->follicle_max_count);
-
+	            fmd->follicle_count);
+	
 	{
 		unsigned int guides_seed = fmd->follicle_seed ^ 0xFFFF;
 		fur_create_guide_curves(

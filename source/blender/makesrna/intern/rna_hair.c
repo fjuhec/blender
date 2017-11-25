@@ -60,8 +60,7 @@ static void rna_HairSystem_generate_follicles(
         struct bContext *C,
         Object *scalp,
         int seed,
-        float min_distance,
-        int max_count)
+        int count)
 {
 	if (!scalp)
 	{
@@ -75,7 +74,7 @@ static void rna_HairSystem_generate_follicles(
 	CustomDataMask datamask = CD_MASK_BAREMESH;
 	DerivedMesh *dm = mesh_get_derived_final(&eval_ctx, scene, scalp, datamask);
 	
-	BKE_hair_generate_follicles(hsys, dm, (unsigned int)seed, min_distance, max_count);
+	BKE_hair_generate_follicles(hsys, dm, (unsigned int)seed, count);
 }
 
 #else
@@ -129,9 +128,8 @@ static void rna_def_hair_system(BlenderRNA *brna)
 	parm = RNA_def_pointer(func, "scalp", "Object", "Scalp", "Scalp object on which to place hair follicles");
 	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 	parm = RNA_def_int(func, "seed", 0, 0, INT_MAX, "Seed", "Seed value for random numbers", 0, INT_MAX);
-	parm = RNA_def_float(func, "min_distance", 0.01f, 0.0f, FLT_MAX, "Min Distance", "Minimum distance between follicles", 1.0e-5f, 1.0f);
+	parm = RNA_def_int(func, "count", 0, 0, INT_MAX, "Count", "Maximum number of follicles to generate", 1, 1e5);
 	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
-	parm = RNA_def_int(func, "max_count", 0, 0, INT_MAX, "Max Count", "Maximum number of follicles to generate", 1, 1e5);
 }
 
 static void rna_def_hair_draw_settings(BlenderRNA *brna)

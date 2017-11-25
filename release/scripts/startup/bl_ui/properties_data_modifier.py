@@ -1548,8 +1548,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         col = split.column()
         col.label("Follicles:")
         col.prop(md, "follicle_seed")
-        col.prop(md, "follicle_min_distance")
-        col.prop(md, "follicle_max_count")
+        col.prop(md, "follicle_count")
 
         col = split.column()
         col.label("Guide Curves:")

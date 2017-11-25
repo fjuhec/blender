@@ -58,8 +58,8 @@ static void initData(ModifierData *md)
 	
 	fmd->flag |= 0;
 	
-	fmd->follicle_min_distance = 0.001f;
-	fmd->follicle_max_count = 1000;
+	fmd->follicle_count = 100000;
+	fmd->guides_count = 1000;
 	
 	fmd->draw_settings = BKE_hair_draw_settings_new();
 }

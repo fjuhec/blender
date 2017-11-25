@@ -4814,23 +4814,17 @@ static void rna_def_modifier_fur(BlenderRNA *brna)
 	RNA_def_property_range(prop, 0, INT_MAX);
 	RNA_def_property_ui_text(prop, "Seed", "Follicle distribution random seed value");
 	
-	prop = RNA_def_property(srna, "follicle_min_distance", PROP_FLOAT, PROP_NONE);
-	RNA_def_property_float_default(prop, 0.001f);
-	RNA_def_property_range(prop, 0.0f, FLT_MAX);
-	RNA_def_property_ui_range(prop, 1.0e-5f, 1.0f, 1.0e-4f, 5);
-	RNA_def_property_ui_text(prop, "Min Distance", "Minimum follicle distance");
-	
-	prop = RNA_def_property(srna, "follicle_max_count", PROP_INT, PROP_NONE);
-	RNA_def_property_int_default(prop, 1000);
+	prop = RNA_def_property(srna, "follicle_count", PROP_INT, PROP_NONE);
+	RNA_def_property_int_default(prop, 100000);
 	RNA_def_property_range(prop, 0, INT_MAX);
 	RNA_def_property_ui_range(prop, 1, 1e5, 1, 1);
-	RNA_def_property_ui_text(prop, "Max Count", "Maximum follicle number");
+	RNA_def_property_ui_text(prop, "Follicle Count", "Maximum number of follicles");
 	
 	prop = RNA_def_property(srna, "guides_count", PROP_INT, PROP_NONE);
-	RNA_def_property_int_default(prop, 100);
+	RNA_def_property_int_default(prop, 1000);
 	RNA_def_property_range(prop, 0, INT_MAX);
 	RNA_def_property_ui_range(prop, 1, 1e3, 1, 1);
-	RNA_def_property_ui_text(prop, "Guides Count", "Number of guide curves");
+	RNA_def_property_ui_text(prop, "Guides Count", "Maximum number of guide curves");
 	
 	prop = RNA_def_property(srna, "draw_settings", PROP_POINTER, PROP_NONE);
 	RNA_def_property_ui_text(prop, "Draw Settings", "Hair draw settings");

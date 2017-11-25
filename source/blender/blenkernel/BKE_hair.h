@@ -78,8 +78,7 @@ void BKE_hair_generate_follicles(
         struct HairSystem* hsys,
         struct DerivedMesh *scalp,
         unsigned int seed,
-        float min_distance,
-        int max_count);
+        int count);
 
 void BKE_hair_bind_follicles(struct HairSystem *hsys, struct DerivedMesh *scalp);
 

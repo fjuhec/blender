@@ -164,24 +164,23 @@ void BKE_hair_generate_follicles(
         HairSystem* hsys,
         struct DerivedMesh *scalp,
         unsigned int seed,
-        float min_distance,
-        int max_count)
+        int count)
 {
 	HairPattern *pattern = hsys->pattern;
 	
 	// Limit max_count to theoretical limit based on area
 	float scalp_area = BKE_hair_calc_surface_area(scalp);
-	float density = BKE_hair_calc_density_from_min_distance(min_distance);
-	max_count = min_ii(max_count, (int)(density * scalp_area));
+	float density = BKE_hair_calc_density_from_count(scalp_area, count);
+	float min_distance = BKE_hair_calc_min_distance_from_density(density);
 	
 	if (pattern->follicles)
 	{
 		MEM_freeN(pattern->follicles);
 	}
-	pattern->follicles = MEM_callocN(sizeof(HairFollicle) * max_count, "hair follicles");
+	pattern->follicles = MEM_callocN(sizeof(HairFollicle) * count, "hair follicles");
 	
 	{
-		MeshSampleGenerator *gen = BKE_mesh_sample_gen_surface_poissondisk(seed, min_distance, max_count, NULL, NULL);
+		MeshSampleGenerator *gen = BKE_mesh_sample_gen_surface_poissondisk(seed, min_distance, count, NULL, NULL);
 		
 		BKE_mesh_sample_generator_bind(gen, scalp);
 		
@@ -190,7 +189,7 @@ void BKE_hair_generate_follicles(
 		            gen,
 		            &pattern->follicles->mesh_sample,
 		            sizeof(HairFollicle),
-		            max_count,
+		            count,
 		            use_threads);
 		
 		BKE_mesh_sample_free_generator(gen);
