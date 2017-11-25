@@ -70,23 +70,15 @@ namespace DEG {
 
 void DepsgraphRelationBuilder::build_view_layer(Scene *scene, ViewLayer *view_layer)
 {
-	if (scene->set != NULL) {
-		ViewLayer *set_view_layer = BKE_view_layer_from_scene_get(scene->set);
-		build_view_layer(scene->set, set_view_layer);
-	}
-
-	graph_->scene = scene;
-	graph_->view_layer = view_layer;
-
 	/* Setup currently building context. */
 	scene_ = scene;
 
 	/* scene objects */
 	LINKLIST_FOREACH(Base *, base, &view_layer->object_bases) {
-		build_object(base->object);
+		build_object(base, base->object);
 	}
 	if (scene->camera != NULL) {
-		build_object(scene->camera);
+		build_object(NULL, scene->camera);
 	}
 
 	/* rigidbody */
@@ -141,6 +133,15 @@ void DepsgraphRelationBuilder::build_view_layer(Scene *scene, ViewLayer *view_la
 			object->customdata_mask |= node->customdata_mask;
 		}
 	}
+
+	/* Build all set scenes. */
+	if (scene->set != NULL) {
+		ViewLayer *set_view_layer = BKE_view_layer_from_scene_get(scene->set);
+		build_view_layer(scene->set, set_view_layer);
+	}
+
+	graph_->scene = scene;
+	graph_->view_layer = view_layer;
 }
 
 }  // namespace DEG
