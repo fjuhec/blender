@@ -251,9 +251,7 @@ static void hair_get_strand_buffer(
 		smap->vertex_start = vertex_start;
 		smap->vertex_count = len;
 		
-		if (subdiv > 0) {
-			hair_strand_subdivide(hsys, curve, subdiv, vertco + vertex_start);
-		}
+		hair_strand_subdivide(hsys, curve, subdiv, vertco + vertex_start);
 		
 		{
 			float pos[3];
