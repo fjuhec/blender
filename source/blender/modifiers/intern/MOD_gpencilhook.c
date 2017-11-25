@@ -182,7 +182,7 @@ static void gp_hook_co_apply(struct GPHookData_cb *tData, float weight, bGPDspoi
 	if (fac) {
 		float co_tmp[3];
 		mul_v3_m4v3(co_tmp, tData->mat, &pt->x);
-		interp_v3_v3v3(&pt->x, &pt->x, co_tmp, fac);
+		interp_v3_v3v3(&pt->x, &pt->x, co_tmp, fac * weight);
 	}
 }
 
