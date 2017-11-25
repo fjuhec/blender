@@ -80,6 +80,7 @@ static void initData(ModifierData *md)
 	gpmd->layername[0] = '\0';
 	gpmd->vgname[0] = '\0';
 	gpmd->object = NULL;
+	gpmd->force = 0.5f;
 	gpmd->falloff_type = eGPHook_Falloff_Smooth;
 	gpmd->curfalloff = curvemapping_add(1, 0.0f, 0.0f, 1.0f, 1.0f);
 	if (gpmd->curfalloff) {
