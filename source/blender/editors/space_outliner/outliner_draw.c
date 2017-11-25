@@ -1056,6 +1056,9 @@ static void tselem_draw_icon(uiBlock *block, int xmax, float x, float y, TreeSto
 					case eModifierType_GpencilSmooth:
 						ICON_DRAW(ICON_MOD_SMOOTH);
 						break;
+					case eModifierType_GpencilHook:
+						ICON_DRAW(ICON_HOOK);
+						break;
 
 					/* GPencil VFX Modifiers */
 					case eModifierType_GpencilBlur:

@@ -1883,6 +1883,53 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         col.separator()
         col.prop(md, "transparent")
 
+    def GP_HOOK(self, layout, ob, md):
+        gpd = ob.data
+        split = layout.split()
+
+        col = split.column()
+        col.label(text="Object:")
+        col.prop(md, "object", text="")
+        if md.object and md.object.type == 'ARMATURE':
+            col.label(text="Bone:")
+            col.prop_search(md, "subtarget", md.object.data, "bones", text="")
+
+        col = split.column()
+        col.label("Layer:")
+        row = col.row(align=True)
+        row.prop_search(md, "layer", gpd, "layers", text="", icon='GREASEPENCIL')
+        row.prop(md, "inverse_layers", text="", icon="ARROW_LEFTRIGHT")
+
+        col.label("Vertex Group:")
+        row = col.row(align=True)
+        row.prop_search(md, "vertex_group", ob, "vertex_groups", text="")
+        row.prop(md, "inverse_vertex", text="", icon="ARROW_LEFTRIGHT")
+
+        row = col.row(align=True)
+        row.prop(md, "pass_index", text="Pass")
+        row.prop(md, "inverse_pass", text="", icon="ARROW_LEFTRIGHT")
+
+        use_falloff = (md.falloff_type != 'NONE')
+        split = layout.split()
+
+        layout.separator()
+
+        row = layout.row(align=True)
+        if use_falloff:
+            row.prop(md, "falloff_radius")
+        row.prop(md, "strength", slider=True)
+        layout.prop(md, "falloff_type")
+
+        col = layout.column()
+        if use_falloff:
+            if md.falloff_type == 'CURVE':
+                col.template_curve_mapping(md, "falloff_curve")
+
+        split = layout.split()
+
+        col = split.column()
+        col.prop(md, "use_falloff_uniform")
+
 
 classes = (
     DATA_PT_modifiers,

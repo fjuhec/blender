@@ -102,6 +102,7 @@ typedef enum ModifierType {
 	eModifierType_GpencilPixel      = 66,
 	eModifierType_GpencilSwirl      = 67,
 	eModifierType_GpencilSmooth     = 68,
+	eModifierType_GpencilHook       = 69,
 	NUM_MODIFIER_TYPES
 } ModifierType;
 
@@ -1840,6 +1841,44 @@ typedef enum eGpencilLattice_Flag {
 	GP_LATTICE_INVERSE_PASS   = (1 << 1),
 	GP_LATTICE_INVERSE_VGROUP = (1 << 2),
 } eGpencilLattice_Flag;
+
+typedef struct GpencilHookModifierData {
+	ModifierData modifier;
+
+	struct Object *object;
+	char subtarget[64];     /* optional name of bone target, MAX_ID_NAME-2 */
+	char layername[64];     /* layer name */
+	char vgname[64];        /* optional vertexgroup name, MAX_VGROUP_NAME */
+	int pass_index;         /* custom index for passes */
+
+	int flag;
+	char falloff_type;      /* use enums from WarpModifier (exact same functionality) */
+	char pad[3];
+	float parentinv[4][4];  /* matrix making current transform unmodified */
+	float cent[3];          /* visualization of hook */
+	float falloff;          /* if not zero, falloff is distance where influence zero */
+	float force;
+	struct CurveMapping *curfalloff;
+} GpencilHookModifierData;
+
+typedef enum eGpencilHook_Flag {
+	GP_HOOK_INVERSE_LAYER = (1 << 0),
+	GP_HOOK_INVERSE_PASS = (1 << 1),
+	GP_HOOK_INVERSE_VGROUP = (1 << 2),
+	GP_HOOK_UNIFORM_SPACE = (1 << 3),
+} eGpencilHook_Flag;
+
+typedef enum eGpencilHook_Falloff {
+	eGPHook_Falloff_None = 0,
+	eGPHook_Falloff_Curve = 1,
+	eGPHook_Falloff_Sharp = 2,
+	eGPHook_Falloff_Smooth = 3,
+	eGPHook_Falloff_Root = 4,
+	eGPHook_Falloff_Linear = 5,
+	eGPHook_Falloff_Const = 6,
+	eGPHook_Falloff_Sphere = 7,
+	eGPHook_Falloff_InvSquare = 8,
+} eGpencilHook_Falloff;
 
 typedef struct GpencilSimplifyModifierData {
 	ModifierData modifier;

@@ -5480,6 +5480,14 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb)
 			GpencilLatticeModifierData *gpmd = (GpencilLatticeModifierData*)md;
 			gpmd->cache_data = NULL;
 		}
+		else if (md->type == eModifierType_GpencilHook) {
+			GpencilHookModifierData *hmd = (GpencilHookModifierData *)md;
+
+			hmd->curfalloff = newdataadr(fd, hmd->curfalloff);
+			if (hmd->curfalloff) {
+				direct_link_curvemapping(fd, hmd->curfalloff);
+			}
+		}
 		else if (md->type == eModifierType_GpencilThick) {
 			GpencilThickModifierData *gpmd = (GpencilThickModifierData *)md;
 
