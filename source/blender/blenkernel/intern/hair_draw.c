@@ -177,7 +177,8 @@ static void hair_strand_calc_vectors(const float (*positions)[3], int num_verts,
 		        prev_tang, prev_nor,
 		        strand[0].tang, strand[0].nor);
 		
-		for (int i = 1; i < num_verts - 1; ++i) {
+		for (int i = 1; i < num_verts - 1; ++i)
+		{
 			hair_strand_transport_frame(strand[i-1].co, strand[i+1].co,
 			        prev_tang, prev_nor,
 			        strand[i].tang, strand[i].nor);
@@ -195,7 +196,8 @@ static int hair_strand_subdivide(const HairSystem *hsys, const HairGuideCurve* c
 		/* Move vertex positions from the dense array to their initial configuration for subdivision. */
 		const int step = (1 << subdiv);
 		float (*dst)[3] = verts;
-		for (int i = curve->vertstart; i < curve->numverts; ++i) {
+		int vertend = curve->vertstart + curve->numverts;
+		for (int i = curve->vertstart; i < vertend; ++i) {
 			copy_v3_v3(*dst, hsys->verts[i].co);
 			dst += step;
 		}
