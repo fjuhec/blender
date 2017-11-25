@@ -122,6 +122,22 @@ static void foreachObjectLink(
 	UNUSED_VARS(ob, walk, userData, fmd);
 }
 
+static void foreachIDLink(
+        ModifierData *md,
+        Object *ob,
+        IDWalkFunc walk,
+        void *userData)
+{
+	FurModifierData *fmd = (FurModifierData *) md;
+	
+	if (fmd->hair_system)
+	{
+		walk(userData, ob, (ID **)&fmd->hair_system->mat, IDWALK_CB_USER);
+	}
+	
+	foreachObjectLink(md, ob, (ObjectWalkFunc)walk, userData);
+}
+
 ModifierTypeInfo modifierType_Fur = {
 	/* name */              "Fur",
 	/* structName */        "FurModifierData",
@@ -145,6 +161,6 @@ ModifierTypeInfo modifierType_Fur = {
 	/* dependsOnTime */     NULL,
 	/* dependsOnNormals */	NULL,
 	/* foreachObjectLink */ foreachObjectLink,
-	/* foreachIDLink */     NULL,
+	/* foreachIDLink */     foreachIDLink,
 	/* foreachTexLink */    NULL,
 };

@@ -1543,6 +1543,8 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
             layout.operator("object.correctivesmooth_bind", text="Unbind" if is_bind else "Bind")
 
     def FUR(self, layout, ob, md):
+        hsys = md.hair_system
+
         split = layout.split()
 
         col = split.column()
@@ -1558,6 +1560,8 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         col.operator("object.fur_generate_follicles", text="Generate")
 
         col.separator()
+
+        col.prop(hsys, "material", text="")
 
         col = layout.column()
         col.label("Drawing:")

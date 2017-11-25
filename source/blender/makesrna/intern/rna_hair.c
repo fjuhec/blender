@@ -55,6 +55,11 @@
 #include "WM_api.h"
 #include "WM_types.h"
 
+static void rna_HairSystem_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)
+{
+	DEG_id_tag_update(ptr->id.data, OB_RECALC_DATA);
+}
+
 static void rna_HairSystem_generate_follicles(
         HairSystem *hsys,
         struct bContext *C,
@@ -122,6 +127,12 @@ static void rna_def_hair_system(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "pattern", PROP_POINTER, PROP_NONE);
 	RNA_def_property_struct_type(prop, "HairPattern");
 	RNA_def_property_ui_text(prop, "Pattern", "Hair pattern");
+	
+	prop = RNA_def_property(srna, "material", PROP_POINTER, PROP_NONE);
+	RNA_def_property_pointer_sdna(prop, NULL, "mat");
+	RNA_def_property_ui_text(prop, "Material", "Material used for drawing and rendering hair fibers");
+	RNA_def_property_flag(prop, PROP_EDITABLE);
+	RNA_def_property_update(prop, NC_OBJECT | ND_MODIFIER, "rna_HairSystem_update");
 	
 	func = RNA_def_function(srna, "generate_follicles", "rna_HairSystem_generate_follicles");
 	RNA_def_function_flag(func, FUNC_USE_CONTEXT);

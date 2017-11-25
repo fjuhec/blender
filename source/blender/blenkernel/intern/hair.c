@@ -34,9 +34,9 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "BLI_math.h"
 #include "BLI_kdtree.h"
 #include "BLI_listbase.h"
+#include "BLI_math.h"
 #include "BLI_rand.h"
 #include "BLI_sort.h"
 #include "BLI_string_utf8.h"
@@ -47,6 +47,7 @@
 
 #include "BKE_DerivedMesh.h"
 #include "BKE_hair.h"
+#include "BKE_library.h"
 #include "BKE_mesh.h"
 #include "BKE_mesh_sample.h"
 
@@ -78,6 +79,10 @@ HairSystem* BKE_hair_copy(HairSystem *hsys)
 	if (hsys->verts)
 	{
 		nhsys->verts = MEM_dupallocN(hsys->verts);
+	}
+	
+	if (nhsys->mat) {
+		id_us_plus((ID *)nhsys->mat);
 	}
 	
 	nhsys->draw_batch_cache = NULL;
