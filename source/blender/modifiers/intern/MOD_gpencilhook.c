@@ -57,10 +57,6 @@
 
  /* temp struct to hold data */
 struct GPHookData_cb {
-	float(*vertexCos)[3];
-
-	int defgrp_index;
-
 	struct CurveMapping *curfalloff;
 
 	char  falloff_type;

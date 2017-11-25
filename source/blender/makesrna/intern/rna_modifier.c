@@ -173,6 +173,21 @@ static const EnumPropertyItem modifier_warp_falloff_items[] = {
 };
 #endif
 
+#ifndef RNA_RUNTIME
+static const EnumPropertyItem modifier_gphook_falloff_items[] = {
+	{ eGPHook_Falloff_None,    "NONE", 0, "No Falloff", "" },
+	{ eGPHook_Falloff_Curve,   "CURVE", 0, "Curve", "" },
+	{ eGPHook_Falloff_Smooth,  "SMOOTH", ICON_SMOOTHCURVE, "Smooth", "" },
+	{ eGPHook_Falloff_Sphere,  "SPHERE", ICON_SPHERECURVE, "Sphere", "" },
+	{ eGPHook_Falloff_Root,    "ROOT", ICON_ROOTCURVE, "Root", "" },
+	{ eGPHook_Falloff_InvSquare, "INVERSE_SQUARE", ICON_ROOTCURVE, "Inverse Square", "" },
+	{ eGPHook_Falloff_Sharp,   "SHARP", ICON_SHARPCURVE, "Sharp", "" },
+	{ eGPHook_Falloff_Linear,  "LINEAR", ICON_LINCURVE, "Linear", "" },
+	{ eGPHook_Falloff_Const,   "CONSTANT", ICON_NOCURVE, "Constant", "" },
+	{ 0, NULL, 0, NULL, NULL }
+};
+#endif
+
 /* ***** Data Transfer ***** */
 
 const EnumPropertyItem rna_enum_dt_method_vertex_items[] = {
@@ -5657,7 +5672,7 @@ static void rna_def_modifier_gpencilhook(BlenderRNA *brna)
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
 	prop = RNA_def_property(srna, "falloff_type", PROP_ENUM, PROP_NONE);
-	RNA_def_property_enum_items(prop, modifier_warp_falloff_items);  /* share the enum */
+	RNA_def_property_enum_items(prop, modifier_gphook_falloff_items);  /* share the enum */
 	RNA_def_property_ui_text(prop, "Falloff Type", "");
 	RNA_def_property_translation_context(prop, BLT_I18NCONTEXT_ID_CURVE); /* Abusing id_curve :/ */
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");

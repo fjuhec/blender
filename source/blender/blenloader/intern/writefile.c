@@ -1738,6 +1738,13 @@ static void write_modifiers(WriteData *wd, ListBase *modbase)
 				write_curvemapping(wd, gpmd->cur_thickness);
 			}
 		}
+		else if (md->type == eModifierType_GpencilHook) {
+			GpencilHookModifierData *gpmd = (GpencilHookModifierData *)md;
+
+			if (gpmd->curfalloff) {
+				write_curvemapping(wd, gpmd->curfalloff);
+			}
+		}
 		else if (md->type == eModifierType_Cloth) {
 			ClothModifierData *clmd = (ClothModifierData *)md;
 
