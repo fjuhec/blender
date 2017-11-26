@@ -1561,7 +1561,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
 
         col.separator()
 
-        col.prop(hsys, "material", text="")
+        col.prop(hsys, "material_slot", text="")
 
         col = layout.column()
         col.label("Drawing:")

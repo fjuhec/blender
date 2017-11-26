@@ -59,6 +59,8 @@ HairSystem* BKE_hair_new(void)
 	
 	hair->pattern = MEM_callocN(sizeof(HairPattern), "hair pattern");
 	
+	hair->material_index = 1;
+	
 	return hair;
 }
 
@@ -79,10 +81,6 @@ HairSystem* BKE_hair_copy(HairSystem *hsys)
 	if (hsys->verts)
 	{
 		nhsys->verts = MEM_dupallocN(hsys->verts);
-	}
-	
-	if (nhsys->mat) {
-		id_us_plus((ID *)nhsys->mat);
 	}
 	
 	nhsys->draw_batch_cache = NULL;

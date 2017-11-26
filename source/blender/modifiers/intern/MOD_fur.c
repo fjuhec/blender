@@ -129,11 +129,7 @@ static void foreachIDLink(
         void *userData)
 {
 	FurModifierData *fmd = (FurModifierData *) md;
-	
-	if (fmd->hair_system)
-	{
-		walk(userData, ob, (ID **)&fmd->hair_system->mat, IDWALK_CB_USER);
-	}
+	UNUSED_VARS(fmd);
 	
 	foreachObjectLink(md, ob, (ObjectWalkFunc)walk, userData);
 }

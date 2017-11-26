@@ -1365,7 +1365,7 @@ static void material_hair(
 	}
 	GPUTexture **fiber_texture = (GPUTexture **)(&hsys->draw_texture_cache);
 
-	Material *ma = hsys->mat;
+	Material *ma = give_current_material(ob, hsys->material_index);
 	if (ma == NULL) {
 		ma = &defmaterial;
 	}

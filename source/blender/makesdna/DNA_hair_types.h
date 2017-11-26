@@ -85,7 +85,8 @@ typedef struct HairSystem {
 	int totverts;
 	
 	/* Material used for drawing and rendering hair fibers */
-	struct Material *mat;
+	int material_index;
+	int pad2;
 	
 	/* Data buffers for drawing */
 	void *draw_batch_cache;
