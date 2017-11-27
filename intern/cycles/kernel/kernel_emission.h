@@ -277,31 +277,28 @@ ccl_device_noinline float3 indirect_primitive_emission(KernelGlobals *kg, Shader
 
 /* Indirect Lamp Emission */
 
-ccl_device_noinline bool indirect_lamp_emission(KernelGlobals *kg,
+ccl_device_noinline ShaderEvalIntent indirect_lamp_emission_setup(KernelGlobals *kg,
                                                 ShaderData *emission_sd,
                                                 ccl_addr_space PathState *state,
                                                 Ray *ray,
-                                                float3 *emission)
+                                                LightSample *ls)
 {
 	bool hit_lamp = false;
 
-	*emission = make_float3(0.0f, 0.0f, 0.0f);
-
-	LightSample ls;
-	ls.t = ray->t;
+	ls->t = ray->t;
 
 	for(int lamp = 0; lamp < kernel_data.integrator.num_all_lights; lamp++) {
-		if(!lamp_light_eval(kg, lamp, ray->P, ray->D, ls.t, &ls))
+		if(!lamp_light_eval(kg, lamp, ray->P, ray->D, ls->t, ls))
 			continue;
 
 #ifdef __PASSES__
 		/* use visibility flag to skip lights */
-		if(ls.shader & SHADER_EXCLUDE_ANY) {
-			if(((ls.shader & SHADER_EXCLUDE_DIFFUSE) && (state->flag & PATH_RAY_DIFFUSE)) ||
-			   ((ls.shader & SHADER_EXCLUDE_GLOSSY) &&
+		if(ls->shader & SHADER_EXCLUDE_ANY) {
+			if(((ls->shader & SHADER_EXCLUDE_DIFFUSE) && (state->flag & PATH_RAY_DIFFUSE)) ||
+			   ((ls->shader & SHADER_EXCLUDE_GLOSSY) &&
 			    ((state->flag & (PATH_RAY_GLOSSY|PATH_RAY_REFLECT)) == (PATH_RAY_GLOSSY|PATH_RAY_REFLECT))) ||
-			   ((ls.shader & SHADER_EXCLUDE_TRANSMIT) && (state->flag & PATH_RAY_TRANSMIT)) ||
-			   ((ls.shader & SHADER_EXCLUDE_SCATTER) && (state->flag & PATH_RAY_VOLUME_SCATTER)))
+			   ((ls->shader & SHADER_EXCLUDE_TRANSMIT) && (state->flag & PATH_RAY_TRANSMIT)) ||
+			   ((ls->shader & SHADER_EXCLUDE_SCATTER) && (state->flag & PATH_RAY_VOLUME_SCATTER)))
 				continue;
 		}
 #endif
@@ -310,37 +307,56 @@ ccl_device_noinline bool indirect_lamp_emission(KernelGlobals *kg,
 	}
 
 	if(hit_lamp) {
-		float3 L = direct_emissive_eval(kg,
-		                                emission_sd,
-		                                &ls,
-		                                state,
-		                                -ray->D,
-		                                ray->dD,
-		                                ls.t,
-		                                ray->time);
-
-#ifdef __VOLUME__
-		if(state->volume_stack[0].shader != SHADER_NONE) {
-			/* shadow attenuation */
-			Ray volume_ray = *ray;
-			volume_ray.t = ls.t;
-			float3 volume_tp = make_float3(1.0f, 1.0f, 1.0f);
-			kernel_volume_shadow(kg, emission_sd, state, &volume_ray, &volume_tp);
-			L *= volume_tp;
-		}
-#endif
-
-		if(!(state->flag & PATH_RAY_MIS_SKIP)) {
-			/* multiple importance sampling, get regular light pdf,
-			 * and compute weight with respect to BSDF pdf */
-			float mis_weight = power_heuristic(state->ray_pdf, ls.pdf);
-			L *= mis_weight;
-		}
-
-		*emission += L;
+		return direct_emissive_eval_setup(kg, emission_sd, ls, state, -ray->D, ray->dD, ls->t, ray->time);
 	}
 
-	return hit_lamp;
+	return SHADER_EVAL_INTENT_SKIP;
+}
+
+
+ccl_device_noinline float3 indirect_lamp_emission_finish(KernelGlobals *kg,
+                                                ShaderData *emission_sd,
+                                                ccl_addr_space PathState *state,
+                                                Ray *ray,
+                                                LightSample *ls)
+{
+	float3 L = direct_emissive_eval_finish(kg, emission_sd, ls, state, -ray->D);
+
+#ifdef __VOLUME__
+	if(state->volume_stack[0].shader != SHADER_NONE) {
+		/* shadow attenuation */
+		Ray volume_ray = *ray;
+		volume_ray.t = ls->t;
+		float3 volume_tp = make_float3(1.0f, 1.0f, 1.0f);
+		kernel_volume_shadow(kg, emission_sd, state, &volume_ray, &volume_tp);
+		L *= volume_tp;
+	}
+#endif
+
+	if(!(state->flag & PATH_RAY_MIS_SKIP)) {
+		/* multiple importance sampling, get regular light pdf,
+		 * and compute weight with respect to BSDF pdf */
+		float mis_weight = power_heuristic(state->ray_pdf, ls->pdf);
+		L *= mis_weight;
+	}
+
+	return L;
+}
+
+ccl_device_noinline bool indirect_lamp_emission(KernelGlobals *kg,
+                                                ShaderData *emission_sd,
+                                                ccl_addr_space PathState *state,
+                                                Ray *ray,
+                                                float3 *emission)
+{
+	LightSample ls;
+	ShaderEvalIntent intent = indirect_lamp_emission_setup(kg, emission_sd, state, ray, &ls);
+	if(!intent) {
+		return false;
+	}
+	shader_eval(kg, emission_sd, state, intent);
+	*emission = indirect_lamp_emission_finish(kg, emission_sd, state, ray, &ls);
+	return true;
 }
 
 /* Indirect Background */
