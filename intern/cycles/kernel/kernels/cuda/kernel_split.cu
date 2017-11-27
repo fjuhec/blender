@@ -37,8 +37,7 @@
 #include "kernel/split/kernel_holdout_emission_blurring_pathtermination_ao.h"
 #include "kernel/split/kernel_subsurface_scatter.h"
 #include "kernel/split/kernel_direct_lighting.h"
-#include "kernel/split/kernel_shadow_blocked_ao.h"
-#include "kernel/split/kernel_shadow_blocked_dl.h"
+#include "kernel/split/kernel_shadow_blocked.h"
 #include "kernel/split/kernel_enqueue_inactive.h"
 #include "kernel/split/kernel_next_iteration_setup.h"
 #include "kernel/split/kernel_indirect_subsurface.h"
@@ -115,8 +114,7 @@ DEFINE_SPLIT_KERNEL_FUNCTION(shader_eval)
 DEFINE_SPLIT_KERNEL_FUNCTION_LOCALS(holdout_emission_blurring_pathtermination_ao, BackgroundAOLocals)
 DEFINE_SPLIT_KERNEL_FUNCTION(subsurface_scatter)
 DEFINE_SPLIT_KERNEL_FUNCTION_LOCALS(direct_lighting, uint)
-DEFINE_SPLIT_KERNEL_FUNCTION(shadow_blocked_ao)
-DEFINE_SPLIT_KERNEL_FUNCTION(shadow_blocked_dl)
+DEFINE_SPLIT_KERNEL_FUNCTION(shadow_blocked)
 DEFINE_SPLIT_KERNEL_FUNCTION_LOCALS(enqueue_inactive, uint)
 DEFINE_SPLIT_KERNEL_FUNCTION_LOCALS(next_iteration_setup, uint)
 DEFINE_SPLIT_KERNEL_FUNCTION(indirect_subsurface)

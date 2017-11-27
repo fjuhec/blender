@@ -16,9 +16,9 @@
 
 #include "kernel/kernel_compat_opencl.h"
 #include "kernel/split/kernel_split_common.h"
-#include "kernel/split/kernel_shadow_blocked_dl.h"
+#include "kernel/split/kernel_shadow_blocked.h"
 
-#define KERNEL_NAME shadow_blocked_dl
+#define KERNEL_NAME shadow_blocked
 #include "kernel/kernels/opencl/kernel_split_function.h"
 #undef KERNEL_NAME
 

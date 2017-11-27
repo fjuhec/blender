@@ -256,8 +256,7 @@ public:
 		REGISTER_SPLIT_KERNEL(holdout_emission_blurring_pathtermination_ao);
 		REGISTER_SPLIT_KERNEL(subsurface_scatter);
 		REGISTER_SPLIT_KERNEL(direct_lighting);
-		REGISTER_SPLIT_KERNEL(shadow_blocked_ao);
-		REGISTER_SPLIT_KERNEL(shadow_blocked_dl);
+		REGISTER_SPLIT_KERNEL(shadow_blocked);
 		REGISTER_SPLIT_KERNEL(enqueue_inactive);
 		REGISTER_SPLIT_KERNEL(next_iteration_setup);
 		REGISTER_SPLIT_KERNEL(indirect_subsurface);

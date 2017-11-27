@@ -50,8 +50,7 @@ DeviceSplitKernel::DeviceSplitKernel(Device *device)
 	kernel_holdout_emission_blurring_pathtermination_ao = NULL;
 	kernel_subsurface_scatter = NULL;
 	kernel_direct_lighting = NULL;
-	kernel_shadow_blocked_ao = NULL;
-	kernel_shadow_blocked_dl = NULL;
+	kernel_shadow_blocked = NULL;
 	kernel_enqueue_inactive = NULL;
 	kernel_next_iteration_setup = NULL;
 	kernel_indirect_subsurface = NULL;
@@ -78,8 +77,7 @@ DeviceSplitKernel::~DeviceSplitKernel()
 	delete kernel_holdout_emission_blurring_pathtermination_ao;
 	delete kernel_subsurface_scatter;
 	delete kernel_direct_lighting;
-	delete kernel_shadow_blocked_ao;
-	delete kernel_shadow_blocked_dl;
+	delete kernel_shadow_blocked;
 	delete kernel_enqueue_inactive;
 	delete kernel_next_iteration_setup;
 	delete kernel_indirect_subsurface;
@@ -107,8 +105,7 @@ bool DeviceSplitKernel::load_kernels(const DeviceRequestedFeatures& requested_fe
 	LOAD_KERNEL(holdout_emission_blurring_pathtermination_ao);
 	LOAD_KERNEL(subsurface_scatter);
 	LOAD_KERNEL(direct_lighting);
-	LOAD_KERNEL(shadow_blocked_ao);
-	LOAD_KERNEL(shadow_blocked_dl);
+	LOAD_KERNEL(shadow_blocked);
 	LOAD_KERNEL(enqueue_inactive);
 	LOAD_KERNEL(next_iteration_setup);
 	LOAD_KERNEL(indirect_subsurface);
@@ -254,8 +251,7 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 				ENQUEUE_SPLIT_KERNEL(queue_enqueue, global_size, local_size);
 				ENQUEUE_SPLIT_KERNEL(direct_lighting, global_size, local_size);
 				ENQUEUE_SPLIT_KERNEL(shader_eval, global_size, local_size);
-				ENQUEUE_SPLIT_KERNEL(shadow_blocked_ao, global_size, local_size);
-				ENQUEUE_SPLIT_KERNEL(shadow_blocked_dl, global_size, local_size);
+				ENQUEUE_SPLIT_KERNEL(shadow_blocked, global_size, local_size);
 				ENQUEUE_SPLIT_KERNEL(enqueue_inactive, global_size, local_size);
 				ENQUEUE_SPLIT_KERNEL(next_iteration_setup, global_size, local_size);
 				ENQUEUE_SPLIT_KERNEL(indirect_subsurface, global_size, local_size);

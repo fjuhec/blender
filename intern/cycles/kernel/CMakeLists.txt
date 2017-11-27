@@ -52,8 +52,7 @@ set(SRC_OPENCL_KERNELS
 	kernels/opencl/kernel_holdout_emission_blurring_pathtermination_ao.cl
 	kernels/opencl/kernel_subsurface_scatter.cl
 	kernels/opencl/kernel_direct_lighting.cl
-	kernels/opencl/kernel_shadow_blocked_ao.cl
-	kernels/opencl/kernel_shadow_blocked_dl.cl
+	kernels/opencl/kernel_shadow_blocked.cl
 	kernels/opencl/kernel_enqueue_inactive.cl
 	kernels/opencl/kernel_next_iteration_setup.cl
 	kernels/opencl/kernel_indirect_subsurface.cl
@@ -304,8 +303,7 @@ set(SRC_SPLIT_HEADERS
 	split/kernel_shader_setup.h
 	split/kernel_shader_sort.h
 	split/kernel_shader_eval.h
-	split/kernel_shadow_blocked_ao.h
-	split/kernel_shadow_blocked_dl.h
+	split/kernel_shadow_blocked.h
 	split/kernel_split_common.h
 	split/kernel_split_data.h
 	split/kernel_split_data_types.h
