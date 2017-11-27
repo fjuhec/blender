@@ -57,10 +57,6 @@ ccl_device void kernel_indirect_background(KernelGlobals *kg, ccl_local_param un
 	                          kernel_split_params.queue_size,
 	                          0);
 
-	if(ray_index == QUEUE_EMPTY_SLOT) {
-		return;
-	}
-
 	if(IS_STATE(ray_state, ray_index, RAY_HIT_BACKGROUND)) {
 		ccl_global PathState *state = &kernel_split_state.path_state[ray_index];
 		PathRadiance *L = &kernel_split_state.path_radiance[ray_index];
