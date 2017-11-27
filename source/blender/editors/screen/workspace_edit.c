@@ -75,12 +75,12 @@ WorkSpace *ED_workspace_add(
 {
 	WorkSpace *workspace = BKE_workspace_add(bmain, name);
 
+	BKE_workspace_view_layer_set(workspace, act_view_layer);
+	BKE_viewrender_copy(&workspace->view_render, view_render);
+
 #ifdef USE_WORKSPACE_MODE
 	BKE_workspace_object_mode_set(workspace, OB_MODE_OBJECT);
 #endif
-
-	BKE_workspace_view_layer_set(workspace, act_view_layer);
-	BKE_viewrender_copy(&workspace->view_render, view_render);
 
 	return workspace;
 }
@@ -202,6 +202,9 @@ bool ED_workspace_change(
 		BLI_assert(BKE_workspace_view_layer_get(workspace_new) != NULL);
 		BLI_assert(CTX_wm_workspace(C) == workspace_new);
 
+		WM_toolsystem_unlink(C, workspace_old);
+		WM_toolsystem_link(C, workspace_new);
+
 		return true;
 	}
 
@@ -228,6 +231,8 @@ WorkSpace *ED_workspace_duplicate(
 	BKE_workspace_object_mode_set(workspace_new, BKE_workspace_object_mode_get(workspace_old));
 #endif
 	BLI_duplicatelist(transform_orientations_new, transform_orientations_old);
+
+	workspace_new->tool = workspace_old->tool;
 
 	for (WorkSpaceLayout *layout_old = layouts_old->first; layout_old; layout_old = layout_old->next) {
 		WorkSpaceLayout *layout_new = ED_workspace_layout_duplicate(workspace_new, layout_old, win);
@@ -386,6 +391,7 @@ static void workspace_append_button(
 	        WM_OP_EXEC_DEFAULT, 0, &opptr);
 	RNA_string_set(&opptr, "directory", lib_path);
 	RNA_string_set(&opptr, "filename", id->name + 2);
+	RNA_boolean_set(&opptr, "autoselect", false);
 }
 
 ATTR_NONNULL(1, 2)
