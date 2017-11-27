@@ -287,10 +287,11 @@ ccl_device_noinline bool indirect_lamp_emission(KernelGlobals *kg,
 
 	*emission = make_float3(0.0f, 0.0f, 0.0f);
 
-	for(int lamp = 0; lamp < kernel_data.integrator.num_all_lights; lamp++) {
-		LightSample ls;
+	LightSample ls;
+	ls.t = ray->t;
 
-		if(!lamp_light_eval(kg, lamp, ray->P, ray->D, ray->t, &ls))
+	for(int lamp = 0; lamp < kernel_data.integrator.num_all_lights; lamp++) {
+		if(!lamp_light_eval(kg, lamp, ray->P, ray->D, ls.t, &ls))
 			continue;
 
 #ifdef __PASSES__
@@ -305,6 +306,10 @@ ccl_device_noinline bool indirect_lamp_emission(KernelGlobals *kg,
 		}
 #endif
 
+		hit_lamp = true;
+	}
+
+	if(hit_lamp) {
 		float3 L = direct_emissive_eval(kg,
 		                                emission_sd,
 		                                &ls,
@@ -333,7 +338,6 @@ ccl_device_noinline bool indirect_lamp_emission(KernelGlobals *kg,
 		}
 
 		*emission += L;
-		hit_lamp = true;
 	}
 
 	return hit_lamp;

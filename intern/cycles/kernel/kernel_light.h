@@ -617,16 +617,9 @@ ccl_device bool lamp_light_eval(KernelGlobals *kg, int lamp, float3 P, float3 D,
 	float4 data1 = kernel_tex_fetch(__light_data, lamp*LIGHT_SIZE + 1);
 
 	LightType type = (LightType)__float_as_int(data0.x);
-	ls->type = type;
-	ls->shader = __float_as_int(data1.x);
-	ls->object = PRIM_NONE;
-	ls->prim = PRIM_NONE;
-	ls->lamp = lamp;
-	/* todo: missing texture coordinates */
-	ls->u = 0.0f;
-	ls->v = 0.0f;
+	int shader = __float_as_int(data1.x);
 
-	if(!(ls->shader & SHADER_USE_MIS))
+	if(!(shader & SHADER_USE_MIS))
 		return false;
 
 	if(type == LIGHT_DISTANT) {
@@ -664,6 +657,10 @@ ccl_device bool lamp_light_eval(KernelGlobals *kg, int lamp, float3 P, float3 D,
 		ls->Ng = -D;
 		ls->D = D;
 		ls->t = FLT_MAX;
+
+		/* todo: missing texture coordinates */
+		ls->u = 0.0f;
+		ls->v = 0.0f;
 
 		/* compute pdf */
 		float invarea = data1.w;
@@ -734,6 +731,10 @@ ccl_device bool lamp_light_eval(KernelGlobals *kg, int lamp, float3 P, float3 D,
 			return false;
 		}
 
+		/* todo: missing texture coordinates */
+		ls->u = 0.0f;
+		ls->v = 0.0f;
+
 		ls->D = D;
 		ls->Ng = Ng;
 		ls->pdf = area_light_sample(P, &light_P, axisu, axisv, 0, 0, false);
@@ -742,6 +743,12 @@ ccl_device bool lamp_light_eval(KernelGlobals *kg, int lamp, float3 P, float3 D,
 	else {
 		return false;
 	}
+
+	ls->type = type;
+	ls->shader = shader;
+	ls->object = PRIM_NONE;
+	ls->prim = PRIM_NONE;
+	ls->lamp = lamp;
 
 	ls->pdf *= kernel_data.integrator.pdf_lights;
 
