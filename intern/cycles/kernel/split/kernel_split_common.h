@@ -56,7 +56,7 @@ CCL_NAMESPACE_BEGIN
 
 ccl_device void shader_eval_task_setup(KernelGlobals *kg, ShaderEvalTask *task, ShaderData *sd, ShaderEvalIntent intent) {
 	task->intent = intent;
-	task->sd_offset = ((ccl_global char*)sd) - ((ccl_global char*)&kernel_split_state);
+	task->sd_offset = ((ccl_global char*)sd) - kernel_split_state.data;
 }
 
 ccl_device_inline void kernel_split_path_end(KernelGlobals *kg, int ray_index)

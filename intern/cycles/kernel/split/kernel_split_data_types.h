@@ -111,6 +111,7 @@ typedef ccl_global struct SplitBranchedState {
 #endif /* __VOLUME__ */
 
 #define SPLIT_DATA_ENTRIES \
+	SPLIT_DATA_ENTRY(ccl_global char, data, 0) \
 	SPLIT_DATA_ENTRY(ccl_global float3, throughput, 1) \
 	SPLIT_DATA_ENTRY(PathRadiance, path_radiance, 1) \
 	SPLIT_DATA_ENTRY(ccl_global Ray, ray, 1) \
