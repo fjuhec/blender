@@ -104,7 +104,7 @@ kernel_cuda_path_trace_data_init(
 
 DEFINE_SPLIT_KERNEL_FUNCTION(path_init)
 DEFINE_SPLIT_KERNEL_FUNCTION(scene_intersect)
-DEFINE_SPLIT_KERNEL_FUNCTION(lamp_emission)
+DEFINE_SPLIT_KERNEL_FUNCTION_LOCALS(lamp_emission, uint)
 DEFINE_SPLIT_KERNEL_FUNCTION(do_volume)
 DEFINE_SPLIT_KERNEL_FUNCTION_LOCALS(queue_enqueue, QueueEnqueueLocals)
 DEFINE_SPLIT_KERNEL_FUNCTION_LOCALS(indirect_background, uint)

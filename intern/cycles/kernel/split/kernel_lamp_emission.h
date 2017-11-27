@@ -20,14 +20,22 @@ CCL_NAMESPACE_BEGIN
  * It processes rays of state RAY_ACTIVE and RAY_HIT_BACKGROUND.
  * We will empty QUEUE_ACTIVE_AND_REGENERATED_RAYS queue in this kernel.
  */
-ccl_device void kernel_lamp_emission(KernelGlobals *kg)
+ccl_device void kernel_lamp_emission(KernelGlobals *kg, ccl_local_param uint *local_queue_atomics)
 {
+	if(ccl_local_id(0) == 0 && ccl_local_id(1) == 0) {
+		*local_queue_atomics = 0;
+	}
+	ccl_barrier(CCL_LOCAL_MEM_FENCE);
+
+	if(ccl_global_id(0) == 0 && ccl_global_id(1) == 0) {
+		kernel_split_params.shader_eval_queue = QUEUE_SHADER_EVAL;
+		kernel_split_params.shader_eval_state = RAY_STATE_ANY;
 #ifndef __VOLUME__
 	/* We will empty this queue in this kernel. */
-	if(ccl_global_id(0) == 0 && ccl_global_id(1) == 0) {
 		kernel_split_params.queue_index[QUEUE_ACTIVE_AND_REGENERATED_RAYS] = 0;
-	}
 #endif
+	}
+
 	/* Fetch use_queues_flag. */
 	char local_use_queues_flag = *kernel_split_params.use_queues_flag;
 	ccl_barrier(CCL_LOCAL_MEM_FENCE);
@@ -49,19 +57,33 @@ ccl_device void kernel_lamp_emission(KernelGlobals *kg)
 		}
 	}
 
+	ShaderEvalTask *eval_task = &kernel_split_state.shader_eval_task[ray_index];
+	ShaderEvalIntent intent = SHADER_EVAL_INTENT_SKIP;
+
 	if(IS_STATE(kernel_split_state.ray_state, ray_index, RAY_ACTIVE) ||
 	   IS_STATE(kernel_split_state.ray_state, ray_index, RAY_HIT_BACKGROUND))
 	{
-		PathRadiance *L = &kernel_split_state.path_radiance[ray_index];
 		ccl_global PathState *state = &kernel_split_state.path_state[ray_index];
 
-		float3 throughput = kernel_split_state.throughput[ray_index];
 		Ray ray = kernel_split_state.ray[ray_index];
 		ccl_global Intersection *isect = &kernel_split_state.isect[ray_index];
 		ShaderData *sd = kernel_split_sd(sd, ray_index);
+		LightSample ls = kernel_split_state.light_sample[ray_index];
 
-		kernel_path_lamp_emission(kg, state, &ray, throughput, isect, sd, L);
+		intent = kernel_path_lamp_emission_setup(kg, state, &ray, isect, sd, &ls);
+		if(intent) {
+			shader_eval_task_setup(kg, eval_task, sd, intent);
+			kernel_split_state.light_sample[ray_index] = ls;
+		}
 	}
+
+	enqueue_ray_index_local(ray_index,
+	                        QUEUE_SHADER_EVAL,
+	                        intent != SHADER_EVAL_INTENT_SKIP,
+	                        kernel_split_params.queue_size,
+	                        local_queue_atomics,
+	                        kernel_split_state.queue_data,
+	                        kernel_split_params.queue_index);
 }
 
 CCL_NAMESPACE_END

@@ -239,6 +239,7 @@ bool DeviceSplitKernel::path_trace(DeviceTask *task,
 			for(int PathIter = 0; PathIter < 16; PathIter++) {
 				ENQUEUE_SPLIT_KERNEL(scene_intersect, global_size, local_size);
 				ENQUEUE_SPLIT_KERNEL(lamp_emission, global_size, local_size);
+				ENQUEUE_SPLIT_KERNEL(shader_eval, global_size, local_size);
 				ENQUEUE_SPLIT_KERNEL(do_volume, global_size, local_size);
 				ENQUEUE_SPLIT_KERNEL(queue_enqueue, global_size, local_size);
 				ENQUEUE_SPLIT_KERNEL(indirect_background, global_size, local_size);

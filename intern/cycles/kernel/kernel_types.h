@@ -1462,6 +1462,8 @@ enum RayState {
 	RAY_VOLUME_INDIRECT_NEXT_ITER,
 	RAY_SUBSURFACE_INDIRECT_NEXT_ITER,
 
+	RAY_STATE_ANY, /* Special, never assigned to a ray */
+
 	/* Ray flags */
 
 	/* Flags to denote that the ray is currently evaluating the branched indirect loop */

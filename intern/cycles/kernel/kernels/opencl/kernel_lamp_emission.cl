@@ -19,6 +19,8 @@
 #include "kernel/split/kernel_lamp_emission.h"
 
 #define KERNEL_NAME lamp_emission
+#define LOCALS_TYPE uint
 #include "kernel/kernels/opencl/kernel_split_function.h"
 #undef KERNEL_NAME
+#undef LOCALS_TYPE
 
