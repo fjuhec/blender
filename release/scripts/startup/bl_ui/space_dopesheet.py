@@ -146,6 +146,7 @@ class DOPESHEET_HT_header(Header):
             dopesheet_filter(layout, context, genericFiltersOnly=True)
         elif st.mode == 'GPENCIL':
             row = layout.row(align=True)
+            row.prop(st, "use_gp_jump_active", text="", icon="BRUSH_DATA")
             row.prop(st.dopesheet, "show_gpencil_3d_only", text="Active Only")
 
             if st.dopesheet.show_gpencil_3d_only:

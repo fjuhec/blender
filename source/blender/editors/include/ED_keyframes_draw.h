@@ -152,7 +152,7 @@ void scene_to_keylist(struct bDopeSheet *ads, struct Scene *sce, struct DLRBT_Tr
 /* DopeSheet Summary */
 void summary_to_keylist(struct bAnimContext *ac, struct DLRBT_Tree *keys, struct DLRBT_Tree *blocks);
 /* Grease Pencil datablock summary */
-void gpencil_to_keylist(struct bDopeSheet *ads, struct bGPdata *gpd, struct DLRBT_Tree *keys);
+void gpencil_to_keylist(struct bDopeSheet *ads, struct bGPdata *gpd, struct DLRBT_Tree *keys, const bool active);
 /* Grease Pencil Layer */
 void gpl_to_keylist(struct bDopeSheet *ads, struct bGPDlayer *gpl, struct DLRBT_Tree *keys);
 /* Palette */

@@ -3292,6 +3292,11 @@ static void rna_def_space_dopesheet(BlenderRNA *brna)
 	RNA_def_property_pointer_sdna(prop, NULL, "ads");
 	RNA_def_property_ui_text(prop, "Dope Sheet", "Settings for filtering animation data");
 
+	prop = RNA_def_property(srna, "use_gp_jump_active", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", SACTION_GP_JUMP_ACTIVE);
+	RNA_def_property_ui_text(prop, "Jump Active",
+		"Only jump between keyframes in the current Grease Pencil active layer");
+
 	/* autosnap */
 	prop = RNA_def_property(srna, "auto_snap", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_sdna(prop, NULL, "autosnap");

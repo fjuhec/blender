@@ -309,7 +309,7 @@ static void time_draw_idblock_keyframes(View2D *v2d, ID *id, short onlysel, cons
 			ob_to_keylist(&ads, (Object *)id, &keys, NULL);
 			break;
 		case ID_GD:
-			gpencil_to_keylist(&ads, (bGPdata *)id, &keys);
+			gpencil_to_keylist(&ads, (bGPdata *)id, &keys, false);
 			break;
 		case ID_PAL:
 			palette_to_keylist(&ads, (Palette *)id, &keys, NULL);

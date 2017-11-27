@@ -769,7 +769,7 @@ void draw_gpencil_channel(View2D *v2d, bDopeSheet *ads, bGPdata *gpd, float ypos
 	
 	BLI_dlrbTree_init(&keys);
 	
-	gpencil_to_keylist(ads, gpd, &keys);
+	gpencil_to_keylist(ads, gpd, &keys, false);
 	
 	BLI_dlrbTree_linkedlist_sync(&keys);
 	
@@ -1005,7 +1005,7 @@ void action_to_keylist(AnimData *adt, bAction *act, DLRBT_Tree *keys, DLRBT_Tree
 }
 
 
-void gpencil_to_keylist(bDopeSheet *ads, bGPdata *gpd, DLRBT_Tree *keys)
+void gpencil_to_keylist(bDopeSheet *ads, bGPdata *gpd, DLRBT_Tree *keys, const bool active)
 {
 	bGPDlayer *gpl;
 	
@@ -1013,7 +1013,9 @@ void gpencil_to_keylist(bDopeSheet *ads, bGPdata *gpd, DLRBT_Tree *keys)
 		/* for now, just aggregate out all the frames, but only for visible layers */
 		for (gpl = gpd->layers.first; gpl; gpl = gpl->next) {
 			if ((gpl->flag & GP_LAYER_HIDE) == 0) {
-				gpl_to_keylist(ads, gpl, keys);
+				if ((!active) || ((active) && (gpl->flag & GP_LAYER_SELECT))) {
+					gpl_to_keylist(ads, gpl, keys);
+				}
 			}
 		}
 	}
