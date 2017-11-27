@@ -127,7 +127,7 @@ static void modifier_walk(void *user_data,
 {
 	BuilderWalkUserData *data = (BuilderWalkUserData *)user_data;
 	if (*obpoin) {
-		data->builder->build_object(*obpoin);
+		data->builder->build_object(NULL, *obpoin);
 	}
 }
 
@@ -140,7 +140,7 @@ void constraint_walk(bConstraint * /*con*/,
 	if (*idpoin) {
 		ID *id = *idpoin;
 		if (GS(id->name) == ID_OB) {
-			data->builder->build_object((Object *)id);
+			data->builder->build_object(NULL, (Object *)id);
 		}
 	}
 }
@@ -225,7 +225,7 @@ DepsgraphRelationBuilder::DepsgraphRelationBuilder(Main *bmain,
 {
 }
 
-TimeSourceDepsNode *DepsgraphRelationBuilder::find_node(
+TimeSourceDepsNode *DepsgraphRelationBuilder::get_node(
         const TimeSourceKey &key) const
 {
 	if (key.id) {
@@ -237,7 +237,7 @@ TimeSourceDepsNode *DepsgraphRelationBuilder::find_node(
 	}
 }
 
-ComponentDepsNode *DepsgraphRelationBuilder::find_node(
+ComponentDepsNode *DepsgraphRelationBuilder::get_node(
         const ComponentKey &key) const
 {
 	IDDepsNode *id_node = graph_->find_id_node(key.id);
@@ -251,38 +251,23 @@ ComponentDepsNode *DepsgraphRelationBuilder::find_node(
 	return node;
 }
 
-OperationDepsNode *DepsgraphRelationBuilder::find_node(
+OperationDepsNode *DepsgraphRelationBuilder::get_node(
         const OperationKey &key) const
 {
-	IDDepsNode *id_node = graph_->find_id_node(key.id);
-	if (!id_node) {
-		fprintf(stderr, "find_node operation: Could not find ID\n");
-		return NULL;
-	}
-
-	ComponentDepsNode *comp_node = id_node->find_component(key.component_type,
-	                                                       key.component_name);
-	if (!comp_node) {
-		fprintf(stderr, "find_node operation: Could not find component\n");
-		return NULL;
-	}
-
-	OperationDepsNode *op_node = comp_node->find_operation(key.opcode,
-	                                                       key.name,
-	                                                       key.name_tag);
-	if (!op_node) {
+	OperationDepsNode *op_node = find_node(key);
+	if (op_node == NULL) {
 		fprintf(stderr, "find_node_operation: Failed for (%s, '%s')\n",
 		        DEG_OPNAMES[key.opcode], key.name);
 	}
 	return op_node;
 }
 
-DepsNode *DepsgraphRelationBuilder::find_node(const RNAPathKey &key) const
+DepsNode *DepsgraphRelationBuilder::get_node(const RNAPathKey &key) const
 {
 	return graph_->find_node_from_pointer(&key.ptr, key.prop);
 }
 
-OperationDepsNode *DepsgraphRelationBuilder::has_node(
+OperationDepsNode *DepsgraphRelationBuilder::find_node(
         const OperationKey &key) const
 {
 	IDDepsNode *id_node = graph_->find_id_node(key.id);
@@ -294,7 +279,12 @@ OperationDepsNode *DepsgraphRelationBuilder::has_node(
 	if (!comp_node) {
 		return NULL;
 	}
-	return comp_node->has_operation(key.opcode, key.name, key.name_tag);
+	return comp_node->find_operation(key.opcode, key.name, key.name_tag);
+}
+
+bool DepsgraphRelationBuilder::has_node(const OperationKey &key) const
+{
+	return find_node(key) != NULL;
 }
 
 void DepsgraphRelationBuilder::add_time_relation(TimeSourceDepsNode *timesrc,
@@ -425,7 +415,7 @@ void DepsgraphRelationBuilder::build_group(Object *object, Group *group)
 	                                        DEG_OPCODE_TRANSFORM_LOCAL);
 	LINKLIST_FOREACH (GroupObject *, go, &group->gobject) {
 		if (!group_done) {
-			build_object(go->ob);
+			build_object(NULL, go->ob);
 		}
 		ComponentKey dupli_transform_key(&go->ob->id, DEG_NODE_TYPE_TRANSFORM);
 		add_relation(dupli_transform_key, object_local_transform_key, "Dupligroup");
@@ -433,9 +423,12 @@ void DepsgraphRelationBuilder::build_group(Object *object, Group *group)
 	group_id->tag |= LIB_TAG_DOIT;
 }
 
-void DepsgraphRelationBuilder::build_object(Object *object)
+void DepsgraphRelationBuilder::build_object(Base *base, Object *object)
 {
 	if (object->id.tag & LIB_TAG_DOIT) {
+		if (base != NULL) {
+			build_object_flags(base, object);
+		}
 		return;
 	}
 	object->id.tag |= LIB_TAG_DOIT;
@@ -455,6 +448,8 @@ void DepsgraphRelationBuilder::build_object(Object *object)
 	OperationKey ob_ubereval_key(&object->id,
 	                             DEG_NODE_TYPE_TRANSFORM,
 	                             DEG_OPCODE_TRANSFORM_OBJECT_UBEREVAL);
+	/* Various flags, flushing from bases/collections. */
+	build_object_flags(base, object);
 	/* Parenting. */
 	if (object->parent != NULL) {
 		/* Parent relationship. */
@@ -527,7 +522,7 @@ void DepsgraphRelationBuilder::build_object(Object *object)
 	/* Object that this is a proxy for. */
 	if (object->proxy != NULL) {
 		object->proxy->proxy_from = object;
-		build_object(object->proxy);
+		build_object(NULL, object->proxy);
 		/* TODO(sergey): This is an inverted relation, matches old depsgraph
 		 * behavior and need to be investigated if it still need to be inverted.
 		 */
@@ -539,6 +534,20 @@ void DepsgraphRelationBuilder::build_object(Object *object)
 	if (object->dup_group != NULL) {
 		build_group(object, object->dup_group);
 	}
+}
+
+void DepsgraphRelationBuilder::build_object_flags(Base *base, Object *object)
+{
+	if (base == NULL) {
+		return;
+	}
+	OperationKey view_layer_done_key(&scene_->id,
+	                                 DEG_NODE_TYPE_LAYER_COLLECTIONS,
+	                                 DEG_OPCODE_VIEW_LAYER_DONE);
+	OperationKey object_flags_key(&object->id,
+	                              DEG_NODE_TYPE_LAYER_COLLECTIONS,
+	                              DEG_OPCODE_OBJECT_BASE_FLAGS);
+	add_relation(view_layer_done_key, object_flags_key, "Base flags flush");
 }
 
 void DepsgraphRelationBuilder::build_object_data(Object *object)
@@ -1714,18 +1723,18 @@ void DepsgraphRelationBuilder::build_obdata_geom(Object *object)
 			// XXX: these needs geom data, but where is geom stored?
 			if (cu->bevobj) {
 				ComponentKey bevob_key(&cu->bevobj->id, DEG_NODE_TYPE_GEOMETRY);
-				build_object(cu->bevobj);
+				build_object(NULL, cu->bevobj);
 				add_relation(bevob_key, geom_key, "Curve Bevel");
 			}
 			if (cu->taperobj) {
 				ComponentKey taperob_key(&cu->taperobj->id, DEG_NODE_TYPE_GEOMETRY);
-				build_object(cu->taperobj);
+				build_object(NULL, cu->taperobj);
 				add_relation(taperob_key, geom_key, "Curve Taper");
 			}
 			if (object->type == OB_FONT) {
 				if (cu->textoncurve) {
 					ComponentKey textoncurve_key(&cu->textoncurve->id, DEG_NODE_TYPE_GEOMETRY);
-					build_object(cu->textoncurve);
+					build_object(NULL, cu->textoncurve);
 					add_relation(textoncurve_key, geom_key, "Text on Curve");
 				}
 			}
@@ -1859,7 +1868,7 @@ void DepsgraphRelationBuilder::build_nodetree(bNodeTree *ntree)
 			/* nothing for now. */
 		}
 		else if (id_type == ID_OB) {
-			build_object((Object *)id);
+			build_object(NULL, (Object *)id);
 		}
 		else if (id_type == ID_SCE) {
 			/* Scenes are used by compositor trees, and handled by render

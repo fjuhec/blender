@@ -87,8 +87,8 @@ bool ComponentDepsNode::OperationIDKey::operator==(
         const OperationIDKey &other) const
 {
 	return (opcode == other.opcode) &&
-		(STREQ(name, other.name)) &&
-		(name_tag == other.name_tag);
+	       (STREQ(name, other.name)) &&
+	       (name_tag == other.name_tag);
 }
 
 static unsigned int comp_node_hash_key(const void *key_v)
@@ -161,34 +161,60 @@ string ComponentDepsNode::identifier() const
 
 OperationDepsNode *ComponentDepsNode::find_operation(OperationIDKey key) const
 {
-	OperationDepsNode *node = reinterpret_cast<OperationDepsNode *>(BLI_ghash_lookup(operations_map, &key));
-	if (node != NULL) {
-		return node;
+	OperationDepsNode *node = NULL;
+	if (operations_map != NULL) {
+		node = (OperationDepsNode *)BLI_ghash_lookup(operations_map, &key);
 	}
 	else {
-		fprintf(stderr, "%s: find_operation(%s) failed\n",
-		        this->identifier().c_str(), key.identifier().c_str());
-		BLI_assert(!"Request for non-existing operation, should not happen");
-		return NULL;
+		BLI_assert(key.name_tag == -1);
+		foreach (OperationDepsNode *op_node, operations) {
+			if (op_node->opcode == key.opcode &&
+			    STREQ(op_node->name, key.name))
+			{
+				node = op_node;
+				break;
+			}
+		}
 	}
+	return node;
 }
 
 OperationDepsNode *ComponentDepsNode::find_operation(eDepsOperation_Code opcode,
-                                                     const char *name,
-                                                     int name_tag) const
+                                                    const char *name,
+                                                    int name_tag) const
 {
 	OperationIDKey key(opcode, name, name_tag);
 	return find_operation(key);
 }
 
-OperationDepsNode *ComponentDepsNode::has_operation(OperationIDKey key) const
+OperationDepsNode *ComponentDepsNode::get_operation(OperationIDKey key) const
 {
-	return reinterpret_cast<OperationDepsNode *>(BLI_ghash_lookup(operations_map, &key));
+	OperationDepsNode *node = find_operation(key);
+	if (node == NULL) {
+		fprintf(stderr, "%s: find_operation(%s) failed\n",
+		        this->identifier().c_str(), key.identifier().c_str());
+		BLI_assert(!"Request for non-existing operation, should not happen");
+		return NULL;
+	}
+	return node;
 }
 
-OperationDepsNode *ComponentDepsNode::has_operation(eDepsOperation_Code opcode,
+OperationDepsNode *ComponentDepsNode::get_operation(eDepsOperation_Code opcode,
                                                     const char *name,
                                                     int name_tag) const
+{
+	OperationIDKey key(opcode, name, name_tag);
+	return get_operation(key);
+}
+
+bool ComponentDepsNode::has_operation(OperationIDKey key) const
+{
+	return find_operation(key) != NULL;
+}
+
+bool ComponentDepsNode::has_operation(eDepsOperation_Code opcode,
+                                      const char *name,
+                                      int name_tag) const
 {
 	OperationIDKey key(opcode, name, name_tag);
 	return has_operation(key);
@@ -199,7 +225,7 @@ OperationDepsNode *ComponentDepsNode::add_operation(const DepsEvalOperationCb& o
                                                     const char *name,
                                                     int name_tag)
 {
-	OperationDepsNode *op_node = has_operation(opcode, name, name_tag);
+	OperationDepsNode *op_node = find_operation(opcode, name, name_tag);
 	if (!op_node) {
 		DepsNodeFactory *factory = deg_get_node_factory(DEG_NODE_TYPE_OPERATION);
 		op_node = (OperationDepsNode *)factory->create_node(this->owner->id_orig, "", name);
@@ -339,6 +365,7 @@ static DepsNodeFactoryImpl<name ## ComponentDepsNode> DNTI_ ## NAME
 
 
 DEG_COMPONENT_DEFINE(Animation, ANIMATION);
+DEG_COMPONENT_DEFINE(BatchCache, BATCH_CACHE);
 DEG_COMPONENT_DEFINE(Cache, CACHE);
 DEG_COMPONENT_DEFINE(CopyOnWrite, COPY_ON_WRITE);
 DEG_COMPONENT_DEFINE(Geometry, GEOMETRY);
@@ -377,26 +404,21 @@ DEG_COMPONENT_DEFINE(Bone, BONE);
 
 void deg_register_component_depsnodes()
 {
-	deg_register_node_typeinfo(&DNTI_PARAMETERS);
-	deg_register_node_typeinfo(&DNTI_PROXY);
 	deg_register_node_typeinfo(&DNTI_ANIMATION);
-	deg_register_node_typeinfo(&DNTI_TRANSFORM);
-	deg_register_node_typeinfo(&DNTI_GEOMETRY);
-	deg_register_node_typeinfo(&DNTI_SEQUENCER);
-
-	deg_register_node_typeinfo(&DNTI_EVAL_POSE);
 	deg_register_node_typeinfo(&DNTI_BONE);
-
+	deg_register_node_typeinfo(&DNTI_CACHE);
+	deg_register_node_typeinfo(&DNTI_BATCH_CACHE);
+	deg_register_node_typeinfo(&DNTI_COPY_ON_WRITE);
+	deg_register_node_typeinfo(&DNTI_GEOMETRY);
+	deg_register_node_typeinfo(&DNTI_LAYER_COLLECTIONS);
+	deg_register_node_typeinfo(&DNTI_PARAMETERS);
 	deg_register_node_typeinfo(&DNTI_EVAL_PARTICLES);
-
+	deg_register_node_typeinfo(&DNTI_PROXY);
+	deg_register_node_typeinfo(&DNTI_EVAL_POSE);
+	deg_register_node_typeinfo(&DNTI_SEQUENCER);
 	deg_register_node_typeinfo(&DNTI_SHADING);
 	deg_register_node_typeinfo(&DNTI_SHADING_PARAMETERS);
-
-	deg_register_node_typeinfo(&DNTI_CACHE);
-
-	deg_register_node_typeinfo(&DNTI_LAYER_COLLECTIONS);
-
-	deg_register_node_typeinfo(&DNTI_COPY_ON_WRITE);
+	deg_register_node_typeinfo(&DNTI_TRANSFORM);
 }
 
 }  // namespace DEG

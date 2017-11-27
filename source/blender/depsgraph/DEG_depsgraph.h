@@ -165,6 +165,8 @@ enum {
 	 * Only parameters of material changed).
 	 */
 	DEG_TAG_SHADING_UPDATE  = (1 << 9),
+	DEG_TAG_SELECT_UPDATE   = (1 << 10),
+	DEG_TAG_BASE_FLAGS_UPDATE = (1 << 11),
 };
 void DEG_id_tag_update(struct ID *id, int flag);
 void DEG_id_tag_update_ex(struct Main *bmain, struct ID *id, int flag);

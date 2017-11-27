@@ -127,7 +127,9 @@ static void modifier_walk(void *user_data,
 {
 	BuilderWalkUserData *data = (BuilderWalkUserData *)user_data;
 	if (*obpoin) {
-		data->builder->build_object(*obpoin, DEG_ID_LINKED_INDIRECTLY);
+		data->builder->build_object(NULL,
+		                            *obpoin,
+		                            DEG_ID_LINKED_INDIRECTLY);
 	}
 }
 
@@ -140,7 +142,9 @@ void constraint_walk(bConstraint * /*con*/,
 	if (*idpoin) {
 		ID *id = *idpoin;
 		if (GS(id->name) == ID_OB) {
-			data->builder->build_object((Object *)id, DEG_ID_LINKED_INDIRECTLY);
+			data->builder->build_object(NULL,
+			                            (Object *)id,
+			                            DEG_ID_LINKED_INDIRECTLY);
 		}
 	}
 }
@@ -231,9 +235,9 @@ OperationDepsNode *DepsgraphNodeBuilder::add_operation_node(
         const char *name,
         int name_tag)
 {
-	OperationDepsNode *op_node = comp_node->has_operation(opcode,
-	                                                      name,
-	                                                      name_tag);
+	OperationDepsNode *op_node = comp_node->find_operation(opcode,
+	                                                       name,
+	                                                       name_tag);
 	if (op_node == NULL) {
 		op_node = comp_node->add_operation(op, opcode, name, name_tag);
 		graph_->operations.push_back(op_node);
@@ -303,7 +307,7 @@ OperationDepsNode *DepsgraphNodeBuilder::find_operation_node(
         int name_tag)
 {
 	ComponentDepsNode *comp_node = add_component_node(id, comp_type, comp_name);
-	return comp_node->has_operation(opcode, name, name_tag);
+	return comp_node->find_operation(opcode, name, name_tag);
 }
 
 OperationDepsNode *DepsgraphNodeBuilder::find_operation_node(
@@ -377,10 +381,43 @@ void DepsgraphNodeBuilder::begin_build() {
 		}
 	}
 
+	GSET_FOREACH_BEGIN(OperationDepsNode *, op_node, graph_->entry_tags)
+	{
+		ComponentDepsNode *comp_node = op_node->owner;
+		IDDepsNode *id_node = comp_node->owner;
+
+		SavedEntryTag entry_tag;
+		entry_tag.id = id_node->id_orig;
+		entry_tag.component_type = comp_node->type;
+		entry_tag.opcode = op_node->opcode;
+		saved_entry_tags_.push_back(entry_tag);
+	};
+	GSET_FOREACH_END();
+
 	/* Make sure graph has no nodes left from previous state. */
 	graph_->clear_all_nodes();
 	graph_->operations.clear();
 	BLI_gset_clear(graph_->entry_tags, NULL);
+}
+
+void DepsgraphNodeBuilder::end_build()
+{
+	foreach (const SavedEntryTag& entry_tag, saved_entry_tags_) {
+		IDDepsNode *id_node = find_id_node(entry_tag.id);
+		if (id_node == NULL) {
+			continue;
+		}
+		ComponentDepsNode *comp_node =
+		        id_node->find_component(entry_tag.component_type);
+		if (comp_node == NULL) {
+			continue;
+		}
+		OperationDepsNode *op_node = comp_node->find_operation(entry_tag.opcode);
+		if (op_node == NULL) {
+			continue;
+		}
+		op_node->tag_update(graph_);
+	}
 }
 
 void DepsgraphNodeBuilder::build_group(Group *group)
@@ -392,31 +429,38 @@ void DepsgraphNodeBuilder::build_group(Group *group)
 	group_id->tag |= LIB_TAG_DOIT;
 
 	LINKLIST_FOREACH (GroupObject *, go, &group->gobject) {
-		build_object(go->ob, DEG_ID_LINKED_INDIRECTLY);
+		build_object(NULL, go->ob, DEG_ID_LINKED_INDIRECTLY);
 	}
 }
 
-void DepsgraphNodeBuilder::build_object(Object *object,
+void DepsgraphNodeBuilder::build_object(Base *base,
+                                        Object *object,
                                         eDepsNode_LinkedState_Type linked_state)
 {
 	/* Skip rest of components if the ID node was already there. */
 	if (object->id.tag & LIB_TAG_DOIT) {
 		IDDepsNode *id_node = find_id_node(&object->id);
+		/* We need to build some extra stuff if object becomes linked
+		 * directly.
+		 */
+		if (id_node->linked_state == DEG_ID_LINKED_INDIRECTLY) {
+			build_object_flags(base, object, linked_state);
+		}
 		id_node->linked_state = max(id_node->linked_state, linked_state);
 		return;
 	}
 	object->id.tag |= LIB_TAG_DOIT;
-
 	/* Create ID node for object and begin init. */
 	IDDepsNode *id_node = add_id_node(&object->id);
 	id_node->linked_state = linked_state;
-
 	object->customdata_mask = 0;
+	/* Various flags, flushing from bases/collections. */
+	build_object_flags(base, object, linked_state);
 	/* Transform. */
 	build_object_transform(object);
 	/* Parent. */
 	if (object->parent != NULL) {
-		build_object(object->parent, linked_state);
+		build_object(NULL, object->parent, DEG_ID_LINKED_INDIRECTLY);
 	}
 	/* Modifiers. */
 	if (object->modifiers.first != NULL) {
@@ -450,12 +494,30 @@ void DepsgraphNodeBuilder::build_object(Object *object,
 	/* Object that this is a proxy for. */
 	if (object->proxy) {
 		object->proxy->proxy_from = object;
-		build_object(object->proxy, DEG_ID_LINKED_INDIRECTLY);
+		build_object(NULL, object->proxy, DEG_ID_LINKED_INDIRECTLY);
 	}
 	/* Object dupligroup. */
 	if (object->dup_group != NULL) {
 		build_group(object->dup_group);
 	}
+}
+
+void DepsgraphNodeBuilder::build_object_flags(
+        Base *base,
+        Object *object,
+        eDepsNode_LinkedState_Type linked_state)
+{
+	if (base == NULL) {
+		return;
+	}
+	/* TODO(sergey): Is this really best component to be used? */
+	Object *object_cow = get_cow_datablock(object);
+	const bool is_from_set = (linked_state == DEG_ID_LINKED_VIA_SET);
+	add_operation_node(&object->id,
+	                   DEG_NODE_TYPE_LAYER_COLLECTIONS,
+	                   function_bind(BKE_object_eval_flush_base_flags,
+	                                 _1, object_cow, base, is_from_set),
+	                   DEG_OPCODE_OBJECT_BASE_FLAGS);
 }
 
 void DepsgraphNodeBuilder::build_object_data(Object *object)
@@ -1025,13 +1087,13 @@ void DepsgraphNodeBuilder::build_obdata_geom(Object *object)
 			 */
 			Curve *cu = (Curve *)obdata;
 			if (cu->bevobj != NULL) {
-				build_object(cu->bevobj, DEG_ID_LINKED_INDIRECTLY);
+				build_object(NULL, cu->bevobj, DEG_ID_LINKED_INDIRECTLY);
 			}
 			if (cu->taperobj != NULL) {
-				build_object(cu->taperobj, DEG_ID_LINKED_INDIRECTLY);
+				build_object(NULL, cu->taperobj, DEG_ID_LINKED_INDIRECTLY);
 			}
 			if (object->type == OB_FONT && cu->textoncurve != NULL) {
-				build_object(cu->textoncurve, DEG_ID_LINKED_INDIRECTLY);
+				build_object(NULL, cu->textoncurve, DEG_ID_LINKED_INDIRECTLY);
 			}
 			break;
 		}
@@ -1060,6 +1122,14 @@ void DepsgraphNodeBuilder::build_obdata_geom(Object *object)
 	                   DEG_NODE_TYPE_PARAMETERS,
 	                   NULL,
 	                   DEG_OPCODE_PARAMETERS_EVAL);
+
+	/* Batch cache. */
+	add_operation_node(obdata,
+	                   DEG_NODE_TYPE_BATCH_CACHE,
+	                   function_bind(BKE_object_data_select_update,
+	                                 _1,
+	                                 obdata_cow),
+	                   DEG_OPCODE_GEOMETRY_SELECT_UPDATE);
 }
 
 /* Cameras */
@@ -1164,7 +1234,7 @@ void DepsgraphNodeBuilder::build_nodetree(bNodeTree *ntree)
 			build_image((Image *)id);
 		}
 		else if (id_type == ID_OB) {
-			build_object((Object *)id, DEG_ID_LINKED_INDIRECTLY);
+			build_object(NULL, (Object *)id, DEG_ID_LINKED_INDIRECTLY);
 		}
 		else if (id_type == ID_SCE) {
 			/* Scenes are used by compositor trees, and handled by render

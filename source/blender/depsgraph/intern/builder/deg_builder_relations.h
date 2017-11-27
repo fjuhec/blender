@@ -45,6 +45,7 @@
 #include "intern/nodes/deg_node.h"
 #include "intern/nodes/deg_node_operation.h"
 
+struct Base;
 struct bGPdata;
 struct CacheFile;
 struct ListBase;
@@ -188,7 +189,8 @@ struct DepsgraphRelationBuilder
 
 	void build_view_layer(Scene *scene, ViewLayer *view_layer);
 	void build_group(Object *object, Group *group);
-	void build_object(Object *object);
+	void build_object(Base *base, Object *object);
+	void build_object_flags(Base *base, Object *object);
 	void build_object_data(Object *object);
 	void build_object_parent(Object *object);
 	void build_constraints(ID *id,
@@ -262,11 +264,13 @@ struct DepsgraphRelationBuilder
 	Depsgraph *getGraph();
 
 protected:
-	TimeSourceDepsNode *find_node(const TimeSourceKey &key) const;
-	ComponentDepsNode *find_node(const ComponentKey &key) const;
+	TimeSourceDepsNode *get_node(const TimeSourceKey &key) const;
+	ComponentDepsNode *get_node(const ComponentKey &key) const;
+	OperationDepsNode *get_node(const OperationKey &key) const;
+	DepsNode *get_node(const RNAPathKey &key) const;
+
 	OperationDepsNode *find_node(const OperationKey &key) const;
-	DepsNode *find_node(const RNAPathKey &key) const;
-	OperationDepsNode *has_node(const OperationKey &key) const;
+	bool has_node(const OperationKey &key) const;
 
 	void add_time_relation(TimeSourceDepsNode *timesrc,
 	                       DepsNode *node_to,
@@ -310,7 +314,7 @@ struct DepsNodeHandle
 template <typename KeyType>
 OperationDepsNode *DepsgraphRelationBuilder::find_operation_node(const KeyType& key)
 {
-	DepsNode *node = find_node(key);
+	DepsNode *node = get_node(key);
 	return node != NULL ? node->get_exit_operation() : NULL;
 }
 
@@ -319,8 +323,8 @@ void DepsgraphRelationBuilder::add_relation(const KeyFrom &key_from,
                                             const KeyTo &key_to,
                                             const char *description)
 {
-	DepsNode *node_from = find_node(key_from);
-	DepsNode *node_to = find_node(key_to);
+	DepsNode *node_from = get_node(key_from);
+	DepsNode *node_to = get_node(key_to);
 	OperationDepsNode *op_from = node_from ? node_from->get_exit_operation() : NULL;
 	OperationDepsNode *op_to = node_to ? node_to->get_entry_operation() : NULL;
 	if (op_from && op_to) {
@@ -329,7 +333,6 @@ void DepsgraphRelationBuilder::add_relation(const KeyFrom &key_from,
 	else {
 		if (!op_from) {
 			/* XXX TODO handle as error or report if needed */
-			node_from = find_node(key_from);
 			fprintf(stderr, "add_relation(%s) - Could not find op_from (%s)\n",
 			        description, key_from.identifier().c_str());
 		}
@@ -354,13 +357,11 @@ void DepsgraphRelationBuilder::add_relation(const TimeSourceKey &key_from,
                                             const KeyTo &key_to,
                                             const char *description)
 {
-	TimeSourceDepsNode *time_from = find_node(key_from);
-	DepsNode *node_to = find_node(key_to);
+	TimeSourceDepsNode *time_from = get_node(key_from);
+	DepsNode *node_to = get_node(key_to);
 	OperationDepsNode *op_to = node_to ? node_to->get_entry_operation() : NULL;
-	if (time_from && op_to) {
+	if (time_from != NULL && op_to != NULL) {
 		add_time_relation(time_from, op_to, description);
-	}
-	else {
 	}
 }
 
@@ -370,10 +371,10 @@ void DepsgraphRelationBuilder::add_node_handle_relation(
         const DepsNodeHandle *handle,
         const char *description)
 {
-	DepsNode *node_from = find_node(key_from);
+	DepsNode *node_from = get_node(key_from);
 	OperationDepsNode *op_from = node_from ? node_from->get_exit_operation() : NULL;
 	OperationDepsNode *op_to = handle->node->get_entry_operation();
-	if (op_from && op_to) {
+	if (op_from != NULL && op_to != NULL) {
 		add_operation_relation(op_from, op_to, description);
 	}
 	else {
@@ -393,7 +394,7 @@ DepsNodeHandle DepsgraphRelationBuilder::create_node_handle(
         const KeyType &key,
         const char *default_name)
 {
-	return DepsNodeHandle(this, find_node(key), default_name);
+	return DepsNodeHandle(this, get_node(key), default_name);
 }
 
 }  // namespace DEG

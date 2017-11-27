@@ -282,6 +282,76 @@ void id_tag_update_copy_on_write(Depsgraph *graph, IDDepsNode *id_node)
 	cow_node->tag_update(graph);
 }
 
+void id_tag_update_select_update(Depsgraph *graph, IDDepsNode *id_node)
+{
+	ComponentDepsNode *component;
+	OperationDepsNode *node = NULL;
+	const ID_Type id_type = GS(id_node->id_orig->name);
+	if (id_type == ID_SCE) {
+		/* We need to flush base flags to all objects in a scene since we
+		 * don't know which ones changed. However, we don't want to update
+		 * the whole scene, so pick up some operation which will do as less
+		 * as possible.
+		 *
+		 * TODO(sergey): We can introduce explicit exit operation which
+		 * does nothing and which is only used to cascade flush down the
+		 * road.
+		 */
+		component = id_node->find_component(DEG_NODE_TYPE_LAYER_COLLECTIONS);
+		BLI_assert(component != NULL);
+		if (component != NULL) {
+			node = component->find_operation(DEG_OPCODE_VIEW_LAYER_DONE);
+		}
+	}
+	else if (id_type == ID_OB) {
+		component = id_node->find_component(DEG_NODE_TYPE_LAYER_COLLECTIONS);
+		/* NOTE: This component might be missing for indirectly linked
+		 * objects.
+		 */
+		if (component != NULL) {
+			node = component->find_operation(DEG_OPCODE_OBJECT_BASE_FLAGS);
+		}
+	}
+	else {
+		component = id_node->find_component(DEG_NODE_TYPE_BATCH_CACHE);
+		BLI_assert(component != NULL);
+		if (component != NULL) {
+			node = component->find_operation(DEG_OPCODE_GEOMETRY_SELECT_UPDATE,
+			                                 "", -1);
+		}
+	}
+	if (node != NULL) {
+		node->tag_update(graph);
+	}
+}
+
+void id_tag_update_base_flags(Depsgraph *graph, IDDepsNode *id_node)
+{
+	ComponentDepsNode *component;
+	OperationDepsNode *node = NULL;
+	const ID_Type id_type = GS(id_node->id_orig->name);
+	if (id_type == ID_SCE) {
+		component = id_node->find_component(DEG_NODE_TYPE_LAYER_COLLECTIONS);
+		if (component == NULL) {
+			return;
+		}
+		node = component->find_operation(DEG_OPCODE_VIEW_LAYER_INIT);
+	}
+	else if (id_type == ID_OB) {
+		component = id_node->find_component(DEG_NODE_TYPE_LAYER_COLLECTIONS);
+		if (component == NULL) {
+			return;
+		}
+		node = component->find_operation(DEG_OPCODE_OBJECT_BASE_FLAGS);
+		if (node == NULL) {
+			return;
+		}
+	}
+	if (node != NULL) {
+		node->tag_update(graph);
+	}
+}
+
 void id_tag_update_ntree_special(Main *bmain, Depsgraph *graph, ID *id, int flag)
 {
 	bNodeTree *ntree = NULL;
@@ -344,6 +414,12 @@ void deg_graph_id_tag_update(Main *bmain, Depsgraph *graph, ID *id, int flag)
 	}
 	if (flag & DEG_TAG_COPY_ON_WRITE) {
 		id_tag_update_copy_on_write(graph, id_node);
+	}
+	if (flag & DEG_TAG_SELECT_UPDATE) {
+		id_tag_update_select_update(graph, id_node);
+	}
+	if (flag & DEG_TAG_BASE_FLAGS_UPDATE) {
+		id_tag_update_base_flags(graph, id_node);
 	}
 	id_tag_update_ntree_special(bmain, graph, id, flag);
 }

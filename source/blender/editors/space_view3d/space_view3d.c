@@ -842,7 +842,7 @@ static void view3d_main_region_listener(
 					break;
 				case ND_OB_ACTIVE:
 				case ND_OB_SELECT:
-					DEG_id_tag_update((ID *)&scene->id, DEG_TAG_COPY_ON_WRITE);
+					DEG_id_tag_update((ID *)&scene->id, DEG_TAG_SELECT_UPDATE);
 					ATTR_FALLTHROUGH;
 				case ND_FRAME:
 				case ND_TRANSFORM:
@@ -897,22 +897,10 @@ static void view3d_main_region_listener(
 				case ND_SELECT:
 				{
 					WM_manipulatormap_tag_refresh(mmap);
-
 					if (scene->obedit) {
 						Object *ob = scene->obedit;
-						switch (ob->type) {
-							case OB_MESH:
-								BKE_mesh_batch_cache_dirty(ob->data, BKE_CURVE_BATCH_DIRTY_SELECT);
-								break;
-							// case OB_FONT:  /* handled by text_update_edited */
-							case OB_CURVE:
-							case OB_SURF:
-								BKE_curve_batch_cache_dirty(ob->data, BKE_CURVE_BATCH_DIRTY_SELECT);
-								break;
-							case OB_LATTICE:
-								BKE_lattice_batch_cache_dirty(ob->data, BKE_CURVE_BATCH_DIRTY_SELECT);
-								break;
-						}
+						/* TODO(sergey): Notifiers shouldn't really be doing DEG tags. */
+						DEG_id_tag_update((ID *)ob->data, DEG_TAG_SELECT_UPDATE);
 					}
 					ATTR_FALLTHROUGH;
 				}
@@ -1284,23 +1272,23 @@ static int view3d_context(const bContext *C, const char *member, bContextDataRes
 	}
 	else if (CTX_data_equals(member, "active_base")) {
 		Scene *scene = CTX_data_scene(C);
-		ViewLayer *sl = CTX_data_view_layer(C);
-		if (sl->basact) {
-			Object *ob = sl->basact->object;
+		ViewLayer *view_layer = CTX_data_view_layer(C);
+		if (view_layer->basact) {
+			Object *ob = view_layer->basact->object;
 			/* if hidden but in edit mode, we still display, can happen with animation */
-			if ((sl->basact->flag & BASE_VISIBLED) != 0 || (ob->mode & OB_MODE_EDIT)) {
-				CTX_data_pointer_set(result, &scene->id, &RNA_ObjectBase, sl->basact);
+			if ((view_layer->basact->flag & BASE_VISIBLED) != 0 || (ob->mode & OB_MODE_EDIT)) {
+				CTX_data_pointer_set(result, &scene->id, &RNA_ObjectBase, view_layer->basact);
 			}
 		}
 		
 		return 1;
 	}
 	else if (CTX_data_equals(member, "active_object")) {
-		ViewLayer *sl = CTX_data_view_layer(C);
-		if (sl->basact) {
-			Object *ob = sl->basact->object;
+		ViewLayer *view_layer = CTX_data_view_layer(C);
+		if (view_layer->basact) {
+			Object *ob = view_layer->basact->object;
 			/* if hidden but in edit mode, we still display, can happen with animation */
-			if ((sl->basact->flag & BASE_VISIBLED) != 0 || (ob->mode & OB_MODE_EDIT) != 0) {
+			if ((view_layer->basact->flag & BASE_VISIBLED) != 0 || (ob->mode & OB_MODE_EDIT) != 0) {
 				CTX_data_id_pointer_set(result, &ob->id);
 			}
 		}

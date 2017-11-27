@@ -1747,9 +1747,12 @@ typedef struct Scene {
 #define R_USE_WS_SHADING	0x8000000 /* use world space interpretation of lighting data */
 
 /* seq_flag */
-// #define R_SEQ_GL_PREV 1  // UNUSED, we just use setting from seq_prev_type now.
-// #define R_SEQ_GL_REND 2  // UNUSED, opengl render has its own operator now.
-#define R_SEQ_SOLID_TEX 4
+enum {
+	// R_SEQ_GL_PREV = (1 << 1),  // UNUSED, we just use setting from seq_prev_type now.
+	// R_SEQ_GL_REND = (1 << 2),  // UNUSED, opengl render has its own operator now.
+	R_SEQ_SOLID_TEX  = (1 << 3),
+	R_SEQ_CAMERA_DOF = (1 << 4),
+};
 
 /* displaymode */
 
@@ -1927,10 +1930,10 @@ extern const char *RE_engine_id_CYCLES;
 #define BASE_VISIBLE(base)  (                                                 \
 	((base)->flag & BASE_VISIBLED) != 0)
 
-#define FIRSTBASE(_sl)  ((_sl)->object_bases.first)
-#define LASTBASE(_sl)   ((_sl)->object_bases.last)
-#define BASACT(_sl)     ((_sl)->basact)
-#define OBACT(_sl)      (BASACT(_sl) ? BASACT(_sl)->object: NULL)
+#define FIRSTBASE(_view_layer)  ((_view_layer)->object_bases.first)
+#define LASTBASE(_view_layer)   ((_view_layer)->object_bases.last)
+#define BASACT(_view_layer)     ((_view_layer)->basact)
+#define OBACT(_view_layer)      (BASACT(_view_layer) ? BASACT(_view_layer)->object: NULL)
 
 #define V3D_CAMERA_LOCAL(v3d) ((!(v3d)->scenelock && (v3d)->camera) ? (v3d)->camera : NULL)
 #define V3D_CAMERA_SCENE(scene, v3d) ((!(v3d)->scenelock && (v3d)->camera) ? (v3d)->camera : (scene)->camera)
