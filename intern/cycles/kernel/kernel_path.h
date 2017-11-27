@@ -96,14 +96,13 @@ ccl_device_forceinline bool kernel_path_scene_intersect(
 	return hit;
 }
 
-ccl_device_forceinline void kernel_path_lamp_emission(
+ccl_device_forceinline ShaderEvalIntent kernel_path_lamp_emission_setup(
 	KernelGlobals *kg,
 	ccl_addr_space PathState *state,
 	Ray *ray,
-	float3 throughput,
 	ccl_addr_space Intersection *isect,
 	ShaderData *emission_sd,
-	PathRadiance *L)
+	LightSample *ls)
 {
 #ifdef __LAMP_MIS__
 	if(kernel_data.integrator.use_lamp_mis && !(state->flag & PATH_RAY_CAMERA)) {
@@ -119,11 +118,57 @@ ccl_device_forceinline void kernel_path_lamp_emission(
 		light_ray.dP = ray->dP;
 
 		/* intersect with lamp */
-		float3 emission;
-
-		if(indirect_lamp_emission(kg, emission_sd, state, &light_ray, &emission))
-			path_radiance_accum_emission(L, state, throughput, emission);
+		return indirect_lamp_emission_setup(kg, emission_sd, state, &light_ray, ls);
 	}
+#endif  /* __LAMP_MIS__ */
+	return SHADER_EVAL_INTENT_SKIP;
+}
+
+ccl_device_forceinline void kernel_path_lamp_emission_finish(
+	KernelGlobals *kg,
+	ccl_addr_space PathState *state,
+	Ray *ray,
+	float3 throughput,
+	ccl_addr_space Intersection *isect,
+	ShaderData *emission_sd,
+	PathRadiance *L,
+	LightSample *ls)
+{
+#ifdef __LAMP_MIS__
+	/* ray starting from previous non-transparent bounce */
+	Ray light_ray;
+
+	light_ray.P = ray->P - state->ray_t*ray->D;
+	state->ray_t += isect->t;
+	light_ray.D = ray->D;
+	light_ray.t = state->ray_t;
+	light_ray.time = ray->time;
+	light_ray.dD = ray->dD;
+	light_ray.dP = ray->dP;
+
+	float3 emission = indirect_lamp_emission_finish(kg, emission_sd, state, &light_ray, ls);
+
+	path_radiance_accum_emission(L, state, throughput, emission);
+#endif  /* __LAMP_MIS__ */
+}
+
+ccl_device_forceinline void kernel_path_lamp_emission(
+	KernelGlobals *kg,
+	ccl_addr_space PathState *state,
+	Ray *ray,
+	float3 throughput,
+	ccl_addr_space Intersection *isect,
+	ShaderData *emission_sd,
+	PathRadiance *L)
+{
+#ifdef __LAMP_MIS__
+	LightSample ls;
+	ShaderEvalIntent intent = kernel_path_lamp_emission_setup(kg, state, ray, isect, emission_sd, &ls);
+	if(!intent) {
+		return;
+	}
+	shader_eval(kg, emission_sd, state, intent);
+	kernel_path_lamp_emission_finish(kg, state, ray, throughput, isect, emission_sd, L, &ls);
 #endif  /* __LAMP_MIS__ */
 }
 
