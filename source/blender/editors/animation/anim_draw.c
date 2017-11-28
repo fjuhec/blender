@@ -511,11 +511,11 @@ static bool find_prev_next_keyframes(struct bContext *C, int *nextfra, int *prev
 
 	if (mask) {
 		MaskLayer *masklay = BKE_mask_layer_active(mask);
-		mask_to_keylist(&ads, masklay, &keys, false);
+		mask_to_keylist(&ads, masklay, &keys);
 	}
 
 	/* build linked-list for searching */
-	BLI_dlrbTree_linkedlist_sync(&keys, false);
+	BLI_dlrbTree_linkedlist_sync(&keys);
 
 	/* find matching keyframe in the right direction */
 	do {
