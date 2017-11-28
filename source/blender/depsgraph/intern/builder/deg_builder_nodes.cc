@@ -381,10 +381,43 @@ void DepsgraphNodeBuilder::begin_build() {
 		}
 	}
 
+	GSET_FOREACH_BEGIN(OperationDepsNode *, op_node, graph_->entry_tags)
+	{
+		ComponentDepsNode *comp_node = op_node->owner;
+		IDDepsNode *id_node = comp_node->owner;
+
+		SavedEntryTag entry_tag;
+		entry_tag.id = id_node->id_orig;
+		entry_tag.component_type = comp_node->type;
+		entry_tag.opcode = op_node->opcode;
+		saved_entry_tags_.push_back(entry_tag);
+	};
+	GSET_FOREACH_END();
+
 	/* Make sure graph has no nodes left from previous state. */
 	graph_->clear_all_nodes();
 	graph_->operations.clear();
 	BLI_gset_clear(graph_->entry_tags, NULL);
+}
+
+void DepsgraphNodeBuilder::end_build()
+{
+	foreach (const SavedEntryTag& entry_tag, saved_entry_tags_) {
+		IDDepsNode *id_node = find_id_node(entry_tag.id);
+		if (id_node == NULL) {
+			continue;
+		}
+		ComponentDepsNode *comp_node =
+		        id_node->find_component(entry_tag.component_type);
+		if (comp_node == NULL) {
+			continue;
+		}
+		OperationDepsNode *op_node = comp_node->find_operation(entry_tag.opcode);
+		if (op_node == NULL) {
+			continue;
+		}
+		op_node->tag_update(graph_);
+	}
 }
 
 void DepsgraphNodeBuilder::build_group(Group *group)
@@ -411,7 +444,7 @@ void DepsgraphNodeBuilder::build_object(Base *base,
 		 * directly.
 		 */
 		if (id_node->linked_state == DEG_ID_LINKED_INDIRECTLY) {
-			build_object_flags(base, object);
+			build_object_flags(base, object, linked_state);
 		}
 		id_node->linked_state = max(id_node->linked_state, linked_state);
 		return;
@@ -422,12 +455,12 @@ void DepsgraphNodeBuilder::build_object(Base *base,
 	id_node->linked_state = linked_state;
 	object->customdata_mask = 0;
 	/* Various flags, flushing from bases/collections. */
-	build_object_flags(base, object);
+	build_object_flags(base, object, linked_state);
 	/* Transform. */
 	build_object_transform(object);
 	/* Parent. */
 	if (object->parent != NULL) {
-		build_object(NULL, object->parent, linked_state);
+		build_object(NULL, object->parent, DEG_ID_LINKED_INDIRECTLY);
 	}
 	/* Modifiers. */
 	if (object->modifiers.first != NULL) {
@@ -469,17 +502,21 @@ void DepsgraphNodeBuilder::build_object(Base *base,
 	}
 }
 
-void DepsgraphNodeBuilder::build_object_flags(Base *base, Object *object)
+void DepsgraphNodeBuilder::build_object_flags(
+        Base *base,
+        Object *object,
+        eDepsNode_LinkedState_Type linked_state)
 {
 	if (base == NULL) {
 		return;
 	}
 	/* TODO(sergey): Is this really best component to be used? */
 	Object *object_cow = get_cow_datablock(object);
+	const bool is_from_set = (linked_state == DEG_ID_LINKED_VIA_SET);
 	add_operation_node(&object->id,
 	                   DEG_NODE_TYPE_LAYER_COLLECTIONS,
 	                   function_bind(BKE_object_eval_flush_base_flags,
-	                                 _1, object_cow, base),
+	                                 _1, object_cow, base, is_from_set),
 	                   DEG_OPCODE_OBJECT_BASE_FLAGS);
 }
 

@@ -78,7 +78,6 @@ namespace DEG {
 
 static DEG_EditorUpdateIDCb deg_editor_update_id_cb = NULL;
 static DEG_EditorUpdateSceneCb deg_editor_update_scene_cb = NULL;
-static DEG_EditorUpdateScenePreCb deg_editor_update_scene_pre_cb = NULL;
 
 Depsgraph::Depsgraph()
   : time_source(NULL),
@@ -477,17 +476,18 @@ ID *Depsgraph::get_cow_id(const ID *id_orig) const
 	return id_node->id_cow;
 }
 
-void deg_editors_id_update(Main *bmain, ID *id)
+void deg_editors_id_update(const DEGEditorUpdateContext *update_ctx, ID *id)
 {
 	if (deg_editor_update_id_cb != NULL) {
-		deg_editor_update_id_cb(bmain, id);
+		deg_editor_update_id_cb(update_ctx, id);
 	}
 }
 
-void deg_editors_scene_update(Main *bmain, Scene *scene, bool updated)
+void deg_editors_scene_update(const DEGEditorUpdateContext *update_ctx,
+                              bool updated)
 {
 	if (deg_editor_update_scene_cb != NULL) {
-		deg_editor_update_scene_cb(bmain, scene, updated);
+		deg_editor_update_scene_cb(update_ctx, updated);
 	}
 }
 
@@ -513,17 +513,8 @@ void DEG_graph_free(Depsgraph *graph)
 
 /* Set callbacks which are being called when depsgraph changes. */
 void DEG_editors_set_update_cb(DEG_EditorUpdateIDCb id_func,
-                               DEG_EditorUpdateSceneCb scene_func,
-                               DEG_EditorUpdateScenePreCb scene_pre_func)
+                               DEG_EditorUpdateSceneCb scene_func)
 {
 	DEG::deg_editor_update_id_cb = id_func;
 	DEG::deg_editor_update_scene_cb = scene_func;
-	DEG::deg_editor_update_scene_pre_cb = scene_pre_func;
-}
-
-void DEG_editors_update_pre(Main *bmain, Scene *scene, bool time)
-{
-	if (DEG::deg_editor_update_scene_pre_cb != NULL) {
-		DEG::deg_editor_update_scene_pre_cb(bmain, scene, time);
-	}
 }

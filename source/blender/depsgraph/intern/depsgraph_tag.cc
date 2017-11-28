@@ -287,7 +287,6 @@ void id_tag_update_select_update(Depsgraph *graph, IDDepsNode *id_node)
 	ComponentDepsNode *component;
 	OperationDepsNode *node = NULL;
 	const ID_Type id_type = GS(id_node->id_orig->name);
-
 	if (id_type == ID_SCE) {
 		/* We need to flush base flags to all objects in a scene since we
 		 * don't know which ones changed. However, we don't want to update
@@ -299,20 +298,71 @@ void id_tag_update_select_update(Depsgraph *graph, IDDepsNode *id_node)
 		 * road.
 		 */
 		component = id_node->find_component(DEG_NODE_TYPE_LAYER_COLLECTIONS);
-		node = component->find_operation(DEG_OPCODE_VIEW_LAYER_DONE);
+		BLI_assert(component != NULL);
+		if (component != NULL) {
+			node = component->find_operation(DEG_OPCODE_VIEW_LAYER_DONE);
+		}
 	}
 	else if (id_type == ID_OB) {
 		component = id_node->find_component(DEG_NODE_TYPE_LAYER_COLLECTIONS);
-		node = component->find_operation(DEG_OPCODE_OBJECT_BASE_FLAGS);
+		/* NOTE: This component might be missing for indirectly linked
+		 * objects.
+		 */
+		if (component != NULL) {
+			node = component->find_operation(DEG_OPCODE_OBJECT_BASE_FLAGS);
+		}
 	}
 	else {
 		component = id_node->find_component(DEG_NODE_TYPE_BATCH_CACHE);
-		node = component->find_operation(DEG_OPCODE_GEOMETRY_SELECT_UPDATE,
-		                                     "", -1);
+		BLI_assert(component != NULL);
+		if (component != NULL) {
+			node = component->find_operation(DEG_OPCODE_GEOMETRY_SELECT_UPDATE,
+			                                 "", -1);
+		}
 	}
 	if (node != NULL) {
 		node->tag_update(graph);
 	}
+}
+
+void id_tag_update_base_flags(Depsgraph *graph, IDDepsNode *id_node)
+{
+	ComponentDepsNode *component;
+	OperationDepsNode *node = NULL;
+	const ID_Type id_type = GS(id_node->id_orig->name);
+	if (id_type == ID_SCE) {
+		component = id_node->find_component(DEG_NODE_TYPE_LAYER_COLLECTIONS);
+		if (component == NULL) {
+			return;
+		}
+		node = component->find_operation(DEG_OPCODE_VIEW_LAYER_INIT);
+	}
+	else if (id_type == ID_OB) {
+		component = id_node->find_component(DEG_NODE_TYPE_LAYER_COLLECTIONS);
+		if (component == NULL) {
+			return;
+		}
+		node = component->find_operation(DEG_OPCODE_OBJECT_BASE_FLAGS);
+		if (node == NULL) {
+			return;
+		}
+	}
+	if (node != NULL) {
+		node->tag_update(graph);
+	}
+}
+
+void id_tag_update_editors_update(Main *bmain, Depsgraph *graph, ID *id)
+{
+	/* NOTE: We handle this immediately, without delaying anything, to be
+	 * sure we don't cause threading issues with OpenGL.
+	 */
+	/* TODO(sergey): Make sure this works for CoW-ed datablocks as well. */
+	DEGEditorUpdateContext update_ctx = {NULL};
+	update_ctx.bmain = bmain;
+	update_ctx.scene = graph->scene;
+	update_ctx.view_layer = graph->view_layer;
+	deg_editors_id_update(&update_ctx, id);
 }
 
 void id_tag_update_ntree_special(Main *bmain, Depsgraph *graph, ID *id, int flag)
@@ -380,6 +430,12 @@ void deg_graph_id_tag_update(Main *bmain, Depsgraph *graph, ID *id, int flag)
 	}
 	if (flag & DEG_TAG_SELECT_UPDATE) {
 		id_tag_update_select_update(graph, id_node);
+	}
+	if (flag & DEG_TAG_BASE_FLAGS_UPDATE) {
+		id_tag_update_base_flags(graph, id_node);
+	}
+	if (flag & DEG_TAG_EDITORS_UPDATE) {
+		id_tag_update_editors_update(bmain, graph, id);
 	}
 	id_tag_update_ntree_special(bmain, graph, id, flag);
 }
@@ -512,7 +568,10 @@ void DEG_on_visible_update(Main *bmain, const bool UNUSED(do_time))
 /* Check if something was changed in the database and inform
  * editors about this.
  */
-void DEG_ids_check_recalc(Main *bmain, Scene *scene, bool time)
+void DEG_ids_check_recalc(Main *bmain,
+                          Scene *scene,
+                          ViewLayer *view_layer,
+                          bool time)
 {
 	ListBase *lbarray[MAX_LIBARRAY];
 	int a;
@@ -530,7 +589,11 @@ void DEG_ids_check_recalc(Main *bmain, Scene *scene, bool time)
 		}
 	}
 
-	DEG::deg_editors_scene_update(bmain, scene, (updated || time));
+	DEGEditorUpdateContext update_ctx = {NULL};
+	update_ctx.bmain = bmain;
+	update_ctx.scene = scene;
+	update_ctx.view_layer = view_layer;
+	DEG::deg_editors_scene_update(&update_ctx, (updated || time));
 }
 
 void DEG_ids_clear_recalc(Main *bmain)
