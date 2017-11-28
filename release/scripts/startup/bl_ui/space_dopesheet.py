@@ -116,6 +116,7 @@ class DOPESHEET_HT_header(Header):
         layout = self.layout
 
         st = context.space_data
+        scene = context.scene
         toolsettings = context.tool_settings
 
         row = layout.row(align=True)
@@ -146,7 +147,7 @@ class DOPESHEET_HT_header(Header):
             dopesheet_filter(layout, context, genericFiltersOnly=True)
         elif st.mode == 'GPENCIL':
             row = layout.row(align=True)
-            row.prop(st, "use_gp_jump_active", text="", icon="RESTRICT_SELECT_OFF")
+            row.prop(scene, "show_keys_from_selected_only", text="", icon="RESTRICT_SELECT_OFF")
             row.prop(st.dopesheet, "show_gpencil_3d_only", text="Active Only")
 
             if st.dopesheet.show_gpencil_3d_only:

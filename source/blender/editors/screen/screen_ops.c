@@ -2237,7 +2237,6 @@ static int keyframe_jump_exec(bContext *C, wmOperator *op)
 	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
 	Object *ob = CTX_data_active_object(C);
-	SpaceAction *spa = (SpaceAction *)CTX_wm_space_data(C);
 	bDopeSheet ads = {NULL};
 	DLRBT_Tree keys;
 	ActKeyColumn *ak;
@@ -2275,8 +2274,8 @@ static int keyframe_jump_exec(bContext *C, wmOperator *op)
 	if (ob) {
 		ob_to_keylist(&ads, ob, &keys, NULL);
 		
-		if ((ob->type == OB_GPENCIL) && (spa) && (spa->mode == SACTCONT_GPENCIL)) {
-			const bool active = (spa->flag & SACTION_GP_JUMP_ACTIVE);
+		if (ob->type == OB_GPENCIL) {
+			const bool active = !(scene->flag & SCE_KEYS_NO_SELONLY);
 			gpencil_to_keylist(&ads, ob->data, &keys, active);
 		}
 	}
