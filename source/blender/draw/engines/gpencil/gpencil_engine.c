@@ -58,6 +58,9 @@ extern char datatoc_gpencil_pixel_frag_glsl[];
 extern char datatoc_gpencil_swirl_frag_glsl[];
 extern char datatoc_gpencil_painting_frag_glsl[];
 extern char datatoc_gpencil_paper_frag_glsl[];
+extern char datatoc_gpencil_edit_point_vert_glsl[];
+extern char datatoc_gpencil_edit_point_geom_glsl[];
+extern char datatoc_gpencil_edit_point_frag_glsl[];
 
 /* *********** STATIC *********** */
 static GPENCIL_e_data e_data = {NULL}; /* Engine data */
@@ -133,10 +136,12 @@ static void GPENCIL_engine_init(void *vedata)
 		        datatoc_gpencil_point_frag_glsl,
 		        NULL);
 	}
-
 	/* used for edit points or strokes with one point only */
-	if (!e_data.gpencil_volumetric_sh) {
-		e_data.gpencil_volumetric_sh = GPU_shader_get_builtin_shader(GPU_SHADER_3D_POINT_VARYING_SIZE_VARYING_COLOR);
+	if (!e_data.gpencil_edit_point_sh) {
+		e_data.gpencil_edit_point_sh = DRW_shader_create(
+			datatoc_gpencil_edit_point_vert_glsl,
+			datatoc_gpencil_edit_point_geom_glsl,
+			datatoc_gpencil_edit_point_frag_glsl, NULL);
 	}
 
 	/* used for edit lines for edit modes */
@@ -167,6 +172,7 @@ static void GPENCIL_engine_free(void)
 	DRW_SHADER_FREE_SAFE(e_data.gpencil_fill_sh);
 	DRW_SHADER_FREE_SAFE(e_data.gpencil_stroke_sh);
 	DRW_SHADER_FREE_SAFE(e_data.gpencil_point_sh);
+	DRW_SHADER_FREE_SAFE(e_data.gpencil_edit_point_sh);
 	DRW_SHADER_FREE_SAFE(e_data.gpencil_fullscreen_sh);
 	DRW_SHADER_FREE_SAFE(e_data.gpencil_vfx_blur_sh);
 	DRW_SHADER_FREE_SAFE(e_data.gpencil_vfx_wave_sh);
@@ -207,7 +213,7 @@ static void GPENCIL_cache_init(void *vedata)
 	stl->g_data->tot_sh_point = 0;
 
 	stl->g_data->shgrps_edit_line = NULL;
-	stl->g_data->shgrps_edit_volumetric = NULL;
+	stl->g_data->shgrps_edit_point = NULL;
 	
 	if (!stl->shgroups) {
 		/* Alloc maximum size because count strokes is very slow and can be very complex due onion skinning.

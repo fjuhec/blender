@@ -208,7 +208,7 @@ typedef struct GPENCIL_Data {
 
 /* *********** STATIC *********** */
 typedef struct g_data {
-	struct DRWShadingGroup *shgrps_edit_volumetric;
+	struct DRWShadingGroup *shgrps_edit_point;
 	struct DRWShadingGroup *shgrps_edit_line;
 	struct DRWShadingGroup *shgrps_drawing_stroke;
 	struct DRWShadingGroup *shgrps_drawing_fill;
@@ -242,7 +242,7 @@ typedef struct GPENCIL_e_data {
 	struct GPUShader *gpencil_fill_sh;
 	struct GPUShader *gpencil_stroke_sh;
 	struct GPUShader *gpencil_point_sh;
-	struct GPUShader *gpencil_volumetric_sh;
+	struct GPUShader *gpencil_edit_point_sh;
 	struct GPUShader *gpencil_line_sh;
 	struct GPUShader *gpencil_drawing_fill_sh;
 	struct GPUShader *gpencil_fullscreen_sh;

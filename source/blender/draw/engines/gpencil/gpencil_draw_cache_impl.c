@@ -609,7 +609,7 @@ static void gpencil_add_editpoints_shgroup(
 				if (cache->batch_edit[cache->cache_idx]) {
 					if ((obact) && (obact == ob)) {
 						/* edit pass */
-						DRW_shgroup_call_add(stl->g_data->shgrps_edit_volumetric, cache->batch_edit[cache->cache_idx], gpf->viewmatrix);
+						DRW_shgroup_call_add(stl->g_data->shgrps_edit_point, cache->batch_edit[cache->cache_idx], gpf->viewmatrix);
 					}
 				}
 			}
@@ -796,8 +796,10 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 				stl->g_data->shgrps_edit_line = DRW_shgroup_create(e_data->gpencil_line_sh, psl->edit_pass);
 				stl->g_data->tot_sh++;
 			}
-			if (!stl->g_data->shgrps_edit_volumetric) {
-				stl->g_data->shgrps_edit_volumetric = DRW_shgroup_create(e_data->gpencil_volumetric_sh, psl->edit_pass);
+			if (!stl->g_data->shgrps_edit_point) {
+				stl->g_data->shgrps_edit_point = DRW_shgroup_create(e_data->gpencil_edit_point_sh, psl->edit_pass);
+				const float *viewport_size = DRW_viewport_size_get();
+				DRW_shgroup_uniform_vec2(stl->g_data->shgrps_edit_point, "Viewport", viewport_size, 1);
 				stl->g_data->tot_sh++;
 			}
 
