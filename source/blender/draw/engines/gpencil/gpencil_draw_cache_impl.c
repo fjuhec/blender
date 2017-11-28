@@ -667,7 +667,7 @@ static void gpencil_init_evalctx_from_drawctx(const DRWContextState *draw_ctx, E
 	eval_ctx->depsgraph = BKE_scene_get_depsgraph(scene, draw_ctx->view_layer, false);
 	eval_ctx->ctime = BKE_scene_frame_get(scene);
 	eval_ctx->view_layer = draw_ctx->view_layer;
-	eval_ctx->engine = draw_ctx->engine;
+	eval_ctx->engine_type = draw_ctx->engine_type;
 }
 
 /* main function to draw strokes */
