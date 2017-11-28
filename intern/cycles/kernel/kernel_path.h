@@ -190,12 +190,6 @@ ccl_device_forceinline bool kernel_path_background_setup(
 			return false;
 	}
 
-	/* When using the ao bounces approximation, adjust background
-	 * shader intensity with ao factor. */
-	if(path_state_ao_bounce(kg, state)) {
-		throughput *= kernel_data.background.ao_bounces_factor;
-	}
-
 #ifdef __BACKGROUND__
 	/* sample background shader */
 	return indirect_background_setup(kg, sd, state, ray);
@@ -215,6 +209,13 @@ ccl_device_forceinline void kernel_path_background_finish(
 #ifdef __BACKGROUND__
 	/* sample background shader */
 	float3 L_background = indirect_background_finish(kg, sd, state, ray);
+
+	/* When using the ao bounces approximation, adjust background
+	 * shader intensity with ao factor. */
+	if(path_state_ao_bounce(kg, state)) {
+		throughput *= kernel_data.background.ao_bounces_factor;
+	}
+
 	path_radiance_accum_background(L, state, throughput, L_background);
 #endif  /* __BACKGROUND__ */
 }
