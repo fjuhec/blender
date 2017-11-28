@@ -1012,6 +1012,7 @@ ccl_device void shader_eval(KernelGlobals *kg, ShaderData *sd,
 	if(kg->osl) {
 		if(intent == SHADER_EVAL_INTENT_SURFACE) {
 			OSLShader::eval_surface(kg, sd, state, path_flag);
+		}
 		else if(intent == SHADER_EVAL_INTENT_BACKGROUND) {
 			OSLShader::eval_background(kg, sd, state, path_flag);
 		}
