@@ -7355,6 +7355,12 @@ void RNA_struct_override_apply(PointerRNA *dst, PointerRNA *src, PointerRNA *sto
 			/* Note that src and dst props are the same, unless they are IDProperties... */
 			RNA_property_override_apply(&dst_data, &src_data, storage_prop ? &storage_data : NULL, src_prop, op);
 		}
+#ifndef NDEBUG
+		else {
+			printf("Failed to apply static override operation to '%s.%s' (could not resolve some properties)\n",
+			       ((ID *)src->id.data)->name, op->rna_path);
+		}
+#endif
 	}
 #ifdef DEBUG_OVERRIDE_TIMEIT
 	TIMEIT_END_AVERAGED(RNA_struct_override_apply);
