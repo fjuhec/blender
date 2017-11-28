@@ -5460,7 +5460,7 @@ static int texture_paint_image_from_view_exec(bContext *C, wmOperator *op)
 
 	ibuf = ED_view3d_draw_offscreen_imbuf(
 	        scene, CTX_wm_view3d(C), CTX_wm_region(C),
-	        w, h, IB_rect, false, R_ALPHAPREMUL, 0, false, NULL,
+	        w, h, IB_rect, V3D_OFSDRAW_NONE, R_ALPHAPREMUL, 0, NULL,
 	        NULL, NULL, err_out);
 	if (!ibuf) {
 		/* Mostly happens when OpenGL offscreen buffer was failed to create, */
@@ -5904,7 +5904,7 @@ static int add_simple_uvs_exec(bContext *C, wmOperator *UNUSED(op))
 	        }));
 	/* select all uv loops first - pack parameters needs this to make sure charts are registered */
 	ED_uvedit_select_all(bm);
-	ED_uvedit_unwrap_cube_project(ob, bm, 1.0, false);
+	ED_uvedit_unwrap_cube_project(bm, 1.0, false, NULL);
 	/* set the margin really quickly before the packing operation*/
 	scene->toolsettings->uvcalc_margin = 0.001f;
 	ED_uvedit_pack_islands(scene, ob, bm, false, false, true);

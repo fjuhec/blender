@@ -36,7 +36,6 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "BKE_appdir.h"
 #include "BLI_utildefines.h"
 #include "BLI_listbase.h"
 #include "BLI_hash_md5.h"
@@ -45,6 +44,7 @@
 #include "BLI_string.h"
 #include "BLI_threads.h"
 
+#include "BKE_appdir.h"
 #include "BKE_image.h"
 #include "BKE_global.h"
 #include "BKE_main.h"
@@ -925,6 +925,17 @@ bool RE_WriteRenderResult(ReportList *reports, RenderResult *rr, const char *fil
 				}
 			}
 
+			/* We only store RGBA passes as half float, for
+			 * others precision loss can be problematic. */
+			bool pass_half_float = half_float &&
+			                       (STREQ(rp->chan_id, "RGB") ||
+			                        STREQ(rp->chan_id, "RGBA") ||
+			                        STREQ(rp->chan_id, "R") ||
+			                        STREQ(rp->chan_id, "G") ||
+			                        STREQ(rp->chan_id, "B") ||
+			                        STREQ(rp->chan_id, "A"));
+
+
 			for (int a = 0; a < rp->channels; a++) {
 				/* Save Combined as RGBA if single layer save. */
 				char passname[EXR_PASS_MAXNAME];
@@ -940,10 +951,9 @@ bool RE_WriteRenderResult(ReportList *reports, RenderResult *rr, const char *fil
 					layname[0] = '\0';
 				}
 
-				/* Add channel. */
 				IMB_exr_add_channel(exrhandle, layname, passname, viewname,
 				                    rp->channels, rp->channels * rr->rectx, rp->rect + a,
-				                    STREQ(rp->name, RE_PASSNAME_Z) ? false : half_float);
+				                    pass_half_float);
 			}
 		}
 	}
