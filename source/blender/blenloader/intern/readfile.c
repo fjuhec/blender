@@ -256,7 +256,7 @@ static void *read_struct(FileData *fd, BHead *bh, const char *blockname);
 static void direct_link_modifiers(FileData *fd, ListBase *lb);
 static BHead *find_bhead_from_code_name(FileData *fd, const short idcode, const char *name);
 static BHead *find_bhead_from_idname(FileData *fd, const char *idname);
-static SceneCollection *get_scene_collection_active_or_create(struct Scene *scene, struct SceneLayer *scene_layer, const short flag);
+static SceneCollection *get_scene_collection_active_or_create(struct Scene *scene, struct ViewLayer *view_layer, const short flag);
 
 /* this function ensures that reports are printed,
  * in the case of libraray linking errors this is important!
@@ -2230,9 +2230,9 @@ static void lib_link_id(FileData *fd, Main *main)
 		ID *id;
 
 		for (id = lb->first; id; id = id->next) {
-			if (id->override) {
-				id->override->reference = newlibadr_us(fd, id->lib, id->override->reference);
-				id->override->storage = newlibadr_us(fd, id->lib, id->override->storage);
+			if (id->override_static) {
+				id->override_static->reference = newlibadr_us(fd, id->lib, id->override_static->reference);
+				id->override_static->storage = newlibadr_us(fd, id->lib, id->override_static->storage);
 			}
 		}
 	}
@@ -2240,7 +2240,7 @@ static void lib_link_id(FileData *fd, Main *main)
 
 static void direct_link_id_override_property_operation_cb(FileData *fd, void *data)
 {
-	IDOverridePropertyOperation *opop = data;
+	IDOverrideStaticPropertyOperation *opop = data;
 
 	opop->subitem_reference_name = newdataadr(fd, opop->subitem_reference_name);
 	opop->subitem_local_name = newdataadr(fd, opop->subitem_local_name);
@@ -2248,7 +2248,7 @@ static void direct_link_id_override_property_operation_cb(FileData *fd, void *da
 
 static void direct_link_id_override_property_cb(FileData *fd, void *data)
 {
-	IDOverrideProperty *op = data;
+	IDOverrideStaticProperty *op = data;
 
 	op->rna_path = newdataadr(fd, op->rna_path);
 	link_list_ex(fd, &op->operations, direct_link_id_override_property_operation_cb);
@@ -2265,9 +2265,9 @@ static void direct_link_id(FileData *fd, ID *id)
 	id->py_instance = NULL;
 
 	/* Link direct data of overrides. */
-	if (id->override) {
-		id->override = newdataadr(fd, id->override);
-		link_list_ex(fd, &id->override->properties, direct_link_id_override_property_cb);
+	if (id->override_static) {
+		id->override_static = newdataadr(fd, id->override_static);
+		link_list_ex(fd, &id->override_static->properties, direct_link_id_override_property_cb);
 	}
 
 	if (id->uuid) {
@@ -2890,7 +2890,7 @@ static void direct_link_workspace(FileData *fd, WorkSpace *workspace, const Main
 	if (ID_IS_LINKED(&workspace->id)) {
 		/* Appending workspace so render layer is likely from a different scene. Unset
 		 * now, when activating workspace later we set a valid one from current scene. */
-		BKE_workspace_render_layer_set(workspace, NULL);
+		BKE_workspace_view_layer_set(workspace, NULL);
 	}
 
 	/* Same issue/fix as in direct_link_workspace_link_scene_data: Can't read workspace data
@@ -3744,6 +3744,7 @@ static void direct_link_mball(FileData *fd, MetaBall *mb)
 	mb->editelems = NULL;
 /*	mb->edit_elems.first= mb->edit_elems.last= NULL;*/
 	mb->lastelem = NULL;
+	mb->batch_cache = NULL;
 }
 
 /* ************ READ WORLD ***************** */
@@ -5967,7 +5968,6 @@ static void lib_link_scene(FileData *fd, Main *main)
 			
 			for (SceneRenderLayer *srl = sce->r.layers.first; srl; srl = srl->next) {
 				srl->mat_override = newlibadr_us(fd, sce->id.lib, srl->mat_override);
-				srl->light_override = newlibadr_us(fd, sce->id.lib, srl->light_override);
 				for (FreestyleModuleConfig *fmc = srl->freestyleConfig.modules.first; fmc; fmc = fmc->next) {
 					fmc->script = newlibadr(fd, sce->id.lib, fmc->script);
 				}
@@ -5984,10 +5984,20 @@ static void lib_link_scene(FileData *fd, Main *main)
 
 			lib_link_scene_collection(fd, sce->id.lib, sce->collection);
 
-			for (SceneLayer *scene_layer = sce->render_layers.first; scene_layer; scene_layer = scene_layer->next) {
+			for (ViewLayer *view_layer = sce->view_layers.first; view_layer; view_layer = view_layer->next) {
 				/* tag scene layer to update for collection tree evaluation */
-				scene_layer->flag |= SCENE_LAYER_ENGINE_DIRTY;
-				for (Base *base = scene_layer->object_bases.first; base; base = base->next) {
+				view_layer->flag |= VIEW_LAYER_ENGINE_DIRTY;
+
+				for (FreestyleModuleConfig *fmc = view_layer->freestyle_config.modules.first; fmc; fmc = fmc->next) {
+					fmc->script = newlibadr(fd, sce->id.lib, fmc->script);
+				}
+
+				for (FreestyleLineSet *fls = view_layer->freestyle_config.linesets.first; fls; fls = fls->next) {
+					fls->linestyle = newlibadr_us(fd, sce->id.lib, fls->linestyle);
+					fls->group = newlibadr_us(fd, sce->id.lib, fls->group);
+				}
+
+				for (Base *base = view_layer->object_bases.first; base; base = base->next) {
 					/* we only bump the use count for the collection objects */
 					base->object = newlibadr(fd, sce->id.lib, base->object);
 					base->flag |= BASE_DIRTY_ENGINE_SETTINGS;
@@ -6141,10 +6151,10 @@ static void direct_link_workspace_link_scene_data(
         FileData *fd, const Scene *scene, const ListBase *workspaces)
 {
 	for (WorkSpace *workspace = workspaces->first; workspace; workspace = workspace->id.next) {
-		SceneLayer *layer = newdataadr(fd, BKE_workspace_render_layer_get(workspace));
+		ViewLayer *layer = newdataadr(fd, BKE_workspace_view_layer_get(workspace));
 		/* only set when layer is from the scene we read */
-		if (layer && (BLI_findindex(&scene->render_layers, layer) != -1)) {
-			BKE_workspace_render_layer_set(workspace, layer);
+		if (layer && (BLI_findindex(&scene->view_layers, layer) != -1)) {
+			BKE_workspace_view_layer_set(workspace, layer);
 		}
 	}
 }
@@ -6155,7 +6165,7 @@ static void direct_link_scene(FileData *fd, Scene *sce, Main *bmain)
 	Sequence *seq;
 	MetaStack *ms;
 	RigidBodyWorld *rbw;
-	SceneLayer *scene_layer;
+	ViewLayer *view_layer;
 	SceneRenderLayer *srl;
 	
 	sce->depsgraph_hash = NULL;
@@ -6191,7 +6201,7 @@ static void direct_link_scene(FileData *fd, Scene *sce, Main *bmain)
 		sce->toolsettings->imapaint.paintcursor = NULL;
 		sce->toolsettings->particle.paintcursor = NULL;
 		sce->toolsettings->particle.scene = NULL;
-		sce->toolsettings->particle.scene_layer = NULL;
+		sce->toolsettings->particle.view_layer = NULL;
 		sce->toolsettings->particle.object = NULL;
 		sce->toolsettings->gp_sculpt.paintcursor = NULL;
 		
@@ -6357,11 +6367,7 @@ static void direct_link_scene(FileData *fd, Scene *sce, Main *bmain)
 	for (srl = sce->r.layers.first; srl; srl = srl->next) {
 		srl->prop = newdataadr(fd, srl->prop);
 		IDP_DirectLinkGroup_OrFree(&srl->prop, (fd->flags & FD_FLAGS_SWITCH_ENDIAN), fd);
-	}
-	for (srl = sce->r.layers.first; srl; srl = srl->next) {
 		link_list(fd, &(srl->freestyleConfig.modules));
-	}
-	for (srl = sce->r.layers.first; srl; srl = srl->next) {
 		link_list(fd, &(srl->freestyleConfig.linesets));
 	}
 	
@@ -6407,23 +6413,29 @@ static void direct_link_scene(FileData *fd, Scene *sce, Main *bmain)
 	}
 
 	/* insert into global old-new map for reading without UI (link_global accesses it again) */
-	link_glob_list(fd, &sce->render_layers);
-	for (scene_layer = sce->render_layers.first; scene_layer; scene_layer = scene_layer->next) {
-		scene_layer->stats = NULL;
-		link_list(fd, &scene_layer->object_bases);
-		scene_layer->basact = newdataadr(fd, scene_layer->basact);
-		direct_link_layer_collections(fd, &scene_layer->layer_collections);
+	link_glob_list(fd, &sce->view_layers);
+	for (view_layer = sce->view_layers.first; view_layer; view_layer = view_layer->next) {
+		view_layer->stats = NULL;
+		link_list(fd, &view_layer->object_bases);
+		view_layer->basact = newdataadr(fd, view_layer->basact);
+		direct_link_layer_collections(fd, &view_layer->layer_collections);
 
-		if (scene_layer->properties != NULL) {
-			scene_layer->properties = newdataadr(fd, scene_layer->properties);
-			BLI_assert(scene_layer->properties != NULL);
-			IDP_DirectLinkGroup_OrFree(&scene_layer->properties, (fd->flags & FD_FLAGS_SWITCH_ENDIAN), fd);
-			BKE_scene_layer_engine_settings_validate_layer(scene_layer);
+		if (view_layer->properties != NULL) {
+			view_layer->properties = newdataadr(fd, view_layer->properties);
+			BLI_assert(view_layer->properties != NULL);
+			IDP_DirectLinkGroup_OrFree(&view_layer->properties, (fd->flags & FD_FLAGS_SWITCH_ENDIAN), fd);
+			BKE_view_layer_engine_settings_validate_layer(view_layer);
 		}
 
-		scene_layer->properties_evaluated = NULL;
+		view_layer->id_properties = newdataadr(fd, view_layer->id_properties);
+		IDP_DirectLinkGroup_OrFree(&view_layer->id_properties, (fd->flags & FD_FLAGS_SWITCH_ENDIAN), fd);
 
-		BLI_listbase_clear(&scene_layer->drawdata);
+		link_list(fd, &(view_layer->freestyle_config.modules));
+		link_list(fd, &(view_layer->freestyle_config.linesets));
+
+		view_layer->properties_evaluated = NULL;
+
+		BLI_listbase_clear(&view_layer->drawdata);
 	}
 
 	sce->collection_properties = newdataadr(fd, sce->collection_properties);
@@ -6433,7 +6445,7 @@ static void direct_link_scene(FileData *fd, Scene *sce, Main *bmain)
 	IDP_DirectLinkGroup_OrFree(&sce->layer_properties, (fd->flags & FD_FLAGS_SWITCH_ENDIAN), fd);
 
 	BKE_layer_collection_engine_settings_validate_scene(sce);
-	BKE_scene_layer_engine_settings_validate_scene(sce);
+	BKE_view_layer_engine_settings_validate_scene(sce);
 
 	direct_link_workspace_link_scene_data(fd, sce, &bmain->workspaces);
 }
@@ -7167,7 +7179,7 @@ static void lib_link_workspace_layout_restore(struct IDNameLib_Map *id_map, Main
  * Used to link a file (without UI) to the current UI.
  * Note that it assumes the old pointers in UI are still valid, so old Main is not freed.
  */
-void blo_lib_link_restore(Main *newmain, wmWindowManager *curwm, Scene *curscene, SceneLayer *cur_render_layer)
+void blo_lib_link_restore(Main *newmain, wmWindowManager *curwm, Scene *curscene, ViewLayer *cur_view_layer)
 {
 	struct IDNameLib_Map *id_map = BKE_main_idmap_create(newmain);
 
@@ -7177,7 +7189,7 @@ void blo_lib_link_restore(Main *newmain, wmWindowManager *curwm, Scene *curscene
 		for (WorkSpaceLayout *layout = layouts->first; layout; layout = layout->next) {
 			lib_link_workspace_layout_restore(id_map, newmain, layout);
 		}
-		BKE_workspace_render_layer_set(workspace, cur_render_layer);
+		BKE_workspace_view_layer_set(workspace, cur_view_layer);
 	}
 
 	for (wmWindow *win = curwm->windows.first; win; win = win->next) {
@@ -7520,7 +7532,7 @@ static bool direct_link_screen(FileData *fd, bScreen *sc)
 				sseq->scopes.sep_waveform_ibuf = NULL;
 				sseq->scopes.vector_ibuf = NULL;
 				sseq->scopes.histogram_ibuf = NULL;
-
+				sseq->compositor = NULL;
 			}
 			else if (sl->spacetype == SPACE_BUTS) {
 				SpaceButs *sbuts = (SpaceButs *)sl;
@@ -8654,7 +8666,7 @@ static BHead *read_global(BlendFileData *bfd, FileData *fd, BHead *bhead)
 	
 	bfd->curscreen = fg->curscreen;
 	bfd->curscene = fg->curscene;
-	bfd->cur_render_layer = fg->cur_render_layer;
+	bfd->cur_view_layer = fg->cur_view_layer;
 
 	MEM_freeN(fg);
 	
@@ -8667,7 +8679,7 @@ static BHead *read_global(BlendFileData *bfd, FileData *fd, BHead *bhead)
 /* note, this has to be kept for reading older files... */
 static void link_global(FileData *fd, BlendFileData *bfd)
 {
-	bfd->cur_render_layer = newglobadr(fd, bfd->cur_render_layer);
+	bfd->cur_view_layer = newglobadr(fd, bfd->cur_view_layer);
 	bfd->curscreen = newlibadr(fd, NULL, bfd->curscreen);
 	bfd->curscene = newlibadr(fd, NULL, bfd->curscene);
 	// this happens in files older than 2.35
@@ -8980,7 +8992,7 @@ BlendFileData *blo_read_file_internal(FileData *fd, const char *filepath)
 	/* Now that all our data-blocks are loaded, we can re-generate overrides from their references. */
 	if (fd->memfile == NULL) {
 		/* Do not apply in undo case! */
-		BKE_main_override_update(bfd->main);
+		BKE_main_override_static_update(bfd->main);
 	}
 
 	lib_verify_nodetree(bfd->main, true);
@@ -9889,7 +9901,6 @@ static void expand_scene(FileData *fd, Main *mainvar, Scene *sce)
 	
 	for (srl = sce->r.layers.first; srl; srl = srl->next) {
 		expand_doit(fd, mainvar, srl->mat_override);
-		expand_doit(fd, mainvar, srl->light_override);
 		for (module = srl->freestyleConfig.modules.first; module; module = module->next) {
 			if (module->script)
 				expand_doit(fd, mainvar, module->script);
@@ -9900,7 +9911,22 @@ static void expand_scene(FileData *fd, Main *mainvar, Scene *sce)
 			expand_doit(fd, mainvar, lineset->linestyle);
 		}
 	}
-	
+
+	for (ViewLayer *view_layer = sce->view_layers.first; view_layer; view_layer = view_layer->next) {
+		for (module = view_layer->freestyle_config.modules.first; module; module = module->next) {
+			if (module->script) {
+				expand_doit(fd, mainvar, module->script);
+			}
+		}
+
+		for (lineset = view_layer->freestyle_config.linesets.first; lineset; lineset = lineset->next) {
+			if (lineset->group) {
+				expand_doit(fd, mainvar, lineset->group);
+			}
+			expand_doit(fd, mainvar, lineset->linestyle);
+		}
+	}
+
 	if (sce->r.dometext)
 		expand_doit(fd, mainvar, sce->gm.dome.warptext);
 	
@@ -10205,7 +10231,7 @@ static bool object_in_any_scene(Main *mainvar, Object *ob)
 }
 
 static void give_base_to_objects(
-        Main *mainvar, Scene *scene, SceneLayer *scene_layer, Library *lib, const short flag)
+        Main *mainvar, Scene *scene, ViewLayer *view_layer, Library *lib, const short flag)
 {
 	Object *ob;
 	Base *base;
@@ -10232,11 +10258,11 @@ static void give_base_to_objects(
 				CLAMP_MIN(ob->id.us, 0);
 
 				if (scene_collection == NULL) {
-					scene_collection = get_scene_collection_active_or_create(scene, scene_layer, FILE_ACTIVE_COLLECTION);
+					scene_collection = get_scene_collection_active_or_create(scene, view_layer, FILE_ACTIVE_COLLECTION);
 				}
 
 				BKE_collection_object_add(scene, scene_collection, ob);
-				base = BKE_scene_layer_base_find(scene_layer, ob);
+				base = BKE_view_layer_base_find(view_layer, ob);
 				BKE_scene_object_base_flag_sync_from_base(base);
 
 				if (flag & FILE_AUTOSELECT) {
@@ -10257,7 +10283,7 @@ static void give_base_to_objects(
 }
 
 static void give_base_to_groups(
-        Main *mainvar, Scene *scene, SceneLayer *scene_layer, Library *UNUSED(lib), const short UNUSED(flag))
+        Main *mainvar, Scene *scene, ViewLayer *view_layer, Library *UNUSED(lib), const short UNUSED(flag))
 {
 	Group *group;
 	Base *base;
@@ -10265,7 +10291,7 @@ static void give_base_to_groups(
 	SceneCollection *scene_collection;
 
 	/* If the group is empty this function is not even called, so it's safe to ensure a collection at this point. */
-	scene_collection = get_scene_collection_active_or_create(scene, scene_layer, FILE_ACTIVE_COLLECTION);
+	scene_collection = get_scene_collection_active_or_create(scene, view_layer, FILE_ACTIVE_COLLECTION);
 
 	/* Give all objects which are tagged a base. */
 	for (group = mainvar->group.first; group; group = group->id.next) {
@@ -10278,7 +10304,7 @@ static void give_base_to_groups(
 			ob->type = OB_EMPTY;
 
 			BKE_collection_object_add(scene, scene_collection, ob);
-			base = BKE_scene_layer_base_find(scene_layer, ob);
+			base = BKE_view_layer_base_find(view_layer, ob);
 
 			if (base->flag & BASE_SELECTABLED) {
 				base->flag |= BASE_SELECTED;
@@ -10286,7 +10312,7 @@ static void give_base_to_groups(
 
 			BKE_scene_object_base_flag_sync_from_base(base);
 			DEG_id_tag_update(&ob->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
-			scene_layer->basact = base;
+			view_layer->basact = base;
 
 			/* Assign the group. */
 			ob->dup_group = group;
@@ -10363,22 +10389,22 @@ static ID *link_named_part(
 	return id;
 }
 
-static SceneCollection *get_scene_collection_active_or_create(struct Scene *scene, struct SceneLayer *scene_layer, const short flag)
+static SceneCollection *get_scene_collection_active_or_create(struct Scene *scene, struct ViewLayer *view_layer, const short flag)
 {
 	LayerCollection *lc = NULL;
 
 	if (flag & FILE_ACTIVE_COLLECTION) {
-		lc = BKE_layer_collection_get_active_ensure(scene, scene_layer);
+		lc = BKE_layer_collection_get_active_ensure(scene, view_layer);
 	}
 	else {
 		SceneCollection *sc = BKE_collection_add(scene, NULL, NULL);
-		lc = BKE_collection_link(scene_layer, sc);
+		lc = BKE_collection_link(view_layer, sc);
 	}
 
 	return lc->scene_collection;
 }
 
-static void link_object_postprocess(ID *id, Scene *scene, SceneLayer *scene_layer, const short flag)
+static void link_object_postprocess(ID *id, Scene *scene, ViewLayer *view_layer, const short flag)
 {
 	if (scene) {
 		/* link to scene */
@@ -10389,9 +10415,9 @@ static void link_object_postprocess(ID *id, Scene *scene, SceneLayer *scene_laye
 		ob = (Object *)id;
 		ob->mode = OB_MODE_OBJECT;
 
-		sc =  get_scene_collection_active_or_create(scene, scene_layer, flag);
+		sc =  get_scene_collection_active_or_create(scene, view_layer, flag);
 		BKE_collection_object_add(scene, sc, ob);
-		base = BKE_scene_layer_base_find(scene_layer, ob);
+		base = BKE_view_layer_base_find(view_layer, ob);
 		BKE_scene_object_base_flag_sync_from_base(base);
 
 		if (flag & FILE_AUTOSELECT) {
@@ -10442,13 +10468,13 @@ void BLO_library_link_copypaste(Main *mainl, BlendHandle *bh)
 static ID *link_named_part_ex(
         Main *mainl, FileData *fd, const AssetEngineType *aet, const char *root,
         const short idcode, const char *name, const AssetUUID *uuid, const short flag,
-        Scene *scene, SceneLayer *scene_layer,
+        Scene *scene, ViewLayer *view_layer,
         const bool use_placeholders, const bool force_indirect)
 {
 	ID *id = link_named_part(mainl, fd, idcode, name, use_placeholders, force_indirect);
 
 	if (id && (GS(id->name) == ID_OB)) {	/* loose object: give a base */
-		link_object_postprocess(id, scene, scene_layer, flag);
+		link_object_postprocess(id, scene, view_layer, flag);
 	}
 	else if (id && (GS(id->name) == ID_GR)) {
 		/* tag as needing to be instantiated */
@@ -10506,12 +10532,12 @@ ID *BLO_library_link_named_part(Main *mainl, BlendHandle **bh, const short idcod
 ID *BLO_library_link_named_part_ex(
         Main *mainl, BlendHandle **bh,
         const short idcode, const char *name, const short flag,
-        Scene *scene, SceneLayer *scene_layer,
+        Scene *scene, ViewLayer *view_layer,
         const bool use_placeholders, const bool force_indirect)
 {
 	FileData *fd = (FileData*)(*bh);
 	return link_named_part_ex(
-	            mainl, fd, NULL, NULL, idcode, name, NULL, flag, scene, scene_layer, use_placeholders, force_indirect);
+	            mainl, fd, NULL, NULL, idcode, name, NULL, flag, scene, view_layer, use_placeholders, force_indirect);
 }
 
 /**
@@ -10533,11 +10559,12 @@ ID *BLO_library_link_named_part_ex(
 struct ID *BLO_library_link_named_part_asset(
         Main *mainl, BlendHandle **bh, const AssetEngineType *aet, const char *root,
         const short idcode, const char *name, const AssetUUID *uuid, const short flag,
-        Scene *scene, SceneLayer *scene_layer,
+        Scene *scene, ViewLayer *view_layer,
         const bool use_placeholders, const bool force_indirect)
 {
 	FileData *fd = (FileData*)(*bh);
-	return link_named_part_ex(mainl, fd, aet, root, idcode, name, uuid, flag, scene, scene_layer, use_placeholders, force_indirect);
+	return link_named_part_ex(
+	            mainl, fd, aet, root, idcode, name, uuid, flag, scene, view_layer, use_placeholders, force_indirect);
 }
 
 static void link_id_part(ReportList *reports, FileData *fd, Main *mainvar, ID *id, ID **r_id)
@@ -10650,7 +10677,7 @@ static void split_main_newid(Main *mainptr, Main *main_newid)
 }
 
 /* scene and v3d may be NULL. */
-static void library_link_end(Main *mainl, FileData **fd, const short flag, Scene *scene, SceneLayer *scene_layer)
+static void library_link_end(Main *mainl, FileData **fd, const short flag, Scene *scene, ViewLayer *view_layer)
 {
 	Main *mainvar;
 	Library *curlib;
@@ -10706,10 +10733,10 @@ static void library_link_end(Main *mainl, FileData **fd, const short flag, Scene
 	 * Only directly linked objects & groups are instantiated by `BLO_library_link_named_part_ex()` & co,
 	 * here we handle indirect ones and other possible edge-cases. */
 	if (scene) {
-		give_base_to_objects(mainvar, scene, scene_layer, curlib, flag);
+		give_base_to_objects(mainvar, scene, view_layer, curlib, flag);
 
 		if (flag & FILE_GROUP_INSTANCE) {
-			give_base_to_groups(mainvar, scene, scene_layer, curlib, flag);
+			give_base_to_groups(mainvar, scene, view_layer, curlib, flag);
 		}
 	}
 	else {
@@ -10737,12 +10764,12 @@ static void library_link_end(Main *mainl, FileData **fd, const short flag, Scene
  * \param bh The blender file handle (WARNING! may be freed by this function!).
  * \param flag Options for linking, used for instantiating.
  * \param scene The scene in which to instantiate objects/groups (if NULL, no instantiation is done).
- * \param scene_layer The scene layer in which to instantiate objects/groups (if NULL, no instantiation is done).
+ * \param view_layer The scene layer in which to instantiate objects/groups (if NULL, no instantiation is done).
  */
-void BLO_library_link_end(Main *mainl, BlendHandle **bh, short flag, Scene *scene, SceneLayer *scene_layer)
+void BLO_library_link_end(Main *mainl, BlendHandle **bh, short flag, Scene *scene, ViewLayer *view_layer)
 {
 	FileData *fd = (FileData*)(*bh);
-	library_link_end(mainl, &fd, flag, scene, scene_layer);
+	library_link_end(mainl, &fd, flag, scene, view_layer);
 	*bh = (BlendHandle*)fd;
 }
 

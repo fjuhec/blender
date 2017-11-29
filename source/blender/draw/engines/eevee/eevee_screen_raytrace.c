@@ -19,11 +19,10 @@
  *
  */
 
-/* Screen space reflections and refractions techniques.
- */
-
 /** \file eevee_screen_raytrace.c
  *  \ingroup draw_engine
+ *
+ * Screen space reflections and refractions techniques.
  */
 
 #include "DRW_render.h"
@@ -99,7 +98,7 @@ static struct GPUShader *eevee_effects_screen_raytrace_shader_get(int options)
 	return e_data.ssr_sh[options];
 }
 
-int EEVEE_screen_raytrace_init(EEVEE_SceneLayerData *UNUSED(sldata), EEVEE_Data *vedata)
+int EEVEE_screen_raytrace_init(EEVEE_ViewLayerData *UNUSED(sldata), EEVEE_Data *vedata)
 {
 	EEVEE_StorageList *stl = vedata->stl;
 	EEVEE_FramebufferList *fbl = vedata->fbl;
@@ -108,8 +107,8 @@ int EEVEE_screen_raytrace_init(EEVEE_SceneLayerData *UNUSED(sldata), EEVEE_Data 
 	const float *viewport_size = DRW_viewport_size_get();
 
 	const DRWContextState *draw_ctx = DRW_context_state_get();
-	SceneLayer *scene_layer = draw_ctx->scene_layer;
-	IDProperty *props = BKE_scene_layer_engine_evaluated_get(scene_layer, COLLECTION_MODE_NONE, RE_engine_id_BLENDER_EEVEE);
+	ViewLayer *view_layer = draw_ctx->view_layer;
+	IDProperty *props = BKE_view_layer_engine_evaluated_get(view_layer, COLLECTION_MODE_NONE, RE_engine_id_BLENDER_EEVEE);
 
 	/* Compute pixel size, (shared with contact shadows) */
 	copy_v2_v2(effects->ssr_pixelsize, viewport_size);
@@ -158,10 +157,12 @@ int EEVEE_screen_raytrace_init(EEVEE_SceneLayerData *UNUSED(sldata), EEVEE_Data 
 
 		/* Raytracing output */
 		/* TODO try integer format for hit coord to increase precision */
-		DRWFboTexture tex_output[4] = {{&stl->g_data->ssr_hit_output[0], DRW_TEX_RGBA_16, DRW_TEX_TEMP},
-		                               {&stl->g_data->ssr_hit_output[1], DRW_TEX_RGBA_16, DRW_TEX_TEMP},
-		                               {&stl->g_data->ssr_hit_output[2], DRW_TEX_RGBA_16, DRW_TEX_TEMP},
-		                               {&stl->g_data->ssr_hit_output[3], DRW_TEX_RGBA_16, DRW_TEX_TEMP}};
+		DRWFboTexture tex_output[4] = {
+			{&stl->g_data->ssr_hit_output[0], DRW_TEX_RGBA_16, DRW_TEX_TEMP},
+			{&stl->g_data->ssr_hit_output[1], DRW_TEX_RGBA_16, DRW_TEX_TEMP},
+			{&stl->g_data->ssr_hit_output[2], DRW_TEX_RGBA_16, DRW_TEX_TEMP},
+			{&stl->g_data->ssr_hit_output[3], DRW_TEX_RGBA_16, DRW_TEX_TEMP},
+		};
 
 		DRW_framebuffer_init(&fbl->screen_tracing_fb, &draw_engine_eevee_type, tracing_res[0], tracing_res[1], tex_output, effects->ssr_ray_count);
 
@@ -179,7 +180,7 @@ int EEVEE_screen_raytrace_init(EEVEE_SceneLayerData *UNUSED(sldata), EEVEE_Data 
 	return 0;
 }
 
-void EEVEE_screen_raytrace_cache_init(EEVEE_SceneLayerData *sldata, EEVEE_Data *vedata)
+void EEVEE_screen_raytrace_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
 {
 	EEVEE_PassList *psl = vedata->psl;
 	EEVEE_StorageList *stl = vedata->stl;
@@ -270,7 +271,7 @@ void EEVEE_screen_raytrace_cache_init(EEVEE_SceneLayerData *sldata, EEVEE_Data *
 	}
 }
 
-void EEVEE_refraction_compute(EEVEE_SceneLayerData *UNUSED(sldata), EEVEE_Data *vedata)
+void EEVEE_refraction_compute(EEVEE_ViewLayerData *UNUSED(sldata), EEVEE_Data *vedata)
 {
 	EEVEE_FramebufferList *fbl = vedata->fbl;
 	EEVEE_TextureList *txl = vedata->txl;
@@ -287,7 +288,7 @@ void EEVEE_refraction_compute(EEVEE_SceneLayerData *UNUSED(sldata), EEVEE_Data *
 	}
 }
 
-void EEVEE_reflection_compute(EEVEE_SceneLayerData *UNUSED(sldata), EEVEE_Data *vedata)
+void EEVEE_reflection_compute(EEVEE_ViewLayerData *UNUSED(sldata), EEVEE_Data *vedata)
 {
 	EEVEE_PassList *psl = vedata->psl;
 	EEVEE_FramebufferList *fbl = vedata->fbl;

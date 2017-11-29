@@ -318,7 +318,7 @@ static ID *rna_ID_override_create(ID *id, Main *bmain)
 		return NULL;
 	}
 
-	return BKE_override_create_from(bmain, id);
+	return BKE_override_static_create_from(bmain, id);
 }
 
 static void rna_ID_update_tag(ID *id, ReportList *reports, int flag)
@@ -775,7 +775,7 @@ static PointerRNA rna_IDPreview_get(PointerRNA *ptr)
 static PointerRNA rna_ID_override_reference_get(PointerRNA *ptr)
 {
 	ID *id = (ID *)ptr->data;
-	ID *reference = (id && id->override) ? id->override->reference : NULL;
+	ID *reference = (id && id->override_static) ? id->override_static->reference : NULL;
 
 	return reference ? rna_pointer_inherit_refine(ptr, ID_code_to_RNA_type(GS(reference->name)), reference) : PointerRNA_NULL;
 }
@@ -1065,8 +1065,9 @@ static void rna_def_ID(BlenderRNA *brna)
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 	RNA_def_property_ui_text(prop, "Library", "Library file the data-block is linked from");
 
-	prop = RNA_def_pointer(srna, "reference", "ID", "Reference", "Reference linked data-block overriden by this one");
-	RNA_def_property_pointer_sdna(prop, NULL, "override->reference");
+	prop = RNA_def_pointer(srna, "override_static_reference", "ID",
+	                       "Override Reference", "Reference linked data-block overridden by this one");
+	RNA_def_property_pointer_sdna(prop, NULL, "override_static->reference");
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 	RNA_def_property_pointer_funcs(prop, "rna_ID_override_reference_get", NULL, NULL, NULL);
 

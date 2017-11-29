@@ -300,7 +300,7 @@ static void wm_link_virtual_lib(
 			if (generate_overrides) {
 				/* Create local override of virtually linked datablock, since we nearly always want to be able
 				 * to edit pretty much everything about it. */
-				new_id = BKE_override_create_from(bmain, new_id);
+				new_id = BKE_override_static_create_from(bmain, new_id);
 				/* TODO: will need to protect some fields on type-by-type case (path field). */
 			}
 
@@ -315,7 +315,7 @@ static void wm_link_virtual_lib(
 
 static void wm_link_do(
         WMLinkAppendData *lapp_data, ReportList *reports, Main *bmain, AssetEngineType *aet,
-        Scene *scene, SceneLayer *scene_layer,
+        Scene *scene, ViewLayer *view_layer,
         const bool use_placeholders, const bool force_indirect, const bool generate_overrides)
 {
 	Main *mainl;
@@ -371,7 +371,7 @@ static void wm_link_do(
 
 			new_id = BLO_library_link_named_part_asset(
 			             mainl, &bh, aet, lapp_data->root, item->idcode, item->name, item->uuid,
-			             flag, scene, scene_layer,
+			             flag, scene, view_layer,
 			             use_placeholders, force_indirect);
 
 			if (new_id) {
@@ -382,7 +382,7 @@ static void wm_link_do(
 			}
 		}
 
-		BLO_library_link_end(mainl, &bh, flag, scene, scene_layer);
+		BLO_library_link_end(mainl, &bh, flag, scene, view_layer);
 		BLO_blendhandle_close(bh);
 	}
 }
@@ -425,7 +425,7 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
 {
 	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
-	SceneLayer *scene_layer = CTX_data_scene_layer(C);
+	ViewLayer *view_layer = CTX_data_view_layer(C);
 	PropertyRNA *prop;
 	WMLinkAppendData *lapp_data;
 	char path[FILE_MAX_LIBEXTRA], root[FILE_MAXDIR], libname[FILE_MAX_LIBEXTRA], relname[FILE_MAX];
@@ -492,8 +492,8 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
 
 	/* from here down, no error returns */
 
-	if (scene_layer && RNA_boolean_get(op->ptr, "autoselect")) {
-		BKE_scene_layer_base_deselect_all(scene_layer);
+	if (view_layer && RNA_boolean_get(op->ptr, "autoselect")) {
+		BKE_view_layer_base_deselect_all(view_layer);
 	}
 	
 	/* tag everything, all untagged data can be made local
@@ -619,7 +619,7 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
 	/* XXX We'd need re-entrant locking on Main for this to work... */
 	/* BKE_main_lock(bmain); */
 
-	wm_link_do(lapp_data, op->reports, bmain, aet, scene, scene_layer, false, false, (flag & FILE_LINK) != 0);
+	wm_link_do(lapp_data, op->reports, bmain, aet, scene, view_layer, false, false, (flag & FILE_LINK) != 0);
 
 	/* BKE_main_unlock(bmain); */
 

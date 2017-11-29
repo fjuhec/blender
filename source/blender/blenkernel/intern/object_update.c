@@ -58,6 +58,7 @@
 #include "BKE_pointcache.h"
 #include "BKE_scene.h"
 #include "BKE_material.h"
+#include "BKE_mball.h"
 #include "BKE_mesh.h"
 #include "BKE_image.h"
 
@@ -67,10 +68,9 @@
 #define DEBUG_PRINT if (G.debug & G_DEBUG_DEPSGRAPH) printf
 
 void BKE_object_eval_local_transform(const EvaluationContext *UNUSED(eval_ctx),
-                                     Scene *UNUSED(scene),
                                      Object *ob)
 {
-	DEBUG_PRINT("%s on %s\n", __func__, ob->id.name);
+	DEBUG_PRINT("%s on %s (%p)\n", __func__, ob->id.name, ob);
 
 	/* calculate local matrix */
 	BKE_object_to_mat4(ob, ob->obmat);
@@ -88,7 +88,7 @@ void BKE_object_eval_parent(const EvaluationContext *UNUSED(eval_ctx),
 	float tmat[4][4];
 	float locmat[4][4];
 
-	DEBUG_PRINT("%s on %s\n", __func__, ob->id.name);
+	DEBUG_PRINT("%s on %s (%p)\n", __func__, ob->id.name, ob);
 
 	/* get local matrix (but don't calculate it, as that was done already!) */
 	// XXX: redundant?
@@ -117,7 +117,7 @@ void BKE_object_eval_constraints(const EvaluationContext *eval_ctx,
 	bConstraintOb *cob;
 	float ctime = BKE_scene_frame_get(scene);
 
-	DEBUG_PRINT("%s on %s\n", __func__, ob->id.name);
+	DEBUG_PRINT("%s on %s (%p)\n", __func__, ob->id.name, ob);
 
 	/* evaluate constraints stack */
 	/* TODO: split this into:
@@ -135,7 +135,7 @@ void BKE_object_eval_constraints(const EvaluationContext *eval_ctx,
 
 void BKE_object_eval_done(const EvaluationContext *UNUSED(eval_ctx), Object *ob)
 {
-	DEBUG_PRINT("%s on %s\n", __func__, ob->id.name);
+	DEBUG_PRINT("%s on %s (%p)\n", __func__, ob->id.name, ob);
 
 	/* Set negative scale flag in object. */
 	if (is_negative_m4(ob->obmat)) ob->transflag |= OB_NEG_SCALE;
@@ -272,33 +272,36 @@ void BKE_object_handle_data_update(
 	/* quick cache removed */
 }
 
-void BKE_object_eval_uber_transform(const EvaluationContext *UNUSED(eval_ctx),
-                                    Scene *UNUSED(scene),
-                                    Object *ob)
+bool BKE_object_eval_proxy_copy(const EvaluationContext *UNUSED(eval_ctx),
+                                Object *object)
 {
-	/* TODO(sergey): Currently it's a duplicate of logic in BKE_object_handle_update_ex(). */
-	// XXX: it's almost redundant now...
-
 	/* Handle proxy copy for target, */
-	if (ID_IS_LINKED(ob) && ob->proxy_from) {
-		if (ob->proxy_from->proxy_group) {
+	if (ID_IS_LINKED(object) && object->proxy_from) {
+		if (object->proxy_from->proxy_group) {
 			/* Transform proxy into group space. */
-			Object *obg = ob->proxy_from->proxy_group;
+			Object *obg = object->proxy_from->proxy_group;
 			float imat[4][4];
 			invert_m4_m4(imat, obg->obmat);
-			mul_m4_m4m4(ob->obmat, imat, ob->proxy_from->obmat);
+			mul_m4_m4m4(object->obmat, imat, object->proxy_from->obmat);
 			/* Should always be true. */
 			if (obg->dup_group) {
-				add_v3_v3(ob->obmat[3], obg->dup_group->dupli_ofs);
+				add_v3_v3(object->obmat[3], obg->dup_group->dupli_ofs);
 			}
 		}
-		else
-			copy_m4_m4(ob->obmat, ob->proxy_from->obmat);
+		else {
+			copy_m4_m4(object->obmat, object->proxy_from->obmat);
+		}
+		return true;
 	}
+	return false;
+}
 
-	ob->recalc &= ~(OB_RECALC_OB | OB_RECALC_TIME);
-	if (ob->data == NULL) {
-		ob->recalc &= ~OB_RECALC_DATA;
+void BKE_object_eval_uber_transform(const EvaluationContext *eval_ctx, Object *object)
+{
+	BKE_object_eval_proxy_copy(eval_ctx, object);
+	object->recalc &= ~(OB_RECALC_OB | OB_RECALC_TIME);
+	if (object->data == NULL) {
+		object->recalc &= ~OB_RECALC_DATA;
 	}
 }
 
@@ -306,7 +309,7 @@ void BKE_object_eval_uber_data(const EvaluationContext *eval_ctx,
                                Scene *scene,
                                Object *ob)
 {
-	DEBUG_PRINT("%s on %s\n", __func__, ob->id.name);
+	DEBUG_PRINT("%s on %s (%p)\n", __func__, ob->id.name, ob);
 	BLI_assert(ob->type != OB_ARMATURE);
 	BKE_object_handle_data_update(eval_ctx, scene, ob);
 
@@ -321,6 +324,9 @@ void BKE_object_eval_uber_data(const EvaluationContext *eval_ctx,
 		case OB_FONT:
 		case OB_SURF:
 			BKE_curve_batch_cache_dirty(ob->data, BKE_CURVE_BATCH_DIRTY_ALL);
+			break;
+		case OB_MBALL:
+			BKE_mball_batch_cache_dirty(ob->data, BKE_MBALL_BATCH_DIRTY_ALL);
 			break;
 	}
 
@@ -349,6 +355,8 @@ void BKE_object_eval_uber_data(const EvaluationContext *eval_ctx,
 				 * something what we might want to change in the future.
 				 */
 				ob->data = new_mesh;
+				/* Special flags to help debugging. */
+				new_mesh->id.tag |= LIB_TAG_COPY_ON_WRITE_EVAL;
 				/* Save some memory by throwing DerivedMesh away. */
 				/* NOTE: Watch out, some tools might need it!
 				 * So keep around for now..
@@ -377,16 +385,74 @@ void BKE_object_eval_uber_data(const EvaluationContext *eval_ctx,
 	ob->recalc &= ~(OB_RECALC_DATA | OB_RECALC_TIME);
 }
 
-void BKE_object_eval_cloth(const EvaluationContext *UNUSED(eval_ctx), Scene *scene, Object *object)
+void BKE_object_eval_cloth(const EvaluationContext *UNUSED(eval_ctx),
+                           Scene *scene,
+                           Object *object)
 {
-	DEBUG_PRINT("%s on %s\n", __func__, object->id.name);
+	DEBUG_PRINT("%s on %s (%p)\n", __func__, object->id.name, object);
 	BKE_ptcache_object_reset(scene, object, PTCACHE_RESET_DEPSGRAPH);
 }
 
-void BKE_object_eval_update_shading(const EvaluationContext *UNUSED(eval_ctx), Object *object)
+void BKE_object_eval_transform_all(const EvaluationContext *eval_ctx,
+                                   Scene *scene,
+                                   Object *object)
 {
-	DEBUG_PRINT("%s on %s\n", __func__, object->id.name);
+	/* This mimics full transform update chain from new depsgraph. */
+	BKE_object_eval_local_transform(eval_ctx, object);
+	if (object->parent != NULL) {
+		BKE_object_eval_parent(eval_ctx, scene, object);
+	}
+	if (!BLI_listbase_is_empty(&object->constraints)) {
+		BKE_object_eval_constraints(eval_ctx, scene, object);
+	}
+	BKE_object_eval_uber_transform(eval_ctx, object);
+	BKE_object_eval_done(eval_ctx, object);
+}
+
+void BKE_object_eval_update_shading(const EvaluationContext *UNUSED(eval_ctx),
+                                    Object *object)
+{
+	DEBUG_PRINT("%s on %s (%p)\n", __func__, object->id.name, object);
 	if (object->type == OB_MESH) {
 		BKE_mesh_batch_cache_dirty(object->data, BKE_MESH_BATCH_DIRTY_SHADING);
 	}
+}
+
+void BKE_object_data_select_update(const EvaluationContext *UNUSED(eval_ctx),
+                                   struct ID *object_data)
+{
+	DEBUG_PRINT("%s on %s (%p)\n", __func__, object_data->name, object_data);
+	switch (GS(object_data->name)) {
+		case ID_ME:
+			BKE_mesh_batch_cache_dirty((Mesh *)object_data,
+			                           BKE_CURVE_BATCH_DIRTY_SELECT);
+			break;
+		case ID_CU:
+			BKE_curve_batch_cache_dirty((Curve *)object_data,
+			                            BKE_CURVE_BATCH_DIRTY_SELECT);
+			break;
+		case ID_LT:
+			BKE_lattice_batch_cache_dirty((struct Lattice *)object_data,
+			                              BKE_CURVE_BATCH_DIRTY_SELECT);
+			break;
+		default:
+			break;
+	}
+}
+
+void BKE_object_eval_flush_base_flags(const EvaluationContext *UNUSED(eval_ctx),
+                                      Object *object, Base *base, bool is_from_set)
+{
+	DEBUG_PRINT("%s on %s (%p)\n", __func__, object->id.name, object);
+	/* Make sure we have the base collection settings is already populated.
+	 * This will fail when BKE_layer_eval_layer_collection_pre hasn't run yet
+	 * Which usually means a missing call to DEG_id_tag_update(). */
+	BLI_assert(!BLI_listbase_is_empty(&base->collection_properties->data.group));
+	/* Copy flags and settings from base. */
+	object->base_flag = base->flag;
+	if (is_from_set) {
+		object->base_flag |= BASE_FROM_SET;
+		object->base_flag &= ~(BASE_SELECTED | BASE_SELECTABLED);
+	}
+	object->base_collection_properties = base->collection_properties;
 }

@@ -19,14 +19,16 @@
  *
  */
 
-/* Depth of field post process effect
- */
-
 /** \file eevee_depth_of_field.c
  *  \ingroup draw_engine
+ *
+ * Depth of field post process effect.
  */
 
 #include "DRW_render.h"
+
+#include "BLI_dynstr.h"
+#include "BLI_rand.h"
 
 #include "DNA_anim_types.h"
 #include "DNA_camera_types.h"
@@ -42,17 +44,14 @@
 #include "BKE_animsys.h"
 #include "BKE_screen.h"
 
-#include "ED_screen.h"
-
 #include "DEG_depsgraph.h"
-
-#include "BLI_dynstr.h"
-#include "BLI_rand.h"
 
 #include "eevee_private.h"
 #include "GPU_extensions.h"
 #include "GPU_framebuffer.h"
 #include "GPU_texture.h"
+
+#include "ED_screen.h"
 
 static struct {
 	/* Depth Of Field */
@@ -75,7 +74,7 @@ static void eevee_create_shader_depth_of_field(void)
 	                                          datatoc_effect_dof_frag_glsl, "#define STEP_RESOLVE\n");
 }
 
-int EEVEE_depth_of_field_init(EEVEE_SceneLayerData *UNUSED(sldata), EEVEE_Data *vedata)
+int EEVEE_depth_of_field_init(EEVEE_ViewLayerData *UNUSED(sldata), EEVEE_Data *vedata)
 {
 	EEVEE_StorageList *stl = vedata->stl;
 	EEVEE_FramebufferList *fbl = vedata->fbl;
@@ -83,8 +82,8 @@ int EEVEE_depth_of_field_init(EEVEE_SceneLayerData *UNUSED(sldata), EEVEE_Data *
 	EEVEE_EffectsInfo *effects = stl->effects;
 
 	const DRWContextState *draw_ctx = DRW_context_state_get();
-	SceneLayer *scene_layer = draw_ctx->scene_layer;
-	IDProperty *props = BKE_scene_layer_engine_evaluated_get(scene_layer, COLLECTION_MODE_NONE, RE_engine_id_BLENDER_EEVEE);
+	ViewLayer *view_layer = draw_ctx->view_layer;
+	IDProperty *props = BKE_view_layer_engine_evaluated_get(view_layer, COLLECTION_MODE_NONE, RE_engine_id_BLENDER_EEVEE);
 
 	if (BKE_collection_engine_property_value_get_bool(props, "dof_enable")) {
 		Scene *scene = draw_ctx->scene;
@@ -117,16 +116,24 @@ int EEVEE_depth_of_field_init(EEVEE_SceneLayerData *UNUSED(sldata), EEVEE_Data *
 			}
 
 			/* Setup buffers */
-			DRWFboTexture tex_down[3] = {{dof_down_near, DRW_TEX_RGB_11_11_10, DRW_TEX_FILTER}, /* filter to not interfeer with bloom */
-			                             {&txl->dof_down_far, DRW_TEX_RGB_11_11_10, 0},
-			                             {&txl->dof_coc, DRW_TEX_RG_16, 0}};
-			DRW_framebuffer_init(&fbl->dof_down_fb, &draw_engine_eevee_type, buffer_size[0], buffer_size[1], tex_down, 3);
+			DRWFboTexture tex_down[3] = {
+				{dof_down_near, DRW_TEX_RGB_11_11_10, DRW_TEX_FILTER}, /* filter to not interfeer with bloom */
+				{&txl->dof_down_far, DRW_TEX_RGB_11_11_10, 0},
+				{&txl->dof_coc, DRW_TEX_RG_16, 0},
+			};
+			DRW_framebuffer_init(
+			        &fbl->dof_down_fb, &draw_engine_eevee_type,
+			        buffer_size[0], buffer_size[1], tex_down, 3);
 
 			DRWFboTexture tex_scatter_far = {&txl->dof_far_blur, DRW_TEX_RGBA_16, DRW_TEX_FILTER};
-			DRW_framebuffer_init(&fbl->dof_scatter_far_fb, &draw_engine_eevee_type, buffer_size[0], buffer_size[1], &tex_scatter_far, 1);
+			DRW_framebuffer_init(
+			        &fbl->dof_scatter_far_fb, &draw_engine_eevee_type,
+			        buffer_size[0], buffer_size[1], &tex_scatter_far, 1);
 
 			DRWFboTexture tex_scatter_near = {&txl->dof_near_blur, DRW_TEX_RGBA_16, DRW_TEX_FILTER};
-			DRW_framebuffer_init(&fbl->dof_scatter_near_fb, &draw_engine_eevee_type, buffer_size[0], buffer_size[1], &tex_scatter_near, 1);
+			DRW_framebuffer_init(
+			        &fbl->dof_scatter_near_fb, &draw_engine_eevee_type,
+			        buffer_size[0], buffer_size[1], &tex_scatter_near, 1);
 
 			/* Parameters */
 			/* TODO UI Options */
@@ -176,7 +183,7 @@ int EEVEE_depth_of_field_init(EEVEE_SceneLayerData *UNUSED(sldata), EEVEE_Data *
 	return 0;
 }
 
-void EEVEE_depth_of_field_cache_init(EEVEE_SceneLayerData *UNUSED(sldata), EEVEE_Data *vedata)
+void EEVEE_depth_of_field_cache_init(EEVEE_ViewLayerData *UNUSED(sldata), EEVEE_Data *vedata)
 {
 	EEVEE_PassList *psl = vedata->psl;
 	EEVEE_StorageList *stl = vedata->stl;

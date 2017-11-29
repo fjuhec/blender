@@ -117,8 +117,8 @@ enum {
 
 /* Static ID override structs. */
 
-typedef struct IDOverridePropertyOperation {
-	struct IDOverridePropertyOperation *next, *prev;
+typedef struct IDOverrideStaticPropertyOperation {
+	struct IDOverrideStaticPropertyOperation *next, *prev;
 
 	/* Type of override. */
 	short operation;
@@ -134,44 +134,46 @@ typedef struct IDOverridePropertyOperation {
 	char *subitem_local_name;
 	int subitem_reference_index;
 	int subitem_local_index;
-} IDOverridePropertyOperation;
+} IDOverrideStaticPropertyOperation;
 
 /* IDOverridePropertyOperation->operation. */
 enum {
 	/* Basic operations. */
-	IDOVERRIDE_OP_NOOP          =   0,  /* Special value, forbids any overriding. */
+	IDOVERRIDESTATIC_OP_NOOP          =   0,  /* Special value, forbids any overriding. */
 
-	IDOVERRIDE_OP_REPLACE       =   1,  /* Fully replace local value by reference one. */
+	IDOVERRIDESTATIC_OP_REPLACE       =   1,  /* Fully replace local value by reference one. */
 
 	/* Numeric-only operations. */
-	IDOVERRIDE_OP_ADD           = 101,  /* Add local value to reference one. */
-	IDOVERRIDE_OP_SUBTRACT      = 102,  /* Subtract local value from reference one (needed due to unsigned values etc.). */
-	IDOVERRIDE_OP_MULTIPLY      = 103,  /* Multiply reference value by local one (more useful than diff for scales and the like). */
+	IDOVERRIDESTATIC_OP_ADD           = 101,  /* Add local value to reference one. */
+	/* Subtract local value from reference one (needed due to unsigned values etc.). */
+	IDOVERRIDESTATIC_OP_SUBTRACT      = 102,
+	/* Multiply reference value by local one (more useful than diff for scales and the like). */
+	IDOVERRIDESTATIC_OP_MULTIPLY      = 103,
 
 	/* Collection-only operations. */
-	IDOVERRIDE_OP_INSERT_AFTER  = 201,  /* Insert after given reference's subitem. */
-	IDOVERRIDE_OP_INSERT_BEFORE = 202,  /* Insert before given reference's subitem. */
+	IDOVERRIDESTATIC_OP_INSERT_AFTER  = 201,  /* Insert after given reference's subitem. */
+	IDOVERRIDESTATIC_OP_INSERT_BEFORE = 202,  /* Insert before given reference's subitem. */
 	/* We can add more if needed (move, delete, ...). */
 };
 
 /* IDOverridePropertyOperation->flag. */
 enum {
-	IDOVERRIDE_FLAG_MANDATORY     =   1 << 0,  /* User cannot remove that override operation. */
-	IDOVERRIDE_FLAG_LOCKED        =   1 << 1,  /* User cannot change that override operation. */
+	IDOVERRIDESTATIC_FLAG_MANDATORY     =   1 << 0,  /* User cannot remove that override operation. */
+	IDOVERRIDESTATIC_FLAG_LOCKED        =   1 << 1,  /* User cannot change that override operation. */
 };
 
 /* A single overriden property, contain all operations on this one. */
-typedef struct IDOverrideProperty {
-	struct IDOverrideProperty *next, *prev;
+typedef struct IDOverrideStaticProperty {
+	struct IDOverrideStaticProperty *next, *prev;
 
 	/* Path from ID to overridden property. *Does not* include indices/names for final arrays/collections items. */
 	char *rna_path;
 
 	ListBase operations;  /* List of overriding operations (IDOverridePropertyOperation) applied to this property. */
-} IDOverrideProperty;
+} IDOverrideStaticProperty;
 
 /* Main container for all overriding data info of a data-block. */
-typedef struct IDOverride {
+typedef struct IDOverrideStatic {
 	struct ID *reference;  /* Reference linked ID which this one overrides. */
 	ListBase properties;  /* List of IDOverrideProperty structs. */
 
@@ -179,10 +181,7 @@ typedef struct IDOverride {
 	/* Temp ID storing extra override data (used for differential operations only currently).
 	 * Always NULL outside of read/write context. */
 	struct ID *storage;
-
-	/* Runtime data. */
-	double last_auto_run;  /* Last time auto-override detection was run, to avoid too mush overhead on that. */
-} IDOverride;
+} IDOverrideStatic;
 
 
 /* About Unique identifier.
@@ -261,7 +260,7 @@ typedef struct ID {
 	int icon_id;
 	IDProperty *properties;
 
-	IDOverride *override;  /* Reference linked ID which this one overrides. */
+	IDOverrideStatic *override_static;  /* Reference linked ID which this one overrides. */
 
 	AssetUUID *uuid;
 
@@ -481,11 +480,11 @@ typedef enum ID_Type {
 
 /* id->flag (persitent). */
 enum {
-	LIB_AUTOOVERRIDE    = 1 << 0,  /* Allow automatic generation of overriding rules. */
+	LIB_OVERRIDE_STATIC_AUTO    = 1 << 0,  /* Allow automatic generation of overriding rules. */
 
-	LIB_ASSET           = 1 << 4,  /* Flag asset IDs (the ones who should have a valid uuid). */
+	LIB_ASSET                   = 1 << 4,  /* Flag asset IDs (the ones who should have a valid uuid). */
 
-	LIB_FAKEUSER        = 1 << 9,
+	LIB_FAKEUSER                = 1 << 9,
 };
 
 /**
@@ -523,7 +522,7 @@ enum {
 	LIB_TAG_MISSING         = 1 << 6,
 
 	/* RESET_NEVER tag datablock as being up-to-date regarding its reference. */
-	LIB_TAG_OVERRIDE_OK     = 1 << 9,
+	LIB_TAG_OVERRIDESTATIC_OK = 1 << 9,
 
 	/* tag datablock has having an extra user. */
 	LIB_TAG_EXTRAUSER       = 1 << 2,
@@ -534,7 +533,7 @@ enum {
 	 * Also used internally in readfile.c to mark datablocks needing do_versions. */
 	LIB_TAG_NEW             = 1 << 8,
 	/* RESET_BEFORE_USE free test flag.
-     * TODO make it a RESET_AFTER_USE too. */
+	 * TODO make it a RESET_AFTER_USE too. */
 	LIB_TAG_DOIT            = 1 << 10,
 	/* RESET_AFTER_USE tag existing data before linking so we know what is new. */
 	LIB_TAG_PRE_EXISTING    = 1 << 11,
@@ -547,13 +546,14 @@ enum {
 
 	/* The datablock is a copy-on-write version. */
 	LIB_TAG_COPY_ON_WRITE   = 1 << 15,
+	LIB_TAG_COPY_ON_WRITE_EVAL = 1 << 16,
 
 	/* RESET_NEVER tag datablock for freeing etc. behavior (usually set when copying real one into temp/runtime one). */
-	LIB_TAG_NO_MAIN          = 1 << 16,  /* Datablock is not listed in Main database. */
-	LIB_TAG_NO_USER_REFCOUNT = 1 << 17,  /* Datablock does not refcount usages of other IDs. */
+	LIB_TAG_NO_MAIN          = 1 << 17,  /* Datablock is not listed in Main database. */
+	LIB_TAG_NO_USER_REFCOUNT = 1 << 18,  /* Datablock does not refcount usages of other IDs. */
 	/* Datablock was not allocated by standard system (BKE_libblock_alloc), do not free its memory
 	 * (usual type-specific freeing is called though). */
-	LIB_TAG_NOT_ALLOCATED     = 1 << 18,
+	LIB_TAG_NOT_ALLOCATED     = 1 << 19,
 };
 
 /* To filter ID types (filter_id) */

@@ -40,9 +40,9 @@ struct PointerRNA;
 struct FunctionRNA;
 struct CollectionPropertyIterator;
 struct bContext;
-struct IDOverride;
-struct IDOverrideProperty;
-struct IDOverridePropertyOperation;
+struct IDOverrideStatic;
+struct IDOverrideStaticProperty;
+struct IDOverrideStaticPropertyOperation;
 struct IDProperty;
 struct GHash;
 struct Main;
@@ -143,7 +143,7 @@ typedef int (*RNAPropOverrideDiff)(
         struct PropertyRNA *prop_a, struct PropertyRNA *prop_b,
         const int len_a, const int len_b,
         const int mode,
-        struct IDOverride *override, const char *rna_path,
+        struct IDOverrideStatic *override, const char *rna_path,
         const int flags, bool *r_override_changed);
 
 /**
@@ -159,7 +159,7 @@ typedef bool (*RNAPropOverrideStore)(
         struct PointerRNA *ptr_local, struct PointerRNA *ptr_reference, struct PointerRNA *ptr_storage,
         struct PropertyRNA *prop_local, struct PropertyRNA *prop_reference, struct PropertyRNA *prop_storage,
         const int len_local, const int len_reference, const int len_storage,
-        struct IDOverridePropertyOperation *opop);
+        struct IDOverrideStaticPropertyOperation *opop);
 
 /**
  * Apply given override operation from src to dst (using value from storage as second operand
@@ -172,7 +172,7 @@ typedef bool (*RNAPropOverrideApply)(
         struct PointerRNA *ptr_dst, struct PointerRNA *ptr_src, struct PointerRNA *ptr_storage,
         struct PropertyRNA *prop_dst, struct PropertyRNA *prop_src, struct PropertyRNA *prop_storage,
         const int len_dst, const int len_src, const int len_storage,
-        struct IDOverridePropertyOperation *opop);
+        struct IDOverrideStaticPropertyOperation *opop);
 
 /* Container - generic abstracted container of RNA properties */
 typedef struct ContainerRNA {
@@ -216,6 +216,8 @@ struct PropertyRNA {
 	short flag_parameter;
 	/* Internal ("private") flags. */
 	short flag_internal;
+	/* The subset of StructRNA.prop_tag_defines values that applies to this property. */
+	short tags;
 
 	/* user readable name */
 	const char *name;
@@ -418,6 +420,9 @@ struct StructRNA {
 
 	/* various options */
 	int flag;
+	/* Each StructRNA type can define own tags which properties can set
+	 * (PropertyRNA.tags) for changed behavior based on struct-type. */
+	const EnumPropertyItem *prop_tag_defines;
 
 	/* user readable name */
 	const char *name;

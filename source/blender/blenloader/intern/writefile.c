@@ -692,15 +692,15 @@ static void write_iddata(void *wd, const ID *id)
 		writestruct(wd, DATA, AssetUUID, 1, id->uuid);
 	}
 
-	if (id->override) {
-		writestruct(wd, DATA, IDOverride, 1, id->override);
+	if (id->override_static) {
+		writestruct(wd, DATA, IDOverrideStatic, 1, id->override_static);
 
-		writelist(wd, DATA, IDOverrideProperty, &id->override->properties);
-		for (IDOverrideProperty *op = id->override->properties.first; op; op = op->next) {
+		writelist(wd, DATA, IDOverrideStaticProperty, &id->override_static->properties);
+		for (IDOverrideStaticProperty *op = id->override_static->properties.first; op; op = op->next) {
 			writedata(wd, DATA, strlen(op->rna_path) + 1, op->rna_path);
 
-			writelist(wd, DATA, IDOverridePropertyOperation, &op->operations);
-			for (IDOverridePropertyOperation *opop = op->operations.first; opop; opop = opop->next) {
+			writelist(wd, DATA, IDOverrideStaticPropertyOperation, &op->operations);
+			for (IDOverrideStaticPropertyOperation *opop = op->operations.first; opop; opop = opop->next) {
 				if (opop->subitem_reference_name) {
 					writedata(wd, DATA, strlen(opop->subitem_reference_name) + 1, opop->subitem_reference_name);
 				}
@@ -1113,7 +1113,7 @@ static void write_nodetree_nolib(WriteData *wd, bNodeTree *ntree)
  */
 static void current_screen_compat(
         Main *mainvar, bool use_active_win,
-        bScreen **r_screen, Scene **r_scene, SceneLayer **r_render_layer)
+        bScreen **r_screen, Scene **r_scene, ViewLayer **r_render_layer)
 {
 	wmWindowManager *wm;
 	wmWindow *window = NULL;
@@ -1145,7 +1145,7 @@ static void current_screen_compat(
 
 	*r_screen = (window) ? BKE_workspace_active_screen_get(window->workspace_hook) : NULL;
 	*r_scene = (window) ? window->scene : NULL;
-	*r_render_layer = (window) ? BKE_workspace_render_layer_get(workspace) : NULL;
+	*r_render_layer = (window) ? BKE_workspace_view_layer_get(workspace) : NULL;
 }
 
 typedef struct RenderInfo {
@@ -1161,7 +1161,7 @@ static void write_renderinfo(WriteData *wd, Main *mainvar)
 {
 	bScreen *curscreen;
 	Scene *sce, *curscene = NULL;
-	SceneLayer *render_layer;
+	ViewLayer *render_layer;
 	RenderInfo data;
 
 	/* XXX in future, handle multiple windows with multiple screens? */
@@ -2775,19 +2775,6 @@ static void write_scene(WriteData *wd, Scene *sce)
 		writestruct(wd, DATA, TimeMarker, 1, marker);
 	}
 
-	for (SceneRenderLayer *srl = sce->r.layers.first; srl; srl = srl->next) {
-		writestruct(wd, DATA, SceneRenderLayer, 1, srl);
-		if (srl->prop) {
-			IDP_WriteProperty(srl->prop, wd);
-		}
-		for (FreestyleModuleConfig *fmc = srl->freestyleConfig.modules.first; fmc; fmc = fmc->next) {
-			writestruct(wd, DATA, FreestyleModuleConfig, 1, fmc);
-		}
-		for (FreestyleLineSet *fls = srl->freestyleConfig.linesets.first; fls; fls = fls->next) {
-			writestruct(wd, DATA, FreestyleLineSet, 1, fls);
-		}
-	}
-
 	/* writing MultiView to the blend file */
 	for (SceneRenderView *srv = sce->r.views.first; srv; srv = srv->next) {
 		writestruct(wd, DATA, SceneRenderView, 1, srv);
@@ -2811,13 +2798,27 @@ static void write_scene(WriteData *wd, Scene *sce)
 	write_curvemapping_curves(wd, &sce->r.mblur_shutter_curve);
 	write_scene_collection(wd, sce->collection);
 
-	for (SceneLayer *scene_layer = sce->render_layers.first; scene_layer; scene_layer = scene_layer->next) {
-		writestruct(wd, DATA, SceneLayer, 1, scene_layer);
-		writelist(wd, DATA, Base, &scene_layer->object_bases);
-		if (scene_layer->properties) {
-			IDP_WriteProperty(scene_layer->properties, wd);
+	for (ViewLayer *view_layer = sce->view_layers.first; view_layer; view_layer = view_layer->next) {
+		writestruct(wd, DATA, ViewLayer, 1, view_layer);
+		writelist(wd, DATA, Base, &view_layer->object_bases);
+
+		if (view_layer->properties) {
+			IDP_WriteProperty(view_layer->properties, wd);
 		}
-		write_layer_collections(wd, &scene_layer->layer_collections);
+
+		if (view_layer->id_properties) {
+			IDP_WriteProperty(view_layer->id_properties, wd);
+		}
+
+		for (FreestyleModuleConfig *fmc = view_layer->freestyle_config.modules.first; fmc; fmc = fmc->next) {
+			writestruct(wd, DATA, FreestyleModuleConfig, 1, fmc);
+		}
+
+		for (FreestyleLineSet *fls = view_layer->freestyle_config.linesets.first; fls; fls = fls->next) {
+			writestruct(wd, DATA, FreestyleLineSet, 1, fls);
+		}
+
+		write_layer_collections(wd, &view_layer->layer_collections);
 	}
 
 	if (sce->layer_properties) {
@@ -3923,7 +3924,7 @@ static void write_global(WriteData *wd, int fileflags, Main *mainvar)
 	FileGlobal fg;
 	bScreen *screen;
 	Scene *scene;
-	SceneLayer *render_layer;
+	ViewLayer *render_layer;
 	char subvstr[8];
 
 	/* prevent mem checkers from complaining */
@@ -3936,7 +3937,7 @@ static void write_global(WriteData *wd, int fileflags, Main *mainvar)
 	/* XXX still remap G */
 	fg.curscreen = screen;
 	fg.curscene = scene;
-	fg.cur_render_layer = render_layer;
+	fg.cur_view_layer = render_layer;
 
 	/* prevent to save this, is not good convention, and feature with concerns... */
 	fg.fileflags = (fileflags & ~G_FILE_FLAGS_RUNTIME);
@@ -4018,14 +4019,14 @@ static bool write_file_handle(
 	 * avoid thumbnail detecting changes because of this. */
 	mywrite_flush(wd);
 
-	OverrideStorage *override_storage = !wd->current ? BKE_override_operations_store_initialize() : NULL;
+	OverrideStaticStorage *override_storage = !wd->current ? BKE_override_static_operations_store_initialize() : NULL;
 
 	/* This outer loop allows to save first datablocks from real mainvar, then the temp ones from override process,
 	 * if needed, without duplicating whole code. */
-	Main *main = mainvar;
+	Main *bmain = mainvar;
 	do {
 		ListBase *lbarray[MAX_LIBARRAY];
-		int a = set_listbasepointers(main, lbarray);
+		int a = set_listbasepointers(bmain, lbarray);
 		while (a--) {
 			ID *id = lbarray[a]->first;
 
@@ -4037,10 +4038,10 @@ static bool write_file_handle(
 				/* We should never attempt to write non-regular IDs (i.e. all kind of temp/runtime ones). */
 				BLI_assert((id->tag & (LIB_TAG_NO_MAIN | LIB_TAG_NO_USER_REFCOUNT | LIB_TAG_NOT_ALLOCATED)) == 0);
 
-				const bool do_override = !ELEM(override_storage, NULL, main) && id->override;
+				const bool do_override = !ELEM(override_storage, NULL, bmain) && id->override_static;
 
 				if (do_override) {
-					BKE_override_operations_store_start(override_storage, id);
+					BKE_override_static_operations_store_start(override_storage, id);
 				}
 
 				switch ((ID_Type)GS(id->name)) {
@@ -4160,16 +4161,16 @@ static bool write_file_handle(
 				}
 
 				if (do_override) {
-					BKE_override_operations_store_end(override_storage, id);
+					BKE_override_static_operations_store_end(override_storage, id);
 				}
 			}
 
 			mywrite_flush(wd);
 		}
-	} while ((main != override_storage) && (main = override_storage));
+	} while ((bmain != override_storage) && (bmain = override_storage));
 
 	if (override_storage) {
-		BKE_override_operations_store_finalize(override_storage);
+		BKE_override_static_operations_store_finalize(override_storage);
 		override_storage = NULL;
 	}
 

@@ -388,26 +388,35 @@ void BKE_workspace_active_screen_set(WorkSpaceInstanceHook *hook, WorkSpace *wor
 #ifdef USE_WORKSPACE_MODE
 eObjectMode BKE_workspace_object_mode_get(const WorkSpace *workspace)
 {
-	return workspace->object_mode;
+	Base *active_base = BKE_workspace_active_base_get(workspace);
+	return active_base ? active_base->object->mode : OB_MODE_OBJECT;
 }
 void BKE_workspace_object_mode_set(WorkSpace *workspace, const eObjectMode mode)
 {
-	workspace->object_mode = mode;
+	Base *active_base = BKE_workspace_active_base_get(workspace);
+	if (active_base) {
+		active_base->object->mode = mode;
+	}
 }
 #endif
+
+Base *BKE_workspace_active_base_get(const WorkSpace *workspace)
+{
+	return workspace->view_layer->basact;
+}
 
 ListBase *BKE_workspace_transform_orientations_get(WorkSpace *workspace)
 {
 	return &workspace->transform_orientations;
 }
 
-SceneLayer *BKE_workspace_render_layer_get(const WorkSpace *workspace)
+ViewLayer *BKE_workspace_view_layer_get(const WorkSpace *workspace)
 {
-	return workspace->render_layer;
+	return workspace->view_layer;
 }
-void BKE_workspace_render_layer_set(WorkSpace *workspace, SceneLayer *layer)
+void BKE_workspace_view_layer_set(WorkSpace *workspace, ViewLayer *layer)
 {
-	workspace->render_layer = layer;
+	workspace->view_layer = layer;
 }
 
 ListBase *BKE_workspace_layouts_get(WorkSpace *workspace)
@@ -477,9 +486,9 @@ void BKE_workspace_update_tagged(struct EvaluationContext *eval_ctx,
                                  WorkSpace *workspace,
                                  Scene *scene)
 {
-	SceneLayer *scene_layer = BKE_workspace_render_layer_get(workspace);
+	ViewLayer *view_layer = BKE_workspace_view_layer_get(workspace);
 	struct Depsgraph *depsgraph = BKE_scene_get_depsgraph(scene,
-	                                                      scene_layer,
+	                                                      view_layer,
 	                                                      true);
-	BKE_scene_graph_update_tagged(eval_ctx, depsgraph, bmain, scene, scene_layer);
+	BKE_scene_graph_update_tagged(eval_ctx, depsgraph, bmain, scene, view_layer);
 }

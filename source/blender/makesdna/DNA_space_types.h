@@ -180,7 +180,7 @@ typedef enum eSpaceButtons_Context {
 	BCONTEXT_MODIFIER = 10,
 	BCONTEXT_CONSTRAINT = 11,
 	BCONTEXT_BONE_CONSTRAINT = 12,
-	BCONTEXT_RENDER_LAYER = 13,
+	BCONTEXT_VIEW_LAYER = 13,
 	BCONTEXT_COLLECTION = 14,
 	BCONTEXT_WORKSPACE = 15,
 
@@ -516,6 +516,9 @@ typedef struct SpaceSeq {
 
 	char multiview_eye;				/* multiview current eye - for internal use */
 	char pad2[7];
+
+	struct GPUFX *compositor;
+	void *pad3;
 } SpaceSeq;
 
 

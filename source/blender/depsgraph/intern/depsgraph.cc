@@ -78,13 +78,12 @@ namespace DEG {
 
 static DEG_EditorUpdateIDCb deg_editor_update_id_cb = NULL;
 static DEG_EditorUpdateSceneCb deg_editor_update_scene_cb = NULL;
-static DEG_EditorUpdateScenePreCb deg_editor_update_scene_pre_cb = NULL;
 
 Depsgraph::Depsgraph()
   : time_source(NULL),
     need_update(true),
     scene(NULL),
-    scene_layer(NULL)
+    view_layer(NULL)
 {
 	BLI_spin_init(&lock);
 	id_hash = BLI_ghash_ptr_new("Depsgraph id hash");
@@ -157,19 +156,19 @@ static bool pointer_to_component_node_criteria(const PointerRNA *ptr,
 		return true;
 	}
 	else if (RNA_struct_is_a(ptr->type, &RNA_Constraint)) {
-		Object *ob = (Object *)ptr->id.data;
+		Object *object = (Object *)ptr->id.data;
 		bConstraint *con = (bConstraint *)ptr->data;
 
 		/* object or bone? */
-		if (BLI_findindex(&ob->constraints, con) != -1) {
+		if (BLI_findindex(&object->constraints, con) != -1) {
 			/* object transform */
 			// XXX: for now, we can't address the specific constraint or the constraint stack...
 			*type = DEG_NODE_TYPE_TRANSFORM;
 			return true;
 		}
-		else if (ob->pose) {
+		else if (object->pose) {
 			bPoseChannel *pchan;
-			for (pchan = (bPoseChannel *)ob->pose->chanbase.first; pchan; pchan = pchan->next) {
+			for (pchan = (bPoseChannel *)object->pose->chanbase.first; pchan; pchan = pchan->next) {
 				if (BLI_findindex(&pchan->constraints, con) != -1) {
 					/* bone transforms */
 					*type = DEG_NODE_TYPE_BONE;
@@ -193,7 +192,7 @@ static bool pointer_to_component_node_criteria(const PointerRNA *ptr,
 		return true;
 	}
 	else if (ptr->type == &RNA_Object) {
-		//Object *ob = (Object *)ptr->data;
+		//Object *object = (Object *)ptr->data;
 
 		/* Transforms props? */
 		if (prop) {
@@ -477,17 +476,18 @@ ID *Depsgraph::get_cow_id(const ID *id_orig) const
 	return id_node->id_cow;
 }
 
-void deg_editors_id_update(Main *bmain, ID *id)
+void deg_editors_id_update(const DEGEditorUpdateContext *update_ctx, ID *id)
 {
 	if (deg_editor_update_id_cb != NULL) {
-		deg_editor_update_id_cb(bmain, id);
+		deg_editor_update_id_cb(update_ctx, id);
 	}
 }
 
-void deg_editors_scene_update(Main *bmain, Scene *scene, bool updated)
+void deg_editors_scene_update(const DEGEditorUpdateContext *update_ctx,
+                              bool updated)
 {
 	if (deg_editor_update_scene_cb != NULL) {
-		deg_editor_update_scene_cb(bmain, scene, updated);
+		deg_editor_update_scene_cb(update_ctx, updated);
 	}
 }
 
@@ -513,17 +513,8 @@ void DEG_graph_free(Depsgraph *graph)
 
 /* Set callbacks which are being called when depsgraph changes. */
 void DEG_editors_set_update_cb(DEG_EditorUpdateIDCb id_func,
-                               DEG_EditorUpdateSceneCb scene_func,
-                               DEG_EditorUpdateScenePreCb scene_pre_func)
+                               DEG_EditorUpdateSceneCb scene_func)
 {
 	DEG::deg_editor_update_id_cb = id_func;
 	DEG::deg_editor_update_scene_cb = scene_func;
-	DEG::deg_editor_update_scene_pre_cb = scene_pre_func;
-}
-
-void DEG_editors_update_pre(Main *bmain, Scene *scene, bool time)
-{
-	if (DEG::deg_editor_update_scene_pre_cb != NULL) {
-		DEG::deg_editor_update_scene_pre_cb(bmain, scene, time);
-	}
 }

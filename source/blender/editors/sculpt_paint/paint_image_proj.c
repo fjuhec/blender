@@ -5321,12 +5321,12 @@ static int texture_paint_camera_project_exec(bContext *C, wmOperator *op)
 {
 	Image *image = BLI_findlink(&CTX_data_main(C)->image, RNA_enum_get(op->ptr, "image"));
 	Scene *scene = CTX_data_scene(C);
-	SceneLayer *sl = CTX_data_scene_layer(C);
+	ViewLayer *view_layer = CTX_data_view_layer(C);
 	ProjPaintState ps = {NULL};
 	int orig_brush_size;
 	IDProperty *idgroup;
 	IDProperty *view_data = NULL;
-	Object *ob = OBACT(sl);
+	Object *ob = OBACT(view_layer);
 	bool uvs, mat, tex;
 
 	if (ob == NULL || ob->type != OB_MESH) {
@@ -5455,7 +5455,7 @@ static int texture_paint_image_from_view_exec(bContext *C, wmOperator *op)
 	char filename[FILE_MAX];
 
 	Scene *scene = CTX_data_scene(C);
-	SceneLayer *scene_layer = CTX_data_scene_layer(C);
+	ViewLayer *view_layer = CTX_data_view_layer(C);
 	EvaluationContext eval_ctx;
 	ToolSettings *settings = scene->toolsettings;
 	int w = settings->imapaint.screen_grab_size[0];
@@ -5473,8 +5473,8 @@ static int texture_paint_image_from_view_exec(bContext *C, wmOperator *op)
 	if (h > maxsize) h = maxsize;
 
 	ibuf = ED_view3d_draw_offscreen_imbuf(
-	        &eval_ctx, scene, scene_layer, CTX_wm_view3d(C), CTX_wm_region(C),
-	        w, h, IB_rect, false, R_ALPHAPREMUL, 0, false, NULL,
+	        &eval_ctx, scene, view_layer, CTX_wm_view3d(C), CTX_wm_region(C),
+	        w, h, IB_rect, V3D_OFSDRAW_NONE, R_ALPHAPREMUL, 0, NULL,
 	        NULL, NULL, err_out);
 	if (!ibuf) {
 		/* Mostly happens when OpenGL offscreen buffer was failed to create, */
@@ -5918,7 +5918,7 @@ static int add_simple_uvs_exec(bContext *C, wmOperator *UNUSED(op))
 	        }));
 	/* select all uv loops first - pack parameters needs this to make sure charts are registered */
 	ED_uvedit_select_all(bm);
-	ED_uvedit_unwrap_cube_project(ob, bm, 1.0, false);
+	ED_uvedit_unwrap_cube_project(bm, 1.0, false, NULL);
 	/* set the margin really quickly before the packing operation*/
 	scene->toolsettings->uvcalc_margin = 0.001f;
 	ED_uvedit_pack_islands(scene, ob, bm, false, false, true);

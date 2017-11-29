@@ -118,6 +118,11 @@ void deg_graph_flush_updates(Main *bmain, Depsgraph *graph)
 	}
 	GSET_FOREACH_END();
 
+	DEGEditorUpdateContext update_ctx = {NULL};
+	update_ctx.bmain = bmain;
+	update_ctx.scene = graph->scene;
+	update_ctx.view_layer = graph->view_layer;
+
 	int num_flushed_objects = 0;
 	while (!queue.empty()) {
 		OperationDepsNode *node = queue.front();
@@ -139,7 +144,7 @@ void deg_graph_flush_updates(Main *bmain, Depsgraph *graph)
 				 */
 				id_cow->tag |= (id_orig->tag & LIB_TAG_ID_RECALC_ALL);
 				if (deg_copy_on_write_is_expanded(id_cow)) {
-					deg_editors_id_update(bmain, id_cow);
+					deg_editors_id_update(&update_ctx, id_cow);
 				}
 				lib_id_recalc_tag(bmain, id_orig);
 				/* TODO(sergey): For until we've got proper data nodes in the graph. */
@@ -147,7 +152,7 @@ void deg_graph_flush_updates(Main *bmain, Depsgraph *graph)
 			}
 
 			if (comp_node->done != COMPONENT_STATE_DONE) {
-				/* Currently this is needed to get ob->mesh to be replaced with
+				/* Currently this is needed to get object->mesh to be replaced with
 				 * original mesh (rather than being evaluated_mesh).
 				 *
 				 * TODO(sergey): This is something we need to avoid.
@@ -188,11 +193,9 @@ void deg_graph_flush_updates(Main *bmain, Depsgraph *graph)
 						case DEG_NODE_TYPE_OPERATION:
 						case DEG_NODE_TYPE_TIMESOURCE:
 						case DEG_NODE_TYPE_ID_REF:
-						case DEG_NODE_TYPE_PARAMETERS:
 						case DEG_NODE_TYPE_SEQUENCER:
-						case DEG_NODE_TYPE_LAYER_COLLECTIONS:
-						case DEG_NODE_TYPE_COPY_ON_WRITE:
 							/* Ignore, does not translate to object component. */
+							BLI_assert(!"This should never happen!");
 							break;
 						case DEG_NODE_TYPE_ANIMATION:
 							object->recalc |= OB_RECALC_TIME;
@@ -209,12 +212,14 @@ void deg_graph_flush_updates(Main *bmain, Depsgraph *graph)
 						case DEG_NODE_TYPE_PROXY:
 							object->recalc |= OB_RECALC_DATA;
 							break;
+						case DEG_NODE_TYPE_BATCH_CACHE:
+						case DEG_NODE_TYPE_COPY_ON_WRITE:
+						case DEG_NODE_TYPE_LAYER_COLLECTIONS:
+						case DEG_NODE_TYPE_PARAMETERS:
 						case DEG_NODE_TYPE_SHADING_PARAMETERS:
+							/* Ignore, does not translate to recalc flags. */
 							break;
 					}
-
-					/* TODO : replace with more granular flags */
-					object->deg_update_flag |= DEG_RUNTIME_DATA_UPDATE;
 				}
 				/* When some target changes bone, we might need to re-run the
 				 * whole IK solver, otherwise result might be unpredictable.
