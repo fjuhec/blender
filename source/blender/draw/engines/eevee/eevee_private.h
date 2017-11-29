@@ -47,11 +47,11 @@ extern struct DrawEngineType draw_engine_eevee_type;
 #define IRRADIANCE_HL2
 
 #if defined(IRRADIANCE_SH_L2)
-#define SHADER_IRRADIANCE "#define IRRADIANCE_SH_L2\n"
+#  define SHADER_IRRADIANCE "#define IRRADIANCE_SH_L2\n"
 #elif defined(IRRADIANCE_CUBEMAP)
-#define SHADER_IRRADIANCE "#define IRRADIANCE_CUBEMAP\n"
+#  define SHADER_IRRADIANCE "#define IRRADIANCE_CUBEMAP\n"
 #elif defined(IRRADIANCE_HL2)
-#define SHADER_IRRADIANCE "#define IRRADIANCE_HL2\n"
+#  define SHADER_IRRADIANCE "#define IRRADIANCE_HL2\n"
 #endif
 
 #define SHADER_DEFINES \
@@ -568,7 +568,19 @@ typedef struct EEVEE_LampEngineData {
 } EEVEE_LampEngineData;
 
 typedef struct EEVEE_LightProbeEngineData {
+	/* NOTE: need_full_update is set by dependency graph when the probe or it's
+	 * object is updated. This triggers full probe update, including it's
+	 * "progressive" GI refresh.
+	 *
+	 * need_update is always set to truth when need_full_update is tagged, but
+	 * might also be forced to be kept truth during GI refresh stages.
+	 *
+	 * TODO(sergey): Is there a way to avoid two flags here, or at least make
+	 * it more clear what's going on here?
+	 */
+	bool need_full_update;
 	bool need_update;
+
 	bool ready_to_shade;
 	int updated_cells;
 	int updated_lvl;
@@ -629,9 +641,13 @@ typedef struct EEVEE_PrivateData {
 
 /* eevee_data.c */
 EEVEE_ViewLayerData *EEVEE_view_layer_data_get(void);
+EEVEE_ViewLayerData *EEVEE_view_layer_data_ensure(void);
 EEVEE_ObjectEngineData *EEVEE_object_data_get(Object *ob);
+EEVEE_ObjectEngineData *EEVEE_object_data_ensure(Object *ob);
 EEVEE_LightProbeEngineData *EEVEE_lightprobe_data_get(Object *ob);
+EEVEE_LightProbeEngineData *EEVEE_lightprobe_data_ensure(Object *ob);
 EEVEE_LampEngineData *EEVEE_lamp_data_get(Object *ob);
+EEVEE_LampEngineData *EEVEE_lamp_data_ensure(Object *ob);
 
 /* eevee_materials.c */
 struct GPUTexture *EEVEE_materials_get_util_tex(void); /* XXX */

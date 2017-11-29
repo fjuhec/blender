@@ -80,7 +80,13 @@ static void eevee_lightprobe_data_free(void *storage)
 
 EEVEE_ViewLayerData *EEVEE_view_layer_data_get(void)
 {
-	EEVEE_ViewLayerData **sldata = (EEVEE_ViewLayerData **)DRW_view_layer_engine_data_get(
+	return (EEVEE_ViewLayerData *)DRW_view_layer_engine_data_get(
+	        &draw_engine_eevee_type);
+}
+
+EEVEE_ViewLayerData *EEVEE_view_layer_data_ensure(void)
+{
+	EEVEE_ViewLayerData **sldata = (EEVEE_ViewLayerData **)DRW_view_layer_engine_data_ensure(
 	        &draw_engine_eevee_type, &eevee_view_layer_data_free);
 
 	if (*sldata == NULL) {
@@ -92,7 +98,13 @@ EEVEE_ViewLayerData *EEVEE_view_layer_data_get(void)
 
 EEVEE_ObjectEngineData *EEVEE_object_data_get(Object *ob)
 {
-	EEVEE_ObjectEngineData **oedata = (EEVEE_ObjectEngineData **)DRW_object_engine_data_get(
+	return (EEVEE_ObjectEngineData *)DRW_object_engine_data_get(
+	        ob, &draw_engine_eevee_type);
+}
+
+EEVEE_ObjectEngineData *EEVEE_object_data_ensure(Object *ob)
+{
+	EEVEE_ObjectEngineData **oedata = (EEVEE_ObjectEngineData **)DRW_object_engine_data_ensure(
 	        ob, &draw_engine_eevee_type, NULL);
 
 	if (*oedata == NULL) {
@@ -104,11 +116,18 @@ EEVEE_ObjectEngineData *EEVEE_object_data_get(Object *ob)
 
 EEVEE_LightProbeEngineData *EEVEE_lightprobe_data_get(Object *ob)
 {
-	EEVEE_LightProbeEngineData **pedata = (EEVEE_LightProbeEngineData **)DRW_object_engine_data_get(
+	return (EEVEE_LightProbeEngineData *)DRW_object_engine_data_get(
+	        ob, &draw_engine_eevee_type);
+}
+
+EEVEE_LightProbeEngineData *EEVEE_lightprobe_data_ensure(Object *ob)
+{
+	EEVEE_LightProbeEngineData **pedata = (EEVEE_LightProbeEngineData **)DRW_object_engine_data_ensure(
 	        ob, &draw_engine_eevee_type, &eevee_lightprobe_data_free);
 
 	if (*pedata == NULL) {
 		*pedata = MEM_callocN(sizeof(**pedata), "EEVEE_LightProbeEngineData");
+		(*pedata)->need_full_update = true;
 		(*pedata)->need_update = true;
 	}
 
@@ -117,7 +136,13 @@ EEVEE_LightProbeEngineData *EEVEE_lightprobe_data_get(Object *ob)
 
 EEVEE_LampEngineData *EEVEE_lamp_data_get(Object *ob)
 {
-	EEVEE_LampEngineData **ledata = (EEVEE_LampEngineData **)DRW_object_engine_data_get(
+	return (EEVEE_LampEngineData *)DRW_object_engine_data_get(
+	        ob, &draw_engine_eevee_type);
+}
+
+EEVEE_LampEngineData *EEVEE_lamp_data_ensure(Object *ob)
+{
+	EEVEE_LampEngineData **ledata = (EEVEE_LampEngineData **)DRW_object_engine_data_ensure(
 	        ob, &draw_engine_eevee_type, &eevee_lamp_data_free);
 
 	if (*ledata == NULL) {
