@@ -200,6 +200,7 @@ static void GPENCIL_cache_init(void *vedata)
 	const DRWContextState *draw_ctx = DRW_context_state_get();
 	Scene *scene = draw_ctx->scene;
 	ToolSettings *ts = scene->toolsettings;
+	View3D *v3d = draw_ctx->v3d;
 	Object *obact = draw_ctx->obact;
 
 	if (!stl->g_data) {
@@ -403,15 +404,15 @@ static void GPENCIL_cache_init(void *vedata)
 		psl->paper_pass = DRW_pass_create("GPencil Paper Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND);
 		DRWShadingGroup *paper_shgrp = DRW_shgroup_create(e_data.gpencil_paper_sh, psl->paper_pass);
 		DRW_shgroup_call_add(paper_shgrp, paperquad, NULL);
-		DRW_shgroup_uniform_vec4(paper_shgrp, "color", ts->gpencil_paper_color, 1);
+		DRW_shgroup_uniform_vec4(paper_shgrp, "color", v3d->gpencil_paper_color, 1);
 
 		UI_GetThemeColor3fv(TH_GRID, stl->storage->gridcolor);
 		DRW_shgroup_uniform_vec3(paper_shgrp, "gridcolor", &stl->storage->gridcolor[0], 1);
 
-		stl->storage->gridsize[0] = (float)ts->gpencil_grid_size[0];
-		stl->storage->gridsize[1] = (float)ts->gpencil_grid_size[1];
+		stl->storage->gridsize[0] = (float)v3d->gpencil_grid_size[0];
+		stl->storage->gridsize[1] = (float)v3d->gpencil_grid_size[1];
 		DRW_shgroup_uniform_vec2(paper_shgrp, "size", &stl->storage->gridsize[0], 1);
-		if (ts->gpencil_flags & GP_TOOL_FLAG_ENABLE_GRID) {
+		if (v3d->flag3 & V3D_GP_SHOW_GRID) {
 			stl->storage->uselines = 1;
 		}
 		else {
@@ -658,6 +659,7 @@ static void GPENCIL_draw_scene(void *vedata)
 	float clearcol[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 
 	const DRWContextState *draw_ctx = DRW_context_state_get();
+	View3D *v3d = draw_ctx->v3d;
 	Scene *scene = draw_ctx->scene;
 	ToolSettings *ts = scene->toolsettings;
 	Object *obact = draw_ctx->obact;
@@ -665,7 +667,7 @@ static void GPENCIL_draw_scene(void *vedata)
 
 	/* paper pass to display a confortable area to draw over complex scenes with geometry */
 	if ((obact) && (obact->type == OB_GPENCIL)) {
-		if ((ts->gpencil_flags & GP_TOOL_FLAG_ENABLE_PAPER) && (stl->g_data->gp_cache_used > 0)) {
+		if ((v3d->flag3 & V3D_GP_SHOW_PAPER) && (stl->g_data->gp_cache_used > 0)) {
 			DRW_draw_pass(psl->paper_pass);
 		}
 	}

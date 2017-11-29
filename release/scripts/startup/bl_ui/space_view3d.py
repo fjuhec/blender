@@ -157,7 +157,7 @@ class VIEW3D_HT_header(Header):
 
             view = context.space_data
             row = layout.row(align=True)
-            row.prop(context.tool_settings, "use_gpencil_paper", text="", icon='GHOST')
+            row.prop(view, "use_gpencil_paper", text="", icon='GHOST')
             row.prop(view, "show_only_render", text="", icon='IMAGE_COL')
             row.prop(view, "lock_camera", text="", icon='CAMERA_DATA')
 
@@ -3536,6 +3536,40 @@ class VIEW3D_PT_view3d_display(Panel):
             row.prop(region, "use_box_clip")
 
 
+class VIEW3D_PT_gp_paper(Panel):
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    bl_label = "Grease Pencil Paper"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    @classmethod
+    def poll(cls, context):
+        view = context.space_data
+        return (view)
+
+    def draw_header(self, context):
+        view = context.space_data
+        self.layout.prop(view, "use_gpencil_paper", text="")
+
+    def draw(self, context):
+        layout = self.layout
+        view = context.space_data
+        layout.active = view.use_gpencil_paper
+
+        row = layout.row()
+        row.prop(view, "gp_paper_color", text="Color")
+        row = layout.row()
+        row.prop(view, "gp_paper_opacity", text="Opacity")
+
+        row = layout.row(align=False)
+        row.prop(view, "use_gpencil_grid", text="Display Grid")
+
+        row = layout.row(align=False)
+        col = row.column(align=True)
+        col.enabled = view.use_gpencil_grid
+        col.prop(view, "gpencil_grid_size", text="")
+
+
 class VIEW3D_PT_view3d_stereo(Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
@@ -3993,6 +4027,7 @@ classes = (
     VIEW3D_PT_view3d_cursor,
     VIEW3D_PT_view3d_name,
     VIEW3D_PT_view3d_display,
+    VIEW3D_PT_gp_paper,
     VIEW3D_PT_view3d_stereo,
     VIEW3D_PT_view3d_motion_tracking,
     VIEW3D_PT_view3d_meshdisplay,

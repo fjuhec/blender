@@ -225,6 +225,8 @@ typedef struct View3D {
 
 	/* XXX deprecated? */
 	struct bGPdata *gpd  DNA_DEPRECATED;		/* Grease-Pencil Data (annotation layers) */
+	int gpencil_grid_size[2];
+	float gpencil_paper_color[4];
 
 	 /* multiview - stereo 3d */
 	short stereo3d_flag;
@@ -313,9 +315,10 @@ typedef struct View3D {
 #define V3D_OCCLUDE_WIRE		(1 << 14)
 #define V3D_SHOW_MODE_SHADE_OVERRIDE	(1 << 15)
 
-
 /* View3d->flag3 (short) */
 #define V3D_SHOW_WORLD			(1 << 0)
+#define V3D_GP_SHOW_PAPER       (1 << 2) /* Activate paper to cover all viewport */
+#define V3D_GP_SHOW_GRID        (1 << 3) /* Activate paper grid */
 
 /* View3d->debug.background */
 enum {

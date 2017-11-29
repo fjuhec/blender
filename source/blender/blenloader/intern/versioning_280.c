@@ -568,11 +568,19 @@ void do_versions_after_linking_280(Main *main)
 			}
 		}
 		/* init grease pencil grids and paper */
-		for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
-			scene->toolsettings->gpencil_grid_size[0] = 50;
-			scene->toolsettings->gpencil_grid_size[1] = 50;
-			ARRAY_SET_ITEMS(scene->toolsettings->gpencil_paper_color, 1.0f, 1.0f, 1.0f, 0.7f);
+		for (bScreen *screen = main->screen.first; screen; screen = screen->id.next) {
+			for (ScrArea *area = screen->areabase.first; area; area = area->next) {
+				for (SpaceLink *sl = area->spacedata.first; sl; sl = sl->next) {
+					if (sl->spacetype == SPACE_VIEW3D) {
+						View3D *v3d = (View3D *)sl;
+						v3d->gpencil_grid_size[0] = 50;
+						v3d->gpencil_grid_size[1] = 50;
+						ARRAY_SET_ITEMS(v3d->gpencil_paper_color, 1.0f, 1.0f, 1.0f, 0.7f);
+					}
+				}
+			}
 		}
+
 	}
 
 	/* XXX: Merge back into previous case... leaving like this so the Hero animatic/production files so far don't break */

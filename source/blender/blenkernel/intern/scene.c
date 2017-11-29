@@ -846,10 +846,6 @@ void BKE_scene_init(Scene *sce)
 	sce->toolsettings->imapaint.normal_angle = 80;
 	sce->toolsettings->imapaint.seam_bleed = 2;
 
-	sce->toolsettings->gpencil_grid_size[0] = 50;
-	sce->toolsettings->gpencil_grid_size[1] = 50;
-	ARRAY_SET_ITEMS(sce->toolsettings->gpencil_paper_color, 1.0f, 1.0f, 1.0f, 0.7f);
-
 	sce->physics_settings.gravity[0] = 0.0f;
 	sce->physics_settings.gravity[1] = 0.0f;
 	sce->physics_settings.gravity[2] = -9.81f;

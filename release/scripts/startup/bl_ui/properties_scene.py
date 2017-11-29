@@ -479,34 +479,6 @@ class SCENE_PT_gp_simplify(SceneButtonsPanel, Panel):
         row.prop(ts, "gpencil_disable_fast_drawing")
 
 
-class SCENE_PT_gp_paper(SceneButtonsPanel, Panel):
-    bl_label = "Grease Pencil Paper"
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME', 'BLENDER_CLAY', 'BLENDER_EEVEE'}
-
-    def draw_header(self, context):
-        ts = context.tool_settings
-        self.layout.prop(ts, "use_gpencil_paper", text="")
-
-    def draw(self, context):
-        layout = self.layout
-
-        ts = context.tool_settings
-        layout.active = ts.use_gpencil_paper
-
-        row = layout.row()
-        row.prop(ts, "gp_paper_color", text="Color")
-        row = layout.row()
-        row.prop(ts, "gp_paper_opacity", text="Opacity")
-
-        row = layout.row(align=False)
-        row.prop(ts, "use_gpencil_grid", text="Display Grid")
-
-        row = layout.row(align=False)
-        col = row.column(align=True)
-        col.enabled = ts.use_gpencil_grid
-        col.prop(ts, "gpencil_grid_size", text="")
-
-
 class SCENE_PT_custom_props(SceneButtonsPanel, PropertyPanel, Panel):
     COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_GAME', 'BLENDER_CLAY', 'BLENDER_EEVEE'}
     _context_path = "scene"
@@ -528,7 +500,6 @@ classes = (
     SCENE_PT_rigid_body_field_weights,
     SCENE_PT_simplify,
     SCENE_PT_gp_simplify,
-    SCENE_PT_gp_paper,
     SCENE_PT_custom_props,
 )
 
