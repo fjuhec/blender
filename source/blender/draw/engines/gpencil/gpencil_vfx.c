@@ -337,6 +337,54 @@ static void DRW_gpencil_vfx_swirl(
 	cache->end_vfx_swirl_sh = vfx_shgrp;
 }
 
+/* Flip VFX */
+static void DRW_gpencil_vfx_flip(
+	ModifierData *md, int ob_idx, GPENCIL_e_data *e_data, GPENCIL_Data *vedata,
+	Object *ob, tGPencilObjectCache *cache)
+{
+	if (md == NULL) {
+		return;
+	}
+
+	GpencilFlipModifierData *mmd = (GpencilFlipModifierData *)md;
+
+	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
+	GPENCIL_PassList *psl = ((GPENCIL_Data *)vedata)->psl;
+	DRWShadingGroup *vfx_shgrp;
+	if (mmd->flag & GP_FLIP_HORIZONTAL) {
+		stl->vfx[ob_idx].vfx_flip.flipmode[0] = 1.0f;
+	}
+	else {
+		stl->vfx[ob_idx].vfx_flip.flipmode[0] = 0;
+	};
+	if (mmd->flag & GP_FLIP_VERTICAL) {
+		stl->vfx[ob_idx].vfx_flip.flipmode[1] = 1.0f;
+	}
+	else {
+		stl->vfx[ob_idx].vfx_flip.flipmode[1] = 0;
+	};
+
+	struct Gwn_Batch *vfxquad = DRW_cache_fullscreen_quad_get();
+	vfx_shgrp = DRW_shgroup_create(e_data->gpencil_vfx_flip_sh, psl->vfx_flip_pass);
+	++stl->g_data->tot_sh;
+	DRW_shgroup_call_add(vfx_shgrp, vfxquad, NULL);
+	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeColor", &e_data->vfx_fbcolor_color_tx_a);
+	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeDepth", &e_data->vfx_fbcolor_depth_tx_a);
+	DRW_shgroup_uniform_vec2(vfx_shgrp, "mode", &stl->vfx[ob_idx].vfx_flip.flipmode[0], 1);
+
+	const float *viewport_size = DRW_viewport_size_get();
+	copy_v2_v2(stl->vfx[ob_idx].vfx_flip.wsize, viewport_size);
+	DRW_shgroup_uniform_vec2(vfx_shgrp, "wsize", stl->vfx[ob_idx].vfx_flip.wsize, 1);
+
+	/* set first effect sh */
+	if (cache->init_vfx_flip_sh == NULL) {
+		cache->init_vfx_flip_sh = vfx_shgrp;
+	}
+
+	/* set last effect sh */
+	cache->end_vfx_flip_sh = vfx_shgrp;
+}
+
 void DRW_gpencil_vfx_modifiers(
         int ob_idx, struct GPENCIL_e_data *e_data, struct GPENCIL_Data *vedata,
         struct Object *ob, struct tGPencilObjectCache *cache)
@@ -379,6 +427,15 @@ void DRW_gpencil_vfx_modifiers(
 						ready = true;
 					}
 					DRW_gpencil_vfx_swirl(md, ob_idx, e_data, vedata, ob, cache);
+				}
+				break;
+			case eModifierType_GpencilFlip:
+				if (modifier_is_active(ob, md)) {
+					if (!ready) {
+						DRW_gpencil_vfx_copy(ob_idx, e_data, vedata, ob, cache);
+						ready = true;
+					}
+					DRW_gpencil_vfx_flip(md, ob_idx, e_data, vedata, ob, cache);
 				}
 				break;
 		}

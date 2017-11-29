@@ -303,6 +303,7 @@ void modifier_type_init(ModifierTypeInfo *types[])
 	INIT_TYPE(GpencilWave);
 	INIT_TYPE(GpencilPixel);
 	INIT_TYPE(GpencilSwirl);
+	INIT_TYPE(GpencilFlip);
 	INIT_TYPE(GpencilSmooth);
 	INIT_TYPE(GpencilHook);
 #undef INIT_TYPE

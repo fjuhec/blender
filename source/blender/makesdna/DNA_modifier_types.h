@@ -103,6 +103,7 @@ typedef enum ModifierType {
 	eModifierType_GpencilSwirl      = 67,
 	eModifierType_GpencilSmooth     = 68,
 	eModifierType_GpencilHook       = 69,
+	eModifierType_GpencilFlip       = 70,
 	NUM_MODIFIER_TYPES
 } ModifierType;
 
@@ -1936,6 +1937,17 @@ typedef enum eGpencilSwirl_Flag {
 	GP_SWIRL_MAKE_TRANSPARENT = (1 << 0),
 	GP_SWIRL_USE_OB_LOC       = (1 << 1),
 } eGpencilSwirl_Flag;
+
+typedef struct GpencilFlipModifierData {
+	ModifierData modifier;
+	int flag;                    /* flags */
+	char pad[4];
+} GpencilFlipModifierData;
+
+typedef enum eGpencilFlip_Flag {
+	GP_FLIP_HORIZONTAL = (1 << 0),
+	GP_FLIP_VERTICAL = (1 << 1),
+} eGpencilFlip_Flag;
 
 typedef struct GpencilSmoothModifierData {
 	ModifierData modifier;

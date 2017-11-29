@@ -1883,6 +1883,13 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         col.separator()
         col.prop(md, "transparent")
 
+    def GP_FLIP(self, layout, ob, md):
+        split = layout.split()
+
+        col = split.column()
+        col.prop(md, "flip_horizontal")
+        col.prop(md, "flip_vertical")
+
     def GP_HOOK(self, layout, ob, md):
         gpd = ob.data
         split = layout.split()

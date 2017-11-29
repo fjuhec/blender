@@ -56,6 +56,7 @@ extern char datatoc_gpencil_gaussian_blur_frag_glsl[];
 extern char datatoc_gpencil_wave_frag_glsl[];
 extern char datatoc_gpencil_pixel_frag_glsl[];
 extern char datatoc_gpencil_swirl_frag_glsl[];
+extern char datatoc_gpencil_flip_frag_glsl[];
 extern char datatoc_gpencil_painting_frag_glsl[];
 extern char datatoc_gpencil_paper_frag_glsl[];
 extern char datatoc_gpencil_edit_point_vert_glsl[];
@@ -178,6 +179,7 @@ static void GPENCIL_engine_free(void)
 	DRW_SHADER_FREE_SAFE(e_data.gpencil_vfx_wave_sh);
 	DRW_SHADER_FREE_SAFE(e_data.gpencil_vfx_pixel_sh);
 	DRW_SHADER_FREE_SAFE(e_data.gpencil_vfx_swirl_sh);
+	DRW_SHADER_FREE_SAFE(e_data.gpencil_vfx_flip_sh);
 	DRW_SHADER_FREE_SAFE(e_data.gpencil_painting_sh);
 	DRW_SHADER_FREE_SAFE(e_data.gpencil_front_depth_sh);
 	DRW_SHADER_FREE_SAFE(e_data.gpencil_paper_sh);
@@ -248,6 +250,9 @@ static void GPENCIL_cache_init(void *vedata)
 	}
 	if (!e_data.gpencil_vfx_swirl_sh) {
 		e_data.gpencil_vfx_swirl_sh = DRW_shader_create_fullscreen(datatoc_gpencil_swirl_frag_glsl, NULL);
+	}
+	if (!e_data.gpencil_vfx_flip_sh) {
+		e_data.gpencil_vfx_flip_sh = DRW_shader_create_fullscreen(datatoc_gpencil_flip_frag_glsl, NULL);
 	}
 	if (!e_data.gpencil_painting_sh) {
 		e_data.gpencil_painting_sh = DRW_shader_create_fullscreen(datatoc_gpencil_painting_frag_glsl, NULL);
@@ -373,6 +378,8 @@ static void GPENCIL_cache_init(void *vedata)
 		psl->vfx_pixel_pass = DRW_pass_create("GPencil VFX Pixel Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
 
 		psl->vfx_swirl_pass = DRW_pass_create("GPencil VFX Swirl Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
+
+		psl->vfx_flip_pass = DRW_pass_create("GPencil VFX Flip Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
 
 		/* Painting session pass (used only to speedup while the user is drawing ) */
 		struct Gwn_Batch *paintquad = DRW_cache_fullscreen_quad_get();
@@ -585,6 +592,21 @@ static void gpencil_vfx_passes(void *vedata, tGPencilObjectCache *cache)
 		DRW_draw_pass_subset(psl->vfx_swirl_pass,
 			cache->init_vfx_swirl_sh,
 			cache->end_vfx_swirl_sh);
+		/* copy pass from b to a */
+		DRW_framebuffer_bind(fbl->vfx_color_fb_a);
+		DRW_framebuffer_clear(true, true, false, clearcol, 1.0f);
+		DRW_draw_pass(psl->vfx_copy_pass);
+	}
+	/* --------------
+	* Flip pass
+	* --------------*/
+	if ((cache->init_vfx_flip_sh) && (cache->end_vfx_flip_sh)) {
+		DRW_framebuffer_bind(fbl->vfx_color_fb_b);
+		DRW_framebuffer_clear(true, true, false, clearcol, 1.0f);
+		/* flip pass */
+		DRW_draw_pass_subset(psl->vfx_flip_pass,
+			cache->init_vfx_flip_sh,
+			cache->end_vfx_flip_sh);
 		/* copy pass from b to a */
 		DRW_framebuffer_bind(fbl->vfx_color_fb_a);
 		DRW_framebuffer_clear(true, true, false, clearcol, 1.0f);

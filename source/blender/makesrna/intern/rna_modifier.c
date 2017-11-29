@@ -138,6 +138,7 @@ const EnumPropertyItem rna_enum_object_modifier_type_items[] = {
 	{eModifierType_GpencilWave, "GP_WAVE", ICON_SOLO_ON, "Wave Distorsion", "Apply Sinusoidal Deformation" },
 	{eModifierType_GpencilPixel, "GP_PIXEL", ICON_SOLO_ON, "Pixelate", "Pixelate image" },
 	{eModifierType_GpencilSwirl, "GP_SWIRL", ICON_SOLO_ON, "Swirl", "Create a rotation distorsion" },
+	{eModifierType_GpencilFlip, "GP_FLIP", ICON_SOLO_ON, "Flip", "Flip image" },
 	{0, NULL, 0, NULL, NULL}
 };
 
@@ -482,6 +483,8 @@ static StructRNA *rna_Modifier_refine(struct PointerRNA *ptr)
 			return &RNA_GpencilPixelModifier;
 		case eModifierType_GpencilSwirl:
 			return &RNA_GpencilSwirlModifier;
+		case eModifierType_GpencilFlip:
+			return &RNA_GpencilFlipModifier;
 		case eModifierType_GpencilSmooth:
 			return &RNA_GpencilSmoothModifier;
 		case eModifierType_GpencilHook:
@@ -5833,6 +5836,27 @@ static void rna_def_modifier_gpencilswirl(BlenderRNA *brna)
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }
 
+static void rna_def_modifier_gpencilflip(BlenderRNA *brna)
+{
+	StructRNA *srna;
+	PropertyRNA *prop;
+
+	srna = RNA_def_struct(brna, "GpencilFlipModifier", "Modifier");
+	RNA_def_struct_ui_text(srna, "Flip Modifier", "Flip modifier");
+	RNA_def_struct_sdna(srna, "GpencilFlipModifierData");
+	RNA_def_struct_ui_icon(srna, ICON_SOLO_ON);
+
+	prop = RNA_def_property(srna, "flip_horizontal", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_FLIP_HORIZONTAL);
+	RNA_def_property_ui_text(prop, "Horizontal", "Flip image horizontally");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "flip_vertical", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_FLIP_VERTICAL);
+	RNA_def_property_ui_text(prop, "Vertical", "Flip image vertically");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+}
+
 void RNA_def_modifier(BlenderRNA *brna)
 {
 	StructRNA *srna;
@@ -5967,6 +5991,7 @@ void RNA_def_modifier(BlenderRNA *brna)
 	rna_def_modifier_gpencilwave(brna);
 	rna_def_modifier_gpencilpixel(brna);
 	rna_def_modifier_gpencilswirl(brna);
+	rna_def_modifier_gpencilflip(brna);
 }
 
 #endif

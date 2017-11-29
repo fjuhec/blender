@@ -1065,6 +1065,7 @@ static void tselem_draw_icon(uiBlock *block, int xmax, float x, float y, TreeSto
 					case eModifierType_GpencilWave:
 					case eModifierType_GpencilPixel:
 					case eModifierType_GpencilSwirl:
+					case eModifierType_GpencilFlip:
 						ICON_DRAW(ICON_SOLO_ON);
 						break;
 					

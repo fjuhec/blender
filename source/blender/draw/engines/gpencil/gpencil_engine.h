@@ -97,6 +97,12 @@ typedef struct GPencilVFXWave {
 	float wsize[2];
 } GPencilVFXWave;
 
+typedef struct GPencilVFXFlip {
+	float flipmode[2]; /* use float to pass to shader, but only will be 0 or 1 */
+	float wsize[2];
+} GPencilVFXFlip;
+
+
  /* used to save gpencil objects */
 typedef struct tGPencilObjectCache {
 	struct Object *ob;
@@ -118,6 +124,9 @@ typedef struct tGPencilObjectCache {
 
 	DRWShadingGroup *init_vfx_swirl_sh;
 	DRWShadingGroup *end_vfx_swirl_sh;
+
+	DRWShadingGroup *init_vfx_flip_sh;
+	DRWShadingGroup *end_vfx_flip_sh;
 	float zdepth;
 } tGPencilObjectCache;
 
@@ -127,6 +136,7 @@ typedef struct GPENCIL_vfx {
 	GPencilVFXWave vfx_wave;
 	GPencilVFXPixel vfx_pixel;
 	GPencilVFXSwirl vfx_swirl;
+	GPencilVFXFlip vfx_flip;
 } GPENCIL_vfx;
 
 typedef struct GPENCIL_shgroup {
@@ -182,6 +192,7 @@ typedef struct GPENCIL_PassList {
 	struct DRWPass *vfx_blur_pass_4;
 	struct DRWPass *vfx_pixel_pass;
 	struct DRWPass *vfx_swirl_pass;
+	struct DRWPass *vfx_flip_pass;
 	struct DRWPass *painting_pass;
 	struct DRWPass *paper_pass;
 } GPENCIL_PassList;
@@ -250,6 +261,7 @@ typedef struct GPENCIL_e_data {
 	struct GPUShader *gpencil_vfx_wave_sh;
 	struct GPUShader *gpencil_vfx_pixel_sh;
 	struct GPUShader *gpencil_vfx_swirl_sh;
+	struct GPUShader *gpencil_vfx_flip_sh;
 	struct GPUShader *gpencil_painting_sh;
 	struct GPUShader *gpencil_front_depth_sh;
 	struct GPUShader *gpencil_paper_sh;
