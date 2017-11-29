@@ -2921,9 +2921,6 @@ char *RNA_property_string_get_alloc(PointerRNA *ptr, PropertyRNA *prop,
 	int length;
 
 	BLI_assert(RNA_property_type(prop) == PROP_STRING);
-	if (!ptr->data) {
-		return NULL;
-	}
 
 	length = RNA_property_string_length(ptr, prop);
 
@@ -6860,8 +6857,7 @@ int RNA_function_call_direct_va_lookup(bContext *C, ReportList *reports, Pointer
 }
 
 const char *RNA_translate_ui_text(
-        const char *text, const char *text_ctxt, StructRNA *type, PropertyRNA *prop,
-        int translate)
+        const char *text, const char *text_ctxt, StructRNA *type, PropertyRNA *prop, int translate)
 {
 	return rna_translate_ui_text(text, text_ctxt, type, prop, translate);
 }
