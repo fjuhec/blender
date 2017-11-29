@@ -746,8 +746,8 @@ void BKE_libblock_free_data(ID *id, const bool do_id_user)
 		MEM_freeN(id->properties);
 	}
 
-	if (id->override) {
-		BKE_override_free(&id->override);
+	if (id->override_static) {
+		BKE_override_static_free(&id->override_static);
 	}
 
 	/* XXX TODO remove animdata handling from each type's freeing func, and do it here, like for copy! */

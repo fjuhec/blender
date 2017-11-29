@@ -1819,7 +1819,7 @@ bool RNA_property_editable(PointerRNA *ptr, PropertyRNA *prop)
 	return ((flag & PROP_EDITABLE) &&
 	        (flag & PROP_REGISTER) == 0 &&
 	        (!id || ((!ID_IS_LINKED(id) || (prop->flag & PROP_LIB_EXCEPTION)) &&
-	                 (!id->override || (prop->flag & PROP_OVERRIDABLE)))));
+	                 (!id->override_static || (prop->flag & PROP_OVERRIDABLE)))));
 }
 
 /**
@@ -1852,7 +1852,7 @@ bool RNA_property_editable_info(PointerRNA *ptr, PropertyRNA *prop, const char *
 			}
 			return false;
 		}
-		if (id->override != NULL && (prop->flag & PROP_OVERRIDABLE) == 0) {
+		if (id->override_static != NULL && (prop->flag & PROP_OVERRIDABLE) == 0) {
 			if (!(*r_info)[0]) {
 				*r_info = "Can't edit this property from an override data-block.";
 			}
@@ -6975,7 +6975,7 @@ bool RNA_property_reset(PointerRNA *ptr, PropertyRNA *prop, int index)
 
 static bool rna_property_override_operation_apply(
         PointerRNA *ptr_local, PointerRNA *ptr_reference, PointerRNA *ptr_storage, PropertyRNA *prop_local,
-        IDOverridePropertyOperation *opop);
+        IDOverrideStaticPropertyOperation *opop);
 
 bool RNA_property_copy(PointerRNA *ptr, PointerRNA *fromptr, PropertyRNA *prop, int index)
 {
@@ -6983,8 +6983,8 @@ bool RNA_property_copy(PointerRNA *ptr, PointerRNA *fromptr, PropertyRNA *prop, 
 		return false;
 	}
 
-	IDOverridePropertyOperation opop = {
-	    .operation = IDOVERRIDE_OP_REPLACE,
+	IDOverrideStaticPropertyOperation opop = {
+	    .operation = IDOVERRIDESTATIC_OP_REPLACE,
 	    .subitem_reference_index = index,
 	    .subitem_local_index = index
 	};
@@ -7015,7 +7015,7 @@ void _RNA_warning(const char *format, ...)
 
 static int rna_property_override_diff(
         PointerRNA *a, PointerRNA *b, PropertyRNA *prop, eRNACompareMode mode,
-        IDOverride *override, const char *rna_path, bool *r_override_changed, const int flags);
+        IDOverrideStatic *override, const char *rna_path, bool *r_override_changed, const int flags);
 
 bool RNA_property_equals(PointerRNA *a, PointerRNA *b, PropertyRNA *prop, eRNACompareMode mode)
 {
@@ -7057,7 +7057,7 @@ bool RNA_struct_equals(PointerRNA *a, PointerRNA *b, eRNACompareMode mode)
 #include "PIL_time_utildefines.h"
 static int rna_property_override_diff(
         PointerRNA *ptr_a, PointerRNA *ptr_b, PropertyRNA *prop_a, eRNACompareMode mode,
-        IDOverride *override, const char *rna_path, bool *r_override_changed, const int flags)
+        IDOverrideStatic *override, const char *rna_path, bool *r_override_changed, const int flags)
 {
 	int len_a, len_b;
 
@@ -7105,7 +7105,7 @@ static int rna_property_override_diff(
  * the local data-block's data as second operand). */
 static bool rna_property_override_operation_store(
         PointerRNA *ptr_local, PointerRNA *ptr_reference, PointerRNA *ptr_storage, PropertyRNA *prop_local,
-        IDOverrideProperty *op)
+        IDOverrideStaticProperty *op)
 {
 	int len_local, len_reference, len_storage = 0;
 	PropertyRNA *prop_reference = prop_local;
@@ -7148,9 +7148,9 @@ static bool rna_property_override_operation_store(
 	           (!ptr_storage || prop_local->override_store == prop_storage->override_store) &&
 	           prop_local->override_store != NULL);
 
-	for (IDOverridePropertyOperation *opop = op->operations.first; opop; opop = opop->next) {
+	for (IDOverrideStaticPropertyOperation *opop = op->operations.first; opop; opop = opop->next) {
 		/* Only needed for diff operations. */
-		if (!ELEM(opop->operation, IDOVERRIDE_OP_ADD, IDOVERRIDE_OP_SUBTRACT, IDOVERRIDE_OP_MULTIPLY)) {
+		if (!ELEM(opop->operation, IDOVERRIDESTATIC_OP_ADD, IDOVERRIDESTATIC_OP_SUBTRACT, IDOVERRIDESTATIC_OP_MULTIPLY)) {
 			continue;
 		}
 
@@ -7167,7 +7167,7 @@ static bool rna_property_override_operation_store(
 
 static bool rna_property_override_operation_apply(
         PointerRNA *ptr_local, PointerRNA *ptr_reference, PointerRNA *ptr_storage, PropertyRNA *prop_local,
-        IDOverridePropertyOperation *opop)
+        IDOverrideStaticPropertyOperation *opop)
 {
 	int len_local, len_reference, len_storage = 0;
 	PropertyRNA *prop_reference = prop_local;
@@ -7175,11 +7175,11 @@ static bool rna_property_override_operation_apply(
 
 	const short override_op = opop->operation;
 
-	if (override_op == IDOVERRIDE_OP_NOOP) {
+	if (override_op == IDOVERRIDESTATIC_OP_NOOP) {
 		return true;
 	}
 
-	if (ELEM(override_op, IDOVERRIDE_OP_ADD, IDOVERRIDE_OP_SUBTRACT, IDOVERRIDE_OP_MULTIPLY) && !ptr_storage) {
+	if (ELEM(override_op, IDOVERRIDESTATIC_OP_ADD, IDOVERRIDESTATIC_OP_SUBTRACT, IDOVERRIDESTATIC_OP_MULTIPLY) && !ptr_storage) {
 		/* We cannot apply 'diff' override operations without some refference storage.
 		 * This should typically only happen at read time of .blend file... */
 		return false;
@@ -7201,7 +7201,7 @@ static bool rna_property_override_operation_apply(
 		}
 	}
 
-	if (ELEM(override_op, IDOVERRIDE_OP_ADD, IDOVERRIDE_OP_SUBTRACT, IDOVERRIDE_OP_MULTIPLY) && !prop_storage) {
+	if (ELEM(override_op, IDOVERRIDESTATIC_OP_ADD, IDOVERRIDESTATIC_OP_SUBTRACT, IDOVERRIDESTATIC_OP_MULTIPLY) && !prop_storage) {
 		/* We cannot apply 'diff' override operations without some refference storage.
 		 * This should typically only happen at read time of .blend file... */
 		return false;
@@ -7237,7 +7237,7 @@ static bool rna_property_override_operation_apply(
  * with respect to given restrictive sets of properties. */
 bool RNA_struct_override_matches(
         PointerRNA *local, PointerRNA *reference,
-        IDOverride *override, const bool ignore_non_overridable, const bool ignore_overridden)
+        IDOverrideStatic *override, const bool ignore_non_overridable, const bool ignore_overridden)
 {
 	CollectionPropertyIterator iter;
 	PropertyRNA *iterprop;
@@ -7258,7 +7258,7 @@ bool RNA_struct_override_matches(
 		if (ignore_overridden) {
 			/* XXX TODO this will have to be refined to handle collections insertions, and array items */
 			char *rna_path = RNA_path_from_ID_to_property(local, prop);
-			if (BKE_override_property_find(override, rna_path) != NULL) {
+			if (BKE_override_static_property_find(override, rna_path) != NULL) {
 				MEM_SAFE_FREE(rna_path);
 				continue;
 			}
@@ -7283,14 +7283,14 @@ bool RNA_struct_override_matches(
 }
 
 /** Store needed second operands into \a storage data-block for differential override operations. */
-bool RNA_struct_override_store(PointerRNA *local, PointerRNA *reference, PointerRNA *storage, IDOverride *override)
+bool RNA_struct_override_store(PointerRNA *local, PointerRNA *reference, PointerRNA *storage, IDOverrideStatic *override)
 {
 	bool changed = false;
 
 #ifdef DEBUG_OVERRIDE_TIMEIT
 	TIMEIT_START_AVERAGED(RNA_struct_override_store);
 #endif
-	for (IDOverrideProperty *op = override->properties.first; op; op = op->next) {
+	for (IDOverrideStaticProperty *op = override->properties.first; op; op = op->next) {
 		/* Simplified for now! */
 		PointerRNA src_data, dst_data;
 		PropertyRNA *src_prop, *dst_prop;
@@ -7320,9 +7320,9 @@ bool RNA_struct_override_store(PointerRNA *local, PointerRNA *reference, Pointer
 
 /** Apply given \a op override property operations on \a dst, using \a src as source. */
 void RNA_property_override_apply(
-        PointerRNA *dst, PointerRNA *src, PointerRNA *storage, PropertyRNA *prop, IDOverrideProperty *op)
+        PointerRNA *dst, PointerRNA *src, PointerRNA *storage, PropertyRNA *prop, IDOverrideStaticProperty *op)
 {
-	for (IDOverridePropertyOperation *opop = op->operations.first; opop; opop = opop->next) {
+	for (IDOverrideStaticPropertyOperation *opop = op->operations.first; opop; opop = opop->next) {
 		if (!rna_property_override_operation_apply(dst, src, storage, prop, opop))
 		{
 			BLI_assert(0);
@@ -7331,12 +7331,12 @@ void RNA_property_override_apply(
 }
 
 /** Apply given \a override operations on \a dst, using \a src as source. */
-void RNA_struct_override_apply(PointerRNA *dst, PointerRNA *src, PointerRNA *storage, IDOverride *override)
+void RNA_struct_override_apply(PointerRNA *dst, PointerRNA *src, PointerRNA *storage, IDOverrideStatic *override)
 {
 #ifdef DEBUG_OVERRIDE_TIMEIT
 	TIMEIT_START_AVERAGED(RNA_struct_override_apply);
 #endif
-	for (IDOverrideProperty *op = override->properties.first; op; op = op->next) {
+	for (IDOverrideStaticProperty *op = override->properties.first; op; op = op->next) {
 		/* Simplified for now! */
 		PointerRNA src_data, dst_data;
 		PropertyRNA *src_prop, *dst_prop;
@@ -7368,7 +7368,7 @@ void RNA_struct_override_apply(PointerRNA *dst, PointerRNA *src, PointerRNA *sto
 }
 
 /** Automatically define override rules by comparing \a local and \a reference RNA structs. */
-bool RNA_struct_auto_override(PointerRNA *local, PointerRNA *reference, IDOverride *override, const char *root_path)
+bool RNA_struct_auto_override(PointerRNA *local, PointerRNA *reference, IDOverrideStatic *override, const char *root_path)
 {
 	CollectionPropertyIterator iter;
 	PropertyRNA *iterprop;
@@ -7377,7 +7377,7 @@ bool RNA_struct_auto_override(PointerRNA *local, PointerRNA *reference, IDOverri
 	BLI_assert(local->type == reference->type);
 	BLI_assert(local->id.data && reference->id.data);
 
-	if ((((ID *)local->id.data)->flag & LIB_AUTOOVERRIDE) == 0) {
+	if ((((ID *)local->id.data)->flag & LIB_OVERRIDE_STATIC_AUTO) == 0) {
 		return changed;
 	}
 
@@ -7436,63 +7436,63 @@ bool RNA_struct_auto_override(PointerRNA *local, PointerRNA *reference, IDOverri
 	return changed;
 }
 
-IDOverrideProperty *RNA_property_override_property_find(PointerRNA *ptr, PropertyRNA *prop)
+IDOverrideStaticProperty *RNA_property_override_property_find(PointerRNA *ptr, PropertyRNA *prop)
 {
 	ID *id = ptr->id.data;
 
-	if (!id || !id->override) {
+	if (!id || !id->override_static) {
 		return NULL;
 	}
 
 	char *rna_path = RNA_path_from_ID_to_property(ptr, prop);
 	if (rna_path) {
-		IDOverrideProperty *op = BKE_override_property_find(id->override, rna_path);
+		IDOverrideStaticProperty *op = BKE_override_static_property_find(id->override_static, rna_path);
 		MEM_freeN(rna_path);
 		return op;
 	}
 	return NULL;
 }
 
-IDOverrideProperty *RNA_property_override_property_get(PointerRNA *ptr, PropertyRNA *prop, bool *r_created)
+IDOverrideStaticProperty *RNA_property_override_property_get(PointerRNA *ptr, PropertyRNA *prop, bool *r_created)
 {
 	ID *id = ptr->id.data;
 
-	if (!id || !id->override) {
+	if (!id || !id->override_static) {
 		return NULL;
 	}
 
 	char *rna_path = RNA_path_from_ID_to_property(ptr, prop);
 	if (rna_path) {
-		IDOverrideProperty *op = BKE_override_property_get(id->override, rna_path, r_created);
+		IDOverrideStaticProperty *op = BKE_override_static_property_get(id->override_static, rna_path, r_created);
 		MEM_freeN(rna_path);
 		return op;
 	}
 	return NULL;
 }
 
-IDOverridePropertyOperation *RNA_property_override_property_operation_find(
+IDOverrideStaticPropertyOperation *RNA_property_override_property_operation_find(
         PointerRNA *ptr, PropertyRNA *prop, const int index, const bool strict, bool *r_strict)
 {
-	IDOverrideProperty *op = RNA_property_override_property_find(ptr, prop);
+	IDOverrideStaticProperty *op = RNA_property_override_property_find(ptr, prop);
 
 	if (!op) {
 		return NULL;
 	}
 
-	return BKE_override_property_operation_find(op, NULL, NULL, index, index, strict, r_strict);
+	return BKE_override_static_property_operation_find(op, NULL, NULL, index, index, strict, r_strict);
 }
 
-IDOverridePropertyOperation *RNA_property_override_property_operation_get(
+IDOverrideStaticPropertyOperation *RNA_property_override_property_operation_get(
         PointerRNA *ptr, PropertyRNA *prop, const short operation, const int index,
         const bool strict, bool *r_strict, bool *r_created)
 {
-	IDOverrideProperty *op = RNA_property_override_property_get(ptr, prop, NULL);
+	IDOverrideStaticProperty *op = RNA_property_override_property_get(ptr, prop, NULL);
 
 	if (!op) {
 		return NULL;
 	}
 
-	return BKE_override_property_operation_get(op, operation, NULL, NULL, index, index, strict, r_strict, r_created);
+	return BKE_override_static_property_operation_get(op, operation, NULL, NULL, index, index, strict, r_strict, r_created);
 }
 
 void RNA_property_override_status(
@@ -7506,17 +7506,17 @@ void RNA_property_override_status(
 	SET_RET(r_mandatory, false);
 	SET_RET(r_locked, false);
 
-	if (!ptr || !prop || !ptr->id.data || !((ID *)ptr->id.data)->override) {
+	if (!ptr || !prop || !ptr->id.data || !((ID *)ptr->id.data)->override_static) {
 		return;
 	}
 
 	SET_RET(r_overridable, (prop->flag & PROP_OVERRIDABLE) && (prop->flag & PROP_EDITABLE));
 
 	if (r_overridden || r_mandatory || r_locked) {
-		IDOverridePropertyOperation *opop = RNA_property_override_property_operation_find(ptr, prop, index, false, NULL);
+		IDOverrideStaticPropertyOperation *opop = RNA_property_override_property_operation_find(ptr, prop, index, false, NULL);
 		SET_RET(r_overridden, opop != NULL);
-		SET_RET(r_mandatory, (opop->flag & IDOVERRIDE_FLAG_MANDATORY) != 0);
-		SET_RET(r_locked, (opop->flag & IDOVERRIDE_FLAG_LOCKED) != 0);
+		SET_RET(r_mandatory, (opop->flag & IDOVERRIDESTATIC_FLAG_MANDATORY) != 0);
+		SET_RET(r_locked, (opop->flag & IDOVERRIDESTATIC_FLAG_LOCKED) != 0);
 	}
 }
 

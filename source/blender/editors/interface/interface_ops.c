@@ -504,19 +504,19 @@ static int override_type_set_button_exec(bContext *C, wmOperator *op)
 
 	switch(op_type) {
 		case UIOverride_Type_NOOP:
-			operation = IDOVERRIDE_OP_NOOP;
+			operation = IDOVERRIDESTATIC_OP_NOOP;
 			break;
 		case UIOverride_Type_Replace:
-			operation = IDOVERRIDE_OP_REPLACE;
+			operation = IDOVERRIDESTATIC_OP_REPLACE;
 			break;
 		case UIOverride_Type_Difference:
-			operation = IDOVERRIDE_OP_ADD;  /* override code will automatically switch to subtract if needed. */
+			operation = IDOVERRIDESTATIC_OP_ADD;  /* override code will automatically switch to subtract if needed. */
 			break;
 		case UIOverride_Type_Factor:
-			operation = IDOVERRIDE_OP_MULTIPLY;
+			operation = IDOVERRIDESTATIC_OP_MULTIPLY;
 			break;
 		default:
-			operation = IDOVERRIDE_OP_REPLACE;
+			operation = IDOVERRIDESTATIC_OP_REPLACE;
 			BLI_assert(0);
 			break;
 	}
@@ -530,7 +530,7 @@ static int override_type_set_button_exec(bContext *C, wmOperator *op)
 		index = -1;
 	}
 
-	IDOverridePropertyOperation *opop = RNA_property_override_property_operation_get(
+	IDOverrideStaticPropertyOperation *opop = RNA_property_override_property_operation_get(
 	                                        &ptr, prop, operation, index, true, NULL, &created);
 	if (!created) {
 		opop->operation = operation;
@@ -592,16 +592,16 @@ static int override_remove_button_exec(bContext *C, wmOperator *op)
 	UI_context_active_but_prop_get(C, &ptr, &prop, &index);
 
 	ID *id = ptr.id.data;
-	IDOverrideProperty *oprop = RNA_property_override_property_find(&ptr, prop);
+	IDOverrideStaticProperty *oprop = RNA_property_override_property_find(&ptr, prop);
 	BLI_assert(oprop != NULL);
-	BLI_assert(id != NULL && id->override != NULL);
+	BLI_assert(id != NULL && id->override_static != NULL);
 
-	const bool is_template = (id->override->reference == NULL);
+	const bool is_template = (id->override_static->reference == NULL);
 
 	/* We need source (i.e. linked data) to restore values of deleted overrides...
 	 * If this is an override template, we obviously do not need to restore anything. */
 	if (!is_template) {
-		RNA_id_pointer_create(id->override->reference, &id_refptr);
+		RNA_id_pointer_create(id->override_static->reference, &id_refptr);
 		if (!RNA_path_resolve(&id_refptr, oprop->rna_path, &src, NULL)) {
 			BLI_assert(0 && "Failed to create matching source (linked data) RNA pointer");
 		}
@@ -610,7 +610,7 @@ static int override_remove_button_exec(bContext *C, wmOperator *op)
 	if (!all && index != -1) {
 		bool is_strict_find;
 		/* Remove override operation for given item, add singular operations for the other items as needed. */
-		IDOverridePropertyOperation *opop = BKE_override_property_operation_find(
+		IDOverrideStaticPropertyOperation *opop = BKE_override_static_property_operation_find(
 		                                        oprop, NULL, NULL, index, index, false, &is_strict_find);
 		BLI_assert(opop != NULL);
 		if (!is_strict_find) {
@@ -618,21 +618,21 @@ static int override_remove_button_exec(bContext *C, wmOperator *op)
 			 * and create item-specific override operations for all but given index, before removing generic one. */
 			for (int idx = RNA_property_array_length(&ptr, prop); idx--; ) {
 				if (idx != index) {
-					BKE_override_property_operation_get(oprop, opop->operation, NULL, NULL, idx, idx, true, NULL, NULL);
+					BKE_override_static_property_operation_get(oprop, opop->operation, NULL, NULL, idx, idx, true, NULL, NULL);
 				}
 			}
 		}
-		BKE_override_property_operation_delete(oprop, opop);
+		BKE_override_static_property_operation_delete(oprop, opop);
 		if (!is_template) {
 			RNA_property_copy(&ptr, &src, prop, index);
 		}
 		if (BLI_listbase_is_empty(&oprop->operations)) {
-			BKE_override_property_delete(id->override, oprop);
+			BKE_override_static_property_delete(id->override_static, oprop);
 		}
 	}
 	else {
 		/* Just remove whole generic override operation of this property. */
-		BKE_override_property_delete(id->override, oprop);
+		BKE_override_static_property_delete(id->override_static, oprop);
 		if (!is_template) {
 			RNA_property_copy(&ptr, &src, prop, -1);
 		}

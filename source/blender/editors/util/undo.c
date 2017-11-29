@@ -84,7 +84,7 @@ void ED_undo_push(bContext *C, const char *str)
 		printf("%s: %s\n", __func__, str);
 
 	/* Always do it for now, this might need to be refined... */
-	BKE_main_override_operations_create(CTX_data_main(C));
+	BKE_main_override_static_operations_create(CTX_data_main(C));
 
 	if (obedit) {
 		if (U.undosteps == 0) return;

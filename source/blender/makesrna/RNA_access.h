@@ -39,9 +39,9 @@ extern "C" {
 
 struct bContext;
 struct ID;
-struct IDOverride;
-struct IDOverrideProperty;
-struct IDOverridePropertyOperation;
+struct IDOverrideStatic;
+struct IDOverrideStaticProperty;
+struct IDOverrideStaticPropertyOperation;
 struct ListBase;
 struct Main;
 struct ReportList;
@@ -1256,27 +1256,27 @@ bool RNA_struct_equals(struct PointerRNA *a, struct PointerRNA *b, eRNACompareMo
 /* Override. */
 
 bool RNA_struct_override_matches(struct PointerRNA *local, struct PointerRNA *reference,
-        struct IDOverride *override, const bool ignore_non_overridable, const bool ignore_overridden);
+        struct IDOverrideStatic *override, const bool ignore_non_overridable, const bool ignore_overridden);
 
 bool RNA_struct_override_store(
-        struct PointerRNA *local, struct PointerRNA *reference, PointerRNA *storage, struct IDOverride *override);
+        struct PointerRNA *local, struct PointerRNA *reference, PointerRNA *storage, struct IDOverrideStatic *override);
 
 void RNA_property_override_apply(
         struct PointerRNA *dst, struct PointerRNA *src, struct PointerRNA *storage, struct PropertyRNA *prop,
-        struct IDOverrideProperty *op);
+        struct IDOverrideStaticProperty *op);
 void RNA_struct_override_apply(
         struct PointerRNA *dst, struct PointerRNA *src, struct PointerRNA *storage,
-        struct IDOverride *override);
+        struct IDOverrideStatic *override);
 
 bool RNA_struct_auto_override(
-        struct PointerRNA *local, struct PointerRNA *reference, struct IDOverride *override, const char *root_path);
+        struct PointerRNA *local, struct PointerRNA *reference, struct IDOverrideStatic *override, const char *root_path);
 
-struct IDOverrideProperty *RNA_property_override_property_find(PointerRNA *ptr, PropertyRNA *prop);
-struct IDOverrideProperty *RNA_property_override_property_get(PointerRNA *ptr, PropertyRNA *prop, bool *r_created);
+struct IDOverrideStaticProperty *RNA_property_override_property_find(PointerRNA *ptr, PropertyRNA *prop);
+struct IDOverrideStaticProperty *RNA_property_override_property_get(PointerRNA *ptr, PropertyRNA *prop, bool *r_created);
 
-struct IDOverridePropertyOperation *RNA_property_override_property_operation_find(
+struct IDOverrideStaticPropertyOperation *RNA_property_override_property_operation_find(
         PointerRNA *ptr, PropertyRNA *prop, const int index, const bool strict, bool *r_strict);
-struct IDOverridePropertyOperation *RNA_property_override_property_operation_get(
+struct IDOverrideStaticPropertyOperation *RNA_property_override_property_operation_get(
         PointerRNA *ptr, PropertyRNA *prop, const short operation, const int index,
         const bool strict, bool *r_strict, bool *r_created);
 

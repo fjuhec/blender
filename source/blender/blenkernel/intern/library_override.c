@@ -52,78 +52,78 @@
 
 #define OVERRIDE_AUTO_CHECK_DELAY 0.2  /* 200ms between auto-override checks. */
 
-static void bke_override_property_copy(IDOverrideProperty *op_dst, IDOverrideProperty *op_src);
-static void bke_override_property_operation_copy(IDOverridePropertyOperation *opop_dst, IDOverridePropertyOperation *opop_src);
+static void bke_override_property_copy(IDOverrideStaticProperty *op_dst, IDOverrideStaticProperty *op_src);
+static void bke_override_property_operation_copy(IDOverrideStaticPropertyOperation *opop_dst, IDOverrideStaticPropertyOperation *opop_src);
 
-static void bke_override_property_clear(IDOverrideProperty *op);
-static void bke_override_property_operation_clear(IDOverridePropertyOperation *opop);
+static void bke_override_property_clear(IDOverrideStaticProperty *op);
+static void bke_override_property_operation_clear(IDOverrideStaticPropertyOperation *opop);
 
 /** Initialize empty overriding of \a reference_id by \a local_id. */
-IDOverride *BKE_override_init(ID *local_id, ID *reference_id)
+IDOverrideStatic *BKE_override_static_init(ID *local_id, ID *reference_id)
 {
 	/* If reference_id is NULL, we are creating an override template for purely local data.
 	 * Else, reference *must* be linked data. */
 	BLI_assert(reference_id == NULL || reference_id->lib != NULL);
-	BLI_assert(local_id->override == NULL);
+	BLI_assert(local_id->override_static == NULL);
 
-	if (reference_id != NULL && reference_id->override != NULL && reference_id->override->reference == NULL) {
+	if (reference_id != NULL && reference_id->override_static != NULL && reference_id->override_static->reference == NULL) {
 		/* reference ID has an override template, use it! */
-		BKE_override_copy(local_id, reference_id);
-		return local_id->override;
+		BKE_override_static_copy(local_id, reference_id);
+		return local_id->override_static;
 	}
 
 	/* Else, generate new empty override. */
-	local_id->override = MEM_callocN(sizeof(*local_id->override), __func__);
-	local_id->override->reference = reference_id;
+	local_id->override_static = MEM_callocN(sizeof(*local_id->override_static), __func__);
+	local_id->override_static->reference = reference_id;
 	id_us_plus(reference_id);
-	local_id->tag &= ~LIB_TAG_OVERRIDE_OK;
+	local_id->tag &= ~LIB_TAG_OVERRIDESTATIC_OK;
 	/* TODO do we want to add tag or flag to referee to mark it as such? */
-	return local_id->override;
+	return local_id->override_static;
 }
 
 /** Deep copy of a whole override from \a src_id to \a dst_id. */
-void BKE_override_copy(ID *dst_id, const ID *src_id)
+void BKE_override_static_copy(ID *dst_id, const ID *src_id)
 {
-	BLI_assert(src_id->override != NULL);
+	BLI_assert(src_id->override_static != NULL);
 
-	if (dst_id->override != NULL) {
-		if (src_id->override == NULL) {
-			BKE_override_free(&dst_id->override);
+	if (dst_id->override_static != NULL) {
+		if (src_id->override_static == NULL) {
+			BKE_override_static_free(&dst_id->override_static);
 			return;
 		}
 		else {
-			BKE_override_clear(dst_id->override);
+			BKE_override_static_clear(dst_id->override_static);
 		}
 	}
-	else if (src_id->override == NULL) {
+	else if (src_id->override_static == NULL) {
 		return;
 	}
 	else {
-		BKE_override_init(dst_id, NULL);
+		BKE_override_static_init(dst_id, NULL);
 	}
 
 	/* Source is already overriding data, we copy it but reuse its reference for dest ID.
 	 * otherwise, source is only an override template, it then becomes reference of dest ID. */
-	dst_id->override->reference = src_id->override->reference ? src_id->override->reference : (ID *)src_id;
-	id_us_plus(dst_id->override->reference);
+	dst_id->override_static->reference = src_id->override_static->reference ? src_id->override_static->reference : (ID *)src_id;
+	id_us_plus(dst_id->override_static->reference);
 
-	BLI_duplicatelist(&dst_id->override->properties, &src_id->override->properties);
-	for (IDOverrideProperty *op_dst = dst_id->override->properties.first, *op_src = src_id->override->properties.first;
+	BLI_duplicatelist(&dst_id->override_static->properties, &src_id->override_static->properties);
+	for (IDOverrideStaticProperty *op_dst = dst_id->override_static->properties.first, *op_src = src_id->override_static->properties.first;
 	     op_dst;
 	     op_dst = op_dst->next, op_src = op_src->next)
 	{
 		bke_override_property_copy(op_dst, op_src);
 	}
 
-	dst_id->tag &= ~LIB_TAG_OVERRIDE_OK;
+	dst_id->tag &= ~LIB_TAG_OVERRIDESTATIC_OK;
 }
 
 /** Clear any overriding data from given \a override. */
-void BKE_override_clear(IDOverride *override)
+void BKE_override_static_clear(IDOverrideStatic *override)
 {
 	BLI_assert(override != NULL);
 
-	for (IDOverrideProperty *op = override->properties.first; op; op = op->next) {
+	for (IDOverrideStaticProperty *op = override->properties.first; op; op = op->next) {
 		bke_override_property_clear(op);
 	}
 	BLI_freelistN(&override->properties);
@@ -133,17 +133,17 @@ void BKE_override_clear(IDOverride *override)
 }
 
 /** Free given \a override. */
-void BKE_override_free(struct IDOverride **override)
+void BKE_override_static_free(struct IDOverrideStatic **override)
 {
 	BLI_assert(*override != NULL);
 
-	BKE_override_clear(*override);
+	BKE_override_static_clear(*override);
 	MEM_freeN(*override);
 	*override = NULL;
 }
 
 /** Create an overriden local copy of linked reference. */
-ID *BKE_override_create_from(Main *bmain, ID *reference_id)
+ID *BKE_override_static_create_from(Main *bmain, ID *reference_id)
 {
 	BLI_assert(reference_id != NULL);
 	BLI_assert(reference_id->lib != NULL);
@@ -155,8 +155,8 @@ ID *BKE_override_create_from(Main *bmain, ID *reference_id)
 	}
 	id_us_min(local_id);
 
-	BKE_override_init(local_id, reference_id);
-	local_id->flag |= LIB_AUTOOVERRIDE;
+	BKE_override_static_init(local_id, reference_id);
+	local_id->flag |= LIB_OVERRIDE_STATIC_AUTO;
 
 	/* Remapping, we obviously only want to affect local data (and not our own reference pointer to overriden ID). */
 	BKE_libblock_remap(bmain, reference_id, local_id, ID_REMAP_SKIP_INDIRECT_USAGE | ID_REMAP_SKIP_STATIC_OVERRIDE);
@@ -167,22 +167,22 @@ ID *BKE_override_create_from(Main *bmain, ID *reference_id)
 /**
  * Find override property from given RNA path, if it exists.
  */
-IDOverrideProperty *BKE_override_property_find(IDOverride *override, const char *rna_path)
+IDOverrideStaticProperty *BKE_override_static_property_find(IDOverrideStatic *override, const char *rna_path)
 {
 	/* XXX TODO we'll most likely want a runtime ghash to store that mapping at some point. */
-	return BLI_findstring_ptr(&override->properties, rna_path, offsetof(IDOverrideProperty, rna_path));
+	return BLI_findstring_ptr(&override->properties, rna_path, offsetof(IDOverrideStaticProperty, rna_path));
 }
 
 /**
  * Find override property from given RNA path, or create it if it does not exist.
  */
-IDOverrideProperty *BKE_override_property_get(IDOverride *override, const char *rna_path, bool *r_created)
+IDOverrideStaticProperty *BKE_override_static_property_get(IDOverrideStatic *override, const char *rna_path, bool *r_created)
 {
 	/* XXX TODO we'll most likely want a runtime ghash to store taht mapping at some point. */
-	IDOverrideProperty *op = BKE_override_property_find(override, rna_path);
+	IDOverrideStaticProperty *op = BKE_override_static_property_find(override, rna_path);
 
 	if (op == NULL) {
-		op = MEM_callocN(sizeof(IDOverrideProperty), __func__);
+		op = MEM_callocN(sizeof(IDOverrideStaticProperty), __func__);
 		op->rna_path = BLI_strdup(rna_path);
 		BLI_addtail(&override->properties, op);
 
@@ -197,12 +197,12 @@ IDOverrideProperty *BKE_override_property_get(IDOverride *override, const char *
 	return op;
 }
 
-void bke_override_property_copy(IDOverrideProperty *op_dst, IDOverrideProperty *op_src)
+void bke_override_property_copy(IDOverrideStaticProperty *op_dst, IDOverrideStaticProperty *op_src)
 {
 	op_dst->rna_path = BLI_strdup(op_src->rna_path);
 	BLI_duplicatelist(&op_dst->operations, &op_src->operations);
 
-	for (IDOverridePropertyOperation *opop_dst = op_dst->operations.first, *opop_src = op_src->operations.first;
+	for (IDOverrideStaticPropertyOperation *opop_dst = op_dst->operations.first, *opop_src = op_src->operations.first;
 	     opop_dst;
 	     opop_dst = opop_dst->next, opop_src = opop_src->next)
 	{
@@ -210,13 +210,13 @@ void bke_override_property_copy(IDOverrideProperty *op_dst, IDOverrideProperty *
 	}
 }
 
-void bke_override_property_clear(IDOverrideProperty *op)
+void bke_override_property_clear(IDOverrideStaticProperty *op)
 {
 	BLI_assert(op->rna_path != NULL);
 
 	MEM_freeN(op->rna_path);
 
-	for (IDOverridePropertyOperation *opop = op->operations.first; opop; opop = opop->next) {
+	for (IDOverrideStaticPropertyOperation *opop = op->operations.first; opop; opop = opop->next) {
 		bke_override_property_operation_clear(opop);
 	}
 	BLI_freelistN(&op->operations);
@@ -225,7 +225,7 @@ void bke_override_property_clear(IDOverrideProperty *op)
 /**
  * Remove and free given \a override_property from given ID \a override.
  */
-void BKE_override_property_delete(IDOverride *override, IDOverrideProperty *override_property)
+void BKE_override_static_property_delete(IDOverrideStatic *override, IDOverrideStaticProperty *override_property)
 {
 	bke_override_property_clear(override_property);
 	BLI_freelinkN(&override->properties, override_property);
@@ -234,12 +234,12 @@ void BKE_override_property_delete(IDOverride *override, IDOverrideProperty *over
 /**
  * Find override property operation from given sub-item(s), if it exists.
  */
-IDOverridePropertyOperation *BKE_override_property_operation_find(
-        IDOverrideProperty *override_property,
+IDOverrideStaticPropertyOperation *BKE_override_static_property_operation_find(
+        IDOverrideStaticProperty *override_property,
         const char *subitem_refname, const char *subitem_locname,
         const int subitem_refindex, const int subitem_locindex, const bool strict, bool *r_strict)
 {
-	IDOverridePropertyOperation *opop;
+	IDOverrideStaticPropertyOperation *opop;
 	const int subitem_defindex = -1;
 
 	if (r_strict) {
@@ -248,26 +248,26 @@ IDOverridePropertyOperation *BKE_override_property_operation_find(
 
 	if (subitem_locname &&
 	    (opop = BLI_findstring_ptr(&override_property->operations, subitem_locname,
-	                               offsetof(IDOverridePropertyOperation, subitem_local_name))))
+	                               offsetof(IDOverrideStaticPropertyOperation, subitem_local_name))))
 	{
 		return opop;
 	}
 
 	if (subitem_refname &&
 	    (opop = BLI_findstring_ptr(&override_property->operations, subitem_refname,
-	                               offsetof(IDOverridePropertyOperation, subitem_reference_name))))
+	                               offsetof(IDOverrideStaticPropertyOperation, subitem_reference_name))))
 	{
 		return opop;
 	}
 
 	if ((opop = BLI_listbase_bytes_find(&override_property->operations, &subitem_locindex, sizeof(subitem_locindex),
-	                                    offsetof(IDOverridePropertyOperation, subitem_local_index))))
+	                                    offsetof(IDOverrideStaticPropertyOperation, subitem_local_index))))
 	{
 		return opop;
 	}
 
 	if ((opop = BLI_listbase_bytes_find(&override_property->operations, &subitem_refindex, sizeof(subitem_refindex),
-	                                    offsetof(IDOverridePropertyOperation, subitem_reference_index))))
+	                                    offsetof(IDOverrideStaticPropertyOperation, subitem_reference_index))))
 	{
 		return opop;
 	}
@@ -275,7 +275,7 @@ IDOverridePropertyOperation *BKE_override_property_operation_find(
 	/* index == -1 means all indices, that is valid fallback in case we requested specific index. */
 	if (!strict && (subitem_locindex != subitem_defindex) &&
 	    (opop = BLI_listbase_bytes_find(&override_property->operations, &subitem_defindex, sizeof(subitem_defindex),
-	                                    offsetof(IDOverridePropertyOperation, subitem_local_index))))
+	                                    offsetof(IDOverrideStaticPropertyOperation, subitem_local_index))))
 	{
 		if (r_strict) {
 			*r_strict = false;
@@ -289,19 +289,19 @@ IDOverridePropertyOperation *BKE_override_property_operation_find(
 /**
  * Find override property operation from given sub-item(s), or create it if it does not exist.
  */
-IDOverridePropertyOperation *BKE_override_property_operation_get(
-        IDOverrideProperty *override_property, const short operation,
+IDOverrideStaticPropertyOperation *BKE_override_static_property_operation_get(
+        IDOverrideStaticProperty *override_property, const short operation,
         const char *subitem_refname, const char *subitem_locname,
         const int subitem_refindex, const int subitem_locindex,
         const bool strict, bool *r_strict, bool *r_created)
 {
-	IDOverridePropertyOperation *opop = BKE_override_property_operation_find(override_property,
+	IDOverrideStaticPropertyOperation *opop = BKE_override_static_property_operation_find(override_property,
 	                                                                         subitem_refname, subitem_locname,
 	                                                                         subitem_refindex, subitem_locindex,
 	                                                                         strict, r_strict);
 
 	if (opop == NULL) {
-		opop = MEM_callocN(sizeof(IDOverridePropertyOperation), __func__);
+		opop = MEM_callocN(sizeof(IDOverrideStaticPropertyOperation), __func__);
 		opop->operation = operation;
 		if (subitem_locname) {
 			opop->subitem_local_name = BLI_strdup(subitem_locname);
@@ -325,7 +325,7 @@ IDOverridePropertyOperation *BKE_override_property_operation_get(
 	return opop;
 }
 
-void bke_override_property_operation_copy(IDOverridePropertyOperation *opop_dst, IDOverridePropertyOperation *opop_src)
+void bke_override_property_operation_copy(IDOverrideStaticPropertyOperation *opop_dst, IDOverrideStaticPropertyOperation *opop_src)
 {
 	if (opop_src->subitem_reference_name) {
 		opop_dst->subitem_reference_name = BLI_strdup(opop_src->subitem_reference_name);
@@ -335,7 +335,7 @@ void bke_override_property_operation_copy(IDOverridePropertyOperation *opop_dst,
 	}
 }
 
-void bke_override_property_operation_clear(IDOverridePropertyOperation *opop)
+void bke_override_property_operation_clear(IDOverrideStaticPropertyOperation *opop)
 {
 	if (opop->subitem_reference_name) {
 		MEM_freeN(opop->subitem_reference_name);
@@ -348,8 +348,8 @@ void bke_override_property_operation_clear(IDOverridePropertyOperation *opop)
 /**
  * Remove and free given \a override_property_operation from given ID \a override_property.
  */
-void BKE_override_property_operation_delete(
-        IDOverrideProperty *override_property, IDOverridePropertyOperation *override_property_operation)
+void BKE_override_static_property_operation_delete(
+        IDOverrideStaticProperty *override_property, IDOverrideStaticPropertyOperation *override_property_operation)
 {
 	bke_override_property_operation_clear(override_property_operation);
 	BLI_freelinkN(&override_property->operations, override_property_operation);
@@ -365,11 +365,11 @@ void BKE_override_property_operation_delete(
  * (of IDOverridePropertyOperation) has to be added.
  *
  * \return true if status is OK, false otherwise. */
-bool BKE_override_status_check_local(ID *local)
+bool BKE_override_static_status_check_local(ID *local)
 {
-	BLI_assert(local->override != NULL);
+	BLI_assert(local->override_static != NULL);
 
-	ID *reference = local->override->reference;
+	ID *reference = local->override_static->reference;
 
 	if (reference == NULL) {
 		/* This is an override template, local status is always OK! */
@@ -384,8 +384,8 @@ bool BKE_override_status_check_local(ID *local)
 	RNA_id_pointer_create(local, &rnaptr_local);
 	RNA_id_pointer_create(reference, &rnaptr_reference);
 
-	if (!RNA_struct_override_matches(&rnaptr_local, &rnaptr_reference, local->override, true, true)) {
-		local->tag &= ~LIB_TAG_OVERRIDE_OK;
+	if (!RNA_struct_override_matches(&rnaptr_local, &rnaptr_reference, local->override_static, true, true)) {
+		local->tag &= ~LIB_TAG_OVERRIDESTATIC_OK;
 		return false;
 	}
 
@@ -401,11 +401,11 @@ bool BKE_override_status_check_local(ID *local)
  * This is typically used to detect whether some reference has changed and local needs to be updated against it.
  *
  * \return true if status is OK, false otherwise. */
-bool BKE_override_status_check_reference(ID *local)
+bool BKE_override_static_status_check_reference(ID *local)
 {
-	BLI_assert(local->override != NULL);
+	BLI_assert(local->override_static != NULL);
 
-	ID *reference = local->override->reference;
+	ID *reference = local->override_static->reference;
 
 	if (reference == NULL) {
 		/* This is an override template, reference is virtual, so its status is always OK! */
@@ -414,12 +414,12 @@ bool BKE_override_status_check_reference(ID *local)
 
 	BLI_assert(GS(local->name) == GS(reference->name));
 
-	if (reference->override && (reference->tag & LIB_TAG_OVERRIDE_OK) == 0) {
-		if (!BKE_override_status_check_reference(reference)) {
+	if (reference->override_static && (reference->tag & LIB_TAG_OVERRIDESTATIC_OK) == 0) {
+		if (!BKE_override_static_status_check_reference(reference)) {
 			/* If reference is also override of another data-block, and its status is not OK,
 			 * then this override is not OK either.
 			 * Note that this should only happen when reloading libraries... */
-			local->tag &= ~LIB_TAG_OVERRIDE_OK;
+			local->tag &= ~LIB_TAG_OVERRIDESTATIC_OK;
 			return false;
 		}
 	}
@@ -428,8 +428,8 @@ bool BKE_override_status_check_reference(ID *local)
 	RNA_id_pointer_create(local, &rnaptr_local);
 	RNA_id_pointer_create(reference, &rnaptr_reference);
 
-	if (!RNA_struct_override_matches(&rnaptr_local, &rnaptr_reference, local->override, false, true)) {
-		local->tag &= ~LIB_TAG_OVERRIDE_OK;
+	if (!RNA_struct_override_matches(&rnaptr_local, &rnaptr_reference, local->override_static, false, true)) {
+		local->tag &= ~LIB_TAG_OVERRIDESTATIC_OK;
 		return false;
 	}
 
@@ -448,18 +448,18 @@ bool BKE_override_status_check_reference(ID *local)
  * are much cheaper.
  *
  * \return true is new overriding op was created, or some local data was reset. */
-bool BKE_override_operations_create(ID *local)
+bool BKE_override_static_operations_create(ID *local)
 {
-	BLI_assert(local->override != NULL);
-	const bool is_template = (local->override->reference == NULL);
+	BLI_assert(local->override_static != NULL);
+	const bool is_template = (local->override_static->reference == NULL);
 	bool ret = false;
 
-	if (!is_template && local->flag & LIB_AUTOOVERRIDE) {
+	if (!is_template && local->flag & LIB_OVERRIDE_STATIC_AUTO) {
 		PointerRNA rnaptr_local, rnaptr_reference;
 		RNA_id_pointer_create(local, &rnaptr_local);
-		RNA_id_pointer_create(local->override->reference, &rnaptr_reference);
+		RNA_id_pointer_create(local->override_static->reference, &rnaptr_reference);
 
-		ret = RNA_struct_auto_override(&rnaptr_local, &rnaptr_reference, local->override, NULL);
+		ret = RNA_struct_auto_override(&rnaptr_local, &rnaptr_reference, local->override_static, NULL);
 		if (ret) {
 			printf("We did generate static override rules for %s\n", local->name);
 		}
@@ -471,7 +471,7 @@ bool BKE_override_operations_create(ID *local)
 }
 
 /** Check all overrides from given \a bmain and create/update overriding operations as needed. */
-void BKE_main_override_operations_create(Main *bmain)
+void BKE_main_override_static_operations_create(Main *bmain)
 {
 	ListBase *lbarray[MAX_LIBARRAY];
 	int base_count, i;
@@ -484,23 +484,23 @@ void BKE_main_override_operations_create(Main *bmain)
 
 		for (id = lb->first; id; id = id->next) {
 			/* TODO Maybe we could also add an 'override update' tag e.g. when tagging for DEG update? */
-			if (id->lib == NULL && id->override != NULL && id->override->reference != NULL && (id->flag & LIB_AUTOOVERRIDE)) {
-				BKE_override_operations_create(id);
+			if (id->lib == NULL && id->override_static != NULL && id->override_static->reference != NULL && (id->flag & LIB_OVERRIDE_STATIC_AUTO)) {
+				BKE_override_static_operations_create(id);
 			}
 		}
 	}
 }
 
 /** Update given override from its reference (re-applying overriden properties). */
-void BKE_override_update(Main *bmain, ID *local)
+void BKE_override_static_update(Main *bmain, ID *local)
 {
-	if (local->override == NULL || local->override->reference == NULL) {
+	if (local->override_static == NULL || local->override_static->reference == NULL) {
 		return;
 	}
 
 	/* Recursively do 'ancestors' overrides first, if any. */
-	if (local->override->reference->override && (local->override->reference->tag & LIB_TAG_OVERRIDE_OK) == 0) {
-		BKE_override_update(bmain, local->override->reference);
+	if (local->override_static->reference->override_static && (local->override_static->reference->tag & LIB_TAG_OVERRIDESTATIC_OK) == 0) {
+		BKE_override_static_update(bmain, local->override_static->reference);
 	}
 
 	/* We want to avoid having to remap here, however creating up-to-date override is much simpler if based
@@ -518,7 +518,7 @@ void BKE_override_update(Main *bmain, ID *local)
 	 * a (performances) issue here. */
 
 	ID *tmp_id;
-	id_copy(bmain, local->override->reference, &tmp_id, false);
+	id_copy(bmain, local->override_static->reference, &tmp_id, false);
 
 	if (tmp_id == NULL) {
 		return;
@@ -527,12 +527,12 @@ void BKE_override_update(Main *bmain, ID *local)
 	PointerRNA rnaptr_src, rnaptr_dst, rnaptr_storage_stack, *rnaptr_storage = NULL;
 	RNA_id_pointer_create(local, &rnaptr_src);
 	RNA_id_pointer_create(tmp_id, &rnaptr_dst);
-	if (local->override->storage) {
+	if (local->override_static->storage) {
 		rnaptr_storage = &rnaptr_storage_stack;
-		RNA_id_pointer_create(local->override->storage, rnaptr_storage);
+		RNA_id_pointer_create(local->override_static->storage, rnaptr_storage);
 	}
 
-	RNA_struct_override_apply(&rnaptr_dst, &rnaptr_src, rnaptr_storage, local->override);
+	RNA_struct_override_apply(&rnaptr_dst, &rnaptr_src, rnaptr_storage, local->override_static);
 
 	/* This also transfers all pointers (memory) owned by local to tmp_id, and vice-versa. So when we'll free tmp_id,
 	 * we'll actually free old, outdated data from local. */
@@ -542,22 +542,22 @@ void BKE_override_update(Main *bmain, ID *local)
 	/* XXX And crashing in complex cases (e.g. because depsgraph uses same data...). */
 	BKE_libblock_free_ex(bmain, tmp_id, true, false);
 
-	if (local->override->storage) {
+	if (local->override_static->storage) {
 		/* We know this datablock is not used anywhere besides local->override->storage. */
 		/* XXX For until we get fully shadow copies, we still need to ensure storage releases
 		 *     its usage of any ID pointers it may have. */
-		BKE_libblock_free_ex(bmain, local->override->storage, true, false);
-		local->override->storage = NULL;
+		BKE_libblock_free_ex(bmain, local->override_static->storage, true, false);
+		local->override_static->storage = NULL;
 	}
 
-	local->tag |= LIB_TAG_OVERRIDE_OK;
+	local->tag |= LIB_TAG_OVERRIDESTATIC_OK;
 
 	/* Full rebuild of Depsgraph! */
 	DEG_on_visible_update(bmain, true);  /* XXX Is this actual valid replacement for old DAG_relations_tag_update(bmain) ? */
 }
 
 /** Update all overrides from given \a bmain. */
-void BKE_main_override_update(Main *bmain)
+void BKE_main_override_static_update(Main *bmain)
 {
 	ListBase *lbarray[MAX_LIBARRAY];
 	int base_count, i;
@@ -569,8 +569,8 @@ void BKE_main_override_update(Main *bmain)
 		ID *id;
 
 		for (id = lb->first; id; id = id->next) {
-			if (id->override != NULL && id->lib == NULL) {
-				BKE_override_update(bmain, id);
+			if (id->override_static != NULL && id->lib == NULL) {
+				BKE_override_static_update(bmain, id);
 			}
 		}
 	}
@@ -591,7 +591,7 @@ void BKE_main_override_update(Main *bmain)
  */
 
 /** Initialize an override storage. */
-OverrideStorage *BKE_override_operations_store_initialize(void)
+OverrideStaticStorage *BKE_override_static_operations_store_initialize(void)
 {
 	return BKE_main_new();
 }
@@ -600,11 +600,11 @@ OverrideStorage *BKE_override_operations_store_initialize(void)
  * Generate suitable 'write' data (this only affects differential override operations).
  *
  * Note that \a local ID is no more modified by this call, all extra data are stored in its temp \a storage_id copy. */
-ID *BKE_override_operations_store_start(OverrideStorage *override_storage, ID *local)
+ID *BKE_override_static_operations_store_start(OverrideStaticStorage *override_storage, ID *local)
 {
-	BLI_assert(local->override != NULL);
+	BLI_assert(local->override_static != NULL);
 	BLI_assert(override_storage != NULL);
-	const bool is_template = (local->override->reference == NULL);
+	const bool is_template = (local->override_static->reference == NULL);
 
 	if (is_template) {
 		/* This is actually purely local data with an override template, nothing to do here! */
@@ -612,7 +612,7 @@ ID *BKE_override_operations_store_start(OverrideStorage *override_storage, ID *l
 	}
 
 	/* Forcefully ensure we know about all needed override operations. */
-	BKE_override_operations_create(local);
+	BKE_override_static_operations_create(local);
 
 	ID *storage_id;
 #ifdef DEBUG_OVERRIDE_TIMEIT
@@ -628,17 +628,17 @@ ID *BKE_override_operations_store_start(OverrideStorage *override_storage, ID *l
 
 	if (storage_id != NULL) {
 		PointerRNA rnaptr_reference, rnaptr_final, rnaptr_storage;
-		RNA_id_pointer_create(local->override->reference, &rnaptr_reference);
+		RNA_id_pointer_create(local->override_static->reference, &rnaptr_reference);
 		RNA_id_pointer_create(local, &rnaptr_final);
 		RNA_id_pointer_create(storage_id, &rnaptr_storage);
 
-		if (!RNA_struct_override_store(&rnaptr_final, &rnaptr_reference, &rnaptr_storage, local->override)) {
+		if (!RNA_struct_override_store(&rnaptr_final, &rnaptr_reference, &rnaptr_storage, local->override_static)) {
 			BKE_libblock_free_ex(override_storage, storage_id, true, false);
 			storage_id = NULL;
 		}
 	}
 
-	local->override->storage = storage_id;
+	local->override_static->storage = storage_id;
 
 #ifdef DEBUG_OVERRIDE_TIMEIT
 	TIMEIT_END_AVERAGED(BKE_override_operations_store_start);
@@ -647,16 +647,16 @@ ID *BKE_override_operations_store_start(OverrideStorage *override_storage, ID *l
 }
 
 /** Restore given ID modified by \a BKE_override_operations_store_start, to its original state. */
-void BKE_override_operations_store_end(OverrideStorage *UNUSED(override_storage), ID *local)
+void BKE_override_static_operations_store_end(OverrideStaticStorage *UNUSED(override_storage), ID *local)
 {
-	BLI_assert(local->override != NULL);
+	BLI_assert(local->override_static != NULL);
 
 	/* Nothing else to do here really, we need to keep all temp override storage data-blocks in memory until
 	 * whole file is written anyway (otherwise we'd get mem pointers overlap...). */
-	local->override->storage = NULL;
+	local->override_static->storage = NULL;
 }
 
-void BKE_override_operations_store_finalize(OverrideStorage *override_storage)
+void BKE_override_static_operations_store_finalize(OverrideStaticStorage *override_storage)
 {
 	/* We cannot just call BKE_main_free(override_storage), not until we have option to make 'ghost' copies of IDs
 	 * without increasing usercount of used data-blocks... */

@@ -33,53 +33,53 @@
  */
 
 struct ID;
-struct IDOverride;
-struct IDOverrideProperty;
-struct IDOverridePropertyOperation;
+struct IDOverrideStatic;
+struct IDOverrideStaticProperty;
+struct IDOverrideStaticPropertyOperation;
 struct Main;
 
-struct IDOverride *BKE_override_init(struct ID *local_id, struct ID *reference_id);
-void BKE_override_copy(struct ID *dst_id, const struct ID *src_id);
-void BKE_override_clear(struct IDOverride *override);
-void BKE_override_free(struct IDOverride **override);
+struct IDOverrideStatic *BKE_override_static_init(struct ID *local_id, struct ID *reference_id);
+void BKE_override_static_copy(struct ID *dst_id, const struct ID *src_id);
+void BKE_override_static_clear(struct IDOverrideStatic *override);
+void BKE_override_static_free(struct IDOverrideStatic **override);
 
-struct ID *BKE_override_create_from(struct Main *bmain, struct ID *reference_id);
+struct ID *BKE_override_static_create_from(struct Main *bmain, struct ID *reference_id);
 
-struct IDOverrideProperty *BKE_override_property_find(struct IDOverride *override, const char *rna_path);
-struct IDOverrideProperty *BKE_override_property_get(struct IDOverride *override, const char *rna_path, bool *r_created);
-void BKE_override_property_delete(struct IDOverride *override, struct IDOverrideProperty *override_property);
+struct IDOverrideStaticProperty *BKE_override_static_property_find(struct IDOverrideStatic *override, const char *rna_path);
+struct IDOverrideStaticProperty *BKE_override_static_property_get(struct IDOverrideStatic *override, const char *rna_path, bool *r_created);
+void BKE_override_static_property_delete(struct IDOverrideStatic *override, struct IDOverrideStaticProperty *override_property);
 
-struct IDOverridePropertyOperation *BKE_override_property_operation_find(
-        struct IDOverrideProperty *override_property,
+struct IDOverrideStaticPropertyOperation *BKE_override_static_property_operation_find(
+        struct IDOverrideStaticProperty *override_property,
         const char *subitem_refname, const char *subitem_locname,
         const int subitem_refindex, const int subitem_locindex, const bool strict, bool *r_strict);
-struct IDOverridePropertyOperation *BKE_override_property_operation_get(
-        struct IDOverrideProperty *override_property, const short operation,
+struct IDOverrideStaticPropertyOperation *BKE_override_static_property_operation_get(
+        struct IDOverrideStaticProperty *override_property, const short operation,
         const char *subitem_refname, const char *subitem_locname,
         const int subitem_refindex, const int subitem_locindex,
         const bool strict, bool *r_strict, bool *r_created);
-void BKE_override_property_operation_delete(
-        struct IDOverrideProperty *override_property, struct IDOverridePropertyOperation *override_property_operation);
+void BKE_override_static_property_operation_delete(
+        struct IDOverrideStaticProperty *override_property, struct IDOverrideStaticPropertyOperation *override_property_operation);
 
-bool BKE_override_status_check_local(struct ID *local);
-bool BKE_override_status_check_reference(struct ID *local);
+bool BKE_override_static_status_check_local(struct ID *local);
+bool BKE_override_static_status_check_reference(struct ID *local);
 
-bool BKE_override_operations_create(struct ID *local);
-void BKE_main_override_operations_create(struct Main *bmain);
+bool BKE_override_static_operations_create(struct ID *local);
+void BKE_main_override_static_operations_create(struct Main *bmain);
 
-void BKE_override_update(struct Main *bmain, struct ID *local);
-void BKE_main_override_update(struct Main *bmain);
+void BKE_override_static_update(struct Main *bmain, struct ID *local);
+void BKE_main_override_static_update(struct Main *bmain);
 
 
 /* Storage (.blend file writing) part. */
 
 /* For now, we just use a temp main list. */
-typedef struct Main OverrideStorage;
+typedef struct Main OverrideStaticStorage;
 
-OverrideStorage *BKE_override_operations_store_initialize(void);
-struct ID *BKE_override_operations_store_start(OverrideStorage *override_storage, struct ID *local);
-void BKE_override_operations_store_end(OverrideStorage *override_storage, struct ID *local);
-void BKE_override_operations_store_finalize(OverrideStorage *override_storage);
+OverrideStaticStorage *BKE_override_static_operations_store_initialize(void);
+struct ID *BKE_override_static_operations_store_start(OverrideStaticStorage *override_storage, struct ID *local);
+void BKE_override_static_operations_store_end(OverrideStaticStorage *override_storage, struct ID *local);
+void BKE_override_static_operations_store_finalize(OverrideStaticStorage *override_storage);
 
 
 

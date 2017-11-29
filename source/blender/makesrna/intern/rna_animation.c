@@ -589,10 +589,10 @@ bool rna_AnimaData_override_apply(
         PointerRNA *ptr_dst, PointerRNA *ptr_src, PointerRNA *ptr_storage,
         PropertyRNA *prop_dst, PropertyRNA *prop_src, PropertyRNA *UNUSED(prop_storage),
         const int len_dst, const int len_src, const int len_storage,
-        IDOverridePropertyOperation *opop)
+        IDOverrideStaticPropertyOperation *opop)
 {
 	BLI_assert(len_dst == len_src && (!ptr_storage || len_dst == len_storage) && len_dst == 0);
-	BLI_assert(opop->operation == IDOVERRIDE_OP_REPLACE && "Unsupported RNA override operation on animdata pointer");
+	BLI_assert(opop->operation == IDOVERRIDESTATIC_OP_REPLACE && "Unsupported RNA override operation on animdata pointer");
 
 	/* AnimData is a special case, since you cannot edit/replace it, it's either existent or not. */
 	AnimData *adt_dst = RNA_property_pointer_get(ptr_dst, prop_dst).data;
