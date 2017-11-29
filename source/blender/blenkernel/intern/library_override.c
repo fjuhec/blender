@@ -460,12 +460,14 @@ bool BKE_override_static_operations_create(ID *local)
 		RNA_id_pointer_create(local->override_static->reference, &rnaptr_reference);
 
 		ret = RNA_struct_auto_override(&rnaptr_local, &rnaptr_reference, local->override_static, NULL);
+#ifndef NDEBUG
 		if (ret) {
 			printf("We did generate static override rules for %s\n", local->name);
 		}
 		else {
 			printf("No new static override rules for %s\n", local->name);
 		}
+#endif
 	}
 	return ret;
 }
