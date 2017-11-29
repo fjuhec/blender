@@ -1413,34 +1413,43 @@ static int gp_delete_selected_strokes(bContext *C)
 {
 	bool changed = false;
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
+	bool is_multiedit = (bool)GPENCIL_MULTIEDIT_SESSIONS_ON(gpd);
 
 	CTX_DATA_BEGIN(C, bGPDlayer *, gpl, editable_gpencil_layers)
 	{
-		bGPDframe *gpf = gpl->actframe;
-		bGPDstroke *gps, *gpsn;
-		
-		if (gpf == NULL)
-			continue;
-		
-		/* simply delete strokes which are selected */
-		for (gps = gpf->strokes.first; gps; gps = gpsn) {
-			gpsn = gps->next;
-			
-			/* skip strokes that are invalid for current view */
-			if (ED_gpencil_stroke_can_use(C, gps) == false)
-				continue;
-			
-			/* free stroke if selected */
-			if (gps->flag & GP_STROKE_SELECT) {
-				/* free stroke memory arrays, then stroke itself */
-				if (gps->points) { 
-					BKE_gpencil_free_stroke_weights(gps);
-					MEM_freeN(gps->points); 
-				}
-				if (gps->triangles) MEM_freeN(gps->triangles);
-				BLI_freelinkN(&gpf->strokes, gps);
+		bGPDframe *init_gpf = gpl->actframe;
+		if (is_multiedit) {
+			init_gpf = gpl->frames.first;
+		}
 
-				changed = true;
+		for (bGPDframe *gpf = init_gpf; gpf; gpf = gpf->next) {
+			if ((gpf == gpl->actframe) || ((gpf->flag & GP_FRAME_SELECT) && (is_multiedit))) {
+				bGPDstroke *gps, *gpsn;
+
+				if (gpf == NULL)
+					continue;
+
+				/* simply delete strokes which are selected */
+				for (gps = gpf->strokes.first; gps; gps = gpsn) {
+					gpsn = gps->next;
+
+					/* skip strokes that are invalid for current view */
+					if (ED_gpencil_stroke_can_use(C, gps) == false)
+						continue;
+
+					/* free stroke if selected */
+					if (gps->flag & GP_STROKE_SELECT) {
+						/* free stroke memory arrays, then stroke itself */
+						if (gps->points) {
+							BKE_gpencil_free_stroke_weights(gps);
+							MEM_freeN(gps->points);
+						}
+						if (gps->triangles) MEM_freeN(gps->triangles);
+						BLI_freelinkN(&gpf->strokes, gps);
+
+						changed = true;
+					}
+				}
 			}
 		}
 	}
@@ -1462,165 +1471,175 @@ static int gp_delete_selected_strokes(bContext *C)
 static int gp_dissolve_selected_points(bContext *C, eGP_DissolveMode mode)
 {
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
+	bool is_multiedit = (bool)GPENCIL_MULTIEDIT_SESSIONS_ON(gpd);
 	bool changed = false;
 	int first, last;
-	
+
 	CTX_DATA_BEGIN(C, bGPDlayer *, gpl, editable_gpencil_layers)
 	{
-		bGPDframe *gpf = gpl->actframe;
-		bGPDstroke *gps, *gpsn;
-		
-		if (gpf == NULL)
-			continue;
-		
-		/* simply delete points from selected strokes
-		 * NOTE: we may still have to remove the stroke if it ends up having no points!
-		 */
-		for (gps = gpf->strokes.first; gps; gps = gpsn) {
-			gpsn = gps->next;
-			
-			/* skip strokes that are invalid for current view */
-			if (ED_gpencil_stroke_can_use(C, gps) == false)
-				continue;
-			/* check if the color is editable */
-			if (ED_gpencil_stroke_color_use(gpl, gps) == false)
-				continue;
-			
-			/* the stroke must have at least one point selected for any operator */
-			if (gps->flag & GP_STROKE_SELECT) {
-				bGPDspoint *pt;
-				int i;
-				
-				int tot = gps->totpoints; /* number of points in new buffer */
-				
-				/* first pass: count points to remove */
-				switch (mode) {
-					case GP_DISSOLVE_POINTS:
-						/* Count how many points are selected (i.e. how many to remove) */
-						for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
-							if (pt->flag & GP_SPOINT_SELECT) {
-								/* selected point - one of the points to remove */
-								tot--;
-							}
-						}
-						break;
-					case GP_DISSOLVE_BETWEEN:
-						/* need to find first and last point selected */
-						first = -1; 
-						last = 0;
-						for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
-							if (pt->flag & GP_SPOINT_SELECT) {
-								if (first < 0) {
-									first = i;
-								}
-								last = i;
-							}
-						}
-						/* count unselected points in the range */
-						for (i = first, pt = gps->points + first; i < last; i++, pt++) {
-							if ((pt->flag & GP_SPOINT_SELECT) == 0) {
-								tot--;
-							}
-						}
-						break;
-					case GP_DISSOLVE_UNSELECT:
-						/* count number of unselected points */
-						for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
-							if ((pt->flag & GP_SPOINT_SELECT) == 0) {
-								tot--;
-							}
-						}
-						break;
-					default:
-						return false;
-						break;
-				}
+		bGPDframe *init_gpf = gpl->actframe;
+		if (is_multiedit) {
+			init_gpf = gpl->frames.first;
+		}
 
-				/* if no points are left, we simply delete the entire stroke */
-				if (tot <= 0) {
-					/* remove the entire stroke */
-					if (gps->points) {
-						BKE_gpencil_free_stroke_weights(gps);
-						MEM_freeN(gps->points);
-					}
-					if (gps->triangles) {
-						MEM_freeN(gps->triangles);
-					}
-					BLI_freelinkN(&gpf->strokes, gps);
-					BKE_gpencil_batch_cache_dirty(gpd);
-				}
-				else {
-					/* just copy all points to keep into a smaller buffer */
-					bGPDspoint *new_points = MEM_callocN(sizeof(bGPDspoint) * tot, "new gp stroke points copy");
-					bGPDspoint *npt        = new_points;
+		for (bGPDframe *gpf = init_gpf; gpf; gpf = gpf->next) {
+			if ((gpf == gpl->actframe) || ((gpf->flag & GP_FRAME_SELECT) && (is_multiedit))) {
 
-					switch (mode) {
+				bGPDstroke *gps, *gpsn;
+
+				if (gpf == NULL)
+					continue;
+
+				/* simply delete points from selected strokes
+				 * NOTE: we may still have to remove the stroke if it ends up having no points!
+				 */
+				for (gps = gpf->strokes.first; gps; gps = gpsn) {
+					gpsn = gps->next;
+
+					/* skip strokes that are invalid for current view */
+					if (ED_gpencil_stroke_can_use(C, gps) == false)
+						continue;
+					/* check if the color is editable */
+					if (ED_gpencil_stroke_color_use(gpl, gps) == false)
+						continue;
+
+					/* the stroke must have at least one point selected for any operator */
+					if (gps->flag & GP_STROKE_SELECT) {
+						bGPDspoint *pt;
+						int i;
+
+						int tot = gps->totpoints; /* number of points in new buffer */
+
+						/* first pass: count points to remove */
+						switch (mode) {
 						case GP_DISSOLVE_POINTS:
+							/* Count how many points are selected (i.e. how many to remove) */
 							for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
-								if ((pt->flag & GP_SPOINT_SELECT) == 0) {
-									*npt = *pt;
-									npt->weights = MEM_dupallocN(pt->weights);
-									npt++;
+								if (pt->flag & GP_SPOINT_SELECT) {
+									/* selected point - one of the points to remove */
+									tot--;
 								}
 							}
 							break;
 						case GP_DISSOLVE_BETWEEN:
-							/* copy first segment */
-							for (i = 0, pt = gps->points; i < first; i++, pt++) {
-								*npt = *pt;
-								npt->weights = MEM_dupallocN(pt->weights);
-								npt++;
-							}
-							/* copy segment (selected points) */
-							for (i = first, pt = gps->points + first; i < last; i++, pt++) {
-								if (pt->flag & GP_SPOINT_SELECT) {
-									*npt = *pt;
-									npt->weights = MEM_dupallocN(pt->weights);
-									npt++;
-								}
-							}
-							/* copy last segment */
-							for (i = last, pt = gps->points + last; i < gps->totpoints; i++, pt++) {
-								*npt = *pt;
-								npt->weights = MEM_dupallocN(pt->weights);
-								npt++;
-							}
-
-							break;
-						case GP_DISSOLVE_UNSELECT:
-							/* copy any selected point */
+							/* need to find first and last point selected */
+							first = -1;
+							last = 0;
 							for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
 								if (pt->flag & GP_SPOINT_SELECT) {
+									if (first < 0) {
+										first = i;
+									}
+									last = i;
+								}
+							}
+							/* count unselected points in the range */
+							for (i = first, pt = gps->points + first; i < last; i++, pt++) {
+								if ((pt->flag & GP_SPOINT_SELECT) == 0) {
+									tot--;
+								}
+							}
+							break;
+						case GP_DISSOLVE_UNSELECT:
+							/* count number of unselected points */
+							for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
+								if ((pt->flag & GP_SPOINT_SELECT) == 0) {
+									tot--;
+								}
+							}
+							break;
+						default:
+							return false;
+							break;
+						}
+
+						/* if no points are left, we simply delete the entire stroke */
+						if (tot <= 0) {
+							/* remove the entire stroke */
+							if (gps->points) {
+								BKE_gpencil_free_stroke_weights(gps);
+								MEM_freeN(gps->points);
+							}
+							if (gps->triangles) {
+								MEM_freeN(gps->triangles);
+							}
+							BLI_freelinkN(&gpf->strokes, gps);
+							BKE_gpencil_batch_cache_dirty(gpd);
+						}
+						else {
+							/* just copy all points to keep into a smaller buffer */
+							bGPDspoint *new_points = MEM_callocN(sizeof(bGPDspoint) * tot, "new gp stroke points copy");
+							bGPDspoint *npt = new_points;
+
+							switch (mode) {
+							case GP_DISSOLVE_POINTS:
+								for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
+									if ((pt->flag & GP_SPOINT_SELECT) == 0) {
+										*npt = *pt;
+										npt->weights = MEM_dupallocN(pt->weights);
+										npt++;
+									}
+								}
+								break;
+							case GP_DISSOLVE_BETWEEN:
+								/* copy first segment */
+								for (i = 0, pt = gps->points; i < first; i++, pt++) {
 									*npt = *pt;
 									npt->weights = MEM_dupallocN(pt->weights);
 									npt++;
 								}
+								/* copy segment (selected points) */
+								for (i = first, pt = gps->points + first; i < last; i++, pt++) {
+									if (pt->flag & GP_SPOINT_SELECT) {
+										*npt = *pt;
+										npt->weights = MEM_dupallocN(pt->weights);
+										npt++;
+									}
+								}
+								/* copy last segment */
+								for (i = last, pt = gps->points + last; i < gps->totpoints; i++, pt++) {
+									*npt = *pt;
+									npt->weights = MEM_dupallocN(pt->weights);
+									npt++;
+								}
+
+								break;
+							case GP_DISSOLVE_UNSELECT:
+								/* copy any selected point */
+								for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
+									if (pt->flag & GP_SPOINT_SELECT) {
+										*npt = *pt;
+										npt->weights = MEM_dupallocN(pt->weights);
+										npt++;
+									}
+								}
+								break;
 							}
-							break;
-					}
 
-					/* free the old buffer */
-					if (gps->points) {
-						BKE_gpencil_free_stroke_weights(gps);
-						MEM_freeN(gps->points);
-					}
+							/* free the old buffer */
+							if (gps->points) {
+								BKE_gpencil_free_stroke_weights(gps);
+								MEM_freeN(gps->points);
+							}
 
-					/* save the new buffer */
-					gps->points = new_points;
-					gps->totpoints = tot;
-					
-					/* triangles cache needs to be recalculated */
-					gps->flag |= GP_STROKE_RECALC_CACHES;
-					gps->tot_triangles = 0;
-					
-					/* deselect the stroke, since none of its selected points will still be selected */
-					gps->flag &= ~GP_STROKE_SELECT;
-					for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
-						pt->flag &= ~GP_SPOINT_SELECT;
+							/* save the new buffer */
+							gps->points = new_points;
+							gps->totpoints = tot;
+
+							/* triangles cache needs to be recalculated */
+							gps->flag |= GP_STROKE_RECALC_CACHES;
+							gps->tot_triangles = 0;
+
+							/* deselect the stroke, since none of its selected points will still be selected */
+							gps->flag &= ~GP_STROKE_SELECT;
+							for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
+								pt->flag &= ~GP_SPOINT_SELECT;
+							}
+						}
+
+						changed = true;
 					}
 				}
-				
-				changed = true;
 			}
 		}
 	}
@@ -1775,36 +1794,45 @@ void gp_stroke_delete_tagged_points(bGPDframe *gpf, bGPDstroke *gps, bGPDstroke 
 static int gp_delete_selected_points(bContext *C)
 {
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
+	bool is_multiedit = (bool)GPENCIL_MULTIEDIT_SESSIONS_ON(gpd);
 	bool changed = false;
-	
+
 	CTX_DATA_BEGIN(C, bGPDlayer *, gpl, editable_gpencil_layers)
 	{
-		bGPDframe *gpf = gpl->actframe;
-		bGPDstroke *gps, *gpsn;
-		
-		if (gpf == NULL)
-			continue;
-		
-		/* simply delete strokes which are selected */
-		for (gps = gpf->strokes.first; gps; gps = gpsn) {
-			gpsn = gps->next;
-			
-			/* skip strokes that are invalid for current view */
-			if (ED_gpencil_stroke_can_use(C, gps) == false)
-				continue;
-			/* check if the color is editable */
-			if (ED_gpencil_stroke_color_use(gpl, gps) == false)
-				continue;
-			
-			
-			if (gps->flag & GP_STROKE_SELECT) {
-				/* deselect old stroke, since it will be used as template for the new strokes */
-				gps->flag &= ~GP_STROKE_SELECT;
-				
-				/* delete unwanted points by splitting stroke into several smaller ones */
-				gp_stroke_delete_tagged_points(gpf, gps, gpsn, GP_SPOINT_SELECT);
+		bGPDframe *init_gpf = gpl->actframe;
+		if (is_multiedit) {
+			init_gpf = gpl->frames.first;
+		}
 
-				changed = true;
+		for (bGPDframe *gpf = init_gpf; gpf; gpf = gpf->next) {
+			if ((gpf == gpl->actframe) || ((gpf->flag & GP_FRAME_SELECT) && (is_multiedit))) {
+				bGPDstroke *gps, *gpsn;
+
+				if (gpf == NULL)
+					continue;
+
+				/* simply delete strokes which are selected */
+				for (gps = gpf->strokes.first; gps; gps = gpsn) {
+					gpsn = gps->next;
+
+					/* skip strokes that are invalid for current view */
+					if (ED_gpencil_stroke_can_use(C, gps) == false)
+						continue;
+					/* check if the color is editable */
+					if (ED_gpencil_stroke_color_use(gpl, gps) == false)
+						continue;
+
+
+					if (gps->flag & GP_STROKE_SELECT) {
+						/* deselect old stroke, since it will be used as template for the new strokes */
+						gps->flag &= ~GP_STROKE_SELECT;
+
+						/* delete unwanted points by splitting stroke into several smaller ones */
+						gp_stroke_delete_tagged_points(gpf, gps, gpsn, GP_SPOINT_SELECT);
+
+						changed = true;
+					}
+				}
 			}
 		}
 	}
