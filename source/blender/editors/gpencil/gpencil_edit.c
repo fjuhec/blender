@@ -645,9 +645,14 @@ static void gp_duplicate_points(const bGPDstroke *gps, ListBase *new_strokes, co
 static int gp_duplicate_exec(bContext *C, wmOperator *op)
 {
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
-	
+
 	if (gpd == NULL) {
 		BKE_report(op->reports, RPT_ERROR, "No Grease Pencil data");
+		return OPERATOR_CANCELLED;
+	}
+
+	if (GPENCIL_MULTIEDIT_SESSIONS_ON(gpd)) {
+		BKE_report(op->reports, RPT_ERROR, "Operator not supported in multiframe edition");
 		return OPERATOR_CANCELLED;
 	}
 	
@@ -832,7 +837,12 @@ static int gp_strokes_copy_exec(bContext *C, wmOperator *op)
 		BKE_report(op->reports, RPT_ERROR, "No Grease Pencil data");
 		return OPERATOR_CANCELLED;
 	}
-	
+
+	if (GPENCIL_MULTIEDIT_SESSIONS_ON(gpd)) {
+		BKE_report(op->reports, RPT_ERROR, "Operator not supported in multiframe edition");
+		return OPERATOR_CANCELLED;
+	}
+
 	/* clear the buffer first */
 	ED_gpencil_strokes_copybuf_free();
 	
@@ -952,6 +962,10 @@ static int gp_strokes_paste_exec(bContext *C, wmOperator *op)
 	/* check for various error conditions */
 	if (gpd == NULL) {
 		BKE_report(op->reports, RPT_ERROR, "No Grease Pencil data");
+		return OPERATOR_CANCELLED;
+	}
+	else if (GPENCIL_MULTIEDIT_SESSIONS_ON(gpd)) {
+		BKE_report(op->reports, RPT_ERROR, "Operator not supported in multiframe edition");
 		return OPERATOR_CANCELLED;
 	}
 	else if (BLI_listbase_is_empty(&gp_strokes_copypastebuf)) {
@@ -1109,7 +1123,12 @@ static int gp_move_to_layer_exec(bContext *C, wmOperator *op)
 	bGPDlayer *target_layer = NULL;
 	ListBase strokes = {NULL, NULL};
 	int layer_num = RNA_enum_get(op->ptr, "layer");
-	
+
+	if (GPENCIL_MULTIEDIT_SESSIONS_ON(gpd)) {
+		BKE_report(op->reports, RPT_ERROR, "Operator not supported in multiframe edition");
+		return OPERATOR_CANCELLED;
+	}
+
 	/* Get layer or create new one */
 	if (layer_num == -1) {
 		/* Create layer */
