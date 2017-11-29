@@ -132,6 +132,7 @@ set(SRC
 	intern/MOD_gpencilflip.c
 	intern/MOD_gpencilsmooth.c
 	intern/MOD_gpencilhook.c
+	intern/MOD_gpenciloffset.c
 )
 
 if(WITH_ALEMBIC)

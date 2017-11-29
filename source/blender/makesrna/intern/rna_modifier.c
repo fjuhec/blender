@@ -126,6 +126,7 @@ const EnumPropertyItem rna_enum_object_modifier_type_items[] = {
 	{eModifierType_GpencilNoise, "GP_NOISE", ICON_RNDCURVE, "Noise", "Add noise to strokes" },
 	{eModifierType_GpencilSmooth, "GP_SMOOTH", ICON_MOD_SMOOTH, "Smooth", "Smooth stroke" },
 	{eModifierType_GpencilSubdiv, "GP_SUBDIV", ICON_MOD_SUBSURF, "Subdivide", "Subdivide stroke adding more control points" },
+	{eModifierType_GpencilOffset, "GP_OFFSET", ICON_MOD_DISPLACE, "Offset", "Change stroke location, rotation or scale" },
 	{eModifierType_GpencilSimplify, "GP_SIMPLIFY", ICON_MOD_DECIM, "Simplify", "Simplify stroke reducing number of points" },
 	{eModifierType_GpencilLattice, "GP_LATTICE", ICON_MOD_LATTICE, "Lattice", "Change stroke using lattice to deform" },
 	{eModifierType_GpencilHook, "GP_HOOK", ICON_HOOK, "Hook", "Change stroke using object as hook to deform" },
@@ -489,6 +490,8 @@ static StructRNA *rna_Modifier_refine(struct PointerRNA *ptr)
 			return &RNA_GpencilSmoothModifier;
 		case eModifierType_GpencilHook:
 			return &RNA_GpencilHookModifier;
+		case eModifierType_GpencilOffset:
+			return &RNA_GpencilOffsetModifier;
 			/* Default */
 		case eModifierType_None:
 		case eModifierType_ShapeKey:
@@ -586,6 +589,7 @@ RNA_MOD_VGROUP_NAME_SET(GpencilOpacity, vgname);
 RNA_MOD_VGROUP_NAME_SET(GpencilLattice, vgname);
 RNA_MOD_VGROUP_NAME_SET(GpencilSmooth, vgname);
 RNA_MOD_VGROUP_NAME_SET(GpencilHook, vgname);
+RNA_MOD_VGROUP_NAME_SET(GpencilOffset, vgname);
 
 static void rna_ExplodeModifier_vgroup_get(PointerRNA *ptr, char *value)
 {
@@ -5182,6 +5186,67 @@ static void rna_def_modifier_gpencilthick(BlenderRNA *brna)
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }
 
+static void rna_def_modifier_gpenciloffset(BlenderRNA *brna)
+{
+	StructRNA *srna;
+	PropertyRNA *prop;
+
+	srna = RNA_def_struct(brna, "GpencilOffsetModifier", "Modifier");
+	RNA_def_struct_ui_text(srna, "Offset Modifier", "Offset Stroke modifier");
+	RNA_def_struct_sdna(srna, "GpencilOffsetModifierData");
+	RNA_def_struct_ui_icon(srna, ICON_MOD_DISPLACE);
+
+	prop = RNA_def_property(srna, "layer", PROP_STRING, PROP_NONE);
+	RNA_def_property_string_sdna(prop, NULL, "layername");
+	RNA_def_property_ui_text(prop, "Layer", "Layer name");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "vertex_group", PROP_STRING, PROP_NONE);
+	RNA_def_property_string_sdna(prop, NULL, "vgname");
+	RNA_def_property_ui_text(prop, "Vertex Group", "Vertex group name for modulating the deform");
+	RNA_def_property_string_funcs(prop, NULL, NULL, "rna_GpencilThickModifier_vgname_set");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "pass_index", PROP_INT, PROP_NONE);
+	RNA_def_property_int_sdna(prop, NULL, "pass_index");
+	RNA_def_property_range(prop, 0, 100);
+	RNA_def_property_ui_text(prop, "Pass", "Pass index");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "inverse_layers", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_OFFSET_INVERSE_LAYER);
+	RNA_def_property_ui_text(prop, "Inverse Layers", "Inverse filter");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "inverse_pass", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_OFFSET_INVERSE_PASS);
+	RNA_def_property_ui_text(prop, "Inverse Pass", "Inverse filter");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "inverse_vertex", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_OFFSET_INVERSE_VGROUP);
+	RNA_def_property_ui_text(prop, "Inverse VertexGroup", "Inverse filter");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "location", PROP_FLOAT, PROP_TRANSLATION);
+	RNA_def_property_float_sdna(prop, NULL, "loc");
+	RNA_def_property_ui_text(prop, "Location", "Values for change location");
+	RNA_def_property_ui_range(prop, -FLT_MAX, FLT_MAX, 1, RNA_TRANSLATION_PREC_DEFAULT);
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "rotation", PROP_FLOAT, PROP_EULER);
+	RNA_def_property_float_sdna(prop, NULL, "rot");
+	RNA_def_property_ui_text(prop, "Rotation", "Values for chages in rotation");
+	RNA_def_property_ui_range(prop, -FLT_MAX, FLT_MAX, 1, RNA_TRANSLATION_PREC_DEFAULT);
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "scale", PROP_FLOAT, PROP_XYZ);
+	RNA_def_property_float_sdna(prop, NULL, "scale");
+	RNA_def_property_ui_text(prop, "Scale", "Values for changes in scale");
+	RNA_def_property_ui_range(prop, -FLT_MAX, FLT_MAX, 1, RNA_TRANSLATION_PREC_DEFAULT);
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+}
+
 static void rna_def_modifier_gpenciltint(BlenderRNA *brna)
 {
 	StructRNA *srna;
@@ -5980,6 +6045,7 @@ void RNA_def_modifier(BlenderRNA *brna)
 	rna_def_modifier_gpencilsubdiv(brna);
 	rna_def_modifier_gpencilsimplify(brna);
 	rna_def_modifier_gpencilthick(brna);
+	rna_def_modifier_gpenciloffset(brna);
 	rna_def_modifier_gpenciltint(brna);
 	rna_def_modifier_gpencilcolor(brna);
 	rna_def_modifier_gpencilarray(brna);

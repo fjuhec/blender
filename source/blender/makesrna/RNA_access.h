@@ -628,6 +628,7 @@ extern StructRNA RNA_GpencilSwirlModifier;
 extern StructRNA RNA_GpencilFlipModifier;
 extern StructRNA RNA_GpencilSmoothModifier;
 extern StructRNA RNA_GpencilHookModifier;
+extern StructRNA RNA_GpencilOffsetModifier;
 extern StructRNA RNA_TexMapping;
 extern StructRNA RNA_Text;
 extern StructRNA RNA_TextBox;

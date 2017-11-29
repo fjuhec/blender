@@ -1938,6 +1938,33 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         col.prop(md, "use_falloff_uniform")
 
 
+    def GP_OFFSET(self, layout, ob, md):
+        gpd = ob.data
+        split = layout.split()
+
+        col = split.column()
+        col.prop(md, "location")
+        col.prop(md, "scale")
+
+        col = split.column()
+        col.prop(md, "rotation")
+
+
+        col.label("Layer:")
+        row = col.row(align=True)
+        row.prop_search(md, "layer", gpd, "layers", text="", icon='GREASEPENCIL')
+        row.prop(md, "inverse_layers", text="", icon="ARROW_LEFTRIGHT")
+
+        col.label("Vertex Group:")
+        row = col.row(align=True)
+        row.prop_search(md, "vertex_group", ob, "vertex_groups", text="")
+        row.prop(md, "inverse_vertex", text="", icon="ARROW_LEFTRIGHT")
+
+        row = col.row(align=True)
+        row.prop(md, "pass_index", text="Pass")
+        row.prop(md, "inverse_pass", text="", icon="ARROW_LEFTRIGHT")
+
+
 classes = (
     DATA_PT_modifiers,
 )

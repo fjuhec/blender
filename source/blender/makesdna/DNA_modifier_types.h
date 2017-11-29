@@ -104,6 +104,7 @@ typedef enum ModifierType {
 	eModifierType_GpencilSmooth     = 68,
 	eModifierType_GpencilHook       = 69,
 	eModifierType_GpencilFlip       = 70,
+	eModifierType_GpencilOffset     = 71,
 	NUM_MODIFIER_TYPES
 } ModifierType;
 
@@ -1824,7 +1825,6 @@ typedef enum eGpencilBuild_Flag {
 	GP_BUILD_RESTRICT_TIME  = (1 << 2),
 } eGpencilBuild_Flag;
 
-
 typedef struct GpencilLatticeModifierData {
 	ModifierData modifier;
 	struct Object *object;
@@ -1894,6 +1894,24 @@ typedef enum eGpencilSimplify_Flag {
 	GP_SIMPLIFY_INVERSE_LAYER = (1 << 0),
 	GP_SIMPLIFY_INVERSE_PASS = (1 << 1),
 } eGpencilSimplify_Flag;
+
+typedef struct GpencilOffsetModifierData {
+	ModifierData modifier;
+	char layername[64];          /* layer name */
+	char vgname[64];             /* optional vertexgroup name, MAX_VGROUP_NAME */
+	int pass_index;               /* custom index for passes */
+	int flag;                    /* flags */
+	float loc[3];
+	float rot[3];
+	float scale[3];
+	char pad[4];
+} GpencilOffsetModifierData;
+
+typedef enum eGpencilOffset_Flag {
+	GP_OFFSET_INVERSE_LAYER = (1 << 0),
+	GP_OFFSET_INVERSE_PASS = (1 << 1),
+	GP_OFFSET_INVERSE_VGROUP = (1 << 2)
+} eGpencilOffset_Flag;
 
 typedef struct GpencilBlurModifierData {
 	ModifierData modifier;

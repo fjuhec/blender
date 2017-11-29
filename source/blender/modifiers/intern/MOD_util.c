@@ -306,5 +306,6 @@ void modifier_type_init(ModifierTypeInfo *types[])
 	INIT_TYPE(GpencilFlip);
 	INIT_TYPE(GpencilSmooth);
 	INIT_TYPE(GpencilHook);
+	INIT_TYPE(GpencilOffset);
 #undef INIT_TYPE
 }
