@@ -197,7 +197,7 @@ static void clay_view_layer_data_free(void *storage)
 
 static CLAY_ViewLayerData *CLAY_view_layer_data_get(void)
 {
-	CLAY_ViewLayerData **sldata = (CLAY_ViewLayerData **)DRW_view_layer_engine_data_get(&draw_engine_clay_type, &clay_view_layer_data_free);
+	CLAY_ViewLayerData **sldata = (CLAY_ViewLayerData **)DRW_view_layer_engine_data_ensure(&draw_engine_clay_type, &clay_view_layer_data_free);
 
 	if (*sldata == NULL) {
 		*sldata = MEM_callocN(sizeof(**sldata), "CLAY_ViewLayerData");
@@ -916,6 +916,7 @@ DrawEngineType draw_engine_clay_type = {
 	NULL,
 	&CLAY_draw_scene,
 	NULL,
+	NULL,
 };
 
 RenderEngineType DRW_engine_viewport_clay_type = {
@@ -931,4 +932,4 @@ RenderEngineType DRW_engine_viewport_clay_type = {
 
 #undef CLAY_ENGINE
 
-#endif
+#endif  /* WITH_CLAY_ENGINE */
