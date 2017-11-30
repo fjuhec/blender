@@ -977,12 +977,17 @@ ccl_device float3 shader_holdout_eval(KernelGlobals *kg, ShaderData *sd)
 ccl_device void shader_eval(KernelGlobals *kg, ShaderData *sd,
 	ccl_addr_space PathState *state, ShaderEvalIntent intent)
 {
+	if(intent == SHADER_EVAL_INTENT_SKIP) {
+		return;
+	}
+
 	uint path_flag = 0;
 	sd->num_closure = 0;
 	sd->num_closure_left = 0;
 
 	switch(intent) {
 		case SHADER_EVAL_INTENT_SKIP:
+			kernel_assert(0);
 			return;
 		case SHADER_EVAL_INTENT_SURFACE:
 			path_flag = state->flag;
@@ -1005,6 +1010,7 @@ ccl_device void shader_eval(KernelGlobals *kg, ShaderData *sd,
 			intent = SHADER_EVAL_INTENT_SURFACE;
 			break;
 		default:
+			kernel_assert(0);
 			return;
 	}
 
