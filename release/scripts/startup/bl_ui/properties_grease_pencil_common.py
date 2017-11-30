@@ -509,6 +509,38 @@ class GreasePencilStrokeSculptPanel:
                 layout.prop(brush, "affect_pressure")
 
 
+class GreasePencilMultiFramePanel:
+    bl_label = "Multiframe"
+    bl_category = "Tools"
+    bl_region_type = 'TOOLS'
+
+    @classmethod
+    def poll(cls, context):
+        if context.gpencil_data is None:
+            return False
+
+        gpd = context.gpencil_data
+        if context.editable_gpencil_strokes:
+            is_3d_view = context.space_data.type == 'VIEW_3D'
+            if is_3d_view:
+                return bool(gpd.is_stroke_sculpt_mode or gpd.is_stroke_weight_mode)
+
+        return False
+
+    @staticmethod
+    def draw(self, context):
+        layout = self.layout
+        settings = context.tool_settings.gpencil_sculpt
+
+        row = layout.row()
+        row.prop(settings, "use_multiframe_falloff")
+
+        # Falloff curve
+        layout.label("Falloff")
+        box = layout.box()
+        box.template_curve_mapping(settings, "multiframe_falloff_curve", brush=True)
+
+
 class GreasePencilAppearancePanel:
     bl_label = "Appearance"
     bl_category = "Options"

@@ -6266,6 +6266,11 @@ static void direct_link_scene(FileData *fd, Scene *sce, Main *bmain)
 		if (sce->toolsettings->gp_interpolate.custom_ipo) {
 			direct_link_curvemapping(fd, sce->toolsettings->gp_interpolate.custom_ipo);
 		}
+		/* relink grease pencil multiframe falloff curve */
+		sce->toolsettings->gp_sculpt.cur_falloff = newdataadr(fd, sce->toolsettings->gp_sculpt.cur_falloff);
+		if (sce->toolsettings->gp_sculpt.cur_falloff) {
+			direct_link_curvemapping(fd, sce->toolsettings->gp_sculpt.cur_falloff);
+		}
 	}
 
 	if (sce->ed) {

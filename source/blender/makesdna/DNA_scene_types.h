@@ -1209,6 +1209,7 @@ typedef struct GP_BrushEdit_Settings {
 	 */
 	int weighttype;               /* eGP_EditBrush_Types (weight paint) */
 	char pad[4];
+	struct CurveMapping *cur_falloff; /* multiframe edit falloff effect by frame */
 } GP_BrushEdit_Settings;
 
 /* GP_BrushEdit_Settings.flag */
@@ -1223,6 +1224,8 @@ typedef enum eGP_BrushEdit_SettingsFlag {
 	GP_BRUSHEDIT_FLAG_APPLY_THICKNESS = (1 << 3),
 	/* apply brush to thickness */
 	GP_BRUSHEDIT_FLAG_WEIGHT_MODE = (1 << 4),
+	/* apply brush to thickness */
+	GP_BRUSHEDIT_FLAG_FRAME_FALLOFF = (1 << 5),
 } eGP_BrushEdit_SettingsFlag;
 
 

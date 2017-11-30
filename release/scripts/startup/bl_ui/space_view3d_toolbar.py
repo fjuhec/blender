@@ -25,6 +25,7 @@ from .properties_grease_pencil_common import (
         GreasePencilAnimationPanel,
         GreasePencilInterpolatePanel,
         GreasePencilStrokeSculptPanel,
+        GreasePencilMultiFramePanel,
         GreasePencilBrushPanel,
         GreasePencilBrushOptionsPanel,
         GreasePencilBrushCurvesPanel,
@@ -2071,6 +2072,11 @@ class VIEW3D_PT_tools_grease_pencil_sculpt(GreasePencilStrokeSculptPanel, Panel)
     bl_space_type = 'VIEW_3D'
 
 
+# Grease Pencil multiframe falloff tools
+class VIEW3D_PT_tools_grease_pencil_falloff(GreasePencilMultiFramePanel, Panel):
+    bl_space_type = 'VIEW_3D'
+
+
 # Grease Pencil drawing brushes
 class VIEW3D_PT_tools_grease_pencil_brush(GreasePencilBrushPanel, Panel):
     bl_space_type = 'VIEW_3D'
@@ -2122,6 +2128,7 @@ classes = (
     VIEW3D_PT_tools_add_object,
     VIEW3D_PT_tools_grease_pencil_edit,
     VIEW3D_PT_tools_grease_pencil_sculpt,
+    VIEW3D_PT_tools_grease_pencil_falloff,
     VIEW3D_PT_tools_grease_pencil_brush,
     VIEW3D_PT_tools_grease_pencil_brush_option,
     VIEW3D_PT_tools_grease_pencil_brushcurves,

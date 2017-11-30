@@ -53,6 +53,7 @@
 
 #include "BKE_collection.h"
 #include "BKE_customdata.h"
+#include "BKE_colortools.h"
 #include "BKE_freestyle.h"
 #include "BKE_idprop.h"
 #include "BKE_layer.h"
@@ -883,6 +884,22 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 				if (gset) {
 					gset->alpha = 1.0f;
 					gset->weighttype = GP_EDITBRUSH_TYPE_WEIGHT;
+				}
+			}
+		}
+
+		/* Grease pencil multiframe falloff curve */
+		if (!DNA_struct_elem_find(fd->filesdna, "GP_BrushEdit_Settings", "CurveMapping", "cur_falloff")) {
+			for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
+				/* sculpt brushes */
+				GP_BrushEdit_Settings *gset = &scene->toolsettings->gp_sculpt;
+				if (gset) {
+					gset->cur_falloff = curvemapping_add(1, 0.0f, 0.0f, 1.0f, 1.0f);
+					curvemapping_initialize(gset->cur_falloff);
+					curvemap_reset(gset->cur_falloff->cm,
+						&gset->cur_falloff->clipr,
+						CURVE_PRESET_MID9,
+						CURVEMAP_SLOPE_POSITIVE);
 				}
 			}
 		}

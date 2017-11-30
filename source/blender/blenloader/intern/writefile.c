@@ -2673,7 +2673,10 @@ static void write_scene(WriteData *wd, Scene *sce)
 	if (tos->gp_interpolate.custom_ipo) {
 		write_curvemapping(wd, tos->gp_interpolate.custom_ipo);
 	}
-
+	/* write grease-pencil multiframe falloff curve to file */
+	if (tos->gp_sculpt.cur_falloff) {
+		write_curvemapping(wd, tos->gp_sculpt.cur_falloff);
+	}
 
 	write_paint(wd, &tos->imapaint.paint);
 

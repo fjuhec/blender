@@ -373,6 +373,8 @@ void BKE_scene_copy_data(Main *bmain, Scene *sce_dst, const Scene *sce_src, cons
 
 		/* duplicate Grease Pencil interpolation curve */
 		ts->gp_interpolate.custom_ipo = curvemapping_copy(ts->gp_interpolate.custom_ipo);
+		/* duplicate Grease Pencil multiframe fallof */
+		ts->gp_sculpt.cur_falloff = curvemapping_copy(ts->gp_sculpt.cur_falloff);
 	}
 
 	/* make a private copy of the avicodecdata */
@@ -486,6 +488,8 @@ Scene *BKE_scene_copy(Main *bmain, Scene *sce, int type)
 
 			/* duplicate Grease Pencil interpolation curve */
 			ts->gp_interpolate.custom_ipo = curvemapping_copy(ts->gp_interpolate.custom_ipo);
+			/* duplicate Grease Pencil multiframe fallof */
+			ts->gp_sculpt.cur_falloff = curvemapping_copy(ts->gp_sculpt.cur_falloff);
 		}
 
 		/* make a private copy of the avicodecdata */
@@ -636,7 +640,11 @@ void BKE_scene_free_ex(Scene *sce, const bool do_id_user)
 		if (sce->toolsettings->gp_interpolate.custom_ipo) {
 			curvemapping_free(sce->toolsettings->gp_interpolate.custom_ipo);
 		}
-		
+		/* free Grease Pencil multiframe falloff curve */
+		if (sce->toolsettings->gp_sculpt.cur_falloff) {
+			curvemapping_free(sce->toolsettings->gp_sculpt.cur_falloff);
+		}
+
 		MEM_freeN(sce->toolsettings);
 		sce->toolsettings = NULL;
 	}
@@ -855,6 +863,16 @@ void BKE_scene_init(Scene *sce)
 	sce->toolsettings->imapaint.paint.flags |= PAINT_SHOW_BRUSH;
 	sce->toolsettings->imapaint.normal_angle = 80;
 	sce->toolsettings->imapaint.seam_bleed = 2;
+
+	/* grease pencil multiframe falloff curve */
+	sce->toolsettings->gp_sculpt.cur_falloff = curvemapping_add(1, 0.0f, 0.0f, 1.0f, 1.0f);
+	CurveMapping *gp_falloff_curve = sce->toolsettings->gp_sculpt.cur_falloff;
+	curvemapping_set_defaults(gp_falloff_curve, 1, 0.0f, 0.0f, 1.0f, 1.0f);
+	curvemapping_initialize(gp_falloff_curve);
+	curvemap_reset(gp_falloff_curve->cm,
+		&gp_falloff_curve->clipr,
+		CURVE_PRESET_ROUND,
+		CURVEMAP_SLOPE_POSITIVE);
 
 	sce->physics_settings.gravity[0] = 0.0f;
 	sce->physics_settings.gravity[1] = 0.0f;
