@@ -613,6 +613,23 @@ void do_versions_after_linking_280(Main *main)
 				}
 			}
 		}
+		
+		/* Grease pencil multiframe falloff curve */
+		/* add this line when move to right place:
+		 * if (!DNA_struct_elem_find(fd->filesdna, "GP_BrushEdit_Settings", "CurveMapping", "cur_falloff")) 
+		 */
+			for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
+				/* sculpt brushes */
+				GP_BrushEdit_Settings *gset = &scene->toolsettings->gp_sculpt;
+				if (gset) {
+					gset->cur_falloff = curvemapping_add(1, 0.0f, 0.0f, 1.0f, 1.0f);
+					curvemapping_initialize(gset->cur_falloff);
+					curvemap_reset(gset->cur_falloff->cm,
+						&gset->cur_falloff->clipr,
+						CURVE_PRESET_GAUSS,
+						CURVEMAP_SLOPE_POSITIVE);
+				}
+			}
 	}
 }
 
@@ -884,22 +901,6 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 				if (gset) {
 					gset->alpha = 1.0f;
 					gset->weighttype = GP_EDITBRUSH_TYPE_WEIGHT;
-				}
-			}
-		}
-
-		/* Grease pencil multiframe falloff curve */
-		if (!DNA_struct_elem_find(fd->filesdna, "GP_BrushEdit_Settings", "CurveMapping", "cur_falloff")) {
-			for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
-				/* sculpt brushes */
-				GP_BrushEdit_Settings *gset = &scene->toolsettings->gp_sculpt;
-				if (gset) {
-					gset->cur_falloff = curvemapping_add(1, 0.0f, 0.0f, 1.0f, 1.0f);
-					curvemapping_initialize(gset->cur_falloff);
-					curvemap_reset(gset->cur_falloff->cm,
-						&gset->cur_falloff->clipr,
-						CURVE_PRESET_GAUSS,
-						CURVEMAP_SLOPE_POSITIVE);
 				}
 			}
 		}
