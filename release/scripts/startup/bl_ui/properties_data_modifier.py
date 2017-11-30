@@ -1791,6 +1791,9 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         col.prop(md, "mode")
         if md.mode == 'CONCURRENT':
             col.prop(md, "concurrent_time_alignment")
+        else:
+            col.separator() # For spacing
+            col.separator()
         col.separator()
 
         col.prop(md, "transition")
@@ -1804,6 +1807,16 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         sub.active = md.use_restrict_frame_range
         sub.prop(md, "frame_start", text="Start")
         sub.prop(md, "frame_end", text="End")
+        col.separator()
+        
+        col.label("Layer:")
+        row = col.row(align=True)
+        row.prop_search(md, "layer", gpd, "layers", text="", icon='GREASEPENCIL')
+        row.prop(md, "inverse_layers", text="", icon="ARROW_LEFTRIGHT")
+
+#        row = col.row(align=True)
+#        row.prop(md, "pass_index", text="Pass")
+#        row.prop(md, "inverse_pass", text="", icon="ARROW_LEFTRIGHT")
 
     def GP_LATTICE(self, layout, ob, md):
         gpd = ob.data

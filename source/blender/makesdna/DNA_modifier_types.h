@@ -1774,11 +1774,12 @@ typedef struct GpencilBuildModifierData {
 	ModifierData modifier;
 	
 	char layername[64];   /* if set, restrict modifier to operating on this layer */
+	int pass_index;
+	
+	int pad;
 	
 	float start_frame;    /* If GP_BUILD_RESTRICT_TIME is set, the defines the frame range where GP frames are considered */
 	float end_frame;
-	
-	/* TODO: color (paletteslot + colorname) used for appearance of stroke tips being drawn */
 	
 	float start_delay;    /* For each pair of gp keys, number of frames before strokes start appearing */
 	float length;         /* For each pair of gp keys, number of frames that build effect must be completed within */

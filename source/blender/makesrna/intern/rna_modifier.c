@@ -5540,29 +5540,6 @@ static void rna_def_modifier_gpencilbuild(BlenderRNA *brna)
 	RNA_def_struct_ui_text(srna, "Build Modifier", "Animate strokes appearing and disappearing");
 	RNA_def_struct_sdna(srna, "GpencilBuildModifierData");
 	RNA_def_struct_ui_icon(srna, ICON_MOD_BUILD);
-
-#if 0
-	prop = RNA_def_property(srna, "layer", PROP_STRING, PROP_NONE);
-	RNA_def_property_string_sdna(prop, NULL, "layername");
-	RNA_def_property_ui_text(prop, "Layer", "Layer name");
-	RNA_def_property_update(prop, 0, "rna_Modifier_update");
-
-	prop = RNA_def_property(srna, "pass_index", PROP_INT, PROP_NONE);
-	RNA_def_property_int_sdna(prop, NULL, "pass_index");
-	RNA_def_property_range(prop, 0, 100);
-	RNA_def_property_ui_text(prop, "Pass", "Pass index");
-	RNA_def_property_update(prop, 0, "rna_Modifier_update");
-	
-	prop = RNA_def_property(srna, "inverse_layers", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_BUILD_INVERSE_LAYER);
-	RNA_def_property_ui_text(prop, "Inverse Layers", "Inverse filter");
-	RNA_def_property_update(prop, 0, "rna_Modifier_update");
-
-	prop = RNA_def_property(srna, "inverse_pass", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_BUILD_INVERSE_PASS);
-	RNA_def_property_ui_text(prop, "Inverse Pass", "Inverse filter");
-	RNA_def_property_update(prop, 0, "rna_Modifier_update");
-#endif
 	
 	/* Mode */
 	prop = RNA_def_property(srna, "mode", PROP_ENUM, PROP_NONE);
@@ -5622,6 +5599,31 @@ static void rna_def_modifier_gpencilbuild(BlenderRNA *brna)
 	RNA_def_property_range(prop, MINAFRAMEF, MAXFRAMEF);
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 	
+	
+	/* Filters - Layer */
+	prop = RNA_def_property(srna, "layer", PROP_STRING, PROP_NONE);
+	RNA_def_property_string_sdna(prop, NULL, "layername");
+	RNA_def_property_ui_text(prop, "Layer", "Layer name");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "inverse_layers", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_BUILD_INVERSE_LAYER);
+	RNA_def_property_ui_text(prop, "Inverse Layers", "Inverse filter");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	/* Filters - Pass Index */
+#if 0
+	prop = RNA_def_property(srna, "pass_index", PROP_INT, PROP_NONE);
+	RNA_def_property_int_sdna(prop, NULL, "pass_index");
+	RNA_def_property_range(prop, 0, 100);
+	RNA_def_property_ui_text(prop, "Pass", "Pass index");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "inverse_pass", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_BUILD_INVERSE_PASS);
+	RNA_def_property_ui_text(prop, "Inverse Pass", "Inverse filter");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+#endif
 }
 
 static void rna_def_modifier_gpencillattice(BlenderRNA *brna)

@@ -415,7 +415,19 @@ static void generateStrokes(ModifierData *md, const EvaluationContext *eval_ctx,
 		return;
 	}
 	
-	/* TODO: Layer masking */
+	/* Omit layer if filter by layer */
+	if (mmd->layername[0] != '\0') {
+		if ((mmd->flag & GP_BUILD_INVERSE_LAYER) == 0) {
+			if (!STREQ(mmd->layername, gpl->info)) {
+				return;
+			}
+		}
+		else {
+			if (STREQ(mmd->layername, gpl->info)) {
+				return;
+			}
+		}
+	}
 	
 	/* Early exit if outside of the frame range for this modifier
 	 * (e.g. to have one forward, and one backwards modifier)
