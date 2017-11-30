@@ -871,7 +871,7 @@ void BKE_scene_init(Scene *sce)
 	curvemapping_initialize(gp_falloff_curve);
 	curvemap_reset(gp_falloff_curve->cm,
 		&gp_falloff_curve->clipr,
-		CURVE_PRESET_ROUND,
+		CURVE_PRESET_GAUSS,
 		CURVEMAP_SLOPE_POSITIVE);
 
 	sce->physics_settings.gravity[0] = 0.0f;

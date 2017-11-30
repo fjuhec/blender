@@ -898,7 +898,7 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 					curvemapping_initialize(gset->cur_falloff);
 					curvemap_reset(gset->cur_falloff->cm,
 						&gset->cur_falloff->clipr,
-						CURVE_PRESET_MID9,
+						CURVE_PRESET_GAUSS,
 						CURVEMAP_SLOPE_POSITIVE);
 				}
 			}
