@@ -2462,3 +2462,28 @@ bool BKE_gp_smooth_stroke_thickness(bGPDstroke *gps, int i, float inf)
 
 	return true;
 }
+
+/**
+* Get range of selected frames in layer.
+* Always the active frame is considered as selected, so if no more selected the range
+* will be equal to the current active frame.
+* \param gpl              Layer
+* \param r_initframe      Number of first selected frame
+* \param r_endframe       Number of last selected frame
+*/
+void BKE_gp_get_range_selected(bGPDlayer *gpl, int *r_initframe, int *r_endframe)
+{
+	*r_initframe = gpl->actframe->framenum;
+	*r_endframe = gpl->actframe->framenum;
+
+	for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
+		if (gpf->flag & GP_FRAME_SELECT) {
+			if (gpf->framenum < *r_initframe) {
+				*r_initframe = gpf->framenum;
+			}
+			if (gpf->framenum > *r_endframe) {
+				*r_endframe = gpf->framenum;
+			}
+		}
+	}
+}

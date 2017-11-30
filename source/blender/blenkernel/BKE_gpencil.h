@@ -215,4 +215,6 @@ bool BKE_gp_smooth_stroke(struct bGPDstroke *gps, int i, float inf, bool affect_
 bool BKE_gp_smooth_stroke_strength(struct bGPDstroke *gps, int i, float inf);
 bool BKE_gp_smooth_stroke_thickness(struct bGPDstroke *gps, int i, float inf);
 
+void BKE_gp_get_range_selected(struct bGPDlayer *gpl, int *r_initframe, int *r_endframe);
+
 #endif /*  __BKE_GPENCIL_H__ */
