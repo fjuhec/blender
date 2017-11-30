@@ -107,7 +107,7 @@ class MATERIAL_PT_gpencil_palette_colors(Panel):
             sub.operator("palette.color_add", icon='ZOOMIN', text="")
             sub.operator("palette.color_delete", icon='ZOOMOUT', text="")
 
-            palcol = context.active_palettecolor
+            palcol = context.active_gpencil_palettecolor
             if palcol:
                 sub.menu("GPENCIL_MT_palettecolor_specials", icon='DOWNARROW_HLT', text="")
 
