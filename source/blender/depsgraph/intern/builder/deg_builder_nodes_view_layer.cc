@@ -65,13 +65,35 @@ extern "C" {
 
 namespace DEG {
 
-void DepsgraphNodeBuilder::build_view_layer(Scene *scene,
-                                            ViewLayer *view_layer,
-                                            eDepsNode_LinkedState_Type linked_state)
+void DepsgraphNodeBuilder::build_view_layer(
+        Scene *scene,
+        ViewLayer *view_layer,
+        eDepsNode_LinkedState_Type linked_state)
 {
+	/* Scene ID block. */
+	add_id_node(&scene->id);
+	/* Time source. */
+	add_time_source();
+	/* Setup currently building context. */
+	scene_ = scene;
+	/* Expand Scene Cow datablock to get proper pointers to bases. */
 	Scene *scene_cow;
 	ViewLayer *view_layer_cow;
 	if (DEG_depsgraph_use_copy_on_write()) {
+		/* NOTE: We need to create ID nodes for all objects coming from bases,
+		 * otherwise remapping will not replace objects with their CoW versions
+		 * for CoW bases.
+		 */
+		LINKLIST_FOREACH(Base *, base, &view_layer->object_bases) {
+			Object *object = base->object;
+			add_id_node(&object->id, false);
+		}
+		/* Create ID node for nested ID of nodetree as well, otherwise remapping
+		 * will not work correct either.
+		 */
+		if (scene->nodetree != NULL) {
+			add_id_node(&scene->nodetree->id, false);
+		}
 		/* Make sure we've got ID node, so we can get pointer to CoW datablock.
 		 */
 		scene_cow = expand_cow_datablock(scene);
@@ -84,18 +106,20 @@ void DepsgraphNodeBuilder::build_view_layer(Scene *scene,
 		scene_cow = scene;
 		view_layer_cow = view_layer;
 	}
-	/* Scene ID block. */
-	add_id_node(&scene->id);
-	/* Rimesource. */
-	add_time_source();
-	/* Setup currently building context. */
-	scene_ = scene;
 	/* Scene objects. */
 	int select_color = 1;
-	LINKLIST_FOREACH(Base *, base, &view_layer_cow->object_bases) {
+	/* NOTE: Base is used for function bindings as-is, so need to pass CoW base,
+	 * but object is expected to be an original one. Hence we go into some
+	 * tricks here iterating over the view layer.
+	 */
+	for (Base *base_orig = (Base *)view_layer->object_bases.first,
+	          *base_cow = (Base *)view_layer_cow->object_bases.first;
+	     base_orig != NULL;
+	     base_orig = base_orig->next, base_cow = base_cow->next)
+	{
 		/* object itself */
-		build_object(base, base->object, linked_state);
-		base->object->select_color = select_color++;
+		build_object(base_cow, base_orig->object, linked_state);
+		base_orig->object->select_color = select_color++;
 	}
 	if (scene->camera != NULL) {
 		build_object(NULL, scene->camera, DEG_ID_LINKED_INDIRECTLY);

@@ -81,6 +81,7 @@
 #include "BKE_library_override.h"
 #include "BKE_library_query.h"
 #include "BKE_library_remap.h"
+#include "BKE_lightprobe.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
 #include "BKE_mball.h"
@@ -1846,12 +1847,18 @@ static void single_obdata_users(Main *bmain, Scene *scene, ViewLayer *view_layer
 					case OB_SPEAKER:
 						ob->data = ID_NEW_SET(ob->data, BKE_speaker_copy(bmain, ob->data));
 						break;
+					case OB_LIGHTPROBE:
+						ob->data = ID_NEW_SET(ob->data, BKE_lightprobe_copy(bmain, ob->data));
+						break;
 					case OB_GPENCIL:
 						ob->data = ID_NEW_SET(ob->data, BKE_gpencil_copy(bmain, ob->data));
 						break;
 					default:
-						if (G.debug & G_DEBUG)
-							printf("ERROR %s: can't copy %s\n", __func__, id->name);
+						printf("ERROR %s: can't copy %s\n", __func__, id->name);
+						BLI_assert(!"This should never happen.");
+
+						/* We need to end the FOREACH_OBJECT_FLAG iterator to prevent memory leak. */
+						BKE_scene_objects_iterator_end(&iter_macro);
 						return;
 				}
 
