@@ -60,6 +60,7 @@
 #include "BKE_report.h"
 #include "BKE_screen.h"
 #include "BKE_object_deform.h"
+#include "BKE_colortools.h"
 
 #include "UI_interface.h"
 
@@ -142,6 +143,7 @@ typedef struct tGP_BrushEditData {
 	wmTimer *timer;
 	bool timerTick; /* is this event from a timer */
 	int vrgroup;    /* active vertex group */
+	float falloff;  /* multiframe falloff factor */
 } tGP_BrushEditData;
 
 
@@ -244,7 +246,9 @@ static float gp_brush_influence_calc(tGP_BrushEditData *gso, const int radius, c
 		
 		influence *= fac;
 	}
-	
+	/* apply multiframe falloff */
+	influence *= gso->falloff;
+
 	/* return influence */
 	return influence;
 }
@@ -1448,18 +1452,49 @@ static bool gpsculpt_brush_apply_standard(bContext *C, tGP_BrushEditData *gso)
 	/* Find visible strokes, and perform operations on those if hit */
 	float diff_mat[4][4];
 	Object *obact = CTX_data_active_object(C);     
+	ToolSettings *ts = CTX_data_tool_settings(C);
 	bGPdata *gpd = gso->gpd;
 	bool is_multiedit = (bool)GPENCIL_MULTIEDIT_SESSIONS_ON(gpd);
 
 	CTX_DATA_BEGIN(C, bGPDlayer *, gpl, editable_gpencil_layers)
 	{
+		/* init multiframe falloff options */
+		int f_init = 0;
+		int f_end = 0;
+		gso->falloff = 1.0f;
+
 		bGPDframe *init_gpf = gpl->actframe;
 		if (is_multiedit) {
 			init_gpf = gpl->frames.first;
+			if (ts->gp_sculpt.flag & GP_BRUSHEDIT_FLAG_FRAME_FALLOFF) {
+				BKE_gp_get_range_selected(gpl, &f_init, &f_end);
+			}
+			/* initialize curve */
+			curvemapping_initialize(ts->gp_sculpt.cur_falloff);
 		}
 
 		for (bGPDframe *gpf = init_gpf; gpf; gpf = gpf->next) {
 			if ((gpf == gpl->actframe) || ((gpf->flag & GP_FRAME_SELECT) && (is_multiedit))) {
+				
+				/* compute multiframe falloff factor*/
+				if ((is_multiedit) && (ts->gp_sculpt.flag & GP_BRUSHEDIT_FLAG_FRAME_FALLOFF)) {
+					float fnum = 0.5f; /* default mid curve */
+					/* frames to the right of the active frame */
+					if (gpf->framenum < gpl->actframe->framenum) {
+						fnum = (float)(gpf->framenum - f_init) / (gpl->actframe->framenum - f_init);
+						fnum *= 0.5f;
+						gso->falloff = curvemapping_evaluateF(ts->gp_sculpt.cur_falloff, 0, fnum);
+					}
+					/* frames to the left of the active frame */
+					else if (gpf->framenum > gpl->actframe->framenum) {
+						fnum = (float)(gpf->framenum - gpl->actframe->framenum) / (f_end - gpl->actframe->framenum);
+						fnum *= 0.5f;
+						gso->falloff = curvemapping_evaluateF(ts->gp_sculpt.cur_falloff, 0, fnum + 0.5f);
+					}
+					else {
+						gso->falloff = 1.0f;
+					}
+				}
 
 				/* calculate difference matrix */
 				ED_gpencil_parent_location(obact, gpd, gpl, diff_mat);
