@@ -613,23 +613,7 @@ void do_versions_after_linking_280(Main *main)
 				}
 			}
 		}
-		
-		/* Grease pencil multiframe falloff curve */
-		/* add this line when move to right place:
-		 * if (!DNA_struct_elem_find(fd->filesdna, "GP_BrushEdit_Settings", "CurveMapping", "cur_falloff")) 
-		 */
-			for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
-				/* sculpt brushes */
-				GP_BrushEdit_Settings *gset = &scene->toolsettings->gp_sculpt;
-				if (gset) {
-					gset->cur_falloff = curvemapping_add(1, 0.0f, 0.0f, 1.0f, 1.0f);
-					curvemapping_initialize(gset->cur_falloff);
-					curvemap_reset(gset->cur_falloff->cm,
-						&gset->cur_falloff->clipr,
-						CURVE_PRESET_GAUSS,
-						CURVEMAP_SLOPE_POSITIVE);
-				}
-			}
+
 	}
 }
 
@@ -675,7 +659,7 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 		}
 
 		if (DNA_struct_elem_find(fd->filesdna, "LayerCollection", "ListBase", "engine_settings") &&
-		    !DNA_struct_elem_find(fd->filesdna, "LayerCollection", "IDProperty", "properties"))
+			!DNA_struct_elem_find(fd->filesdna, "LayerCollection", "IDProperty", "properties"))
 		{
 			for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
 				for (ViewLayer *view_layer = scene->view_layers.first; view_layer; view_layer = view_layer->next) {
@@ -701,7 +685,7 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 		if (!DNA_struct_elem_find(fd->filesdna, "ViewLayer", "IDProperty", "*properties")) {
 			for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
 				for (ViewLayer *view_layer = scene->view_layers.first; view_layer; view_layer = view_layer->next) {
-					IDPropertyTemplate val = {0};
+					IDPropertyTemplate val = { 0 };
 					view_layer->properties = IDP_New(IDP_GROUP, &val, ROOT_PROP);
 					BKE_view_layer_engine_settings_create(view_layer->properties);
 				}
@@ -777,7 +761,7 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 			if (ntree->type == NTREE_SHADER) {
 				for (bNode *node = ntree->nodes.first; node; node = node->next) {
 					if (node->type == 194 /* SH_NODE_EEVEE_METALLIC */ &&
-					    STREQ(node->idname, "ShaderNodeOutputMetallic"))
+						STREQ(node->idname, "ShaderNodeOutputMetallic"))
 					{
 						BLI_strncpy(node->idname, "ShaderNodeEeveeMetallic", sizeof(node->idname));
 						error |= NTREE_DOVERSION_NEED_OUTPUT;
@@ -789,14 +773,14 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 					}
 
 					else if (node->type == 196 /* SH_NODE_OUTPUT_EEVEE_MATERIAL */ &&
-					         STREQ(node->idname, "ShaderNodeOutputEeveeMaterial"))
+						STREQ(node->idname, "ShaderNodeOutputEeveeMaterial"))
 					{
 						node->type = SH_NODE_OUTPUT_MATERIAL;
 						BLI_strncpy(node->idname, "ShaderNodeOutputMaterial", sizeof(node->idname));
 					}
 
 					else if (node->type == 194 /* SH_NODE_EEVEE_METALLIC */ &&
-					         STREQ(node->idname, "ShaderNodeEeveeMetallic"))
+						STREQ(node->idname, "ShaderNodeEeveeMetallic"))
 					{
 						node->type = SH_NODE_BSDF_PRINCIPLED;
 						BLI_strncpy(node->idname, "ShaderNodeBsdfPrincipled", sizeof(node->idname));
@@ -807,10 +791,10 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 			}
 		} FOREACH_NODETREE_END
 
-		if (error & NTREE_DOVERSION_NEED_OUTPUT) {
-			BKE_report(fd->reports, RPT_ERROR, "Eevee material conversion problem. Error in console");
-			printf("You need to connect Principled and Eevee Specular shader nodes to new material output nodes.\n");
-		}
+			if (error & NTREE_DOVERSION_NEED_OUTPUT) {
+				BKE_report(fd->reports, RPT_ERROR, "Eevee material conversion problem. Error in console");
+				printf("You need to connect Principled and Eevee Specular shader nodes to new material output nodes.\n");
+			}
 
 		if (error & NTREE_DOVERSION_TRANSPARENCY_EMISSION) {
 			BKE_report(fd->reports, RPT_ERROR, "Eevee material conversion problem. Error in console");
@@ -820,7 +804,7 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 		if (!DNA_struct_elem_find(fd->filesdna, "Scene", "ViewRender", "view_render")) {
 			for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
 				BLI_strncpy_utf8(scene->view_render.engine_id, scene->r.engine,
-				                 sizeof(scene->view_render.engine_id));
+					sizeof(scene->view_render.engine_id));
 			}
 
 			for (WorkSpace *workspace = main->workspaces.first; workspace; workspace = workspace->id.next) {
@@ -829,7 +813,7 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 		}
 
 		if ((DNA_struct_elem_find(fd->filesdna, "ViewLayer", "FreestyleConfig", "freestyle_config") == false) &&
-		    DNA_struct_elem_find(fd->filesdna, "Scene", "ListBase", "view_layers"))
+			DNA_struct_elem_find(fd->filesdna, "Scene", "ListBase", "view_layers"))
 		{
 			for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
 				ViewLayer *view_layer;
@@ -850,7 +834,7 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 		 * crashes and corrupt data when trying to move linked datablocks around.
 		 */
 
-		/* Convert grease pencil palettes to blender palettes */
+		 /* Convert grease pencil palettes to blender palettes */
 		if (!DNA_struct_elem_find(fd->filesdna, "bGPDstroke", "Palette", "*palette")) {
 			for (bGPdata *gpd = main->gpencil.first; gpd; gpd = gpd->id.next) {
 				/* first create all palettes and colors */
@@ -958,6 +942,27 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 		if (!DNA_struct_elem_find(fd->filesdna, "bGPDdata", "int", "pixfactor")) {
 			for (bGPdata *gpd = main->gpencil.first; gpd; gpd = gpd->id.next) {
 				gpd->pixfactor = GP_DEFAULT_PIX_FACTOR;
+			}
+		}
+	}
+
+	/* XXX: this is a hack to manage Hero open movie files
+	 * this code must be merged in previous version 
+	 */
+	if (!MAIN_VERSION_ATLEAST(main, 280, 3)) {
+		/* Grease pencil multiframe falloff curve */
+		if (!DNA_struct_elem_find(fd->filesdna, "GP_BrushEdit_Settings", "CurveMapping", "cur_falloff")) {
+			for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
+				/* sculpt brushes */
+				GP_BrushEdit_Settings *gset = &scene->toolsettings->gp_sculpt;
+				if ((gset) && (gset->cur_falloff == NULL)) {
+					gset->cur_falloff = curvemapping_add(1, 0.0f, 0.0f, 1.0f, 1.0f);
+					curvemapping_initialize(gset->cur_falloff);
+					curvemap_reset(gset->cur_falloff->cm,
+						&gset->cur_falloff->clipr,
+						CURVE_PRESET_GAUSS,
+						CURVEMAP_SLOPE_POSITIVE);
+				}
 			}
 		}
 	}
