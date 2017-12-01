@@ -63,6 +63,7 @@
 #include "WM_types.h"
 
 const EnumPropertyItem rna_enum_object_modifier_type_items[] = {
+	/* General Modifiers */
 	{0, "", 0, N_("Modify"), ""},
 	{eModifierType_DataTransfer, "DATA_TRANSFER", ICON_MOD_DATA_TRANSFER, "Data Transfer", ""},
 	{eModifierType_MeshCache, "MESH_CACHE", ICON_MOD_MESHDEFORM, "Mesh Cache", ""},
@@ -120,26 +121,30 @@ const EnumPropertyItem rna_enum_object_modifier_type_items[] = {
 	{eModifierType_Smoke, "SMOKE", ICON_MOD_SMOKE, "Smoke", ""},
 	{eModifierType_Softbody, "SOFT_BODY", ICON_MOD_SOFT, "Soft Body", ""},
 	{eModifierType_Surface, "SURFACE", ICON_MOD_PHYSICS, "Surface", ""},
-	{0, "", 0, N_("Grease Pencil"), "" },
-	{eModifierType_GpencilArray, "GP_ARRAY", ICON_MOD_ARRAY, "Array", "Create grid of duplicate instances" },
-	{eModifierType_GpencilBuild, "GP_BUILD", ICON_MOD_BUILD, "Build", "Create duplication of strokes" },
-	{eModifierType_GpencilNoise, "GP_NOISE", ICON_RNDCURVE, "Noise", "Add noise to strokes" },
-	{eModifierType_GpencilSmooth, "GP_SMOOTH", ICON_MOD_SMOOTH, "Smooth", "Smooth stroke" },
-	{eModifierType_GpencilSubdiv, "GP_SUBDIV", ICON_MOD_SUBSURF, "Subdivide", "Subdivide stroke adding more control points" },
-	{eModifierType_GpencilOffset, "GP_OFFSET", ICON_MOD_DISPLACE, "Offset", "Change stroke location, rotation or scale" },
-	{eModifierType_GpencilSimplify, "GP_SIMPLIFY", ICON_MOD_DECIM, "Simplify", "Simplify stroke reducing number of points" },
-	{eModifierType_GpencilLattice, "GP_LATTICE", ICON_MOD_LATTICE, "Lattice", "Change stroke using lattice to deform" },
-	{eModifierType_GpencilHook, "GP_HOOK", ICON_HOOK, "Hook", "Change stroke using object as hook to deform" },
-	{eModifierType_GpencilThick, "GP_THICK", ICON_MAN_ROT, "Thickness", "Change stroke thickness" },
-	{eModifierType_GpencilTint, "GP_TINT", ICON_COLOR, "Tint", "Tint strokes with new color" },
-	{eModifierType_GpencilColor, "GP_COLOR", ICON_GROUP_VCOL, "Hue/Saturation", "Apply changes to color" },
-	{eModifierType_GpencilOpacity, "GP_OPACITY", ICON_MOD_MASK, "Opacity", "Opacity of the strokes" },
+	
+	/* Grease Pencil Modifiers */
+	{0, "", 0, N_("Generate"), "" },
+	{eModifierType_GpencilArray, "GP_ARRAY", ICON_MOD_ARRAY, "Array", "Create grid of duplicate instances"},
+	{eModifierType_GpencilBuild, "GP_BUILD", ICON_MOD_BUILD, "Build", "Create duplication of strokes"},
+	{eModifierType_GpencilSimplify, "GP_SIMPLIFY", ICON_MOD_DECIM, "Simplify", "Simplify stroke reducing number of points"},
+	{eModifierType_GpencilSubdiv, "GP_SUBDIV", ICON_MOD_SUBSURF, "Subdivide", "Subdivide stroke adding more control points"},
+	{0, "", 0, N_("Deform"), "" },
+	{eModifierType_GpencilHook, "GP_HOOK", ICON_HOOK, "Hook", "Deform stroke points using objects"},
+	{eModifierType_GpencilLattice, "GP_LATTICE", ICON_MOD_LATTICE, "Lattice", "Deform strokes using lattice"},
+	{eModifierType_GpencilNoise, "GP_NOISE", ICON_RNDCURVE, "Noise", "Add noise to strokes"},
+	{eModifierType_GpencilOffset, "GP_OFFSET", ICON_MOD_DISPLACE, "Offset", "Change stroke location, rotation or scale"},
+	{eModifierType_GpencilSmooth, "GP_SMOOTH", ICON_MOD_SMOOTH, "Smooth", "Smooth stroke"},
+	{eModifierType_GpencilThick, "GP_THICK", ICON_MAN_ROT, "Thickness", "Change stroke thickness"},
+	{0, "", 0, N_("Color"), "" },
+	{eModifierType_GpencilColor, "GP_COLOR", ICON_GROUP_VCOL, "Hue/Saturation", "Apply changes to stroke colors"},
+	{eModifierType_GpencilOpacity, "GP_OPACITY", ICON_MOD_MASK, "Opacity", "Opacity of the strokes"},
+	{eModifierType_GpencilTint, "GP_TINT", ICON_COLOR, "Tint", "Tint strokes with new color"},
 	{ 0, "", 0, N_("VFX"), "" },
-	{eModifierType_GpencilBlur, "GP_BLUR", ICON_SOLO_ON, "Gaussian Blur", "Apply Gaussian Blur to object" },
-	{eModifierType_GpencilWave, "GP_WAVE", ICON_SOLO_ON, "Wave Distorsion", "Apply Sinusoidal Deformation" },
-	{eModifierType_GpencilPixel, "GP_PIXEL", ICON_SOLO_ON, "Pixelate", "Pixelate image" },
-	{eModifierType_GpencilSwirl, "GP_SWIRL", ICON_SOLO_ON, "Swirl", "Create a rotation distorsion" },
-	{eModifierType_GpencilFlip, "GP_FLIP", ICON_SOLO_ON, "Flip", "Flip image" },
+	{eModifierType_GpencilFlip, "GP_FLIP", ICON_SOLO_ON, "Flip", "Flip image"},
+	{eModifierType_GpencilBlur, "GP_BLUR", ICON_SOLO_ON, "Gaussian Blur", "Apply Gaussian Blur to object"},
+	{eModifierType_GpencilPixel, "GP_PIXEL", ICON_SOLO_ON, "Pixelate", "Pixelate image"},
+	{eModifierType_GpencilSwirl, "GP_SWIRL", ICON_SOLO_ON, "Swirl", "Create a rotation distortion"},
+	{eModifierType_GpencilWave, "GP_WAVE", ICON_SOLO_ON, "Wave Distortion", "Apply sinusoidal deformation"},
 	{0, NULL, 0, NULL, NULL}
 };
 
