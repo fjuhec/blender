@@ -510,7 +510,7 @@ class GreasePencilStrokeSculptPanel:
 
 
 class GreasePencilMultiFramePanel:
-    bl_label = "Multiframe"
+    bl_label = "Multi Frame"
     bl_category = "Tools"
     bl_region_type = 'TOOLS'
 
@@ -528,21 +528,25 @@ class GreasePencilMultiFramePanel:
         return False
 
     @staticmethod
-    def draw(self, context):
+    def draw_header(self, context):
         layout = self.layout
+
+        gpd = context.gpencil_data
+        layout.prop(gpd, "use_multiedit", text="")
+
+    @staticmethod
+    def draw(self, context):
         gpd = context.gpencil_data
         settings = context.tool_settings.gpencil_sculpt
 
-        row = layout.row()
-        row.prop(gpd, "use_multiedit", text="Multi Frame", icon="FORCE_HARMONIC")
+        layout = self.layout
+        layout.enabled = gpd.use_multiedit
 
-        row = layout.row()
-        row.enabled = gpd.use_multiedit
-        row.prop(settings, "use_multiframe_falloff")
+        col = layout.column(align=True)
+        col.prop(settings, "use_multiframe_falloff")
 
         # Falloff curve
-        layout.label("Falloff")
-        box = layout.box()
+        box = col.box()
         box.enabled = gpd.use_multiedit and settings.use_multiframe_falloff
         box.template_curve_mapping(settings, "multiframe_falloff_curve", brush=True)
 
