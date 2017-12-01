@@ -3394,7 +3394,7 @@ void DRW_draw_render_loop_ex(
 		PROFILE_START(stime);
 		drw_engines_cache_init();
 
-		DEG_OBJECT_ITER(graph, ob, DEG_OBJECT_ITER_FLAG_ALL);
+		DEG_OBJECT_ITER(graph, ob, DEG_ITER_OBJECT_FLAG_ALL);
 		{
 			drw_engines_cache_populate(ob);
 		}
@@ -3603,7 +3603,7 @@ void DRW_draw_select_loop(
 			drw_engines_cache_populate(scene->obedit);
 		}
 		else {
-			DEG_OBJECT_ITER(graph, ob, DEG_OBJECT_ITER_FLAG_DUPLI)
+			DEG_OBJECT_ITER(graph, ob, DEG_ITER_OBJECT_FLAG_DUPLI)
 			{
 				if ((ob->base_flag & BASE_SELECTABLED) != 0) {
 					DRW_select_load_id(ob->select_color);
@@ -3695,7 +3695,7 @@ void DRW_draw_depth_loop(
 	if (cache_is_dirty) {
 		drw_engines_cache_init();
 
-		DEG_OBJECT_ITER(graph, ob, DEG_OBJECT_ITER_FLAG_ALL)
+		DEG_OBJECT_ITER(graph, ob, DEG_ITER_OBJECT_FLAG_ALL)
 		{
 			drw_engines_cache_populate(ob);
 		}

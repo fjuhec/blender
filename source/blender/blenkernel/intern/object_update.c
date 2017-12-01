@@ -300,10 +300,6 @@ bool BKE_object_eval_proxy_copy(const EvaluationContext *UNUSED(eval_ctx),
 void BKE_object_eval_uber_transform(const EvaluationContext *eval_ctx, Object *object)
 {
 	BKE_object_eval_proxy_copy(eval_ctx, object);
-	object->recalc &= ~(OB_RECALC_OB | OB_RECALC_TIME);
-	if (object->data == NULL) {
-		object->recalc &= ~OB_RECALC_DATA;
-	}
 }
 
 void BKE_object_eval_uber_data(const EvaluationContext *eval_ctx,
@@ -385,8 +381,6 @@ void BKE_object_eval_uber_data(const EvaluationContext *eval_ctx,
 #endif
 		}
 	}
-
-	ob->recalc &= ~(OB_RECALC_DATA | OB_RECALC_TIME);
 }
 
 void BKE_object_eval_cloth(const EvaluationContext *UNUSED(eval_ctx),
