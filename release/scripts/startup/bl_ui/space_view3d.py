@@ -173,9 +173,11 @@ class VIEW3D_HT_header(Header):
                 row = layout.row(align=True)
                 row.prop(gpd, "use_multiedit", text="Multi Frame", icon="FORCE_HARMONIC")
                 col = row.column()
-                col.enabled = gpd.is_stroke_sculpt_mode
+                col.enabled = gpd.use_multiedit and gpd.is_stroke_sculpt_mode
                 col.prop(settings, "use_multiframe_falloff", text="", icon="SMOOTHCURVE")
-                row.prop(gpd, "show_multiedit_line_only", text="", icon="GHOST")
+                col = row.column()
+                col.enabled = gpd.use_multiedit
+                col.prop(gpd, "show_multiedit_line_only", text="", icon="GHOST")
 
 
 class VIEW3D_MT_editor_menus(Menu):
