@@ -432,7 +432,7 @@ class GreasePencilBrushOptionsPanel:
 class GreasePencilStrokeSculptPanel:
     # subclass must set
     # bl_space_type = 'IMAGE_EDITOR'
-    bl_label = " "
+    bl_label = " " # NOTE: This is left blank as the text varies dynamically (see below)
     bl_category = "Tools"
     bl_region_type = 'TOOLS'
 
