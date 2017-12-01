@@ -1478,22 +1478,10 @@ static bool gpsculpt_brush_apply_standard(bContext *C, tGP_BrushEditData *gso)
 				
 				/* compute multiframe falloff factor*/
 				if ((is_multiedit) && (ts->gp_sculpt.flag & GP_BRUSHEDIT_FLAG_FRAME_FALLOFF)) {
-					float fnum = 0.5f; /* default mid curve */
-					/* frames to the right of the active frame */
-					if (gpf->framenum < gpl->actframe->framenum) {
-						fnum = (float)(gpf->framenum - f_init) / (gpl->actframe->framenum - f_init);
-						fnum *= 0.5f;
-						gso->falloff = curvemapping_evaluateF(ts->gp_sculpt.cur_falloff, 0, fnum);
-					}
-					/* frames to the left of the active frame */
-					else if (gpf->framenum > gpl->actframe->framenum) {
-						fnum = (float)(gpf->framenum - gpl->actframe->framenum) / (f_end - gpl->actframe->framenum);
-						fnum *= 0.5f;
-						gso->falloff = curvemapping_evaluateF(ts->gp_sculpt.cur_falloff, 0, fnum + 0.5f);
-					}
-					else {
-						gso->falloff = 1.0f;
-					}
+					BKE_get_falloff_factor(gpf, gpl->actframe->framenum, 
+											f_init, f_end, 
+											ts->gp_sculpt.cur_falloff, 
+											&gso->falloff);
 				}
 
 				/* calculate difference matrix */

@@ -2487,3 +2487,30 @@ void BKE_gp_get_range_selected(bGPDlayer *gpl, int *r_initframe, int *r_endframe
 		}
 	}
 }
+/**
+* Get Falloff factor base on frame range
+* \param gpf          Frame
+* \param actnum       Number of active frame in layer
+* \param f_init       Number of first selected frame
+* \param f_end        Number of last selected frame
+* \param cur_falloff  Curve with falloff factors
+*/
+void BKE_get_falloff_factor(bGPDframe *gpf, int actnum, int f_init, int f_end, CurveMapping *cur_falloff, float *r_value)
+{
+	float fnum = 0.5f; /* default mid curve */
+	/* frames to the right of the active frame */
+	if (gpf->framenum < actnum) {
+		fnum = (float)(gpf->framenum - f_init) / (actnum - f_init);
+		fnum *= 0.5f;
+		*r_value = curvemapping_evaluateF(cur_falloff, 0, fnum);
+	}
+	/* frames to the left of the active frame */
+	else if (gpf->framenum > actnum) {
+		fnum = (float)(gpf->framenum - actnum) / (f_end - actnum);
+		fnum *= 0.5f;
+		*r_value = curvemapping_evaluateF(cur_falloff, 0, fnum + 0.5f);
+	}
+	else {
+		*r_value = 1.0f;
+	}
+}
