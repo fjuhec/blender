@@ -7608,7 +7608,9 @@ static void direct_link_library(FileData *fd, Library *lib, Main *main)
 {
 	Main *newmain;
 	
+#ifdef DEBUG_LIBRARY
 	printf("adding lib %s (%s)\n", lib->id.name, lib->name);
+#endif
 
 	/* check if the library was already read */
 	for (newmain = fd->mainlist->first; newmain; newmain = newmain->next) {
@@ -8470,7 +8472,9 @@ static BHead *read_libblock(FileData *fd, Main *main, BHead *bhead, const short 
 		return blo_nextbhead(fd, bhead);
 	
 	id->tag = tag | LIB_TAG_NEED_LINK;
+#ifdef DEBUG_LIBRARY
 	printf("id: %s (%p, %p), lib: %p\n", id->name, id, id->uuid, main->curlib);
+#endif
 	id->lib = main->curlib;
 	id->us = ID_FAKE_USERS(id);
 	id->icon_id = 0;

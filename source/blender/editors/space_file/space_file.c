@@ -193,7 +193,7 @@ static SpaceLink *file_duplicate(SpaceLink *sl)
 {
 	SpaceFile *sfileo = (SpaceFile *)sl;
 	SpaceFile *sfilen = MEM_dupallocN(sl);
-
+	
 	/* clear or remove stuff from old */
 	sfilen->op = NULL; /* file window doesn't own operators */
 

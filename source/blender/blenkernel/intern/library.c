@@ -2473,7 +2473,7 @@ void BKE_id_ui_prefix(char name[MAX_ID_NAME + 1], const ID *id)
 void BKE_library_filepath_set(Library *lib, const char *filepath)
 {
 	if (lib->flag & LIBRARY_FLAG_VIRTUAL) {
-		/* Setting path for virtual libraries makes no sense. */
+		BLI_assert(!"Setting path for virtual libraries makes no sense.");
 		return;
 	}
 

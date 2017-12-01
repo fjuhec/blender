@@ -672,7 +672,7 @@ typedef struct wmDrag {
 	void *poin;
 	char path[1090];  /* FILE_MAX + MAX_ID_NAME */
 	double value;
-
+	
 	struct ImBuf *imb;						/* if no icon but imbuf should be drawn around cursor */
 	float scale;
 	int sx, sy;

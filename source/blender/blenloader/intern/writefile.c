@@ -24,7 +24,7 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/blenloader/intern/	ile.c
+/** \file blender/blenloader/intern/writefile.c
  *  \ingroup blenloader
  */
 
@@ -3846,7 +3846,7 @@ static void write_libraries(WriteData *wd, Main *main)
 				while (a--) {
 					for (id = lbarray[a]->first; id; id = id->next) {
 						switch ((ID_Type)GS(id->name)) {
-							/* Those should be the only datatypes found in a virtual library! */
+							/* Those should be the only datatypes found in a virtual library (for now)! */
 							case ID_IM:
 								write_image(wd, (Image *)id);
 								break;

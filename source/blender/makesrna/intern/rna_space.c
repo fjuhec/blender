@@ -34,7 +34,6 @@
 #include "RNA_access.h"
 #include "RNA_define.h"
 
-
 #include "BKE_asset_engine.h"
 #include "BKE_image.h"
 #include "BKE_key.h"

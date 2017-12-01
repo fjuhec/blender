@@ -558,7 +558,9 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
 
 			if (BLO_library_path_explode(path, libname, &group, &name)) {
 				if (!wm_link_append_item_poll(op->reports, path, group, name, do_append)) {
+#ifdef DEBUG_LIBRARY
 					printf("skipping %s\n", path);
+#endif
 					continue;
 				}
 
@@ -639,7 +641,9 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
 				}
 			}
 		}
+#ifdef DEBUG_LIBRARY
 		printf("%s\n", obbase ? obbase->object->id.name : "<NULL>");
+#endif
 	}
 
 	/* mark all library linked objects to be updated */
@@ -842,7 +846,7 @@ static void lib_relocate_do(
 					BLI_BITMAP_SET_ALL(item->libraries, true, lapp_data->num_libraries);
 					has_item = true;
 
-#ifdef PRINT_DEBUG
+#ifdef DEBUG_LIBRARY
 					printf("\tdatablock to seek for: %s\n", id->name);
 #endif
 				}
@@ -1553,10 +1557,13 @@ static int wm_assets_reload_exec(bContext *C, wmOperator *op)
 		GHash *libraries = BLI_ghash_new(BLI_ghashutil_strhash_p, BLI_ghashutil_strcmp, __func__);
 		int lib_idx = 0;
 
+#ifdef DEBUG_LIBRARY
 		printf("Engine %s (ver. %d) returned root path '%s'\n", auce->ae->type->name, auce->ae->type->version, paths->root);
+#endif
 		for (en = paths->entries.first; en; en = en->next) {
+#ifdef DEBUG_LIBRARY
 			printf("\t-> %s\n", en->relpath);
-
+#endif
 			BLI_join_dirfile(path, sizeof(path), paths->root, en->relpath);
 
 			if (BLO_library_path_explode(path, libname, &group, &name)) {

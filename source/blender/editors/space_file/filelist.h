@@ -91,7 +91,7 @@ void                filelist_setdir(struct FileList *filelist, char *r_dir);
 
 int                 filelist_files_ensure(struct FileList *filelist, struct FileSelectParams *params);
 int                 filelist_empty(struct FileList *filelist);
-struct FileDirEntry *filelist_file(struct FileList *filelist, int index);
+FileDirEntry *      filelist_file(struct FileList *filelist, int index);
 int                 filelist_file_findpath(struct FileList *filelist, const char *file);
 FileDirEntry *      filelist_entry_find_uuid(struct FileList *filelist, const int uuid[4]);
 void                filelist_file_cache_slidingwindow_set(struct FileList *filelist, size_t window_size);

@@ -1889,17 +1889,19 @@ static bool filelist_file_cache_block_create(FileList *filelist, const int start
 static void filelist_file_cache_block_release(struct FileList *filelist, const int size, int cursor)
 {
 	FileListEntryCache *cache = &filelist->filelist_cache;
-	int i;
 
-	for (i = 0; i < size; i++, cursor++) {
-		FileDirEntry *entry = cache->block_entries[cursor];
-//		printf("%s: release cacheidx %d (%%p %%s)\n", __func__, cursor/*, cache->block_entries[cursor], cache->block_entries[cursor]->relpath*/);
-		BLI_ghash_remove(cache->uuids, entry->uuid, NULL, NULL);
-		filelist_file_release_entry(filelist, cache->block_entries[cursor]);
+	{
+		int i;
 
+		for (i = 0; i < size; i++, cursor++) {
+			FileDirEntry *entry = cache->block_entries[cursor];
+//			printf("%s: release cacheidx %d (%%p %%s)\n", __func__, cursor/*, cache->block_entries[cursor], cache->block_entries[cursor]->relpath*/);
+			BLI_ghash_remove(cache->uuids, entry->uuid, NULL, NULL);
+			filelist_file_release_entry(filelist, entry);
 #ifndef NDEBUG
-		cache->block_entries[cursor] = NULL;
+			cache->block_entries[cursor] = NULL;
 #endif
+		}
 	}
 }
 

@@ -1439,7 +1439,7 @@ int file_exec(bContext *C, wmOperator *exec_op)
 	SpaceFile *sfile = CTX_wm_space_file(C);
 	const struct FileDirEntry *file = filelist_file(sfile->files, sfile->params->active_file);
 	char filepath[FILE_MAX_LIBEXTRA];
-	
+
 	/* directory change */
 	if (file && (file->typeflag & FILE_TYPE_DIR)) {
 		if (!file->relpath) {
