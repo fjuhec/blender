@@ -1540,7 +1540,7 @@ static void rna_Scene_editmesh_select_mode_set(PointerRNA *ptr, const int *value
 	}
 }
 
-static void rna_Scene_editmesh_select_mode_update(Main *UNUSED(bmain), bContext *C, Scene *UNUSED(scene), PointerRNA *UNUSED(ptr))
+static void rna_Scene_editmesh_select_mode_update(bContext *C, PointerRNA *UNUSED(ptr))
 {
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	Mesh *me = NULL;
@@ -1790,7 +1790,7 @@ static char *rna_CurvePaintSettings_path(PointerRNA *UNUSED(ptr))
 }
 
 /* generic function to recalc geometry */
-static void rna_EditMesh_update(Main *UNUSED(bmain), bContext *C, Scene *UNUSED(scene), PointerRNA *UNUSED(ptr))
+static void rna_EditMesh_update(bContext *C, PointerRNA *UNUSED(ptr))
 {
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	Mesh *me = NULL;
