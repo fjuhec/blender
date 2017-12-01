@@ -543,6 +543,7 @@ class GreasePencilMultiFramePanel:
         layout.enabled = gpd.use_multiedit
 
         col = layout.column(align=True)
+        col.prop(gpd, "show_multiedit_line_only", text="Display only edit lines")
         col.prop(settings, "use_multiframe_falloff")
 
         # Falloff curve

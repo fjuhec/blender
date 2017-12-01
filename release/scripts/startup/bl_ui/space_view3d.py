@@ -172,8 +172,10 @@ class VIEW3D_HT_header(Header):
                 settings = context.tool_settings.gpencil_sculpt
                 row = layout.row(align=True)
                 row.prop(gpd, "use_multiedit", text="Multi Frame", icon="FORCE_HARMONIC")
+                col = row.column()
+                col.enabled = gpd.is_stroke_sculpt_mode
+                col.prop(settings, "use_multiframe_falloff", text="", icon="SMOOTHCURVE")
                 row.prop(gpd, "show_multiedit_line_only", text="", icon="GHOST")
-                row.prop(settings, "use_multiframe_falloff", text="", icon="PROP_ON")
 
 
 class VIEW3D_MT_editor_menus(Menu):
