@@ -1464,7 +1464,7 @@ static bool gpsculpt_brush_apply_standard(bContext *C, tGP_BrushEditData *gso)
 		gso->falloff = 1.0f;
 
 		bGPDframe *init_gpf = gpl->actframe;
-		if (is_multiedit) {
+		if ((is_multiedit) && (gpl->actframe)){
 			init_gpf = gpl->frames.first;
 			if (ts->gp_sculpt.flag & GP_BRUSHEDIT_FLAG_FRAME_FALLOFF) {
 				BKE_gp_get_range_selected(gpl, &f_init, &f_end);
