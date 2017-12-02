@@ -155,7 +155,7 @@ static void gpencil_batch_cache_resize(GpencilBatchCache *cache, int slots)
 }
 
 /* check size and increase if no free slots */
-static void gpencil_batch_cache_check_free_slots(Object *ob, bGPdata *UNUSED(gpd))
+static void gpencil_batch_cache_check_free_slots(Object *ob)
 {
 	GpencilBatchCache *cache = gpencil_batch_get_element(ob);
 
@@ -529,7 +529,7 @@ static void gpencil_add_fill_shgroup(GpencilBatchCache *cache, DRWShadingGroup *
 				}
 			}
 			if (cache->is_dirty) {
-				gpencil_batch_cache_check_free_slots(ob, gpd);
+				gpencil_batch_cache_check_free_slots(ob);
 				cache->batch_fill[cache->cache_idx] = DRW_gpencil_get_fill_geom(gps, color);
 			}
 			DRW_shgroup_call_add(fillgrp, cache->batch_fill[cache->cache_idx], gpf->viewmatrix);
@@ -565,7 +565,7 @@ static void gpencil_add_stroke_shgroup(GpencilBatchCache *cache, DRWShadingGroup
 	sthickness = gps->thickness + gpl->thickness;
 	CLAMP_MIN(sthickness, 1);
 	if (cache->is_dirty) {
-		gpencil_batch_cache_check_free_slots(ob, gpd);
+		gpencil_batch_cache_check_free_slots(ob);
 		if ((gps->totpoints > 1) && ((gps->palcolor->flag & PAC_COLOR_DOT) == 0)) {
 			cache->batch_stroke[cache->cache_idx] = DRW_gpencil_get_stroke_geom(gpf, gps, sthickness, ink);
 		}
@@ -591,7 +591,7 @@ static void gpencil_add_editpoints_shgroup(
 
 		/* line of the original stroke */
 		if (cache->is_dirty) {
-			gpencil_batch_cache_check_free_slots(ob, gpd);
+			gpencil_batch_cache_check_free_slots(ob);
 			cache->batch_edlin[cache->cache_idx] = DRW_gpencil_get_edlin_geom(gps, ts->gp_sculpt.alpha, gpd->flag);
 		}
 		if (cache->batch_edlin[cache->cache_idx]) {
@@ -603,7 +603,7 @@ static void gpencil_add_editpoints_shgroup(
 		if ((gps->flag & GP_STROKE_SELECT) || (is_weight_paint)) {
 			if ((gpl->flag & GP_LAYER_UNLOCK_COLOR) || ((gps->palcolor->flag & PC_COLOR_LOCKED) == 0)) {
 				if (cache->is_dirty) {
-					gpencil_batch_cache_check_free_slots(ob, gpd);
+					gpencil_batch_cache_check_free_slots(ob);
 					cache->batch_edit[cache->cache_idx] = DRW_gpencil_get_edit_geom(gps, ts->gp_sculpt.alpha, gpd->flag);
 				}
 				if (cache->batch_edit[cache->cache_idx]) {
