@@ -36,7 +36,6 @@ CCL_NAMESPACE_BEGIN
 
 /* Constants */
 #define OBJECT_VECTOR_SIZE	6
-#define LIGHT_SIZE		11
 #define FILTER_TABLE_SIZE	1024
 #define RAMP_TABLE_SIZE		256
 #define SHUTTER_TABLE_SIZE		256
@@ -1528,6 +1527,51 @@ typedef struct KernelObject
 	uint attribute_map_offset;
 	float pad2, pad3;
 } KernelObject;
+
+typedef struct KernelSpotLight
+{
+	float radius;
+	float invarea;
+	float spot_angle;
+	float spot_smooth;
+	float dir[3];
+} KernelSpotLight;
+
+/* PointLight is SpotLight with only radius and invarea being used. */
+
+typedef struct KernelAreaLight
+{
+	float axisu[3];
+	float invarea;
+	float axisv[3];
+	float dir[3];
+} KernelAreaLight;
+
+
+typedef struct KernelDistantLight
+{
+	float radius;
+	float cosangle;
+	float invarea;
+} KernelDistantLight;
+
+typedef struct KernelLight
+{
+	int type;
+	float co[3];
+	int shader_id;
+	int samples;
+	float max_bounces;
+	float random;
+	float4 tfm[3];
+	float4 itfm[3];
+	union {
+		KernelSpotLight spot;
+		KernelAreaLight area;
+		KernelDistantLight distant;
+	};
+} KernelLight;
+
 
 CCL_NAMESPACE_END
 

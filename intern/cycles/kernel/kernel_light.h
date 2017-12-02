@@ -255,11 +255,14 @@ ccl_device_inline bool background_portal_data_fetch_and_check_side(KernelGlobals
                                                                    float3 *lightpos,
                                                                    float3 *dir)
 {
-	float4 data0 = kernel_tex_fetch(__light_data, (index + kernel_data.integrator.portal_offset)*LIGHT_SIZE + 0);
-	float4 data3 = kernel_tex_fetch(__light_data, (index + kernel_data.integrator.portal_offset)*LIGHT_SIZE + 3);
+	int io = index + kernel_data.integrator.portal_offset;
 
-	*lightpos = make_float3(data0.y, data0.z, data0.w);
-	*dir = make_float3(data3.y, data3.z, data3.w);
+	*lightpos = make_float3(kernel_tex_fetch(__light_data, io).co[0],
+	                        kernel_tex_fetch(__light_data, io).co[1],
+	                        kernel_tex_fetch(__light_data, io).co[2]);
+	*dir = make_float3(kernel_tex_fetch(__light_data, io).area.dir[0],
+	                   kernel_tex_fetch(__light_data, io).area.dir[1],
+	                   kernel_tex_fetch(__light_data, io).area.dir[2]);
 
 	/* Check whether portal is on the right side. */
 	if(dot(*dir, P - *lightpos) > 1e-4f)
@@ -291,11 +294,13 @@ ccl_device_inline float background_portal_pdf(KernelGlobals *kg,
 		}
 		num_possible++;
 
-		float4 data1 = kernel_tex_fetch(__light_data, (p + kernel_data.integrator.portal_offset)*LIGHT_SIZE + 1);
-		float4 data2 = kernel_tex_fetch(__light_data, (p + kernel_data.integrator.portal_offset)*LIGHT_SIZE + 2);
-
-		float3 axisu = make_float3(data1.y, data1.z, data1.w);
-		float3 axisv = make_float3(data2.y, data2.z, data2.w);
+		int po = p + kernel_data.integrator.portal_offset;
+		float3 axisu = make_float3(kernel_tex_fetch(__light_data, po).area.axisu[0],
+		                           kernel_tex_fetch(__light_data, po).area.axisu[1],
+		                           kernel_tex_fetch(__light_data, po).area.axisu[2]);
+		float3 axisv = make_float3(kernel_tex_fetch(__light_data, po).area.axisv[0],
+		                           kernel_tex_fetch(__light_data, po).area.axisv[1],
+		                           kernel_tex_fetch(__light_data, po).area.axisv[2]);
 
 		if(!ray_quad_intersect(P, direction, 1e-4f, FLT_MAX, lightpos, axisu, axisv, dir, NULL, NULL, NULL, NULL))
 			continue;
@@ -346,10 +351,13 @@ ccl_device float3 background_portal_sample(KernelGlobals *kg,
 
 		if(portal == 0) {
 			/* p is the portal to be sampled. */
-			float4 data1 = kernel_tex_fetch(__light_data, (p + kernel_data.integrator.portal_offset)*LIGHT_SIZE + 1);
-			float4 data2 = kernel_tex_fetch(__light_data, (p + kernel_data.integrator.portal_offset)*LIGHT_SIZE + 2);
-			float3 axisu = make_float3(data1.y, data1.z, data1.w);
-			float3 axisv = make_float3(data2.y, data2.z, data2.w);
+			int po = p + kernel_data.integrator.portal_offset;
+			float3 axisu = make_float3(kernel_tex_fetch(__light_data, po).area.axisu[0],
+			                           kernel_tex_fetch(__light_data, po).area.axisu[1],
+			                           kernel_tex_fetch(__light_data, po).area.axisu[2]);
+			float3 axisv = make_float3(kernel_tex_fetch(__light_data, po).area.axisv[0],
+			                           kernel_tex_fetch(__light_data, po).area.axisv[1],
+			                           kernel_tex_fetch(__light_data, po).area.axisv[2]);
 
 			*pdf = area_light_sample(P, &lightpos,
 			                         axisu, axisv,
@@ -479,13 +487,9 @@ ccl_device float3 sphere_light_sample(float3 P, float3 center, float radius, flo
 	return disk_light_sample(normalize(P - center), randu, randv)*radius;
 }
 
-ccl_device float spot_light_attenuation(float4 data1, float4 data2, LightSample *ls)
+ccl_device float spot_light_attenuation(float3 dir, float spot_angle, float spot_smooth, LightSample *ls)
 {
-	float3 dir = make_float3(data2.y, data2.z, data2.w);
 	float3 I = ls->Ng;
-
-	float spot_angle = data1.w;
-	float spot_smooth = data2.x;
 
 	float attenuation = dot(dir, I);
 
@@ -518,12 +522,9 @@ ccl_device_inline bool lamp_light_sample(KernelGlobals *kg,
                                          float3 P,
                                          LightSample *ls)
 {
-	float4 data0 = kernel_tex_fetch(__light_data, lamp*LIGHT_SIZE + 0);
-	float4 data1 = kernel_tex_fetch(__light_data, lamp*LIGHT_SIZE + 1);
-
-	LightType type = (LightType)__float_as_int(data0.x);
+	LightType type = (LightType)kernel_tex_fetch(__light_data, lamp).type;
 	ls->type = type;
-	ls->shader = __float_as_int(data1.x);
+	ls->shader = kernel_tex_fetch(__light_data, lamp).shader_id;
 	ls->object = PRIM_NONE;
 	ls->prim = PRIM_NONE;
 	ls->lamp = lamp;
@@ -532,10 +533,12 @@ ccl_device_inline bool lamp_light_sample(KernelGlobals *kg,
 
 	if(type == LIGHT_DISTANT) {
 		/* distant light */
-		float3 lightD = make_float3(data0.y, data0.z, data0.w);
+		float3 lightD = make_float3(kernel_tex_fetch(__light_data, lamp).co[0],
+		                            kernel_tex_fetch(__light_data, lamp).co[1],
+		                            kernel_tex_fetch(__light_data, lamp).co[2]);
 		float3 D = lightD;
-		float radius = data1.y;
-		float invarea = data1.w;
+		float radius = kernel_tex_fetch(__light_data, lamp).distant.radius;
+		float invarea = kernel_tex_fetch(__light_data, lamp).distant.invarea;
 
 		if(radius > 0.0f)
 			D = distant_light_sample(D, radius, randu, randv);
@@ -562,10 +565,12 @@ ccl_device_inline bool lamp_light_sample(KernelGlobals *kg,
 	}
 #endif
 	else {
-		ls->P = make_float3(data0.y, data0.z, data0.w);
+		ls->P = make_float3(kernel_tex_fetch(__light_data, lamp).co[0],
+		                    kernel_tex_fetch(__light_data, lamp).co[1],
+		                    kernel_tex_fetch(__light_data, lamp).co[2]);
 
 		if(type == LIGHT_POINT || type == LIGHT_SPOT) {
-			float radius = data1.y;
+			float radius = kernel_tex_fetch(__light_data, lamp).spot.radius;
 
 			if(radius > 0.0f)
 				/* sphere light */
@@ -574,14 +579,18 @@ ccl_device_inline bool lamp_light_sample(KernelGlobals *kg,
 			ls->D = normalize_len(ls->P - P, &ls->t);
 			ls->Ng = -ls->D;
 
-			float invarea = data1.z;
+			float invarea = kernel_tex_fetch(__light_data, lamp).spot.invarea;
 			ls->eval_fac = (0.25f*M_1_PI_F)*invarea;
 			ls->pdf = invarea;
 
 			if(type == LIGHT_SPOT) {
 				/* spot light attenuation */
-				float4 data2 = kernel_tex_fetch(__light_data, lamp*LIGHT_SIZE + 2);
-				ls->eval_fac *= spot_light_attenuation(data1, data2, ls);
+				float3 dir = make_float3(kernel_tex_fetch(__light_data, lamp).spot.dir[0],
+                                         kernel_tex_fetch(__light_data, lamp).spot.dir[1],
+										 kernel_tex_fetch(__light_data, lamp).spot.dir[2]);
+				ls->eval_fac *= spot_light_attenuation(dir,
+				                                       kernel_tex_fetch(__light_data, lamp).spot.spot_angle,
+				                                       kernel_tex_fetch(__light_data, lamp).spot.spot_smooth, ls);
 				if(ls->eval_fac == 0.0f) {
 					return false;
 				}
@@ -594,12 +603,15 @@ ccl_device_inline bool lamp_light_sample(KernelGlobals *kg,
 		}
 		else {
 			/* area light */
-			float4 data2 = kernel_tex_fetch(__light_data, lamp*LIGHT_SIZE + 2);
-			float4 data3 = kernel_tex_fetch(__light_data, lamp*LIGHT_SIZE + 3);
-
-			float3 axisu = make_float3(data1.y, data1.z, data1.w);
-			float3 axisv = make_float3(data2.y, data2.z, data2.w);
-			float3 D = make_float3(data3.y, data3.z, data3.w);
+			float3 axisu = make_float3(kernel_tex_fetch(__light_data, lamp).area.axisu[0],
+			                           kernel_tex_fetch(__light_data, lamp).area.axisu[1],
+			                           kernel_tex_fetch(__light_data, lamp).area.axisu[2]);
+			float3 axisv = make_float3(kernel_tex_fetch(__light_data, lamp).area.axisv[0],
+			                           kernel_tex_fetch(__light_data, lamp).area.axisv[1],
+			                           kernel_tex_fetch(__light_data, lamp).area.axisv[2]);
+			float3 D = make_float3(kernel_tex_fetch(__light_data, lamp).area.dir[0],
+			                       kernel_tex_fetch(__light_data, lamp).area.dir[1],
+			                       kernel_tex_fetch(__light_data, lamp).area.dir[2]);
 
 			if(dot(ls->P - P, D) > 0.0f) {
 				return false;
@@ -618,7 +630,7 @@ ccl_device_inline bool lamp_light_sample(KernelGlobals *kg,
 			ls->Ng = D;
 			ls->D = normalize_len(ls->P - P, &ls->t);
 
-			float invarea = data2.x;
+			float invarea = kernel_tex_fetch(__light_data, lamp).area.invarea;
 			ls->eval_fac = 0.25f*invarea;
 		}
 	}
@@ -630,12 +642,9 @@ ccl_device_inline bool lamp_light_sample(KernelGlobals *kg,
 
 ccl_device bool lamp_light_eval(KernelGlobals *kg, int lamp, float3 P, float3 D, float t, LightSample *ls)
 {
-	float4 data0 = kernel_tex_fetch(__light_data, lamp*LIGHT_SIZE + 0);
-	float4 data1 = kernel_tex_fetch(__light_data, lamp*LIGHT_SIZE + 1);
-
-	LightType type = (LightType)__float_as_int(data0.x);
+	LightType type = (LightType)kernel_tex_fetch(__light_data, lamp).type;
 	ls->type = type;
-	ls->shader = __float_as_int(data1.x);
+	ls->shader = kernel_tex_fetch(__light_data, lamp).shader_id;
 	ls->object = PRIM_NONE;
 	ls->prim = PRIM_NONE;
 	ls->lamp = lamp;
@@ -648,7 +657,7 @@ ccl_device bool lamp_light_eval(KernelGlobals *kg, int lamp, float3 P, float3 D,
 
 	if(type == LIGHT_DISTANT) {
 		/* distant light */
-		float radius = data1.y;
+		float radius = kernel_tex_fetch(__light_data, lamp).distant.radius;
 
 		if(radius == 0.0f)
 			return false;
@@ -670,9 +679,11 @@ ccl_device bool lamp_light_eval(KernelGlobals *kg, int lamp, float3 P, float3 D,
 		 *             P
 		 */
 
-		float3 lightD = make_float3(data0.y, data0.z, data0.w);
+		float3 lightD = make_float3(kernel_tex_fetch(__light_data, lamp).co[0],
+		                            kernel_tex_fetch(__light_data, lamp).co[1],
+		                            kernel_tex_fetch(__light_data, lamp).co[2]);
 		float costheta = dot(-lightD, D);
-		float cosangle = data1.z;
+		float cosangle = kernel_tex_fetch(__light_data, lamp).distant.cosangle;
 
 		if(costheta < cosangle)
 			return false;
@@ -683,13 +694,16 @@ ccl_device bool lamp_light_eval(KernelGlobals *kg, int lamp, float3 P, float3 D,
 		ls->t = FLT_MAX;
 
 		/* compute pdf */
-		float invarea = data1.w;
+		float invarea = kernel_tex_fetch(__light_data, lamp).distant.invarea;
 		ls->pdf = invarea/(costheta*costheta*costheta);
 		ls->eval_fac = ls->pdf;
 	}
 	else if(type == LIGHT_POINT || type == LIGHT_SPOT) {
-		float3 lightP = make_float3(data0.y, data0.z, data0.w);
-		float radius = data1.y;
+		float3 lightP = make_float3(kernel_tex_fetch(__light_data, lamp).co[0],
+		                            kernel_tex_fetch(__light_data, lamp).co[1],
+		                            kernel_tex_fetch(__light_data, lamp).co[2]);
+
+		float radius = kernel_tex_fetch(__light_data, lamp).spot.radius;
 
 		/* sphere light */
 		if(radius == 0.0f)
@@ -704,14 +718,17 @@ ccl_device bool lamp_light_eval(KernelGlobals *kg, int lamp, float3 P, float3 D,
 		ls->Ng = -D;
 		ls->D = D;
 
-		float invarea = data1.z;
+		float invarea = kernel_tex_fetch(__light_data, lamp).spot.invarea;
 		ls->eval_fac = (0.25f*M_1_PI_F)*invarea;
 		ls->pdf = invarea;
 
 		if(type == LIGHT_SPOT) {
 			/* spot light attenuation */
-			float4 data2 = kernel_tex_fetch(__light_data, lamp*LIGHT_SIZE + 2);
-			ls->eval_fac *= spot_light_attenuation(data1, data2, ls);
+			float3 dir = make_float3(kernel_tex_fetch(__light_data, lamp).spot.dir[0],
+			                         kernel_tex_fetch(__light_data, lamp).spot.dir[1],
+			                         kernel_tex_fetch(__light_data, lamp).spot.dir[2]);
+			ls->eval_fac *= spot_light_attenuation(dir, kernel_tex_fetch(__light_data, lamp).spot.spot_angle,
+			                                       kernel_tex_fetch(__light_data, lamp).spot.spot_smooth, ls);
 
 			if(ls->eval_fac == 0.0f)
 				return false;
@@ -726,22 +743,28 @@ ccl_device bool lamp_light_eval(KernelGlobals *kg, int lamp, float3 P, float3 D,
 	}
 	else if(type == LIGHT_AREA) {
 		/* area light */
-		float4 data2 = kernel_tex_fetch(__light_data, lamp*LIGHT_SIZE + 2);
-		float4 data3 = kernel_tex_fetch(__light_data, lamp*LIGHT_SIZE + 3);
-
-		float invarea = data2.x;
+		float invarea = kernel_tex_fetch(__light_data, lamp).area.invarea;
 		if(invarea == 0.0f)
 			return false;
 
-		float3 axisu = make_float3(data1.y, data1.z, data1.w);
-		float3 axisv = make_float3(data2.y, data2.z, data2.w);
-		float3 Ng = make_float3(data3.y, data3.z, data3.w);
+		
+			float3 axisu = make_float3(kernel_tex_fetch(__light_data, lamp).area.axisu[0],
+			                           kernel_tex_fetch(__light_data, lamp).area.axisu[1],
+			                           kernel_tex_fetch(__light_data, lamp).area.axisu[2]);
+			float3 axisv = make_float3(kernel_tex_fetch(__light_data, lamp).area.axisv[0],
+			                           kernel_tex_fetch(__light_data, lamp).area.axisv[1],
+			                           kernel_tex_fetch(__light_data, lamp).area.axisv[2]);
+			float3 Ng = make_float3(kernel_tex_fetch(__light_data, lamp).area.dir[0],
+			                       kernel_tex_fetch(__light_data, lamp).area.dir[1],
+			                       kernel_tex_fetch(__light_data, lamp).area.dir[2]);
 
 		/* one sided */
 		if(dot(D, Ng) >= 0.0f)
 			return false;
 
-		float3 light_P = make_float3(data0.y, data0.z, data0.w);
+		float3 light_P = make_float3(kernel_tex_fetch(__light_data, lamp).co[0],
+		                             kernel_tex_fetch(__light_data, lamp).co[1],
+		                             kernel_tex_fetch(__light_data, lamp).co[2]);
 
 		if(!ray_quad_intersect(P, D, 0.0f, t, light_P,
 		                       axisu, axisv, Ng,
@@ -1066,8 +1089,7 @@ ccl_device int light_distribution_sample(KernelGlobals *kg, float *randu)
 
 ccl_device bool light_select_reached_max_bounces(KernelGlobals *kg, int index, int bounce)
 {
-	float4 data4 = kernel_tex_fetch(__light_data, index*LIGHT_SIZE + 4);
-	return (bounce > __float_as_int(data4.x));
+	return (bounce > kernel_tex_fetch(__light_data, index).max_bounces);
 }
 
 ccl_device_noinline bool light_sample(KernelGlobals *kg,
@@ -1106,8 +1128,7 @@ ccl_device_noinline bool light_sample(KernelGlobals *kg,
 
 ccl_device int light_select_num_samples(KernelGlobals *kg, int index)
 {
-	float4 data3 = kernel_tex_fetch(__light_data, index*LIGHT_SIZE + 3);
-	return __float_as_int(data3.x);
+	return kernel_tex_fetch(__light_data, index).samples;
 }
 
 CCL_NAMESPACE_END
