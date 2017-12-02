@@ -35,6 +35,7 @@
 #include "DNA_material_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
+#include "DNA_gpencil_types.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -345,8 +346,8 @@ static SpaceLink *view3d_new(const bContext *C)
 	v3d->near = 0.01f;
 	v3d->far = 1000.0f;
 
-	v3d->gpencil_grid_size[0] = 50;
-	v3d->gpencil_grid_size[1] = 50;
+	v3d->gpencil_grid_size[0] = GP_DEFAULT_GRID_SIZE;
+	v3d->gpencil_grid_size[1] = GP_DEFAULT_GRID_SIZE;
 	ARRAY_SET_ITEMS(v3d->gpencil_paper_color, 1.0f, 1.0f, 1.0f, 0.7f);
 
 	v3d->twflag |= U.manipulator_flag & V3D_MANIPULATOR_DRAW;

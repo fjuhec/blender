@@ -41,6 +41,7 @@ struct GHash;
 /* TODO: add size as userprefs parameter */
 #define GP_OBGPENCIL_DEFAULT_SIZE  0.2f 
 #define GP_DEFAULT_PIX_FACTOR 500 
+#define GP_DEFAULT_GRID_SIZE 100 
 
 /* ***************************************** */
 /* GP Point Weights */

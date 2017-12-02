@@ -574,8 +574,8 @@ void do_versions_after_linking_280(Main *main)
 				for (SpaceLink *sl = area->spacedata.first; sl; sl = sl->next) {
 					if (sl->spacetype == SPACE_VIEW3D) {
 						View3D *v3d = (View3D *)sl;
-						v3d->gpencil_grid_size[0] = 50;
-						v3d->gpencil_grid_size[1] = 50;
+						v3d->gpencil_grid_size[0] = GP_DEFAULT_GRID_SIZE;
+						v3d->gpencil_grid_size[1] = GP_DEFAULT_GRID_SIZE;
 						ARRAY_SET_ITEMS(v3d->gpencil_paper_color, 1.0f, 1.0f, 1.0f, 0.7f);
 					}
 				}
