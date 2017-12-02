@@ -35,7 +35,6 @@
 CCL_NAMESPACE_BEGIN
 
 /* Constants */
-#define OBJECT_SIZE 		12
 #define OBJECT_VECTOR_SIZE	6
 #define LIGHT_SIZE		11
 #define FILTER_TABLE_SIZE	1024
@@ -1511,6 +1510,24 @@ typedef struct WorkTile {
 
 	ccl_global float *buffer;
 } WorkTile;
+
+typedef struct KernelObject
+{
+	float4 tfm[4];
+	float4 itfm[4];
+	float surface_area;
+	float pass_id;
+	float random_number;
+	float particle_index;
+	float dupli_generated[3];
+	int numkeys;
+	float ob_dupli_uv[2];
+	int numsteps;
+	int numverts;
+	uint patch_map_offset;
+	uint attribute_map_offset;
+	float pad2, pad3;
+} KernelObject;
 
 CCL_NAMESPACE_END
 
