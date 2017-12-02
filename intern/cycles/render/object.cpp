@@ -395,8 +395,8 @@ void ObjectManager::device_update_object_transform(UpdateObejctTransformState *s
 			mtfm.post = mtfm.post * itfm;
 		}
 
-		memcpy(&object.tfm, &mtfm.pre, sizeof(float4)*3);
-		memcpy(&object.itfm, &mtfm.post, sizeof(float4)*3);
+		memcpy(&objects_vector[object_index*OBJECT_VECTOR_SIZE+0], &mtfm.pre, sizeof(float4)*3);
+		memcpy(&objects_vector[object_index*OBJECT_VECTOR_SIZE+3], &mtfm.post, sizeof(float4)*3);
 	}
 #ifdef __OBJECT_MOTION__
 	else if(state->need_motion == Scene::MOTION_BLUR) {
