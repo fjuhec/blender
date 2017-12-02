@@ -40,6 +40,7 @@
 #include "DNA_object_types.h"
 #include "DNA_camera_types.h"
 #include "DNA_gpu_types.h"
+#include "DNA_group_types.h"
 #include "DNA_lamp_types.h"
 #include "DNA_layer_types.h"
 #include "DNA_material_types.h"
@@ -55,6 +56,7 @@
 #include "BKE_customdata.h"
 #include "BKE_colortools.h"
 #include "BKE_freestyle.h"
+#include "BKE_group.h"
 #include "BKE_idprop.h"
 #include "BKE_layer.h"
 #include "BKE_main.h"
@@ -92,8 +94,9 @@ static void do_version_workspaces_create_from_screens(Main *bmain)
 {
 	for (bScreen *screen = bmain->screen.first; screen; screen = screen->id.next) {
 		const bScreen *screen_parent = screen_parent_find(screen);
+		Scene *scene = screen->scene;
 		WorkSpace *workspace;
-		ViewLayer *layer = BKE_view_layer_from_scene_get(screen->scene);
+		ViewLayer *layer = BKE_view_layer_from_scene_get(scene);
 		ListBase *transform_orientations;
 
 		if (screen_parent) {
@@ -106,7 +109,7 @@ static void do_version_workspaces_create_from_screens(Main *bmain)
 			workspace = BKE_workspace_add(bmain, screen->id.name + 2);
 		}
 		BKE_workspace_layout_add(workspace, screen, screen->id.name + 2);
-		BKE_workspace_view_layer_set(workspace, layer);
+		BKE_workspace_view_layer_set(workspace, layer, scene);
 
 #ifdef WITH_CLAY_ENGINE
 		BLI_strncpy(workspace->view_render.engine_id, RE_engine_id_BLENDER_CLAY,
@@ -117,7 +120,7 @@ static void do_version_workspaces_create_from_screens(Main *bmain)
 #endif
 
 		transform_orientations = BKE_workspace_transform_orientations_get(workspace);
-		BLI_duplicatelist(transform_orientations, &screen->scene->transform_spaces);
+		BLI_duplicatelist(transform_orientations, &scene->transform_spaces);
 	}
 }
 
@@ -176,7 +179,7 @@ void do_versions_after_linking_280(Main *main)
 		for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
 			/* since we don't have access to FileData we check the (always valid) first render layer instead */
 			if (scene->view_layers.first == NULL) {
-				SceneCollection *sc_master = BKE_collection_master(scene);
+				SceneCollection *sc_master = BKE_collection_master(&scene->id);
 				BLI_strncpy(sc_master->name, "Master Collection", sizeof(sc_master->name));
 
 				struct DoVersionSceneCollections {
@@ -247,7 +250,7 @@ void do_versions_after_linking_280(Main *main)
 									             layer + 1,
 									             collections[DO_VERSION_COLLECTION_VISIBLE].suffix);
 									collections[DO_VERSION_COLLECTION_VISIBLE].collections[layer] =
-									        BKE_collection_add(scene, sc_master, name);
+									        BKE_collection_add(&scene->id, sc_master, COLLECTION_TYPE_NONE, name);
 									collections[DO_VERSION_COLLECTION_VISIBLE].created |= (1 << layer);
 								}
 
@@ -259,12 +262,16 @@ void do_versions_after_linking_280(Main *main)
 									             "Collection %d%s",
 									             layer + 1,
 									             collections[collection_index].suffix);
-									collections[collection_index].collections[layer] = BKE_collection_add(scene, sc_parent, name);
+									collections[collection_index].collections[layer] = BKE_collection_add(
+									                                                       &scene->id,
+									                                                       sc_parent,
+									                                                       COLLECTION_TYPE_NONE,
+									                                                       name);
 									collections[collection_index].created |= (1 << layer);
 								}
 							}
 
-							BKE_collection_object_add(scene, collections[collection_index].collections[layer], base->object);
+							BKE_collection_object_add(&scene->id, collections[collection_index].collections[layer], base->object);
 						}
 
 						if (base->flag & SELECT) {
@@ -547,6 +554,60 @@ void do_versions_after_linking_280(Main *main)
 			BLI_freelistN(&scene->r.layers);
 		}
 	}
+
+	{
+		for (WorkSpace *workspace = main->workspaces.first; workspace; workspace = workspace->id.next) {
+			if (workspace->view_layer) {
+				/* During 2.8 work we temporarly stored view-layer in the
+				 * workspace directly, but should be stored there per-scene. */
+				for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
+					if (BLI_findindex(&scene->view_layers, workspace->view_layer) > -1) {
+						BKE_workspace_view_layer_set(workspace, workspace->view_layer, scene);
+						workspace->view_layer = NULL;
+					}
+				}
+			}
+			BLI_assert(workspace->view_layer == NULL);
+		}
+	}
+
+	{
+		/* Since we don't have access to FileData we check the (always valid) master collection of the group. */
+		for (Group *group = main->group.first; group; group = group->id.next) {
+			if (group->collection == NULL) {
+				BKE_group_init(group);
+				SceneCollection *sc = GROUP_MASTER_COLLECTION(group);
+				SceneCollection *sc_hidden = NULL;
+
+				for (GroupObject *go = group->gobject.first; go; go = go->next) {
+					if (go->ob->lay & group->layer){
+						BKE_collection_object_add(&group->id, sc, go->ob);
+					}
+					else {
+						if (sc_hidden == NULL) {
+							sc_hidden = BKE_collection_add(&group->id, sc, COLLECTION_TYPE_GROUP_INTERNAL, "Hidden");
+						}
+				        BKE_collection_object_add(&group->id, sc_hidden, go->ob);
+					}
+				}
+
+				if (sc_hidden != NULL) {
+					LayerCollection *layer_collection_master, *layer_collection_hidden;
+
+					layer_collection_master = group->view_layer->layer_collections.first;
+					layer_collection_hidden = layer_collection_master->layer_collections.first;
+
+					layer_collection_hidden->flag &= ~COLLECTION_VISIBLE;
+				}
+			}
+
+			GroupObject *go;
+			while ((go = BLI_pophead(&group->gobject))) {
+				MEM_freeN(go);
+			}
+		}
+	}
+}
 
 	/* Grease Pencil Object */
 	if (!MAIN_VERSION_ATLEAST(main, 280, 2)) {

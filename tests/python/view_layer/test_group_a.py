@@ -14,15 +14,27 @@ from view_layer_common import *
 # ############################################################
 
 class UnitTesting(ViewLayerTesting):
-    def test_object_link_context(self):
+    def test_group_create_basic(self):
         """
-        See if we can link objects via bpy.context.scene_collection
+        See if the creation of new groups is not crashing anything.
         """
         import bpy
-        bpy.context.scene.view_layers.active_index = len(bpy.context.scene.view_layers) - 1
-        bpy.context.window.view_layer = bpy.context.scene.view_layers['Viewport']
-        master_collection = bpy.context.scene_collection
-        self.do_object_link(master_collection)
+        scene = bpy.context.scene
+        layer_collection = bpy.context.layer_collection
+
+        # Cleanup Viewport view layer
+        # technically this shouldn't be needed but
+        # for now we need it because depsgraph build all the view layers
+        # at once.
+
+        while len(scene.view_layers) > 1:
+            scene.view_layers.remove(scene.view_layers[1])
+
+        # create group
+        group = layer_collection.create_group()
+
+        # update depsgraph
+        scene.update()
 
 
 # ############################################################

@@ -168,6 +168,7 @@
 #include "BKE_curve.h"
 #include "BKE_constraint.h"
 #include "BKE_global.h" // for G
+#include "BKE_group.h"
 #include "BKE_idcode.h"
 #include "BKE_library.h" // for  set_listbasepointers
 #include "BKE_library_override.h"
@@ -1138,7 +1139,7 @@ static void current_screen_compat(
 
 	*r_screen = (window) ? BKE_workspace_active_screen_get(window->workspace_hook) : NULL;
 	*r_scene = (window) ? window->scene : NULL;
-	*r_render_layer = (window) ? BKE_workspace_view_layer_get(workspace) : NULL;
+	*r_render_layer = (window) ? BKE_workspace_view_layer_get(workspace, *r_scene) : NULL;
 }
 
 typedef struct RenderInfo {
@@ -1348,9 +1349,13 @@ static void write_particlesettings(WriteData *wd, ParticleSettings *part)
 			if (dw->ob != NULL) {
 				dw->index = 0;
 				if (part->dup_group) { /* can be NULL if lining fails or set to None */
-					for (GroupObject *go = part->dup_group->gobject.first;
-					     go && go->ob != dw->ob;
-					     go = go->next, dw->index++);
+					FOREACH_GROUP_OBJECT(part->dup_group, object)
+					{
+						if (object != dw->ob) {
+							dw->index++;
+						}
+					}
+					FOREACH_GROUP_OBJECT_END
 				}
 			}
 			writestruct(wd, DATA, ParticleDupliWeight, 1, dw);
@@ -2626,6 +2631,28 @@ static void write_layer_collections(WriteData *wd, ListBase *lb)
 	}
 }
 
+static void write_view_layer(WriteData *wd, ViewLayer *view_layer)
+{
+	writestruct(wd, DATA, ViewLayer, 1, view_layer);
+	writelist(wd, DATA, Base, &view_layer->object_bases);
+	if (view_layer->properties) {
+		IDP_WriteProperty(view_layer->properties, wd);
+	}
+
+	if (view_layer->id_properties) {
+		IDP_WriteProperty(view_layer->id_properties, wd);
+	}
+
+	for (FreestyleModuleConfig *fmc = view_layer->freestyle_config.modules.first; fmc; fmc = fmc->next) {
+		writestruct(wd, DATA, FreestyleModuleConfig, 1, fmc);
+	}
+
+	for (FreestyleLineSet *fls = view_layer->freestyle_config.linesets.first; fls; fls = fls->next) {
+		writestruct(wd, DATA, FreestyleLineSet, 1, fls);
+	}
+	write_layer_collections(wd, &view_layer->layer_collections);
+}
+
 static void write_scene(WriteData *wd, Scene *sce)
 {
 	/* write LibData */
@@ -2812,26 +2839,7 @@ static void write_scene(WriteData *wd, Scene *sce)
 	write_scene_collection(wd, sce->collection);
 
 	for (ViewLayer *view_layer = sce->view_layers.first; view_layer; view_layer = view_layer->next) {
-		writestruct(wd, DATA, ViewLayer, 1, view_layer);
-		writelist(wd, DATA, Base, &view_layer->object_bases);
-
-		if (view_layer->properties) {
-			IDP_WriteProperty(view_layer->properties, wd);
-		}
-
-		if (view_layer->id_properties) {
-			IDP_WriteProperty(view_layer->id_properties, wd);
-		}
-
-		for (FreestyleModuleConfig *fmc = view_layer->freestyle_config.modules.first; fmc; fmc = fmc->next) {
-			writestruct(wd, DATA, FreestyleModuleConfig, 1, fmc);
-		}
-
-		for (FreestyleLineSet *fls = view_layer->freestyle_config.linesets.first; fls; fls = fls->next) {
-			writestruct(wd, DATA, FreestyleLineSet, 1, fls);
-		}
-
-		write_layer_collections(wd, &view_layer->layer_collections);
+		write_view_layer(wd, view_layer);
 	}
 
 	if (sce->layer_properties) {
@@ -3251,10 +3259,8 @@ static void write_group(WriteData *wd, Group *group)
 		write_iddata(wd, &group->id);
 
 		write_previews(wd, group->preview);
-
-		for (GroupObject *go = group->gobject.first; go; go = go->next) {
-			writestruct(wd, DATA, GroupObject, 1, go);
-		}
+		write_scene_collection(wd, group->collection);
+		write_view_layer(wd, group->view_layer);
 	}
 }
 
@@ -3799,6 +3805,7 @@ static void write_workspace(WriteData *wd, WorkSpace *workspace)
 	writestruct(wd, ID_WS, WorkSpace, 1, workspace);
 	writelist(wd, DATA, WorkSpaceLayout, layouts);
 	writelist(wd, DATA, WorkSpaceDataRelation, &workspace->hook_layout_relations);
+	writelist(wd, DATA, WorkSpaceDataRelation, &workspace->scene_viewlayer_relations);
 	writelist(wd, DATA, TransformOrientation, transform_orientations);
 }
 

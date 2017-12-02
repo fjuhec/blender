@@ -84,6 +84,7 @@ typedef struct WorkSpace {
 	/* Store for each hook (so for each window) which layout has
 	 * been activated the last time this workspace was visible. */
 	ListBase hook_layout_relations DNA_PRIVATE_WORKSPACE_READ_WRITE; /* WorkSpaceDataRelation */
+	ListBase scene_viewlayer_relations DNA_PRIVATE_WORKSPACE_READ_WRITE; /* WorkSpaceDataRelation */
 
 	/* Custom transform orientations */
 	ListBase transform_orientations DNA_PRIVATE_WORKSPACE;
@@ -94,7 +95,7 @@ typedef struct WorkSpace {
 	/* should be: '#ifdef USE_WORKSPACE_TOOL'. */
 	bToolDef tool;
 
-	struct ViewLayer *view_layer DNA_PRIVATE_WORKSPACE;
+	struct ViewLayer *view_layer DNA_DEPRECATED;
 	struct ViewRender view_render;
 } WorkSpace;
 
