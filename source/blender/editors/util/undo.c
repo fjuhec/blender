@@ -238,7 +238,7 @@ static int ed_undo_step(bContext *C, int step, const char *undoname)
 				ED_gpencil_toggle_brush_cursor(C, false);
 			}
 			/* set workspace mode */
-			BKE_workspace_object_mode_set(CTX_wm_workspace(C), obact->mode);
+			BKE_workspace_object_mode_set(CTX_wm_workspace(C), scene, obact->mode);
 		}
 	}
 

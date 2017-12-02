@@ -835,7 +835,7 @@ Object *BKE_object_add_for_data(
 	DEG_id_tag_update_ex(bmain, &ob->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
 
 	layer_collection = BKE_layer_collection_get_active_ensure(scene, view_layer);
-	BKE_collection_object_add(scene, layer_collection->scene_collection, ob);
+	BKE_collection_object_add(&scene->id, layer_collection->scene_collection, ob);
 
 	base = BKE_view_layer_base_find(view_layer, ob);
 	BKE_view_layer_base_select(view_layer, base);

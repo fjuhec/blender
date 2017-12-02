@@ -1631,7 +1631,7 @@ static bool ed_object_select_pick(
 					ED_gpencil_toggle_brush_cursor(C, false);
 				}
 				/* set workspace mode */
-				BKE_workspace_object_mode_set(CTX_wm_workspace(C), basact->object->mode);
+				BKE_workspace_object_mode_set(CTX_wm_workspace(C), scene, basact->object->mode);
 			}
 		}
 

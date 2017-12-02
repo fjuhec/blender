@@ -175,6 +175,7 @@ static int gpencil_editmode_toggle_exec(bContext *C, wmOperator *op)
 	const int back = RNA_int_get(op->ptr, "back");
 
 	WorkSpace *workspace = CTX_wm_workspace(C);
+	Scene *scene = CTX_data_scene(C);
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
 	bool is_object = false;
 	int mode;
@@ -212,7 +213,7 @@ static int gpencil_editmode_toggle_exec(bContext *C, wmOperator *op)
 	}
 
 	/* set workspace mode */
-	BKE_workspace_object_mode_set(workspace, mode);
+	BKE_workspace_object_mode_set(workspace, scene, mode);
 	/* setup other modes */
 	gpencil_setup_modes(C, gpd, mode);
 	/* set cache as dirty */
@@ -258,6 +259,7 @@ static int gpencil_paintmode_toggle_exec(bContext *C, wmOperator *op)
 	const int back = RNA_int_get(op->ptr, "back");
 
 	WorkSpace *workspace = CTX_wm_workspace(C);
+	Scene *scene = CTX_data_scene(C);
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
 	bool is_object = false;
 	int mode;
@@ -291,7 +293,7 @@ static int gpencil_paintmode_toggle_exec(bContext *C, wmOperator *op)
 	}
 
 	/* set workspace mode */
-	BKE_workspace_object_mode_set(workspace, mode);
+	BKE_workspace_object_mode_set(workspace, scene, mode);
 	/* setup other modes */
 	gpencil_setup_modes(C, gpd, mode);
 	/* set cache as dirty */
@@ -337,6 +339,7 @@ static int gpencil_sculptmode_toggle_exec(bContext *C, wmOperator *op)
 	const int back = RNA_int_get(op->ptr, "back");
 
 	WorkSpace *workspace = CTX_wm_workspace(C);
+	Scene *scene = CTX_data_scene(C);
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
 	bool is_object = false;
 	int mode;
@@ -370,7 +373,7 @@ static int gpencil_sculptmode_toggle_exec(bContext *C, wmOperator *op)
 	}
 
 	/* set workspace mode */
-	BKE_workspace_object_mode_set(workspace, mode);
+	BKE_workspace_object_mode_set(workspace, scene, mode);
 	/* setup other modes */
 	gpencil_setup_modes(C, gpd, mode);
 	/* set cache as dirty */
@@ -416,6 +419,7 @@ static int gpencil_weightmode_toggle_exec(bContext *C, wmOperator *op)
 	const int back = RNA_int_get(op->ptr, "back");
 
 	WorkSpace *workspace = CTX_wm_workspace(C);
+	Scene *scene = CTX_data_scene(C);
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
 	bool is_object = false;
 	int mode;
@@ -449,7 +453,7 @@ static int gpencil_weightmode_toggle_exec(bContext *C, wmOperator *op)
 	}
 
 	/* set workspace mode */
-	BKE_workspace_object_mode_set(workspace, mode);
+	BKE_workspace_object_mode_set(workspace, scene, mode);
 	/* setup other modes */
 	gpencil_setup_modes(C, gpd, mode);
 	/* set cache as dirty */

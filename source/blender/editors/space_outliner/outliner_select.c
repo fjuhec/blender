@@ -218,7 +218,7 @@ static eOLDrawState tree_element_set_active_object(
 			ED_gpencil_toggle_brush_cursor(C, false);
 		}
 		/* set workspace mode */
-		BKE_workspace_object_mode_set(CTX_wm_workspace(C), ob->mode);
+		BKE_workspace_object_mode_set(CTX_wm_workspace(C), CTX_data_scene(C), ob->mode);
 	}
 
 	if (ob != scene->obedit)

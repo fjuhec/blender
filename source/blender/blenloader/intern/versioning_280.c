@@ -607,7 +607,6 @@ void do_versions_after_linking_280(Main *main)
 			}
 		}
 	}
-}
 
 	/* Grease Pencil Object */
 	if (!MAIN_VERSION_ATLEAST(main, 280, 2)) {
