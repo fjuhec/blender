@@ -263,15 +263,16 @@ void do_versions_after_linking_280(Main *main)
 									             layer + 1,
 									             collections[collection_index].suffix);
 									collections[collection_index].collections[layer] = BKE_collection_add(
-									                                                       &scene->id,
-									                                                       sc_parent,
-									                                                       COLLECTION_TYPE_NONE,
-									                                                       name);
+									        &scene->id,
+									        sc_parent,
+									        COLLECTION_TYPE_NONE,
+									        name);
 									collections[collection_index].created |= (1 << layer);
 								}
 							}
 
-							BKE_collection_object_add(&scene->id, collections[collection_index].collections[layer], base->object);
+							BKE_collection_object_add(
+							        &scene->id, collections[collection_index].collections[layer], base->object);
 						}
 
 						if (base->flag & SELECT) {
@@ -293,18 +294,20 @@ void do_versions_after_linking_280(Main *main)
 						    (collections[DO_VERSION_COLLECTION_HIDE].collections[layer] !=
 						     scene_collection_parent->scene_collections.first))
 						{
-							BLI_listbase_swaplinks(&scene_collection_parent->scene_collections,
-							                       collections[DO_VERSION_COLLECTION_HIDE].collections[layer],
-												   scene_collection_parent->scene_collections.first);
+							BLI_listbase_swaplinks(
+							        &scene_collection_parent->scene_collections,
+							        collections[DO_VERSION_COLLECTION_HIDE].collections[layer],
+							        scene_collection_parent->scene_collections.first);
 						}
 
 						if ((collections[DO_VERSION_COLLECTION_HIDE_ALL].created & (1 << layer)) &&
 						    (collections[DO_VERSION_COLLECTION_HIDE_ALL].collections[layer] !=
 						     scene_collection_parent->scene_collections.last))
 						{
-							BLI_listbase_swaplinks(&scene_collection_parent->scene_collections,
-							                       collections[DO_VERSION_COLLECTION_HIDE_ALL].collections[layer],
-												   scene_collection_parent->scene_collections.last);
+							BLI_listbase_swaplinks(
+							        &scene_collection_parent->scene_collections,
+							        collections[DO_VERSION_COLLECTION_HIDE_ALL].collections[layer],
+							        scene_collection_parent->scene_collections.last);
 						}
 
 						scene_collection_parent = scene_collection_parent->next;
@@ -324,18 +327,18 @@ void do_versions_after_linking_280(Main *main)
 							/* It is up to the external engine to handle
 							 * its own doversion in this case. */
 							BKE_override_view_layer_int_add(
-										view_layer,
-										ID_SCE,
-										"samples",
-										srl->samples);
+							        view_layer,
+							        ID_SCE,
+							        "samples",
+							        srl->samples);
 						}
 
 						if (srl->mat_override) {
 							BKE_override_view_layer_datablock_add(
-							            view_layer,
-							            ID_MA,
-							            "self",
-							            (ID *)srl->mat_override);
+							        view_layer,
+							        ID_MA,
+							        "self",
+							        (ID *)srl->mat_override);
 						}
 
 						if (srl->layflag & SCE_LAY_DISABLE) {
@@ -368,23 +371,24 @@ void do_versions_after_linking_280(Main *main)
 								if (collections[DO_VERSION_COLLECTION_VISIBLE].created & (1 << layer)) {
 
 									LayerCollection *layer_collection_parent;
-									layer_collection_parent = BKE_collection_link(view_layer,
-											collections[DO_VERSION_COLLECTION_VISIBLE].collections[layer]);
+									layer_collection_parent = BKE_collection_link(
+									        view_layer,
+									        collections[DO_VERSION_COLLECTION_VISIBLE].collections[layer]);
 
 									if (srl->lay_zmask & (1 << layer)) {
 										BKE_override_layer_collection_boolean_add(
-													layer_collection_parent,
-													ID_OB,
-													"cycles.is_holdout",
-													true);
+										        layer_collection_parent,
+										        ID_OB,
+										        "cycles.is_holdout",
+										        true);
 									}
 
 									if ((srl->lay & (1 << layer)) == 0) {
 										BKE_override_layer_collection_boolean_add(
-													layer_collection_parent,
-													ID_OB,
-													"cycles_visibility.camera",
-													false);
+										        layer_collection_parent,
+										        ID_OB,
+										        "cycles_visibility.camera",
+										        false);
 									}
 
 									LayerCollection *layer_collection_child;
@@ -392,7 +396,8 @@ void do_versions_after_linking_280(Main *main)
 
 									for (int j = 1; j < 4; j++) {
 										if (collections[j].created & (1 << layer)) {
-											layer_collection_child->flag = collections[j].flag_render & (~COLLECTION_DISABLED);
+											layer_collection_child->flag =
+												collections[j].flag_render & (~COLLECTION_DISABLED);
 
 											if (collections[j].flag_render & COLLECTION_DISABLED) {
 												BKE_collection_disable(view_layer, layer_collection_child);
@@ -441,7 +446,8 @@ void do_versions_after_linking_280(Main *main)
 
 				/* If layer was not set, disable it. */
 				LayerCollection *layer_collection_parent;
-				layer_collection_parent = ((LayerCollection *)view_layer->layer_collections.first)->layer_collections.first;
+				layer_collection_parent =
+					((LayerCollection *)view_layer->layer_collections.first)->layer_collections.first;
 
 				for (int layer = 0; layer < 20; layer++) {
 					if (collections[DO_VERSION_COLLECTION_VISIBLE].created & (1 << layer)) {
@@ -487,7 +493,7 @@ void do_versions_after_linking_280(Main *main)
 				}
 
 				/* Fallback name if only one layer was found in the original file */
-				if (BLI_listbase_count_ex(&sc_master->scene_collections, 2) == 1) {
+				if (BLI_listbase_is_single(&sc_master->scene_collections)) {
 					BKE_collection_rename(scene, sc_master->scene_collections.first, "Default Collection");
 				}
 
@@ -561,7 +567,7 @@ void do_versions_after_linking_280(Main *main)
 				/* During 2.8 work we temporarly stored view-layer in the
 				 * workspace directly, but should be stored there per-scene. */
 				for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
-					if (BLI_findindex(&scene->view_layers, workspace->view_layer) > -1) {
+					if (BLI_findindex(&scene->view_layers, workspace->view_layer) != -1) {
 						BKE_workspace_view_layer_set(workspace, workspace->view_layer, scene);
 						workspace->view_layer = NULL;
 					}
