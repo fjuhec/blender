@@ -9470,6 +9470,8 @@ static void bbs_mesh_verts(BMEditMesh *em, DerivedMesh *dm, int offset)
 #else
 static void bbs_mesh_verts(BMEditMesh *em, DerivedMesh *UNUSED(dm), int offset)
 {
+	glPointSize(UI_GetThemeValuef(TH_VERTEX_SIZE));
+
 	Mesh *me = em->ob->data;
 	Gwn_Batch *batch = DRW_mesh_batch_cache_get_verts_with_select_id(me, offset);
 	GWN_batch_program_set_builtin(batch, GPU_SHADER_3D_FLAT_COLOR_U32);
@@ -9509,7 +9511,7 @@ static void bbs_mesh_wire(BMEditMesh *em, DerivedMesh *dm, int offset)
 
 	immBindBuiltinProgram(GPU_SHADER_3D_FLAT_COLOR_U32);
 
-	glPointSize(UI_GetThemeValuef(TH_VERTEX_SIZE));
+	glLineWidth(1);
 
 	immBeginAtMost(GWN_PRIM_LINES, imm_len);
 	dm->foreachMappedEdge(dm, bbs_mesh_wire__mapFunc, &data);
@@ -9520,8 +9522,6 @@ static void bbs_mesh_wire(BMEditMesh *em, DerivedMesh *dm, int offset)
 #else
 static void bbs_mesh_wire(BMEditMesh *em, DerivedMesh *UNUSED(dm), int offset)
 {
-	glPointSize(UI_GetThemeValuef(TH_VERTEX_SIZE));
-
 	Mesh *me = em->ob->data;
 	Gwn_Batch *batch = DRW_mesh_batch_cache_get_edges_with_select_id(me, offset);
 	GWN_batch_program_set_builtin(batch, GPU_SHADER_3D_FLAT_COLOR_U32);
@@ -9784,9 +9784,11 @@ void draw_object_backbufsel(
 
 				ED_view3d_polygon_offset(rv3d, 1.0);
 
-				/* we draw edges always, for loop (select) tools */
-				bbs_mesh_wire(em, dm, bm_solidoffs);
-				bm_wireoffs = bm_solidoffs + em->bm->totedge;
+				/* we draw edges if edge select mode */
+				if (ts->selectmode & SCE_SELECT_EDGE) {
+					bbs_mesh_wire(em, dm, bm_solidoffs);
+					bm_wireoffs = bm_solidoffs + em->bm->totedge;
+				}
 
 				/* we draw verts if vert select mode. */
 				if (ts->selectmode & SCE_SELECT_VERTEX) {

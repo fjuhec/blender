@@ -255,7 +255,8 @@ static void direct_link_modifiers(FileData *fd, ListBase *lb);
 static BHead *find_bhead_from_code_name(FileData *fd, const short idcode, const char *name);
 static BHead *find_bhead_from_idname(FileData *fd, const char *idname);
 static void expand_scene_collection(FileData *fd, Main *mainvar, SceneCollection *sc);
-static SceneCollection *get_scene_collection_active_or_create(struct Scene *scene, struct ViewLayer *view_layer, const short flag);
+static SceneCollection *get_scene_collection_active_or_create(
+        struct Scene *scene, struct ViewLayer *view_layer, const int flag);
 static void direct_link_animdata(FileData *fd, AnimData *adt);
 static void lib_link_animdata(FileData *fd, ID *id, AnimData *adt);
 
@@ -6584,6 +6585,8 @@ static void direct_link_windowmanager(FileData *fd, wmWindowManager *wm)
 	wm->addonconf = NULL;
 	wm->userconf = NULL;
 	
+	wm->message_bus = NULL;
+
 	BLI_listbase_clear(&wm->jobs);
 	BLI_listbase_clear(&wm->drags);
 	
@@ -10543,11 +10546,13 @@ static ID *create_placeholder(Main *mainvar, const short idcode, const char *idn
 /* returns true if the item was found
  * but it may already have already been appended/linked */
 static ID *link_named_part(
-        Main *mainl, FileData *fd, const short idcode, const char *name,
-        const bool use_placeholders, const bool force_indirect)
+        Main *mainl, FileData *fd, const short idcode, const char *name, const int flag)
 {
 	BHead *bhead = find_bhead_from_code_name(fd, idcode, name);
 	ID *id;
+
+	const bool use_placeholders = (flag & BLO_LIBLINK_USE_PLACEHOLDERS) != 0;
+	const bool force_indirect = (flag & BLO_LIBLINK_FORCE_INDIRECT) != 0;
 
 	BLI_assert(BKE_idcode_is_linkable(idcode) && BKE_idcode_is_valid(idcode));
 
@@ -10588,7 +10593,8 @@ static ID *link_named_part(
 	return id;
 }
 
-static SceneCollection *get_scene_collection_active_or_create(struct Scene *scene, struct ViewLayer *view_layer, const short flag)
+static SceneCollection *get_scene_collection_active_or_create(
+        struct Scene *scene, struct ViewLayer *view_layer, const int flag)
 {
 	LayerCollection *lc = NULL;
 
@@ -10603,7 +10609,7 @@ static SceneCollection *get_scene_collection_active_or_create(struct Scene *scen
 	return lc->scene_collection;
 }
 
-static void link_object_postprocess(ID *id, Scene *scene, ViewLayer *view_layer, const short flag)
+static void link_object_postprocess(ID *id, Scene *scene, ViewLayer *view_layer, const int flag)
 {
 	if (scene) {
 		/* link to scene */
@@ -10665,10 +10671,10 @@ void BLO_library_link_copypaste(Main *mainl, BlendHandle *bh)
 }
 
 static ID *link_named_part_ex(
-        Main *mainl, FileData *fd, const short idcode, const char *name, const short flag,
-        Scene *scene, ViewLayer *view_layer, const bool use_placeholders, const bool force_indirect)
+        Main *mainl, FileData *fd, const short idcode, const char *name, const int flag,
+        Scene *scene, ViewLayer *view_layer)
 {
-	ID *id = link_named_part(mainl, fd, idcode, name, use_placeholders, force_indirect);
+	ID *id = link_named_part(mainl, fd, idcode, name, flag);
 
 	if (id && (GS(id->name) == ID_OB)) {	/* loose object: give a base */
 		link_object_postprocess(id, scene, view_layer, flag);
@@ -10694,7 +10700,7 @@ static ID *link_named_part_ex(
 ID *BLO_library_link_named_part(Main *mainl, BlendHandle **bh, const short idcode, const char *name)
 {
 	FileData *fd = (FileData*)(*bh);
-	return link_named_part(mainl, fd, idcode, name, false, false);
+	return link_named_part(mainl, fd, idcode, name, 0);
 }
 
 /**
@@ -10708,18 +10714,15 @@ ID *BLO_library_link_named_part(Main *mainl, BlendHandle **bh, const short idcod
  * \param flag Options for linking, used for instantiating.
  * \param scene The scene in which to instantiate objects/groups (if NULL, no instantiation is done).
  * \param v3d The active View3D (only to define active layers for instantiated objects & groups, can be NULL).
- * \param use_placeholders If true, generate a placeholder (empty ID) if not found in current lib file.
- * \param force_indirect If true, force loaded ID to be tagged as LIB_TAG_INDIRECT (used in reload context only).
  * \return the linked ID when found.
  */
 ID *BLO_library_link_named_part_ex(
         Main *mainl, BlendHandle **bh,
-        const short idcode, const char *name, const short flag,
-        Scene *scene, ViewLayer *view_layer,
-        const bool use_placeholders, const bool force_indirect)
+        const short idcode, const char *name, const int flag,
+        Scene *scene, ViewLayer *view_layer)
 {
 	FileData *fd = (FileData*)(*bh);
-	return link_named_part_ex(mainl, fd, idcode, name, flag, scene, view_layer, use_placeholders, force_indirect);
+	return link_named_part_ex(mainl, fd, idcode, name, flag, scene, view_layer);
 }
 
 static void link_id_part(ReportList *reports, FileData *fd, Main *mainvar, ID *id, ID **r_id)
@@ -10919,7 +10922,7 @@ static void library_link_end(Main *mainl, FileData **fd, const short flag, Scene
  * \param scene The scene in which to instantiate objects/groups (if NULL, no instantiation is done).
  * \param view_layer The scene layer in which to instantiate objects/groups (if NULL, no instantiation is done).
  */
-void BLO_library_link_end(Main *mainl, BlendHandle **bh, short flag, Scene *scene, ViewLayer *view_layer)
+void BLO_library_link_end(Main *mainl, BlendHandle **bh, int flag, Scene *scene, ViewLayer *view_layer)
 {
 	FileData *fd = (FileData*)(*bh);
 	library_link_end(mainl, &fd, flag, scene, view_layer);
