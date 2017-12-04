@@ -473,6 +473,7 @@ void ShaderManager::device_update_common(Device *device,
 		shader_flag[i].constant_emission[0] = constant_emission.x;
 		shader_flag[i].constant_emission[1] = constant_emission.y;
 		shader_flag[i].constant_emission[2] =  constant_emission.z;
+		i++;
 
 		has_transparent_shadow |= (flag & SD_HAS_TRANSPARENT_SHADOW) != 0;
 	}
