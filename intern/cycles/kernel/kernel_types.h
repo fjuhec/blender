@@ -39,7 +39,6 @@ CCL_NAMESPACE_BEGIN
 #define FILTER_TABLE_SIZE	1024
 #define RAMP_TABLE_SIZE		256
 #define SHUTTER_TABLE_SIZE		256
-#define SHADER_SIZE		5
 
 #define BSSRDF_MIN_RADIUS			1e-8f
 #define BSSRDF_MAX_HITS				4
@@ -1601,6 +1600,13 @@ typedef struct KernelParticle
 	float4 velocity;
 	float4 angular_velocity;
 } KernelParticle;
+
+typedef struct KernelShaderFlags
+{
+	int flags;
+	int pass_id;
+	float constant_emission[3];
+} KernelShaderFlags;
 
 CCL_NAMESPACE_END
 

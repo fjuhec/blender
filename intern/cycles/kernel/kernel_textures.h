@@ -69,7 +69,7 @@ KERNEL_TEX(KernelParticle, __particles)
 
 /* shaders */
 KERNEL_TEX(uint4, __svm_nodes)
-KERNEL_TEX(uint, __shader_flag)
+KERNEL_TEX(KernelShaderFlags, __shader_flag)
 KERNEL_TEX(uint, __object_flag)
 
 /* lookup tables */

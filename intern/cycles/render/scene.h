@@ -104,7 +104,7 @@ public:
 
 	/* shaders */
 	device_vector<int4> svm_nodes;
-	device_vector<uint> shader_flag;
+	device_vector<KernelShaderFlags> shader_flag;
 	device_vector<uint> object_flag;
 
 	/* lookup tables */
