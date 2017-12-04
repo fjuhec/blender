@@ -116,9 +116,10 @@ static int wm_link_append_poll(bContext *C)
 
 static int wm_link_append_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
-	RNA_int_set_array(op->ptr, "mouse_coordinates", event->mval);
-
 	if (RNA_struct_property_is_set(op->ptr, "filepath")) {
+		if (ED_operator_region_view3d_active(C)) {
+			RNA_int_set_array(op->ptr, "mouse_coordinates", event->mval);
+		}
 		return WM_operator_call_notest(C, op);
 	}
 	else {
