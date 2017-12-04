@@ -94,7 +94,7 @@ public:
 	device_vector<uchar4> attributes_uchar4;
 
 	/* lights */
-	device_vector<float4> light_distribution;
+	device_vector<KernelLightDistribution> light_distribution;
 	device_vector<KernelLight> light_data;
 	device_vector<float2> light_background_marginal_cdf;
 	device_vector<float2> light_background_conditional_cdf;

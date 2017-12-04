@@ -1063,7 +1063,7 @@ ccl_device int light_distribution_sample(KernelGlobals *kg, float *randu)
 		int half_len = len >> 1;
 		int middle = first + half_len;
 
-		if(r < kernel_tex_fetch(__light_distribution, middle).x) {
+		if(r < kernel_tex_fetch(__light_distribution, middle).totarea) {
 			len = half_len;
 		}
 		else {
@@ -1078,8 +1078,8 @@ ccl_device int light_distribution_sample(KernelGlobals *kg, float *randu)
 
 	/* Rescale to reuse random number. this helps the 2D samples within
 	 * each area light be stratified as well. */
-	float distr_min = kernel_tex_fetch(__light_distribution, index).x;
-	float distr_max = kernel_tex_fetch(__light_distribution, index+1).x;
+	float distr_min = kernel_tex_fetch(__light_distribution, index).totarea;
+	float distr_max = kernel_tex_fetch(__light_distribution, index+1).totarea;
 	*randu = (r - distr_min)/(distr_max - distr_min);
 
 	return index;
@@ -1104,12 +1104,11 @@ ccl_device_noinline bool light_sample(KernelGlobals *kg,
 	int index = light_distribution_sample(kg, &randu);
 
 	/* fetch light data */
-	float4 l = kernel_tex_fetch(__light_distribution, index);
-	int prim = __float_as_int(l.y);
+	int prim = kernel_tex_fetch(__light_distribution, index).prim;
 
 	if(prim >= 0) {
-		int object = __float_as_int(l.w);
-		int shader_flag = __float_as_int(l.z);
+		int object = kernel_tex_fetch(__light_distribution, index).mesh_light.object_id;
+		int shader_flag = kernel_tex_fetch(__light_distribution, index).mesh_light.shader_flag;
 
 		triangle_light_sample(kg, prim, object, randu, randv, time, ls, P);
 		ls->shader |= shader_flag;

@@ -59,7 +59,7 @@ KERNEL_TEX(float4, __attributes_float3)
 KERNEL_TEX(uchar4, __attributes_uchar4)
 
 /* lights */
-KERNEL_TEX(float4, __light_distribution)
+KERNEL_TEX(KernelLightDistribution, __light_distribution)
 KERNEL_TEX(KernelLight, __light_data)
 KERNEL_TEX(float2, __light_background_marginal_cdf)
 KERNEL_TEX(float2, __light_background_conditional_cdf)

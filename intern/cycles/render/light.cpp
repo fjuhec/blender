@@ -288,7 +288,7 @@ void LightManager::device_update_distribution(Device *, DeviceScene *dscene, Sce
 	VLOG(1) << "Total " << num_distribution << " of light distribution primitives.";
 
 	/* emission area */
-	float4 *distribution = dscene->light_distribution.alloc(num_distribution + 1);
+	KernelLightDistribution *distribution = dscene->light_distribution.alloc(num_distribution + 1);
 	float totarea = 0.0f;
 
 	/* triangles */
@@ -334,10 +334,10 @@ void LightManager::device_update_distribution(Device *, DeviceScene *dscene, Sce
 			                         : scene->default_surface;
 
 			if(shader->use_mis && shader->has_surface_emission) {
-				distribution[offset].x = totarea;
-				distribution[offset].y = __int_as_float(i + mesh->tri_offset);
-				distribution[offset].z = __int_as_float(shader_flag);
-				distribution[offset].w = __int_as_float(object_id);
+				distribution[offset].totarea = totarea;
+				distribution[offset].prim = i + mesh->tri_offset;
+				distribution[offset].mesh_light.shader_flag = shader_flag;
+				distribution[offset].mesh_light.object_id = object_id;
 				offset++;
 
 				Mesh::Triangle t = mesh->get_triangle(i);
@@ -372,10 +372,10 @@ void LightManager::device_update_distribution(Device *, DeviceScene *dscene, Sce
 		if(!light->is_enabled)
 			continue;
 
-		distribution[offset].x = totarea;
-		distribution[offset].y = __int_as_float(~light_index);
-		distribution[offset].z = 1.0f;
-		distribution[offset].w = light->size;
+		distribution[offset].totarea = totarea;
+		distribution[offset].prim = ~light_index;
+		distribution[offset].lamp.pad = 1.0f;
+		distribution[offset].lamp.size = light->size;
 		totarea += lightarea;
 
 		if(light->size > 0.0f && light->use_mis)
@@ -390,15 +390,15 @@ void LightManager::device_update_distribution(Device *, DeviceScene *dscene, Sce
 	}
 
 	/* normalize cumulative distribution functions */
-	distribution[num_distribution].x = totarea;
-	distribution[num_distribution].y = 0.0f;
-	distribution[num_distribution].z = 0.0f;
-	distribution[num_distribution].w = 0.0f;
+	distribution[num_distribution].totarea = totarea;
+	distribution[num_distribution].prim = 0.0f;
+	distribution[num_distribution].lamp.pad = 0.0f;
+	distribution[num_distribution].lamp.size = 0.0f;
 
 	if(totarea > 0.0f) {
 		for(size_t i = 0; i < num_distribution; i++)
-			distribution[i].x /= totarea;
-		distribution[num_distribution].x = 1.0f;
+			distribution[i].totarea /= totarea;
+		distribution[num_distribution].totarea = 1.0f;
 	}
 
 	if(progress.get_cancel()) return;

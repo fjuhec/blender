@@ -1573,6 +1573,22 @@ typedef struct KernelLight
 } KernelLight;
 
 
+typedef struct KernelLightDistribution
+{
+	float totarea;
+	int prim;
+	union {
+		struct {
+			int shader_flag;
+			int object_id;
+		} mesh_light;
+		struct {
+			float pad;
+			float size;
+		} lamp;
+	};
+} KernelLightDistribution;
+
 CCL_NAMESPACE_END
 
 #endif /*  __KERNEL_TYPES_H__ */
