@@ -100,7 +100,7 @@ public:
 	device_vector<float2> light_background_conditional_cdf;
 
 	/* particles */
-	device_vector<float4> particles;
+	device_vector<KernelParticle> particles;
 
 	/* shaders */
 	device_vector<int4> svm_nodes;

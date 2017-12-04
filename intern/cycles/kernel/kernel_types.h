@@ -39,7 +39,6 @@ CCL_NAMESPACE_BEGIN
 #define FILTER_TABLE_SIZE	1024
 #define RAMP_TABLE_SIZE		256
 #define SHUTTER_TABLE_SIZE		256
-#define PARTICLE_SIZE 		5
 #define SHADER_SIZE		5
 
 #define BSSRDF_MIN_RADIUS			1e-8f
@@ -1588,6 +1587,20 @@ typedef struct KernelLightDistribution
 		} lamp;
 	};
 } KernelLightDistribution;
+
+typedef struct KernelParticle
+{
+	int index;
+	float age;
+	float lifetime;
+	float size;
+	float4 rotation;
+	/* Only xyz are used of the following. 
+	 * float4 instead of float3 are used to ensure consistent padding/alignment across devices. */
+	float4 location;
+	float4 velocity;
+	float4 angular_velocity;
+} KernelParticle;
 
 CCL_NAMESPACE_END
 
