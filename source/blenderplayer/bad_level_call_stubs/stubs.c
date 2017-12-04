@@ -147,6 +147,8 @@ struct wmManipulatorMap;
 #  pragma GCC diagnostic ignored "-Wunused-parameter"
 #endif
 
+#include <stdio.h>  /* FILE */
+
 #include "../../intern/dualcon/dualcon.h"
 #include "../../intern/elbeem/extern/elbeem.h"
 #include "../blender/blenkernel/BKE_modifier.h"
@@ -196,6 +198,7 @@ struct wmManipulatorMap;
 #include "../blender/draw/DRW_engine.h"
 #include "../blender/windowmanager/WM_api.h"
 #include "../blender/windowmanager/WM_types.h"
+#include "../blender/windowmanager/WM_message.h"
 
 
 /* -------------------------------------------------------------------- */
@@ -233,7 +236,6 @@ bool BPY_string_is_keyword(const char *str) { return false; }
 #define RET_STRUCT(t) {struct t v; STUB_ASSERT(0); memset(&v, 0, sizeof(v)); return v;}
 #define RET_ARG(arg) {STUB_ASSERT(0); return arg; }
 #define RET_NONE {STUB_ASSERT(0);}
-
 
 /* -------------------------------------------------------------------- */
 /* Stubs */
@@ -342,6 +344,9 @@ void WM_autosave_init(wmWindowManager *wm) RET_NONE
 void WM_jobs_kill_all_except(struct wmWindowManager *wm, void *owner) RET_NONE
 
 void WM_lib_reload(struct Library *lib, struct bContext *C, struct ReportList *reports) RET_NONE
+
+void WM_msg_publish_rna(struct wmMsgBus *mbus, PointerRNA *ptr, PropertyRNA *prop) RET_NONE
+
 
 char *WM_clipboard_text_get(bool selection, int *r_len) RET_NULL
 char *WM_clipboard_text_get_firstline(bool selection, int *r_len) RET_NULL

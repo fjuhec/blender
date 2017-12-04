@@ -62,6 +62,7 @@
 #include "RNA_enum_types.h"
 
 #include "WM_api.h"
+#include "WM_message.h"
 
 /* flush updates */
 #include "DNA_object_types.h"
@@ -1819,7 +1820,7 @@ bool RNA_property_editable(PointerRNA *ptr, PropertyRNA *prop)
 	return ((flag & PROP_EDITABLE) &&
 	        (flag & PROP_REGISTER) == 0 &&
 	        (!id || ((!ID_IS_LINKED(id) || (prop->flag & PROP_LIB_EXCEPTION)) &&
-	                 (!id->override_static || (prop->flag & PROP_OVERRIDABLE)))));
+	                 (!id->override_static || (prop->flag & PROP_OVERRIDABLE_STATIC)))));
 }
 
 /**
@@ -1852,7 +1853,7 @@ bool RNA_property_editable_info(PointerRNA *ptr, PropertyRNA *prop, const char *
 			}
 			return false;
 		}
-		if (id->override_static != NULL && (prop->flag & PROP_OVERRIDABLE) == 0) {
+		if (id->override_static != NULL && (prop->flag & PROP_OVERRIDABLE_STATIC) == 0) {
 			if (!(*r_info)[0]) {
 				*r_info = "Can't edit this property from an override data-block.";
 			}
@@ -1976,8 +1977,16 @@ static void rna_property_update(bContext *C, Main *bmain, Scene *scene, PointerR
 			else
 				prop->update(bmain, scene, ptr);
 		}
+#if 0
 		if (prop->noteflag)
 			WM_main_add_notifier(prop->noteflag, ptr->id.data);
+#else
+		{
+			struct wmMsgBus *mbus = CTX_wm_message_bus(C);
+			/* we could add NULL check, for now don't */
+			WM_msg_publish_rna(mbus, ptr, prop);
+		}
+#endif
 	}
 	
 	if (!is_rna || (prop->flag & PROP_IDPROPERTY)) {
@@ -7247,7 +7256,7 @@ bool RNA_struct_override_matches(
 	for (; iter.valid; RNA_property_collection_next(&iter)) {
 		PropertyRNA *prop = iter.ptr.data;
 
-		if (ignore_non_overridable && !(prop->flag & PROP_OVERRIDABLE)) {
+		if (ignore_non_overridable && !(prop->flag & PROP_OVERRIDABLE_STATIC)) {
 			continue;
 		}
 
@@ -7319,8 +7328,7 @@ void RNA_property_override_apply(
         PointerRNA *dst, PointerRNA *src, PointerRNA *storage, PropertyRNA *prop, IDOverrideStaticProperty *op)
 {
 	for (IDOverrideStaticPropertyOperation *opop = op->operations.first; opop; opop = opop->next) {
-		if (!rna_property_override_operation_apply(dst, src, storage, prop, opop))
-		{
+		if (!rna_property_override_operation_apply(dst, src, storage, prop, opop)) {
 			BLI_assert(0);
 		}
 	}
@@ -7391,7 +7399,7 @@ bool RNA_struct_auto_override(PointerRNA *local, PointerRNA *reference, IDOverri
 	for (RNA_property_collection_begin(local, iterprop, &iter); iter.valid; RNA_property_collection_next(&iter)) {
 		PropertyRNA *prop = iter.ptr.data;
 
-		if (!(prop->flag & PROP_OVERRIDABLE)) {
+		if (!(prop->flag & PROP_OVERRIDABLE_STATIC)) {
 			continue;
 		}
 		if (RNA_property_animated(local, prop)) {
@@ -7506,7 +7514,7 @@ void RNA_property_override_status(
 		return;
 	}
 
-	SET_RET(r_overridable, (prop->flag & PROP_OVERRIDABLE) && (prop->flag & PROP_EDITABLE));
+	SET_RET(r_overridable, (prop->flag & PROP_OVERRIDABLE_STATIC) && (prop->flag & PROP_EDITABLE));
 
 	if (r_overridden || r_mandatory || r_locked) {
 		IDOverrideStaticPropertyOperation *opop = RNA_property_override_property_operation_find(ptr, prop, index, false, NULL);

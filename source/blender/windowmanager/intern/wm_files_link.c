@@ -172,7 +172,7 @@ typedef struct WMLinkAppendData {
 	LinkNodePair items;
 	int num_libraries;
 	int num_items;
-	short flag;
+	int flag;  /* Combines eFileSel_Params_Flag from DNA_space_types.h and BLO_LibLinkFlags from BLO_readfile.h */
 
 	/* Internal 'private' data */
 	MemArena *memarena;
@@ -253,8 +253,9 @@ static int path_to_idcode(const char *path)
 }
 
 static void wm_link_virtual_lib(
-        WMLinkAppendData *lapp_data, Main *bmain, AssetEngineType *aet, const int lib_idx, const bool generate_overrides)
+        WMLinkAppendData *lapp_data, Main *bmain, AssetEngineType *aet, const int lib_idx)
 {
+	const bool generate_overrides = (lapp_data->flag & BLO_LIBLINK_GENERATE_OVERRIDE) != 0;
 	LinkNode *itemlink;
 	int item_idx;
 
@@ -315,8 +316,7 @@ static void wm_link_virtual_lib(
 
 static void wm_link_do(
         WMLinkAppendData *lapp_data, ReportList *reports, Main *bmain, AssetEngineType *aet,
-        Scene *scene, ViewLayer *view_layer,
-        const bool use_placeholders, const bool force_indirect, const bool generate_overrides)
+        Scene *scene, ViewLayer *view_layer)
 {
 	Main *mainl;
 	BlendHandle *bh;
@@ -334,7 +334,7 @@ static void wm_link_do(
 
 		if (libname[0] == '\0') {
 			/* Special 'virtual lib' cases. */
-			wm_link_virtual_lib(lapp_data, bmain, aet, lib_idx, generate_overrides);
+			wm_link_virtual_lib(lapp_data, bmain, aet, lib_idx);
 			continue;
 		}
 
@@ -371,8 +371,7 @@ static void wm_link_do(
 
 			new_id = BLO_library_link_named_part_asset(
 			             mainl, &bh, aet, lapp_data->root, item->idcode, item->name, item->uuid,
-			             flag, scene, view_layer,
-			             use_placeholders, force_indirect);
+			             flag, scene, view_layer);
 
 			if (new_id) {
 				/* If the link is successful, clear item's libs 'todo' flags.
@@ -489,6 +488,8 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
 		flag &= ~FILE_GROUP_INSTANCE;
 		scene = NULL;
 	}
+
+	/* We need to add nothing from BLO_LibLinkFlags to flag here. */
 
 	/* from here down, no error returns */
 
@@ -618,10 +619,16 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
 		return OPERATOR_CANCELLED;
 	}
 
+	if ((flag & FILE_LINK) != 0) {
+		/* XXX Currently this only applies to virtual libs ('linking' mere image files...).
+		 *     However, we may want to make this a general option at link time when importing assets... */
+		lapp_data->flag |= BLO_LIBLINK_GENERATE_OVERRIDE;
+	}
+
 	/* XXX We'd need re-entrant locking on Main for this to work... */
 	/* BKE_main_lock(bmain); */
 
-	wm_link_do(lapp_data, op->reports, bmain, aet, scene, view_layer, false, false, (flag & FILE_LINK) != 0);
+	wm_link_do(lapp_data, op->reports, bmain, aet, scene, view_layer);
 
 	/* BKE_main_unlock(bmain); */
 
@@ -862,7 +869,7 @@ static void lib_relocate_do(
 	BKE_main_id_tag_all(bmain, LIB_TAG_PRE_EXISTING, true);
 
 	/* We do not want any instanciation here, nor do we want re-generating overrides. */
-	wm_link_do(lapp_data, reports, bmain, aet, NULL, NULL, do_reload, do_reload, false);
+	wm_link_do(lapp_data, reports, bmain, aet, NULL, NULL);
 
 	BKE_main_lock(bmain);
 
@@ -1023,7 +1030,7 @@ void WM_lib_reload(Library *lib, bContext *C, ReportList *reports)
 		return;
 	}
 
-	WMLinkAppendData *lapp_data = wm_link_append_data_new(0);
+	WMLinkAppendData *lapp_data = wm_link_append_data_new(BLO_LIBLINK_USE_PLACEHOLDERS | BLO_LIBLINK_FORCE_INDIRECT);
 
 	wm_link_append_data_library_add(lapp_data, lib->filepath);
 
@@ -1136,6 +1143,10 @@ static int wm_lib_relocate_exec_do(bContext *C, wmOperator *op, bool do_reload)
 #endif
 				wm_link_append_data_library_add(lapp_data, path);
 			}
+		}
+
+		if (do_reload) {
+			lapp_data->flag |= BLO_LIBLINK_USE_PLACEHOLDERS | BLO_LIBLINK_FORCE_INDIRECT;
 		}
 
 		lib_relocate_do(bmain, lib, lapp_data, op->reports, NULL, do_reload);

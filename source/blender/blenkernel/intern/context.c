@@ -679,6 +679,11 @@ struct wmManipulatorGroup *CTX_wm_manipulator_group(const bContext *C)
 	return C->wm.manipulator_group;
 }
 
+struct wmMsgBus *CTX_wm_message_bus(const bContext *C)
+{
+	return C->wm.manager ? C->wm.manager->message_bus : NULL;
+}
+
 struct ReportList *CTX_wm_reports(const bContext *C)
 {
 	if (C->wm.manager)
@@ -991,7 +996,7 @@ SceneCollection *CTX_data_scene_collection(const bContext *C)
 
 	/* fallback */
 	Scene *scene = CTX_data_scene(C);
-	return BKE_collection_master(scene);
+	return BKE_collection_master(&scene->id);
 }
 
 int CTX_data_mode_enum_ex(const Object *obedit, const Object *ob)

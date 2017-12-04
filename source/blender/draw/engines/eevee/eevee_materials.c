@@ -374,6 +374,7 @@ static void add_standard_uniforms(
 	DRW_shgroup_uniform_buffer(shgrp, "probeCubes", &sldata->probe_pool);
 	DRW_shgroup_uniform_buffer(shgrp, "probePlanars", &vedata->txl->planar_pool);
 	DRW_shgroup_uniform_buffer(shgrp, "irradianceGrid", &sldata->irradiance_pool);
+	DRW_shgroup_uniform_int(shgrp, "irradianceVisibilitySize", &sldata->probes->irradiance_vis_size, 1);
 	DRW_shgroup_uniform_buffer(shgrp, "shadowTexture", &sldata->shadow_pool);
 	DRW_shgroup_uniform_int(shgrp, "outputSsrId", ssr_id, 1);
 	DRW_shgroup_uniform_vec4(shgrp, "aoParameters[0]", &vedata->stl->effects->ao_dist, 2);
@@ -1295,7 +1296,7 @@ void EEVEE_materials_cache_populate(EEVEE_Data *vedata, EEVEE_ViewLayerData *sld
 				/* Do not render surface if we are rendering a volume object
 				 * and do not have a surface closure. */
 				if (use_volume_material &&
-					(gpumat_array[i] && !GPU_material_use_domain_surface(gpumat_array[i])))
+				    (gpumat_array[i] && !GPU_material_use_domain_surface(gpumat_array[i])))
 				{
 					continue;
 				}

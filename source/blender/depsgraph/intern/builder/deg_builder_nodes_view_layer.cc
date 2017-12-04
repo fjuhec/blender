@@ -24,7 +24,7 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/depsgraph/intern/builder/deg_builder_nodes_scene.cc
+/** \file blender/depsgraph/intern/builder/deg_builder_nodes_view_layer.cc
  *  \ingroup depsgraph
  *
  * Methods for constructing depsgraph's nodes
@@ -157,7 +157,7 @@ void DepsgraphNodeBuilder::build_view_layer(
 		build_movieclip(clip);
 	}
 	/* Collections. */
-	build_view_layer_collections(scene_cow, view_layer_cow);
+	build_view_layer_collections(&scene_cow->id, view_layer_cow);
 	/* Parameters evaluation for scene relations mainly. */
 	add_operation_node(&scene->id,
 	                   DEG_NODE_TYPE_PARAMETERS,
