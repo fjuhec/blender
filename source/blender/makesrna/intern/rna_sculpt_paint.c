@@ -1127,7 +1127,7 @@ static void rna_def_gpencil_sculpt(BlenderRNA *brna)
 
 	prop = RNA_def_property(srna, "size", PROP_INT, PROP_PIXEL);
 	RNA_def_property_range(prop, 1, MAX_BRUSH_PIXEL_RADIUS);
-	RNA_def_property_ui_range(prop, 1, 100, 10, 3); // XXX: too big
+	RNA_def_property_ui_range(prop, 1, 250, 10, 3); 
 	RNA_def_property_ui_text(prop, "Radius", "Radius of the brush in pixels");
 	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
 
