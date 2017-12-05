@@ -175,7 +175,7 @@ static void deformStroke(ModifierData *md, const EvaluationContext *UNUSED(eval_
 		/* apply randomness to location of the point */
 		if (mmd->flag & GP_NOISE_MOD_LOCATION) {
 			/* factor is too sensitive, so need divide */
-			shift = (vran * mmd->factor / 10.0f) * weight;
+			shift = ((vran * mmd->factor) / 1000.0f) * weight;
 			if (vdir > 0.5f) {
 				mul_v3_fl(vec2, shift);
 			}
