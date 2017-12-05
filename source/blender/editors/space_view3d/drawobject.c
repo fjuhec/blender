@@ -9511,7 +9511,7 @@ static void bbs_mesh_wire(BMEditMesh *em, DerivedMesh *dm, int offset)
 
 	immBindBuiltinProgram(GPU_SHADER_3D_FLAT_COLOR_U32);
 
-	glLineWidth(1);
+	glLineWidth(1.0f);
 
 	immBeginAtMost(GWN_PRIM_LINES, imm_len);
 	dm->foreachMappedEdge(dm, bbs_mesh_wire__mapFunc, &data);
@@ -9522,6 +9522,8 @@ static void bbs_mesh_wire(BMEditMesh *em, DerivedMesh *dm, int offset)
 #else
 static void bbs_mesh_wire(BMEditMesh *em, DerivedMesh *UNUSED(dm), int offset)
 {
+	glLineWidth(1.0f);
+
 	Mesh *me = em->ob->data;
 	Gwn_Batch *batch = DRW_mesh_batch_cache_get_edges_with_select_id(me, offset);
 	GWN_batch_program_set_builtin(batch, GPU_SHADER_3D_FLAT_COLOR_U32);
