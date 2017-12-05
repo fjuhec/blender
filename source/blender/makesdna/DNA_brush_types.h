@@ -403,6 +403,7 @@ enum {
 };
 
 #define MAX_BRUSH_PIXEL_RADIUS 500
+#define GP_MAX_BRUSH_PIXEL_RADIUS 1000
 
 /* Grease Pencil Stroke styles */
 #define STROKE_STYLE_SOLID	0
