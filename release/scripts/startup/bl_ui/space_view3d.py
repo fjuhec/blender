@@ -171,6 +171,7 @@ class VIEW3D_HT_header(Header):
             if gpd.use_stroke_edit_mode or gpd.is_stroke_sculpt_mode or gpd.is_stroke_weight_mode:
                 settings = context.tool_settings.gpencil_sculpt
                 row = layout.row(align=True)
+                row.prop(gpd, "show_edit_lines", text="", icon="PARTICLE_POINT")
                 row.prop(gpd, "use_multiedit", text="Multi Frame", icon="FORCE_HARMONIC")
                 col = row.column()
                 col.enabled = gpd.use_multiedit and gpd.is_stroke_sculpt_mode
