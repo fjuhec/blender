@@ -97,7 +97,7 @@ static void gpencil_verify_brush_type(bContext *C, int newmode)
 		case OB_MODE_GPENCIL_SCULPT:
 			gset->flag &= ~GP_BRUSHEDIT_FLAG_WEIGHT_MODE;
 			if ((gset->brushtype < 0) || (gset->brushtype >= GP_EDITBRUSH_TYPE_WEIGHT)) {
-				gset->brushtype = 0;
+				gset->brushtype = GP_EDITBRUSH_TYPE_PUSH;
 			}
 			break;
 		case OB_MODE_GPENCIL_WEIGHT:

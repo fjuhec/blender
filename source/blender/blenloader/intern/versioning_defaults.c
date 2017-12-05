@@ -162,7 +162,7 @@ void BLO_update_defaults_startup_blend(Main *bmain)
 				/* edit points alpha color */
 				gset->alpha = 1.0f;
 				/* default sculpt brush */
-				gset->brushtype = GP_EDITBRUSH_TYPE_SMOOTH;
+				gset->brushtype = GP_EDITBRUSH_TYPE_PUSH;
 				/* default weight paint brush */
 				gset->weighttype = GP_EDITBRUSH_TYPE_WEIGHT;
 
