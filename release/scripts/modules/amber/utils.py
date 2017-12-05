@@ -18,9 +18,6 @@
 
 # <pep8 compliant>
 
-# Note: This will be a simple addon later, but until it gets to master, it's simpler to have it
-#       as a startup module!
-
 import bpy
 
 import binascii

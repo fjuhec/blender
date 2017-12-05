@@ -50,6 +50,7 @@
 
 #include "BLO_readfile.h"
 
+#include "MEM_guardedalloc.h"
 
 /**
  * Override values in in-memory startup.blend, avoids resaving for small changes.
@@ -87,6 +88,11 @@ void BLO_update_defaults_userpref_blend(void)
 #else
 	U.flag &= ~USER_SCRIPT_AUTOEXEC_DISABLE;
 #endif
+
+	/* Enable Amber asset engine by default. */
+	bAddon *bext = MEM_callocN(sizeof(bAddon), "bAddon");
+	BLI_strncpy(bext->module, "amber", sizeof(bext->module));
+	BLI_addtail(&U.addons, bext);
 }
 
 /**

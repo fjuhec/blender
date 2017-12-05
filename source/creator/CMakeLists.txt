@@ -341,6 +341,17 @@ if(WITH_PYTHON)
 		set(FREESTYLE_EXCLUDE_CONDITIONAL "_freestyle/*")  # dummy, wont do anything
 	endif()
 
+	# temp hack to allow keeping Amber addon in main repo for now...
+	install(
+		DIRECTORY ${CMAKE_SOURCE_DIR}/release/scripts/modules/amber
+		DESTINATION ${TARGETDIR_VER}/scripts/addons
+		PATTERN ".git" EXCLUDE
+		PATTERN ".gitignore" EXCLUDE
+		PATTERN ".arcconfig" EXCLUDE
+		PATTERN "__pycache__" EXCLUDE
+	)
+	set(AMBER_EXCLUDE_CONDITIONAL "amber*")
+
 	install(
 		DIRECTORY ${CMAKE_SOURCE_DIR}/release/scripts
 		DESTINATION ${TARGETDIR_VER}
@@ -350,10 +361,12 @@ if(WITH_PYTHON)
 		PATTERN "__pycache__" EXCLUDE
 		PATTERN "${ADDON_EXCLUDE_CONDITIONAL}" EXCLUDE
 		PATTERN "${FREESTYLE_EXCLUDE_CONDITIONAL}" EXCLUDE
+		PATTERN "${AMBER_EXCLUDE_CONDITIONAL}" EXCLUDE
 	)
 	
 	unset(ADDON_EXCLUDE_CONDITIONAL)
 	unset(FREESTYLE_EXCLUDE_CONDITIONAL)
+	unset(AMBER_EXCLUDE_CONDITIONAL)
 endif()
 
 # localization
