@@ -563,7 +563,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 
 	/* Pencil brush */
 	brush = BKE_gpencil_brush_addnew(ts, "Pencil", false);
-	brush->thickness = 5.0f;
+	brush->thickness = 25.0f;
 	brush->flag |= (GP_BRUSH_USE_RANDOM_PRESSURE | GP_BRUSH_USE_PRESSURE | GP_BRUSH_ENABLE_CURSOR);
 	brush->draw_sensitivity = 1.0f;
 
@@ -595,7 +595,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 
 	/* Pen brush */
 	brush = BKE_gpencil_brush_addnew(ts, "Pen", true);
-	brush->thickness = 5.0f;
+	brush->thickness = 30.0f;
 	brush->flag |= (GP_BRUSH_USE_RANDOM_PRESSURE | GP_BRUSH_USE_PRESSURE | GP_BRUSH_ENABLE_CURSOR);
 	brush->draw_sensitivity = 1.0f;
 
@@ -621,7 +621,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 
 	/* Ink brush */
 	brush = BKE_gpencil_brush_addnew(ts, "Ink", true);
-	brush->thickness = 15.0f;
+	brush->thickness = 60.0f;
 	brush->flag |= (GP_BRUSH_USE_PRESSURE | GP_BRUSH_ENABLE_CURSOR);
 	brush->draw_sensitivity = 1.6f;
 
@@ -651,7 +651,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 
 	/* Ink Noise brush */
 	brush = BKE_gpencil_brush_addnew(ts, "Ink noise", false);
-	brush->thickness = 15.0f;
+	brush->thickness = 60.0f;
 	brush->flag |= (GP_BRUSH_USE_RANDOM_PRESSURE | GP_BRUSH_USE_PRESSURE | GP_BRUSH_ENABLE_CURSOR);
 	brush->draw_sensitivity = 1.0f;
 
@@ -681,7 +681,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 
 	/* Block Basic brush */
 	brush = BKE_gpencil_brush_addnew(ts, "Block Basic", false);
-	brush->thickness = 25.0f;
+	brush->thickness = 150.0f;
 	brush->flag |= (GP_BRUSH_USE_PRESSURE | GP_BRUSH_ENABLE_CURSOR);
 	brush->draw_sensitivity = 1.0f;
 
@@ -706,7 +706,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 
 	/* Marker brush */
 	brush = BKE_gpencil_brush_addnew(ts, "Marker", false);
-	brush->thickness = 20.0f;
+	brush->thickness = 80.0f;
 	brush->flag |= (GP_BRUSH_USE_RANDOM_PRESSURE | GP_BRUSH_USE_PRESSURE | GP_BRUSH_ENABLE_CURSOR);
 	brush->draw_sensitivity = 1.0f;
 
@@ -730,7 +730,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 
 	/* Experimental brush */
 	brush = BKE_gpencil_brush_addnew(ts, "Experimental", false);
-	brush->thickness = 6.0f;
+	brush->thickness = 80.0f;
 	brush->flag |= (GP_BRUSH_USE_PRESSURE | GP_BRUSH_ENABLE_CURSOR);
 	brush->draw_sensitivity = 1.0f;
 
