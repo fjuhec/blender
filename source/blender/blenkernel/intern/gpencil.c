@@ -729,7 +729,7 @@ bGPdata *BKE_gpencil_data_addnew(Main *bmain, const char name[])
 	
 	/* GP object specific settings */
 	gpd->flag |= GP_DATA_STROKE_SHOW_EDIT_LINES;
-	ARRAY_SET_ITEMS(gpd->line_color, 0.6f, 0.6f, 0.6f, 0.3f);
+	ARRAY_SET_ITEMS(gpd->line_color, 0.6f, 0.6f, 0.6f, 0.5f);
 	
 	gpd->xray_mode = GP_XRAY_3DSPACE;
 	gpd->batch_cache_data = NULL;
