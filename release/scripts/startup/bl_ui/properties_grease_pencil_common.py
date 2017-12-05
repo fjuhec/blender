@@ -401,16 +401,6 @@ class GreasePencilBrushOptionsPanel:
         layout = self.layout
         brush = context.active_gpencil_brush
         if brush is not None:
-            col = layout.column(align=True)
-            col.label(text="Settings:")
-            col.prop(brush, "random_press", slider=True)
-
-            row = layout.row(align=True)
-            row.prop(brush, "jitter", slider=True)
-            row.prop(brush, "use_jitter_pressure", text="", icon='STYLUS_PRESSURE')
-            row = layout.row()
-            row.prop(brush, "angle", slider=True)
-            row.prop(brush, "angle_factor", text="Factor", slider=True)
 
             row = layout.row(align=True)
             col = row.column(align=True)
@@ -427,6 +417,17 @@ class GreasePencilBrushOptionsPanel:
             row = col.row(align=False)
             row.prop(brush, "pen_subdivision_steps")
             row.prop(brush, "random_subdiv", text="Randomness", slider=True)
+
+            col = layout.column(align=True)
+            col.label(text="Settings:")
+            col.prop(brush, "random_press", slider=True)
+
+            row = layout.row(align=True)
+            row.prop(brush, "jitter", slider=True)
+            row.prop(brush, "use_jitter_pressure", text="", icon='STYLUS_PRESSURE')
+            row = layout.row()
+            row.prop(brush, "angle", slider=True)
+            row.prop(brush, "angle_factor", text="Factor", slider=True)
 
 
 class GreasePencilStrokeSculptPanel:
