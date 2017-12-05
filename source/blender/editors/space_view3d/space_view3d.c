@@ -586,9 +586,9 @@ static void view3d_main_region_exit(wmWindowManager *wm, ARegion *ar)
 	}
 }
 
-static int view3d_path_link_drop_poll(bContext *C, wmDrag *drag, const wmEvent *event)
+static int view3d_path_link_append_drop_poll(bContext *C, wmDrag *drag, const wmEvent *event, const bool is_link)
 {
-	if (event->shift == false) {
+	if ((!event->shift && !is_link) || (event->shift && is_link)) {
 		if (drag->type == WM_DRAG_LIBRARY) {
 			uiDragLibraryHandle *drag_data = drag->poin;
 			char libname[FILE_MAX];
@@ -608,6 +608,16 @@ static int view3d_path_link_drop_poll(bContext *C, wmDrag *drag, const wmEvent *
 		}
 	}
 	return 0;
+}
+
+static int view3d_path_link_drop_poll(bContext *C, wmDrag *drag, const wmEvent *event)
+{
+	return view3d_path_link_append_drop_poll(C, drag, event, true);
+}
+
+static int view3d_path_append_drop_poll(bContext *C, wmDrag *drag, const wmEvent *event)
+{
+	return view3d_path_link_append_drop_poll(C, drag, event, false);
 }
 
 static int view3d_ob_drop_poll(bContext *UNUSED(C), wmDrag *drag, const wmEvent *UNUSED(event))
@@ -745,6 +755,7 @@ static void view3d_dropboxes(void)
 	ListBase *lb = WM_dropboxmap_find("View3D", SPACE_VIEW3D, RGN_TYPE_WINDOW);
 	
 	WM_dropbox_add(lb, "WM_OT_link", view3d_path_link_drop_poll, view3d_path_link_drop_copy);
+	WM_dropbox_add(lb, "WM_OT_append", view3d_path_append_drop_poll, view3d_path_link_drop_copy);
 	WM_dropbox_add(lb, "OBJECT_OT_add_named", view3d_ob_drop_poll, view3d_ob_drop_copy);
 	WM_dropbox_add(lb, "OBJECT_OT_drop_named_material", view3d_mat_drop_poll, view3d_id_drop_copy);
 	WM_dropbox_add(lb, "MESH_OT_drop_named_image", view3d_ima_mesh_drop_poll, view3d_id_path_drop_copy);
