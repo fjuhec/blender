@@ -55,6 +55,9 @@ struct ARegion;
 struct uiBlock;
 struct rcti;
 struct Main;
+struct wmMsgBus;
+struct wmMsgSubscribeKey;
+struct wmMsgSubscribeValue;
 
 /* regions */
 void    ED_region_do_listen(
@@ -86,6 +89,18 @@ void    ED_region_grid_draw(struct ARegion *ar, float zoomx, float zoomy);
 float	ED_region_blend_factor(struct ARegion *ar);
 void	ED_region_visible_rect(struct ARegion *ar, struct rcti *rect);
 
+/* message_bus callbacks */
+void ED_region_do_msg_notify_tag_redraw(
+        struct bContext *C, struct wmMsgSubscribeKey *msg_key, struct wmMsgSubscribeValue *msg_val);
+void ED_area_do_msg_notify_tag_refresh(
+        struct bContext *C, struct wmMsgSubscribeKey *msg_key, struct wmMsgSubscribeValue *msg_val);
+
+/* message bus */
+void ED_region_message_subscribe(
+        struct bContext *C,
+        struct WorkSpace *workspace, struct Scene *scene,
+        struct bScreen *screen, struct ScrArea *sa, struct ARegion *ar,
+        struct wmMsgBus *mbus);
 
 /* spaces */
 void    ED_spacetypes_keymap(struct wmKeyConfig *keyconf);
@@ -153,6 +168,7 @@ void    ED_screen_preview_render(const struct bScreen *screen, int size_x, int s
 struct WorkSpace *ED_workspace_add(
         struct Main *bmain,
         const char *name,
+        Scene *scene,
         ViewLayer *act_render_layer,
         struct ViewRender *view_render) ATTR_NONNULL();
 bool ED_workspace_change(
@@ -169,7 +185,8 @@ bool ED_workspace_delete(
 void ED_workspace_scene_data_sync(
         struct WorkSpaceInstanceHook *hook, Scene *scene) ATTR_NONNULL();
 void ED_workspace_view_layer_unset(
-        const struct Main *bmain, const ViewLayer *layer_unset, ViewLayer *layer_new) ATTR_NONNULL(1, 2);
+        const struct Main *bmain, struct Scene *scene,
+        const ViewLayer *layer_unset, ViewLayer *layer_new) ATTR_NONNULL(1, 2);
 struct WorkSpaceLayout *ED_workspace_layout_add(
         struct WorkSpace *workspace,
         struct wmWindow *win,

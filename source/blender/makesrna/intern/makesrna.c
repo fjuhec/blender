@@ -46,6 +46,14 @@
 #  endif
 #endif
 
+/**
+ * Variable to control debug output of makesrna.
+ * debugSRNA:
+ *  - 0 = no output, except errors
+ *  - 1 = detail actions
+ */
+static int debugSRNA = 0;
+
 /* stub for BLI_abort() */
 #ifndef NDEBUG
 void BLI_system_backtrace(FILE *fp)
@@ -62,7 +70,9 @@ void BLI_system_backtrace(FILE *fp)
 static int file_older(const char *file1, const char *file2)
 {
 	struct stat st1, st2;
-	/* printf("compare: %s %s\n", file1, file2); */
+	if (debugSRNA > 0) {
+		printf("compare: %s %s\n", file1, file2);
+	}
 
 	if (stat(file1, &st1)) return 0;
 	if (stat(file2, &st2)) return 0;
@@ -3015,12 +3025,15 @@ static void rna_generate_property(FILE *f, StructRNA *srna, const char *nest, Pr
 	        prop->arraylength[1],
 	        prop->arraylength[2],
 	        prop->totarraylength);
-	fprintf(f, "\t%s%s, %d, %s, %s,\n",
+	fprintf(f, "\t%s%s, %d, %s, %s, %s, %s, %s,\n",
 	        (prop->flag & PROP_CONTEXT_UPDATE) ? "(UpdateFunc)" : "",
 	        rna_function_string(prop->update),
 	        prop->noteflag,
 	        rna_function_string(prop->editable),
-	        rna_function_string(prop->itemeditable));
+	        rna_function_string(prop->itemeditable),
+	        rna_function_string(prop->override_diff),
+	        rna_function_string(prop->override_store),
+	        rna_function_string(prop->override_apply));
 
 	if (prop->flag_internal & PROP_INTERN_RAW_ACCESS) rna_set_raw_offset(f, srna, prop);
 	else fprintf(f, "\t0, -1");
@@ -4141,7 +4154,9 @@ int main(int argc, char **argv)
 		return_status = 1;
 	}
 	else {
-		fprintf(stderr, "Running makesrna\n");
+		if (debugSRNA > 0) {
+			fprintf(stderr, "Running makesrna\n");
+		}
 		makesrna_path = argv[0];
 		return_status = rna_preprocess(argv[1]);
 	}

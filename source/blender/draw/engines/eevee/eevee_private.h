@@ -47,11 +47,11 @@ extern struct DrawEngineType draw_engine_eevee_type;
 #define IRRADIANCE_HL2
 
 #if defined(IRRADIANCE_SH_L2)
-#define SHADER_IRRADIANCE "#define IRRADIANCE_SH_L2\n"
+#  define SHADER_IRRADIANCE "#define IRRADIANCE_SH_L2\n"
 #elif defined(IRRADIANCE_CUBEMAP)
-#define SHADER_IRRADIANCE "#define IRRADIANCE_CUBEMAP\n"
+#  define SHADER_IRRADIANCE "#define IRRADIANCE_CUBEMAP\n"
 #elif defined(IRRADIANCE_HL2)
-#define SHADER_IRRADIANCE "#define IRRADIANCE_HL2\n"
+#  define SHADER_IRRADIANCE "#define IRRADIANCE_HL2\n"
 #endif
 
 #define SHADER_DEFINES \
@@ -141,6 +141,7 @@ typedef struct EEVEE_PassList {
 	struct DRWPass *probe_background;
 	struct DRWPass *probe_glossy_compute;
 	struct DRWPass *probe_diffuse_compute;
+	struct DRWPass *probe_visibility_compute;
 	struct DRWPass *probe_grid_fill;
 	struct DRWPass *probe_display;
 	struct DRWPass *probe_planar_downsample_ps;
@@ -369,6 +370,7 @@ typedef struct EEVEE_LightGrid {
 	float increment_x[3], attenuation_bias; /* world space vector between 2 opposite cells */
 	float increment_y[3], level_bias;
 	float increment_z[3], pad4;
+	float visibility_bias, visibility_bleed, visibility_range, pad5;
 } EEVEE_LightGrid;
 
 typedef struct EEVEE_PlanarReflection {
@@ -386,11 +388,14 @@ typedef struct EEVEE_LightProbesInfo {
 	int num_cube, cache_num_cube;
 	int num_grid, cache_num_grid;
 	int num_planar, cache_num_planar;
+	int total_irradiance_samples; /* Total for all grids */
+	int cache_irradiance_size[3];
 	int update_flag;
 	int updated_bounce;
 	int num_bounce;
 	int cubemap_res;
 	int target_size;
+	int irradiance_vis_size;
 	int grid_initialized;
 	/* Actual number of probes that have datas. */
 	int num_render_cube;
@@ -402,9 +407,13 @@ typedef struct EEVEE_LightProbesInfo {
 	float padding_size;
 	float samples_ct;
 	float invsamples_ct;
+	float near_clip;
+	float far_clip;
 	float roughness;
 	float lodfactor;
 	float lod_rt_max, lod_cube_max, lod_planar_max;
+	float visibility_range;
+	float visibility_blur;
 	int shres;
 	int shnbr;
 	bool specular_toggle;
@@ -550,6 +559,7 @@ typedef struct EEVEE_ViewLayerData {
 	struct GPUFrameBuffer *probe_filter_fb;
 
 	struct GPUTexture *probe_rt;
+	struct GPUTexture *probe_depth_rt;
 	struct GPUTexture *probe_pool;
 	struct GPUTexture *irradiance_pool;
 	struct GPUTexture *irradiance_rt;
@@ -568,7 +578,19 @@ typedef struct EEVEE_LampEngineData {
 } EEVEE_LampEngineData;
 
 typedef struct EEVEE_LightProbeEngineData {
+	/* NOTE: need_full_update is set by dependency graph when the probe or it's
+	 * object is updated. This triggers full probe update, including it's
+	 * "progressive" GI refresh.
+	 *
+	 * need_update is always set to truth when need_full_update is tagged, but
+	 * might also be forced to be kept truth during GI refresh stages.
+	 *
+	 * TODO(sergey): Is there a way to avoid two flags here, or at least make
+	 * it more clear what's going on here?
+	 */
+	bool need_full_update;
 	bool need_update;
+
 	bool ready_to_shade;
 	int updated_cells;
 	int updated_lvl;
@@ -629,9 +651,13 @@ typedef struct EEVEE_PrivateData {
 
 /* eevee_data.c */
 EEVEE_ViewLayerData *EEVEE_view_layer_data_get(void);
+EEVEE_ViewLayerData *EEVEE_view_layer_data_ensure(void);
 EEVEE_ObjectEngineData *EEVEE_object_data_get(Object *ob);
+EEVEE_ObjectEngineData *EEVEE_object_data_ensure(Object *ob);
 EEVEE_LightProbeEngineData *EEVEE_lightprobe_data_get(Object *ob);
+EEVEE_LightProbeEngineData *EEVEE_lightprobe_data_ensure(Object *ob);
 EEVEE_LampEngineData *EEVEE_lamp_data_get(Object *ob);
+EEVEE_LampEngineData *EEVEE_lamp_data_ensure(Object *ob);
 
 /* eevee_materials.c */
 struct GPUTexture *EEVEE_materials_get_util_tex(void); /* XXX */

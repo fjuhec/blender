@@ -180,7 +180,7 @@ DepsgraphNodeBuilder::~DepsgraphNodeBuilder()
 IDDepsNode *DepsgraphNodeBuilder::add_id_node(ID *id, bool do_tag)
 {
 	if (!DEG_depsgraph_use_copy_on_write()) {
-		return graph_->add_id_node(id);
+		return graph_->add_id_node(id, do_tag);
 	}
 	IDDepsNode *id_node = NULL;
 	ID *id_cow = (ID *)BLI_ghash_lookup(cow_id_hash_, id);
@@ -428,9 +428,11 @@ void DepsgraphNodeBuilder::build_group(Group *group)
 	}
 	group_id->tag |= LIB_TAG_DOIT;
 
-	LINKLIST_FOREACH (GroupObject *, go, &group->gobject) {
-		build_object(NULL, go->ob, DEG_ID_LINKED_INDIRECTLY);
+	LINKLIST_FOREACH(Base *, base, &group->view_layer->object_bases) {
+		build_object(NULL, base->object, DEG_ID_LINKED_INDIRECTLY);
 	}
+
+	build_view_layer_collections(&group->id, group->view_layer);
 }
 
 void DepsgraphNodeBuilder::build_object(Base *base,
@@ -583,7 +585,6 @@ void DepsgraphNodeBuilder::build_object_transform(Object *object)
 	op_node = add_operation_node(&object->id, DEG_NODE_TYPE_TRANSFORM,
 	                             function_bind(BKE_object_eval_local_transform,
 	                                           _1,
-	                                           scene_cow,
 	                                           ob_cow),
 	                             DEG_OPCODE_TRANSFORM_LOCAL);
 	op_node->set_as_entry();
@@ -607,7 +608,6 @@ void DepsgraphNodeBuilder::build_object_transform(Object *object)
 	add_operation_node(&object->id, DEG_NODE_TYPE_TRANSFORM,
 	                   function_bind(BKE_object_eval_uber_transform,
 	                                 _1,
-	                                 scene_cow,
 	                                 ob_cow),
 	                   DEG_OPCODE_TRANSFORM_OBJECT_UBEREVAL);
 
@@ -804,8 +804,8 @@ void DepsgraphNodeBuilder::build_rigidbody(Scene *scene)
 
 	/* objects - simulation participants */
 	if (rbw->group) {
-		LINKLIST_FOREACH (GroupObject *, go, &rbw->group->gobject) {
-			Object *object = go->ob;
+		LINKLIST_FOREACH (Base *, base, &rbw->group->view_layer->object_bases) {
+			Object *object = base->object;
 
 			if (!object || (object->type != OB_MESH))
 				continue;
@@ -1240,6 +1240,9 @@ void DepsgraphNodeBuilder::build_nodetree(bNodeTree *ntree)
 			/* Scenes are used by compositor trees, and handled by render
 			 * pipeline. No need to build dependencies for them here.
 			 */
+		}
+		else if (id_type == ID_TXT) {
+			/* Ignore script nodes. */
 		}
 		else if (bnode->type == NODE_GROUP) {
 			bNodeTree *group_ntree = (bNodeTree *)id;

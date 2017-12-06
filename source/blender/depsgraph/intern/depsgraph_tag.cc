@@ -111,11 +111,6 @@ void lib_id_recalc_tag_flag(Main *bmain, ID *id, int flag)
 	 * after relations update and after layer visibility changes.
 	 */
 	if (flag) {
-		ID_Type id_type = GS(id->name);
-		if (id_type == ID_OB) {
-			Object *object = (Object *)id;
-			object->recalc |= (flag & OB_RECALC_ALL);
-		}
 		if (flag & OB_RECALC_OB) {
 			lib_id_recalc_tag(bmain, id);
 		}
@@ -352,6 +347,19 @@ void id_tag_update_base_flags(Depsgraph *graph, IDDepsNode *id_node)
 	}
 }
 
+void id_tag_update_editors_update(Main *bmain, Depsgraph *graph, ID *id)
+{
+	/* NOTE: We handle this immediately, without delaying anything, to be
+	 * sure we don't cause threading issues with OpenGL.
+	 */
+	/* TODO(sergey): Make sure this works for CoW-ed datablocks as well. */
+	DEGEditorUpdateContext update_ctx = {NULL};
+	update_ctx.bmain = bmain;
+	update_ctx.scene = graph->scene;
+	update_ctx.view_layer = graph->view_layer;
+	deg_editors_id_update(&update_ctx, id);
+}
+
 void id_tag_update_ntree_special(Main *bmain, Depsgraph *graph, ID *id, int flag)
 {
 	bNodeTree *ntree = NULL;
@@ -421,6 +429,9 @@ void deg_graph_id_tag_update(Main *bmain, Depsgraph *graph, ID *id, int flag)
 	if (flag & DEG_TAG_BASE_FLAGS_UPDATE) {
 		id_tag_update_base_flags(graph, id_node);
 	}
+	if (flag & DEG_TAG_EDITORS_UPDATE) {
+		id_tag_update_editors_update(bmain, graph, id);
+	}
 	id_tag_update_ntree_special(bmain, graph, id, flag);
 }
 
@@ -445,14 +456,6 @@ void deg_graph_on_visible_update(Main *bmain, Depsgraph *graph)
 	/* Make sure objects are up to date. */
 	foreach (DEG::IDDepsNode *id_node, graph->id_nodes) {
 		const ID_Type id_type = GS(id_node->id_orig->name);
-		/* TODO(sergey): Special exception for now. */
-		if (id_type == ID_MSK) {
-			deg_graph_id_tag_update(bmain, graph, id_node->id_orig, 0);
-		}
-		if (id_type != ID_OB) {
-			/* Ignore non-object nodes on visibility changes. */
-			continue;
-		}
 		int flag = 0;
 		/* We only tag components which needs an update. Tagging everything is
 		 * not a good idea because that might reset particles cache (or any
@@ -502,7 +505,7 @@ void DEG_graph_id_tag_update(struct Main *bmain,
 	DEG::deg_graph_id_tag_update(bmain, graph, id, flag);
 }
 
-/* Tag given ID type for update. */
+/* Mark a particular datablock type as having changing. */
 void DEG_id_type_tag(Main *bmain, short id_type)
 {
 	if (id_type == ID_NT) {
@@ -552,7 +555,10 @@ void DEG_on_visible_update(Main *bmain, const bool UNUSED(do_time))
 /* Check if something was changed in the database and inform
  * editors about this.
  */
-void DEG_ids_check_recalc(Main *bmain, Scene *scene, bool time)
+void DEG_ids_check_recalc(Main *bmain,
+                          Scene *scene,
+                          ViewLayer *view_layer,
+                          bool time)
 {
 	ListBase *lbarray[MAX_LIBARRAY];
 	int a;
@@ -570,7 +576,11 @@ void DEG_ids_check_recalc(Main *bmain, Scene *scene, bool time)
 		}
 	}
 
-	DEG::deg_editors_scene_update(bmain, scene, (updated || time));
+	DEGEditorUpdateContext update_ctx = {NULL};
+	update_ctx.bmain = bmain;
+	update_ctx.scene = scene;
+	update_ctx.view_layer = view_layer;
+	DEG::deg_editors_scene_update(&update_ctx, (updated || time));
 }
 
 void DEG_ids_clear_recalc(Main *bmain)

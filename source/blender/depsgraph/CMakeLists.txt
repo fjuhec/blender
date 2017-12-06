@@ -65,6 +65,8 @@ set(SRC
 	intern/depsgraph_debug.cc
 	intern/depsgraph_eval.cc
 	intern/depsgraph_query.cc
+	intern/depsgraph_query_foreach.cc
+	intern/depsgraph_query_iter.cc
 	intern/depsgraph_tag.cc
 	intern/depsgraph_type_defines.cc
 
@@ -78,6 +80,7 @@ set(SRC
 	intern/builder/deg_builder_nodes.h
 	intern/builder/deg_builder_pchanmap.h
 	intern/builder/deg_builder_relations.h
+	intern/builder/deg_builder_relations_impl.h
 	intern/builder/deg_builder_transitive.h
 	intern/eval/deg_eval.h
 	intern/eval/deg_eval_copy_on_write.h
