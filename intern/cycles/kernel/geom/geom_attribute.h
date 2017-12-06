@@ -53,7 +53,7 @@ ccl_device_inline AttributeDescriptor attribute_not_found()
 
 ccl_device_inline uint object_attribute_map_offset(KernelGlobals *kg, int object)
 {
-	return kernel_tex_fetch(__objects, object).attribute_map_offset;
+	return kernel_struct_fetch(__objects, attribute_map_offset, object);
 }
 
 ccl_device_inline AttributeDescriptor find_attribute(KernelGlobals *kg, const ShaderData *sd, uint id)

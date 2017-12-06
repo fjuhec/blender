@@ -276,7 +276,7 @@ bool BVH_FUNCTION_FULL_NAME(BVH)(KernelGlobals *kg,
 								shader = __float_as_int(str.z);
 							}
 #endif
-							int flag = kernel_tex_fetch(__shader_flag, (shader & SHADER_MASK)).flags;
+							int flag = kernel_struct_fetch(__shader_flag, flags, (shader & SHADER_MASK));
 
 							/* if no transparent shadows, all light is blocked */
 							if(!(flag & SD_HAS_TRANSPARENT_SHADOW)) {

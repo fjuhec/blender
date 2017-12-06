@@ -236,7 +236,7 @@ ccl_device_inline float3 object_location(KernelGlobals *kg, const ShaderData *sd
 
 ccl_device_inline float object_surface_area(KernelGlobals *kg, int object)
 {
-	return kernel_tex_fetch(__objects, object).surface_area;
+	return kernel_struct_fetch(__objects, surface_area, object);
 }
 
 /* Pass ID number of object */
@@ -246,7 +246,7 @@ ccl_device_inline float object_pass_id(KernelGlobals *kg, int object)
 	if(object == OBJECT_NONE)
 		return 0.0f;
 
-	return kernel_tex_fetch(__objects, object).pass_id;
+	return kernel_struct_fetch(__objects, pass_id, object);
 }
 
 /* Per lamp random number for shader variation */
@@ -256,7 +256,7 @@ ccl_device_inline float lamp_random_number(KernelGlobals *kg, int lamp)
 	if(lamp == LAMP_NONE)
 		return 0.0f;
 
-	return kernel_tex_fetch(__light_data, lamp).random;
+	return kernel_struct_fetch(__light_data, random, lamp);
 }
 
 /* Per object random number for shader variation */
@@ -266,7 +266,7 @@ ccl_device_inline float object_random_number(KernelGlobals *kg, int object)
 	if(object == OBJECT_NONE)
 		return 0.0f;
 
-	return kernel_tex_fetch(__objects, object).random_number;
+	return kernel_struct_fetch(__objects, random_number, object);
 }
 
 /* Particle ID from which this object was generated */
@@ -276,7 +276,7 @@ ccl_device_inline int object_particle_id(KernelGlobals *kg, int object)
 	if(object == OBJECT_NONE)
 		return 0;
 
-	return kernel_tex_fetch(__objects, object).particle_index;
+	return kernel_struct_fetch(__objects, particle_index, object);
 }
 
 /* Generated texture coordinate on surface from where object was instanced */
@@ -306,13 +306,13 @@ ccl_device_inline float3 object_dupli_uv(KernelGlobals *kg, int object)
 ccl_device_inline void object_motion_info(KernelGlobals *kg, int object, int *numsteps, int *numverts, int *numkeys)
 {
 	if(numkeys) {
-		*numkeys = kernel_tex_fetch(__objects, object).numkeys;
+		*numkeys = kernel_struct_fetch(__objects, numkeys, object);
 	}
 
 	if(numsteps)
-		*numsteps = kernel_tex_fetch(__objects, object).numsteps;
+		*numsteps = kernel_struct_fetch(__objects, numsteps, object);
 	if(numverts)
-		*numverts = kernel_tex_fetch(__objects, object).numverts;
+		*numverts = kernel_struct_fetch(__objects, numverts, object);
 }
 
 /* Offset to an objects patch map */
@@ -322,56 +322,56 @@ ccl_device_inline uint object_patch_map_offset(KernelGlobals *kg, int object)
 	if(object == OBJECT_NONE)
 		return 0;
 
-	return kernel_tex_fetch(__objects, object).patch_map_offset;
+	return kernel_struct_fetch(__objects, patch_map_offset, object);
 }
 
 /* Pass ID for shader */
 
 ccl_device int shader_pass_id(KernelGlobals *kg, const ShaderData *sd)
 {
-	return kernel_tex_fetch(__shader_flag, (sd->shader & SHADER_MASK)).pass_id;
+	return kernel_struct_fetch(__shader_flag, pass_id, (sd->shader & SHADER_MASK));
 }
 
 /* Particle data from which object was instanced */
 
 ccl_device_inline float particle_index(KernelGlobals *kg, int particle)
 {
-	return kernel_tex_fetch(__particles, particle).index;
+	return kernel_struct_fetch(__particles, index, particle);
 }
 
 ccl_device float particle_age(KernelGlobals *kg, int particle)
 {
-	return kernel_tex_fetch(__particles, particle).age;
+	return kernel_struct_fetch(__particles, age, particle);
 }
 
 ccl_device float particle_lifetime(KernelGlobals *kg, int particle)
 {
-	return kernel_tex_fetch(__particles, particle).lifetime;
+	return kernel_struct_fetch(__particles, lifetime, particle);
 }
 
 ccl_device float particle_size(KernelGlobals *kg, int particle)
 {
-	return kernel_tex_fetch(__particles, particle).size;
+	return kernel_struct_fetch(__particles, size, particle);
 }
 
 ccl_device float4 particle_rotation(KernelGlobals *kg, int particle)
 {
-	return kernel_tex_fetch(__particles, particle).rotation;
+	return kernel_struct_fetch(__particles, rotation, particle);
 }
 
 ccl_device float3 particle_location(KernelGlobals *kg, int particle)
 {
-	return float4_to_float3(kernel_tex_fetch(__particles, particle).location);
+	return float4_to_float3(kernel_struct_fetch(__particles, location, particle));
 }
 
 ccl_device float3 particle_velocity(KernelGlobals *kg, int particle)
 {
-	return float4_to_float3(kernel_tex_fetch(__particles, particle).velocity);
+	return float4_to_float3(kernel_struct_fetch(__particles, velocity, particle));
 }
 
 ccl_device float3 particle_angular_velocity(KernelGlobals *kg, int particle)
 {
-	return float4_to_float3(kernel_tex_fetch(__particles, particle).angular_velocity);
+	return float4_to_float3(kernel_struct_fetch(__particles, angular_velocity, particle));
 }
 
 /* Object intersection in BVH */

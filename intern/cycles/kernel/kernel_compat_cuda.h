@@ -129,6 +129,11 @@ ccl_device_inline uint ccl_num_groups(uint d)
 /* Use arrays for regular data. This is a little slower than textures on Fermi,
  * but allows for cleaner code and we will stop supporting Fermi soon. */
 #define kernel_tex_fetch(t, index) t[(index)]
+#if __CUDA_ARCH__ < 350
+#  define kernel_struct_fetch(t, member, index) (kernel_tex_fetch(t, index).member)
+#else
+#  define kernel_struct_fetch(t, member, index) __ldg(&kernel_tex_fetch(t, index).member)
+#endif
 
 /* On Kepler (6xx) and above, we use Bindless Textures for images.
  * On Fermi cards (4xx and 5xx), we have to use regular textures. */

@@ -522,9 +522,9 @@ ccl_device_inline bool lamp_light_sample(KernelGlobals *kg,
                                          float3 P,
                                          LightSample *ls)
 {
-	LightType type = (LightType)kernel_tex_fetch(__light_data, lamp).type;
+	LightType type = (LightType)kernel_struct_fetch(__light_data, type, lamp);
 	ls->type = type;
-	ls->shader = kernel_tex_fetch(__light_data, lamp).shader_id;
+	ls->shader = kernel_struct_fetch(__light_data, shader_id, lamp);
 	ls->object = PRIM_NONE;
 	ls->prim = PRIM_NONE;
 	ls->lamp = lamp;
@@ -537,8 +537,8 @@ ccl_device_inline bool lamp_light_sample(KernelGlobals *kg,
 		                            kernel_tex_fetch(__light_data, lamp).co[1],
 		                            kernel_tex_fetch(__light_data, lamp).co[2]);
 		float3 D = lightD;
-		float radius = kernel_tex_fetch(__light_data, lamp).distant.radius;
-		float invarea = kernel_tex_fetch(__light_data, lamp).distant.invarea;
+		float radius = kernel_struct_fetch(__light_data, distant.radius, lamp);
+		float invarea = kernel_struct_fetch(__light_data, distant.invarea, lamp);
 
 		if(radius > 0.0f)
 			D = distant_light_sample(D, radius, randu, randv);
@@ -570,7 +570,7 @@ ccl_device_inline bool lamp_light_sample(KernelGlobals *kg,
 		                    kernel_tex_fetch(__light_data, lamp).co[2]);
 
 		if(type == LIGHT_POINT || type == LIGHT_SPOT) {
-			float radius = kernel_tex_fetch(__light_data, lamp).spot.radius;
+			float radius = kernel_struct_fetch(__light_data, spot.radius, lamp);
 
 			if(radius > 0.0f)
 				/* sphere light */
@@ -579,7 +579,7 @@ ccl_device_inline bool lamp_light_sample(KernelGlobals *kg,
 			ls->D = normalize_len(ls->P - P, &ls->t);
 			ls->Ng = -ls->D;
 
-			float invarea = kernel_tex_fetch(__light_data, lamp).spot.invarea;
+			float invarea = kernel_struct_fetch(__light_data, spot.invarea, lamp);
 			ls->eval_fac = (0.25f*M_1_PI_F)*invarea;
 			ls->pdf = invarea;
 
@@ -589,8 +589,8 @@ ccl_device_inline bool lamp_light_sample(KernelGlobals *kg,
                                          kernel_tex_fetch(__light_data, lamp).spot.dir[1],
 										 kernel_tex_fetch(__light_data, lamp).spot.dir[2]);
 				ls->eval_fac *= spot_light_attenuation(dir,
-				                                       kernel_tex_fetch(__light_data, lamp).spot.spot_angle,
-				                                       kernel_tex_fetch(__light_data, lamp).spot.spot_smooth, ls);
+				                                       kernel_struct_fetch(__light_data, spot.spot_angle, lamp),
+				                                       kernel_struct_fetch(__light_data, spot.spot_smooth, lamp), ls);
 				if(ls->eval_fac == 0.0f) {
 					return false;
 				}
@@ -630,7 +630,7 @@ ccl_device_inline bool lamp_light_sample(KernelGlobals *kg,
 			ls->Ng = D;
 			ls->D = normalize_len(ls->P - P, &ls->t);
 
-			float invarea = kernel_tex_fetch(__light_data, lamp).area.invarea;
+			float invarea = kernel_struct_fetch(__light_data, area.invarea, lamp);
 			ls->eval_fac = 0.25f*invarea;
 		}
 	}
@@ -642,9 +642,9 @@ ccl_device_inline bool lamp_light_sample(KernelGlobals *kg,
 
 ccl_device bool lamp_light_eval(KernelGlobals *kg, int lamp, float3 P, float3 D, float t, LightSample *ls)
 {
-	LightType type = (LightType)kernel_tex_fetch(__light_data, lamp).type;
+	LightType type = (LightType)kernel_struct_fetch(__light_data, type, lamp);
 	ls->type = type;
-	ls->shader = kernel_tex_fetch(__light_data, lamp).shader_id;
+	ls->shader = kernel_struct_fetch(__light_data, shader_id, lamp);
 	ls->object = PRIM_NONE;
 	ls->prim = PRIM_NONE;
 	ls->lamp = lamp;
@@ -657,7 +657,7 @@ ccl_device bool lamp_light_eval(KernelGlobals *kg, int lamp, float3 P, float3 D,
 
 	if(type == LIGHT_DISTANT) {
 		/* distant light */
-		float radius = kernel_tex_fetch(__light_data, lamp).distant.radius;
+		float radius = kernel_struct_fetch(__light_data, distant.radius, lamp);
 
 		if(radius == 0.0f)
 			return false;
@@ -683,7 +683,7 @@ ccl_device bool lamp_light_eval(KernelGlobals *kg, int lamp, float3 P, float3 D,
 		                            kernel_tex_fetch(__light_data, lamp).co[1],
 		                            kernel_tex_fetch(__light_data, lamp).co[2]);
 		float costheta = dot(-lightD, D);
-		float cosangle = kernel_tex_fetch(__light_data, lamp).distant.cosangle;
+		float cosangle = kernel_struct_fetch(__light_data, distant.cosangle, lamp);
 
 		if(costheta < cosangle)
 			return false;
@@ -694,7 +694,7 @@ ccl_device bool lamp_light_eval(KernelGlobals *kg, int lamp, float3 P, float3 D,
 		ls->t = FLT_MAX;
 
 		/* compute pdf */
-		float invarea = kernel_tex_fetch(__light_data, lamp).distant.invarea;
+		float invarea = kernel_struct_fetch(__light_data, distant.invarea, lamp);
 		ls->pdf = invarea/(costheta*costheta*costheta);
 		ls->eval_fac = ls->pdf;
 	}
@@ -703,7 +703,7 @@ ccl_device bool lamp_light_eval(KernelGlobals *kg, int lamp, float3 P, float3 D,
 		                            kernel_tex_fetch(__light_data, lamp).co[1],
 		                            kernel_tex_fetch(__light_data, lamp).co[2]);
 
-		float radius = kernel_tex_fetch(__light_data, lamp).spot.radius;
+		float radius = kernel_struct_fetch(__light_data, spot.radius, lamp);
 
 		/* sphere light */
 		if(radius == 0.0f)
@@ -718,7 +718,7 @@ ccl_device bool lamp_light_eval(KernelGlobals *kg, int lamp, float3 P, float3 D,
 		ls->Ng = -D;
 		ls->D = D;
 
-		float invarea = kernel_tex_fetch(__light_data, lamp).spot.invarea;
+		float invarea = kernel_struct_fetch(__light_data, spot.invarea, lamp);
 		ls->eval_fac = (0.25f*M_1_PI_F)*invarea;
 		ls->pdf = invarea;
 
@@ -727,8 +727,8 @@ ccl_device bool lamp_light_eval(KernelGlobals *kg, int lamp, float3 P, float3 D,
 			float3 dir = make_float3(kernel_tex_fetch(__light_data, lamp).spot.dir[0],
 			                         kernel_tex_fetch(__light_data, lamp).spot.dir[1],
 			                         kernel_tex_fetch(__light_data, lamp).spot.dir[2]);
-			ls->eval_fac *= spot_light_attenuation(dir, kernel_tex_fetch(__light_data, lamp).spot.spot_angle,
-			                                       kernel_tex_fetch(__light_data, lamp).spot.spot_smooth, ls);
+			ls->eval_fac *= spot_light_attenuation(dir, kernel_struct_fetch(__light_data, spot.spot_angle, lamp),
+			                                       kernel_struct_fetch(__light_data, spot.spot_smooth, lamp), ls);
 
 			if(ls->eval_fac == 0.0f)
 				return false;
@@ -743,7 +743,7 @@ ccl_device bool lamp_light_eval(KernelGlobals *kg, int lamp, float3 P, float3 D,
 	}
 	else if(type == LIGHT_AREA) {
 		/* area light */
-		float invarea = kernel_tex_fetch(__light_data, lamp).area.invarea;
+		float invarea = kernel_struct_fetch(__light_data, area.invarea, lamp);
 		if(invarea == 0.0f)
 			return false;
 
@@ -1063,7 +1063,7 @@ ccl_device int light_distribution_sample(KernelGlobals *kg, float *randu)
 		int half_len = len >> 1;
 		int middle = first + half_len;
 
-		if(r < kernel_tex_fetch(__light_distribution, middle).totarea) {
+		if(r < kernel_struct_fetch(__light_distribution, totarea, middle)) {
 			len = half_len;
 		}
 		else {
@@ -1078,8 +1078,8 @@ ccl_device int light_distribution_sample(KernelGlobals *kg, float *randu)
 
 	/* Rescale to reuse random number. this helps the 2D samples within
 	 * each area light be stratified as well. */
-	float distr_min = kernel_tex_fetch(__light_distribution, index).totarea;
-	float distr_max = kernel_tex_fetch(__light_distribution, index+1).totarea;
+	float distr_min = kernel_struct_fetch(__light_distribution, totarea, index);
+	float distr_max = kernel_struct_fetch(__light_distribution, totarea, index+1);
 	*randu = (r - distr_min)/(distr_max - distr_min);
 
 	return index;
@@ -1104,11 +1104,11 @@ ccl_device_noinline bool light_sample(KernelGlobals *kg,
 	int index = light_distribution_sample(kg, &randu);
 
 	/* fetch light data */
-	int prim = kernel_tex_fetch(__light_distribution, index).prim;
+	int prim = kernel_struct_fetch(__light_distribution, prim, index);
 
 	if(prim >= 0) {
-		int object = kernel_tex_fetch(__light_distribution, index).mesh_light.object_id;
-		int shader_flag = kernel_tex_fetch(__light_distribution, index).mesh_light.shader_flag;
+		int object = kernel_struct_fetch(__light_distribution, mesh_light.object_id, index);
+		int shader_flag = kernel_struct_fetch(__light_distribution, mesh_light.shader_flag, index);
 
 		triangle_light_sample(kg, prim, object, randu, randv, time, ls, P);
 		ls->shader |= shader_flag;

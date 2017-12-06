@@ -119,6 +119,7 @@ template<typename T> struct texture  {
 #define kernel_tex_fetch_ssef(tex, index) (kg->tex.fetch_ssef(index))
 #define kernel_tex_fetch_ssei(tex, index) (kg->tex.fetch_ssei(index))
 #define kernel_tex_lookup(tex, t, offset, size) (kg->tex.lookup(t, offset, size))
+#define kernel_struct_fetch(tex, member, index) (kg->tex.fetch(index).member)
 
 #define kernel_data (kg->__data)
 

@@ -29,7 +29,7 @@ ccl_device_noinline float3 direct_emissive_eval(KernelGlobals *kg,
 	/* setup shading at emitter */
 	float3 eval;
 
-	int shader_flag = kernel_tex_fetch(__shader_flag, (ls->shader & SHADER_MASK)).flags;
+	int shader_flag = kernel_struct_fetch(__shader_flag, flags, (ls->shader & SHADER_MASK));
 
 #ifdef __BACKGROUND_MIS__
 	if(ls->type == LIGHT_BACKGROUND) {
