@@ -595,46 +595,22 @@ static void gpencil_vfx_passes(void *vedata, tGPencilObjectCache *cache)
 	 * Pixelate pass 
 	 * --------------*/
 	if ((cache->init_vfx_pixel_sh) && (cache->end_vfx_pixel_sh)) {
-		DRW_framebuffer_bind(fbl->vfx_color_fb_b);
-		DRW_framebuffer_clear(true, true, false, clearcol, 1.0f);
-		/* pixel pass */
-		DRW_draw_pass_subset(psl->vfx_pixel_pass,
-			cache->init_vfx_pixel_sh,
-			cache->end_vfx_pixel_sh);
-		/* copy pass from b to a */
-		DRW_framebuffer_bind(fbl->vfx_color_fb_a);
-		DRW_framebuffer_clear(true, true, false, clearcol, 1.0f);
-		DRW_draw_pass(psl->vfx_copy_pass);
+		gpencil_draw_vfx_pass(psl->vfx_pixel_pass, psl->vfx_copy_pass,
+			fbl, cache->init_vfx_pixel_sh, cache->end_vfx_pixel_sh);
 	}
 	/* --------------
 	 * Swirl pass 
 	 * --------------*/
 	if ((cache->init_vfx_swirl_sh) && (cache->end_vfx_swirl_sh)) {
-		DRW_framebuffer_bind(fbl->vfx_color_fb_b);
-		DRW_framebuffer_clear(true, true, false, clearcol, 1.0f);
-		/* swirl pass */
-		DRW_draw_pass_subset(psl->vfx_swirl_pass,
-			cache->init_vfx_swirl_sh,
-			cache->end_vfx_swirl_sh);
-		/* copy pass from b to a */
-		DRW_framebuffer_bind(fbl->vfx_color_fb_a);
-		DRW_framebuffer_clear(true, true, false, clearcol, 1.0f);
-		DRW_draw_pass(psl->vfx_copy_pass);
+		gpencil_draw_vfx_pass(psl->vfx_swirl_pass, psl->vfx_copy_pass,
+			fbl, cache->init_vfx_swirl_sh, cache->end_vfx_swirl_sh);
 	}
 	/* --------------
 	* Flip pass
 	* --------------*/
 	if ((cache->init_vfx_flip_sh) && (cache->end_vfx_flip_sh)) {
-		DRW_framebuffer_bind(fbl->vfx_color_fb_b);
-		DRW_framebuffer_clear(true, true, false, clearcol, 1.0f);
-		/* flip pass */
-		DRW_draw_pass_subset(psl->vfx_flip_pass,
-			cache->init_vfx_flip_sh,
-			cache->end_vfx_flip_sh);
-		/* copy pass from b to a */
-		DRW_framebuffer_bind(fbl->vfx_color_fb_a);
-		DRW_framebuffer_clear(true, true, false, clearcol, 1.0f);
-		DRW_draw_pass(psl->vfx_copy_pass);
+		gpencil_draw_vfx_pass(psl->vfx_flip_pass, psl->vfx_copy_pass,
+			fbl, cache->init_vfx_flip_sh, cache->end_vfx_flip_sh);
 	}
 	/* --------------
 	* Light pass
