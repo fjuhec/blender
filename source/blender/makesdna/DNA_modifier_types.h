@@ -1975,8 +1975,6 @@ typedef struct GpencilLightModifierData {
 	int flag;                    /* flags */
 	float energy;
 	float ambient;
-	float specular;
-	float color[3];
 } GpencilLightModifierData;
 
 typedef struct GpencilSmoothModifierData {

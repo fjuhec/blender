@@ -417,9 +417,6 @@ static void DRW_gpencil_vfx_light(
 	stl->vfx[ob_idx].vfx_light.loc[2] = (float)mmd->loc[2];
 	DRW_shgroup_uniform_vec3(vfx_shgrp, "loc", &stl->vfx[ob_idx].vfx_light.loc[0], 1);
 
-	copy_v2_v2(stl->vfx[ob_idx].vfx_light.color, mmd->color);
-	DRW_shgroup_uniform_vec3(vfx_shgrp, "lightcolor", &stl->vfx[ob_idx].vfx_light.color[0], 1);
-
 	stl->vfx[ob_idx].vfx_light.energy = mmd->energy;
 	DRW_shgroup_uniform_float(vfx_shgrp, "energy", &stl->vfx[ob_idx].vfx_light.energy, 1);
 

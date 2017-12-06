@@ -107,7 +107,6 @@ typedef struct GPencilVFXLight {
 	float energy;
 	float ambient;
 	float specular;
-	float color[3];
 } GPencilVFXLight;
 
 /* used to save gpencil objects */

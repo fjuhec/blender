@@ -5937,8 +5937,6 @@ static void rna_def_modifier_gpencillight(BlenderRNA *brna)
 	StructRNA *srna;
 	PropertyRNA *prop;
 	
-	static float default_1[3] = { 1.0f, 1.0f, 1.0f };
-
 	srna = RNA_def_struct(brna, "GpencilLightModifier", "Modifier");
 	RNA_def_struct_ui_text(srna, "Light Modifier", "Light modifier");
 	RNA_def_struct_sdna(srna, "GpencilLightModifierData");
@@ -5969,22 +5967,6 @@ static void rna_def_modifier_gpencillight(BlenderRNA *brna)
 	RNA_def_property_range(prop, 0, FLT_MAX);
 	RNA_def_property_ui_range(prop, 0, FLT_MAX, 1, 2);
 	RNA_def_property_ui_text(prop, "Ambient", "Strength of ambient light source");
-	RNA_def_property_update(prop, 0, "rna_Modifier_update");
-
-#if 0 /* Not implemented yet */
-	prop = RNA_def_property(srna, "specular", PROP_FLOAT, PROP_NONE);
-	RNA_def_property_float_sdna(prop, NULL, "specular");
-	RNA_def_property_range(prop, 0, FLT_MAX);
-	RNA_def_property_ui_text(prop, "Specular", "Specular factor");
-	RNA_def_property_update(prop, 0, "rna_Modifier_update");
-#endif
-
-	prop = RNA_def_property(srna, "color", PROP_FLOAT, PROP_COLOR_GAMMA);
-	RNA_def_property_range(prop, 0.0, 1.0);
-	RNA_def_property_float_sdna(prop, NULL, "color");
-	RNA_def_property_array(prop, 3);
-	RNA_def_property_float_array_default(prop, default_1);
-	RNA_def_property_ui_text(prop, "Color", "Light color");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }
 
