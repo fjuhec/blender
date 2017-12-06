@@ -674,6 +674,7 @@ RNA_MOD_OBJECT_SET(Shrinkwrap, target, OB_MESH);
 RNA_MOD_OBJECT_SET(Shrinkwrap, auxTarget, OB_MESH);
 RNA_MOD_OBJECT_SET(SurfaceDeform, target, OB_MESH);
 RNA_MOD_OBJECT_SET(GpencilLattice, object, OB_LATTICE);
+RNA_MOD_OBJECT_SET(GpencilLight, object, NULL);
 
 static void rna_HookModifier_object_set(PointerRNA *ptr, PointerRNA value)
 {
@@ -5968,6 +5969,12 @@ static void rna_def_modifier_gpencillight(BlenderRNA *brna)
 	RNA_def_property_ui_range(prop, 0, FLT_MAX, 1, 2);
 	RNA_def_property_ui_text(prop, "Ambient", "Strength of ambient light source");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "object", PROP_POINTER, PROP_NONE);
+	RNA_def_property_ui_text(prop, "Object", "Object to determine light source location");
+	RNA_def_property_pointer_funcs(prop, NULL, "rna_GpencilLightModifier_object_set", NULL, NULL);
+	RNA_def_property_flag(prop, PROP_EDITABLE | PROP_ID_SELF_CHECK);
+	RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");
 }
 
 void RNA_def_modifier(BlenderRNA *brna)

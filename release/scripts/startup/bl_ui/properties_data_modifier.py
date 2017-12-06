@@ -1919,6 +1919,10 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         col = split.column()
         col.prop(md, "distance")
 
+        col.label(text="Object:")
+        col.prop(md, "object", text="")
+
+
     def GP_HOOK(self, layout, ob, md):
         gpd = ob.data
         split = layout.split()

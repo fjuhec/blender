@@ -411,7 +411,12 @@ static void DRW_gpencil_vfx_light(
 	
 	/* location of the light using obj location as origin */
 	int co[2];
-	ED_view3d_project_int_global(ar, ob->loc, co, V3D_PROJ_TEST_NOP);
+	if (mmd->object) {
+		ED_view3d_project_int_global(ar, mmd->object->loc, co, V3D_PROJ_TEST_NOP);
+	}
+	else {
+		ED_view3d_project_int_global(ar, ob->loc, co, V3D_PROJ_TEST_NOP);
+	}
 	stl->vfx[ob_idx].vfx_light.loc[0] = (float)co[0] + mmd->loc[0];
 	stl->vfx[ob_idx].vfx_light.loc[1] = (float)co[1] + mmd->loc[1];
 	stl->vfx[ob_idx].vfx_light.loc[2] = (float)mmd->loc[2];

@@ -1971,6 +1971,7 @@ typedef enum eGpencilFlip_Flag {
 
 typedef struct GpencilLightModifierData {
 	ModifierData modifier;
+	struct Object *object;
 	int loc[3];
 	int flag;                    /* flags */
 	float energy;

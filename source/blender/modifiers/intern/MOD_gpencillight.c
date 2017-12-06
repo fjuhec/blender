@@ -37,7 +37,12 @@
 #include "BLI_math_base.h"
 #include "BLI_utildefines.h"
 
+#include "BKE_library_query.h"
+
 #include "MOD_modifiertypes.h"
+
+#include "DEG_depsgraph.h"
+#include "DEG_depsgraph_build.h"
 
 static void initData(ModifierData *md)
 {
@@ -45,6 +50,30 @@ static void initData(ModifierData *md)
 	ARRAY_SET_ITEMS(gpmd->loc, 0, 0, 200);
 	gpmd->energy = 600.0f;
 	gpmd->ambient = 100.0f;
+	gpmd->object = NULL;
+}
+
+static void updateDepsgraph(ModifierData *md,
+	struct Main *UNUSED(bmain),
+	struct Scene *UNUSED(scene),
+	Object *object,
+	struct DepsNodeHandle *node)
+{
+	GpencilLightModifierData *lmd = (GpencilLightModifierData *)md;
+	if (lmd->object != NULL) {
+		DEG_add_object_relation(node, lmd->object, DEG_OB_COMP_GEOMETRY, "Light Modifier");
+		DEG_add_object_relation(node, lmd->object, DEG_OB_COMP_TRANSFORM, "Light Modifier");
+	}
+	DEG_add_object_relation(node, object, DEG_OB_COMP_TRANSFORM, "Light Modifier");
+}
+
+static void foreachObjectLink(
+	ModifierData *md, Object *ob,
+	ObjectWalkFunc walk, void *userData)
+{
+	GpencilLightModifierData *mmd = (GpencilLightModifierData *)md;
+
+	walk(userData, ob, &mmd->object, IDWALK_CB_NOP);
 }
 
 ModifierTypeInfo modifierType_GpencilLight = {
@@ -69,10 +98,10 @@ ModifierTypeInfo modifierType_GpencilLight = {
 	/* requiredDataMask */  NULL,
 	/* freeData */          NULL,
 	/* isDisabled */        NULL,
-	/* updateDepsgraph */   NULL,
+	/* updateDepsgraph */   updateDepsgraph,
 	/* dependsOnTime */     NULL,
 	/* dependsOnNormals */	NULL,
-	/* foreachObjectLink */ NULL,
+	/* foreachObjectLink */ foreachObjectLink,
 	/* foreachIDLink */     NULL,
 	/* foreachTexLink */    NULL,
 };
