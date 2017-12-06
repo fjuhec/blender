@@ -145,6 +145,7 @@ const EnumPropertyItem rna_enum_object_modifier_type_items[] = {
 	{eModifierType_GpencilPixel, "GP_PIXEL", ICON_SOLO_ON, "Pixelate", "Pixelate image"},
 	{eModifierType_GpencilSwirl, "GP_SWIRL", ICON_SOLO_ON, "Swirl", "Create a rotation distortion"},
 	{eModifierType_GpencilWave, "GP_WAVE", ICON_SOLO_ON, "Wave Distortion", "Apply sinusoidal deformation"},
+	{eModifierType_GpencilLight, "GP_LIGHT", ICON_SOLO_ON, "Light", "Simulate ilumination" },
 	{0, NULL, 0, NULL, NULL}
 };
 
@@ -491,6 +492,8 @@ static StructRNA *rna_Modifier_refine(struct PointerRNA *ptr)
 			return &RNA_GpencilSwirlModifier;
 		case eModifierType_GpencilFlip:
 			return &RNA_GpencilFlipModifier;
+		case eModifierType_GpencilLight:
+			return &RNA_GpencilLightModifier;
 		case eModifierType_GpencilSmooth:
 			return &RNA_GpencilSmoothModifier;
 		case eModifierType_GpencilHook:
@@ -5929,6 +5932,62 @@ static void rna_def_modifier_gpencilflip(BlenderRNA *brna)
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }
 
+static void rna_def_modifier_gpencillight(BlenderRNA *brna)
+{
+	StructRNA *srna;
+	PropertyRNA *prop;
+	
+	static float default_1[3] = { 1.0f, 1.0f, 1.0f };
+
+	srna = RNA_def_struct(brna, "GpencilLightModifier", "Modifier");
+	RNA_def_struct_ui_text(srna, "Light Modifier", "Light modifier");
+	RNA_def_struct_sdna(srna, "GpencilLightModifierData");
+	RNA_def_struct_ui_icon(srna, ICON_SOLO_ON);
+
+	prop = RNA_def_property(srna, "offset", PROP_INT, PROP_PIXEL);
+	RNA_def_property_int_sdna(prop, NULL, "loc");
+	RNA_def_property_array(prop, 2);
+	RNA_def_property_range(prop, -INT_MAX, INT_MAX);
+	RNA_def_property_ui_text(prop, "Offset", "Offset of light source in screen space to the object location");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "distance", PROP_INT, PROP_PIXEL);
+	RNA_def_property_int_sdna(prop, NULL, "loc[2]");
+	RNA_def_property_range(prop, 1, INT_MAX);
+	RNA_def_property_ui_text(prop, "Distance", "Distance of the light source to drawing plane");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "energy", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_sdna(prop, NULL, "energy");
+	RNA_def_property_range(prop, 0, FLT_MAX);
+	RNA_def_property_ui_range(prop, 1, FLT_MAX, 1, 2);
+	RNA_def_property_ui_text(prop, "Energy", "Strength of light source");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "ambient", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_sdna(prop, NULL, "ambient");
+	RNA_def_property_range(prop, 0, FLT_MAX);
+	RNA_def_property_ui_range(prop, 0, FLT_MAX, 1, 2);
+	RNA_def_property_ui_text(prop, "Ambient", "Strength of ambient light source");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+#if 0 /* Not implemented yet */
+	prop = RNA_def_property(srna, "specular", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_sdna(prop, NULL, "specular");
+	RNA_def_property_range(prop, 0, FLT_MAX);
+	RNA_def_property_ui_text(prop, "Specular", "Specular factor");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+#endif
+
+	prop = RNA_def_property(srna, "color", PROP_FLOAT, PROP_COLOR_GAMMA);
+	RNA_def_property_range(prop, 0.0, 1.0);
+	RNA_def_property_float_sdna(prop, NULL, "color");
+	RNA_def_property_array(prop, 3);
+	RNA_def_property_float_array_default(prop, default_1);
+	RNA_def_property_ui_text(prop, "Color", "Light color");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+}
+
 void RNA_def_modifier(BlenderRNA *brna)
 {
 	StructRNA *srna;
@@ -6065,6 +6124,7 @@ void RNA_def_modifier(BlenderRNA *brna)
 	rna_def_modifier_gpencilpixel(brna);
 	rna_def_modifier_gpencilswirl(brna);
 	rna_def_modifier_gpencilflip(brna);
+	rna_def_modifier_gpencillight(brna);
 }
 
 #endif

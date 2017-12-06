@@ -1903,6 +1903,23 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         col.prop(md, "flip_horizontal")
         col.prop(md, "flip_vertical")
 
+    def GP_LIGHT(self, layout, ob, md):
+        split = layout.split()
+
+        col = split.column()
+        col.prop(md, "offset")
+
+        col = split.column(align=True)
+        col.label("Settings:")
+        col.prop(md, "energy")
+        col.prop(md, "ambient")
+
+        split = layout.split()
+
+        col = split.column()
+        col.prop(md, "distance")
+        col.prop(md, "color")
+
     def GP_HOOK(self, layout, ob, md):
         gpd = ob.data
         split = layout.split()

@@ -385,6 +385,56 @@ static void DRW_gpencil_vfx_flip(
 	cache->end_vfx_flip_sh = vfx_shgrp;
 }
 
+/* Light VFX */
+static void DRW_gpencil_vfx_light(
+	ModifierData *md, int ob_idx, GPENCIL_e_data *e_data, GPENCIL_Data *vedata,
+	Object *ob, tGPencilObjectCache *cache)
+{
+	if (md == NULL) {
+		return;
+	}
+
+	GpencilLightModifierData *mmd = (GpencilLightModifierData *)md;
+
+	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
+	GPENCIL_PassList *psl = ((GPENCIL_Data *)vedata)->psl;
+	DRWShadingGroup *vfx_shgrp;
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	ARegion *ar = draw_ctx->ar;
+
+	struct Gwn_Batch *vfxquad = DRW_cache_fullscreen_quad_get();
+	vfx_shgrp = DRW_shgroup_create(e_data->gpencil_vfx_light_sh, psl->vfx_light_pass);
+	++stl->g_data->tot_sh;
+	DRW_shgroup_call_add(vfx_shgrp, vfxquad, NULL);
+	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeColor", &e_data->vfx_fbcolor_color_tx_a);
+	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeDepth", &e_data->vfx_fbcolor_depth_tx_a);
+	
+	/* location of the light using obj location as origin */
+	int co[2];
+	ED_view3d_project_int_global(ar, ob->loc, co, V3D_PROJ_TEST_NOP);
+	stl->vfx[ob_idx].vfx_light.loc[0] = (float)co[0] + mmd->loc[0];
+	stl->vfx[ob_idx].vfx_light.loc[1] = (float)co[1] + mmd->loc[1];
+	stl->vfx[ob_idx].vfx_light.loc[2] = (float)mmd->loc[2];
+	DRW_shgroup_uniform_vec3(vfx_shgrp, "loc", &stl->vfx[ob_idx].vfx_light.loc[0], 1);
+
+	copy_v2_v2(stl->vfx[ob_idx].vfx_light.color, mmd->color);
+	DRW_shgroup_uniform_vec3(vfx_shgrp, "lightcolor", &stl->vfx[ob_idx].vfx_light.color[0], 1);
+
+	stl->vfx[ob_idx].vfx_light.energy = mmd->energy;
+	DRW_shgroup_uniform_float(vfx_shgrp, "energy", &stl->vfx[ob_idx].vfx_light.energy, 1);
+
+	stl->vfx[ob_idx].vfx_light.ambient = mmd->ambient;
+	DRW_shgroup_uniform_float(vfx_shgrp, "ambient", &stl->vfx[ob_idx].vfx_light.ambient, 1);
+
+	/* set first effect sh */
+	if (cache->init_vfx_light_sh == NULL) {
+		cache->init_vfx_light_sh = vfx_shgrp;
+	}
+
+	/* set last effect sh */
+	cache->end_vfx_light_sh = vfx_shgrp;
+}
+
 void DRW_gpencil_vfx_modifiers(
         int ob_idx, struct GPENCIL_e_data *e_data, struct GPENCIL_Data *vedata,
         struct Object *ob, struct tGPencilObjectCache *cache)
@@ -436,6 +486,15 @@ void DRW_gpencil_vfx_modifiers(
 						ready = true;
 					}
 					DRW_gpencil_vfx_flip(md, ob_idx, e_data, vedata, ob, cache);
+				}
+				break;
+			case eModifierType_GpencilLight:
+				if (modifier_is_active(ob, md)) {
+					if (!ready) {
+						DRW_gpencil_vfx_copy(ob_idx, e_data, vedata, ob, cache);
+						ready = true;
+					}
+					DRW_gpencil_vfx_light(md, ob_idx, e_data, vedata, ob, cache);
 				}
 				break;
 		}

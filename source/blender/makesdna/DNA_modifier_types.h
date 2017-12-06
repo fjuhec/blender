@@ -105,6 +105,7 @@ typedef enum ModifierType {
 	eModifierType_GpencilHook       = 69,
 	eModifierType_GpencilFlip       = 70,
 	eModifierType_GpencilOffset     = 71,
+	eModifierType_GpencilLight      = 72,
 	NUM_MODIFIER_TYPES
 } ModifierType;
 
@@ -1967,6 +1968,16 @@ typedef enum eGpencilFlip_Flag {
 	GP_FLIP_HORIZONTAL = (1 << 0),
 	GP_FLIP_VERTICAL = (1 << 1),
 } eGpencilFlip_Flag;
+
+typedef struct GpencilLightModifierData {
+	ModifierData modifier;
+	int loc[3];
+	int flag;                    /* flags */
+	float energy;
+	float ambient;
+	float specular;
+	float color[3];
+} GpencilLightModifierData;
 
 typedef struct GpencilSmoothModifierData {
 	ModifierData modifier;
