@@ -1907,20 +1907,13 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         split = layout.split()
 
         col = split.column()
-        col.prop(md, "offset")
+        col.label(text="Object:")
+        col.prop(md, "object", text="")
 
         col = split.column(align=True)
         col.label("Settings:")
         col.prop(md, "energy")
         col.prop(md, "ambient")
-
-        split = layout.split()
-
-        col = split.column()
-        col.prop(md, "distance")
-
-        col.label(text="Object:")
-        col.prop(md, "object", text="")
 
 
     def GP_HOOK(self, layout, ob, md):

@@ -396,6 +396,9 @@ static void DRW_gpencil_vfx_light(
 
 	GpencilLightModifierData *mmd = (GpencilLightModifierData *)md;
 
+	if (mmd->object == NULL) {
+		return;
+	}
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 	GPENCIL_PassList *psl = ((GPENCIL_Data *)vedata)->psl;
 	DRWShadingGroup *vfx_shgrp;
@@ -408,19 +411,14 @@ static void DRW_gpencil_vfx_light(
 	DRW_shgroup_call_add(vfx_shgrp, vfxquad, NULL);
 	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeColor", &e_data->vfx_fbcolor_color_tx_a);
 	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeDepth", &e_data->vfx_fbcolor_depth_tx_a);
-	
+
+	const float *viewport_size = DRW_viewport_size_get();
+	copy_v2_v2(stl->vfx[ob_idx].vfx_light.wsize, viewport_size);
+	DRW_shgroup_uniform_vec2(vfx_shgrp, "Viewport", stl->vfx[ob_idx].vfx_light.wsize, 1);
+
 	/* location of the light using obj location as origin */
-	int co[2];
-	if (mmd->object) {
-		ED_view3d_project_int_global(ar, mmd->object->loc, co, V3D_PROJ_TEST_NOP);
-	}
-	else {
-		ED_view3d_project_int_global(ar, ob->loc, co, V3D_PROJ_TEST_NOP);
-	}
-	stl->vfx[ob_idx].vfx_light.loc[0] = (float)co[0] + mmd->loc[0];
-	stl->vfx[ob_idx].vfx_light.loc[1] = (float)co[1] + mmd->loc[1];
-	stl->vfx[ob_idx].vfx_light.loc[2] = (float)mmd->loc[2];
-	DRW_shgroup_uniform_vec3(vfx_shgrp, "loc", &stl->vfx[ob_idx].vfx_light.loc[0], 1);
+	copy_v3_v3(stl->vfx[ob_idx].vfx_light.loc, &mmd->object->loc[0]);
+	DRW_shgroup_uniform_vec3(vfx_shgrp, "loc", stl->vfx[ob_idx].vfx_light.loc, 1);
 
 	stl->vfx[ob_idx].vfx_light.energy = mmd->energy;
 	DRW_shgroup_uniform_float(vfx_shgrp, "energy", &stl->vfx[ob_idx].vfx_light.energy, 1);

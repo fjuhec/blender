@@ -104,6 +104,7 @@ typedef struct GPencilVFXFlip {
 
 typedef struct GPencilVFXLight {
 	float loc[3];
+	float wsize[2];
 	float energy;
 	float ambient;
 	float specular;

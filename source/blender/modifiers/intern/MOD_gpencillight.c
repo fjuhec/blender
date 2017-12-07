@@ -47,7 +47,7 @@
 static void initData(ModifierData *md)
 {
 	GpencilLightModifierData *gpmd = (GpencilLightModifierData *)md;
-	ARRAY_SET_ITEMS(gpmd->loc, 0, 0, 200);
+	ARRAY_SET_ITEMS(gpmd->loc, 0.0f, 0.0f, 2.0f);
 	gpmd->energy = 600.0f;
 	gpmd->ambient = 100.0f;
 	gpmd->object = NULL;
@@ -65,6 +65,13 @@ static void updateDepsgraph(ModifierData *md,
 		DEG_add_object_relation(node, lmd->object, DEG_OB_COMP_TRANSFORM, "Light Modifier");
 	}
 	DEG_add_object_relation(node, object, DEG_OB_COMP_TRANSFORM, "Light Modifier");
+}
+
+static bool isDisabled(ModifierData *md, int UNUSED(userRenderParams))
+{
+	GpencilLightModifierData *mmd = (GpencilLightModifierData *)md;
+
+	return !mmd->object;
 }
 
 static void foreachObjectLink(
@@ -97,7 +104,7 @@ ModifierTypeInfo modifierType_GpencilLight = {
 	/* initData */          initData,
 	/* requiredDataMask */  NULL,
 	/* freeData */          NULL,
-	/* isDisabled */        NULL,
+	/* isDisabled */        isDisabled,
 	/* updateDepsgraph */   updateDepsgraph,
 	/* dependsOnTime */     NULL,
 	/* dependsOnNormals */	NULL,
