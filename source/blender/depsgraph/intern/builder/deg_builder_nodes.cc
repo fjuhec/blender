@@ -533,6 +533,7 @@ void DepsgraphNodeBuilder::build_object_data(Object *object)
 		case OB_FONT:
 		case OB_SURF:
 		case OB_MBALL:
+		case OB_GROOM:
 		case OB_LATTICE:
 			build_obdata_geom(object);
 			/* TODO(sergey): Only for until we support granular

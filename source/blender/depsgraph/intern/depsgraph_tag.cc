@@ -166,6 +166,7 @@ void id_tag_update_object_data(Depsgraph *graph, IDDepsNode *id_node)
 				case OB_SURF:
 				case OB_FONT:
 				case OB_MBALL:
+				case OB_GROOM:
 					data_comp = id_node->find_component(DEG_NODE_TYPE_GEOMETRY);
 					break;
 				case OB_ARMATURE:

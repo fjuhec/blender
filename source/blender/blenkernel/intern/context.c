@@ -1013,6 +1013,8 @@ int CTX_data_mode_enum_ex(const Object *obedit, const Object *ob)
 				return CTX_MODE_EDIT_METABALL;
 			case OB_LATTICE:
 				return CTX_MODE_EDIT_LATTICE;
+			case OB_GROOM:
+				return CTX_MODE_EDIT_GROOM;
 		}
 	}
 	else {

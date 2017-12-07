@@ -386,6 +386,7 @@ enum {
 	OB_SURF       = 3,
 	OB_FONT       = 4,
 	OB_MBALL      = 5,
+	OB_GROOM      = 6,
 
 	OB_LAMP       = 10,
 	OB_CAMERA     = 11,

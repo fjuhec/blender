@@ -1490,6 +1490,7 @@ static bool object_mode_compat_test(Object *ob, eObjectMode mode)
 			case OB_SURF:
 			case OB_FONT:
 			case OB_MBALL:
+			case OB_GROOM:
 				if (mode & (OB_MODE_EDIT))
 					return true;
 				break;

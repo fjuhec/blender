@@ -585,6 +585,7 @@ static const char *get_obdata_defname(int type)
 		case OB_SURF: return DATA_("Surf");
 		case OB_FONT: return DATA_("Text");
 		case OB_MBALL: return DATA_("Mball");
+		case OB_GROOM: return DATA_("Groom");
 		case OB_CAMERA: return DATA_("Camera");
 		case OB_LAMP: return DATA_("Lamp");
 		case OB_LATTICE: return DATA_("Lattice");
