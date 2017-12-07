@@ -6,10 +6,6 @@ uniform vec3 loc;
 uniform float energy;
 uniform float ambient;
 
-float constant = 1.0f;
-float linear = 0.0014f;
-float quadratic = 0.000007f;
-
 void main()
 {
 	vec2 uv = vec2(gl_FragCoord.xy);
