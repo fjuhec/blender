@@ -1497,6 +1497,7 @@ static void mouse_action_keys(bAnimContext *ac, const int mval[2], short select_
 		
 		/* remove active channel from list of channels for separate treatment (since it's needed later on) */
 		BLI_remlink(&anim_data, ale);
+		ale->next = ale->prev = NULL;
 		
 		/* cleanup temporary lists */
 		BLI_dlrbTree_free(&anim_keys);
