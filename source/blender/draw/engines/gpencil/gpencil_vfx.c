@@ -25,6 +25,7 @@
 
 #include "BKE_modifier.h"
 #include "BKE_global.h"
+#include "BKE_gpencil.h"
 
 #include "DRW_engine.h"
 #include "DRW_render.h"
@@ -385,6 +386,34 @@ static void DRW_gpencil_vfx_flip(
 	cache->end_vfx_flip_sh = vfx_shgrp;
 }
 
+/* get normal of draw using one stroke of visible layer 
+ * /param gpd        GP datablock
+ * /param r_point    Point on plane
+ * /param r_normal   Normal vector
+ */
+static bool get_normal_vector(bGPdata *gpd, float r_point[3], float r_normal[3])
+{
+	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+		if (gpl->flag & GP_LAYER_HIDE)
+			continue;
+
+		/* get frame  */
+		bGPDframe *gpf = gpl->actframe;
+		if (gpf == NULL)
+			continue;
+		for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
+			if (gps->totpoints >= 3) {
+				bGPDspoint *pt = &gps->points[0];
+				BKE_gpencil_stroke_normal(gps, r_normal);
+				copy_v3_v3(r_point, &pt->x);
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
 /* Light VFX */
 static void DRW_gpencil_vfx_light(
 	ModifierData *md, int ob_idx, GPENCIL_e_data *e_data, GPENCIL_Data *vedata,
@@ -418,13 +447,32 @@ static void DRW_gpencil_vfx_light(
 
 	/* location of the light using obj location as origin */
 	copy_v3_v3(stl->vfx[ob_idx].vfx_light.loc, &mmd->object->loc[0]);
-	DRW_shgroup_uniform_vec3(vfx_shgrp, "loc", stl->vfx[ob_idx].vfx_light.loc, 1);
+
+	/* Calc distance to strokes plane 
+	 * The w component of location is used to transfer the distance to drawing plane
+	 */
+	float r_point[3], r_normal[3];
+	float r_plane[4];
+	bGPdata *gpd = (bGPdata *)ob->data;
+	if (!get_normal_vector(gpd, r_point, r_normal)) {
+		return;
+	}
+	mul_mat3_m4_v3(ob->obmat, r_normal); /* only rotation component */
+	plane_from_point_normal_v3(r_plane, r_point, r_normal);
+	float dt = dist_to_plane_v3(mmd->object->loc, r_plane);
+	stl->vfx[ob_idx].vfx_light.loc[3] = dt;
+
+	DRW_shgroup_uniform_vec4(vfx_shgrp, "loc", stl->vfx[ob_idx].vfx_light.loc, 1);
 
 	stl->vfx[ob_idx].vfx_light.energy = mmd->energy;
 	DRW_shgroup_uniform_float(vfx_shgrp, "energy", &stl->vfx[ob_idx].vfx_light.energy, 1);
 
 	stl->vfx[ob_idx].vfx_light.ambient = mmd->ambient;
 	DRW_shgroup_uniform_float(vfx_shgrp, "ambient", &stl->vfx[ob_idx].vfx_light.ambient, 1);
+
+	DRW_shgroup_uniform_float(vfx_shgrp, "pixsize", DRW_viewport_pixelsize_get(), 1);
+	DRW_shgroup_uniform_float(vfx_shgrp, "pixelsize", &U.pixelsize, 1);
+	DRW_shgroup_uniform_int(vfx_shgrp, "pixfactor", &gpd->pixfactor, 1);
 
 	/* set first effect sh */
 	if (cache->init_vfx_light_sh == NULL) {

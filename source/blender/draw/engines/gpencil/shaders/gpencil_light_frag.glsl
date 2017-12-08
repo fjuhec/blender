@@ -4,18 +4,23 @@ uniform mat4 ViewMatrix;
 uniform sampler2D strokeColor;
 uniform sampler2D strokeDepth;
 uniform vec2 Viewport;
-uniform vec3 loc;
+uniform vec4 loc;
 uniform float energy;
 uniform float ambient;
 
+uniform float pixsize;   /* rv3d->pixsize */
+uniform float pixelsize; /* U.pixelsize */
+uniform int pixfactor;
+
 out vec4 FragColor;
+
+float defaultpixsize = pixsize * pixelsize * float(pixfactor);
 
 /* project 3d point to 2d on screen space */
 vec2 toScreenSpace(vec4 vertex)
 {
-	vec3 ndc = vec3(vertex.x / vertex.w, 
-					vertex.y / vertex.w,
-					vertex.z / vertex.w);
+	/* need to calculate ndc because this is not done by vertex shader */
+	vec3 ndc = vec3(vertex).xyz / vertex.w;
 					
 	vec2 sc;
 	sc.x = ((ndc.x + 1.0) / 2.0) * Viewport.x;
@@ -28,10 +33,19 @@ void main()
 {
 	float stroke_depth;
 	vec4 objcolor;
-
-	vec4 light_loc = ProjectionMatrix * ViewMatrix * vec4(loc, 1.0); 
+	
+	vec4 light_loc = ProjectionMatrix * ViewMatrix * vec4(loc.xyz, 1.0); 
 	vec2 light2d = toScreenSpace(light_loc);
-	vec3 light3d = vec3(light2d.x, light2d.y, 10.0); 
+
+	/* calc pixel scale */
+	float pxscale = (ProjectionMatrix[3][3] == 0.0) ? (10.0 / (light_loc.z * defaultpixsize)) : (10.0 / defaultpixsize);
+	pxscale = max(pxscale, 0.000001);
+
+	/* the height over plane is received in the w component of the loc 
+	 * and needs a factor to adapt to pixels
+	 */
+	float peak = loc.w * 10.0 * pxscale;
+	vec3 light3d = vec3(light2d.x, light2d.y, peak); 
 	
 	vec2 uv = vec2(gl_FragCoord.xy);
 	vec3 frag_loc = vec3(uv.x, uv.y, 0);
@@ -44,10 +58,10 @@ void main()
 	/* diffuse light */
 	vec3 lightdir = normalize(light3d - frag_loc);
 	float diff = max(dot(norm, lightdir), 0.0);
-	float dist  = length(light3d - frag_loc);
+	float dist  = length(light3d - frag_loc) / pxscale;
 	float factor = diff * (energy / (dist * dist));	
 	
-    vec3 result = factor * ambient * vec3(objcolor);
+    vec3 result = factor * max(ambient, 0.1) * vec3(objcolor);
 	
 	gl_FragDepth = stroke_depth;
 	FragColor = vec4(result.r, result.g, result.b, objcolor.a);
