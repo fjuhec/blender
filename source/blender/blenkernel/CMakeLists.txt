@@ -90,6 +90,7 @@ set(SRC
 	intern/cloth.c
 	intern/collection.c
 	intern/collision.c
+	intern/colorband.c
 	intern/colortools.c
 	intern/constraint.c
 	intern/context.c
@@ -228,6 +229,7 @@ set(SRC
 	BKE_cloth.h
 	BKE_collection.h
 	BKE_collision.h
+	BKE_colorband.h
 	BKE_colortools.h
 	BKE_constraint.h
 	BKE_context.h
