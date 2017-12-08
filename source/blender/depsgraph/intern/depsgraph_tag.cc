@@ -174,13 +174,16 @@ void id_tag_update_object_data(Depsgraph *graph, IDDepsNode *id_node)
 		case ID_ME:
 			data_comp = id_node->find_component(DEG_NODE_TYPE_GEOMETRY);
 			break;
-		case ID_PA:
+		case ID_PA: /* Particles */
 			return;
 		case ID_LP:
 			data_comp = id_node->find_component(DEG_NODE_TYPE_PARAMETERS);
 			break;
 		case ID_GD:
 			data_comp = id_node->find_component(DEG_NODE_TYPE_GEOMETRY);
+			break;
+		case ID_PAL: /* Palettes */
+			data_comp = id_node->find_component(DEG_NODE_TYPE_PARAMETERS);
 			break;
 		default:
 			break;

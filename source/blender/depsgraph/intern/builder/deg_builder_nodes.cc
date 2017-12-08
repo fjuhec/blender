@@ -1377,7 +1377,12 @@ void DepsgraphNodeBuilder::build_palette(Palette *palette)
 {
 	ID *palette_id = &palette->id;
 
-	add_id_node(palette_id);
+	/* palette itself */
+	add_operation_node(palette_id,
+	                   DEG_NODE_TYPE_PARAMETERS,
+	                   NULL,
+	                   DEG_OPCODE_PARAMETERS_EVAL);
+	/* palette's animdata */
 	build_animdata(palette_id);
 }
 

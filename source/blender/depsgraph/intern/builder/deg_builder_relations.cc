@@ -1717,6 +1717,8 @@ void DepsgraphRelationBuilder::build_obdata_geom(Object *object)
 		
 		case OB_GPENCIL: /* Grease Pencil */
 		{
+			bGPdata *gpd = (bGPdata *)obdata;
+			
 			/* Geometry cache needs to be recalculated on frame change
 			 * (e.g. to fix crashes after scrubbing the timeline when
 			 *  onion skinning is enabled, since the ghosts need to be
@@ -1725,6 +1727,18 @@ void DepsgraphRelationBuilder::build_obdata_geom(Object *object)
 			TimeSourceKey time_key;
 			ComponentKey geometry_key(obdata, DEG_NODE_TYPE_GEOMETRY);
 			add_relation(time_key, geometry_key, "GP Frame Change");
+			
+			/* Geometry cache also needs to be recalculated when Palette
+			 * settings change (e.g. when fill.opacity changes on/off,
+			 * we need to rebuild the bGPDstroke->triangles caches)
+			 */
+			LINKLIST_FOREACH (bGPDpaletteref *, palslot, &gpd->palette_slots) {
+				if (palslot->palette) {
+					printf("add paletteslot - %s.%s\n", gpd->id.name, palslot->palette->id.name);
+					ComponentKey palette_key(&palslot->palette->id, DEG_NODE_TYPE_PARAMETERS);
+					add_relation(palette_key, geometry_key, "Palette -> GP Data");
+				}
+			}
 			break;
 		}
 	}
