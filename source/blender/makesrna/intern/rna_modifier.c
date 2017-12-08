@@ -5957,19 +5957,6 @@ static void rna_def_modifier_gpencillight(BlenderRNA *brna)
 	RNA_def_struct_sdna(srna, "GpencilLightModifierData");
 	RNA_def_struct_ui_icon(srna, ICON_SOLO_ON);
 
-	prop = RNA_def_property(srna, "offset", PROP_INT, PROP_PIXEL);
-	RNA_def_property_int_sdna(prop, NULL, "loc");
-	RNA_def_property_array(prop, 2);
-	RNA_def_property_range(prop, -INT_MAX, INT_MAX);
-	RNA_def_property_ui_text(prop, "Offset", "Offset of light source in screen space to the object location");
-	RNA_def_property_update(prop, 0, "rna_Modifier_update");
-
-	prop = RNA_def_property(srna, "distance", PROP_INT, PROP_PIXEL);
-	RNA_def_property_int_sdna(prop, NULL, "loc[2]");
-	RNA_def_property_range(prop, 1, INT_MAX);
-	RNA_def_property_ui_text(prop, "Distance", "Distance of the light source to drawing plane");
-	RNA_def_property_update(prop, 0, "rna_Modifier_update");
-
 	prop = RNA_def_property(srna, "energy", PROP_FLOAT, PROP_NONE);
 	RNA_def_property_float_sdna(prop, NULL, "energy");
 	RNA_def_property_range(prop, 0, FLT_MAX);
