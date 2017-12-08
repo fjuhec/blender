@@ -187,8 +187,8 @@ typedef struct IDOverrideStatic {
 
 /* About Unique identifier.
  * Each engine is free to use it as it likes - it will be the only thing passed to it by blender to identify
- * asset/variant/version (concatenating the three into a single 48 bytes one).
- * Assumed to be 128bits, handled as four integers due to lack of real bytes proptype in RNA :|.
+ * repository/asset/variant/version/view.
+ * Assumed to be 128bits (16 bytes) each, handled as four integers due to lack of real bytes proptype in RNA :|.
  */
 #define ASSET_UUID_LENGTH     16
 
