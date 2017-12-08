@@ -674,7 +674,7 @@ RNA_MOD_OBJECT_SET(Shrinkwrap, target, OB_MESH);
 RNA_MOD_OBJECT_SET(Shrinkwrap, auxTarget, OB_MESH);
 RNA_MOD_OBJECT_SET(SurfaceDeform, target, OB_MESH);
 RNA_MOD_OBJECT_SET(GpencilLattice, object, OB_LATTICE);
-RNA_MOD_OBJECT_SET(GpencilLight, object, NULL);
+RNA_MOD_OBJECT_SET(GpencilLight, object, OB_EMPTY);
 
 static void rna_HookModifier_object_set(PointerRNA *ptr, PointerRNA value)
 {
