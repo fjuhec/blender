@@ -48,7 +48,7 @@ static void initData(ModifierData *md)
 {
 	GpencilLightModifierData *gpmd = (GpencilLightModifierData *)md;
 	ARRAY_SET_ITEMS(gpmd->loc, 0.0f, 0.0f, 2.0f);
-	gpmd->energy = 1000.0f;
+	gpmd->energy = 10.0f;
 	gpmd->ambient = 5.0f;
 	gpmd->object = NULL;
 }

@@ -59,7 +59,7 @@ void main()
 	vec3 lightdir = normalize(light3d - frag_loc);
 	float diff = max(dot(norm, lightdir), 0.0);
 	float dist  = length(light3d - frag_loc) / pxscale;
-	float factor = diff * (energy / (dist * dist));	
+	float factor = diff * ((energy * 100.0) / (dist * dist));	
 	
     vec3 result = factor * max(ambient, 0.1) * vec3(objcolor);
 	
