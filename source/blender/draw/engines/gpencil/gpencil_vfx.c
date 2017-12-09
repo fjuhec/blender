@@ -326,9 +326,7 @@ static void DRW_gpencil_vfx_swirl(
 	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeColor", &e_data->vfx_fbcolor_color_tx_a);
 	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeDepth", &e_data->vfx_fbcolor_depth_tx_a);
 
-	const float *viewport_size = DRW_viewport_size_get();
-	copy_v2_v2(stl->vfx[ob_idx].vfx_light.wsize, viewport_size);
-	DRW_shgroup_uniform_vec2(vfx_shgrp, "Viewport", stl->vfx[ob_idx].vfx_light.wsize, 1);
+	DRW_shgroup_uniform_vec2(vfx_shgrp, "Viewport", DRW_viewport_size_get(), 1);
 
 	copy_v3_v3(stl->vfx[ob_idx].vfx_swirl.loc, &mmd->object->loc[0]);
 	DRW_shgroup_uniform_vec3(vfx_shgrp, "loc", stl->vfx[ob_idx].vfx_swirl.loc, 1);
