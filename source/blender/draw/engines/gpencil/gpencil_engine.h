@@ -79,6 +79,7 @@ typedef struct GPencilVFXSwirl {
 } GPencilVFXSwirl;
 
 typedef struct GPencilVFXPixel {
+	float loc[3];
 	float size[2];
 	float rgba[4];
 	int lines;

@@ -253,7 +253,7 @@ static void DRW_gpencil_vfx_blur(
 /* Pixelate VFX */
 static void DRW_gpencil_vfx_pixel(
         ModifierData *md, int ob_idx, GPENCIL_e_data *e_data, GPENCIL_Data *vedata,
-        Object *UNUSED(ob), tGPencilObjectCache *cache)
+        Object *ob, tGPencilObjectCache *cache)
 {
 	if (md == NULL) {
 		return;
@@ -264,6 +264,8 @@ static void DRW_gpencil_vfx_pixel(
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 	GPENCIL_PassList *psl = ((GPENCIL_Data *)vedata)->psl;
 	DRWShadingGroup *vfx_shgrp;
+	bGPdata *gpd = (bGPdata *)ob->data;
+
 	stl->vfx[ob_idx].vfx_pixel.size[0] = mmd->size[0];
 	stl->vfx[ob_idx].vfx_pixel.size[1] = mmd->size[1];
 	copy_v4_v4(stl->vfx[ob_idx].vfx_pixel.rgba, mmd->rgba);
@@ -278,6 +280,12 @@ static void DRW_gpencil_vfx_pixel(
 	DRW_shgroup_uniform_vec2(vfx_shgrp, "size", &stl->vfx[ob_idx].vfx_pixel.size[0], 1);
 	DRW_shgroup_uniform_vec4(vfx_shgrp, "color", &stl->vfx[ob_idx].vfx_pixel.rgba[0], 1);
 	DRW_shgroup_uniform_int(vfx_shgrp, "uselines", &stl->vfx[ob_idx].vfx_pixel.lines, 1);
+
+	copy_v3_v3(stl->vfx[ob_idx].vfx_pixel.loc, &ob->loc[0]);
+	DRW_shgroup_uniform_vec3(vfx_shgrp, "loc", stl->vfx[ob_idx].vfx_pixel.loc, 1);
+	DRW_shgroup_uniform_float(vfx_shgrp, "pixsize", DRW_viewport_pixelsize_get(), 1);
+	DRW_shgroup_uniform_float(vfx_shgrp, "pixelsize", &U.pixelsize, 1);
+	DRW_shgroup_uniform_int(vfx_shgrp, "pixfactor", &gpd->pixfactor, 1);
 
 	/* set first effect sh */
 	if (cache->init_vfx_pixel_sh == NULL) {
