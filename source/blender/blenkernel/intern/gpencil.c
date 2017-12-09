@@ -587,12 +587,6 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->draw_random_sub = 0.0f;
 	copy_v3_v3(brush->curcolor, curcolor);
 	
-	/* Curve */
-	custom_curve = brush->cur_strength;
-	curvemapping_set_defaults(custom_curve, 1, 0.0f, 0.0f, 1.0f, 1.0f);
-	curvemapping_initialize(custom_curve);
-	gp_brush_curvemap_reset(custom_curve->cm, GPCURVE_PRESET_PENCIL);
-
 	/* Pen brush */
 	brush = BKE_gpencil_brush_addnew(ts, "Pen", true);
 	brush->thickness = 30.0f;
