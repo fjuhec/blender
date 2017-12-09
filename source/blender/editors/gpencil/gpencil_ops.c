@@ -396,6 +396,8 @@ static void ed_keymap_gpencil_editing(wmKeyConfig *keyconf)
 	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_sculptmode_toggle", EKEY, KM_PRESS, 0, 0);
 	RNA_int_set(kmi->ptr, "back", 1);
 
+	/* menu vertex group */
+	WM_keymap_add_menu(keymap, "GPENCIL_MT_gpencil_vertex_group", GKEY, KM_PRESS, KM_CTRL, 0);
 }
 
 /* Stroke Painting Keymap - Only when paintmode is enabled */

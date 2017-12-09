@@ -95,7 +95,7 @@ class MATERIAL_PT_gpencil_palette_colors(Panel):
             row = layout.row()
             col = row.column()
             if len(palette.colors) >= 2:
-                color_rows = 5
+                color_rows = 6
             else:
                 color_rows = 2
             col.template_list("GPENCIL_UL_palettecolor", "", palette, "colors", palette, "active_index",
