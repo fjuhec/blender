@@ -51,7 +51,6 @@ static void initData(ModifierData *md)
 {
 	GpencilSubdivModifierData *gpmd = (GpencilSubdivModifierData *)md;
 	gpmd->pass_index = 0;
-	gpmd->flag |= GP_SUBDIV_SIMPLE;
 	gpmd->level = 1;
 	gpmd->layername[0] = '\0';
 }
