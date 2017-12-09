@@ -942,6 +942,32 @@ class GPENCIL_MT_gpencil_draw_specials(Menu):
         layout.operator("gpencil.active_frames_delete_all", text="Delete Frame")
 
 
+class GPENCIL_MT_gpencil_vertex_group(Menu):
+    bl_label = "GP Vertex Groups"
+
+    def draw(self, context):
+        layout = self.layout
+
+        layout.operator_context = 'EXEC_AREA'
+        layout.operator("object.vertex_group_add")
+
+        ob = context.active_object
+        if ob.vertex_groups.active:
+            layout.separator()
+
+            layout.operator("gpencil.vertex_group_assign", text="Assign to Active Group")
+            layout.operator("gpencil.vertex_group_remove_from", text="Remove from Active Group")
+
+            layout.separator()
+            layout.operator_menu_enum("object.vertex_group_set_active", "group", text="Set Active Group")
+            layout.operator("object.vertex_group_remove", text="Remove Active Group").all = False
+            layout.operator("object.vertex_group_remove", text="Remove All Groups").all = True
+
+            layout.separator()
+            layout.operator("gpencil.vertex_group_select", text="Select Points")
+            layout.operator("gpencil.vertex_group_deselect", text="Deselect Points")
+
+
 class GPENCIL_UL_brush(UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         # assert(isinstance(item, bpy.types.GPencilBrush)
@@ -1564,6 +1590,7 @@ classes = (
     GPENCIL_MT_snap,
     GPENCIL_MT_gpencil_edit_specials,
     GPENCIL_MT_gpencil_draw_specials,
+    GPENCIL_MT_gpencil_vertex_group,
     GPENCIL_UL_brush,
     GPENCIL_UL_palettecolor,
     GPENCIL_UL_layer,
