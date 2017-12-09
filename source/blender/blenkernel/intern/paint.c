@@ -532,6 +532,10 @@ void BKE_palette_color_add_default_set(Palette *palette)
 
 	palcolor = BKE_palette_color_add_name(palette, "Blue");
 	ARRAY_SET_ITEMS(palcolor->rgb, 0.0, 0.0, 1.0, 1.0);
+
+	palcolor = BKE_palette_color_add_name(palette, "Grey");
+	ARRAY_SET_ITEMS(palcolor->fill, 0.6, 0.6, 0.6, 0.9);
+	ARRAY_SET_ITEMS(palcolor->rgb, 0.4, 0.4, 0.4, 1.0);
 }
 
 PaletteColor *BKE_palette_color_copy(Palette *palette, PaletteColor *palcolor)
