@@ -247,6 +247,46 @@ void BKE_gpencil_simplify_stroke(bGPDlayer *UNUSED(gpl), bGPDstroke *gps, float 
 	MEM_SAFE_FREE(points2d);
 }
 
+/* Simplify alternate vertex of stroke except extrems */
+void BKE_gpencil_simplify_alternate(bGPDlayer *UNUSED(gpl), bGPDstroke *gps, float factor)
+{
+	if (gps->totpoints < 5) {
+		return;
+	}
+
+	/* save points */
+	bGPDspoint *old_points = MEM_dupallocN(gps->points);
+
+	/* resize gps */
+	int newtot = (gps->totpoints - 2) / 2;
+	if (((gps->totpoints - 2) % 2) > 0) {
+		++newtot;
+	}
+	newtot += 2;
+
+	gps->points = MEM_recallocN(gps->points, sizeof(*gps->points) * newtot);
+	gps->flag |= GP_STROKE_RECALC_CACHES;
+	gps->tot_triangles = 0;
+
+	int j = 0;
+	for (int i = 0; i < gps->totpoints; i++) {
+		bGPDspoint *old_pt = &old_points[i];
+		bGPDspoint *pt = &gps->points[j];
+
+		if ((i == 0) || (i == gps->totpoints - 1) || ((i % 2) > 0.0)) {
+			memcpy(pt, old_pt, sizeof(bGPDspoint));
+			j++;
+		}
+		else {
+			BKE_gpencil_free_point_weights(old_pt);
+		}
+	}
+
+	gps->totpoints = j;
+
+	MEM_SAFE_FREE(old_points);
+}
+
 /* *************************************************** */
 /* Modifier Utilities */
 

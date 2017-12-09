@@ -1896,7 +1896,8 @@ typedef struct GpencilSimplifyModifierData {
 
 typedef enum eGpencilSimplify_Flag {
 	GP_SIMPLIFY_INVERSE_LAYER = (1 << 0),
-	GP_SIMPLIFY_INVERSE_PASS = (1 << 1),
+	GP_SIMPLIFY_INVERSE_PASS  = (1 << 1),
+	GP_SIMPLIFY_ALTERNATE     = (1 << 2),
 } eGpencilSimplify_Flag;
 
 typedef struct GpencilOffsetModifierData {

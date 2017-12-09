@@ -1639,10 +1639,12 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
 
         col = split.column()
         row = col.row(align=True)
+        row.enabled = not md.simplify_alternate
         row.prop(md, "factor")
         row = col.row(align=True)
         row.prop(md, "pass_index", text="Pass")
         row.prop(md, "inverse_pass", text="", icon="ARROW_LEFTRIGHT")
+        col.prop(md, "simplify_alternate")
 
         col = split.column()
         col.label("Layer:")

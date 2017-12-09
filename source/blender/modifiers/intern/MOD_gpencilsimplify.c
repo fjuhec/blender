@@ -70,8 +70,13 @@ static void deformStroke(ModifierData *md, const EvaluationContext *UNUSED(eval_
 		return;
 	}
 	
-	/* simplify stroke using Ramer-Douglas-Peucker algorithm */
-	BKE_gpencil_simplify_stroke(gpl, gps, mmd->factor);
+	if (mmd->flag & GP_SIMPLIFY_ALTERNATE) {
+		BKE_gpencil_simplify_alternate(gpl, gps, mmd->factor);
+	}
+	else {
+		/* simplify stroke using Ramer-Douglas-Peucker algorithm */
+		BKE_gpencil_simplify_stroke(gpl, gps, mmd->factor);
+	}
 }
 
 static void bakeModifierGP(const bContext *UNUSED(C), const EvaluationContext *eval_ctx,

@@ -5149,6 +5149,12 @@ static void rna_def_modifier_gpencilsimplify(BlenderRNA *brna)
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_SIMPLIFY_INVERSE_PASS);
 	RNA_def_property_ui_text(prop, "Inverse Pass", "Inverse filter");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "simplify_alternate", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_SIMPLIFY_ALTERNATE);
+	RNA_def_property_ui_text(prop, "Alternated Vertices", 
+		"Remove alternated vertices except extrems");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }
 
 static void rna_def_modifier_gpencilthick(BlenderRNA *brna)
