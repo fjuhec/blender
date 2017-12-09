@@ -823,6 +823,7 @@ bGPdata *BKE_gpencil_data_addnew(Main *bmain, const char name[])
 	/* onion-skinning settings (datablock level) */
 	gpd->onion_flag |= (GP_ONION_GHOST_PREVCOL | GP_ONION_GHOST_NEXTCOL);
 	gpd->onion_flag |= GP_ONION_FADE;
+	gpd->onion_mode = GP_ONION_MODE_RELATIVE;
 	gpd->onion_factor = 0.5f;
 	ARRAY_SET_ITEMS(gpd->gcolor_prev, 0.145098f, 0.419608f, 0.137255f); /* green */
 	ARRAY_SET_ITEMS(gpd->gcolor_next, 0.125490f, 0.082353f, 0.529412f); /* blue */
