@@ -1972,10 +1972,10 @@ typedef enum eGpencilFlip_Flag {
 typedef struct GpencilLightModifierData {
 	ModifierData modifier;
 	struct Object *object;
-	float loc[3];
 	int flag;                    /* flags */
 	float energy;
 	float ambient;
+	char pad[4];
 } GpencilLightModifierData;
 
 typedef struct GpencilSmoothModifierData {
