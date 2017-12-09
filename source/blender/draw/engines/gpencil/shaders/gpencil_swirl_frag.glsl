@@ -1,12 +1,35 @@
-out vec4 FragColor;
+uniform mat4 ProjectionMatrix;
+uniform mat4 ViewMatrix;
 
 uniform sampler2D strokeColor;
 uniform sampler2D strokeDepth;
 
-uniform vec2 center;
+uniform vec2 Viewport;
+uniform vec3 loc;
 uniform float radius;
 uniform float angle;
 uniform int transparent;
+
+uniform float pixsize;   /* rv3d->pixsize */
+uniform float pixelsize; /* U.pixelsize */
+uniform int pixfactor;
+
+out vec4 FragColor;
+
+float defaultpixsize = pixsize * pixelsize * float(pixfactor);
+
+/* project 3d point to 2d on screen space */
+vec2 toScreenSpace(vec4 vertex)
+{
+	/* need to calculate ndc because this is not done by vertex shader */
+	vec3 ndc = vec3(vertex).xyz / vertex.w;
+					
+	vec2 sc;
+	sc.x = ((ndc.x + 1.0) / 2.0) * Viewport.x;
+	sc.y = ((ndc.y + 1.0) / 2.0) * Viewport.y;
+	
+	return sc;
+}
 
 /* This swirl shader is a modified version of original Geeks3d.com code */
 void main()
@@ -15,10 +38,15 @@ void main()
 	float stroke_depth;
 	vec4 outcolor;
 	
+	vec4 center3d = ProjectionMatrix * ViewMatrix * vec4(loc.xyz, 1.0); 
+	vec2 center = toScreenSpace(center3d);
 	vec2 tc = uv - center;
+
 	float dist = length(tc);
-    if (dist <= radius) {
-		float percent = (radius - dist) / radius;
+	float pxradius = (ProjectionMatrix[3][3] == 0.0) ? (radius / (loc.z * defaultpixsize)) : (radius / defaultpixsize);
+	
+	if (dist <= pxradius) {
+		float percent = (pxradius - dist) / pxradius;
 		float theta = percent * percent * angle * 8.0;
 		float s = sin(theta);
 		float c = cos(theta);

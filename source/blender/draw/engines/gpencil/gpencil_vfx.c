@@ -298,22 +298,15 @@ static void DRW_gpencil_vfx_swirl(
 	}
 
 	GpencilSwirlModifierData *mmd = (GpencilSwirlModifierData *)md;
+	if (mmd->object == NULL) {
+		return;
+	}
 
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 	GPENCIL_PassList *psl = ((GPENCIL_Data *)vedata)->psl;
 	DRWShadingGroup *vfx_shgrp;
-	const DRWContextState *draw_ctx = DRW_context_state_get();
-	ARegion *ar = draw_ctx->ar;
-	int co[2];
-	if (mmd->flag & GP_SWIRL_USE_OB_LOC) {
-		ED_view3d_project_int_global(ar, ob->loc, co, V3D_PROJ_TEST_NOP);
-		stl->vfx[ob_idx].vfx_swirl.center[0] = co[0];
-		stl->vfx[ob_idx].vfx_swirl.center[1] = co[1];
-	}
-	else {
-		stl->vfx[ob_idx].vfx_swirl.center[0] = mmd->center[0];
-		stl->vfx[ob_idx].vfx_swirl.center[1] = mmd->center[1];
-	}
+	bGPdata *gpd = (bGPdata *)ob->data;
+
 	stl->vfx[ob_idx].vfx_swirl.radius = mmd->radius;
 	stl->vfx[ob_idx].vfx_swirl.angle = mmd->angle;
 	stl->vfx[ob_idx].vfx_swirl.transparent = (int)mmd->flag & GP_SWIRL_MAKE_TRANSPARENT;
@@ -324,10 +317,21 @@ static void DRW_gpencil_vfx_swirl(
 	DRW_shgroup_call_add(vfx_shgrp, vfxquad, NULL);
 	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeColor", &e_data->vfx_fbcolor_color_tx_a);
 	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeDepth", &e_data->vfx_fbcolor_depth_tx_a);
-	DRW_shgroup_uniform_vec2(vfx_shgrp, "center", &stl->vfx[ob_idx].vfx_swirl.center[0], 1);
+
+	const float *viewport_size = DRW_viewport_size_get();
+	copy_v2_v2(stl->vfx[ob_idx].vfx_light.wsize, viewport_size);
+	DRW_shgroup_uniform_vec2(vfx_shgrp, "Viewport", stl->vfx[ob_idx].vfx_light.wsize, 1);
+
+	copy_v3_v3(stl->vfx[ob_idx].vfx_swirl.loc, &mmd->object->loc[0]);
+	DRW_shgroup_uniform_vec3(vfx_shgrp, "loc", stl->vfx[ob_idx].vfx_swirl.loc, 1);
+
 	DRW_shgroup_uniform_float(vfx_shgrp, "radius", &stl->vfx[ob_idx].vfx_swirl.radius, 1);
 	DRW_shgroup_uniform_float(vfx_shgrp, "angle", &stl->vfx[ob_idx].vfx_swirl.angle, 1);
 	DRW_shgroup_uniform_int(vfx_shgrp, "transparent", &stl->vfx[ob_idx].vfx_swirl.transparent, 1);
+
+	DRW_shgroup_uniform_float(vfx_shgrp, "pixsize", DRW_viewport_pixelsize_get(), 1);
+	DRW_shgroup_uniform_float(vfx_shgrp, "pixelsize", &U.pixelsize, 1);
+	DRW_shgroup_uniform_int(vfx_shgrp, "pixfactor", &gpd->pixfactor, 1);
 
 	/* set first effect sh */
 	if (cache->init_vfx_swirl_sh == NULL) {

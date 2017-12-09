@@ -1947,7 +1947,7 @@ typedef enum eGpencilPixel_Flag {
 
 typedef struct GpencilSwirlModifierData {
 	ModifierData modifier;
-	int center[2];
+	struct Object *object;
 	int flag;                    /* flags */
 	int radius;
 	float angle;
@@ -1956,7 +1956,6 @@ typedef struct GpencilSwirlModifierData {
 
 typedef enum eGpencilSwirl_Flag {
 	GP_SWIRL_MAKE_TRANSPARENT = (1 << 0),
-	GP_SWIRL_USE_OB_LOC       = (1 << 1),
 } eGpencilSwirl_Flag;
 
 typedef struct GpencilFlipModifierData {

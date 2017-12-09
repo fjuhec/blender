@@ -72,7 +72,7 @@ struct GPENCIL_StorageList;
 
  /* *********** OBJECTS CACHE *********** */
 typedef struct GPencilVFXSwirl {
-	float center[2];
+	float loc[3];
 	float radius; 
 	float angle;
 	int transparent;

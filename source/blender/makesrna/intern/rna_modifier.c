@@ -675,6 +675,7 @@ RNA_MOD_OBJECT_SET(Shrinkwrap, auxTarget, OB_MESH);
 RNA_MOD_OBJECT_SET(SurfaceDeform, target, OB_MESH);
 RNA_MOD_OBJECT_SET(GpencilLattice, object, OB_LATTICE);
 RNA_MOD_OBJECT_SET(GpencilLight, object, OB_EMPTY);
+RNA_MOD_OBJECT_SET(GpencilSwirl, object, OB_EMPTY);
 
 static void rna_HookModifier_object_set(PointerRNA *ptr, PointerRNA value)
 {
@@ -5896,12 +5897,6 @@ static void rna_def_modifier_gpencilswirl(BlenderRNA *brna)
 	RNA_def_struct_sdna(srna, "GpencilSwirlModifierData");
 	RNA_def_struct_ui_icon(srna, ICON_SOLO_ON);
 
-	prop = RNA_def_property(srna, "center", PROP_INT, PROP_PIXEL);
-	RNA_def_property_int_sdna(prop, NULL, "center");
-	RNA_def_property_range(prop, 0, INT_MAX);
-	RNA_def_property_ui_text(prop, "Center", "Rotation Center point");
-	RNA_def_property_update(prop, 0, "rna_Modifier_update");
-
 	prop = RNA_def_property(srna, "radius", PROP_INT, PROP_PIXEL);
 	RNA_def_property_int_sdna(prop, NULL, "radius");
 	RNA_def_property_range(prop, 0, INT_MAX);
@@ -5920,10 +5915,11 @@ static void rna_def_modifier_gpencilswirl(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Transparent", "Make image transparent outside of radius");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
-	prop = RNA_def_property(srna, "use_loc", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_SWIRL_USE_OB_LOC);
-	RNA_def_property_ui_text(prop, "Use Location", "Use object location as center");
-	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+	prop = RNA_def_property(srna, "object", PROP_POINTER, PROP_NONE);
+	RNA_def_property_ui_text(prop, "Object", "Object to determine center location");
+	RNA_def_property_pointer_funcs(prop, NULL, "rna_GpencilSwirlModifier_object_set", NULL, NULL);
+	RNA_def_property_flag(prop, PROP_EDITABLE | PROP_ID_SELF_CHECK);
+	RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");
 }
 
 static void rna_def_modifier_gpencilflip(BlenderRNA *brna)

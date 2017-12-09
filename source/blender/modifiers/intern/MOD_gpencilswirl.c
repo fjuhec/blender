@@ -37,15 +37,48 @@
 #include "BLI_math_base.h"
 #include "BLI_utildefines.h"
 
+#include "BKE_library_query.h"
+
 #include "MOD_modifiertypes.h"
+
+#include "DEG_depsgraph.h"
+#include "DEG_depsgraph_build.h"
 
 static void initData(ModifierData *md)
 {
 	GpencilSwirlModifierData *gpmd = (GpencilSwirlModifierData *)md;
 	gpmd->radius = 100;
-	ARRAY_SET_ITEMS(gpmd->center, 600, 600);
 	gpmd->angle = M_PI_2;
-	gpmd->flag |= GP_SWIRL_USE_OB_LOC;
+}
+
+static void updateDepsgraph(ModifierData *md,
+	struct Main *UNUSED(bmain),
+	struct Scene *UNUSED(scene),
+	Object *object,
+	struct DepsNodeHandle *node)
+{
+	GpencilSwirlModifierData *lmd = (GpencilSwirlModifierData *)md;
+	if (lmd->object != NULL) {
+		DEG_add_object_relation(node, lmd->object, DEG_OB_COMP_GEOMETRY, "Swirl Modifier");
+		DEG_add_object_relation(node, lmd->object, DEG_OB_COMP_TRANSFORM, "Swirl Modifier");
+	}
+	DEG_add_object_relation(node, object, DEG_OB_COMP_TRANSFORM, "Swirl Modifier");
+}
+
+static bool isDisabled(ModifierData *md, int UNUSED(userRenderParams))
+{
+	GpencilSwirlModifierData *mmd = (GpencilSwirlModifierData *)md;
+
+	return !mmd->object;
+}
+
+static void foreachObjectLink(
+	ModifierData *md, Object *ob,
+	ObjectWalkFunc walk, void *userData)
+{
+	GpencilSwirlModifierData *mmd = (GpencilSwirlModifierData *)md;
+
+	walk(userData, ob, &mmd->object, IDWALK_CB_NOP);
 }
 
 ModifierTypeInfo modifierType_GpencilSwirl = {
@@ -69,11 +102,11 @@ ModifierTypeInfo modifierType_GpencilSwirl = {
 	/* initData */          initData,
 	/* requiredDataMask */  NULL,
 	/* freeData */          NULL,
-	/* isDisabled */        NULL,
-	/* updateDepsgraph */   NULL,
+	/* isDisabled */        isDisabled,
+	/* updateDepsgraph */   updateDepsgraph,
 	/* dependsOnTime */     NULL,
 	/* dependsOnNormals */	NULL,
-	/* foreachObjectLink */ NULL,
+	/* foreachObjectLink */ foreachObjectLink,
 	/* foreachIDLink */     NULL,
 	/* foreachTexLink */    NULL,
 };
