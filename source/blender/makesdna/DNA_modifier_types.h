@@ -1699,6 +1699,7 @@ typedef enum eGpencilThick_Flag {
 	GP_THICK_INVERSE_PASS   = (1 << 1),
 	GP_THICK_INVERSE_VGROUP = (1 << 2),
 	GP_THICK_CUSTOM_CURVE   = (1 << 3),
+	GP_THICK_NORMALIZE      = (1 << 4),
 } eGpencilThick_Flag;
 
 typedef struct GpencilTintModifierData {

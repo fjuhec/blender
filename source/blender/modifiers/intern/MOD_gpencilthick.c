@@ -96,24 +96,33 @@ static void deformStroke(ModifierData *md, const EvaluationContext *UNUSED(eval_
 		return;
 	}
 
+	/* if normalize, set stroke thickness */
+	if (mmd->flag & GP_THICK_NORMALIZE) {
+		gps->thickness = mmd->thickness;
+	}
+
 	for (int i = 0; i < gps->totpoints; i++) {
 		bGPDspoint *pt = &gps->points[i];
 		float curvef = 1.0f;
-		
 		/* verify vertex group */
 		float weight = is_point_affected_by_modifier(pt, (int)(!(mmd->flag & GP_THICK_INVERSE_VGROUP) == 0), vindex);
 		if (weight < 0) {
 			continue;
 		}
 
-		if ((mmd->flag & GP_THICK_CUSTOM_CURVE) && (mmd->cur_thickness)) {
-			/* nomalize value */
-			float value = (float)i / (gps->totpoints - 1);
-			curvef = curvemapping_evaluateF(mmd->cur_thickness, 0, value);
+		if (mmd->flag & GP_THICK_NORMALIZE) {
+			pt->pressure = 1.0f;
 		}
+		else {
+			if ((mmd->flag & GP_THICK_CUSTOM_CURVE) && (mmd->cur_thickness)) {
+				/* normalize value to evaluate curve */
+				float value = (float)i / (gps->totpoints - 1);
+				curvef = curvemapping_evaluateF(mmd->cur_thickness, 0, value);
+			}
 
-		pt->pressure += mmd->thickness * weight * curvef;
-		CLAMP(pt->strength, 0.0f, 1.0f);
+			pt->pressure += mmd->thickness * weight * curvef;
+			CLAMP(pt->strength, 0.0f, 1.0f);
+		}
 	}
 }
 

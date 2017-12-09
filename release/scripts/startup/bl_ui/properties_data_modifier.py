@@ -1661,6 +1661,8 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         row.prop(md, "pass_index", text="Pass")
         row.prop(md, "inverse_pass", text="", icon="ARROW_LEFTRIGHT")
 
+        col.prop(md, "normalize_thickness")
+
         col = split.column()
         col.label("Layer:")
         row = col.row(align=True)
@@ -1672,12 +1674,13 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         row.prop_search(md, "vertex_group", ob, "vertex_groups", text="")
         row.prop(md, "inverse_vertex", text="", icon="ARROW_LEFTRIGHT")
 
-        split = layout.split()
-        col = split.column()
-        col.prop(md, "use_custom_curve")
+        if not md.normalize_thickness:
+            split = layout.split()
+            col = split.column()
+            col.prop(md, "use_custom_curve")
 
-        if md.use_custom_curve:
-            col.template_curve_mapping(md, "curve")
+            if md.use_custom_curve:
+                col.template_curve_mapping(md, "curve")
 
     def GP_TINT(self, layout, ob, md):
         gpd = ob.data
