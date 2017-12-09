@@ -71,6 +71,7 @@ static void deformStroke(ModifierData *md, const EvaluationContext *UNUSED(eval_
 	int vindex = defgroup_name_index(ob, mmd->vgname);
 	
 	float mat[4][4];
+	float loc[3], rot[3];
 
 	if (!is_stroke_affected_by_modifier(
 	        mmd->layername, mmd->pass_index, 1, gpl, gps,
@@ -87,8 +88,10 @@ static void deformStroke(ModifierData *md, const EvaluationContext *UNUSED(eval_
 		if (weight < 0) {
 			continue;
 		}
-		/* calculate matrix (weight value cannot be used or get weird result */
-		loc_eul_size_to_mat4(mat, mmd->loc, mmd->rot, mmd->scale);
+		/* calculate matrix (weight value cannot be used in scale) */
+		mul_v3_v3fl(loc, mmd->loc, weight);
+		mul_v3_v3fl(rot, mmd->rot, weight);
+		loc_eul_size_to_mat4(mat, loc, rot, mmd->scale);
 
 		mul_m4_v3(mat, &pt->x);
 	}
