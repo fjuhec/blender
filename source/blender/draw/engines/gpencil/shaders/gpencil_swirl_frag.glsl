@@ -44,6 +44,7 @@ void main()
 
 	float dist = length(tc);
 	float pxradius = (ProjectionMatrix[3][3] == 0.0) ? (radius / (loc.z * defaultpixsize)) : (radius / defaultpixsize);
+	pxradius = max(pxradius, 1);
 	
 	if (dist <= pxradius) {
 		float percent = (pxradius - dist) / pxradius;
