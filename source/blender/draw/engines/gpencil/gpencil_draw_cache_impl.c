@@ -595,7 +595,7 @@ static void gpencil_add_editpoints_shgroup(
 			cache->batch_edlin[cache->cache_idx] = DRW_gpencil_get_edlin_geom(gps, ts->gp_sculpt.alpha, gpd->flag);
 		}
 		if (cache->batch_edlin[cache->cache_idx]) {
-			if ((obact) && (obact == ob) && (gpd->flag & (GP_DATA_STROKE_SHOW_EDIT_LINES | GP_DATA_STROKE_MULTIEDIT_LINES))) {
+			if ((obact) && (obact == ob) && (gpd->flag & GP_DATA_STROKE_SHOW_EDIT_LINES)) {
 				DRW_shgroup_call_add(stl->g_data->shgrps_edit_line, cache->batch_edlin[cache->cache_idx], gpf->viewmatrix);
 			}
 		}
