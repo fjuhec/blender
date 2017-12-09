@@ -541,7 +541,7 @@ static int gpencil_multiedit_toggle_exec(bContext *C, wmOperator *op)
 
 	/* Just toggle value */
 	if (lines == 0) {
-		gpd->flag ^= GP_DATA_STROKE_MULTIEDIT;
+		gpd->flag ^= GP_DATA_STROKE_SHOW_EDIT_LINES;
 	}
 	else {
 		gpd->flag ^= GP_DATA_STROKE_MULTIEDIT_LINES;
@@ -556,9 +556,9 @@ static int gpencil_multiedit_toggle_exec(bContext *C, wmOperator *op)
 void GPENCIL_OT_multiedit_toggle(wmOperatorType *ot)
 {
 	/* identifiers */
-	ot->name = "Multiframe Edit Toggle";
+	ot->name = "Edit Lines Toggle";
 	ot->idname = "GPENCIL_OT_multiedit_toggle";
-	ot->description = "Enable/Disable multiframe edit strokes support";
+	ot->description = "Enable/Disable edit lines support";
 
 	/* callbacks */
 	ot->exec = gpencil_multiedit_toggle_exec;
