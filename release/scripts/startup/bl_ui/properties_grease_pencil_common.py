@@ -1230,7 +1230,7 @@ class GreasePencilLayerOptionPanel:
         # Offsets - Thickness
         col = split.column(align=True)
         row = col.row(align=True)
-        row.prop(gpl, "line_change", text="Thickness Change", slider=True)
+        row.prop(gpl, "line_change", text="Thickness Change")
         row.operator("gpencil.stroke_apply_thickness", icon='STYLUS_PRESSURE', text="")
 
         if context.space_data.type in ('VIEW_3D', 'PROPERTIES'):
