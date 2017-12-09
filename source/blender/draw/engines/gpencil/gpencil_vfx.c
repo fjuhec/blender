@@ -443,8 +443,6 @@ static void DRW_gpencil_vfx_light(
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 	GPENCIL_PassList *psl = ((GPENCIL_Data *)vedata)->psl;
 	DRWShadingGroup *vfx_shgrp;
-	const DRWContextState *draw_ctx = DRW_context_state_get();
-	ARegion *ar = draw_ctx->ar;
 
 	struct Gwn_Batch *vfxquad = DRW_cache_fullscreen_quad_get();
 	vfx_shgrp = DRW_shgroup_create(e_data->gpencil_vfx_light_sh, psl->vfx_light_pass);
