@@ -930,7 +930,16 @@ class GPENCIL_MT_gpencil_edit_specials(Menu):
             layout.operator("gpencil.reproject")
 
 
-###############################
+class GPENCIL_MT_gpencil_draw_specials(Menu):
+    bl_label = "GPencil Draw Specials"
+
+    def draw(self, context):
+        layout = self.layout
+        is_3d_view = context.space_data.type == 'VIEW_3D'
+
+        layout.operator_context = 'INVOKE_REGION_WIN'
+
+        layout.operator("gpencil.active_frames_delete_all", text="Delete Frame")
 
 
 class GPENCIL_UL_brush(UIList):
@@ -1554,6 +1563,7 @@ classes = (
     GPENCIL_MT_pie_sculpt,
     GPENCIL_MT_snap,
     GPENCIL_MT_gpencil_edit_specials,
+    GPENCIL_MT_gpencil_draw_specials,
     GPENCIL_UL_brush,
     GPENCIL_UL_palettecolor,
     GPENCIL_UL_layer,
