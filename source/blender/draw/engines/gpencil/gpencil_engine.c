@@ -524,14 +524,14 @@ static int gpencil_object_cache_compare_zdepth(const void *a1, const void *a2)
 
 /* helper to draw VFX pass */
 static void gpencil_draw_vfx_pass(DRWPass *vfxpass, DRWPass *copypass, 
-	GPENCIL_FramebufferList *fbl, DRWShadingGroup *init, DRWShadingGroup *end)
+	GPENCIL_FramebufferList *fbl, DRWShadingGroup *shgrp)
 {
 	float clearcol[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 
 	DRW_framebuffer_bind(fbl->vfx_color_fb_b);
 	DRW_framebuffer_clear(true, true, false, clearcol, 1.0f);
 	/* flip pass */
-	DRW_draw_pass_subset(vfxpass, init, end);
+	DRW_draw_pass_subset(vfxpass, shgrp, shgrp);
 	/* copy pass from b to a */
 	DRW_framebuffer_bind(fbl->vfx_color_fb_a);
 	DRW_framebuffer_clear(true, true, false, clearcol, 1.0f);
@@ -563,61 +563,61 @@ static void gpencil_vfx_passes(void *vedata, tGPencilObjectCache *cache)
 	* Wave pass is always evaluated first.
 	*/
 	DRW_draw_pass_subset(psl->vfx_wave_pass,
-		cache->init_vfx_wave_sh,
-		cache->end_vfx_wave_sh);
+		cache->vfx_wave_sh,
+		cache->vfx_wave_sh);
 	/* --------------
 	 * Blur passes (use several passes to get better quality)
 	 * --------------*/
-	if ((cache->init_vfx_blur_sh_1) && (cache->init_vfx_blur_sh_1)) {
+	if (cache->vfx_blur_sh_1) {
 		DRW_framebuffer_bind(fbl->vfx_color_fb_b);
 		DRW_framebuffer_clear(true, true, false, clearcol, 1.0f);
 		/* pass 1 */
 		DRW_draw_pass_subset(psl->vfx_blur_pass_1,
-			cache->init_vfx_blur_sh_1,
-			cache->end_vfx_blur_sh_1);
+			cache->vfx_blur_sh_1,
+			cache->vfx_blur_sh_1);
 		/* pass 2 */
 		DRW_framebuffer_bind(fbl->vfx_color_fb_a);
 		DRW_draw_pass_subset(psl->vfx_blur_pass_2,
-			cache->init_vfx_blur_sh_2,
-			cache->end_vfx_blur_sh_2);
+			cache->vfx_blur_sh_2,
+			cache->vfx_blur_sh_2);
 		/* pass 3 */
 		DRW_framebuffer_bind(fbl->vfx_color_fb_b);
 		DRW_draw_pass_subset(psl->vfx_blur_pass_3,
-			cache->init_vfx_blur_sh_3,
-			cache->end_vfx_blur_sh_3);
+			cache->vfx_blur_sh_3,
+			cache->vfx_blur_sh_3);
 		/* pass 4 */
 		DRW_framebuffer_bind(fbl->vfx_color_fb_a);
 		DRW_draw_pass_subset(psl->vfx_blur_pass_4,
-			cache->init_vfx_blur_sh_4,
-			cache->end_vfx_blur_sh_4);
+			cache->vfx_blur_sh_4,
+			cache->vfx_blur_sh_4);
 	}
 	/* --------------
 	 * Pixelate pass 
 	 * --------------*/
-	if ((cache->init_vfx_pixel_sh) && (cache->end_vfx_pixel_sh)) {
+	if (cache->vfx_pixel_sh) {
 		gpencil_draw_vfx_pass(psl->vfx_pixel_pass, psl->vfx_copy_pass,
-			fbl, cache->init_vfx_pixel_sh, cache->end_vfx_pixel_sh);
+			fbl, cache->vfx_pixel_sh);
 	}
 	/* --------------
 	 * Swirl pass 
 	 * --------------*/
-	if ((cache->init_vfx_swirl_sh) && (cache->end_vfx_swirl_sh)) {
+	if (cache->vfx_swirl_sh) {
 		gpencil_draw_vfx_pass(psl->vfx_swirl_pass, psl->vfx_copy_pass,
-			fbl, cache->init_vfx_swirl_sh, cache->end_vfx_swirl_sh);
+			fbl, cache->vfx_swirl_sh);
 	}
 	/* --------------
 	* Flip pass
 	* --------------*/
-	if ((cache->init_vfx_flip_sh) && (cache->end_vfx_flip_sh)) {
+	if (cache->vfx_flip_sh) {
 		gpencil_draw_vfx_pass(psl->vfx_flip_pass, psl->vfx_copy_pass,
-			fbl, cache->init_vfx_flip_sh, cache->end_vfx_flip_sh);
+			fbl, cache->vfx_flip_sh);
 	}
 	/* --------------
 	* Light pass
 	* --------------*/
-	if ((cache->init_vfx_light_sh) && (cache->end_vfx_light_sh)) {
+	if (cache->vfx_light_sh) {
 		gpencil_draw_vfx_pass(psl->vfx_light_pass, psl->vfx_copy_pass,
-			fbl, cache->init_vfx_light_sh, cache->end_vfx_light_sh);
+			fbl, cache->vfx_light_sh);
 	}
 }
 
@@ -770,7 +770,7 @@ static void GPENCIL_draw_scene(void *vedata)
 				/* vfx modifiers passes
 				 * if any vfx modifier exist, the init_vfx_wave_sh will be not NULL.
 				 */
-				if ((cache->init_vfx_wave_sh) && (cache->end_vfx_wave_sh) && (!GP_SIMPLIFY_VFX(ts, playing))) {
+				if ((cache->vfx_wave_sh) && (!GP_SIMPLIFY_VFX(ts, playing))) {
 					/* add vfx and combine result with default framebuffer */
 					gpencil_vfx_passes(vedata, cache);
 					/* Combine with default scene buffer always using tx_a as source texture */

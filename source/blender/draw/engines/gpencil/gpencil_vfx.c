@@ -106,13 +106,7 @@ static void DRW_gpencil_vfx_copy(
 	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeColor", &e_data->temp_fbcolor_color_tx);
 	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeDepth", &e_data->temp_fbcolor_depth_tx);
 
-	/* set first effect sh */
-	if (cache->init_vfx_wave_sh == NULL) {
-		cache->init_vfx_wave_sh = vfx_shgrp;
-	}
-
-	/* set last effect sh */
-	cache->end_vfx_wave_sh = vfx_shgrp;
+	cache->vfx_wave_sh = vfx_shgrp;
 }
 
 /* Wave Distorsion VFX */
@@ -147,13 +141,7 @@ static void DRW_gpencil_vfx_wave(
 	DRW_shgroup_uniform_int(vfx_shgrp, "orientation", &stl->vfx[ob_idx].vfx_wave.orientation, 1);
 	DRW_shgroup_uniform_vec2(vfx_shgrp, "wsize", DRW_viewport_size_get(), 1);
 
-	/* set first effect sh */
-	if (cache->init_vfx_wave_sh == NULL) {
-		cache->init_vfx_wave_sh = vfx_shgrp;
-	}
-
-	/* set last effect sh */
-	cache->end_vfx_wave_sh = vfx_shgrp;
+	cache->vfx_wave_sh = vfx_shgrp;
 }
 
 /* Gaussian Blur VFX
@@ -186,14 +174,7 @@ static void DRW_gpencil_vfx_blur(
 	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeDepth", &e_data->vfx_fbcolor_depth_tx_a);
 	DRW_shgroup_uniform_float(vfx_shgrp, "blurx", &stl->vfx[ob_idx].vfx_blur.x, 1);
 	DRW_shgroup_uniform_float(vfx_shgrp, "blury", &stl->vfx[ob_idx].vfx_blur.y, 1);
-
-	/* set first effect sh */
-	if (cache->init_vfx_blur_sh_1 == NULL) {
-		cache->init_vfx_blur_sh_1 = vfx_shgrp;
-	}
-
-	/* set last effect sh */
-	cache->end_vfx_blur_sh_1 = vfx_shgrp;
+	cache->vfx_blur_sh_1 = vfx_shgrp;
 
 	/* === Pass 2 === */
 	vfx_shgrp = DRW_shgroup_create(e_data->gpencil_vfx_blur_sh, psl->vfx_blur_pass_2);
@@ -203,14 +184,7 @@ static void DRW_gpencil_vfx_blur(
 	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeDepth", &e_data->vfx_fbcolor_depth_tx_b);
 	DRW_shgroup_uniform_float(vfx_shgrp, "blurx", &stl->vfx[ob_idx].vfx_blur.x, 1);
 	DRW_shgroup_uniform_float(vfx_shgrp, "blury", &stl->vfx[ob_idx].vfx_blur.y, 1);
-
-	/* set first effect sh */
-	if (cache->init_vfx_blur_sh_2 == NULL) {
-		cache->init_vfx_blur_sh_2 = vfx_shgrp;
-	}
-
-	/* set last effect sh */
-	cache->end_vfx_blur_sh_2 = vfx_shgrp;
+	cache->vfx_blur_sh_2 = vfx_shgrp;
 
 	/* === Pass 3 === */
 	vfx_shgrp = DRW_shgroup_create(e_data->gpencil_vfx_blur_sh, psl->vfx_blur_pass_3);
@@ -220,14 +194,7 @@ static void DRW_gpencil_vfx_blur(
 	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeDepth", &e_data->vfx_fbcolor_depth_tx_a);
 	DRW_shgroup_uniform_float(vfx_shgrp, "blurx", &stl->vfx[ob_idx].vfx_blur.x, 1);
 	DRW_shgroup_uniform_float(vfx_shgrp, "blury", &stl->vfx[ob_idx].vfx_blur.y, 1);
-
-	/* set first effect sh */
-	if (cache->init_vfx_blur_sh_3 == NULL) {
-		cache->init_vfx_blur_sh_3 = vfx_shgrp;
-	}
-
-	/* set last effect sh */
-	cache->end_vfx_blur_sh_3 = vfx_shgrp;
+	cache->vfx_blur_sh_3 = vfx_shgrp;
 
 	/* === Pass 4 === */
 	vfx_shgrp = DRW_shgroup_create(e_data->gpencil_vfx_blur_sh, psl->vfx_blur_pass_4);
@@ -237,14 +204,7 @@ static void DRW_gpencil_vfx_blur(
 	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeDepth", &e_data->vfx_fbcolor_depth_tx_b);
 	DRW_shgroup_uniform_float(vfx_shgrp, "blurx", &stl->vfx[ob_idx].vfx_blur.x, 1);
 	DRW_shgroup_uniform_float(vfx_shgrp, "blury", &stl->vfx[ob_idx].vfx_blur.y, 1);
-
-	/* set first effect sh */
-	if (cache->init_vfx_blur_sh_4 == NULL) {
-		cache->init_vfx_blur_sh_4 = vfx_shgrp;
-	}
-
-	/* set last effect sh */
-	cache->end_vfx_blur_sh_4 = vfx_shgrp;
+	cache->vfx_blur_sh_4 = vfx_shgrp;
 }
 
 /* Pixelate VFX */
@@ -283,14 +243,8 @@ static void DRW_gpencil_vfx_pixel(
 	DRW_shgroup_uniform_float(vfx_shgrp, "pixsize", DRW_viewport_pixelsize_get(), 1);
 	DRW_shgroup_uniform_float(vfx_shgrp, "pixelsize", &U.pixelsize, 1);
 	DRW_shgroup_uniform_int(vfx_shgrp, "pixfactor", &gpd->pixfactor, 1);
-
-	/* set first effect sh */
-	if (cache->init_vfx_pixel_sh == NULL) {
-		cache->init_vfx_pixel_sh = vfx_shgrp;
-	}
-
-	/* set last effect sh */
-	cache->end_vfx_pixel_sh = vfx_shgrp;
+	
+	cache->vfx_pixel_sh = vfx_shgrp;
 }
 
 /* Swirl VFX */
@@ -336,13 +290,7 @@ static void DRW_gpencil_vfx_swirl(
 	DRW_shgroup_uniform_float(vfx_shgrp, "pixelsize", &U.pixelsize, 1);
 	DRW_shgroup_uniform_int(vfx_shgrp, "pixfactor", &gpd->pixfactor, 1);
 
-	/* set first effect sh */
-	if (cache->init_vfx_swirl_sh == NULL) {
-		cache->init_vfx_swirl_sh = vfx_shgrp;
-	}
-
-	/* set last effect sh */
-	cache->end_vfx_swirl_sh = vfx_shgrp;
+	cache->vfx_swirl_sh = vfx_shgrp;
 }
 
 /* Flip VFX */
@@ -382,13 +330,7 @@ static void DRW_gpencil_vfx_flip(
 
 	DRW_shgroup_uniform_vec2(vfx_shgrp, "wsize", DRW_viewport_size_get(), 1);
 
-	/* set first effect sh */
-	if (cache->init_vfx_flip_sh == NULL) {
-		cache->init_vfx_flip_sh = vfx_shgrp;
-	}
-
-	/* set last effect sh */
-	cache->end_vfx_flip_sh = vfx_shgrp;
+	cache->vfx_flip_sh = vfx_shgrp;
 }
 
 /* get normal of draw using one stroke of visible layer 
@@ -475,13 +417,7 @@ static void DRW_gpencil_vfx_light(
 	DRW_shgroup_uniform_float(vfx_shgrp, "pixelsize", &U.pixelsize, 1);
 	DRW_shgroup_uniform_int(vfx_shgrp, "pixfactor", &gpd->pixfactor, 1);
 
-	/* set first effect sh */
-	if (cache->init_vfx_light_sh == NULL) {
-		cache->init_vfx_light_sh = vfx_shgrp;
-	}
-
-	/* set last effect sh */
-	cache->end_vfx_light_sh = vfx_shgrp;
+	cache->vfx_light_sh = vfx_shgrp;
 }
 
 void DRW_gpencil_vfx_modifiers(

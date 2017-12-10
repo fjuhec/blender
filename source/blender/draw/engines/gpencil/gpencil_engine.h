@@ -112,29 +112,20 @@ typedef struct GPencilVFXLight {
 typedef struct tGPencilObjectCache {
 	struct Object *ob;
 	int init_grp, end_grp;
-	DRWShadingGroup *init_vfx_wave_sh;
-	DRWShadingGroup *end_vfx_wave_sh;
+	DRWShadingGroup *vfx_wave_sh;
 
-	DRWShadingGroup *init_vfx_blur_sh_1;
-	DRWShadingGroup *end_vfx_blur_sh_1;
-	DRWShadingGroup *init_vfx_blur_sh_2;
-	DRWShadingGroup *end_vfx_blur_sh_2;
-	DRWShadingGroup *init_vfx_blur_sh_3;
-	DRWShadingGroup *end_vfx_blur_sh_3;
-	DRWShadingGroup *init_vfx_blur_sh_4;
-	DRWShadingGroup *end_vfx_blur_sh_4;
+	DRWShadingGroup *vfx_blur_sh_1;
+	DRWShadingGroup *vfx_blur_sh_2;
+	DRWShadingGroup *vfx_blur_sh_3;
+	DRWShadingGroup *vfx_blur_sh_4;
 
-	DRWShadingGroup *init_vfx_pixel_sh;
-	DRWShadingGroup *end_vfx_pixel_sh;
+	DRWShadingGroup *vfx_pixel_sh;
 
-	DRWShadingGroup *init_vfx_swirl_sh;
-	DRWShadingGroup *end_vfx_swirl_sh;
+	DRWShadingGroup *vfx_swirl_sh;
 
-	DRWShadingGroup *init_vfx_flip_sh;
-	DRWShadingGroup *end_vfx_flip_sh;
+	DRWShadingGroup *vfx_flip_sh;
 
-	DRWShadingGroup *init_vfx_light_sh;
-	DRWShadingGroup *end_vfx_light_sh;
+	DRWShadingGroup *vfx_light_sh;
 	float zdepth;
 } tGPencilObjectCache;
 
