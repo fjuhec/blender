@@ -752,6 +752,7 @@ void BKE_id_swap(Main *bmain, ID *id_a, ID *id_b)
 		CASE_SWAP(ID_PAL, Palette);
 		CASE_SWAP(ID_PC, PaintCurve);
 		CASE_SWAP(ID_CF, CacheFile);
+		CASE_SWAP(ID_GM, Groom);
 		case ID_IP:
 			break;  /* Deprecated. */
 	}

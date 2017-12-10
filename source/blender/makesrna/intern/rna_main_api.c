@@ -234,6 +234,9 @@ static Object *rna_Main_objects_new(Main *bmain, ReportList *reports, const char
 			case ID_AR:
 				type = OB_ARMATURE;
 				break;
+			case ID_GM:
+				type = OB_GROOM;
+				break;
 			default:
 			{
 				const char *idname;

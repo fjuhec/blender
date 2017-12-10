@@ -52,6 +52,20 @@
 #include "BKE_main.h"
 
 
+void BKE_groom_init(Groom *groom)
+{
+	BLI_assert(MEMCMP_STRUCT_OFS_IS_ZERO(groom, id));
+}
+
+void *BKE_groom_add(Main *bmain, const char *name)
+{
+	Groom *groom = BKE_libblock_alloc(bmain, ID_GM, name, 0);
+
+	BKE_groom_init(groom);
+
+	return groom;
+}
+
 /** Free (or release) any data used by this groom (does not free the groom itself). */
 void BKE_groom_free(Groom *groom)
 {

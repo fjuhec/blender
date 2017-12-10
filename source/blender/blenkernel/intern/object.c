@@ -74,6 +74,7 @@
 #include "BKE_pbvh.h"
 #include "BKE_main.h"
 #include "BKE_global.h"
+#include "BKE_groom.h"
 #include "BKE_idprop.h"
 #include "BKE_armature.h"
 #include "BKE_action.h"
@@ -614,6 +615,7 @@ void *BKE_object_obdata_add_from_type(Main *bmain, int type, const char *name)
 		case OB_ARMATURE:  return BKE_armature_add(bmain, name);
 		case OB_SPEAKER:   return BKE_speaker_add(bmain, name);
 		case OB_LIGHTPROBE:return BKE_lightprobe_add(bmain, name);
+		case OB_GROOM:     return BKE_groom_add(bmain, name);
 		case OB_EMPTY:     return NULL;
 		default:
 			printf("%s: Internal error, bad type: %d\n", __func__, type);

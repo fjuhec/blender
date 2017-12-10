@@ -35,6 +35,9 @@
 struct Groom;
 struct Main;
 
+void BKE_groom_init(struct Groom *groom);
+void *BKE_groom_add(struct Main *bmain, const char *name);
+
 void BKE_groom_free(struct Groom *groom);
 
 void BKE_groom_copy_data(struct Main *bmain, struct Groom *groom_dst, const struct Groom *groom_src, const int flag);
