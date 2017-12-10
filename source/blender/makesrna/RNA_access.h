@@ -289,6 +289,7 @@ extern StructRNA RNA_GameTimerProperty;
 extern StructRNA RNA_GaussianBlurSequence;
 extern StructRNA RNA_GlowSequence;
 extern StructRNA RNA_GreasePencil;
+extern StructRNA RNA_Groom;
 extern StructRNA RNA_Group;
 extern StructRNA RNA_HairGroup;
 extern StructRNA RNA_HairPattern;

@@ -198,6 +198,7 @@ StructRNA *ID_code_to_RNA_type(short idcode)
 		case ID_CF: return &RNA_CacheFile;
 		case ID_CU: return &RNA_Curve;
 		case ID_GD: return &RNA_GreasePencil;
+		case ID_GM: return &RNA_Groom;
 		case ID_GR: return &RNA_Group;
 		case ID_IM: return &RNA_Image;
 		case ID_KE: return &RNA_Key;

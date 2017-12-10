@@ -51,6 +51,7 @@ set(DEFSRC
 	rna_fcurve.c
 	rna_fluidsim.c
 	rna_gpencil.c
+	rna_groom.c
 	rna_group.c
 	rna_hair.c
 	rna_image.c
