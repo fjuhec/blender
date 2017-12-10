@@ -993,8 +993,8 @@ class GPENCIL_UL_palettecolor(UIList):
             split = layout.split(percentage=0.25)
             row = split.row(align=True)
             row.enabled = not palcolor.lock
-            row.prop(palcolor, "color_full", text="", emboss=palcolor.is_stroke_visible)
-            row.prop(palcolor, "fill_full", text="", emboss=palcolor.is_fill_visible)
+            row.prop(palcolor, "color_rgba", text="", emboss=palcolor.is_stroke_visible)
+            row.prop(palcolor, "fill_rgba", text="", emboss=palcolor.is_fill_visible)
             split.prop(palcolor, "name", text="", emboss=False)
 
             row = layout.row(align=True)
