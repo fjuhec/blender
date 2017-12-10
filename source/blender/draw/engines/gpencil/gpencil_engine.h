@@ -95,17 +95,14 @@ typedef struct GPencilVFXWave {
 	float amplitude;
 	float period;
 	float phase;
-	float wsize[2];
 } GPencilVFXWave;
 
 typedef struct GPencilVFXFlip {
 	float flipmode[2]; /* use float to pass to shader, but only will be 0 or 1 */
-	float wsize[2];
 } GPencilVFXFlip;
 
 typedef struct GPencilVFXLight {
 	float loc[4];
-	float wsize[2];
 	float energy;
 	float ambient;
 	float specular;

@@ -133,9 +133,6 @@ static void DRW_gpencil_vfx_wave(
 	stl->vfx[ob_idx].vfx_wave.phase = mmd->phase;
 	stl->vfx[ob_idx].vfx_wave.orientation = mmd->orientation;
 
-	const float *viewport_size = DRW_viewport_size_get();
-	copy_v2_v2(stl->vfx[ob_idx].vfx_wave.wsize, viewport_size);
-
 	struct Gwn_Batch *vfxquad = DRW_cache_fullscreen_quad_get();
 
 	DRWShadingGroup *vfx_shgrp = DRW_shgroup_create(e_data->gpencil_vfx_wave_sh, psl->vfx_wave_pass);
@@ -148,7 +145,7 @@ static void DRW_gpencil_vfx_wave(
 	DRW_shgroup_uniform_float(vfx_shgrp, "period", &stl->vfx[ob_idx].vfx_wave.period, 1);
 	DRW_shgroup_uniform_float(vfx_shgrp, "phase", &stl->vfx[ob_idx].vfx_wave.phase, 1);
 	DRW_shgroup_uniform_int(vfx_shgrp, "orientation", &stl->vfx[ob_idx].vfx_wave.orientation, 1);
-	DRW_shgroup_uniform_vec2(vfx_shgrp, "wsize", stl->vfx[ob_idx].vfx_wave.wsize, 1);
+	DRW_shgroup_uniform_vec2(vfx_shgrp, "wsize", DRW_viewport_size_get(), 1);
 
 	/* set first effect sh */
 	if (cache->init_vfx_wave_sh == NULL) {
@@ -383,9 +380,7 @@ static void DRW_gpencil_vfx_flip(
 	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeDepth", &e_data->vfx_fbcolor_depth_tx_a);
 	DRW_shgroup_uniform_vec2(vfx_shgrp, "mode", &stl->vfx[ob_idx].vfx_flip.flipmode[0], 1);
 
-	const float *viewport_size = DRW_viewport_size_get();
-	copy_v2_v2(stl->vfx[ob_idx].vfx_flip.wsize, viewport_size);
-	DRW_shgroup_uniform_vec2(vfx_shgrp, "wsize", stl->vfx[ob_idx].vfx_flip.wsize, 1);
+	DRW_shgroup_uniform_vec2(vfx_shgrp, "wsize", DRW_viewport_size_get(), 1);
 
 	/* set first effect sh */
 	if (cache->init_vfx_flip_sh == NULL) {
@@ -449,9 +444,7 @@ static void DRW_gpencil_vfx_light(
 	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeColor", &e_data->vfx_fbcolor_color_tx_a);
 	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeDepth", &e_data->vfx_fbcolor_depth_tx_a);
 
-	const float *viewport_size = DRW_viewport_size_get();
-	copy_v2_v2(stl->vfx[ob_idx].vfx_light.wsize, viewport_size);
-	DRW_shgroup_uniform_vec2(vfx_shgrp, "Viewport", stl->vfx[ob_idx].vfx_light.wsize, 1);
+	DRW_shgroup_uniform_vec2(vfx_shgrp, "Viewport", DRW_viewport_size_get(), 1);
 
 	/* location of the light using obj location as origin */
 	copy_v3_v3(stl->vfx[ob_idx].vfx_light.loc, &mmd->object->loc[0]);
