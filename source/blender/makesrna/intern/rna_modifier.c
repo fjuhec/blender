@@ -5117,6 +5117,14 @@ static void rna_def_modifier_gpencilsimplify(BlenderRNA *brna)
 	StructRNA *srna;
 	PropertyRNA *prop;
 
+	static EnumPropertyItem prop_gpencil_simplify_mode_items[] = {
+		{ GP_SIMPLIFY_FIXED, "FIXED", ICON_IPO_CONSTANT, "Fixed",
+		"Delete alternative vertices in the stroke, except extrems" },
+		{ GP_SIMPLIFY_ADAPTATIVE, "ADAPTATIVE", ICON_IPO_EASE_IN_OUT, "Adaptative",
+		"Use a RDP algorithm to simplify" },
+		{ 0, NULL, 0, NULL, NULL }
+	};
+
 	srna = RNA_def_struct(brna, "GpencilSimplifyModifier", "Modifier");
 	RNA_def_struct_ui_text(srna, "Simplify Modifier", "Simplify Stroke modifier");
 	RNA_def_struct_sdna(srna, "GpencilSimplifyModifierData");
@@ -5150,10 +5158,16 @@ static void rna_def_modifier_gpencilsimplify(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Inverse Pass", "Inverse filter");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
-	prop = RNA_def_property(srna, "simplify_alternate", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_SIMPLIFY_ALTERNATE);
-	RNA_def_property_ui_text(prop, "Alternated Vertices", 
-		"Remove alternated vertices except extrems");
+	/* Mode */
+	prop = RNA_def_property(srna, "mode", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_items(prop, prop_gpencil_simplify_mode_items);
+	RNA_def_property_ui_text(prop, "Mode", "How simplify the stroke");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "step", PROP_INT, PROP_NONE);
+	RNA_def_property_int_sdna(prop, NULL, "step");
+	RNA_def_property_range(prop, 1, 50);
+	RNA_def_property_ui_text(prop, "Iterations", "Number of times to apply simplify");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }
 

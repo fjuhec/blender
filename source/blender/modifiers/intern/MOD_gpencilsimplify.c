@@ -49,6 +49,7 @@ static void initData(ModifierData *md)
 {
 	GpencilSimplifyModifierData *gpmd = (GpencilSimplifyModifierData *)md;
 	gpmd->pass_index = 0;
+	gpmd->step = 1;
 	gpmd->factor = 0.0f;
 	gpmd->layername[0] = '\0';
 }
@@ -70,8 +71,10 @@ static void deformStroke(ModifierData *md, const EvaluationContext *UNUSED(eval_
 		return;
 	}
 	
-	if (mmd->flag & GP_SIMPLIFY_ALTERNATE) {
-		BKE_gpencil_simplify_alternate(gpl, gps, mmd->factor);
+	if (mmd->mode == GP_SIMPLIFY_FIXED) {
+		for (int i = 0; i < mmd->step; i++) {
+			BKE_gpencil_simplify_fixed(gpl, gps);
+		}
 	}
 	else {
 		/* simplify stroke using Ramer-Douglas-Peucker algorithm */

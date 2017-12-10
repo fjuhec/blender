@@ -1635,22 +1635,30 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
 
     def GP_SIMPLIFY(self, layout, ob, md):
         gpd = ob.data
+
+        row = layout.row()
+        row.prop(md, "mode")
+
         split = layout.split()
 
         col = split.column()
+        col.label("Settings:")
         row = col.row(align=True)
-        row.enabled = not md.simplify_alternate
+        row.enabled = md.mode == 'FIXED'
+        row.prop(md, "step")
+
+        row = col.row(align=True)
+        row.enabled = not md.mode == 'FIXED'
         row.prop(md, "factor")
-        row = col.row(align=True)
-        row.prop(md, "pass_index", text="Pass")
-        row.prop(md, "inverse_pass", text="", icon="ARROW_LEFTRIGHT")
-        col.prop(md, "simplify_alternate")
 
         col = split.column()
         col.label("Layer:")
         row = col.row(align=True)
         row.prop_search(md, "layer", gpd, "layers", text="", icon='GREASEPENCIL')
-        row.prop(md, "inverse_layers", text="", icon="ARROW_LEFTRIGHT")
+
+        row = col.row(align=True)
+        row.prop(md, "pass_index", text="Pass")
+        row.prop(md, "inverse_pass", text="", icon="ARROW_LEFTRIGHT")
 
     def GP_THICK(self, layout, ob, md):
         gpd = ob.data

@@ -209,7 +209,7 @@ void BKE_gpencil_lattice_clear(struct Object *ob);
 /* stroke geometry utilities */
 void BKE_gpencil_stroke_normal(const struct bGPDstroke *gps, float r_normal[3]);
 void BKE_gpencil_simplify_stroke(struct bGPDlayer *gpl, struct bGPDstroke *gps, float factor);
-void BKE_gpencil_simplify_alternate(struct bGPDlayer *gpl, struct bGPDstroke *gps, float factor);
+void BKE_gpencil_simplify_fixed(struct bGPDlayer *gpl, struct bGPDstroke *gps);
 
 void BKE_gpencil_transform(struct bGPdata *gpd, float mat[4][4]);
 

@@ -1891,14 +1891,21 @@ typedef struct GpencilSimplifyModifierData {
 	int pass_index;               /* custom index for passes */
 	int flag;                    /* flags */
 	float factor;                /* factor of simplify */
-	char pad[4];
+	short mode;                  /* type of simplify */
+	short step;                  /* every n vertex to keep */ 
 } GpencilSimplifyModifierData;
 
 typedef enum eGpencilSimplify_Flag {
 	GP_SIMPLIFY_INVERSE_LAYER = (1 << 0),
 	GP_SIMPLIFY_INVERSE_PASS  = (1 << 1),
-	GP_SIMPLIFY_ALTERNATE     = (1 << 2),
 } eGpencilSimplify_Flag;
+
+typedef enum eGpencilSimplify_Mode {
+	/* Keep only one vertex every n vertices */
+	GP_SIMPLIFY_FIXED = 0,
+	/* Use RDP algorithm */
+	GP_SIMPLIFY_ADAPTATIVE = 1,
+} eGpencilSimplify_Mode;
 
 typedef struct GpencilOffsetModifierData {
 	ModifierData modifier;
