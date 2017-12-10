@@ -361,7 +361,7 @@ static char *eevee_get_volume_defines(int options)
  **/
 static void add_standard_uniforms(
         DRWShadingGroup *shgrp, EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata,
-        int *ssr_id, float *refract_depth, bool use_ssrefraction, bool use_alpha_blend)
+        int *ssr_id, float *refract_depth, bool use_ssrefraction, bool use_alpha_blend, bool use_sss)
 {
 	if (ssr_id == NULL || !vedata->stl->g_data->valid_double_buffer) {
 		static int no_ssr = -1.0f;
@@ -383,6 +383,7 @@ static void add_standard_uniforms(
 	DRW_shgroup_uniform_buffer(shgrp, "probeCubes", &sldata->probe_pool);
 	DRW_shgroup_uniform_buffer(shgrp, "probePlanars", &vedata->txl->planar_pool);
 	DRW_shgroup_uniform_buffer(shgrp, "irradianceGrid", &sldata->irradiance_pool);
+	DRW_shgroup_uniform_int(shgrp, "irradianceVisibilitySize", &sldata->probes->irradiance_vis_size, 1);
 	DRW_shgroup_uniform_buffer(shgrp, "shadowTexture", &sldata->shadow_pool);
 	DRW_shgroup_uniform_int(shgrp, "outputSsrId", ssr_id, 1);
 	DRW_shgroup_uniform_vec4(shgrp, "aoParameters[0]", &vedata->stl->effects->ao_dist, 2);
@@ -417,6 +418,10 @@ static void add_standard_uniforms(
 		DRW_shgroup_uniform_buffer(shgrp, "inTransmittance", &vedata->txl->volume_transmittance);
 		DRW_shgroup_uniform_vec2(shgrp, "volume_uv_ratio", (float *)sldata->volumetrics->volume_coord_scale, 1);
 		DRW_shgroup_uniform_vec3(shgrp, "volume_param", (float *)sldata->volumetrics->depth_param, 1);
+	}
+
+	if (use_sss) {
+		DRW_shgroup_uniform_bool(shgrp, "sssToggle", &sldata->probes->sss_toggle, 1);
 	}
 }
 
@@ -850,7 +855,7 @@ static struct DRWShadingGroup *EEVEE_default_shading_group_create(
 	}
 
 	DRWShadingGroup *shgrp = DRW_shgroup_create(e_data.default_lit[options], pass);
-	add_standard_uniforms(shgrp, sldata, vedata, &ssr_id, NULL, false, use_blend);
+	add_standard_uniforms(shgrp, sldata, vedata, &ssr_id, NULL, false, use_blend, false);
 
 	return shgrp;
 }
@@ -882,7 +887,7 @@ static struct DRWShadingGroup *EEVEE_default_shading_group_get(
 		vedata->psl->default_pass[options] = DRW_pass_create("Default Lit Pass", state);
 
 		DRWShadingGroup *shgrp = DRW_shgroup_create(e_data.default_lit[options], vedata->psl->default_pass[options]);
-		add_standard_uniforms(shgrp, sldata, vedata, &ssr_id, NULL, false, false);
+		add_standard_uniforms(shgrp, sldata, vedata, &ssr_id, NULL, false, false, false);
 	}
 
 	return DRW_shgroup_create(e_data.default_lit[options], vedata->psl->default_pass[options]);
@@ -1083,7 +1088,7 @@ static void material_opaque(
 			static int no_ssr = -1;
 			static int first_ssr = 1;
 			int *ssr_id = (stl->effects->use_ssr && !use_refract) ? &first_ssr : &no_ssr;
-			add_standard_uniforms(*shgrp, sldata, vedata, ssr_id, &ma->refract_depth, use_refract, false);
+			add_standard_uniforms(*shgrp, sldata, vedata, ssr_id, &ma->refract_depth, use_refract, false, use_sss);
 
 			if (use_sss) {
 				struct GPUTexture *sss_tex_profile = NULL;
@@ -1128,7 +1133,7 @@ static void material_opaque(
 			}
 
 			if (*shgrp_depth != NULL) {
-				add_standard_uniforms(*shgrp_depth, sldata, vedata, NULL, NULL, false, false);
+				add_standard_uniforms(*shgrp_depth, sldata, vedata, NULL, NULL, false, false, false);
 
 				if (ma->blend_method == MA_BM_CLIP) {
 					DRW_shgroup_uniform_float(*shgrp_depth, "alphaThreshold", &ma->alpha_threshold, 1);
@@ -1192,7 +1197,7 @@ static void material_transparent(
 		if (*shgrp) {
 			static int ssr_id = -1; /* TODO transparent SSR */
 			bool use_blend = (ma->blend_method & MA_BM_BLEND) != 0;
-			add_standard_uniforms(*shgrp, sldata, vedata, &ssr_id, &ma->refract_depth, use_refract, use_blend);
+			add_standard_uniforms(*shgrp, sldata, vedata, &ssr_id, &ma->refract_depth, use_refract, use_blend, false);
 		}
 		else {
 			/* Shader failed : pink color */
@@ -1307,7 +1312,7 @@ static void material_particle_hair(
 				
 				shgrp = DRW_shgroup_material_create(gpumat, psl->material_pass);
 				if (shgrp) {
-					add_standard_uniforms(shgrp, sldata, vedata, NULL, NULL, false, false);
+					add_standard_uniforms(shgrp, sldata, vedata, NULL, NULL, false, false, false);
 					
 					BLI_ghash_insert(material_hash, ma, shgrp);
 				}
@@ -1390,8 +1395,7 @@ static void material_hair(
 			
 			shgrp = DRW_shgroup_material_create(gpumat, psl->material_pass);
 			if (shgrp) {
-				add_standard_uniforms(shgrp, sldata, vedata, NULL, NULL, false,false);
-				
+				add_standard_uniforms(shgrp, sldata, vedata, NULL, NULL, false, false, false);
 				BLI_ghash_insert(material_hash, ma, shgrp);
 			}
 			else {
@@ -1526,7 +1530,7 @@ void EEVEE_materials_cache_populate(EEVEE_Data *vedata, EEVEE_ViewLayerData *sld
 				/* Do not render surface if we are rendering a volume object
 				 * and do not have a surface closure. */
 				if (use_volume_material &&
-					(gpumat_array[i] && !GPU_material_use_domain_surface(gpumat_array[i])))
+				    (gpumat_array[i] && !GPU_material_use_domain_surface(gpumat_array[i])))
 				{
 					continue;
 				}

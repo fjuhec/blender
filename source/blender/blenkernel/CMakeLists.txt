@@ -89,6 +89,7 @@ set(SRC
 	intern/cloth.c
 	intern/collection.c
 	intern/collision.c
+	intern/colorband.c
 	intern/colortools.c
 	intern/constraint.c
 	intern/context.c
@@ -127,6 +128,7 @@ set(SRC
 	intern/lattice.c
 	intern/library.c
 	intern/library_idmap.c
+	intern/library_override.c
 	intern/library_query.c
 	intern/library_remap.c
 	intern/linestyle.c
@@ -228,6 +230,7 @@ set(SRC
 	BKE_cloth.h
 	BKE_collection.h
 	BKE_collision.h
+	BKE_colorband.h
 	BKE_colortools.h
 	BKE_constraint.h
 	BKE_context.h
@@ -262,6 +265,7 @@ set(SRC
 	BKE_lattice.h
 	BKE_library.h
 	BKE_library_idmap.h
+	BKE_library_override.h
 	BKE_library_query.h
 	BKE_library_remap.h
 	BKE_linestyle.h

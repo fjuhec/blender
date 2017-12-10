@@ -324,7 +324,6 @@ static bool check_datablocks_copy_on_writable(const ID *id_orig)
 	return !ELEM(id_type, ID_BR,
 	                      ID_LS,
 	                      ID_AC,
-	                      ID_GR,
 	                      ID_PAL);
 }
 
@@ -653,7 +652,7 @@ ID *deg_expand_copy_on_write_datablock(const Depsgraph *depsgraph,
 	switch (id_type) {
 		case ID_SCE:
 		{
-			done = scene_copy_inplace_no_main((Scene *)id_orig, (Scene*)id_cow);
+			done = scene_copy_inplace_no_main((Scene *)id_orig, (Scene *)id_cow);
 			break;
 		}
 		case ID_ME:
@@ -746,9 +745,15 @@ ID *deg_update_copy_on_write_datablock(const Depsgraph *depsgraph,
 	 * Note that we never free GPU materials from here since that's not
 	 * safe for threading and GPU materials are likely to be re-used.
 	 */
+	/* TODO(sergey): Either move this to an utility function or redesign
+	 * Copy-on-Write components in a way that only needed parts are being
+	 * copied over.
+	 */
 	ListBase gpumaterial_backup;
 	ListBase *gpumaterial_ptr = NULL;
 	Mesh *mesh_evaluated = NULL;
+	IDProperty *base_collection_properties = NULL;
+	short base_flag = 0;
 	if (check_datablock_expanded(id_cow)) {
 		switch (id_type) {
 			case ID_MA:
@@ -778,6 +783,9 @@ ID *deg_update_copy_on_write_datablock(const Depsgraph *depsgraph,
 						object->data = mesh_evaluated->id.newid;
 					}
 				}
+				/* Make a backup of base flags. */
+				base_collection_properties = object->base_collection_properties;
+				base_flag = object->base_flag;
 				break;
 			}
 			default:
@@ -795,8 +803,8 @@ ID *deg_update_copy_on_write_datablock(const Depsgraph *depsgraph,
 		*gpumaterial_ptr = gpumaterial_backup;
 	}
 	if (id_type == ID_OB) {
+		Object *object = (Object *)id_cow;
 		if (mesh_evaluated != NULL) {
-			Object *object = (Object *)id_cow;
 			object->mesh_evaluated = mesh_evaluated;
 			/* Do same thing as object update: override actual object data
 			 * pointer with evaluated datablock.
@@ -810,6 +818,10 @@ ID *deg_update_copy_on_write_datablock(const Depsgraph *depsgraph,
 				mesh_evaluated->edit_btmesh =
 				        ((Mesh *)mesh_evaluated->id.newid)->edit_btmesh;
 			}
+		}
+		if (base_collection_properties != NULL) {
+			object->base_collection_properties = base_collection_properties;
+			object->base_flag = base_flag;
 		}
 	}
 	return id_cow;

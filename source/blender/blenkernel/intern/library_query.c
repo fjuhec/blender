@@ -76,6 +76,7 @@
 #include "BKE_collection.h"
 #include "BKE_constraint.h"
 #include "BKE_fcurve.h"
+#include "BKE_group.h"
 #include "BKE_idprop.h"
 #include "BKE_library.h"
 #include "BKE_library_query.h"
@@ -373,6 +374,10 @@ void BKE_library_foreach_ID_link(Main *bmain, ID *id, LibraryIDLinkCallback call
 
 #define CALLBACK_INVOKE(check_id_super, cb_flag) \
 	FOREACH_CALLBACK_INVOKE(&data, check_id_super, cb_flag)
+
+	if (id->override_static != NULL) {
+		CALLBACK_INVOKE_ID(id->override_static->reference, IDWALK_CB_USER | IDWALK_CB_STATIC_OVERRIDE_REFERENCE);
+	}
 
 	for (; id != NULL; id = (flag & IDWALK_RECURSE) ? BLI_LINKSTACK_POP(data.ids_todo) : NULL) {
 		data.self_id = id;
@@ -776,10 +781,11 @@ void BKE_library_foreach_ID_link(Main *bmain, ID *id, LibraryIDLinkCallback call
 			case ID_GR:
 			{
 				Group *group = (Group *) id;
-				GroupObject *gob;
-				for (gob = group->gobject.first; gob; gob = gob->next) {
-					CALLBACK_INVOKE(gob->ob, IDWALK_CB_USER_ONE);
+				FOREACH_GROUP_BASE(group, base)
+				{
+					CALLBACK_INVOKE(base->object, IDWALK_CB_USER_ONE);
 				}
+				FOREACH_GROUP_BASE_END
 				break;
 			}
 
@@ -986,6 +992,8 @@ void BKE_library_foreach_ID_link(Main *bmain, ID *id, LibraryIDLinkCallback call
 				for (WorkSpaceLayout *layout = layouts->first; layout; layout = layout->next) {
 					bScreen *screen = BKE_workspace_layout_screen_get(layout);
 
+					/* CALLBACK_INVOKE expects an actual pointer, not a variable holding the pointer.
+					 * However we can't acess layout->screen here since we are outside the workspace project. */
 					CALLBACK_INVOKE(screen, IDWALK_CB_NOP);
 					/* allow callback to set a different screen */
 					BKE_workspace_layout_screen_set(layout, screen);

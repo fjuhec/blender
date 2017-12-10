@@ -30,9 +30,11 @@ struct ARegion;
 struct CollectionEngineSettings;
 struct Depsgraph;
 struct DRWPass;
+struct Main;
 struct Material;
 struct Scene;
 struct DrawEngineType;
+struct ID;
 struct IDProperty;
 struct bContext;
 struct Object;
@@ -68,13 +70,22 @@ void DRW_engine_viewport_data_size_get(
         const void *engine_type,
         int *r_fbl_len, int *r_txl_len, int *r_psl_len, int *r_stl_len);
 
-void DRW_notify_view_update(const struct bContext *C);
+typedef struct DRWUpdateContext {
+	struct Main *bmain;
+	struct Scene *scene;
+	struct ViewLayer *view_layer;
+	struct ARegion *ar;
+	struct View3D *v3d;
+	struct RenderEngineType *engine_type;
+} DRWUpdateContext;
+void DRW_notify_view_update(const DRWUpdateContext *update_ctx);
+void DRW_notify_id_update(const DRWUpdateContext *update_ctx, struct ID *id);
 
 void DRW_draw_view(const struct bContext *C);
 
 void DRW_draw_render_loop_ex(
         struct Depsgraph *graph,
-        struct RenderEngineType *engine,
+        struct RenderEngineType *engine_type,
         struct ARegion *ar, struct View3D *v3d,
         const struct bContext *evil_C);
 void DRW_draw_render_loop(
@@ -82,7 +93,7 @@ void DRW_draw_render_loop(
         struct ARegion *ar, struct View3D *v3d);
 void DRW_draw_render_loop_offscreen(
         struct Depsgraph *graph,
-        struct RenderEngineType *engine,
+        struct RenderEngineType *engine_type,
         struct ARegion *ar, struct View3D *v3d,
         struct GPUOffScreen *ofs);
 void DRW_draw_select_loop(

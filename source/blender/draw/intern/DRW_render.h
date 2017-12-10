@@ -138,6 +138,7 @@ typedef struct DrawEngineType {
 	void (*draw_scene)(void *vedata);
 
 	void (*view_update)(void *vedata);
+	void (*id_update)(void *vedata, struct ID *id);
 } DrawEngineType;
 
 #ifndef __DRW_ENGINE_H__
@@ -383,12 +384,14 @@ struct DefaultTextureList     *DRW_viewport_texture_list_get(void);
 void DRW_viewport_request_redraw(void);
 
 /* ViewLayers */
-void **DRW_view_layer_engine_data_get(DrawEngineType *engine_type, void (*callback)(void *storage));
+void *DRW_view_layer_engine_data_get(DrawEngineType *engine_type);
+void **DRW_view_layer_engine_data_ensure(DrawEngineType *engine_type, void (*callback)(void *storage));
 
 /* Objects */
-void **DRW_object_engine_data_get(
+void *DRW_object_engine_data_get(Object *ob, DrawEngineType *engine_type);
+void **DRW_object_engine_data_ensure(
         Object *ob, DrawEngineType *engine_type, void (*callback)(void *storage));
-struct LampEngineData *DRW_lamp_engine_data_get(Object *ob, struct RenderEngineType *engine_type);
+struct LampEngineData *DRW_lamp_engine_data_ensure(Object *ob, struct RenderEngineType *engine_type);
 void DRW_lamp_engine_data_free(struct LampEngineData *led);
 
 /* Settings */
@@ -443,7 +446,7 @@ typedef struct DRWContextState {
 	/* Use 'scene->obedit' for edit-mode */
 	struct Object *obact;   /* 'OBACT' */
 
-	struct RenderEngineType *engine;
+	struct RenderEngineType *engine_type;
 
 	/* Last resort (some functions take this as an arg so we can't easily avoid).
 	 * May be NULL when used for selection or depth buffer. */

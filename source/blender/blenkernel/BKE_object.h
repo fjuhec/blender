@@ -184,7 +184,6 @@ void BKE_object_tfm_protected_restore(struct Object *ob,
 
 /* Dependency graph evaluation callbacks. */
 void BKE_object_eval_local_transform(const struct EvaluationContext *eval_ctx,
-                                     struct Scene *scene,
                                      struct Object *ob);
 void BKE_object_eval_parent(const struct EvaluationContext *eval_ctx,
                             struct Scene *scene,
@@ -194,8 +193,9 @@ void BKE_object_eval_constraints(const struct EvaluationContext *eval_ctx,
                                  struct Object *ob);
 void BKE_object_eval_done(const struct EvaluationContext *eval_ctx, struct Object *ob);
 
+bool BKE_object_eval_proxy_copy(const struct EvaluationContext *eval_ct,
+                                struct Object *object);
 void BKE_object_eval_uber_transform(const struct EvaluationContext *eval_ctx,
-                                    struct Scene *scene,
                                     struct Object *ob);
 void BKE_object_eval_uber_data(const struct EvaluationContext *eval_ctx,
                                struct Scene *scene,
@@ -204,6 +204,10 @@ void BKE_object_eval_uber_data(const struct EvaluationContext *eval_ctx,
 void BKE_object_eval_cloth(const struct EvaluationContext *eval_ctx,
                            struct Scene *scene,
                            struct Object *object);
+
+void BKE_object_eval_transform_all(const struct EvaluationContext *eval_ctx,
+                                   struct Scene *scene,
+                                   struct Object *object);
 
 void BKE_object_eval_update_shading(const struct EvaluationContext *eval_ctx,
                                     struct Object *object);
@@ -226,6 +230,7 @@ void BKE_object_handle_update_ex(
         struct Scene *scene, struct Object *ob,
         struct RigidBodyWorld *rbw,
         const bool do_proxy_update);
+
 void BKE_object_sculpt_modifiers_changed(struct Object *ob);
 
 int BKE_object_obdata_texspace_get(struct Object *ob, short **r_texflag, float **r_loc, float **r_size, float **r_rot);

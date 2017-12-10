@@ -679,6 +679,11 @@ struct wmManipulatorGroup *CTX_wm_manipulator_group(const bContext *C)
 	return C->wm.manipulator_group;
 }
 
+struct wmMsgBus *CTX_wm_message_bus(const bContext *C)
+{
+	return C->wm.manager ? C->wm.manager->message_bus : NULL;
+}
+
 struct ReportList *CTX_wm_reports(const bContext *C)
 {
 	if (C->wm.manager)
@@ -947,7 +952,7 @@ ViewRender *CTX_data_view_render(const bContext *C)
 	}
 }
 
-RenderEngineType *CTX_data_engine(const bContext *C)
+RenderEngineType *CTX_data_engine_type(const bContext *C)
 {
 	ViewRender *view_render = CTX_data_view_render(C);
 	return RE_engines_find(view_render->engine_id);
@@ -991,7 +996,7 @@ SceneCollection *CTX_data_scene_collection(const bContext *C)
 
 	/* fallback */
 	Scene *scene = CTX_data_scene(C);
-	return BKE_collection_master(scene);
+	return BKE_collection_master(&scene->id);
 }
 
 int CTX_data_mode_enum_ex(const Object *obedit, const Object *ob)
@@ -1271,8 +1276,8 @@ void CTX_data_eval_ctx(const bContext *C, EvaluationContext *eval_ctx)
 
 	Scene *scene = CTX_data_scene(C);
 	ViewLayer *view_layer = CTX_data_view_layer(C);
-	RenderEngineType *engine = CTX_data_engine(C);
+	RenderEngineType *engine_type = CTX_data_engine_type(C);
 	DEG_evaluation_context_init_from_scene(eval_ctx,
-	                                       scene, view_layer, engine,
+	                                       scene, view_layer, engine_type,
 	                                       DAG_EVAL_VIEWPORT);
 }

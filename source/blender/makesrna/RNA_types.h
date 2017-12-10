@@ -108,6 +108,8 @@ typedef enum PropertyUnit {
 
 #define RNA_TRANSLATION_PREC_DEFAULT 5
 
+#define RNA_STACK_ARRAY 32
+
 /* also update enums in bpy_props.c when adding items here
  * watch it: these values are written to files as part of
  * node socket button subtypes!
@@ -156,7 +158,7 @@ typedef enum PropertySubType {
 
 /* Make sure enums are updated with these */
 /* HIGHEST FLAG IN USE: 1 << 31
- * FREE FLAGS: 2, 3, 7, 9, 11, 13, 14, 15, 30 */
+ * FREE FLAGS: 3, 7, 9, 11, 13, 14, 15, 30 */
 typedef enum PropertyFlag {
 	/* editable means the property is editable in the user
 	 * interface, properties are editable by default except
@@ -173,6 +175,9 @@ typedef enum PropertyFlag {
 	 * properties are animatable by default except for pointers
 	 * and collections */
 	PROP_ANIMATABLE              = (1 << 1),
+
+	/* Means the property can be overriden by a local 'proxy' of some linked datablock. */
+	PROP_OVERRIDABLE_STATIC      = (1 << 2),
 
 	/* This flag means when the property's widget is in 'textedit' mode, it will be updated
 	 * after every typed char, instead of waiting final validation. Used e.g. for text searchbox.

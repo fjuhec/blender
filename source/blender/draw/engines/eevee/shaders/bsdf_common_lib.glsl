@@ -432,6 +432,78 @@ vec3 normal_decode(vec2 enc, vec3 view)
     return n;
 }
 
+/* ---- RGBM (shared multiplier) encoding ---- */
+/* From http://iwasbeingirony.blogspot.fr/2010/06/difference-between-rgbm-and-rgbd.html */
+
+/* Higher RGBM_MAX_RANGE gives imprecision issues in low intensity. */
+#define RGBM_MAX_RANGE 512.0
+
+vec4 rgbm_encode(vec3 rgb)
+{
+	float maxRGB = max_v3(rgb);
+	float M = maxRGB / RGBM_MAX_RANGE;
+	M = ceil(M * 255.0) / 255.0;
+	return vec4(rgb / (M * RGBM_MAX_RANGE), M);
+}
+
+vec3 rgbm_decode(vec4 data)
+{
+	return data.rgb * (data.a * RGBM_MAX_RANGE);
+}
+
+/* ---- RGBE (shared exponent) encoding ---- */
+vec4 rgbe_encode(vec3 rgb)
+{
+	float maxRGB = max_v3(rgb);
+	float fexp = ceil(log2(maxRGB));
+	return vec4(rgb / exp2(fexp), (fexp + 128.0) / 255.0);
+}
+
+vec3 rgbe_decode(vec4 data)
+{
+	float fexp = data.a * 255.0 - 128.0;
+	return data.rgb * exp2(fexp);
+}
+
+#if 1
+#define irradiance_encode rgbe_encode
+#define irradiance_decode rgbe_decode
+#else /* No ecoding (when using floating point format) */
+#define irradiance_encode(X) (X).rgbb
+#define irradiance_decode(X) (X).rgb
+#endif
+
+/* Irradiance Visibility Encoding */
+#if 1
+vec4 visibility_encode(vec2 accum, float range)
+{
+	accum /= range;
+
+	vec4 data;
+	data.x = fract(accum.x);
+	data.y = floor(accum.x) / 255.0;
+	data.z = fract(accum.y);
+	data.w = floor(accum.y) / 255.0;
+
+	return data;
+}
+
+vec2 visibility_decode(vec4 data, float range)
+{
+	return (data.xz + data.yw * 255.0) * range;
+}
+#else /* No ecoding (when using floating point format) */
+vec4 visibility_encode(vec2 accum, float range)
+{
+	return accum.xyxy;
+}
+
+vec2 visibility_decode(vec4 data, float range)
+{
+	return data.xy;
+}
+#endif
+
 /* Fresnel monochromatic, perfect mirror */
 float F_eta(float eta, float cos_theta)
 {
@@ -612,14 +684,6 @@ Closure closure_mix(Closure cl1, Closure cl2, float fac)
 {
 	Closure cl;
 
-#ifdef USE_SSS
-	cl.sss_data.rgb = mix(cl1.sss_data.rgb, cl2.sss_data.rgb, fac);
-	cl.sss_data.a = (cl1.sss_data.a > 0.0) ? cl1.sss_data.a : cl2.sss_data.a;
-#ifdef USE_SSS_ALBEDO
-	cl.sss_albedo = (cl1.sss_data.a > 0.0) ? cl1.sss_albedo : cl2.sss_albedo;
-#endif
-#endif
-
 	if (cl1.ssr_id == outputSsrId) {
 		cl.ssr_data = mix(cl1.ssr_data.xyzw, vec4(vec3(0.0), cl1.ssr_data.w), fac); /* do not blend roughness */
 		cl.ssr_normal = cl1.ssr_normal;
@@ -633,12 +697,34 @@ Closure closure_mix(Closure cl1, Closure cl2, float fac)
 	}
 	if (cl1.ssr_id == TRANSPARENT_CLOSURE_FLAG) {
 		cl1.radiance = cl2.radiance;
+#ifdef USE_SSS
+		cl1.sss_data = cl2.sss_data;
+#ifdef USE_SSS_ALBEDO
+		cl1.sss_albedo = cl2.sss_albedo;
+#endif
+#endif
 	}
 	if (cl2.ssr_id == TRANSPARENT_CLOSURE_FLAG) {
 		cl2.radiance = cl1.radiance;
+#ifdef USE_SSS
+		cl2.sss_data = cl1.sss_data;
+#ifdef USE_SSS_ALBEDO
+		cl2.sss_albedo = cl1.sss_albedo;
+#endif
+#endif
 	}
 	cl.radiance = mix(cl1.radiance, cl2.radiance, fac);
 	cl.opacity = mix(cl1.opacity, cl2.opacity, fac);
+
+#ifdef USE_SSS
+	cl.sss_data.rgb = mix(cl1.sss_data.rgb, cl2.sss_data.rgb, fac);
+	cl.sss_data.a = (cl1.sss_data.a > 0.0) ? cl1.sss_data.a : cl2.sss_data.a;
+#ifdef USE_SSS_ALBEDO
+	/* TODO Find a solution to this. Dither? */
+	cl.sss_albedo = (cl1.sss_data.a > 0.0) ? cl1.sss_albedo : cl2.sss_albedo;
+#endif
+#endif
+
 	return cl;
 }
 
@@ -648,6 +734,7 @@ Closure closure_add(Closure cl1, Closure cl2)
 #ifdef USE_SSS
 	cl.sss_data = (cl1.sss_data.a > 0.0) ? cl1.sss_data : cl2.sss_data;
 #ifdef USE_SSS_ALBEDO
+	/* TODO Find a solution to this. Dither? */
 	cl.sss_albedo = (cl1.sss_data.a > 0.0) ? cl1.sss_albedo : cl2.sss_albedo;
 #endif
 #endif
@@ -655,6 +742,8 @@ Closure closure_add(Closure cl1, Closure cl2)
 	cl.opacity = cl1.opacity + cl2.opacity;
 	return cl;
 }
+
+uniform bool sssToggle;
 
 #if defined(MESH_SHADER) && !defined(USE_ALPHA_HASH) && !defined(USE_ALPHA_CLIP) && !defined(SHADOW_SHADER) && !defined(USE_MULTIPLY)
 layout(location = 0) out vec4 fragColor;
@@ -700,6 +789,15 @@ void main()
 	sssData = cl.sss_data;
 #ifdef USE_SSS_ALBEDO
 	sssAlbedo = cl.sss_albedo.rgbb;
+#endif
+#endif
+
+	/* For Probe capture */
+#ifdef USE_SSS
+#ifdef USE_SSS_ALBEDO
+	fragColor.rgb += cl.sss_data.rgb * cl.sss_albedo.rgb * float(!sssToggle);
+#else
+	fragColor.rgb += cl.sss_data.rgb * float(!sssToggle);
 #endif
 #endif
 }

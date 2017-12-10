@@ -123,6 +123,7 @@
 
 #include "WM_api.h"
 #include "WM_types.h"
+#include "WM_message.h"
 #include "wm.h"
 #include "wm_files.h"
 #include "wm_window.h"
@@ -504,7 +505,11 @@ static void wm_file_read_post(bContext *C, const bool is_startup_file, const boo
 	BLI_callback_exec(CTX_data_main(C), NULL, BLI_CB_EVT_VERSION_UPDATE);
 	BLI_callback_exec(CTX_data_main(C), NULL, BLI_CB_EVT_LOAD_POST);
 
+#if 1
 	WM_event_add_notifier(C, NC_WM | ND_FILEREAD, NULL);
+#else
+	WM_msg_publish_static(CTX_wm_message_bus(C), WM_MSG_STATICTYPE_FILE_READ);
+#endif
 
 	/* report any errors.
 	 * currently disabled if addons aren't yet loaded */
@@ -517,6 +522,9 @@ static void wm_file_read_post(bContext *C, const bool is_startup_file, const boo
 		 * a blend file and do anything since the screen
 		 * won't be set to a valid value again */
 		CTX_wm_window_set(C, NULL); /* exits queues */
+
+		/* Ensure tools are registered. */
+		WM_toolsystem_init(C);
 	}
 
 	if (!G.background) {
@@ -1035,14 +1043,14 @@ static ImBuf *blend_file_thumb(const bContext *C, Scene *scene, ViewLayer *view_
 		ibuf = ED_view3d_draw_offscreen_imbuf_simple(
 		        &eval_ctx, scene, view_layer, scene->camera,
 		        BLEN_THUMB_SIZE * 2, BLEN_THUMB_SIZE * 2,
-		        IB_rect, OB_SOLID, false, false, false, R_ALPHAPREMUL, 0, false, NULL,
+		        IB_rect, OB_SOLID, V3D_OFSDRAW_NONE, R_ALPHAPREMUL, 0, NULL,
 		        NULL, NULL, err_out);
 	}
 	else {
 		ibuf = ED_view3d_draw_offscreen_imbuf(
 		        &eval_ctx, scene, view_layer, v3d, ar,
 		        BLEN_THUMB_SIZE * 2, BLEN_THUMB_SIZE * 2,
-		        IB_rect, false, R_ALPHAPREMUL, 0, false, NULL,
+		        IB_rect, V3D_OFSDRAW_NONE, R_ALPHAPREMUL, 0, NULL,
 		        NULL, NULL, err_out);
 	}
 
