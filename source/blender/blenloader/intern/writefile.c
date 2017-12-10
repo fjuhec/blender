@@ -118,6 +118,7 @@
 #include "DNA_controller_types.h"
 #include "DNA_dynamicpaint_types.h"
 #include "DNA_genfile.h"
+#include "DNA_groom_types.h"
 #include "DNA_group_types.h"
 #include "DNA_gpencil_types.h"
 #include "DNA_fileglobal_types.h"
@@ -3813,6 +3814,11 @@ static void write_workspace(WriteData *wd, WorkSpace *workspace)
 	writelist(wd, DATA, TransformOrientation, transform_orientations);
 }
 
+static void write_groom(WriteData *wd, Groom *groom)
+{
+	writestruct(wd, ID_GM, Groom, 1, groom);
+}
+
 /* Keep it last of write_foodata functions. */
 static void write_libraries(WriteData *wd, Main *main)
 {
@@ -4107,6 +4113,9 @@ static bool write_file_handle(
 						break;
 					case ID_CF:
 						write_cachefile(wd, (CacheFile *)id);
+						break;
+					case ID_GM:
+						write_groom(wd, (Groom *)id);
 						break;
 					case ID_LI:
 						/* Do nothing, handled below - and should never be reached. */
