@@ -231,6 +231,9 @@ static Object *rna_Main_objects_new(Main *bmain, ReportList *reports, const char
 			case ID_LT:
 				type = OB_LATTICE;
 				break;
+			case ID_GD:
+				type = OB_GPENCIL;
+				break;
 			case ID_AR:
 				type = OB_ARMATURE;
 				break;
