@@ -990,6 +990,8 @@ void BKE_main_lib_objects_recalc_all(Main *bmain)
 	DEG_id_type_tag(bmain, ID_OB);
 }
 
+BLI_STATIC_ASSERT(MAX_LIBARRAY == INDEX_ID_NULL + 1, "MAX_LIBARRAY must be large enough for all ID types")
+
 /**
  * puts into array *lb pointers to all the ListBase structs in main,
  * and returns the number of them as the function result. This is useful for
