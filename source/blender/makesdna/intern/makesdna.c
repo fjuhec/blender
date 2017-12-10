@@ -134,6 +134,7 @@ static const char *includefiles[] = {
 	"DNA_workspace_types.h",
 	"DNA_lightprobe_types.h",
 	"DNA_hair_types.h",
+	"DNA_groom_types.h",
 
 	/* see comment above before editing! */
 
@@ -1362,5 +1363,6 @@ int main(int argc, char **argv)
 #include "DNA_workspace_types.h"
 #include "DNA_lightprobe_types.h"
 #include "DNA_hair_types.h"
+#include "DNA_groom_types.h"
 
 /* end of list */

@@ -71,6 +71,7 @@
 #include "DNA_effect_types.h"
 #include "DNA_fileglobal_types.h"
 #include "DNA_genfile.h"
+#include "DNA_groom_types.h"
 #include "DNA_group_types.h"
 #include "DNA_gpencil_types.h"
 #include "DNA_hair_types.h"
@@ -8264,6 +8265,30 @@ static void direct_link_linestyle(FileData *fd, FreestyleLineStyle *linestyle)
 	}
 }
 
+/* ************ READ GROOM *************** */
+
+static void lib_link_grooms(FileData *fd, Main *bmain)
+{
+	for (Groom *groom = bmain->grooms.first; groom; groom = groom->id.next) {
+		ID *id = (ID *)groom;
+
+		if ((id->tag & LIB_TAG_NEED_LINK) == 0) {
+			continue;
+		}
+		IDP_LibLinkProperty(id->properties, fd);
+		id_us_ensure_real(id);
+
+		// LIBLINK STUFF HERE
+
+		id->tag &= ~LIB_TAG_NEED_LINK;
+	}
+}
+
+static void direct_link_groom(FileData *fd, Groom *groom, const Main *main)
+{
+	UNUSED_VARS(fd, groom, main);
+}
+
 /* ************** GENERAL & MAIN ******************** */
 
 
@@ -8570,6 +8595,9 @@ static BHead *read_libblock(FileData *fd, Main *main, BHead *bhead, const short 
 		case ID_WS:
 			direct_link_workspace(fd, (WorkSpace *)id, main);
 			break;
+		case ID_GM:
+			direct_link_groom(fd, (Groom *)id, main);
+			break;
 	}
 	
 	oldnewmap_free_unused(fd->datamap);
@@ -8750,6 +8778,7 @@ static void lib_link_all(FileData *fd, Main *main)
 	lib_link_gpencil(fd, main);
 	lib_link_cachefiles(fd, main);
 	lib_link_workspaces(fd, main);
+	lib_link_grooms(fd, main);
 
 	lib_link_library(fd, main);    /* only init users */
 }

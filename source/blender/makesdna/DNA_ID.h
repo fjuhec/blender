@@ -267,6 +267,7 @@ typedef enum ID_Type {
 	ID_CF   = MAKE_ID2('C', 'F'), /* CacheFile */
 	ID_WS   = MAKE_ID2('W', 'S'), /* WorkSpace */
 	ID_LP   = MAKE_ID2('L', 'P'), /* LightProbe */
+	ID_GM   = MAKE_ID2('G', 'M'), /* Groom */
 } ID_Type;
 
 /* Only used as 'placeholder' in .blend files for directly linked datablocks. */
@@ -433,6 +434,7 @@ enum {
 	INDEX_ID_ME,
 	INDEX_ID_CU,
 	INDEX_ID_MB,
+	INDEX_ID_GM,
 	INDEX_ID_LT,
 	INDEX_ID_LA,
 	INDEX_ID_CA,

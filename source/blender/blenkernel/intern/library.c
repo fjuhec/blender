@@ -47,8 +47,9 @@
 #include "DNA_brush_types.h"
 #include "DNA_cachefile_types.h"
 #include "DNA_camera_types.h"
-#include "DNA_group_types.h"
 #include "DNA_gpencil_types.h"
+#include "DNA_groom_types.h"
+#include "DNA_group_types.h"
 #include "DNA_ipo_types.h"
 #include "DNA_key_types.h"
 #include "DNA_lamp_types.h"
@@ -97,6 +98,7 @@
 #include "BKE_global.h"
 #include "BKE_group.h"
 #include "BKE_gpencil.h"
+#include "BKE_groom.h"
 #include "BKE_idcode.h"
 #include "BKE_idprop.h"
 #include "BKE_image.h"
@@ -474,6 +476,9 @@ bool id_make_local(Main *bmain, ID *id, const bool test, const bool lib_local)
 		case ID_CF:
 			if (!test) BKE_cachefile_make_local(bmain, (CacheFile *)id, lib_local);
 			return true;
+		case ID_GM:
+			if (!test) BKE_groom_make_local(bmain, (Groom *)id, lib_local);
+			return true;
 		case ID_WS:
 		case ID_SCR:
 			/* A bit special: can be appended but not linked. Return false
@@ -657,6 +662,9 @@ bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, con
 			break;
 		case ID_VF:
 			BKE_vfont_copy_data(bmain, (VFont *)*r_newid, (VFont *)id, flag);
+			break;
+		case ID_GM:
+			BKE_groom_copy_data(bmain, (Groom *)*r_newid, (Groom *)id, flag);
 			break;
 		case ID_LI:
 		case ID_SCR:
@@ -888,6 +896,8 @@ ListBase *which_libbase(Main *mainlib, short type)
 			return &(mainlib->cachefiles);
 		case ID_WS:
 			return &(mainlib->workspaces);
+		case ID_GM:
+			return &(mainlib->grooms);
 	}
 	return NULL;
 }
@@ -1013,6 +1023,7 @@ int set_listbasepointers(Main *main, ListBase **lb)
 	lb[INDEX_ID_ME] = &(main->mesh);
 	lb[INDEX_ID_CU] = &(main->curve);
 	lb[INDEX_ID_MB] = &(main->mball);
+	lb[INDEX_ID_GM] = &(main->grooms);
 
 	lb[INDEX_ID_LT] = &(main->latt);
 	lb[INDEX_ID_LA] = &(main->lamp);
@@ -1104,6 +1115,7 @@ size_t BKE_libblock_get_alloc_info(short type, const char **name)
 		CASE_RETURN(ID_PC,  PaintCurve);
 		CASE_RETURN(ID_CF,  CacheFile);
 		CASE_RETURN(ID_WS,  WorkSpace);
+		CASE_RETURN(ID_GM,  Groom);
 	}
 	return 0;
 #undef CASE_RETURN

@@ -281,6 +281,7 @@ int BKE_idcode_to_index(const short idcode)
 		CASE_IDINDEX(CF);
 		CASE_IDINDEX(CU);
 		CASE_IDINDEX(GD);
+		CASE_IDINDEX(GM);
 		CASE_IDINDEX(GR);
 		CASE_IDINDEX(IM);
 		CASE_IDINDEX(KE);

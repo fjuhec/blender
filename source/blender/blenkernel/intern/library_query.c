@@ -38,6 +38,7 @@
 #include "DNA_camera_types.h"
 #include "DNA_constraint_types.h"
 #include "DNA_controller_types.h"
+#include "DNA_groom_types.h"
 #include "DNA_group_types.h"
 #include "DNA_gpencil_types.h"
 #include "DNA_key_types.h"
@@ -662,6 +663,13 @@ void BKE_library_foreach_ID_link(Main *bmain, ID *id, LibraryIDLinkCallback call
 				break;
 			}
 
+			case ID_GM:
+			{
+				Groom *groom = (Groom *) id;
+				UNUSED_VARS(groom);
+				break;
+			}
+
 			case ID_MA:
 			{
 				Material *material = (Material *) id;
@@ -1130,6 +1138,8 @@ bool BKE_library_id_can_use_idtype(ID *id_owner, const short id_type_used)
 			return (ELEM(id_type_used, ID_TE, ID_OB));
 		case ID_LP:
 			return ELEM(id_type_used, ID_IM);
+		case ID_GM:
+			return true;
 		case ID_WS:
 		case ID_IM:
 		case ID_VF:
