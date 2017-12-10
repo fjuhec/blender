@@ -154,6 +154,7 @@ bool BLT_lang_is_ime_supported(void);
 #define BLT_I18NCONTEXT_ID_WINDOWMANAGER        "WindowManager"
 #define BLT_I18NCONTEXT_ID_MOVIECLIP            "MovieClip"
 #define BLT_I18NCONTEXT_ID_MASK                 "Mask"
+#define BLT_I18NCONTEXT_ID_GROOM                "Groom"
 
 /* Helper for bpy.app.i18n object... */
 typedef struct {
@@ -178,6 +179,7 @@ typedef struct {
 	BLT_I18NCONTEXTS_ITEM(BLT_I18NCONTEXT_ID_CURVE, "id_curve"),                                                       \
 	BLT_I18NCONTEXTS_ITEM(BLT_I18NCONTEXT_ID_FREESTYLELINESTYLE, "id_fs_linestyle"),                                   \
 	BLT_I18NCONTEXTS_ITEM(BLT_I18NCONTEXT_ID_GPENCIL, "id_gpencil"),                                                   \
+	BLT_I18NCONTEXTS_ITEM(BLT_I18NCONTEXT_ID_GROOM, "id_groom"),                                                       \
 	BLT_I18NCONTEXTS_ITEM(BLT_I18NCONTEXT_ID_GROUP, "id_group"),                                                       \
 	BLT_I18NCONTEXTS_ITEM(BLT_I18NCONTEXT_ID_ID, "id_id"),                                                             \
 	BLT_I18NCONTEXTS_ITEM(BLT_I18NCONTEXT_ID_IMAGE, "id_image"),                                                       \
