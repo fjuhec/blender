@@ -195,6 +195,7 @@ class VIEW3D_PT_tools_add_object(View3DPanel, Panel):
         layout.operator("object.empty_add", text="Empty", icon='OUTLINER_OB_EMPTY').type = 'PLAIN_AXES'
         layout.operator("object.speaker_add", text="Speaker", icon='OUTLINER_OB_SPEAKER')
         layout.operator("object.camera_add", text="Camera", icon='OUTLINER_OB_CAMERA')
+        layout.operator("object.groom_add", text="Groom", icon='NONE')
 
     def draw(self, context):
         layout = self.layout

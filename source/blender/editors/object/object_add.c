@@ -36,6 +36,7 @@
 #include "DNA_anim_types.h"
 #include "DNA_camera_types.h"
 #include "DNA_curve_types.h"
+#include "DNA_groom_types.h"
 #include "DNA_group_types.h"
 #include "DNA_lamp_types.h"
 #include "DNA_key_types.h"
@@ -72,6 +73,7 @@
 #include "BKE_displist.h"
 #include "BKE_effect.h"
 #include "BKE_font.h"
+#include "BKE_groom.h"
 #include "BKE_group.h"
 #include "BKE_lamp.h"
 #include "BKE_lattice.h"
@@ -773,6 +775,41 @@ void OBJECT_OT_metaball_add(wmOperatorType *ot)
 	ot->prop = RNA_def_enum(ot->srna, "type", rna_enum_metaelem_type_items, 0, "Primitive", "");
 
 	ED_object_add_unit_props(ot);
+	ED_object_add_generic_props(ot, true);
+}
+
+/********************* Add Groom Operator ********************/
+
+static int object_groom_add_exec(bContext *C, wmOperator *op)
+{
+	bool enter_editmode;
+	unsigned int layer;
+	float loc[3], rot[3];
+	if (!ED_object_add_generic_get_opts(C, op, 'Z', loc, rot, &enter_editmode, &layer, NULL))
+		return OPERATOR_CANCELLED;
+
+	Object *ob = ED_object_add_type(C, OB_GROOM, NULL, loc, rot, false, layer);
+
+	Groom *groom = ob->data;
+	UNUSED_VARS(groom);
+
+	return OPERATOR_FINISHED;
+}
+
+void OBJECT_OT_groom_add(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Add Groom";
+	ot->description = "Add a groom object to the scene";
+	ot->idname = "OBJECT_OT_groom_add";
+
+	/* api callbacks */
+	ot->exec = object_groom_add_exec;
+	ot->poll = ED_operator_objectmode;
+
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
 	ED_object_add_generic_props(ot, true);
 }
 
