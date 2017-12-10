@@ -427,12 +427,24 @@ void DepsgraphNodeBuilder::build_group(Group *group)
 		return;
 	}
 	group_id->tag |= LIB_TAG_DOIT;
-
+	/* Build group objects. */
 	LINKLIST_FOREACH(Base *, base, &group->view_layer->object_bases) {
 		build_object(NULL, base->object, DEG_ID_LINKED_INDIRECTLY);
 	}
-
-	build_view_layer_collections(&group->id, group->view_layer);
+	/* Operation to evaluate the whole view layer.
+	 *
+	 * NOTE: We re-use DONE opcode even though the function does everything.
+	 * This way we wouldn't need to worry about possible relations from DONE,
+	 * regardless whether it's a group or scene or something else.
+	 */
+	add_id_node(group_id);
+	Group *group_cow = get_cow_datablock(group);
+	add_operation_node(group_id,
+	                   DEG_NODE_TYPE_LAYER_COLLECTIONS,
+	                   function_bind(BKE_group_eval_view_layers,
+	                                 _1,
+	                                 group_cow),
+	                   DEG_OPCODE_VIEW_LAYER_DONE);
 }
 
 void DepsgraphNodeBuilder::build_object(Base *base,
