@@ -41,6 +41,7 @@
 #include "DNA_cachefile_types.h"
 #include "DNA_group_types.h"
 #include "DNA_gpencil_types.h"
+#include "DNA_groom_types.h"
 #include "DNA_ipo_types.h"
 #include "DNA_key_types.h"
 #include "DNA_lamp_types.h"
@@ -79,6 +80,7 @@
 #include "BKE_font.h"
 #include "BKE_group.h"
 #include "BKE_gpencil.h"
+#include "BKE_groom.h"
 #include "BKE_idprop.h"
 #include "BKE_image.h"
 #include "BKE_ipo.h"
@@ -865,6 +867,9 @@ void BKE_libblock_free_datablock(ID *id, const int UNUSED(flag))
 			break;
 		case ID_WS:
 			BKE_workspace_free((WorkSpace *)id);
+			break;
+		case ID_GM:
+			BKE_groom_free((Groom *)id);
 			break;
 	}
 }
