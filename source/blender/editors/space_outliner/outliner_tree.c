@@ -40,6 +40,7 @@
 #include "DNA_camera_types.h"
 #include "DNA_cachefile_types.h"
 #include "DNA_gpencil_types.h"
+#include "DNA_groom_types.h"
 #include "DNA_group_types.h"
 #include "DNA_key_types.h"
 #include "DNA_lamp_types.h"
@@ -664,6 +665,14 @@ static void outliner_add_id_contents(SpaceOops *soops, TreeElement *te, TreeStor
 			
 			for (a = 0; a < mb->totcol; a++)
 				outliner_add_element(soops, &te->subtree, mb->mat[a], te, 0, a);
+			break;
+		}
+		case ID_GM:
+		{
+			Groom *groom = (Groom *)id;
+			
+			if (outliner_animdata_test(groom->adt))
+				outliner_add_element(soops, &te->subtree, groom, te, TSE_ANIM_DATA, 0);
 			break;
 		}
 		case ID_MA:

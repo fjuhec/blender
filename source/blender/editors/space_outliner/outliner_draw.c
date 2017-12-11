@@ -1159,6 +1159,8 @@ static void tselem_draw_icon(uiBlock *block, int xmax, float x, float y, TreeSto
 					tselem_draw_icon_uibut(&arg, ICON_OUTLINER_OB_CURVE); break;
 				case OB_MBALL:
 					tselem_draw_icon_uibut(&arg, ICON_OUTLINER_OB_META); break;
+				case OB_GROOM:
+					tselem_draw_icon_uibut(&arg, ICON_OUTLINER_OB_CURVE); break;
 				case OB_LATTICE:
 					tselem_draw_icon_uibut(&arg, ICON_OUTLINER_OB_LATTICE); break;
 				case OB_ARMATURE:
