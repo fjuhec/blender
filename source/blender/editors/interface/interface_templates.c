@@ -61,6 +61,7 @@
 #include "BKE_idprop.h"
 #include "BKE_layer.h"
 #include "BKE_library.h"
+#include "BKE_library_override.h"
 #include "BKE_linestyle.h"
 #include "BKE_main.h"
 #include "BKE_modifier.h"
@@ -392,6 +393,20 @@ static void template_id_cb(bContext *C, void *arg_litem, void *arg_event)
 				}
 			}
 			break;
+		case UI_ID_OVERRIDE:
+			if (id) {
+				Main *bmain = CTX_data_main(C);
+				ID *override_id = BKE_override_static_create_from(bmain, id);
+				if (override_id != NULL) {
+					BKE_main_id_clear_newpoins(bmain);
+
+					/* Assign new pointer, takes care of updates/notifiers */
+					RNA_id_pointer_create(override_id, &idptr);
+					RNA_property_pointer_set(&template_ui->ptr, template_ui->prop, idptr);
+					RNA_property_update(C, &template_ui->ptr, template_ui->prop);
+				}
+			}
+			break;
 		case UI_ID_ALONE:
 			if (id) {
 				const bool do_scene_obj = (GS(id->name) == ID_OB) &&
@@ -524,13 +539,27 @@ static void template_ID(
 				UI_but_flag_enable(but, UI_BUT_DISABLED);
 			}
 			else {
+				const bool disabled = (!id_make_local(CTX_data_main(C), id, true /* test */, false) ||
+				                       (idfrom && idfrom->lib));
 				but = uiDefIconBut(block, UI_BTYPE_BUT, 0, ICON_LIBRARY_DATA_DIRECT, 0, 0, UI_UNIT_X, UI_UNIT_Y,
 				                   NULL, 0, 0, 0, 0, TIP_("Direct linked library data-block, click to make local"));
-				if (!id_make_local(CTX_data_main(C), id, true /* test */, false) || (idfrom && idfrom->lib))
+				if (disabled) {
 					UI_but_flag_enable(but, UI_BUT_DISABLED);
-			}
+				}
+				else {
+					UI_but_funcN_set(but, template_id_cb, MEM_dupallocN(template_ui), SET_INT_IN_POINTER(UI_ID_LOCAL));
+				}
 
-			UI_but_funcN_set(but, template_id_cb, MEM_dupallocN(template_ui), SET_INT_IN_POINTER(UI_ID_LOCAL));
+				but = uiDefIconBut(block, UI_BTYPE_BUT, 0, ICON_LIBRARY_DATA_OVERRIDE, 0, 0, UI_UNIT_X, UI_UNIT_Y,
+				                   NULL, 0, 0, 0, 0,
+				                   TIP_("Direct linked library data-block, click to create static override"));
+				if (disabled) {
+					UI_but_flag_enable(but, UI_BUT_DISABLED);
+				}
+				else {
+					UI_but_funcN_set(but, template_id_cb, MEM_dupallocN(template_ui), SET_INT_IN_POINTER(UI_ID_OVERRIDE));
+				}
+			}
 		}
 
 		if (id->us > 1) {
@@ -1799,6 +1828,11 @@ static void colorband_buttons_layout(
 	bt = uiDefIconTextBut(block, UI_BTYPE_BUT, 0, ICON_ARROW_LEFTRIGHT, "", xs + 4.0f * unit, ys + UI_UNIT_Y, 2.0f * unit, UI_UNIT_Y,
 	              NULL, 0, 0, 0, 0, TIP_("Flip the color ramp"));
 	UI_but_funcN_set(bt, colorband_flip_cb, MEM_dupallocN(cb), coba);
+
+	bt = uiDefIconButO(block, UI_BTYPE_BUT, "UI_OT_eyedropper_colorband", WM_OP_INVOKE_DEFAULT, ICON_EYEDROPPER, xs + 6.0f * unit, ys + UI_UNIT_Y, UI_UNIT_X, UI_UNIT_Y, NULL);
+	bt->custom_data = coba;
+	bt->func_argN = MEM_dupallocN(cb);
+
 	UI_block_align_end(block);
 	UI_block_emboss_set(block, UI_EMBOSS);
 
