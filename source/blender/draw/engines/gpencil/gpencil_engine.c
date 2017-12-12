@@ -27,6 +27,7 @@
 #include "DRW_render.h"
 
 #include "BKE_global.h"
+#include "BKE_object.h"
 #include "BKE_paint.h"
 #include "BKE_gpencil.h"
 
@@ -431,6 +432,11 @@ static void GPENCIL_cache_init(void *vedata)
 
 static void GPENCIL_cache_populate(void *vedata, Object *ob)
 {
+	/* object must be visisible */
+	if (!BKE_object_is_visible(ob)) {
+		return;
+	}
+
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 	const DRWContextState *draw_ctx = DRW_context_state_get();
 	Scene *scene = draw_ctx->scene;
