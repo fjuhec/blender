@@ -1732,7 +1732,6 @@ void DepsgraphRelationBuilder::build_obdata_geom(Object *object)
 			 */
 			LINKLIST_FOREACH (bGPDpaletteref *, palslot, &gpd->palette_slots) {
 				if (palslot->palette) {
-					printf("add paletteslot - %s.%s\n", gpd->id.name, palslot->palette->id.name);
 					ComponentKey palette_key(&palslot->palette->id, DEG_NODE_TYPE_PARAMETERS);
 					add_relation(palette_key, geometry_key, "Palette -> GP Data");
 				}
