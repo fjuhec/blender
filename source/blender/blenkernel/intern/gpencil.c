@@ -2536,10 +2536,10 @@ bool BKE_gp_smooth_stroke_thickness(bGPDstroke *gps, int i, float inf)
 	*  at the distance of point b
 	*/
 	float fac = line_point_factor_v3(&ptb->x, &pta->x, &ptc->x);
-	float optimal = (1.0f - fac) * pta->pressure + fac * ptc->pressure;
+	float optimal = interpf(ptc->pressure, pta->pressure, fac);
 
 	/* Based on influence factor, blend between original and optimal */
-	ptb->pressure = (1.0f - inf) * ptb->pressure + inf * optimal;
+	ptb->pressure = interpf(optimal, ptb->pressure, inf);
 
 	return true;
 }
