@@ -433,7 +433,7 @@ class GreasePencilBrushOptionsPanel:
 class GreasePencilStrokeSculptPanel:
     # subclass must set
     # bl_space_type = 'IMAGE_EDITOR'
-    bl_label = " " # NOTE: This is left blank as the text varies dynamically (see below)
+    bl_label = "Sculpt Strokes"
     bl_category = "Tools"
     bl_region_type = 'TOOLS'
 
@@ -448,18 +448,9 @@ class GreasePencilStrokeSculptPanel:
             if not is_3d_view:
                 return bool(gpd.use_stroke_edit_mode)
             else:
-                return bool(gpd.is_stroke_sculpt_mode or gpd.is_stroke_weight_mode)
+                return bool(gpd.is_stroke_sculpt_mode)
 
         return False
-
-    @staticmethod
-    def draw_header(self, context):
-        layout = self.layout
-        gpd = context.gpencil_data
-        if gpd is not None and gpd.is_stroke_weight_mode:
-            layout.label("Weight Paint")
-        else:
-            layout.label("Sculpt Strokes")
 
     @staticmethod
     def draw(self, context):
@@ -469,10 +460,7 @@ class GreasePencilStrokeSculptPanel:
         tool = settings.tool
         brush = settings.brush
 
-        if gpd.is_stroke_sculpt_mode:
-            layout.template_icon_view(settings, "tool", show_labels=True)
-        if gpd.is_stroke_weight_mode:
-            layout.template_icon_view(settings, "weight_tool", show_labels=True)
+        layout.template_icon_view(settings, "tool", show_labels=True)
 
         col = layout.column()
         col.prop(brush, "size", slider=True)
@@ -481,33 +469,72 @@ class GreasePencilStrokeSculptPanel:
         row.prop(brush, "use_pressure_strength", text="")
         col.prop(brush, "use_falloff")
 
-        if gpd.is_stroke_sculpt_mode:
-            if tool in {'SMOOTH', 'RANDOMIZE'}:
-                row = layout.row(align=True)
-                row.prop(settings, "affect_position", text="Position", icon='MESH_DATA', toggle=True)
-                row.prop(settings, "affect_strength", text="Strength", icon='COLOR', toggle=True)
-                row.prop(settings, "affect_thickness", text="Thickness", icon='LINE_DATA', toggle=True)
-
-            layout.separator()
-
-            if tool == 'THICKNESS':
-                layout.row().prop(brush, "direction", expand=True)
-            elif tool == 'PINCH':
-                row = layout.row(align=True)
-                row.prop_enum(brush, "direction", 'ADD', text="Pinch")
-                row.prop_enum(brush, "direction", 'SUBTRACT', text="Inflate")
-            elif settings.tool == 'TWIST':
-                row = layout.row(align=True)
-                row.prop_enum(brush, "direction", 'SUBTRACT', text="CW")
-                row.prop_enum(brush, "direction", 'ADD', text="CCW")
-
+        if tool in {'SMOOTH', 'RANDOMIZE'}:
             row = layout.row(align=True)
-            row.prop(settings, "use_select_mask")
-            row = layout.row(align=True)
-            row.prop(settings, "selection_alpha", slider=True)
+            row.prop(settings, "affect_position", text="Position", icon='MESH_DATA', toggle=True)
+            row.prop(settings, "affect_strength", text="Strength", icon='COLOR', toggle=True)
+            row.prop(settings, "affect_thickness", text="Thickness", icon='LINE_DATA', toggle=True)
 
-            if tool == 'SMOOTH':
-                layout.prop(brush, "affect_pressure")
+        layout.separator()
+
+        if tool == 'THICKNESS':
+            layout.row().prop(brush, "direction", expand=True)
+        elif tool == 'PINCH':
+            row = layout.row(align=True)
+            row.prop_enum(brush, "direction", 'ADD', text="Pinch")
+            row.prop_enum(brush, "direction", 'SUBTRACT', text="Inflate")
+        elif settings.tool == 'TWIST':
+            row = layout.row(align=True)
+            row.prop_enum(brush, "direction", 'SUBTRACT', text="CW")
+            row.prop_enum(brush, "direction", 'ADD', text="CCW")
+
+        row = layout.row(align=True)
+        row.prop(settings, "use_select_mask")
+        row = layout.row(align=True)
+        row.prop(settings, "selection_alpha", slider=True)
+
+        if tool == 'SMOOTH':
+            layout.prop(brush, "affect_pressure")
+
+
+class GreasePencilWeightPaintPanel:
+    # subclass must set
+    # bl_space_type = 'IMAGE_EDITOR'
+    bl_label = "Weight Paint"
+    bl_category = "Tools"
+    bl_region_type = 'TOOLS'
+
+    @classmethod
+    def poll(cls, context):
+        if context.gpencil_data is None:
+            return False
+
+        gpd = context.gpencil_data
+        if context.editable_gpencil_strokes:
+            is_3d_view = context.space_data.type == 'VIEW_3D'
+            if not is_3d_view:
+                return bool(gpd.use_stroke_edit_mode)
+            else:
+                return bool(gpd.is_stroke_weight_mode)
+
+        return False
+
+    @staticmethod
+    def draw(self, context):
+        layout = self.layout
+        gpd = context.gpencil_data
+        settings = context.tool_settings.gpencil_sculpt
+        tool = settings.tool
+        brush = settings.brush
+
+        layout.template_icon_view(settings, "weight_tool", show_labels=True)
+
+        col = layout.column()
+        col.prop(brush, "size", slider=True)
+        row = col.row(align=True)
+        row.prop(brush, "strength", slider=True)
+        row.prop(brush, "use_pressure_strength", text="")
+        col.prop(brush, "use_falloff")
 
 
 class GreasePencilMultiFramePanel:
