@@ -2385,13 +2385,14 @@ bool BKE_gpencil_vgroup_remove_point_weight(bGPDspoint *pt, int index)
 
 
 /* ************************************************** */
+
 /**
-* Apply smooth to stroke point
-* \param gps              Stroke to smooth
-* \param i                Point index
-* \param inf              Amount of smoothing to apply
-* \param affect_pressure  Apply smoothing to pressure values too?
-*/
+ * Apply smooth to stroke point
+ * \param gps              Stroke to smooth
+ * \param i                Point index
+ * \param inf              Amount of smoothing to apply
+ * \param affect_pressure  Apply smoothing to pressure values too?
+ */
 bool BKE_gp_smooth_stroke(bGPDstroke *gps, int i, float inf, bool affect_pressure)
 {
 	bGPDspoint *pt = &gps->points[i];
@@ -2468,11 +2469,11 @@ bool BKE_gp_smooth_stroke(bGPDstroke *gps, int i, float inf, bool affect_pressur
 }
 
 /**
-* Apply smooth for strength to stroke point
-* \param gps              Stroke to smooth
-* \param i                Point index
-* \param inf              Amount of smoothing to apply
-*/
+ * Apply smooth for strength to stroke point
+ * \param gps              Stroke to smooth
+ * \param i                Point index
+ * \param inf              Amount of smoothing to apply
+ */
 bool BKE_gp_smooth_stroke_strength(bGPDstroke *gps, int i, float inf)
 {
 	bGPDspoint *ptb = &gps->points[i];
@@ -2506,11 +2507,11 @@ bool BKE_gp_smooth_stroke_strength(bGPDstroke *gps, int i, float inf)
 }
 
 /**
-* Apply smooth for thickness to stroke point (use pressure)
-* \param gps              Stroke to smooth
-* \param i                Point index
-* \param inf              Amount of smoothing to apply
-*/
+ * Apply smooth for thickness to stroke point (use pressure)
+ * \param gps              Stroke to smooth
+ * \param i                Point index
+ * \param inf              Amount of smoothing to apply
+ */
 bool BKE_gp_smooth_stroke_thickness(bGPDstroke *gps, int i, float inf)
 {
 	bGPDspoint *ptb = &gps->points[i];
@@ -2544,13 +2545,13 @@ bool BKE_gp_smooth_stroke_thickness(bGPDstroke *gps, int i, float inf)
 }
 
 /**
-* Get range of selected frames in layer.
-* Always the active frame is considered as selected, so if no more selected the range
-* will be equal to the current active frame.
-* \param gpl              Layer
-* \param r_initframe      Number of first selected frame
-* \param r_endframe       Number of last selected frame
-*/
+ * Get range of selected frames in layer.
+ * Always the active frame is considered as selected, so if no more selected the range
+ * will be equal to the current active frame.
+ * \param gpl              Layer
+ * \param r_initframe      Number of first selected frame
+ * \param r_endframe       Number of last selected frame
+ */
 void BKE_gp_get_range_selected(bGPDlayer *gpl, int *r_initframe, int *r_endframe)
 {
 	*r_initframe = gpl->actframe->framenum;
@@ -2567,14 +2568,15 @@ void BKE_gp_get_range_selected(bGPDlayer *gpl, int *r_initframe, int *r_endframe
 		}
 	}
 }
+
 /**
-* Get Falloff factor base on frame range
-* \param gpf          Frame
-* \param actnum       Number of active frame in layer
-* \param f_init       Number of first selected frame
-* \param f_end        Number of last selected frame
-* \param cur_falloff  Curve with falloff factors
-*/
+ * Get Falloff factor base on frame range
+ * \param gpf          Frame
+ * \param actnum       Number of active frame in layer
+ * \param f_init       Number of first selected frame
+ * \param f_end        Number of last selected frame
+ * \param cur_falloff  Curve with falloff factors
+ */
 float BKE_gpencil_multiframe_falloff_calc(bGPDframe *gpf, int actnum, int f_init, int f_end, CurveMapping *cur_falloff)
 {
 	float fnum = 0.5f; /* default mid curve */
