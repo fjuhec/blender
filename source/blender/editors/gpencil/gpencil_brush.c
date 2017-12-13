@@ -129,6 +129,13 @@ typedef struct tGP_BrushEditData {
 	/* - effect vector (e.g. 2D/3D translation for grab brush) */
 	float dvec[3];
 	
+	/* - multiframe falloff factor */
+	float mf_falloff;
+	
+	/* active vertex group */
+	int vrgroup;
+	
+	
 	/* brush geometry (bounding box) */
 	rcti brush_rect;
 	
@@ -142,8 +149,6 @@ typedef struct tGP_BrushEditData {
 	/* Timer for in-place accumulation of brush effect */
 	wmTimer *timer;
 	bool timerTick; /* is this event from a timer */
-	int vrgroup;    /* active vertex group */
-	float falloff;  /* multiframe falloff factor */
 } tGP_BrushEditData;
 
 
@@ -246,9 +251,10 @@ static float gp_brush_influence_calc(tGP_BrushEditData *gso, const int radius, c
 		
 		influence *= fac;
 	}
+	
 	/* apply multiframe falloff */
-	influence *= gso->falloff;
-
+	influence *= gso->mf_falloff;
+	
 	/* return influence */
 	return influence;
 }
@@ -1461,7 +1467,7 @@ static bool gpsculpt_brush_apply_standard(bContext *C, tGP_BrushEditData *gso)
 		/* init multiframe falloff options */
 		int f_init = 0;
 		int f_end = 0;
-		gso->falloff = 1.0f;
+		gso->mf_falloff = 1.0f;
 
 		bGPDframe *init_gpf = gpl->actframe;
 		if ((is_multiedit) && (gpl->actframe)){
@@ -1478,10 +1484,10 @@ static bool gpsculpt_brush_apply_standard(bContext *C, tGP_BrushEditData *gso)
 				
 				/* compute multiframe falloff factor*/
 				if ((is_multiedit) && (ts->gp_sculpt.flag & GP_BRUSHEDIT_FLAG_FRAME_FALLOFF)) {
-					BKE_get_falloff_factor(gpf, gpl->actframe->framenum, 
-											f_init, f_end, 
-											ts->gp_sculpt.cur_falloff, 
-											&gso->falloff);
+					gso->mf_falloff = BKE_gpencil_multiframe_falloff_calc(
+					                    gpf, gpl->actframe->framenum,
+					                    f_init, f_end,
+					                    ts->gp_sculpt.cur_falloff);
 				}
 
 				/* calculate difference matrix */
@@ -1519,9 +1525,9 @@ static bool gpsculpt_brush_apply_standard(bContext *C, tGP_BrushEditData *gso)
 						{
 							if (gso->first) {
 								/* First time this brush stroke is being applied:
-							 * 1) Prepare data buffers (init/clear) for this stroke
-							 * 2) Use the points now under the cursor
-							 */
+								 * 1) Prepare data buffers (init/clear) for this stroke
+								 * 2) Use the points now under the cursor
+								 */
 								gp_brush_grab_stroke_init(gso, gps);
 								changed |= gpsculpt_brush_do_stroke(gso, gps, diff_mat, gp_brush_grab_store_points);
 							}

@@ -218,6 +218,6 @@ bool BKE_gp_smooth_stroke_strength(struct bGPDstroke *gps, int i, float inf);
 bool BKE_gp_smooth_stroke_thickness(struct bGPDstroke *gps, int i, float inf);
 
 void BKE_gp_get_range_selected(struct bGPDlayer *gpl, int *r_initframe, int *r_endframe);
-void BKE_get_falloff_factor(struct bGPDframe *gpf, int actnum, int f_init, int f_end, struct CurveMapping *cur_falloff, float *r_value);
+float BKE_gpencil_multiframe_falloff_calc(struct bGPDframe *gpf, int actnum, int f_init, int f_end, struct CurveMapping *cur_falloff);
 
 #endif /*  __BKE_GPENCIL_H__ */
