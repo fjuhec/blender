@@ -375,6 +375,9 @@ class GreasePencilBrushPanel:
             row = layout.row(align=False)
             row.prop(context.tool_settings, "use_gpencil_draw_onback", text="Draw on Back")
 
+        row = layout.row()
+        row.operator("gpencil.fill", icon='BRUSH_DATA', text="Fill")
+
 
 class GreasePencilBrushOptionsPanel:
     # subclass must set

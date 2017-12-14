@@ -612,7 +612,8 @@ void ED_operatortypes_gpencil(void)
 	/* Drawing ----------------------- */
 	
 	WM_operatortype_append(GPENCIL_OT_draw);
-	
+	WM_operatortype_append(GPENCIL_OT_fill);
+
 	/* Editing (Strokes) ------------ */
 	
 	WM_operatortype_append(GPENCIL_OT_editmode_toggle);

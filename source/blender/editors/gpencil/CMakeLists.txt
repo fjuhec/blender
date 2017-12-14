@@ -50,6 +50,7 @@ set(SRC
 	gpencil_primitive.c
 	gpencil_ops.c
 	gpencil_paint.c
+	gpencil_fill.c
 	gpencil_select.c
 	gpencil_undo.c
 	gpencil_utils.c
