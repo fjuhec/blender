@@ -113,6 +113,7 @@ typedef enum eGPencil_PaintFlags {
 	GP_PAINTFLAG_STROKEADDED    = (1 << 1),
 	GP_PAINTFLAG_V3D_ERASER_DEPTH = (1 << 2),
 	GP_PAINTFLAG_SELECTMASK     = (1 << 3),
+	GP_PAINTFLAG_HARD_ERASER    = (1 << 4),
 } eGPencil_PaintFlags;
 
 
@@ -1206,11 +1207,11 @@ static void gp_stroke_eraser_dostroke(tGPsdata *p,
 						pt2->pressure -= gp_stroke_eraser_calc_influence(p, mval, radius, pc2) * strength / 2.0f;
 						
 						/* 2) Tag any point with overly low influence for removal in the next pass */
-						if (pt1->pressure < cull_thresh) {
+						if ((pt1->pressure < cull_thresh) || (p->flags & GP_PAINTFLAG_HARD_ERASER)) {
 							pt1->flag |= GP_SPOINT_TAG;
 							do_cull = true;
 						}
-						if (pt2->pressure < cull_thresh) {
+						if ((pt2->pressure < cull_thresh) || (p->flags & GP_PAINTFLAG_HARD_ERASER)) {
 							pt2->flag |= GP_SPOINT_TAG;
 							do_cull = true;
 						}
@@ -2200,6 +2201,12 @@ static void gpencil_draw_apply_event(wmOperator *op, const wmEvent *event)
 		if (p->paintmode == GP_PAINTMODE_ERASER) {
 			if ((wmtab->Active != EVT_TABLET_ERASER) && (p->pressure < 0.001f)) {
 				p->pressure = 1.0f;
+			}
+			if (event->shift > 0) {
+				p->flags |= GP_PAINTFLAG_HARD_ERASER;
+			}
+			else {
+				p->flags &= ~GP_PAINTFLAG_HARD_ERASER;
 			}
 		}
 	}
