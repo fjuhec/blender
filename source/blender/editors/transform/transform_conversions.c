@@ -771,34 +771,43 @@ int count_set_pose_transflags(int *out_mode, short around, Object *ob)
 /* -------- Auto-IK ---------- */
 
 /* adjust pose-channel's auto-ik chainlen */
-static void pchan_autoik_adjust(bPoseChannel *pchan, short chainlen)
+static bool pchan_autoik_adjust(bPoseChannel *pchan, short chainlen)
 {
 	bConstraint *con;
+	bool changed = false;
 
 	/* don't bother to search if no valid constraints */
-	if ((pchan->constflag & (PCHAN_HAS_IK | PCHAN_HAS_TARGET)) == 0)
-		return;
+	if ((pchan->constflag & (PCHAN_HAS_IK | PCHAN_HAS_TARGET)) == 0) {
+		return changed;
+	}
 
 	/* check if pchan has ik-constraint */
 	for (con = pchan->constraints.first; con; con = con->next) {
 		if (con->type == CONSTRAINT_TYPE_KINEMATIC && (con->enforce != 0.0f)) {
 			bKinematicConstraint *data = con->data;
-			
+
 			/* only accept if a temporary one (for auto-ik) */
 			if (data->flag & CONSTRAINT_IK_TEMP) {
 				/* chainlen is new chainlen, but is limited by maximum chainlen */
-				if ((chainlen == 0) || (chainlen > data->max_rootbone))
+				const int old_rootbone = data->rootbone;
+				if ((chainlen == 0) || (chainlen > data->max_rootbone)) {
 					data->rootbone = data->max_rootbone;
-				else
+				}
+				else {
 					data->rootbone = chainlen;
+				}
+				changed |= (data->rootbone != old_rootbone);
 			}
 		}
 	}
+
+	return changed;
 }
 
 /* change the chain-length of auto-ik */
 void transform_autoik_update(TransInfo *t, short mode)
 {
+	const short old_len = t->settings->autoik_chainlen;
 	short *chainlen = &t->settings->autoik_chainlen;
 	bPoseChannel *pchan;
 
@@ -812,13 +821,29 @@ void transform_autoik_update(TransInfo *t, short mode)
 		if (*chainlen > 0) (*chainlen)--;
 	}
 
+	/* IK length did not change, skip any updates. */
+	if (old_len == *chainlen) {
+		return;
+	}
+
 	/* sanity checks (don't assume t->poseobj is set, or that it is an armature) */
 	if (ELEM(NULL, t->poseobj, t->poseobj->pose))
 		return;
 
 	/* apply to all pose-channels */
+	bool changed = false;
 	for (pchan = t->poseobj->pose->chanbase.first; pchan; pchan = pchan->next) {
-		pchan_autoik_adjust(pchan, *chainlen);
+		changed |= pchan_autoik_adjust(pchan, *chainlen);
+	}
+
+#ifdef WITH_LEGACY_DEPSGRAPH
+	if (!DEG_depsgraph_use_legacy())
+#endif
+	{
+		if (changed) {
+			/* TODO(sergey): Consider doing partial update only. */
+			DAG_relations_tag_update(G.main);
+		}
 	}
 }
 
@@ -2008,9 +2033,9 @@ static bool bmesh_test_dist_add(
 }
 
 /**
- * \parm mtx: Measure disatnce in this space.
- * \parm dists: Store the closest connected distance to selected vertices.
- * \parm index: Optionally store the original index we're measuring the distance to (can be NULL).
+ * \param mtx: Measure disatnce in this space.
+ * \param dists: Store the closest connected distance to selected vertices.
+ * \param index: Optionally store the original index we're measuring the distance to (can be NULL).
  */
 static void editmesh_set_connectivity_distance(BMesh *bm, float mtx[3][3], float *dists, int *index)
 {
@@ -2280,7 +2305,7 @@ static struct TransIslandData *editmesh_islands_info_calc(
 		}
 
 		if (group_tot_single != 0) {
-			trans_islands = MEM_reallocN(trans_islands, group_tot + group_tot_single);
+			trans_islands = MEM_reallocN(trans_islands, sizeof(*trans_islands) * (group_tot + group_tot_single));
 
 			BM_ITER_MESH_INDEX (v, &viter, bm, BM_VERTS_OF_MESH, i) {
 				if (BM_elem_flag_test(v, BM_ELEM_SELECT) && (vert_map[i] == -1)) {
@@ -2402,7 +2427,8 @@ static void createTransEditVerts(TransInfo *t)
 	int island_info_tot;
 	int *island_vert_map = NULL;
 
-	const bool is_island_center = (t->around == V3D_AROUND_LOCAL_ORIGINS) && (t->mode != TFM_TRANSLATION);
+	/* Even for translation this is needed because of island-orientation, see: T51651. */
+	const bool is_island_center = (t->around == V3D_AROUND_LOCAL_ORIGINS);
 	/* Original index of our connected vertex when connected distances are calculated.
 	 * Optional, allocate if needed. */
 	int *dists_index = NULL;
@@ -2468,11 +2494,6 @@ static void createTransEditVerts(TransInfo *t)
 		editmesh_set_connectivity_distance(em->bm, mtx, dists, dists_index);
 	}
 
-	/* Only in case of rotation and resize, we want the elements of the edited
-	 * object to behave as groups whose pivot are the individual origins
-	 *
-	 * TODO: use island_info to detect the closest point when the "Snap Target"
-	 * in Blender UI is "Closest" */
 	if (is_island_center) {
 		/* In this specific case, near-by vertices will need to know the island of the nearest connected vertex. */
 		const bool calc_single_islands = (
@@ -5353,7 +5374,8 @@ static void ObjectToTransData(TransInfo *t, TransData *td, Object *ob)
 			}
 			/* update object's loc/rot to get current rigid body transform */
 			mat4_to_loc_rot_size(ob->loc, rot, scale, ob->obmat);
-			BKE_object_mat3_to_rot(ob, rot, false);
+			sub_v3_v3(ob->loc, ob->dloc);
+			BKE_object_mat3_to_rot(ob, rot, false); /* drot is already corrected here */
 		}
 	}
 

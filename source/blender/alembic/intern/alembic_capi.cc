@@ -452,7 +452,8 @@ static std::pair<bool, AbcObjectReader *> visit_object(
 		else {
 			if (child_claims_this_object) {
 				claiming_child_readers.push_back(child_reader);
-			} else {
+			}
+			else {
 				nonclaiming_child_readers.push_back(child_reader);
 			}
 		}
@@ -742,7 +743,7 @@ static void import_startjob(void *user_data, short *stop, short *do_update, floa
 		Scene *scene = data->scene;
 
 		if (data->settings.is_sequence) {
-			SFRA = data->settings.offset;
+			SFRA = data->settings.sequence_offset;
 			EFRA = SFRA + (data->settings.sequence_len - 1);
 			CFRA = SFRA;
 		}
@@ -869,7 +870,7 @@ bool ABC_import(bContext *C, const char *filepath, float scale, bool is_sequence
 	job->settings.is_sequence = is_sequence;
 	job->settings.set_frame_range = set_frame_range;
 	job->settings.sequence_len = sequence_len;
-	job->settings.offset = offset;
+	job->settings.sequence_offset = offset;
 	job->settings.validate_meshes = validate_meshes;
 	job->error_code = ABC_NO_ERROR;
 	job->was_cancelled = false;

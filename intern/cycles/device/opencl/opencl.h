@@ -84,7 +84,7 @@ public:
 	                                   string *error = NULL);
 	static bool device_version_check(cl_device_id device,
 	                                 string *error = NULL);
-	static string get_hardware_id(string platform_name,
+	static string get_hardware_id(const string& platform_name,
 	                              cl_device_id device_id);
 	static void get_usable_devices(vector<OpenCLPlatformDevice> *usable_devices,
 	                               bool force_all = false);
@@ -129,6 +129,11 @@ public:
 	                            cl_device_type *device_type,
 	                            cl_int* error = NULL);
 	static cl_device_type get_device_type(cl_device_id device_id);
+
+	static bool get_driver_version(cl_device_id device_id,
+	                               int *major,
+	                               int *minor,
+	                               cl_int* error = NULL);
 
 	static int mem_address_alignment(cl_device_id device_id);
 
@@ -242,17 +247,17 @@ public:
 	public:
 		OpenCLProgram() : loaded(false), device(NULL) {}
 		OpenCLProgram(OpenCLDeviceBase *device,
-		              string program_name,
-		              string kernel_name,
-		              string kernel_build_options,
+		              const string& program_name,
+		              const string& kernel_name,
+		              const string& kernel_build_options,
 		              bool use_stdout = true);
 		~OpenCLProgram();
 
 		void add_kernel(ustring name);
 		void load();
 
-		bool is_loaded()    { return loaded; }
-		string get_log()    { return log; }
+		bool is_loaded() const { return loaded; }
+		const string& get_log() const { return log; }
 		void report_error();
 
 		cl_kernel operator()();
@@ -266,8 +271,8 @@ public:
 		bool load_binary(const string& clbin, const string *debug_src = NULL);
 		bool save_binary(const string& clbin);
 
-		void add_log(string msg, bool is_debug);
-		void add_error(string msg);
+		void add_log(const string& msg, bool is_debug);
+		void add_error(const string& msg);
 
 		bool loaded;
 		cl_program program;
@@ -390,8 +395,6 @@ protected:
 	bool denoising_construct_transform(DenoisingTask *task);
 	bool denoising_reconstruct(device_ptr color_ptr,
 	                           device_ptr color_variance_ptr,
-	                           device_ptr guide_ptr,
-	                           device_ptr guide_variance_ptr,
 	                           device_ptr output_ptr,
 	                           DenoisingTask *task);
 	bool denoising_combine_halves(device_ptr a_ptr,
