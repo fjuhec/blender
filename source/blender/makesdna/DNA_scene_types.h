@@ -1687,8 +1687,8 @@ typedef struct Scene {
 	/* Units */
 	struct UnitSettings unit;
 	
-	/* Movie Tracking */
-	struct MovieClip *clip;			/* active movie clip */
+	/* Grease Pencil */
+	struct bGPdata *gpd;
 
 	/* Movie Tracking */
 	struct MovieClip *clip;			/* active movie clip */
@@ -1699,10 +1699,8 @@ typedef struct Scene {
 	uint64_t customdata_mask;	/* XXX. runtime flag for drawing, actually belongs in the window, only used by BKE_object_handle_update() */
 	uint64_t customdata_mask_modal; /* XXX. same as above but for temp operator use (gl renders) */
 	
-	/* Grease Pencil */
-	struct bGPdata *gpd;
 	struct Object *gp_object;     /* default GP object for annotations */
-	
+
 	/* Color Management */
 	ColorManagedViewSettings view_settings;
 	ColorManagedDisplaySettings display_settings;
