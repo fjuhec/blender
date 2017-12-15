@@ -31,6 +31,7 @@
 
 #include "BLI_utildefines.h"
 #include "BLI_blenlib.h"
+#include "BLI_math.h"
 
 #include "DNA_object_types.h"
 #include "DNA_gpencil_types.h"
@@ -43,8 +44,117 @@
 #include "ED_gpencil.h"
 #include "ED_screen.h"
 
+#include "GPU_immediate.h"
+#include "GPU_draw.h"
+
 #include "WM_api.h"
 #include "WM_types.h"
+
+ /* draw a given stroke in offscreen */
+static void gp_draw_offscreen_stroke(const bGPDspoint *points, int totpoints, 
+	const float diff_mat[4][4], bool cyclic)
+{
+	float fpt[3];
+	float ink[4] = { 1.0f, 0.0f, 0.0f, 1.0f };
+
+	/* if cyclic needs more vertex */
+	int cyclic_add = (cyclic) ? 1 : 0;
+
+	Gwn_VertFormat *format = immVertexFormat();
+	unsigned pos = GWN_vertformat_attr_add(format, "pos", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
+	unsigned color = GWN_vertformat_attr_add(format, "color", GWN_COMP_F32, 4, GWN_FETCH_FLOAT);
+
+	immBindBuiltinProgram(GPU_SHADER_3D_FLAT_COLOR);
+	
+	/* draw stroke curve */
+	glLineWidth(2.0f);
+	immBeginAtMost(GWN_PRIM_LINE_STRIP, totpoints + cyclic_add);
+	const bGPDspoint *pt = points;
+
+	for (int i = 0; i < totpoints; i++, pt++) {
+		/* set point */
+		immAttrib4fv(color, ink);
+		mul_v3_m4v3(fpt, diff_mat, &pt->x);
+		immVertex3fv(pos, fpt);
+	}
+
+	if (cyclic && totpoints > 2) {
+		/* draw line to first point to complete the cycle */
+		immAttrib4fv(color, ink);
+		mul_v3_m4v3(fpt, diff_mat, &points->x);
+		immVertex3fv(pos, fpt);
+
+	}
+
+	immEnd();
+	immUnbindProgram();
+}
+
+ /* draw strokes in offscreen buffer */
+static GLubyte *gp_draw_offscreen_strokes(Scene *scene, Object *ob, rcti rect)
+{
+	bGPdata *gpd = (bGPdata *)ob->data;
+	float diff_mat[4][4];
+	GLubyte* data = (GLubyte *)malloc(rect.xmax * rect.ymax * 4 * sizeof(GLubyte));
+	if (!gpd) {
+		return NULL;
+	}
+
+	/* create offscreen framebuffer */
+	GLuint FramebufferId = 0;
+	glGenFramebuffers(1, &FramebufferId);
+	glBindFramebuffer(GL_FRAMEBUFFER, FramebufferId);
+
+	/* create texture */
+	GLuint textureId;
+	glGenTextures(1, &textureId);
+	glBindTexture(GL_TEXTURE_2D, textureId);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, rect.xmax, rect.ymax, 0, GL_RGBA, 
+				 GL_UNSIGNED_BYTE, data);
+	/* attach the texture to FBO color attachment point */
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureId, 0);
+
+	glBindFramebuffer(GL_FRAMEBUFFER, FramebufferId);
+	glViewport(0, 0, rect.xmax, rect.ymax);
+	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+	glClear(GL_COLOR_BUFFER_BIT);
+
+	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+		/* calculate parent position */
+		ED_gpencil_parent_location(ob, gpd, gpl, diff_mat);
+
+		/* don't draw layer if hidden */
+		if (gpl->flag & GP_LAYER_HIDE)
+			continue;
+
+		/* get frame to draw */
+		bGPDframe *gpf = BKE_gpencil_layer_getframe(gpl, CFRA, 0);
+		if (gpf == NULL)
+			continue;
+
+		for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
+			/* check if stroke can be drawn */
+			if ((gps->points == NULL) || (gps->totpoints < 2)) {
+				continue;
+			}
+			/* check if the color is visible */
+			PaletteColor *palcolor = gps->palcolor;
+			if ((palcolor == NULL) || (palcolor->flag & PC_COLOR_HIDE))
+			{
+				continue;
+			}
+
+			/* 3D Lines - OpenGL primitives-based */
+			gp_draw_offscreen_stroke(gps->points, gps->totpoints,
+				diff_mat, gps->flag & GP_STROKE_CYCLIC);
+		}
+	}
+	/* switch back to window-system-provided framebuffer */
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	/* return texture data */
+	return data;
+}
 
 /* check if context is suitable for filling */
 static int gpencil_fill_poll(bContext *C)
@@ -101,6 +211,9 @@ static void gpencil_fill_cancel(bContext *C, wmOperator *op)
 /* events handling during interactive part of operator */
 static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
+	Scene *scene = CTX_data_scene(C);
+	Object *ob = CTX_data_active_object(C);
+
 	int estate = OPERATOR_PASS_THROUGH; /* default exit state - pass through */
 	
 	/* we don't pass on key events, GP is used with key-modifiers - prevents Dkey to insert drivers */
@@ -123,6 +236,8 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
 			if ((in_bounds) && (ar->regiontype == RGN_TYPE_WINDOW)) {
 				/* TODO: Add fill code here */
 				printf("(%d, %d) Do all here!\n", event->mval[0], event->mval[1]);
+				gp_draw_offscreen_strokes(scene, ob, region_rect);
+
 				estate = OPERATOR_FINISHED;
 			}
 			else {
@@ -138,7 +253,7 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
 	switch (estate) {
 		case OPERATOR_FINISHED:
 			gpencil_fill_exit(C, op);
-			WM_event_add_notifier(C, NC_GPENCIL | NA_EDITED, NULL);
+			/* TODO: Removed for debug: WM_event_add_notifier(C, NC_GPENCIL | NA_EDITED, NULL); */
 			break;
 		
 		case OPERATOR_CANCELLED:
