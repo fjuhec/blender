@@ -947,16 +947,11 @@ void GPENCIL_OT_select_circle(wmOperatorType *ot)
 static int gpencil_border_select_exec(bContext *C, wmOperator *op)
 {
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
-	/* if not edit/sculpt mode, the event is catched but not processed */
-	if (GPENCIL_NONE_EDIT_MODE(gpd)) {
-		return OPERATOR_CANCELLED;
-	}
-
 	ScrArea *sa = CTX_wm_area(C);
 	
 	const bool select = !RNA_boolean_get(op->ptr, "deselect");
-	const bool extend = RNA_boolean_get(op->ptr, "extend");
-	
+	const bool extend = RNA_boolean_get(op->ptr, "extend") && ((gpd->flag & GP_DATA_STROKE_PAINTMODE) == 0);
+
 	GP_SpaceConversion gsc = {NULL};
 	rcti rect = {0};
 	
@@ -1024,6 +1019,13 @@ static int gpencil_border_select_exec(bContext *C, wmOperator *op)
 		BKE_gpencil_stroke_sync_selection(gps);
 	}
 	GP_EDITABLE_STROKES_END;
+
+	/* if paint mode,delete selected points */
+	if (gpd->flag & GP_DATA_STROKE_PAINTMODE) {
+		gp_delete_selected_point_wrap(C);
+		changed = true;
+		BKE_gpencil_batch_cache_dirty(gpd);
+	}
 
 	/* updates */
 	if (changed) {
