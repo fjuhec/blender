@@ -2214,9 +2214,7 @@ bool DRW_object_is_renderable(Object *ob)
 	Scene *scene = DST.draw_ctx.scene;
 	Object *obedit = scene->obedit;
 
-	if (!BKE_object_is_visible(ob)) {
-		return false;
-	}
+	BLI_assert(BKE_object_is_visible(ob));
 
 	if (ob->type == OB_MESH) {
 		if (ob == obedit) {
@@ -3404,11 +3402,11 @@ void DRW_draw_render_loop_ex(
 		PROFILE_START(stime);
 		drw_engines_cache_init();
 
-		DEG_OBJECT_ITER(graph, ob, DEG_ITER_OBJECT_FLAG_ALL);
+		DEG_OBJECT_ITER_FOR_RENDER_ENGINE(graph, ob)
 		{
 			drw_engines_cache_populate(ob);
 		}
-		DEG_OBJECT_ITER_END
+		DEG_OBJECT_ITER_FOR_RENDER_ENGINE_END
 
 		drw_engines_cache_finish();
 		PROFILE_END_ACCUM(DST.cache_time, stime);
@@ -3613,7 +3611,10 @@ void DRW_draw_select_loop(
 			drw_engines_cache_populate(scene->obedit);
 		}
 		else {
-			DEG_OBJECT_ITER(graph, ob, DEG_ITER_OBJECT_FLAG_DUPLI)
+			DEG_OBJECT_ITER(graph, ob,
+			                DEG_ITER_OBJECT_FLAG_LINKED_DIRECTLY |
+			                DEG_ITER_OBJECT_FLAG_VISIBLE |
+			                DEG_ITER_OBJECT_FLAG_DUPLI)
 			{
 				if ((ob->base_flag & BASE_SELECTABLED) != 0) {
 					DRW_select_load_id(ob->select_color);
@@ -3705,11 +3706,11 @@ void DRW_draw_depth_loop(
 	if (cache_is_dirty) {
 		drw_engines_cache_init();
 
-		DEG_OBJECT_ITER(graph, ob, DEG_ITER_OBJECT_FLAG_ALL)
+		DEG_OBJECT_ITER_FOR_RENDER_ENGINE(graph, ob)
 		{
 			drw_engines_cache_populate(ob);
 		}
-		DEG_OBJECT_ITER_END
+		DEG_OBJECT_ITER_FOR_RENDER_ENGINE_END
 
 		drw_engines_cache_finish();
 	}
