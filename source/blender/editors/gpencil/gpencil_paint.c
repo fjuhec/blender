@@ -1090,6 +1090,19 @@ static float gp_stroke_eraser_calc_influence(tGPsdata *p, const int mval[2], con
 	return fac;
 }
 
+/* helper to free a stroke */
+static void gp_free_stroke(bGPdata *gpd, bGPDframe *gpf, bGPDstroke *gps)
+{
+	if (gps->points) {
+		BKE_gpencil_free_stroke_weights(gps);
+		MEM_freeN(gps->points);
+	}
+	if (gps->triangles)
+		MEM_freeN(gps->triangles);
+	BLI_freelinkN(&gpf->strokes, gps);
+	BKE_gpencil_batch_cache_dirty(gpd);
+}
+
 /* eraser tool - evaluation per stroke */
 /* TODO: this could really do with some optimization (KD-Tree/BVH?) */
 static void gp_stroke_eraser_dostroke(tGPsdata *p,
@@ -1109,14 +1122,7 @@ static void gp_stroke_eraser_dostroke(tGPsdata *p,
 
 	if (gps->totpoints == 0) {
 		/* just free stroke */
-		if (gps->points) {
-			BKE_gpencil_free_stroke_weights(gps);
-			MEM_freeN(gps->points);
-		}
-		if (gps->triangles)
-			MEM_freeN(gps->triangles);
-		BLI_freelinkN(&gpf->strokes, gps);
-		BKE_gpencil_batch_cache_dirty(p->gpd);
+		gp_free_stroke(p->gpd, gpf, gps);
 	}
 	else if (gps->totpoints == 1) {
 		/* only process if it hasn't been masked out... */
@@ -1129,15 +1135,7 @@ static void gp_stroke_eraser_dostroke(tGPsdata *p,
 				/* only check if point is inside */
 				if (len_v2v2_int(mval, pc1) <= radius) {
 					/* free stroke */
-					// XXX: pressure sensitive eraser should apply here too?
-					if (gps->points) {
-						BKE_gpencil_free_stroke_weights(gps);
-						MEM_freeN(gps->points);
-					}
-					if (gps->triangles)
-						MEM_freeN(gps->triangles);
-					BLI_freelinkN(&gpf->strokes, gps);
-					BKE_gpencil_batch_cache_dirty(p->gpd);
+					gp_free_stroke(p->gpd, gpf, gps);
 				}
 			}
 		}
@@ -1160,14 +1158,7 @@ static void gp_stroke_eraser_dostroke(tGPsdata *p,
 				/* only check if point is inside */
 				if (len_v2v2_int(mval, pc1) <= radius) {
 					/* free stroke */
-					if (gps->points) {
-						BKE_gpencil_free_stroke_weights(gps);
-						MEM_freeN(gps->points);
-					}
-					if (gps->triangles)
-						MEM_freeN(gps->triangles);
-					BLI_freelinkN(&gpf->strokes, gps);
-					BKE_gpencil_batch_cache_dirty(p->gpd);
+					gp_free_stroke(p->gpd, gpf, gps);
 					return;
 				}
 			}
