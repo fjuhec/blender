@@ -114,6 +114,7 @@ typedef enum eGPencil_PaintFlags {
 	GP_PAINTFLAG_V3D_ERASER_DEPTH = (1 << 2),
 	GP_PAINTFLAG_SELECTMASK     = (1 << 3),
 	GP_PAINTFLAG_HARD_ERASER    = (1 << 4),
+	GP_PAINTFLAG_STROKE_ERASER  = (1 << 5),
 } eGPencil_PaintFlags;
 
 
@@ -1137,6 +1138,37 @@ static void gp_stroke_eraser_dostroke(tGPsdata *p,
 						MEM_freeN(gps->triangles);
 					BLI_freelinkN(&gpf->strokes, gps);
 					BKE_gpencil_batch_cache_dirty(p->gpd);
+				}
+			}
+		}
+	}
+	else if (p->flags & GP_PAINTFLAG_STROKE_ERASER) {
+		for (i = 0; (i + 1) < gps->totpoints; i++) {
+
+			/* only process if it hasn't been masked out... */
+			if ((p->flags & GP_PAINTFLAG_SELECTMASK) && !(gps->points->flag & GP_SPOINT_SELECT))
+				continue;
+
+			/* get points to work with */
+			pt1 = gps->points + i;
+			bGPDspoint npt;
+			gp_point_to_parent_space(pt1, diff_mat, &npt);
+			gp_point_to_xy(&p->gsc, gps, &npt, &pc1[0], &pc1[1]);
+
+			/* do boundbox check first */
+			if ((!ELEM(V2D_IS_CLIPPED, pc1[0], pc1[1])) && BLI_rcti_isect_pt(rect, pc1[0], pc1[1])) {
+				/* only check if point is inside */
+				if (len_v2v2_int(mval, pc1) <= radius) {
+					/* free stroke */
+					if (gps->points) {
+						BKE_gpencil_free_stroke_weights(gps);
+						MEM_freeN(gps->points);
+					}
+					if (gps->triangles)
+						MEM_freeN(gps->triangles);
+					BLI_freelinkN(&gpf->strokes, gps);
+					BKE_gpencil_batch_cache_dirty(p->gpd);
+					return;
 				}
 			}
 		}
@@ -2202,17 +2234,27 @@ static void gpencil_draw_apply_event(wmOperator *op, const wmEvent *event)
 			if ((wmtab->Active != EVT_TABLET_ERASER) && (p->pressure < 0.001f)) {
 				p->pressure = 1.0f;
 			}
-			if (event->shift > 0) {
-				p->flags |= GP_PAINTFLAG_HARD_ERASER;
-			}
-			else {
-				p->flags &= ~GP_PAINTFLAG_HARD_ERASER;
-			}
 		}
 	}
 	else {
 		/* No tablet data -> No pressure info is available */
 		p->pressure = 1.0f;
+	}
+	
+	/* special eraser modes */
+	if (p->paintmode == GP_PAINTMODE_ERASER) {
+		if (event->shift > 0) {
+			p->flags |= GP_PAINTFLAG_HARD_ERASER;
+		}
+		else {
+			p->flags &= ~GP_PAINTFLAG_HARD_ERASER;
+		}
+		if (event->ctrl > 0) {
+			p->flags |= GP_PAINTFLAG_STROKE_ERASER;
+		}
+		else {
+			p->flags &= ~GP_PAINTFLAG_STROKE_ERASER;
+		}
 	}
 	
 	/* special exception for start of strokes (i.e. maybe for just a dot) */
