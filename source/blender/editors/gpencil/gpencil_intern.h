@@ -113,7 +113,7 @@ struct GHash *gp_copybuf_validate_colormap(struct bContext *C);
 /* Stroke Editing ------------------------------------ */
 
 void gp_stroke_delete_tagged_points(bGPDframe *gpf, bGPDstroke *gps, bGPDstroke *next_stroke, int tag_flags);
-
+int gp_delete_selected_point_wrap(bContext *C);
 
 bool gp_smooth_stroke(bGPDstroke *gps, int i, float inf, bool affect_pressure);
 bool gp_smooth_stroke_strength(bGPDstroke *gps, int i, float inf);

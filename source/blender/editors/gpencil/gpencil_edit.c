@@ -1812,7 +1812,6 @@ void gp_stroke_delete_tagged_points(bGPDframe *gpf, bGPDstroke *gps, bGPDstroke 
 	BLI_freelinkN(&gpf->strokes, gps);
 }
 
-
 /* Split selected strokes into segments, splitting on selected points */
 static int gp_delete_selected_points(bContext *C)
 {
@@ -1869,6 +1868,12 @@ static int gp_delete_selected_points(bContext *C)
 	else {
 		return OPERATOR_CANCELLED;
 	}
+}
+
+/* simple wrapper to external call */
+int gp_delete_selected_point_wrap(bContext *C)
+{
+	return gp_delete_selected_points(C);
 }
 
 /* ----------------------------------- */
