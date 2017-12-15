@@ -574,6 +574,12 @@ Gwn_Batch **DRW_cache_object_surface_material_get(
 	switch (ob->type) {
 		case OB_MESH:
 			return DRW_cache_mesh_surface_shaded_get(ob, gpumat_array, gpumat_array_len);
+		case OB_CURVE:
+			return DRW_cache_curve_surface_shaded_get(ob, gpumat_array, gpumat_array_len);
+		case OB_SURF:
+			return DRW_cache_surf_surface_shaded_get(ob, gpumat_array, gpumat_array_len);
+		case OB_FONT:
+			return DRW_cache_text_surface_shaded_get(ob, gpumat_array, gpumat_array_len);
 		default:
 			return NULL;
 	}
@@ -2388,6 +2394,16 @@ Gwn_Batch *DRW_cache_curve_surface_get(Object *ob)
 	return DRW_curve_batch_cache_get_triangles_with_normals(cu, ob->curve_cache);
 }
 
+/* Return list of batches */
+Gwn_Batch **DRW_cache_curve_surface_shaded_get(
+        Object *ob, struct GPUMaterial **gpumat_array, uint gpumat_array_len)
+{
+	BLI_assert(ob->type == OB_CURVE);
+
+	struct Curve *cu = ob->data;
+	return DRW_curve_batch_cache_get_surface_shaded(cu, ob->curve_cache, gpumat_array, gpumat_array_len);
+}
+
 /** \} */
 
 /* -------------------------------------------------------------------- */
@@ -2426,6 +2442,17 @@ Gwn_Batch *DRW_cache_text_surface_get(Object *ob)
 	return DRW_curve_batch_cache_get_triangles_with_normals(cu, ob->curve_cache);
 }
 
+Gwn_Batch **DRW_cache_text_surface_shaded_get(
+        Object *ob, struct GPUMaterial **gpumat_array, uint gpumat_array_len)
+{
+	BLI_assert(ob->type == OB_FONT);
+	struct Curve *cu = ob->data;
+	if (cu->editfont && (cu->flag & CU_FAST)) {
+		return NULL;
+	}
+	return DRW_curve_batch_cache_get_surface_shaded(cu, ob->curve_cache, gpumat_array, gpumat_array_len);
+}
+
 Gwn_Batch *DRW_cache_text_cursor_overlay_get(Object *ob)
 {
 	BLI_assert(ob->type == OB_FONT);
@@ -2453,6 +2480,16 @@ Gwn_Batch *DRW_cache_surf_surface_get(Object *ob)
 
 	struct Curve *cu = ob->data;
 	return DRW_curve_batch_cache_get_triangles_with_normals(cu, ob->curve_cache);
+}
+
+/* Return list of batches */
+Gwn_Batch **DRW_cache_surf_surface_shaded_get(
+        Object *ob, struct GPUMaterial **gpumat_array, uint gpumat_array_len)
+{
+	BLI_assert(ob->type == OB_SURF);
+
+	struct Curve *cu = ob->data;
+	return DRW_curve_batch_cache_get_surface_shaded(cu, ob->curve_cache, gpumat_array, gpumat_array_len);
 }
 
 /** \} */
