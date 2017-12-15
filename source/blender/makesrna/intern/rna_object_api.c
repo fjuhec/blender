@@ -116,7 +116,7 @@ static void rna_Object_select_set(Object *ob, bContext *C, ReportList *reports, 
 			break;
 		case 0: /* SELECT */
 		default:
-			BKE_view_layer_base_select(view_layer, base);
+			BKE_view_layer_base_select(view_layer, base, CTX_wm_workspace(C));
 			break;
 	}
 }

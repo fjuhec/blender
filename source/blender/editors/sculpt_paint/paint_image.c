@@ -59,6 +59,7 @@
 #include "BKE_material.h"
 #include "BKE_node.h"
 #include "BKE_paint.h"
+#include "BKE_workspace.h"
 
 #include "DEG_depsgraph.h"
 
@@ -1376,6 +1377,7 @@ static int texture_paint_toggle_exec(bContext *C, wmOperator *op)
 {
 	Scene *scene = CTX_data_scene(C);
 	Object *ob = CTX_data_active_object(C);
+	WorkSpace *workspace = CTX_wm_workspace(C);
 	const int mode_flag = OB_MODE_TEXTURE_PAINT;
 	const bool is_mode_set = (ob->mode & mode_flag) != 0;
 
@@ -1386,7 +1388,7 @@ static int texture_paint_toggle_exec(bContext *C, wmOperator *op)
 	}
 
 	if (ob->mode & mode_flag) {
-		ob->mode &= ~mode_flag;
+		BKE_workspace_object_mode_for_object_set(workspace, scene, ob, ob->mode & ~mode_flag);
 
 		if (U.glreslimit != 0)
 			GPU_free_images();
@@ -1433,8 +1435,8 @@ static int texture_paint_toggle_exec(bContext *C, wmOperator *op)
 				}
 			}
 		}
-		
-		ob->mode |= mode_flag;
+
+		BKE_workspace_object_mode_for_object_set(workspace, scene, ob, ob->mode | mode_flag);
 
 		BKE_paint_init(scene, ePaintTextureProjective, PAINT_CURSOR_TEXTURE_PAINT);
 

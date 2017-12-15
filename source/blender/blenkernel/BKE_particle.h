@@ -64,6 +64,7 @@ struct BVHTreeRayHit;
 struct EdgeHash;
 struct EvaluationContext;
 struct ViewLayer;
+struct WorkSpace;
 
 #define PARTICLE_COLLISION_MAX_COLLISIONS 10
 
@@ -325,7 +326,7 @@ void psys_particle_on_emitter(struct ParticleSystemModifierData *psmd, int distr
 struct ParticleSystemModifierData *psys_get_modifier(struct Object *ob, struct ParticleSystem *psys);
 
 struct ModifierData *object_add_particle_system(struct Scene *scene, struct Object *ob, const char *name);
-void object_remove_particle_system(struct Scene *scene, struct Object *ob);
+void object_remove_particle_system(struct Scene *scene, struct Object *ob, struct WorkSpace *workspace);
 struct ParticleSettings *psys_new_settings(const char *name, struct Main *main);
 void BKE_particlesettings_copy_data(
         struct Main *bmain, struct ParticleSettings *part_dst, const struct ParticleSettings *part_src,

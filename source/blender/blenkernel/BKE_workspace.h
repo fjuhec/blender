@@ -30,19 +30,10 @@
 struct bScreen;
 struct EvaluationContext;
 struct Main;
+struct Object;
 struct Scene;
 struct TransformOrientation;
 struct ViewLayer;
-
-/**
- * Plan is to store the object-mode per workspace, not per object anymore.
- * However, there's quite some work to be done for that, so for now, there is just a basic
- * implementation of an object <-> workspace object-mode syncing for testing, with some known
- * problems. Main problem being that the modes can get out of sync when changing object selection.
- * Would require a pile of temporary changes to always sync modes when changing selection. So just
- * leaving this here for some testing until object-mode is really a workspace level setting.
- */
-#define USE_WORKSPACE_MODE
 
 
 /* -------------------------------------------------------------------- */
@@ -106,15 +97,27 @@ void             BKE_workspace_active_layout_set(struct WorkSpaceInstanceHook *h
 struct bScreen *BKE_workspace_active_screen_get(const struct WorkSpaceInstanceHook *hook) GETTER_ATTRS;
 void            BKE_workspace_active_screen_set(
         struct WorkSpaceInstanceHook *hook, struct WorkSpace *workspace, struct bScreen *screen) SETTER_ATTRS;
-#ifdef USE_WORKSPACE_MODE
+
 enum eObjectMode BKE_workspace_object_mode_get(
         const struct WorkSpace *workspace,
         const struct Scene *scene) GETTER_ATTRS;
+void BKE_workspace_object_mode_ensure_updated(
+        struct WorkSpace *workspace,
+        struct Object *object, enum eObjectMode new_mode,
+        const bool is_active) SETTER_ATTRS;
 void BKE_workspace_object_mode_set(
         struct WorkSpace *workspace,
         struct Scene *scene,
         const enum eObjectMode mode) SETTER_ATTRS;
-#endif
+enum eObjectMode BKE_workspace_object_mode_for_toggle_get(
+        const struct WorkSpace *workspace,
+        const struct Object *active_object) GETTER_ATTRS;
+void BKE_workspace_object_mode_for_object_set(
+        struct WorkSpace *workspace,
+        struct Scene *scene,
+        struct Object *object,
+        enum eObjectMode new_mode) SETTER_ATTRS;
+
 struct Base *BKE_workspace_active_base_get(const struct WorkSpace *workspace, const struct Scene *scene);
 struct ListBase *BKE_workspace_transform_orientations_get(struct WorkSpace *workspace) GETTER_ATTRS;
 struct ViewLayer *BKE_workspace_view_layer_get(

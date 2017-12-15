@@ -568,7 +568,8 @@ void do_versions_after_linking_280(Main *main)
 					}
 				}
 			}
-			BLI_assert(workspace->view_layer == NULL);
+			/* fails when reading workspaces.blend before actually appending */
+//			BLI_assert(workspace->view_layer == NULL);
 		}
 	}
 
@@ -605,6 +606,36 @@ void do_versions_after_linking_280(Main *main)
 			GroupObject *go;
 			while ((go = BLI_pophead(&group->gobject))) {
 				MEM_freeN(go);
+			}
+		}
+	}
+
+	{
+		for (wmWindowManager *wm = main->wm.first; wm; wm = wm->id.next) {
+			for (wmWindow *win = wm->windows.first; win; win = win->next) {
+				WorkSpace *workspace = BKE_workspace_active_get(win->workspace_hook);
+
+				if (workspace->preferred_mode == OB_MODE_OBJECT) { /* Should never be the case! */
+					const Base *base = BKE_workspace_active_base_get(workspace, win->scene);
+
+					if (!base) {
+						/* skip */
+					}
+					else if (base->object->mode == OB_MODE_OBJECT) {
+						workspace->preferred_mode = (base->object->restore_mode == OB_MODE_OBJECT) ?
+						                                       OB_MODE_EDIT : base->object->restore_mode;
+					}
+					else {
+						workspace->preferred_mode = base->object->mode;
+						workspace->flags |= WORKSPACE_USE_PREFERED_MODE;
+					}
+				}
+			}
+		}
+
+		for (WorkSpace *workspace = main->workspaces.first; workspace; workspace = workspace->id.next) {
+			if (workspace->preferred_mode == OB_MODE_OBJECT) { /* Should never be the case! */
+				workspace->preferred_mode = OB_MODE_EDIT;
 			}
 		}
 	}

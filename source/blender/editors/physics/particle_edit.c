@@ -62,6 +62,7 @@
 #include "BKE_report.h"
 #include "BKE_bvhutils.h"
 #include "BKE_pointcache.h"
+#include "BKE_workspace.h"
 
 #include "DEG_depsgraph.h"
 
@@ -4780,6 +4781,7 @@ static int particle_edit_toggle_exec(bContext *C, wmOperator *op)
 {
 	Scene *scene = CTX_data_scene(C);
 	Object *ob = CTX_data_active_object(C);
+	struct WorkSpace *workspace = CTX_wm_workspace(C);
 	const int mode_flag = OB_MODE_PARTICLE_EDIT;
 	const bool is_mode_set = (ob->mode & mode_flag) != 0;
 
@@ -4797,7 +4799,7 @@ static int particle_edit_toggle_exec(bContext *C, wmOperator *op)
 		EvaluationContext eval_ctx;
 		CTX_data_eval_ctx(C, &eval_ctx);
 
-		ob->mode |= mode_flag;
+		BKE_workspace_object_mode_for_object_set(workspace, scene, ob, ob->mode | mode_flag);
 		edit= PE_create_current(&eval_ctx, scene, ob);
 	
 		/* mesh may have changed since last entering editmode.
@@ -4809,7 +4811,7 @@ static int particle_edit_toggle_exec(bContext *C, wmOperator *op)
 		WM_event_add_notifier(C, NC_SCENE|ND_MODE|NS_MODE_PARTICLE, NULL);
 	}
 	else {
-		ob->mode &= ~mode_flag;
+		BKE_workspace_object_mode_for_object_set(workspace, scene, ob, ob->mode & ~mode_flag);
 		toggle_particle_cursor(C, 0);
 		WM_event_add_notifier(C, NC_SCENE|ND_MODE|NS_MODE_OBJECT, NULL);
 	}

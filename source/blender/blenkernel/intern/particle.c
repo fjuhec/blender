@@ -84,6 +84,7 @@
 #include "BKE_pointcache.h"
 #include "BKE_scene.h"
 #include "BKE_deform.h"
+#include "BKE_workspace.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_build.h"
@@ -3174,7 +3175,7 @@ ModifierData *object_add_particle_system(Scene *scene, Object *ob, const char *n
 
 	return md;
 }
-void object_remove_particle_system(Scene *UNUSED(scene), Object *ob)
+void object_remove_particle_system(Scene *scene, Object *ob, struct WorkSpace *workspace)
 {
 	ParticleSystem *psys = psys_get_current(ob);
 	ParticleSystemModifierData *psmd;
@@ -3212,8 +3213,9 @@ void object_remove_particle_system(Scene *UNUSED(scene), Object *ob)
 
 	if (ob->particlesystem.first)
 		((ParticleSystem *) ob->particlesystem.first)->flag |= PSYS_CURRENT;
-	else
-		ob->mode &= ~OB_MODE_PARTICLE_EDIT;
+	else {
+		BKE_workspace_object_mode_for_object_set(workspace, scene, ob, ob->mode & ~OB_MODE_PARTICLE_EDIT);
+	}
 
 	DEG_relations_tag_update(G.main);
 	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);

@@ -74,7 +74,7 @@ struct ViewLayer *BKE_view_layer_first_from_id(const struct ID *owner_id);
 struct ViewLayer *BKE_view_layer_find_from_collection(const struct ID *owner_id, struct LayerCollection *lc);
 struct Base *BKE_view_layer_base_find(struct ViewLayer *view_layer, struct Object *ob);
 void BKE_view_layer_base_deselect_all(struct ViewLayer *view_layer);
-void BKE_view_layer_base_select(struct ViewLayer *view_layer, struct Base *selbase);
+void BKE_view_layer_base_select(struct ViewLayer *view_layer, struct Base *selbase, struct WorkSpace *workspace);
 
 void BKE_view_layer_copy_data(
         struct ViewLayer *view_layer_dst, struct ViewLayer *view_layer_src,

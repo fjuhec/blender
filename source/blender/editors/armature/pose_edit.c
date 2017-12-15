@@ -45,6 +45,7 @@
 #include "BKE_deform.h"
 #include "BKE_object.h"
 #include "BKE_report.h"
+#include "BKE_workspace.h"
 
 #include "DEG_depsgraph.h"
 
@@ -94,8 +95,8 @@ void ED_armature_enter_posemode(bContext *C, Base *base)
 	
 	switch (ob->type) {
 		case OB_ARMATURE:
-			ob->restore_mode = ob->mode;
-			ob->mode |= OB_MODE_POSE;
+			BKE_workspace_object_mode_for_object_set(CTX_wm_workspace(C), CTX_data_scene(C),
+			                                         ob, ob->mode | OB_MODE_POSE);
 			/* Inform all CoW versions that we changed the mode. */
 			DEG_id_tag_update_ex(CTX_data_main(C), &ob->id, DEG_TAG_COPY_ON_WRITE);
 			WM_event_add_notifier(C, NC_SCENE | ND_MODE | NS_MODE_POSE, NULL);
@@ -114,8 +115,7 @@ void ED_armature_exit_posemode(bContext *C, Base *base)
 	if (base) {
 		Object *ob = base->object;
 		
-		ob->restore_mode = ob->mode;
-		ob->mode &= ~OB_MODE_POSE;
+		BKE_workspace_object_mode_for_object_set(CTX_wm_workspace(C), CTX_data_scene(C), ob, ob->mode & ~OB_MODE_POSE);
 
 		/* Inform all CoW versions that we changed the mode. */
 		DEG_id_tag_update_ex(CTX_data_main(C), &ob->id, DEG_TAG_COPY_ON_WRITE);

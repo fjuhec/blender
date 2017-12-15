@@ -77,6 +77,11 @@ typedef struct WorkSpaceLayout {
 	char name[64] DNA_PRIVATE_WORKSPACE; /* MAX_NAME */
 } WorkSpaceLayout;
 
+typedef enum eWorkSpaceFlags {
+	WORKSPACE_USE_SCENE_SETTINGS = (1 << 0),
+	WORKSPACE_USE_PREFERED_MODE  = (1 << 1),
+} eWorkSpaceFlags;
+
 typedef struct WorkSpace {
 	ID id;
 
@@ -89,8 +94,9 @@ typedef struct WorkSpace {
 	/* Custom transform orientations */
 	ListBase transform_orientations DNA_PRIVATE_WORKSPACE;
 
-	int pad;
-	int flags DNA_PRIVATE_WORKSPACE; /* enum eWorkSpaceFlags */
+	int preferred_mode; /* enum eObjectMode */
+
+	int flags; /* enum eWorkSpaceFlags */
 
 	/* should be: '#ifdef USE_WORKSPACE_TOOL'. */
 	bToolDef tool;
@@ -148,9 +154,5 @@ typedef struct WorkSpaceInstanceHook {
 	WorkSpace *temp_workspace_store;
 	struct WorkSpaceLayout *temp_layout_store;
 } WorkSpaceInstanceHook;
-
-typedef enum eWorkSpaceFlags {
-	WORKSPACE_USE_SCENE_SETTINGS = (1 << 0),
-} eWorkSpaceFlags;
 
 #endif /* __DNA_WORKSPACE_TYPES_H__ */

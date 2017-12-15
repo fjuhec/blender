@@ -2893,6 +2893,7 @@ static void direct_link_workspace(FileData *fd, WorkSpace *workspace, const Main
 		/* Appending workspace so render layer is likely from a different scene. Unset
 		 * now, when activating workspace later we set a valid one from current scene. */
 		BKE_workspace_relations_free(&workspace->scene_viewlayer_relations);
+		workspace->view_layer = NULL;
 	}
 
 	/* Same issue/fix as in direct_link_workspace_link_scene_data: Can't read workspace data

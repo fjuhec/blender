@@ -70,6 +70,7 @@
 #include "BKE_object.h"
 #include "BKE_subsurf.h"
 #include "BKE_colortools.h"
+#include "BKE_workspace.h"
 
 #include "DEG_depsgraph.h"
 
@@ -5429,6 +5430,7 @@ static int sculpt_mode_toggle_exec(bContext *C, wmOperator *op)
 	Scene *scene = CTX_data_scene(C);
 	ToolSettings *ts = CTX_data_tool_settings(C);
 	Object *ob = CTX_data_active_object(C);
+	WorkSpace *workspace = CTX_wm_workspace(C);
 	const int mode_flag = OB_MODE_SCULPT;
 	const bool is_mode_set = (ob->mode & mode_flag) != 0;
 	Mesh *me;
@@ -5470,7 +5472,7 @@ static int sculpt_mode_toggle_exec(bContext *C, wmOperator *op)
 		}
 
 		/* Leave sculptmode */
-		ob->mode &= ~mode_flag;
+		BKE_workspace_object_mode_for_object_set(workspace, scene, ob, ob->mode & ~mode_flag);
 
 		BKE_sculptsession_free(ob);
 
@@ -5478,7 +5480,7 @@ static int sculpt_mode_toggle_exec(bContext *C, wmOperator *op)
 	}
 	else {
 		/* Enter sculptmode */
-		ob->mode |= mode_flag;
+		BKE_workspace_object_mode_for_object_set(workspace, scene, ob, ob->mode | mode_flag);
 
 		if (flush_recalc)
 			DEG_id_tag_update(&ob->id, OB_RECALC_DATA);

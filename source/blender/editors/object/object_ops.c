@@ -38,6 +38,7 @@
 #include "BLI_utildefines.h"
 
 #include "BKE_context.h"
+#include "BKE_workspace.h"
 
 #include "RNA_access.h"
 
@@ -303,9 +304,8 @@ void ED_keymap_object(wmKeyConfig *keyconf)
 	/* Objects, Regardless of Mode -------------------------------------------------- */
 	keymap = WM_keymap_find(keyconf, "Object Non-modal", 0, 0);
 	
-	/* Note: this keymap works disregarding mode */
 	kmi = WM_keymap_add_item(keymap, "OBJECT_OT_mode_set", TABKEY, KM_PRESS, 0, 0);
-	RNA_enum_set(kmi->ptr, "mode", OB_MODE_EDIT);
+	/* Don't set "mode" property, use workspace mode. */
 	RNA_boolean_set(kmi->ptr, "toggle", true);
 
 	kmi = WM_keymap_add_item(keymap, "OBJECT_OT_mode_set", TABKEY, KM_PRESS, KM_CTRL, 0);

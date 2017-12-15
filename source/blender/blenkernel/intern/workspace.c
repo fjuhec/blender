@@ -152,6 +152,10 @@ static bool UNUSED_FUNCTION(workspaces_is_screen_used)
 WorkSpace *BKE_workspace_add(Main *bmain, const char *name)
 {
 	WorkSpace *new_workspace = BKE_libblock_alloc(bmain, ID_WS, name, 0);
+
+	/* TABKEY toggles to edit mode by default (no WORKSPACE_USE_PREFERED_MODE flag) */
+	new_workspace->preferred_mode = OB_MODE_EDIT;
+
 	return new_workspace;
 }
 
@@ -413,20 +417,68 @@ void BKE_workspace_active_screen_set(WorkSpaceInstanceHook *hook, WorkSpace *wor
 	BKE_workspace_hook_layout_for_workspace_set(hook, workspace, layout);
 }
 
-#ifdef USE_WORKSPACE_MODE
 eObjectMode BKE_workspace_object_mode_get(const WorkSpace *workspace, const Scene *scene)
 {
 	Base *active_base = BKE_workspace_active_base_get(workspace, scene);
+
+	/* preferred_mode should never be OB_MODE_OBJECT! Doing this
+	 * here is a bit arbitrary, but this is called regularly. */
+	BLI_assert(workspace->preferred_mode != OB_MODE_OBJECT);
+
 	return active_base ? active_base->object->mode : OB_MODE_OBJECT;
 }
+
+void BKE_workspace_object_mode_ensure_updated(
+        WorkSpace *workspace,
+        Object *object, eObjectMode new_mode,
+        const bool is_active)
+{
+	if (is_active) {
+		if (new_mode == OB_MODE_OBJECT) {
+			workspace->flags &= ~WORKSPACE_USE_PREFERED_MODE;
+		}
+		else {
+			workspace->preferred_mode = new_mode;
+			workspace->flags |= WORKSPACE_USE_PREFERED_MODE;
+		}
+	}
+	object->mode = new_mode;
+}
+
 void BKE_workspace_object_mode_set(WorkSpace *workspace, Scene *scene, const eObjectMode mode)
 {
 	Base *active_base = BKE_workspace_active_base_get(workspace, scene);
+
 	if (active_base) {
-		active_base->object->mode = mode;
+		BKE_workspace_object_mode_ensure_updated(workspace, active_base->object, mode, true);
 	}
 }
-#endif
+
+enum eObjectMode BKE_workspace_object_mode_for_toggle_get(
+        const WorkSpace *workspace, const Object *active_object)
+{
+	if (active_object->mode == workspace->preferred_mode) {
+		BLI_assert(workspace->flags & WORKSPACE_USE_PREFERED_MODE);
+		/* The active object is already in the workspace mode, so it should toggle into object mode now. */
+		return OB_MODE_OBJECT;
+	}
+	else {
+		BLI_assert((workspace->flags & WORKSPACE_USE_PREFERED_MODE) == 0);
+		return workspace->preferred_mode;
+	}
+}
+
+void BKE_workspace_object_mode_for_object_set(
+        WorkSpace *workspace, Scene *scene,
+        Object *object, eObjectMode new_mode)
+{
+	const Base *active_base = BKE_workspace_active_base_get(workspace, scene);
+
+	if (active_base) {
+		const bool is_active = active_base && (object == active_base->object);
+		BKE_workspace_object_mode_ensure_updated(workspace, active_base->object, new_mode, is_active);
+	}
+}
 
 Base *BKE_workspace_active_base_get(const WorkSpace *workspace, const Scene *scene)
 {
@@ -446,6 +498,9 @@ ViewLayer *BKE_workspace_view_layer_get(const WorkSpace *workspace, const Scene 
 void BKE_workspace_view_layer_set(WorkSpace *workspace, ViewLayer *layer, Scene *scene)
 {
 	workspace_relation_ensure_updated(&workspace->scene_viewlayer_relations, scene, layer);
+	if (layer->basact) {
+		BKE_workspace_object_mode_ensure_updated(workspace, layer->basact->object, layer->basact->object->mode, true);
+	}
 }
 
 ListBase *BKE_workspace_layouts_get(WorkSpace *workspace)

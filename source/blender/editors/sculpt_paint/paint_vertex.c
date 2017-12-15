@@ -61,6 +61,7 @@
 #include "BKE_paint.h"
 #include "BKE_report.h"
 #include "BKE_subsurf.h"
+#include "BKE_workspace.h"
 
 #include "DEG_depsgraph.h"
 
@@ -1032,6 +1033,7 @@ static void vertex_paint_init_session_data(const ToolSettings *ts, Object *ob)
 static int wpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 {
 	Object *ob = CTX_data_active_object(C);
+	WorkSpace *workspace = CTX_wm_workspace(C);
 	const int mode_flag = OB_MODE_WEIGHT_PAINT;
 	const bool is_mode_set = (ob->mode & mode_flag) != 0;
 	Scene *scene = CTX_data_scene(C);
@@ -1047,7 +1049,7 @@ static int wpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 	me = BKE_mesh_from_object(ob);
 
 	if (ob->mode & mode_flag) {
-		ob->mode &= ~mode_flag;
+		BKE_workspace_object_mode_for_object_set(workspace, scene, ob, ob->mode & ~mode_flag);
 
 		if (me->editflag & ME_EDIT_PAINT_VERT_SEL) {
 			BKE_mesh_flush_select_from_verts(me);
@@ -1075,7 +1077,7 @@ static int wpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 
 		CTX_data_eval_ctx(C, &eval_ctx);
 
-		ob->mode |= mode_flag;
+		BKE_workspace_object_mode_for_object_set(workspace, scene, ob, ob->mode | mode_flag);
 
 		if (wp == NULL)
 			wp = scene->toolsettings->wpaint = new_vpaint();
@@ -2180,6 +2182,7 @@ void PAINT_OT_weight_paint(wmOperatorType *ot)
 static int vpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 {
 	Object *ob = CTX_data_active_object(C);
+	WorkSpace *workspace = CTX_wm_workspace(C);
 	const int mode_flag = OB_MODE_VERTEX_PAINT;
 	const bool is_mode_set = (ob->mode & mode_flag) != 0;
 	Scene *scene = CTX_data_scene(C);
@@ -2196,7 +2199,7 @@ static int vpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 
 	/* toggle: end vpaint */
 	if (is_mode_set) {
-		ob->mode &= ~mode_flag;
+		BKE_workspace_object_mode_for_object_set(workspace, scene, ob, ob->mode & ~mode_flag);
 
 		if (me->editflag & ME_EDIT_PAINT_FACE_SEL) {
 			BKE_mesh_flush_select_from_polys(me);
@@ -2220,7 +2223,7 @@ static int vpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 
 		CTX_data_eval_ctx(C, &eval_ctx);
 
-		ob->mode |= mode_flag;
+		BKE_workspace_object_mode_for_object_set(workspace, scene, ob, ob->mode | mode_flag);
 
 		ED_mesh_color_ensure(me, NULL);
 

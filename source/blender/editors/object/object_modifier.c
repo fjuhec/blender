@@ -319,7 +319,7 @@ static bool object_modifier_remove(Main *bmain, Object *ob, ModifierData *md,
 	if (ELEM(md->type, eModifierType_Softbody, eModifierType_Cloth) &&
 	    BLI_listbase_is_empty(&ob->particlesystem))
 	{
-		ob->mode &= ~OB_MODE_PARTICLE_EDIT;
+		ob->mode = OB_MODE_OBJECT; // XXX
 	}
 
 	DEG_relations_tag_update(bmain);

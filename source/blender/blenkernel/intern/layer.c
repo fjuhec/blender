@@ -315,11 +315,19 @@ void BKE_view_layer_base_deselect_all(ViewLayer *view_layer)
 	}
 }
 
-void BKE_view_layer_base_select(struct ViewLayer *view_layer, Base *selbase)
+void BKE_view_layer_base_select(ViewLayer *view_layer, Base *selbase, WorkSpace *workspace)
 {
 	view_layer->basact = selbase;
 	if ((selbase->flag & BASE_SELECTABLED) != 0) {
 		selbase->flag |= BASE_SELECTED;
+	}
+
+	if (workspace) {
+		BKE_workspace_object_mode_ensure_updated(workspace, selbase->object, selbase->object->mode, true);
+	}
+	else {
+		/* workspace must only be NULL if object is in object-mode */
+		BLI_assert(selbase->object->mode == OB_MODE_OBJECT);
 	}
 }
 
