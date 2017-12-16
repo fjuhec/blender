@@ -581,7 +581,7 @@ static void gpencil_add_editpoints_shgroup(
 		GPENCIL_StorageList *stl, GpencilBatchCache *cache,ToolSettings *ts, Object *ob, 
 		bGPdata *gpd, bGPDlayer *gpl, bGPDframe *gpf, bGPDstroke *gps)
 {
-	if (((gpl->flag & GP_LAYER_LOCKED) == 0) && (GPENCIL_ANY_EDIT_MODE(gpd))) {
+	if (GPENCIL_ANY_EDIT_MODE(gpd)) {
 		const DRWContextState *draw_ctx = DRW_context_state_get();
 		Object *obact = draw_ctx->obact;
 		if (obact->type != OB_GPENCIL) {
