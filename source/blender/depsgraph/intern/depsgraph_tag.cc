@@ -133,7 +133,7 @@ void lib_id_recalc_tag_flag(Main *bmain, ID *id, int flag)
 /* Special tagging  */
 void id_tag_update_special_zero_flag(Depsgraph *graph, IDDepsNode *id_node)
 {
-	/* NOTE: Full ID node update for now, need to minimize that i9n the future. */
+	/* NOTE: Full ID node update for now, need to minimize that in the future. */
 	id_node->tag_update(graph);
 }
 
@@ -376,14 +376,7 @@ void id_tag_update_editors_update(Main *bmain, Depsgraph *graph, ID *id)
 
 void id_tag_update_ntree_special(Main *bmain, Depsgraph *graph, ID *id, int flag)
 {
-	bNodeTree *ntree = NULL;
-	switch (GS(id->name)) {
-		case ID_MA:
-			ntree = ((Material *)id)->nodetree;
-			break;
-		default:
-			break;
-	}
+	bNodeTree *ntree = ntreeFromID(id);
 	if (ntree == NULL) {
 		return;
 	}
