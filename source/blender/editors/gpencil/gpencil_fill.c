@@ -46,6 +46,7 @@
 
 #include "GPU_immediate.h"
 #include "GPU_draw.h"
+#include "GPU_framebuffer.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -100,24 +101,13 @@ static GLubyte *gp_draw_offscreen_strokes(Scene *scene, Object *ob, rcti rect)
 		return NULL;
 	}
 
-	/* create offscreen framebuffer */
-	GLuint FramebufferId = 0;
-	glGenFramebuffers(1, &FramebufferId);
-	glBindFramebuffer(GL_FRAMEBUFFER, FramebufferId);
+	/* TODO: Create all code to send the output to offscreen buffer */
+	char err_out[256] = "unknown";
+	GPUOffScreen *offscreen = GPU_offscreen_create(rect.xmax, rect.ymax, 0, err_out);
 
-	/* create texture */
-	GLuint textureId;
-	glGenTextures(1, &textureId);
-	glBindTexture(GL_TEXTURE_2D, textureId);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, rect.xmax, rect.ymax, 0, GL_RGBA, 
-				 GL_UNSIGNED_BYTE, data);
-	/* attach the texture to FBO color attachment point */
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureId, 0);
-
-	glBindFramebuffer(GL_FRAMEBUFFER, FramebufferId);
-	glViewport(0, 0, rect.xmax, rect.ymax);
-	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-	glClear(GL_COLOR_BUFFER_BIT);
+	GPU_offscreen_bind(offscreen, true);
+	glClearColor(0.0, 0.0, 0.0, 0.0);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
 		/* calculate parent position */
@@ -149,8 +139,11 @@ static GLubyte *gp_draw_offscreen_strokes(Scene *scene, Object *ob, rcti rect)
 				diff_mat, gps->flag & GP_STROKE_CYCLIC);
 		}
 	}
+
 	/* switch back to window-system-provided framebuffer */
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	GPU_offscreen_read_pixels(offscreen, GL_UNSIGNED_BYTE, data);
+	GPU_offscreen_unbind(offscreen, true);
+	GPU_offscreen_free(offscreen);
 
 	/* return texture data */
 	return data;
