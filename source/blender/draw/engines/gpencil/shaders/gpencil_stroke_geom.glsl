@@ -3,7 +3,7 @@ uniform vec2 Viewport;
 uniform int xraymode;
 
 layout(lines_adjacency) in;
-layout(triangle_strip, max_vertices = 7) out;
+layout(triangle_strip, max_vertices = 13) out;
 
 in vec4 finalColor[4];
 in float finalThickness[4];
@@ -133,6 +133,25 @@ void main(void)
 		length_b = finalThickness[2];
 	}
 
+	/* generate the start endcap (alpha < 0 used as endcap flag)*/
+	if (P0 == P2) {
+		mTexCoord = vec2(1, 0.5);
+		mColor = vec4(finalColor[1].rgb, finalColor[1].a * -1.0) ;
+		vec2 svn1 =  normalize(sp1 - sp2) * length_a * 5.0;
+		gl_Position = vec4((sp1 + svn1) / Viewport, getZdepth(P1), 1.0);
+		EmitVertex();	
+
+		mTexCoord = vec2(0, 0);
+		mColor = vec4(finalColor[1].rgb, finalColor[1].a * -1.0) ;
+		gl_Position = vec4((sp1 - (length_a * 2.0) * miter_a) / Viewport, getZdepth(P1), 1.0);
+		EmitVertex();
+
+		mTexCoord = vec2(0, 1);
+		mColor = vec4(finalColor[1].rgb, finalColor[1].a * -1.0) ;
+		gl_Position = vec4((sp1 + (length_a * 2.0) * miter_a) / Viewport, getZdepth(P1), 1.0);
+		EmitVertex();
+	}
+
 	/* generate the triangle strip */
 	mTexCoord = vec2(0, 0);
 	mColor = finalColor[1];
@@ -154,5 +173,24 @@ void main(void)
 	gl_Position = vec4((sp2 - length_b * miter_b) / Viewport, getZdepth(P2), 1.0);
 	EmitVertex();
 
+	/* generate the end endcap (alpha < 0 used as endcap flag)*/
+	if (P1 == P3) {
+		mTexCoord = vec2(0, 1);
+		mColor = vec4(finalColor[2].rgb, finalColor[2].a * -1.0) ;
+		gl_Position = vec4((sp2 + (length_b * 2.0) * miter_b) / Viewport, getZdepth(P2), 1.0);
+		EmitVertex();
+
+		mTexCoord = vec2(0, 0);
+		mColor = vec4(finalColor[2].rgb, finalColor[2].a * -1.0) ;
+		gl_Position = vec4((sp2 - (length_b * 2.0) * miter_b) / Viewport, getZdepth(P2), 1.0);
+		EmitVertex();
+
+		mTexCoord = vec2(1, 0.5);
+		mColor = vec4(finalColor[2].rgb, finalColor[2].a * -1.0) ;
+		vec2 svn2 =  normalize(sp2 - sp1) * length_b * 5.0;
+		gl_Position = vec4((sp2 + svn2) / Viewport, getZdepth(P2), 1.0);
+		EmitVertex();	
+	}
+	
 	EndPrimitive();
 }
