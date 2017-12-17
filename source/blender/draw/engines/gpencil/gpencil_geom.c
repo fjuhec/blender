@@ -231,7 +231,7 @@ Gwn_Batch *DRW_gpencil_get_buffer_stroke_geom(bGPdata *gpd, float matrix[4][4], 
 
 	/* draw stroke curve */
 	const tGPspoint *tpt = points;
-	bGPDspoint pt;
+	bGPDspoint pt, pt2;
 	int idx = 0;
 	
 	/* get origin to reproject point */
@@ -245,7 +245,13 @@ Gwn_Batch *DRW_gpencil_get_buffer_stroke_geom(bGPdata *gpd, float matrix[4][4], 
 
 		/* first point for adjacency (not drawn) */
 		if (i == 0) {
-			gpencil_set_stroke_point(vbo, matrix, &pt, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor);
+			if (totpoints > 1) {
+				gpencil_tpoint_to_point(scene, ar, v3d, &points[1], &pt2);
+				gpencil_set_stroke_point(vbo, matrix, &pt2, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor);
+			}
+			else {
+				gpencil_set_stroke_point(vbo, matrix, &pt, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor);
+			}
 			idx++;
 		}
 		/* set point */
@@ -254,7 +260,13 @@ Gwn_Batch *DRW_gpencil_get_buffer_stroke_geom(bGPdata *gpd, float matrix[4][4], 
 	}
 
 	/* last adjacency point (not drawn) */
-	gpencil_set_stroke_point(vbo, matrix, &pt, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor);
+	if (totpoints > 2) {
+		gpencil_tpoint_to_point(scene, ar, v3d, &points[totpoints - 2], &pt2);
+		gpencil_set_stroke_point(vbo, matrix, &pt2, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor);
+	}
+	else {
+		gpencil_set_stroke_point(vbo, matrix, &pt, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor);
+	}
 
 	return GWN_batch_create_ex(GWN_PRIM_LINE_STRIP_ADJ, vbo, NULL, GWN_BATCH_OWNS_VBO);
 }
