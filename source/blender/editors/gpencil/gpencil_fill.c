@@ -92,11 +92,11 @@ static void gp_draw_offscreen_stroke(const bGPDspoint *points, int totpoints,
 }
 
  /* draw strokes in offscreen buffer */
-static GLubyte *gp_draw_offscreen_strokes(Scene *scene, Object *ob, rcti rect)
+static unsigned int *gp_draw_offscreen_strokes(Scene *scene, Object *ob, rcti rect)
 {
 	bGPdata *gpd = (bGPdata *)ob->data;
 	float diff_mat[4][4];
-	GLubyte* data = (GLubyte *)malloc(rect.xmax * rect.ymax * 4 * sizeof(GLubyte));
+	unsigned int *data = (unsigned int *)malloc(rect.xmax * rect.ymax * 4 * sizeof(unsigned int));
 	if (!gpd) {
 		return NULL;
 	}
