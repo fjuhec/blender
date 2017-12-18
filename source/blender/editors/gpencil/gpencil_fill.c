@@ -103,7 +103,7 @@ static unsigned int *gp_draw_offscreen_strokes(Scene *scene, Object *ob, rcti re
 
 	/* TODO: Create all code to send the output to offscreen buffer */
 	char err_out[256] = "unknown";
-	GPUOffScreen *offscreen = GPU_offscreen_create(rect.xmax, rect.ymax, 0, err_out);
+	GPUOffScreen *offscreen = GPU_offscreen_create(rect.xmax - rect.xmin, rect.ymax - rect.ymin, 0, err_out);
 
 	GPU_offscreen_bind(offscreen, true);
 	glClearColor(0.0, 0.0, 0.0, 0.0);
@@ -228,7 +228,8 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
 
 			if ((in_bounds) && (ar->regiontype == RGN_TYPE_WINDOW)) {
 				/* TODO: Add fill code here */
-				printf("(%d, %d) Do all here!\n", event->mval[0], event->mval[1]);
+				printf("(%d, %d) in (%d, %d) -> (%d, %d) Do all here!\n", event->mval[0], event->mval[1],
+						region_rect.xmin, region_rect.ymin, region_rect.xmax, region_rect.ymax);
 				gp_draw_offscreen_strokes(scene, ob, region_rect);
 
 				estate = OPERATOR_FINISHED;
