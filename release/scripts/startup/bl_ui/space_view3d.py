@@ -187,6 +187,8 @@ class VIEW3D_MT_editor_menus(Menu):
             layout.menu("INFO_MT_surface_add", text="Add")
         elif mode_string == 'EDIT_METABALL':
             layout.menu("INFO_MT_metaball_add", text="Add")
+        elif mode_string == 'EDIT_GROOM':
+            layout.menu("INFO_MT_groom_add", text="Add")
         elif mode_string == 'EDIT_ARMATURE':
             layout.menu("INFO_MT_edit_armature_add", text="Add")
 
@@ -1230,6 +1232,17 @@ class INFO_MT_metaball_add(Menu):
         layout.operator_enum("object.metaball_add", "type")
 
 
+class INFO_MT_groom_add(Menu):
+    bl_idname = "INFO_MT_groom_add"
+    bl_label = "Groom"
+
+    def draw(self, context):
+        layout = self.layout
+
+        layout.operator_context = 'INVOKE_REGION_WIN'
+        layout.operator("object.groom_add")
+
+
 class INFO_MT_edit_curve_add(Menu):
     bl_idname = "INFO_MT_edit_curve_add"
     bl_label = "Add"
@@ -1320,6 +1333,7 @@ class INFO_MT_add(Menu):
         # layout.operator_menu_enum("object.surface_add", "type", text="Surface", icon='OUTLINER_OB_SURFACE')
         layout.menu("INFO_MT_surface_add", icon='OUTLINER_OB_SURFACE')
         layout.menu("INFO_MT_metaball_add", text="Metaball", icon='OUTLINER_OB_META')
+        layout.menu("INFO_MT_groom_add", text="Groom", icon='OUTLINER_OB_GROOM')
         layout.operator("object.text_add", text="Text", icon='OUTLINER_OB_FONT')
         layout.separator()
 
@@ -3891,6 +3905,7 @@ classes = (
     INFO_MT_curve_add,
     INFO_MT_surface_add,
     INFO_MT_metaball_add,
+    INFO_MT_groom_add,
     INFO_MT_edit_curve_add,
     INFO_MT_edit_armature_add,
     INFO_MT_armature_add,
