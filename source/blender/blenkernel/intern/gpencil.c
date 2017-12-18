@@ -934,6 +934,29 @@ bGPDframe *BKE_gpencil_frame_duplicate(const bGPDframe *gpf_src)
 	return gpf_dst;
 }
 
+/* make a copy of strokes between gpencil frames */
+void BKE_gpencil_frame_copy_strokes(bGPDframe *gpf_src, struct bGPDframe *gpf_dst)
+{
+	bGPDstroke *gps_dst;
+	/* error checking */
+	if ((gpf_src == NULL) || (gpf_dst == NULL)) {
+		return;
+	}
+
+	/* copy strokes */
+	BLI_listbase_clear(&gpf_dst->strokes);
+	for (bGPDstroke *gps_src = gpf_src->strokes.first; gps_src; gps_src = gps_src->next) {
+		/* make copy of source stroke, then adjust pointer to points too */
+		gps_dst = MEM_dupallocN(gps_src);
+		gps_dst->points = MEM_dupallocN(gps_src->points);
+		BKE_gpencil_stroke_weights_duplicate(gps_src, gps_dst);
+
+		gps_dst->triangles = MEM_dupallocN(gps_src->triangles);
+		gps_dst->flag |= GP_STROKE_RECALC_CACHES;
+		BLI_addtail(&gpf_dst->strokes, gps_dst);
+	}
+}
+
 /* fix any null value in palettes (this must be removed in the future) */
 static void gpencil_fix_null_palette(const bContext *C, bGPDstroke *gps_src)
 {

@@ -673,17 +673,22 @@ static int gp_merge_layer_exec(bContext *C, wmOperator *op)
 		BLI_ghash_insert(gh_frames_cur, SET_INT_IN_POINTER(gpf->framenum), gpf);
 	}
 
-	/* read all frames from next layer */
+	/* read all frames from next layer and add any missing in current layer */
 	for (bGPDframe *gpf = gpl_next->frames.first; gpf; gpf = gpf->next) {
-		/* try to find frame in active layer */
+		/* try to find frame in current layer */
 		bGPDframe *frame = BLI_ghash_lookup(gh_frames_cur, SET_INT_IN_POINTER(gpf->framenum));
 		if (!frame) {
-			/* nothing found, create new */
+			bGPDframe *actframe = BKE_gpencil_layer_getframe(gpl_current, gpf->framenum, GP_GETFRAME_USE_PREV);
 			frame = BKE_gpencil_frame_addnew(gpl_current, gpf->framenum);
+			/* duplicate strokes of current active frame */
+			if (actframe) {
+				BKE_gpencil_frame_copy_strokes(actframe, frame);
+			}
 		}
 		/* add to tail all strokes */
 		BLI_movelisttolist(&frame->strokes, &gpf->strokes);
 	}
+
 	/* Now delete next layer */
 	BKE_gpencil_layer_delete(gpd, gpl_next);
 	BLI_ghash_free(gh_frames_cur, NULL, NULL);
