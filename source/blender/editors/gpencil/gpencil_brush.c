@@ -1459,7 +1459,15 @@ static bool gpsculpt_brush_apply_standard(bContext *C, tGP_BrushEditData *gso)
 	Object *obact = CTX_data_active_object(C);     
 	ToolSettings *ts = CTX_data_tool_settings(C);
 	bGPdata *gpd = gso->gpd;
+	
 	bool is_multiedit = (bool)GPENCIL_MULTIEDIT_SESSIONS_ON(gpd);
+	bool use_multiedit_falloff = (ts->gp_sculpt.flag & GP_BRUSHEDIT_FLAG_FRAME_FALLOFF) != 0; 
+	
+	/* init multiedit falloff curve data once, instead of doing it for every layer */
+	// XXX: can we even just do it when initialising the operator?
+	if (is_multiedit) {
+		curvemapping_initialize(ts->gp_sculpt.cur_falloff);
+	}
 
 	CTX_DATA_BEGIN(C, bGPDlayer *, gpl, editable_gpencil_layers)
 	{
@@ -1469,28 +1477,27 @@ static bool gpsculpt_brush_apply_standard(bContext *C, tGP_BrushEditData *gso)
 		gso->mf_falloff = 1.0f;
 
 		bGPDframe *init_gpf = gpl->actframe;
-		if ((is_multiedit) && (gpl->actframe)){
+		if ((is_multiedit) && (gpl->actframe)) {
 			init_gpf = gpl->frames.first;
-			if (ts->gp_sculpt.flag & GP_BRUSHEDIT_FLAG_FRAME_FALLOFF) {
+			if (use_multiedit_falloff) {
 				BKE_gp_get_range_selected(gpl, &f_init, &f_end);
 			}
-			/* initialize curve */
-			curvemapping_initialize(ts->gp_sculpt.cur_falloff);
+		}
+
+		/* calculate difference matrix */
+		if ((gpl->actframe) || (f_init != f_end)) {
+			ED_gpencil_parent_location(obact, gpd, gpl, diff_mat);
 		}
 
 		for (bGPDframe *gpf = init_gpf; gpf; gpf = gpf->next) {
 			if ((gpf == gpl->actframe) || ((gpf->flag & GP_FRAME_SELECT) && (is_multiedit))) {
-				
-				/* compute multiframe falloff factor*/
-				if ((is_multiedit) && (ts->gp_sculpt.flag & GP_BRUSHEDIT_FLAG_FRAME_FALLOFF)) {
+				/* compute multiframe falloff factor */
+				if (is_multiedit && use_multiedit_falloff) {
 					gso->mf_falloff = BKE_gpencil_multiframe_falloff_calc(
 					                    gpf, gpl->actframe->framenum,
 					                    f_init, f_end,
 					                    ts->gp_sculpt.cur_falloff);
 				}
-
-				/* calculate difference matrix */
-				ED_gpencil_parent_location(obact, gpd, gpl, diff_mat);
 
 				for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
 					/* skip strokes that are invalid for current view */
@@ -1581,7 +1588,7 @@ static bool gpsculpt_brush_apply_standard(bContext *C, tGP_BrushEditData *gso)
 				}
 
 			}
-			/* if not multiedit out of loop */
+			/* if not multiedit, don't continue to next frame in this layer */
 			if (!is_multiedit) {
 				break;
 			}
