@@ -1539,6 +1539,7 @@ static bool gpsculpt_brush_do_frame(
 /* Perform two-pass brushes which modify the existing strokes */
 static bool gpsculpt_brush_apply_standard(bContext *C, tGP_BrushEditData *gso)
 {
+	ToolSettings *ts = CTX_data_tool_settings(C);
 	Object *obact = gso->object;
 	bGPdata *gpd = gso->gpd;
 	bool changed = false;
@@ -1586,7 +1587,7 @@ static bool gpsculpt_brush_apply_standard(bContext *C, tGP_BrushEditData *gso)
 		ED_gpencil_parent_location(obact, gpd, gpl, diff_mat);
 		
 		/* Active Frame or MultiFrame? */
-		if (is_multiframe) {
+		if (gso->is_multiframe) {
 			/* init multiframe falloff options */
 			int f_init = 0;
 			int f_end = 0;
