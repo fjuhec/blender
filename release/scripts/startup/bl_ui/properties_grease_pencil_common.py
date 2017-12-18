@@ -1221,7 +1221,8 @@ class GreasePencilDataPanel:
                 sub.operator("gpencil.layer_isolate", icon='RESTRICT_VIEW_OFF', text="").affect_visibility = True
 
         row = layout.row(align=True)
-        row.prop(gpl, "opacity", text="Opacity", slider=True)
+        if gpl:
+            row.prop(gpl, "opacity", text="Opacity", slider=True)
 
         layout.separator()
 
