@@ -103,10 +103,7 @@ struct DepsNodeFactoryImpl : public DepsNodeFactory {
 void deg_register_node_typeinfo(DepsNodeFactory *factory);
 
 /* Get typeinfo for specified type */
-DepsNodeFactory *deg_get_node_factory(const eDepsNode_Type type);
-
-/* Get typeinfo for provided node */
-DepsNodeFactory *deg_node_get_factory(const DepsNode *node);
+DepsNodeFactory *deg_type_get_factory(const eDepsNode_Type type);
 
 /* Editors Integration -------------------------------------------------- */
 
@@ -119,7 +116,6 @@ void deg_editors_scene_update(const DEGEditorUpdateContext *update_ctx,
 /* Tagging helpers ------------------------------------------------------ */
 
 void lib_id_recalc_tag(struct Main *bmain, struct ID *id);
-void lib_id_recalc_data_tag(struct Main *bmain, struct ID *id);
 
 #define DEG_DEBUG_PRINTF(...)               \
 	do {                                    \

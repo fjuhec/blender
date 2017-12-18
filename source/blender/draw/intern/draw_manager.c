@@ -33,6 +33,7 @@
 
 #include "BIF_glutil.h"
 
+#include "BKE_curve.h"
 #include "BKE_global.h"
 #include "BKE_mesh.h"
 #include "BKE_object.h"
@@ -47,10 +48,12 @@
 #include "DRW_render.h"
 
 #include "DNA_camera_types.h"
+#include "DNA_curve_types.h"
 #include "DNA_view3d_types.h"
 #include "DNA_screen_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
+#include "DNA_meta_types.h"
 
 #include "ED_space_api.h"
 #include "ED_screen.h"
@@ -1870,8 +1873,24 @@ static void draw_geometry(DRWShadingGroup *shgroup, Gwn_Batch *geom, const float
 			case ID_ME:
 				BKE_mesh_texspace_get_reference((Mesh *)ob_data, NULL, &texcoloc, NULL, &texcosize);
 				break;
+			case ID_CU:
+			{
+				Curve *cu = (Curve *)ob_data;
+				if (cu->bb == NULL || (cu->bb->flag & BOUNDBOX_DIRTY)) {
+					BKE_curve_texspace_calc(cu);
+				}
+				texcoloc = cu->loc;
+				texcosize = cu->size;
+				break;
+			}
+			case ID_MB:
+			{
+				MetaBall *mb = (MetaBall *)ob_data;
+				texcoloc = mb->loc;
+				texcosize = mb->size;
+				break;
+			}
 			default:
-				/* TODO, curve, metaball? */
 				break;
 		}
 	}
@@ -2195,9 +2214,7 @@ bool DRW_object_is_renderable(Object *ob)
 	Scene *scene = DST.draw_ctx.scene;
 	Object *obedit = scene->obedit;
 
-	if (!BKE_object_is_visible(ob)) {
-		return false;
-	}
+	BLI_assert(BKE_object_is_visible(ob));
 
 	if (ob->type == OB_MESH) {
 		if (ob == obedit) {
@@ -3385,11 +3402,11 @@ void DRW_draw_render_loop_ex(
 		PROFILE_START(stime);
 		drw_engines_cache_init();
 
-		DEG_OBJECT_ITER(graph, ob, DEG_ITER_OBJECT_FLAG_ALL);
+		DEG_OBJECT_ITER_FOR_RENDER_ENGINE(graph, ob)
 		{
 			drw_engines_cache_populate(ob);
 		}
-		DEG_OBJECT_ITER_END
+		DEG_OBJECT_ITER_FOR_RENDER_ENGINE_END
 
 		drw_engines_cache_finish();
 		PROFILE_END_ACCUM(DST.cache_time, stime);
@@ -3439,10 +3456,14 @@ void DRW_draw_render_loop_ex(
 	if (DST.draw_ctx.evil_C) {
 		/* needed so manipulator isn't obscured */
 		glDisable(GL_DEPTH_TEST);
-		DRW_draw_manipulator();
-		glEnable(GL_DEPTH_TEST);
+		DRW_draw_manipulator_3d();
 
 		DRW_draw_region_info();
+
+		/* Draw 2D after region info so we can draw on top of the camera passepartout overlay.
+		 * 'DRW_draw_region_info' sets the projection in pixel-space. */
+		DRW_draw_manipulator_2d();
+		glEnable(GL_DEPTH_TEST);
 	}
 
 	DRW_stats_reset();
@@ -3594,7 +3615,10 @@ void DRW_draw_select_loop(
 			drw_engines_cache_populate(scene->obedit);
 		}
 		else {
-			DEG_OBJECT_ITER(graph, ob, DEG_ITER_OBJECT_FLAG_DUPLI)
+			DEG_OBJECT_ITER(graph, ob,
+			                DEG_ITER_OBJECT_FLAG_LINKED_DIRECTLY |
+			                DEG_ITER_OBJECT_FLAG_VISIBLE |
+			                DEG_ITER_OBJECT_FLAG_DUPLI)
 			{
 				if ((ob->base_flag & BASE_SELECTABLED) != 0) {
 					DRW_select_load_id(ob->select_color);
@@ -3686,11 +3710,11 @@ void DRW_draw_depth_loop(
 	if (cache_is_dirty) {
 		drw_engines_cache_init();
 
-		DEG_OBJECT_ITER(graph, ob, DEG_ITER_OBJECT_FLAG_ALL)
+		DEG_OBJECT_ITER_FOR_RENDER_ENGINE(graph, ob)
 		{
 			drw_engines_cache_populate(ob);
 		}
-		DEG_OBJECT_ITER_END
+		DEG_OBJECT_ITER_FOR_RENDER_ENGINE_END
 
 		drw_engines_cache_finish();
 	}

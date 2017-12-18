@@ -113,11 +113,7 @@ static void eevee_cache_populate(void *vedata, Object *ob)
 		}
 	}
 
-	if (ELEM(ob->type, OB_MESH)) {
-		if (!BKE_object_is_visible(ob)) {
-			return;
-		}
-
+	if (ELEM(ob->type, OB_MESH, OB_CURVE, OB_SURF, OB_FONT)) {
 		EEVEE_materials_cache_populate(vedata, sldata, ob);
 
 		const bool cast_shadow = true;

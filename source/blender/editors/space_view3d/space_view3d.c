@@ -729,6 +729,9 @@ static void view3d_widgets(void)
 
 	WM_manipulatorgrouptype_append(VIEW3D_WGT_ruler);
 	WM_manipulatortype_append(VIEW3D_WT_ruler_item);
+
+	WM_manipulatorgrouptype_append_and_link(mmap_type, VIEW3D_WGT_navigate);
+	WM_manipulatortype_append(VIEW3D_WT_navigate_rotate);
 }
 
 
@@ -1073,6 +1076,8 @@ static void view3d_main_region_message_subscribe(
 
 	/* Only subscribe to types. */
 	StructRNA *type_array[] = {
+		&RNA_Window,
+
 		/* These object have properties that impact drawing. */
 		&RNA_AreaLamp,
 		&RNA_Camera,

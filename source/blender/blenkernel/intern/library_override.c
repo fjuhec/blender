@@ -66,16 +66,26 @@ IDOverrideStatic *BKE_override_static_init(ID *local_id, ID *reference_id)
 	BLI_assert(reference_id == NULL || reference_id->lib != NULL);
 	BLI_assert(local_id->override_static == NULL);
 
-	if (reference_id != NULL && reference_id->override_static != NULL && reference_id->override_static->reference == NULL) {
-		/* reference ID has an override template, use it! */
-		BKE_override_static_copy(local_id, reference_id);
+	ID *ancestor_id;
+	for (ancestor_id = reference_id;
+	     ancestor_id != NULL && ancestor_id->override_static != NULL && ancestor_id->override_static->reference != NULL;
+	     ancestor_id = ancestor_id->override_static->reference);
+
+	if (ancestor_id != NULL && ancestor_id->override_static != NULL) {
+		/* Original ID has a template, use it! */
+		BKE_override_static_copy(local_id, ancestor_id);
+		if (local_id->override_static->reference != reference_id) {
+			id_us_min(local_id->override_static->reference);
+			local_id->override_static->reference = reference_id;
+			id_us_plus(local_id->override_static->reference);
+		}
 		return local_id->override_static;
 	}
 
 	/* Else, generate new empty override. */
 	local_id->override_static = MEM_callocN(sizeof(*local_id->override_static), __func__);
 	local_id->override_static->reference = reference_id;
-	id_us_plus(reference_id);
+	id_us_plus(local_id->override_static->reference);
 	local_id->tag &= ~LIB_TAG_OVERRIDESTATIC_OK;
 	/* TODO do we want to add tag or flag to referee to mark it as such? */
 	return local_id->override_static;
@@ -384,7 +394,10 @@ bool BKE_override_static_status_check_local(ID *local)
 	RNA_id_pointer_create(local, &rnaptr_local);
 	RNA_id_pointer_create(reference, &rnaptr_reference);
 
-	if (!RNA_struct_override_matches(&rnaptr_local, &rnaptr_reference, local->override_static, true, true)) {
+	if (!RNA_struct_override_matches(
+	        &rnaptr_local, &rnaptr_reference, NULL, local->override_static,
+	        RNA_OVERRIDE_COMPARE_IGNORE_NON_OVERRIDABLE | RNA_OVERRIDE_COMPARE_IGNORE_OVERRIDDEN, NULL))
+	{
 		local->tag &= ~LIB_TAG_OVERRIDESTATIC_OK;
 		return false;
 	}
@@ -428,7 +441,10 @@ bool BKE_override_static_status_check_reference(ID *local)
 	RNA_id_pointer_create(local, &rnaptr_local);
 	RNA_id_pointer_create(reference, &rnaptr_reference);
 
-	if (!RNA_struct_override_matches(&rnaptr_local, &rnaptr_reference, local->override_static, false, true)) {
+	if (!RNA_struct_override_matches(
+	        &rnaptr_local, &rnaptr_reference, NULL, local->override_static,
+	        RNA_OVERRIDE_COMPARE_IGNORE_OVERRIDDEN, NULL))
+	{
 		local->tag &= ~LIB_TAG_OVERRIDESTATIC_OK;
 		return false;
 	}
@@ -459,8 +475,17 @@ bool BKE_override_static_operations_create(ID *local)
 		RNA_id_pointer_create(local, &rnaptr_local);
 		RNA_id_pointer_create(local->override_static->reference, &rnaptr_reference);
 
-		ret = RNA_struct_auto_override(&rnaptr_local, &rnaptr_reference, local->override_static, NULL);
+		eRNAOverrideMatchResult report_flags = 0;
+		RNA_struct_override_matches(
+		            &rnaptr_local, &rnaptr_reference, NULL, local->override_static,
+		            RNA_OVERRIDE_COMPARE_CREATE | RNA_OVERRIDE_COMPARE_RESTORE, &report_flags);
+		if (report_flags & RNA_OVERRIDE_MATCH_RESULT_CREATED) {
+			ret = true;
+		}
 #ifndef NDEBUG
+		if (report_flags & RNA_OVERRIDE_MATCH_RESULT_RESTORED) {
+			printf("We did restore some properties of %s from its reference.\n", local->name);
+		}
 		if (ret) {
 			printf("We did generate static override rules for %s\n", local->name);
 		}

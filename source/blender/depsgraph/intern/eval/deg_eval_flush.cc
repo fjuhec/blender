@@ -205,13 +205,11 @@ BLI_INLINE void flush_editors_id_update(Main *bmain,
 		 * This is because DEG_id_tag_update() sets tags on original
 		 * data.
 		 */
-		id_cow->tag |= (id_orig->tag & LIB_TAG_ID_RECALC_ALL);
+		id_cow->recalc |= (id_orig->recalc & ID_RECALC_ALL);
 		if (deg_copy_on_write_is_expanded(id_cow)) {
 			deg_editors_id_update(update_ctx, id_cow);
 		}
 		lib_id_recalc_tag(bmain, id_orig);
-		/* TODO(sergey): For until we've got proper data nodes in the graph. */
-		lib_id_recalc_data_tag(bmain, id_orig);
 	}
 }
 
@@ -236,11 +234,10 @@ void deg_graph_flush_updates(Main *bmain, Depsgraph *graph)
 	FlushQueue queue;
 	flush_schedule_entrypoints(graph, &queue);
 	/* Prepare update context for editors. */
-	DEGEditorUpdateContext update_ctx = {
-		bmain,
-		graph->scene,
-		graph->view_layer,
-	};
+	DEGEditorUpdateContext update_ctx;
+	update_ctx.bmain = bmain;
+	update_ctx.scene = graph->scene;
+	update_ctx.view_layer = graph->view_layer;
 	/* Do actual flush. */
 	while (!queue.empty()) {
 		OperationDepsNode *op_node = queue.front();

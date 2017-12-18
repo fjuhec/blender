@@ -108,6 +108,46 @@ static SceneCollection *scene_collection_from_index(ListBase *lb, const int numb
 	return NULL;
 }
 
+typedef struct TreeElementFindData {
+	SceneCollection *sc;
+	TreeElement *te;
+} TreeElementFindData;
+
+static TreeTraversalAction tree_element_find_by_scene_collection(TreeElement *te, void *customdata)
+{
+	TreeElementFindData *data = customdata;
+
+	SceneCollection *current_element_sc = outliner_scene_collection_from_tree_element(te);
+
+	if (current_element_sc == data->sc) {
+		data->te = te;
+		return TRAVERSE_BREAK;
+	}
+
+	return TRAVERSE_CONTINUE;
+}
+
+static TreeElement *outliner_tree_element_from_layer_collection(bContext *C)
+{
+	ViewLayer *view_layer = CTX_data_view_layer(C);
+	SpaceOops *soops = CTX_wm_space_outliner(C);
+
+	LayerCollection *lc = BKE_layer_collection_from_index(view_layer, 0);
+
+	if (lc == NULL) {
+		return NULL;
+	}
+
+	/* Find the tree element containing the LayerCollection's scene_collection. */
+	TreeElementFindData data = {
+		.sc = lc->scene_collection,
+		.te = NULL,
+	};
+	outliner_tree_traverse(soops, &soops->tree, 0, 0, tree_element_find_by_scene_collection, &data);
+
+	return data.te;
+}
+
 static int collection_link_exec(bContext *C, wmOperator *op)
 {
 	Scene *scene = CTX_data_scene(C);
@@ -359,7 +399,9 @@ static TreeTraversalAction collection_find_data_to_delete(TreeElement *te, void 
 
 static int collection_delete_exec(bContext *C, wmOperator *UNUSED(op))
 {
+	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
+	ViewLayer *view_layer = CTX_data_view_layer(C);
 	SpaceOops *soops = CTX_wm_space_outliner(C);
 	struct CollectionDeleteData data = {.scene = scene, .soops = soops};
 
@@ -379,6 +421,15 @@ static int collection_delete_exec(bContext *C, wmOperator *UNUSED(op))
 	}
 
 	BLI_gset_free(data.collections_to_delete, NULL);
+
+	/* Rebuild the outliner tree before we select the tree element */
+	outliner_build_tree(bmain, scene, view_layer, soops);
+
+	TreeElement *select_te = outliner_tree_element_from_layer_collection(C);
+
+	if (select_te) {
+		outliner_item_select(soops, select_te, false, false);
+	}
 
 	DEG_relations_tag_update(CTX_data_main(C));
 
@@ -438,13 +489,12 @@ static int collection_toggle_exec(bContext *C, wmOperator *op)
 {
 	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
-	ViewLayer *view_layer = CTX_data_view_layer(C);
 	int action = RNA_enum_get(op->ptr, "action");
 	LayerCollection *layer_collection = CTX_data_layer_collection(C);
 
 	if (layer_collection->flag & COLLECTION_DISABLED) {
 		if (ELEM(action, ACTION_TOGGLE, ACTION_ENABLE)) {
-			BKE_collection_enable(view_layer, layer_collection);
+			layer_collection->flag &= ~COLLECTION_DISABLED;
 		}
 		else { /* ACTION_DISABLE */
 			BKE_reportf(op->reports, RPT_ERROR, "Layer collection %s already disabled",
@@ -454,7 +504,7 @@ static int collection_toggle_exec(bContext *C, wmOperator *op)
 	}
 	else {
 		if (ELEM(action, ACTION_TOGGLE, ACTION_DISABLE)) {
-			BKE_collection_disable(view_layer, layer_collection);
+			layer_collection->flag |= COLLECTION_DISABLED;
 		}
 		else { /* ACTION_ENABLE */
 			BKE_reportf(op->reports, RPT_ERROR, "Layer collection %s already enabled",
