@@ -1381,6 +1381,11 @@ static void gp_init_palette(tGPsdata *p)
 		/* set palette colors */
 		copy_v4_v4(gpd->scolor, palcolor->rgb);
 		copy_v4_v4(gpd->sfill, palcolor->fill);
+		/* add some alpha to make easy the filling without hide strokes */
+		if (gpd->sfill[3] > 0.8f) {
+			gpd->sfill[3] = 0.8f;
+		}
+
 		gpd->sflag = palcolor->flag;
 		gpd->bstroke_style = palcolor->stroke_style;
 		gpd->bfill_style = palcolor->fill_style;
