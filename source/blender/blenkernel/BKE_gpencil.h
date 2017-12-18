@@ -52,6 +52,7 @@ struct bDeformGroup;
 struct GpencilSimplifyModifierData;
 struct GpencilArrayModifierData;
 struct GpencilLatticeModifierData;
+struct GpencilHookModifierData;
 
 /* ------------ Grease-Pencil API ------------------ */
 
