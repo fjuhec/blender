@@ -50,6 +50,7 @@ struct Main;
 struct RigidBodyWorld;
 struct HookModifierData;
 struct ModifierData;
+struct GpencilHookModifierData;
 
 void BKE_object_workob_clear(struct Object *workob);
 void BKE_object_workob_calc_parent(const struct EvaluationContext *eval_ctx, struct Scene *scene, struct Object *ob, struct Object *workob);
