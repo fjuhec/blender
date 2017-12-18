@@ -115,6 +115,10 @@ typedef struct tGP_BrushEditData {
 	/* Start of new sculpt stroke */
 	bool first;
 	
+	/* Is multiframe editing enabled, and are we using falloff for that? */
+	bool is_multiframe;
+	bool use_multiframe_falloff;
+	
 	/* Current frame */
 	int cfra;
 	
@@ -1130,6 +1134,7 @@ static void gpsculpt_brush_header_set(bContext *C, tGP_BrushEditData *gso)
 static bool gpsculpt_brush_init(bContext *C, wmOperator *op)
 {
 	Scene *scene = CTX_data_scene(C);
+	ToolSettings *ts = CTX_data_tool_settings(C);
 	Object *ob = CTX_data_active_object(C);
 
 	tGP_BrushEditData *gso;
@@ -1166,8 +1171,20 @@ static bool gpsculpt_brush_init(bContext *C, wmOperator *op)
 	else {
 		gso->vrgroup = - 1;
 	}
+	
 	gso->sa = CTX_wm_area(C);
 	gso->ar = CTX_wm_region(C);
+	
+	/* multiframe settings */
+	gso->is_multiframe = (bool)GPENCIL_MULTIEDIT_SESSIONS_ON(gso->gpd);
+	gso->use_multiframe_falloff = (ts->gp_sculpt.flag & GP_BRUSHEDIT_FLAG_FRAME_FALLOFF) != 0;
+	
+	/* init multiedit falloff curve data before doing anything,
+	 * so we won't have to do it again later
+	 */
+	if (gso->is_multiframe) {
+		curvemapping_initialize(ts->gp_sculpt.cur_falloff);
+	}
 	
 	/* initialise custom data for brushes */
 	switch (gso->brush_type) {
@@ -1522,6 +1539,8 @@ static bool gpsculpt_brush_do_frame(
 /* Perform two-pass brushes which modify the existing strokes */
 static bool gpsculpt_brush_apply_standard(bContext *C, tGP_BrushEditData *gso)
 {
+	Object *obact = gso->object;
+	bGPdata *gpd = gso->gpd;
 	bool changed = false;
 	
 	/* Calculate brush-specific data which applies equally to all points */
@@ -1555,19 +1574,6 @@ static bool gpsculpt_brush_apply_standard(bContext *C, tGP_BrushEditData *gso)
 	
 	
 	/* Find visible strokes, and perform operations on those if hit */
-	Object *obact = gso->object;
-	ToolSettings *ts = CTX_data_tool_settings(C);
-	bGPdata *gpd = gso->gpd;
-	
-	bool is_multiedit = (bool)GPENCIL_MULTIEDIT_SESSIONS_ON(gpd);
-	bool use_multiedit_falloff = (ts->gp_sculpt.flag & GP_BRUSHEDIT_FLAG_FRAME_FALLOFF) != 0; 
-	
-	/* init multiedit falloff curve data once, instead of doing it for every layer */
-	// XXX: can we even just do it when initialising the operator?
-	if (is_multiedit) {
-		curvemapping_initialize(ts->gp_sculpt.cur_falloff);
-	}
-
 	CTX_DATA_BEGIN(C, bGPDlayer *, gpl, editable_gpencil_layers)
 	{
 		/* If no active frame, don't do anything... */
@@ -1580,12 +1586,12 @@ static bool gpsculpt_brush_apply_standard(bContext *C, tGP_BrushEditData *gso)
 		ED_gpencil_parent_location(obact, gpd, gpl, diff_mat);
 		
 		/* Active Frame or MultiFrame? */
-		if (is_multiedit) {
+		if (is_multiframe) {
 			/* init multiframe falloff options */
 			int f_init = 0;
 			int f_end = 0;
 			
-			if (use_multiedit_falloff) {
+			if (gso->use_multiframe_falloff) {
 				BKE_gp_get_range_selected(gpl, &f_init, &f_end);
 			}
 			
@@ -1593,7 +1599,7 @@ static bool gpsculpt_brush_apply_standard(bContext *C, tGP_BrushEditData *gso)
 				/* Always do active frame; Otherwise, only include selected frames */
 				if ((gpf == gpl->actframe) || (gpf->flag & GP_FRAME_SELECT)) {
 					/* compute multiframe falloff factor */
-					if (use_multiedit_falloff) {
+					if (gso->use_multiframe_falloff) {
 						/* Faloff depends on distance to active frame (relative to the overall frame range) */
 						gso->mf_falloff = BKE_gpencil_multiframe_falloff_calc(
 						                    gpf, gpl->actframe->framenum,
