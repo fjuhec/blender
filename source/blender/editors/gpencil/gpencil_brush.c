@@ -500,8 +500,7 @@ static void gp_brush_grab_apply_cached(
 		/* apply transformation */
 		mul_v3_m4v3(fpt, diff_mat, &pt->x);
 		/* apply */
-		add_v3_v3(fpt, delta);
-		copy_v3_v3(&pt->x, fpt);
+		add_v3_v3v3(&pt->x, fpt, delta);
 		/* undo transformation to the init parent position */
 		float inverse_diff_mat[4][4];
 		invert_m4_m4(inverse_diff_mat, diff_mat);
