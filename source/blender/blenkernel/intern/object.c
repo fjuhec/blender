@@ -538,6 +538,11 @@ bool BKE_object_is_in_editmode(Object *ob)
 		if (cu->editnurb)
 			return true;
 	}
+	else if (ob->type == OB_GROOM) {
+		Groom *groom = ob->data;
+		if (groom->edit_groom)
+			return true;
+	}
 	return false;
 }
 
