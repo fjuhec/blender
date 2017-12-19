@@ -308,6 +308,13 @@ static void GPENCIL_cache_init(void *vedata)
 		ob = draw_ctx->obact;
 		if ((ob) && (ob->type == OB_GPENCIL)) {
 			gpd = ob->data;
+			/* for some reason, when press play there is a delay in the animation flag check
+			* and this produces errors. To be sure, we set cache as dirty because the frame
+			* is changing.
+			*/
+			if (stl->storage->playing == 1) {
+				gpd->flag |= GP_DATA_CACHE_IS_DIRTY;
+			}
 		}
 		bGPDpaletteref *palslot = BKE_gpencil_paletteslot_get_active(gpd);
 		PaletteColor *palcolor = BKE_palette_color_get_active((palslot) ? palslot->palette : NULL);
