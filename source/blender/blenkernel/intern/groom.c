@@ -71,9 +71,32 @@ void *BKE_groom_add(Main *bmain, const char *name)
 	return groom;
 }
 
+static void groom_bundles_free(ListBase *bundles)
+{
+	for (GroomBundle *bundle = bundles->first; bundle; bundle = bundle->next)
+	{
+		BLI_freelistN(&bundle->sections);
+	}
+	BLI_freelistN(bundles);
+}
+
 /** Free (or release) any data used by this groom (does not free the groom itself). */
 void BKE_groom_free(Groom *groom)
 {
+	if (groom->edit_groom)
+	{
+		EditGroom *edit = groom->edit_groom;
+		
+		groom_bundles_free(&edit->bundles);
+		
+		MEM_freeN(edit);
+		groom->edit_groom = NULL;
+	}
+	
+	MEM_SAFE_FREE(groom->bb);
+	
+	groom_bundles_free(&groom->bundles);
+	
 	BKE_animdata_free(&groom->id, false);
 }
 
