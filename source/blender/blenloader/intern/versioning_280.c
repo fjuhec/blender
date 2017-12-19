@@ -643,10 +643,6 @@ void do_versions_after_linking_280(Main *main)
 			}
 		}
 
-	}
-
-	/* XXX: Merge back into previous case... leaving like this so the Hero animatic/production files so far don't break */
-	if (!MAIN_VERSION_ATLEAST(main, 280, 3)) {
 		/* Handle object-linked grease pencil datablocks */
 		for (Object *ob = main->object.first; ob; ob = ob->id.next) {
 			if (ob->gpd) {
@@ -913,6 +909,140 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 				}
 			}
 		}
+
+		{
+			/* NOTE: See also do_versions_after_linking_280()
+			* Some GP datablock link changes happen there instead, otherwise we get weird
+			* crashes and corrupt data when trying to move linked datablocks around.
+			*/
+
+			/* Convert grease pencil palettes to blender palettes */
+			if (!DNA_struct_elem_find(fd->filesdna, "bGPDstroke", "Palette", "*palette")) {
+				for (bGPdata *gpd = main->gpencil.first; gpd; gpd = gpd->id.next) {
+					/* first create all palettes and colors */
+					Palette *first = NULL;
+					for (bGPDpalette *oldpalette = gpd->palettes.first; oldpalette; oldpalette = oldpalette->next) {
+						/* create palette */
+						bGPDpaletteref *palslot = BKE_gpencil_paletteslot_addnew(main, gpd, oldpalette->info);
+						Palette *newpalette = palslot->palette;
+
+						/* save first to use later */
+						if (first == NULL) {
+							first = newpalette;
+						}
+
+						for (bGPDpalettecolor *oldcolor = oldpalette->colors.first; oldcolor; oldcolor = oldcolor->next) {
+							PaletteColor *newcolor = BKE_palette_color_add_name(newpalette, oldcolor->info);
+							/* set color attributes */
+							copy_v4_v4(newcolor->rgb, oldcolor->color);
+							copy_v4_v4(newcolor->fill, oldcolor->fill);
+							newcolor->flag = oldcolor->flag;
+						}
+						/* set first color active by default */
+						if (!BLI_listbase_is_empty(&newpalette->colors)) {
+							newpalette->active_color = 0;
+						}
+					}
+					/* second, assign the palette and the color (always to first palette) */
+					for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+						for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
+							for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
+								Palette *palette = first;
+								PaletteColor *palcolor = BKE_palette_color_getbyname(first, gps->colorname);
+
+								gps->palette = palette;
+								gps->palcolor = palcolor;
+							}
+						}
+					}
+					gpd->id.tag &= ~LIB_TAG_NEED_LINK; // XXX: WHY?!
+				}
+			}
+
+			/* Grease pencil sculpt and paint cursors */
+			if (!DNA_struct_elem_find(fd->filesdna, "GP_BrushEdit_Settings", "int", "weighttype")) {
+				for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
+					/* sculpt brushes */
+					GP_BrushEdit_Settings *gset = &scene->toolsettings->gp_sculpt;
+					if (gset) {
+						gset->alpha = 1.0f;
+						gset->weighttype = GP_EDITBRUSH_TYPE_WEIGHT;
+					}
+				}
+			}
+
+			if (!DNA_struct_elem_find(fd->filesdna, "bGPDbrush", "float", "curcolor[3]")) {
+				float curcolor[3], curcolor_add[3], curcolor_sub[3];
+				ARRAY_SET_ITEMS(curcolor, 1.0f, 1.0f, 1.0f);
+				ARRAY_SET_ITEMS(curcolor_add, 1.0f, 0.6f, 0.6f);
+				ARRAY_SET_ITEMS(curcolor_sub, 0.6f, 0.6f, 1.0f);
+				GP_EditBrush_Data *gp_brush;
+
+				for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
+					/* drawing brushes */
+					ToolSettings *ts = scene->toolsettings;
+					for (bGPDbrush *brush = ts->gp_brushes.first; brush; brush = brush->next) {
+						brush->flag |= GP_BRUSH_ENABLE_CURSOR;
+						copy_v3_v3(brush->curcolor, curcolor);
+					}
+					/* sculpt brushes */
+					GP_BrushEdit_Settings *gset = &ts->gp_sculpt;
+					for (int i = 0; i < TOT_GP_EDITBRUSH_TYPES; ++i) {
+						gp_brush = &gset->brush[i];
+						gp_brush->flag |= GP_EDITBRUSH_FLAG_ENABLE_CURSOR;
+						copy_v3_v3(gp_brush->curcolor_add, curcolor_add);
+						copy_v3_v3(gp_brush->curcolor_sub, curcolor_sub);
+					}
+				}
+			}
+
+			/* Init grease pencil vertex groups */
+			if (!DNA_struct_elem_find(fd->filesdna, "bGPDweight", "int", "index")) {
+				for (bGPdata *gpd = main->gpencil.first; gpd; gpd = gpd->id.next) {
+					for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+						for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
+							for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
+								for (int i = 0; i < gps->totpoints; ++i) {
+									bGPDspoint *pt = &gps->points[i];
+									pt->totweight = 0;
+									pt->weights = NULL;
+								}
+							}
+						}
+					}
+				}
+			}
+
+			/* Init grease pencil edit line color */
+			if (!DNA_struct_elem_find(fd->filesdna, "bGPdata", "float", "line_color[4]")) {
+				for (bGPdata *gpd = main->gpencil.first; gpd; gpd = gpd->id.next) {
+					ARRAY_SET_ITEMS(gpd->line_color, 0.6f, 0.6f, 0.6f, 0.5f);
+				}
+			}
+
+			/* Init grease pencil pixel size factor */
+			if (!DNA_struct_elem_find(fd->filesdna, "bGPDdata", "int", "pixfactor")) {
+				for (bGPdata *gpd = main->gpencil.first; gpd; gpd = gpd->id.next) {
+					gpd->pixfactor = GP_DEFAULT_PIX_FACTOR;
+				}
+			}
+
+			/* Grease pencil multiframe falloff curve */
+			if (!DNA_struct_elem_find(fd->filesdna, "GP_BrushEdit_Settings", "CurveMapping", "cur_falloff")) {
+				for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
+					/* sculpt brushes */
+					GP_BrushEdit_Settings *gset = &scene->toolsettings->gp_sculpt;
+					if ((gset) && (gset->cur_falloff == NULL)) {
+						gset->cur_falloff = curvemapping_add(1, 0.0f, 0.0f, 1.0f, 1.0f);
+						curvemapping_initialize(gset->cur_falloff);
+						curvemap_reset(gset->cur_falloff->cm,
+							&gset->cur_falloff->clipr,
+							CURVE_PRESET_GAUSS,
+							CURVEMAP_SLOPE_POSITIVE);
+					}
+				}
+			}
+		}
 	}
 
 	if (!MAIN_VERSION_ATLEAST(main, 280, 3)) {
@@ -926,145 +1056,6 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 		for (Group *group = main->group.first; group; group = group->id.next) {
 			if (group->view_layer != NULL){
 				do_version_view_layer_visibility(group->view_layer);
-			}
-		}
-	}
-
-	if (!MAIN_VERSION_ATLEAST(main, 280, 2)) {
-		/* NOTE: See also do_versions_after_linking_280()
-		 * Some GP datablock link changes happen there instead, otherwise we get weird
-		 * crashes and corrupt data when trying to move linked datablocks around.
-		 */
-
-		 /* Convert grease pencil palettes to blender palettes */
-		if (!DNA_struct_elem_find(fd->filesdna, "bGPDstroke", "Palette", "*palette")) {
-			for (bGPdata *gpd = main->gpencil.first; gpd; gpd = gpd->id.next) {
-				/* first create all palettes and colors */
-				Palette *first = NULL;
-				for (bGPDpalette *oldpalette = gpd->palettes.first; oldpalette; oldpalette = oldpalette->next) {
-					/* create palette */
-					bGPDpaletteref *palslot = BKE_gpencil_paletteslot_addnew(main, gpd, oldpalette->info);
-					Palette *newpalette = palslot->palette;
-
-					/* save first to use later */
-					if (first == NULL) {
-						first = newpalette;
-					}
-
-					for (bGPDpalettecolor *oldcolor = oldpalette->colors.first; oldcolor; oldcolor = oldcolor->next) {
-						PaletteColor *newcolor = BKE_palette_color_add_name(newpalette, oldcolor->info);
-						/* set color attributes */
-						copy_v4_v4(newcolor->rgb, oldcolor->color);
-						copy_v4_v4(newcolor->fill, oldcolor->fill);
-						newcolor->flag = oldcolor->flag;
-					}
-					/* set first color active by default */
-					if (!BLI_listbase_is_empty(&newpalette->colors)) {
-						newpalette->active_color = 0;
-					}
-				}
-				/* second, assign the palette and the color (always to first palette) */
-				for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
-					for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
-						for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
-							Palette *palette = first;
-							PaletteColor *palcolor = BKE_palette_color_getbyname(first, gps->colorname);
-
-							gps->palette = palette;
-							gps->palcolor = palcolor;
-						}
-					}
-				}
-				gpd->id.tag &= ~LIB_TAG_NEED_LINK; // XXX: WHY?!
-			}
-		}
-
-		/* Grease pencil sculpt and paint cursors */
-		if (!DNA_struct_elem_find(fd->filesdna, "GP_BrushEdit_Settings", "int", "weighttype")) {
-			for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
-				/* sculpt brushes */
-				GP_BrushEdit_Settings *gset = &scene->toolsettings->gp_sculpt;
-				if (gset) {
-					gset->alpha = 1.0f;
-					gset->weighttype = GP_EDITBRUSH_TYPE_WEIGHT;
-				}
-			}
-		}
-
-		if (!DNA_struct_elem_find(fd->filesdna, "bGPDbrush", "float", "curcolor[3]")) {
-			float curcolor[3], curcolor_add[3], curcolor_sub[3];
-			ARRAY_SET_ITEMS(curcolor, 1.0f, 1.0f, 1.0f);
-			ARRAY_SET_ITEMS(curcolor_add, 1.0f, 0.6f, 0.6f);
-			ARRAY_SET_ITEMS(curcolor_sub, 0.6f, 0.6f, 1.0f);
-			GP_EditBrush_Data *gp_brush;
-
-			for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
-				/* drawing brushes */
-				ToolSettings *ts = scene->toolsettings;
-				for (bGPDbrush *brush = ts->gp_brushes.first; brush; brush = brush->next) {
-					brush->flag |= GP_BRUSH_ENABLE_CURSOR;
-					copy_v3_v3(brush->curcolor, curcolor);
-				}
-				/* sculpt brushes */
-				GP_BrushEdit_Settings *gset = &ts->gp_sculpt;
-				for (int i = 0; i < TOT_GP_EDITBRUSH_TYPES; ++i) {
-					gp_brush = &gset->brush[i];
-					gp_brush->flag |= GP_EDITBRUSH_FLAG_ENABLE_CURSOR;
-					copy_v3_v3(gp_brush->curcolor_add, curcolor_add);
-					copy_v3_v3(gp_brush->curcolor_sub, curcolor_sub);
-				}
-			}
-		}
-
-		/* Init grease pencil vertex groups */
-		if (!DNA_struct_elem_find(fd->filesdna, "bGPDweight", "int", "index")) {
-			for (bGPdata *gpd = main->gpencil.first; gpd; gpd = gpd->id.next) {
-				for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
-					for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
-						for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
-							for (int i = 0; i < gps->totpoints; ++i) {
-								bGPDspoint *pt = &gps->points[i];
-								pt->totweight = 0;
-								pt->weights = NULL;
-							}
-						}
-					}
-				}
-			}
-		}
-
-		/* Init grease pencil edit line color */
-		if (!DNA_struct_elem_find(fd->filesdna, "bGPdata", "float", "line_color[4]")) {
-			for (bGPdata *gpd = main->gpencil.first; gpd; gpd = gpd->id.next) {
-				ARRAY_SET_ITEMS(gpd->line_color, 0.6f, 0.6f, 0.6f, 0.5f);
-			}
-		}
-
-		/* Init grease pencil pixel size factor */
-		if (!DNA_struct_elem_find(fd->filesdna, "bGPDdata", "int", "pixfactor")) {
-			for (bGPdata *gpd = main->gpencil.first; gpd; gpd = gpd->id.next) {
-				gpd->pixfactor = GP_DEFAULT_PIX_FACTOR;
-			}
-		}
-	}
-
-	/* XXX: this is a hack to manage Hero open movie files
-	 * this code must be merged in previous version 
-	 */
-	if (!MAIN_VERSION_ATLEAST(main, 280, 3)) {
-		/* Grease pencil multiframe falloff curve */
-		if (!DNA_struct_elem_find(fd->filesdna, "GP_BrushEdit_Settings", "CurveMapping", "cur_falloff")) {
-			for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
-				/* sculpt brushes */
-				GP_BrushEdit_Settings *gset = &scene->toolsettings->gp_sculpt;
-				if ((gset) && (gset->cur_falloff == NULL)) {
-					gset->cur_falloff = curvemapping_add(1, 0.0f, 0.0f, 1.0f, 1.0f);
-					curvemapping_initialize(gset->cur_falloff);
-					curvemap_reset(gset->cur_falloff->cm,
-						&gset->cur_falloff->clipr,
-						CURVE_PRESET_GAUSS,
-						CURVEMAP_SLOPE_POSITIVE);
-				}
 			}
 		}
 	}
