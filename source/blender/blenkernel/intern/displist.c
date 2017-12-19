@@ -37,6 +37,7 @@
 #include "MEM_guardedalloc.h"
 
 #include "DNA_curve_types.h"
+#include "DNA_groom_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_object_types.h"
 #include "DNA_vfont_types.h"
@@ -59,6 +60,7 @@
 #include "BKE_font.h"
 #include "BKE_lattice.h"
 #include "BKE_modifier.h"
+#include "BKE_groom.h"
 
 #include "BLI_sys_types.h" // for intptr_t support
 
@@ -754,6 +756,23 @@ void BKE_displist_make_mball_forRender(const EvaluationContext *eval_ctx, Scene 
 	BKE_mball_texspace_calc(ob);
 
 	object_deform_mball(ob, dispbase);
+}
+
+void BKE_displist_make_groom(const EvaluationContext *eval_ctx, Scene *scene, Object *ob)
+{
+	if (!ob || ob->type != OB_GROOM)
+		return;
+
+	if (ob->curve_cache) {
+		BKE_displist_free(&(ob->curve_cache->disp));
+	}
+	else {
+		ob->curve_cache = MEM_callocN(sizeof(CurveCache), "CurveCache for Groom");
+	}
+	
+	// TODO
+	
+	boundbox_displist_object(ob);
 }
 
 static ModifierData *curve_get_tessellate_point(Scene *scene, Object *ob,
