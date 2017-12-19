@@ -40,12 +40,29 @@
 extern "C" {
 #endif
 
+/* Cross-section of a bundle */
+typedef struct GroomBundleSection {
+	struct GroomBundleSection *next, *prev; /* Pointers for ListBase element */
+	
+	float center[3];                        /* Center point */
+	float normal[3];                        /* Normal direction of the section plane */
+} GroomBundleSection;
+
+/* Bundle of hair strands following the same curve path */
+typedef struct GroomBundle {
+	struct GroomBundle *next, *prev;    /* Pointers for ListBase element */
+	
+	ListBase sections;                  /* List of GroomBundleSection */
+} GroomBundle;
 
 /* Groom curves for creating hair styles */
 typedef struct Groom {
 	ID id;                  /* Groom data is a datablock */
-	struct AnimData *adt;   /* animation data - for animating settings */
+	struct AnimData *adt;   /* Animation data - for animating settings */
 	
+	struct BoundBox *bb;
+	
+	ListBase bundles;       /* List of GroomBundle */
 } Groom;
 
 #ifdef __cplusplus
