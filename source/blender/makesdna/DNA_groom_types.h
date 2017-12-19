@@ -55,6 +55,11 @@ typedef struct GroomBundle {
 	ListBase sections;                  /* List of GroomBundleSection */
 } GroomBundle;
 
+/* Editable groom data */
+typedef struct EditGroom {
+	ListBase bundles;       /* List of GroomBundle */
+} EditGroom;
+
 /* Groom curves for creating hair styles */
 typedef struct Groom {
 	ID id;                  /* Groom data is a datablock */
@@ -63,6 +68,8 @@ typedef struct Groom {
 	struct BoundBox *bb;
 	
 	ListBase bundles;       /* List of GroomBundle */
+	
+	EditGroom *edit_groom;
 } Groom;
 
 #ifdef __cplusplus
