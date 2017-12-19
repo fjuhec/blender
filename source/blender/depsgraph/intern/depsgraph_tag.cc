@@ -112,10 +112,10 @@ void depsgraph_geometry_tag_to_component(const ID *id,
 			*component_type = DEG_NODE_TYPE_PARAMETERS;
 			break;
 		case ID_GD:
-			data_comp = id_node->find_component(DEG_NODE_TYPE_GEOMETRY);
+			*component_type = DEG_NODE_TYPE_GEOMETRY;
 			break;
 		case ID_PAL: /* Palettes */
-			data_comp = id_node->find_component(DEG_NODE_TYPE_PARAMETERS);
+			*component_type = DEG_NODE_TYPE_PARAMETERS;
 			break;
 		default:
 			break;
