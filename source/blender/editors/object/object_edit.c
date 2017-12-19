@@ -90,6 +90,7 @@
 
 #include "ED_armature.h"
 #include "ED_curve.h"
+#include "ED_groom.h"
 #include "ED_mesh.h"
 #include "ED_mball.h"
 #include "ED_lattice.h"
@@ -395,6 +396,13 @@ void ED_object_editmode_enter(bContext *C, int flag)
 		ED_curve_editnurb_make(ob);
 
 		WM_event_add_notifier(C, NC_SCENE | ND_MODE | NS_EDITMODE_CURVE, scene);
+	}
+	else if (ob->type == OB_GROOM) {
+		scene->obedit = ob; /* XXX for context */
+		ok = 1;
+		ED_groom_editgroom_make(ob);
+
+		WM_event_add_notifier(C, NC_SCENE | ND_MODE | NS_EDITMODE_GROOM, scene);
 	}
 
 	if (ok) {

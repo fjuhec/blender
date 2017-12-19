@@ -69,7 +69,7 @@ typedef struct Groom {
 	
 	ListBase bundles;       /* List of GroomBundle */
 	
-	EditGroom *edit_groom;
+	EditGroom *editgroom;
 } Groom;
 
 #ifdef __cplusplus

@@ -8403,7 +8403,7 @@ static void direct_link_groom(FileData *fd, Groom *groom)
 	
 	groom->bb = NULL;
 	
-	groom->edit_groom = NULL;
+	groom->editgroom = NULL;
 }
 
 /* ************** GENERAL & MAIN ******************** */

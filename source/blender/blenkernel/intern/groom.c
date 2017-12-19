@@ -83,14 +83,14 @@ static void groom_bundles_free(ListBase *bundles)
 /** Free (or release) any data used by this groom (does not free the groom itself). */
 void BKE_groom_free(Groom *groom)
 {
-	if (groom->edit_groom)
+	if (groom->editgroom)
 	{
-		EditGroom *edit = groom->edit_groom;
+		EditGroom *edit = groom->editgroom;
 		
 		groom_bundles_free(&edit->bundles);
 		
 		MEM_freeN(edit);
-		groom->edit_groom = NULL;
+		groom->editgroom = NULL;
 	}
 	
 	MEM_SAFE_FREE(groom->bb);
@@ -114,7 +114,7 @@ void BKE_groom_copy_data(Main *UNUSED(bmain), Groom *groom_dst, const Groom *gro
 	
 	BLI_duplicatelist(&groom_dst->bundles, &groom_src->bundles);
 	
-	groom_dst->edit_groom = NULL;
+	groom_dst->editgroom = NULL;
 }
 
 Groom *BKE_groom_copy(Main *bmain, const Groom *groom)

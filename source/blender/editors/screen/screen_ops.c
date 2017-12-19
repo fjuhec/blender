@@ -44,6 +44,7 @@
 #include "DNA_object_types.h"
 #include "DNA_curve_types.h"
 #include "DNA_gpencil_types.h"
+#include "DNA_groom_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_meta_types.h"
 #include "DNA_mask_types.h"
@@ -552,6 +553,14 @@ int ED_operator_editmball(bContext *C)
 	Object *obedit = CTX_data_edit_object(C);
 	if (obedit && obedit->type == OB_MBALL)
 		return NULL != ((MetaBall *)obedit->data)->editelems;
+	return 0;
+}
+
+int ED_operator_editgroom(bContext *C)
+{
+	Object *obedit = CTX_data_edit_object(C);
+	if (obedit && obedit->type == OB_GROOM)
+		return NULL != ((Groom *)obedit->data)->editgroom;
 	return 0;
 }
 

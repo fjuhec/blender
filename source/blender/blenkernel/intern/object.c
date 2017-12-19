@@ -540,7 +540,7 @@ bool BKE_object_is_in_editmode(Object *ob)
 	}
 	else if (ob->type == OB_GROOM) {
 		Groom *groom = ob->data;
-		if (groom->edit_groom)
+		if (groom->editgroom)
 			return true;
 	}
 	return false;
