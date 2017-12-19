@@ -140,10 +140,10 @@ void DEG_graph_on_visible_update(struct Main *bmain, Depsgraph *depsgraph);
 void DEG_on_visible_update(struct Main *bmain, const bool do_time);
 
 /* Tag given ID for an update in all the dependency graphs. */
-enum {
+typedef enum eDepsgraph_Tag {
 	/* Object transformation changed, corresponds to OB_RECALC_OB. */
 	DEG_TAG_TRANSFORM   = (1 << 0),
-	/* Object geoemtry changed, corresponds to OB_RECALC_DATA. */
+	/* Object geometry changed, corresponds to OB_RECALC_DATA. */
 	DEG_TAG_GEOMETRY    = (1 << 1),
 	/* Time changed and animation is to be re-evaluated, OB_RECALC_TIME. */
 	DEG_TAG_TIME        = (1 << 2),
@@ -168,7 +168,7 @@ enum {
 	DEG_TAG_BASE_FLAGS_UPDATE = (1 << 11),
 	/* Only inform editors about the change. Don't modify datablock itself. */
 	DEG_TAG_EDITORS_UPDATE = (1 << 12),
-};
+} eDepsgraph_Tag;
 void DEG_id_tag_update(struct ID *id, int flag);
 void DEG_id_tag_update_ex(struct Main *bmain, struct ID *id, int flag);
 
