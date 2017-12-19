@@ -7958,6 +7958,9 @@ static void createTransGPencil(bContext *C, TransInfo *t)
 				if (gpf == NULL) {
 					continue;
 				}
+				if (!is_multiedit) {
+					init_gpf = gpf;
+				}
 			}
 
 			/* Loop over strokes, adding TransData for points as needed... */
