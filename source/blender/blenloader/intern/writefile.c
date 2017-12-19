@@ -3817,6 +3817,16 @@ static void write_workspace(WriteData *wd, WorkSpace *workspace)
 static void write_groom(WriteData *wd, Groom *groom)
 {
 	writestruct(wd, ID_GM, Groom, 1, groom);
+	write_iddata(wd, &groom->id);
+	if (groom->adt) {
+		write_animdata(wd, groom->adt);
+	}
+
+	writelist(wd, DATA, GroomBundle, &groom->bundles);
+	for (GroomBundle *bundle = groom->bundles.first; bundle; bundle = bundle->next)
+	{
+		writelist(wd, DATA, GroomBundleSection, &bundle->sections);
+	}
 }
 
 /* Keep it last of write_foodata functions. */

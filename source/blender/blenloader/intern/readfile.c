@@ -8392,7 +8392,18 @@ static void lib_link_grooms(FileData *fd, Main *bmain)
 
 static void direct_link_groom(FileData *fd, Groom *groom, const Main *main)
 {
-	UNUSED_VARS(fd, groom, main);
+	groom->adt= newdataadr(fd, groom->adt);
+	direct_link_animdata(fd, groom->adt);
+	
+	link_list(fd, &groom->bundles);
+	for (GroomBundle *bundle = groom->bundles.first; bundle; bundle->next)
+	{
+		link_list(fd, &bundle->sections);
+	}
+	
+	groom->bb = NULL;
+	
+	groom->edit_groom = NULL;
 }
 
 /* ************** GENERAL & MAIN ******************** */
