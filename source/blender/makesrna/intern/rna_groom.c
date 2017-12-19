@@ -57,7 +57,7 @@
 #include "BKE_groom.h"
 
 
-static void rna_Groom_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *UNUSED(ptr))
+static void UNUSED_FUNCTION(rna_Groom_update)(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *UNUSED(ptr))
 {
 	WM_main_add_notifier(NC_GROOM | NA_EDITED, NULL);
 }
@@ -76,6 +76,8 @@ static void rna_def_groom(BlenderRNA *brna)
 
 	/* Animation Data */
 	rna_def_animdata_common(srna);
+	
+	UNUSED_VARS(prop);
 }
 
 void RNA_def_groom(BlenderRNA *brna)

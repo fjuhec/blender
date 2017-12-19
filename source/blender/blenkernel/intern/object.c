@@ -42,6 +42,7 @@
 #include "DNA_constraint_types.h"
 #include "DNA_gpencil_types.h"
 #include "DNA_group_types.h"
+#include "DNA_groom_types.h"
 #include "DNA_key_types.h"
 #include "DNA_lamp_types.h"
 #include "DNA_lattice_types.h"
@@ -336,6 +337,13 @@ void BKE_object_free_derived_caches(Object *ob)
 
 		if (cu && cu->bb) {
 			atomic_fetch_and_or_int32(&cu->bb->flag, BOUNDBOX_DIRTY);
+		}
+	}
+	else if (ELEM(ob->type, OB_GROOM)) {
+		Groom *groom = ob->data;
+
+		if (groom && groom->bb) {
+			atomic_fetch_and_or_int32(&groom->bb->flag, BOUNDBOX_DIRTY);
 		}
 	}
 

@@ -37,12 +37,14 @@
 #include "MEM_guardedalloc.h"
 
 #include "BLI_blenlib.h"
+#include "BLI_math.h"
 #include "BLI_utildefines.h"
 #include "BLI_string_utils.h"
 
 #include "BLT_translation.h"
 
 #include "DNA_groom_types.h"
+#include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 
 #include "BKE_animsys.h"
@@ -50,11 +52,14 @@
 #include "BKE_groom.h"
 #include "BKE_library.h"
 #include "BKE_main.h"
+#include "BKE_object.h"
 
 
 void BKE_groom_init(Groom *groom)
 {
 	BLI_assert(MEMCMP_STRUCT_OFS_IS_ZERO(groom, id));
+	
+	groom->bb = BKE_boundbox_alloc_unit();
 }
 
 void *BKE_groom_add(Main *bmain, const char *name)
@@ -82,7 +87,11 @@ void BKE_groom_free(Groom *groom)
  */
 void BKE_groom_copy_data(Main *UNUSED(bmain), Groom *groom_dst, const Groom *groom_src, const int UNUSED(flag))
 {
-	UNUSED_VARS(groom_dst, groom_src);
+	groom_dst->bb = MEM_dupallocN(groom_src->bb);
+	
+	BLI_duplicatelist(&groom_dst->bundles, &groom_src->bundles);
+	
+	groom_dst->edit_groom = NULL;
 }
 
 Groom *BKE_groom_copy(Main *bmain, const Groom *groom)
@@ -95,4 +104,46 @@ Groom *BKE_groom_copy(Main *bmain, const Groom *groom)
 void BKE_groom_make_local(Main *bmain, Groom *groom, const bool lib_local)
 {
 	BKE_id_make_local_generic(bmain, &groom->id, true, lib_local);
+}
+
+
+bool BKE_groom_minmax(Groom *groom, float min[3], float max[3])
+{
+	// TODO
+	UNUSED_VARS(groom, min, max);
+	return true;
+}
+
+void BKE_groom_boundbox_calc(Groom *groom, float r_loc[3], float r_size[3])
+{
+	if (groom->bb == NULL)
+	{
+		groom->bb = MEM_callocN(sizeof(BoundBox), "boundbox");
+	}
+
+	float mloc[3], msize[3];
+	if (!r_loc)
+	{
+		r_loc = mloc;
+	}
+	if (!r_size)
+	{
+		r_size = msize;
+	}
+
+	float min[3], max[3];
+	INIT_MINMAX(min, max);
+	if (!BKE_groom_minmax(groom, min, max)) {
+		min[0] = min[1] = min[2] = -1.0f;
+		max[0] = max[1] = max[2] = 1.0f;
+	}
+
+	mid_v3_v3v3(r_loc, min, max);
+
+	r_size[0] = (max[0] - min[0]) / 2.0f;
+	r_size[1] = (max[1] - min[1]) / 2.0f;
+	r_size[2] = (max[2] - min[2]) / 2.0f;
+
+	BKE_boundbox_init_from_minmax(groom->bb, min, max);
+	groom->bb->flag &= ~BOUNDBOX_DIRTY;
 }

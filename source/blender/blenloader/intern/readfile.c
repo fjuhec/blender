@@ -8390,13 +8390,13 @@ static void lib_link_grooms(FileData *fd, Main *bmain)
 	}
 }
 
-static void direct_link_groom(FileData *fd, Groom *groom, const Main *main)
+static void direct_link_groom(FileData *fd, Groom *groom)
 {
 	groom->adt= newdataadr(fd, groom->adt);
 	direct_link_animdata(fd, groom->adt);
 	
 	link_list(fd, &groom->bundles);
-	for (GroomBundle *bundle = groom->bundles.first; bundle; bundle->next)
+	for (GroomBundle *bundle = groom->bundles.first; bundle; bundle = bundle->next)
 	{
 		link_list(fd, &bundle->sections);
 	}
@@ -8713,7 +8713,7 @@ static BHead *read_libblock(FileData *fd, Main *main, BHead *bhead, const short 
 			direct_link_workspace(fd, (WorkSpace *)id, main);
 			break;
 		case ID_GM:
-			direct_link_groom(fd, (Groom *)id, main);
+			direct_link_groom(fd, (Groom *)id);
 			break;
 	}
 	

@@ -771,6 +771,7 @@ void BKE_displist_make_groom(const EvaluationContext *eval_ctx, Scene *scene, Ob
 	}
 	
 	// TODO
+	UNUSED_VARS(eval_ctx, scene);
 	
 	boundbox_displist_object(ob);
 }
