@@ -29,6 +29,8 @@
 
 #include <stdio.h>
 
+#include "MEM_guardedalloc.h" 
+
 #include "BLI_utildefines.h"
 #include "BLI_blenlib.h"
 #include "BLI_math.h"
@@ -37,12 +39,15 @@
 #include "DNA_gpencil_types.h"
 #include "DNA_windowmanager_types.h"
 
+#include "BKE_main.h" 
 #include "BKE_gpencil.h"
 #include "BKE_context.h"
 #include "BKE_screen.h"
+#include "BKE_paint.h" 
 
 #include "ED_gpencil.h"
 #include "ED_screen.h"
+#include "ED_space_api.h" 
 
 #include "GPU_immediate.h"
 #include "GPU_draw.h"
@@ -149,6 +154,16 @@ static unsigned int *gp_draw_offscreen_strokes(Scene *scene, Object *ob, rcti re
 	return data;
 }
 
+/* ----------------------- */
+/* Drawing Callbacks */
+
+/* Drawing callback for modal operator in 3d mode */
+static void gpencil_fill_draw_3d(const bContext *C, ARegion *UNUSED(ar), void *arg)
+{
+	tGPDfill *tgpf = (tGPDfill *)arg;
+	//ED_gp_draw_fill(C, tgpf, REGION_DRAW_POST_VIEW); 
+}
+
 /* check if context is suitable for filling */
 static int gpencil_fill_poll(bContext *C)
 {
@@ -169,15 +184,36 @@ static int gpencil_fill_poll(bContext *C)
 	return 0;
 }
 
-/* start of interactive part of operator */
-static int gpencil_fill_invoke(bContext *C, wmOperator *op, const wmEvent *event)
+/* Allocate memory and initialize values */
+static tGPDfill *gp_session_init_fill(bContext *C, wmOperator *op)
 {
-	WM_cursor_modal_set(CTX_wm_window(C), BC_PAINTBRUSHCURSOR);
+	tGPDfill *tgpf = MEM_callocN(sizeof(tGPDfill), "GPencil Fill Data");
 
-	/* add a modal handler for this operator*/
-	WM_event_add_modal_handler(C, op);
+	/* define initial values */
+	ToolSettings *ts = CTX_data_tool_settings(C);
+	bGPdata *gpd = CTX_data_gpencil_data(C);
+	Main *bmain = CTX_data_main(C);
 
-	return OPERATOR_RUNNING_MODAL;
+	/* set current scene and window info */
+	tgpf->scene = CTX_data_scene(C);
+	tgpf->ob = CTX_data_active_object(C);
+	tgpf->sa = CTX_wm_area(C);
+	tgpf->ar = CTX_wm_region(C);
+	tgpf->rv3d = tgpf->ar->regiondata;
+	tgpf->v3d = tgpf->sa->spacedata.first;
+
+	/* set GP datablock */
+	tgpf->gpd = gpd;
+
+	/* get palette and color info */
+	bGPDpaletteref *palslot = BKE_gpencil_paletteslot_validate(bmain, gpd);
+	tgpf->palette = palslot->palette;
+	tgpf->palcolor = BKE_palette_color_get_active(tgpf->palette);
+
+	tgpf->lock_axis = ts->gp_sculpt.lock_axis;
+
+	/* return context data for running operator */
+	return tgpf;
 }
 
 /* end operator */
@@ -186,6 +222,23 @@ static void gpencil_fill_exit(bContext *C, wmOperator *op)
 	Object *ob = CTX_data_active_object(C);
 	/* restore cursor to indicate end of fill */
 	WM_cursor_modal_restore(CTX_wm_window(C));
+
+	tGPDfill *tgpf = op->customdata;
+	bGPdata *gpd = tgpf->gpd;
+
+	/* don't assume that operator data exists at all */
+	if (tgpf) {
+		/* remove drawing handler */
+		if (tgpf->draw_handle_3d) {
+			ED_region_draw_cb_exit(tgpf->ar->type, tgpf->draw_handle_3d);
+		}
+
+		/* finally, free memory used by temp data */
+		MEM_freeN(tgpf);
+	}
+
+	/* clear pointer */
+	op->customdata = NULL;
 
 	/* drawing batch cache is dirty now */
 	if ((ob) && (ob->type == OB_GPENCIL) && (ob->data)) {
@@ -199,6 +252,49 @@ static void gpencil_fill_cancel(bContext *C, wmOperator *op)
 {
 	/* this is just a wrapper around exit() */
 	gpencil_fill_exit(C, op);
+}
+
+/* Init: Allocate memory and set init values */
+static int gpencil_fill_init(bContext *C, wmOperator *op)
+{
+	tGPDfill *tgpf;
+
+	/* check context */
+	tgpf = op->customdata = gp_session_init_fill(C, op);
+	if (tgpf == NULL) {
+		/* something wasn't set correctly in context */
+		gpencil_fill_exit(C, op);
+		return 0;
+	}
+
+	/* everything is now setup ok */
+	return 1;
+}
+
+/* start of interactive part of operator */
+static int gpencil_fill_invoke(bContext *C, wmOperator *op, const wmEvent *event)
+{
+	tGPDfill *tgpf = NULL;
+
+	/* try to initialize context data needed */
+	if (!gpencil_fill_init(C, op)) {
+		if (op->customdata)
+			MEM_freeN(op->customdata);
+		return OPERATOR_CANCELLED;
+	}
+	else {
+		tgpf = op->customdata;
+	}
+
+	/* Enable custom drawing handlers */
+	tgpf->draw_handle_3d = ED_region_draw_cb_activate(tgpf->ar->type, gpencil_fill_draw_3d, tgpf, REGION_DRAW_POST_VIEW);
+
+	WM_cursor_modal_set(CTX_wm_window(C), BC_PAINTBRUSHCURSOR);
+
+	/* add a modal handler for this operator*/
+	WM_event_add_modal_handler(C, op);
+
+	return OPERATOR_RUNNING_MODAL;
 }
 
 /* events handling during interactive part of operator */
