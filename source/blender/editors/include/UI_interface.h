@@ -73,6 +73,7 @@ struct bNodeSocket;
 struct wmDropBox;
 struct wmDrag;
 struct wmEvent;
+struct wmManipulator;
 struct wmMsgBus;
 
 typedef struct uiBut uiBut;
@@ -1135,6 +1136,13 @@ void UI_butstore_register(uiButStore *bs_handle, uiBut **but_p);
 bool UI_butstore_register_update(uiBlock *block, uiBut *but_dst, const uiBut *but_src);
 void UI_butstore_unregister(uiButStore *bs_handle, uiBut **but_p);
 
+/* ui_interface_region_tooltip.c */
+struct ARegion *UI_tooltip_create_from_button(struct bContext *C, struct ARegion *butregion, uiBut *but);
+struct ARegion *UI_tooltip_create_from_manipulator(struct bContext *C, struct wmManipulator *mpr);
+void UI_tooltip_free(struct bContext *C, struct ARegion *ar);
+
+/* How long before a tool-tip shows. */
+#define UI_TOOLTIP_DELAY 0.5
 
 /* Float precision helpers */
 #define UI_PRECISION_FLOAT_MAX 6
