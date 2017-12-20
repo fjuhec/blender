@@ -26,7 +26,6 @@
 #define __MATH_BITS_INLINE_C__
 
 #include "BLI_math_bits.h"
-#include <intrin.h>
 
 MINLINE int bitscan_forward_i(int a)
 {
