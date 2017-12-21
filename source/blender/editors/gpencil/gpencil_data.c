@@ -1938,16 +1938,14 @@ int ED_gpencil_join_objects_exec(bContext *C, wmOperator *op)
 			if (obact->data != base->object->data) {
 				bGPdata *gpd = base->object->data;
 
-#if 0 /* not implemented yet */
-				/* Apply all GP modifiers */
+				/* Apply all GP modifiers before */
 				for (ModifierData *md = base->object->modifiers.first; md; md = md->next) {
 					const ModifierTypeInfo *mti = modifierType_getInfo(md->type);
 
 					if (mti->bakeModifierGP) {
-						mti->bakeModifierGP(NULL, bmain->eval_ctx, md, base->object);
+						mti->bakeModifierGP(C, bmain->eval_ctx, md, base->object);
 					}
 				}
-#endif
 
 				/* copy vertex groups to the base one's */
 				int old_idx = 0;
