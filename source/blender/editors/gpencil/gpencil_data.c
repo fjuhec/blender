@@ -53,6 +53,7 @@
 #include "DNA_view3d_types.h"
 #include "DNA_gpencil_types.h"
 #include "DNA_brush_types.h"
+#include "DNA_modifier_types.h"
 
 #include "BKE_main.h"
 #include "BKE_animsys.h"
@@ -67,6 +68,7 @@
 #include "BKE_screen.h"
 #include "BKE_colortools.h"
 #include "BKE_deform.h"
+#include "BKE_modifier.h"
 
 #include "UI_interface.h"
 #include "UI_resources.h"
@@ -81,6 +83,7 @@
 #include "ED_object.h"
 #include "ED_gpencil.h"
 
+#include "DEG_depsgraph.h"
 #include "DEG_depsgraph_build.h"
 
 #include "gpencil_intern.h"
@@ -1935,7 +1938,16 @@ int ED_gpencil_join_objects_exec(bContext *C, wmOperator *op)
 			if (obact->data != base->object->data) {
 				bGPdata *gpd = base->object->data;
 
-				/* TODO: Apply all modifiers */
+#if 0 /* not implemented yet */
+				/* Apply all GP modifiers */
+				for (ModifierData *md = base->object->modifiers.first; md; md = md->next) {
+					const ModifierTypeInfo *mti = modifierType_getInfo(md->type);
+
+					if (mti->bakeModifierGP) {
+						mti->bakeModifierGP(NULL, bmain->eval_ctx, md, base->object);
+					}
+				}
+#endif
 
 				/* copy vertex groups to the base one's */
 				int old_idx = 0;
