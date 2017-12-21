@@ -83,6 +83,8 @@ static void groom_bundles_free(ListBase *bundles)
 /** Free (or release) any data used by this groom (does not free the groom itself). */
 void BKE_groom_free(Groom *groom)
 {
+	BKE_groom_batch_cache_free(groom);
+	
 	if (groom->editgroom)
 	{
 		EditGroom *edit = groom->editgroom;
@@ -169,4 +171,23 @@ void BKE_groom_boundbox_calc(Groom *groom, float r_loc[3], float r_size[3])
 
 	BKE_boundbox_init_from_minmax(groom->bb, min, max);
 	groom->bb->flag &= ~BOUNDBOX_DIRTY;
+}
+
+void (*BKE_groom_batch_cache_dirty_cb)(Groom* groom, int mode) = NULL;
+void (*BKE_groom_batch_cache_free_cb)(Groom* groom) = NULL;
+
+void BKE_groom_batch_cache_dirty(Groom* groom, int mode)
+{
+	if (groom->batch_cache)
+	{
+		BKE_groom_batch_cache_dirty_cb(groom, mode);
+	}
+}
+
+void BKE_groom_batch_cache_free(Groom *groom)
+{
+	if (groom->batch_cache)
+	{
+		BKE_groom_batch_cache_free_cb(groom);
+	}
 }

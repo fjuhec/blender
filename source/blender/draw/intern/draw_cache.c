@@ -2479,6 +2479,37 @@ Gwn_Batch *DRW_cache_lattice_vert_overlay_get(Object *ob)
 
 /* -------------------------------------------------------------------- */
 
+/** \name Groom
+ * \{ */
+
+Gwn_Batch *DRW_cache_groom_verts_get(Object *ob)
+{
+	BLI_assert(ob->type == OB_GROOM);
+
+	struct Groom *groom = ob->data;
+	return DRW_groom_batch_cache_get_all_verts(groom);
+}
+
+Gwn_Batch *DRW_cache_groom_wire_get(Object *ob)
+{
+	BLI_assert(ob->type == OB_GROOM);
+
+	struct Groom *groom = ob->data;
+	return DRW_groom_batch_cache_get_all_edges(groom);
+}
+
+Gwn_Batch *DRW_cache_groom_vert_overlay_get(Object *ob)
+{
+	BLI_assert(ob->type == OB_GROOM);
+
+	struct Groom *groom = ob->data;
+	return DRW_groom_batch_cache_get_overlay_verts(groom);
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+
 /** \name Particles
  * \{ */
 

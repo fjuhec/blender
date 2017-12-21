@@ -44,16 +44,32 @@ extern "C" {
 typedef struct GroomBundleSection {
 	struct GroomBundleSection *next, *prev; /* Pointers for ListBase element */
 	
+	int flag;
+	int pad;
+	
 	float center[3];                        /* Center point */
 	float normal[3];                        /* Normal direction of the section plane */
 } GroomBundleSection;
+
+typedef enum GroomBundleSectionFlag
+{
+	GM_SECTION_SELECT       = (1 << 0),
+} GroomBundleSectionFlag;
 
 /* Bundle of hair strands following the same curve path */
 typedef struct GroomBundle {
 	struct GroomBundle *next, *prev;    /* Pointers for ListBase element */
 	
+	int flag;
+	int pad;
+	
 	ListBase sections;                  /* List of GroomBundleSection */
 } GroomBundle;
+
+typedef enum GroomBundleFlag
+{
+	GM_BUNDLE_SELECT        = (1 << 0),
+} GroomBundleFlag;
 
 /* Editable groom data */
 typedef struct EditGroom {
@@ -70,6 +86,7 @@ typedef struct Groom {
 	ListBase bundles;       /* List of GroomBundle */
 	
 	EditGroom *editgroom;
+	void *batch_cache;
 } Groom;
 
 #ifdef __cplusplus

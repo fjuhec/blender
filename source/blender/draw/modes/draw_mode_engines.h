@@ -29,6 +29,7 @@
 extern DrawEngineType draw_engine_object_type;
 extern DrawEngineType draw_engine_edit_armature_type;
 extern DrawEngineType draw_engine_edit_curve_type;
+extern DrawEngineType draw_engine_edit_groom_type;
 extern DrawEngineType draw_engine_edit_lattice_type;
 extern DrawEngineType draw_engine_edit_mesh_type;
 extern DrawEngineType draw_engine_edit_metaball_type;

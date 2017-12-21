@@ -49,4 +49,14 @@ void BKE_groom_make_local(struct Main *bmain, struct Groom *groom, const bool li
 bool BKE_groom_minmax(struct Groom *groom, float min[3], float max[3]);
 void BKE_groom_boundbox_calc(struct Groom *groom, float r_loc[3], float r_size[3]);
 
+
+/* === Draw Cache === */
+
+enum {
+	BKE_GROOM_BATCH_DIRTY_ALL = 0,
+	BKE_GROOM_BATCH_DIRTY_SELECT,
+};
+void BKE_groom_batch_cache_dirty(struct Groom *groom, int mode);
+void BKE_groom_batch_cache_free(struct Groom *groom);
+
 #endif /*  __BKE_GROOM_H__ */
