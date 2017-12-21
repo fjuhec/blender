@@ -1893,6 +1893,11 @@ int ED_gpencil_join_objects_exec(bContext *C, wmOperator *op)
 	if (!obact || obact->type != OB_GPENCIL)
 		return OPERATOR_CANCELLED;
 
+	bGPdata *gpd = (bGPdata *)obact->data;
+	if ((!gpd) || GPENCIL_ANY_MODE(gpd)) {
+		return OPERATOR_CANCELLED;
+	}
+
 	/* Ensure all rotations are applied before */
 	CTX_DATA_BEGIN(C, Base *, base, selected_editable_bases)
 	{
@@ -1907,11 +1912,6 @@ int ED_gpencil_join_objects_exec(bContext *C, wmOperator *op)
 		}
 	}
 	CTX_DATA_END;
-
-	bGPdata *gpd = (bGPdata *)obact->data;
-	if ((!gpd) || GPENCIL_ANY_MODE(gpd)) {
-		return OPERATOR_CANCELLED;
-	}
 
 	CTX_DATA_BEGIN(C, Base *, base, selected_editable_bases)
 	{
@@ -1930,7 +1930,7 @@ int ED_gpencil_join_objects_exec(bContext *C, wmOperator *op)
 
 	gpd_act = obact->data;
 
-	/* loop and join */
+	/* loop and join all data */
 	CTX_DATA_BEGIN(C, Base *, base, selected_editable_bases)
 	{
 		if ((base->object->type == OB_GPENCIL) && (base->object != obact)) {
@@ -1941,7 +1941,6 @@ int ED_gpencil_join_objects_exec(bContext *C, wmOperator *op)
 				/* Apply all GP modifiers before */
 				for (ModifierData *md = base->object->modifiers.first; md; md = md->next) {
 					const ModifierTypeInfo *mti = modifierType_getInfo(md->type);
-
 					if (mti->bakeModifierGP) {
 						mti->bakeModifierGP(C, bmain->eval_ctx, md, base->object);
 					}
@@ -1979,7 +1978,7 @@ int ED_gpencil_join_objects_exec(bContext *C, wmOperator *op)
 					}
 				}
 
-				/* duplicate layers */
+				/* duplicate bGPDlayers  */
 				float imat[3][3], bmat[3][3];
 				float offset_global[3];
 				float offset_local[3];
@@ -2010,9 +2009,9 @@ int ED_gpencil_join_objects_exec(bContext *C, wmOperator *op)
 							}
 						}
 					}
-
-					/* add to datablock */
+					/* be sure name is unique */
 					BLI_uniquename(&gpd_act->layers, gpl_new, DATA_("GP_Layer"), '.', offsetof(bGPDlayer, info), sizeof(gpl_new->info));
+					/* add to datablock */
 					BLI_addtail(&gpd_act->layers, gpl_new);
 				}
 
