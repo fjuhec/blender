@@ -66,6 +66,7 @@
 #include "BKE_scene.h"
 #include "BKE_screen.h"
 #include "BKE_colortools.h"
+#include "BKE_deform.h"
 
 #include "UI_interface.h"
 #include "UI_resources.h"
@@ -1882,6 +1883,8 @@ int ED_gpencil_join_objects_exec(bContext *C, wmOperator *op)
 	Object  *obact = CTX_data_active_object(C);
 	bGPdata *gpd_act = NULL;
 	bool ok = false;
+	int i;
+	bGPDspoint *pt;
 
 	/* Ensure we're in right mode and that the active object is correct */
 	if (!obact || obact->type != OB_GPENCIL)
@@ -1934,6 +1937,30 @@ int ED_gpencil_join_objects_exec(bContext *C, wmOperator *op)
 
 				/* TODO: Apply all modifiers */
 
+				/* copy vertex groups to the base one's */
+				int old_idx = 0;
+				for (bDeformGroup *dg = base->object->defbase.first; dg; dg = dg->next) {
+					bDeformGroup *vgroup = MEM_dupallocN(dg);
+					int idx = BLI_listbase_count(&obact->defbase);
+					defgroup_unique_name(vgroup, obact);
+					BLI_addtail(&obact->defbase, vgroup);
+					/* update vertex groups in strokes in original data */
+					for (bGPDlayer *gpl_src = gpd->layers.first; gpl_src; gpl_src = gpl_src->next) {
+						for (bGPDframe *gpf = gpl_src->frames.first; gpf; gpf = gpf->next) {
+							for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
+								for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
+									if ((pt->weights) && (pt->weights->index == old_idx)) {
+										pt->weights->index = idx;
+									}
+								}
+							}
+						}
+					}
+					old_idx++;
+				}
+				if (obact->defbase.first && obact->actdef == 0)
+					obact->actdef = 1;
+
 				/* add missing paletteslots */
 				bGPDpaletteref *palslot;
 				for (palslot = gpd->palette_slots.first; palslot; palslot = palslot->next) {
@@ -1943,11 +1970,9 @@ int ED_gpencil_join_objects_exec(bContext *C, wmOperator *op)
 				}
 
 				/* duplicate layers */
-				bGPDspoint *pt;
 				float imat[3][3], bmat[3][3];
 				float offset_global[3];
 				float offset_local[3];
-				int i;
 
 				sub_v3_v3v3(offset_global, obact->loc, base->object->obmat[3]);
 				copy_m3_m4(bmat, obact->obmat);
@@ -1964,7 +1989,7 @@ int ED_gpencil_join_objects_exec(bContext *C, wmOperator *op)
 					ED_gpencil_parent_location(base->object, gpd, gpl_src, diff_mat);
 					/* undo matrix */
 					invert_m4_m4(inverse_diff_mat, diff_mat);
-					
+
 					for (bGPDframe *gpf = gpl_new->frames.first; gpf; gpf = gpf->next) {
 						for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
 							for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
