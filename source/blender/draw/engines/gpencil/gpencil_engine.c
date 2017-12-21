@@ -440,7 +440,7 @@ static void GPENCIL_cache_init(void *vedata)
 static void GPENCIL_cache_populate(void *vedata, Object *ob)
 {
 	/* object must be visisible */
-	if (!BKE_object_is_visible(ob)) {
+	if (!BKE_object_is_visible(ob, OB_VISIBILITY_CHECK_UNKNOWN_RENDER_MODE)) {
 		return;
 	}
 
