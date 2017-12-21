@@ -46,10 +46,9 @@
 
 namespace DEG {
 
-/* *************** */
-/* Node Management */
-
-/* Add ------------------------------------------------ */
+/*******************************************************************************
+ * Type information.
+ */
 
 DepsNode::TypeInfo::TypeInfo(eDepsNode_Type type,
                              const char *tname,
@@ -58,13 +57,30 @@ DepsNode::TypeInfo::TypeInfo(eDepsNode_Type type,
           tname(tname),
           id_recalc_tag(id_recalc_tag)
 {
-	if (type == DEG_NODE_TYPE_OPERATION)
-		this->tclass = DEG_NODE_CLASS_OPERATION;
-	else if (type < DEG_NODE_TYPE_PARAMETERS)
-		this->tclass = DEG_NODE_CLASS_GENERIC;
-	else
-		this->tclass = DEG_NODE_CLASS_COMPONENT;
 }
+
+/*******************************************************************************
+ * Evaluation statistics.
+ */
+
+DepsNode::Stats::Stats()
+{
+	reset();
+}
+
+void DepsNode::Stats::reset()
+{
+	current_time = 0.0;
+}
+
+void DepsNode::Stats::reset_current()
+{
+	current_time = 0.0;
+}
+
+/*******************************************************************************
+ * Node itself.
+ */
 
 DepsNode::DepsNode()
 {
@@ -93,8 +109,22 @@ string DepsNode::identifier() const
 	return string(typebuf) + " : " + name;
 }
 
-/* Generic Nodes */
+eDepsNode_Class DepsNode::get_class() const {
+	if (type == DEG_NODE_TYPE_OPERATION) {
+		return DEG_NODE_CLASS_OPERATION;
+	}
+	else if (type < DEG_NODE_TYPE_PARAMETERS) {
+		return DEG_NODE_CLASS_GENERIC;
+	}
+	else {
+		return DEG_NODE_CLASS_COMPONENT;
+	}
+}
 
+/*******************************************************************************
+ * Generic nodes definition.
+ */
+\
 DEG_DEPSNODE_DEFINE(TimeSourceDepsNode, DEG_NODE_TYPE_TIMESOURCE, "Time Source");
 static DepsNodeFactoryImpl<TimeSourceDepsNode> DNTI_TIMESOURCE;
 
