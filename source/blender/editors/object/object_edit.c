@@ -216,6 +216,10 @@ static bool ED_object_editmode_load_ex(Main *bmain, Object *obedit, const bool f
 		ED_mball_editmball_load(obedit);
 		if (freedata) ED_mball_editmball_free(obedit);
 	}
+	else if (obedit->type == OB_GROOM) {
+		ED_groom_editgroom_load(obedit);
+		if (freedata) ED_groom_editgroom_free(obedit);
+	}
 
 	/* Tag update so no access to freed data referenced from
 	 * derived cache will happen.
