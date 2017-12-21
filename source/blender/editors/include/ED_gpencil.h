@@ -35,6 +35,7 @@
 struct ARegion;
 struct bAnimContext;
 struct bContext;
+struct wmOperator;
 struct bGPdata;
 struct bGPDlayer;
 struct bGPDframe;
@@ -284,4 +285,6 @@ void ED_gpencil_vgroup_remove(struct bContext *C, struct Object *ob);
 void ED_gpencil_vgroup_select(struct bContext *C, struct Object *ob);
 void ED_gpencil_vgroup_deselect(struct bContext *C, struct Object *ob);
 
+/* join objects */
+int ED_gpencil_join_objects_exec(struct bContext *C, struct wmOperator *op);
 #endif /*  __ED_GPENCIL_H__ */

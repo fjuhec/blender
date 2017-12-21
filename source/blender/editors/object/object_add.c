@@ -2592,7 +2592,7 @@ static int join_poll(bContext *C)
 
 	if (!ob || ID_IS_LINKED(ob)) return 0;
 
-	if (ELEM(ob->type, OB_MESH, OB_CURVE, OB_SURF, OB_ARMATURE))
+	if (ELEM(ob->type, OB_MESH, OB_CURVE, OB_SURF, OB_ARMATURE, OB_GPENCIL))
 		return ED_operator_screenactive(C);
 	else
 		return 0;
@@ -2611,6 +2611,13 @@ static int join_exec(bContext *C, wmOperator *op)
 		BKE_report(op->reports, RPT_ERROR, "Cannot edit external libdata");
 		return OPERATOR_CANCELLED;
 	}
+	else if (ob->type == OB_GPENCIL) {
+		bGPdata *gpd = (bGPdata *)ob->data;
+		if ((!gpd) || GPENCIL_ANY_MODE(gpd)) {
+			BKE_report(op->reports, RPT_ERROR, "This data does not support joining in this mode");
+			return OPERATOR_CANCELLED;
+		}
+	}
 
 	if (ob->type == OB_MESH)
 		return join_mesh_exec(C, op);
@@ -2618,6 +2625,8 @@ static int join_exec(bContext *C, wmOperator *op)
 		return join_curve_exec(C, op);
 	else if (ob->type == OB_ARMATURE)
 		return join_armature_exec(C, op);
+	else if (ob->type == OB_GPENCIL)
+		return ED_gpencil_join_objects_exec(C, op);
 
 	return OPERATOR_CANCELLED;
 }

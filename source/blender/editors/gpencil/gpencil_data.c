@@ -55,6 +55,7 @@
 #include "DNA_brush_types.h"
 
 #include "BKE_main.h"
+#include "BKE_animsys.h"
 #include "BKE_context.h"
 #include "BKE_global.h"
 #include "BKE_gpencil.h"
@@ -76,7 +77,10 @@
 #include "RNA_define.h"
 #include "RNA_enum_types.h"
 
+#include "ED_object.h"
 #include "ED_gpencil.h"
+
+#include "DEG_depsgraph_build.h"
 
 #include "gpencil_intern.h"
 
@@ -1870,3 +1874,124 @@ void GPENCIL_OT_vertex_group_deselect(wmOperatorType *ot)
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
+/* join objects called from OBJECT_OT_join */
+int ED_gpencil_join_objects_exec(bContext *C, wmOperator *op)
+{
+	Main *bmain = CTX_data_main(C);
+	Scene *scene = CTX_data_scene(C);
+	Object  *obact = CTX_data_active_object(C);
+	bGPdata *gpd_act = NULL;
+	bool ok = false;
+
+	/* Ensure we're in right mode and that the active object is correct */
+	if (!obact || obact->type != OB_GPENCIL)
+		return OPERATOR_CANCELLED;
+
+	/* Ensure all rotations are applied before */
+	CTX_DATA_BEGIN(C, Base *, base, selected_editable_bases)
+	{
+		if (base->object->type == OB_GPENCIL) {
+			if ((base->object->rot[0] != 0) || 
+				(base->object->rot[1] != 0) || 
+				(base->object->rot[2] != 0)) 
+			{
+				BKE_report(op->reports, RPT_ERROR, "Apply all rotations before join objects");
+				return OPERATOR_CANCELLED;
+			}
+		}
+	}
+	CTX_DATA_END;
+
+	bGPdata *gpd = (bGPdata *)obact->data;
+	if ((!gpd) || GPENCIL_ANY_MODE(gpd)) {
+		return OPERATOR_CANCELLED;
+	}
+
+	CTX_DATA_BEGIN(C, Base *, base, selected_editable_bases)
+	{
+		if (base->object == obact) {
+			ok = true;
+			break;
+		}
+	}
+	CTX_DATA_END;
+
+	/* that way the active object is always selected */
+	if (ok == false) {
+		BKE_report(op->reports, RPT_WARNING, "Active object is not a selected grease pencil");
+		return OPERATOR_CANCELLED;
+	}
+
+	gpd_act = obact->data;
+
+	/* loop and join */
+	CTX_DATA_BEGIN(C, Base *, base, selected_editable_bases)
+	{
+		if ((base->object->type == OB_GPENCIL) && (base->object != obact)) {
+			/* we assume that each datablock is not already used in active object */
+			if (obact->data != base->object->data) {
+				bGPdata *gpd = base->object->data;
+
+				/* TODO: Apply all modifiers */
+
+				/* add missing paletteslots */
+				bGPDpaletteref *palslot;
+				for (palslot = gpd->palette_slots.first; palslot; palslot = palslot->next) {
+					if (!BKE_gpencil_paletteslot_find(gpd_act, palslot->palette)) {
+						BKE_gpencil_paletteslot_add(gpd_act, palslot->palette);
+					}
+				}
+
+				/* duplicate layers */
+				bGPDspoint *pt;
+				float imat[3][3], bmat[3][3];
+				float offset_global[3];
+				float offset_local[3];
+				int i;
+
+				sub_v3_v3v3(offset_global, obact->loc, base->object->obmat[3]);
+				copy_m3_m4(bmat, obact->obmat);
+				invert_m3_m3(imat, bmat);
+				mul_m3_v3(imat, offset_global);
+				mul_v3_m3v3(offset_local, imat, offset_global);
+
+				float diff_mat[4][4];
+				float inverse_diff_mat[4][4];
+
+				for (bGPDlayer *gpl_src = gpd->layers.first; gpl_src; gpl_src = gpl_src->next) {
+					bGPDlayer *gpl_new = BKE_gpencil_layer_duplicate(gpl_src);
+					/* recalculate all strokes */
+					ED_gpencil_parent_location(base->object, gpd, gpl_src, diff_mat);
+					/* undo matrix */
+					invert_m4_m4(inverse_diff_mat, diff_mat);
+					
+					for (bGPDframe *gpf = gpl_new->frames.first; gpf; gpf = gpf->next) {
+						for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
+							for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
+								float mpt[3];
+								mul_v3_m4v3(mpt, inverse_diff_mat, &pt->x);
+								sub_v3_v3(mpt, offset_local);
+								mul_v3_m4v3(&pt->x, diff_mat, mpt);
+							}
+						}
+					}
+
+					/* add to datablock */
+					BLI_addtail(&gpd_act->layers, gpl_new);
+				}
+
+				/* TODO: copy animdata */
+			}
+
+			/* Free the old object */
+			ED_object_base_free_and_unlink(bmain, scene, base->object);
+		}
+	}
+	CTX_DATA_END;
+
+	DEG_relations_tag_update(bmain);  /* because we removed object(s) */
+
+	WM_event_add_notifier(C, NC_SCENE | ND_OB_ACTIVE, scene);
+
+	return OPERATOR_FINISHED;
+}
