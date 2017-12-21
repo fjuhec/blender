@@ -1977,6 +1977,7 @@ int ED_gpencil_join_objects_exec(bContext *C, wmOperator *op)
 					}
 
 					/* add to datablock */
+					BLI_uniquename(&gpd_act->layers, gpl_new, DATA_("GP_Layer"), '.', offsetof(bGPDlayer, info), sizeof(gpl_new->info));
 					BLI_addtail(&gpd_act->layers, gpl_new);
 				}
 
