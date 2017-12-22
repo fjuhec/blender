@@ -1878,16 +1878,17 @@ void GPENCIL_OT_vertex_group_deselect(wmOperatorType *ot)
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
+
+/****************************** Join ***********************************/
+
 /* join objects called from OBJECT_OT_join */
 int ED_gpencil_join_objects_exec(bContext *C, wmOperator *op)
 {
 	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
 	Object  *obact = CTX_data_active_object(C);
-	bGPdata *gpd_act = NULL;
+	bGPdata *gpd_dst = NULL;
 	bool ok = false;
-	int i;
-	bGPDspoint *pt;
 
 	/* Ensure we're in right mode and that the active object is correct */
 	if (!obact || obact->type != OB_GPENCIL)
@@ -1899,6 +1900,7 @@ int ED_gpencil_join_objects_exec(bContext *C, wmOperator *op)
 	}
 
 	/* Ensure all rotations are applied before */
+	// XXX: Why don't we apply them here instead of warning?
 	CTX_DATA_BEGIN(C, Base *, base, selected_editable_bases)
 	{
 		if (base->object->type == OB_GPENCIL) {
@@ -1928,7 +1930,7 @@ int ED_gpencil_join_objects_exec(bContext *C, wmOperator *op)
 		return OPERATOR_CANCELLED;
 	}
 
-	gpd_act = obact->data;
+	gpd_dst = obact->data;
 
 	/* loop and join all data */
 	CTX_DATA_BEGIN(C, Base *, base, selected_editable_bases)
@@ -1936,7 +1938,7 @@ int ED_gpencil_join_objects_exec(bContext *C, wmOperator *op)
 		if ((base->object->type == OB_GPENCIL) && (base->object != obact)) {
 			/* we assume that each datablock is not already used in active object */
 			if (obact->data != base->object->data) {
-				bGPdata *gpd = base->object->data;
+				bGPdata *gpd_src = base->object->data;
 
 				/* Apply all GP modifiers before */
 				for (ModifierData *md = base->object->modifiers.first; md; md = md->next) {
@@ -1957,6 +1959,8 @@ int ED_gpencil_join_objects_exec(bContext *C, wmOperator *op)
 					for (bGPDlayer *gpl_src = gpd->layers.first; gpl_src; gpl_src = gpl_src->next) {
 						for (bGPDframe *gpf = gpl_src->frames.first; gpf; gpf = gpf->next) {
 							for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
+								bGPDspoint *pt;
+								int i;
 								for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
 									if ((pt->weights) && (pt->weights->index == old_idx)) {
 										pt->weights->index = idx;
@@ -1972,9 +1976,9 @@ int ED_gpencil_join_objects_exec(bContext *C, wmOperator *op)
 
 				/* add missing paletteslots */
 				bGPDpaletteref *palslot;
-				for (palslot = gpd->palette_slots.first; palslot; palslot = palslot->next) {
-					if (!BKE_gpencil_paletteslot_find(gpd_act, palslot->palette)) {
-						BKE_gpencil_paletteslot_add(gpd_act, palslot->palette);
+				for (palslot = gpd_src->palette_slots.first; palslot; palslot = palslot->next) {
+					if (BKE_gpencil_paletteslot_find(gpd_dst, palslot->palette) == NULL) {
+						BKE_gpencil_paletteslot_add(gpd_dst, palslot->palette);
 					}
 				}
 
@@ -1989,18 +1993,19 @@ int ED_gpencil_join_objects_exec(bContext *C, wmOperator *op)
 				mul_m3_v3(imat, offset_global);
 				mul_v3_m3v3(offset_local, imat, offset_global);
 
-				float diff_mat[4][4];
-				float inverse_diff_mat[4][4];
-
-				for (bGPDlayer *gpl_src = gpd->layers.first; gpl_src; gpl_src = gpl_src->next) {
+				for (bGPDlayer *gpl_src = gpd_src->layers.first; gpl_src; gpl_src = gpl_src->next) {
 					bGPDlayer *gpl_new = BKE_gpencil_layer_duplicate(gpl_src);
-					/* recalculate all strokes */
-					ED_gpencil_parent_location(base->object, gpd, gpl_src, diff_mat);
-					/* undo matrix */
+					float diff_mat[4][4];
+					float inverse_diff_mat[4][4];
+
+					/* recalculate all stroke points */
+					ED_gpencil_parent_location(base->object, gpd_src, gpl_src, diff_mat);
 					invert_m4_m4(inverse_diff_mat, diff_mat);
 
 					for (bGPDframe *gpf = gpl_new->frames.first; gpf; gpf = gpf->next) {
 						for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
+							bGPDspoint *pt;
+							int i;
 							for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
 								float mpt[3];
 								mul_v3_m4v3(mpt, inverse_diff_mat, &pt->x);
@@ -2009,10 +2014,10 @@ int ED_gpencil_join_objects_exec(bContext *C, wmOperator *op)
 							}
 						}
 					}
-					/* be sure name is unique */
-					BLI_uniquename(&gpd_act->layers, gpl_new, DATA_("GP_Layer"), '.', offsetof(bGPDlayer, info), sizeof(gpl_new->info));
-					/* add to datablock */
-					BLI_addtail(&gpd_act->layers, gpl_new);
+					/* be sure name is unique in new object */
+					BLI_uniquename(&gpd_dst->layers, gpl_new, DATA_("GP_Layer"), '.', offsetof(bGPDlayer, info), sizeof(gpl_new->info));
+					/* add to destination datablock */
+					BLI_addtail(&gpd_dst->layers, gpl_new);
 				}
 
 				/* TODO: copy animdata */
@@ -2030,3 +2035,4 @@ int ED_gpencil_join_objects_exec(bContext *C, wmOperator *op)
 
 	return OPERATOR_FINISHED;
 }
+
