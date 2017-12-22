@@ -713,8 +713,8 @@ int wm_homefile_read(
 		if (!use_factory_settings && BLI_exists(filepath_userdef)) {
 			UserDef *userdef = BKE_blendfile_userdef_read(filepath_userdef, NULL);
 			if (userdef != NULL) {
-				BKE_blender_userdef_set_data(userdef);
-				MEM_freeN(userdef);
+				BKE_blender_userdef_data_set_and_free(userdef);
+				userdef = NULL;
 
 				skip_flags |= BLO_READ_SKIP_USERDEF;
 				printf("Read prefs: %s\n", filepath_userdef);
@@ -824,9 +824,8 @@ int wm_homefile_read(
 				read_userdef_from_memory = true;
 			}
 			if (userdef_template) {
-				BKE_blender_userdef_set_app_template(userdef_template);
-				BKE_blender_userdef_free_data(userdef_template);
-				MEM_freeN(userdef_template);
+				BKE_blender_userdef_app_template_data_set_and_free(userdef_template);
+				userdef_template = NULL;
 			}
 		}
 	}
@@ -1030,14 +1029,14 @@ static ImBuf *blend_file_thumb(Scene *scene, bScreen *screen, BlendThumbnail **t
 		ibuf = ED_view3d_draw_offscreen_imbuf_simple(
 		        scene, scene->camera,
 		        BLEN_THUMB_SIZE * 2, BLEN_THUMB_SIZE * 2,
-		        IB_rect, OB_SOLID, false, false, false, R_ALPHAPREMUL, 0, false, NULL,
+		        IB_rect, V3D_OFSDRAW_NONE, OB_SOLID, R_ALPHAPREMUL, 0, NULL,
 		        NULL, NULL, err_out);
 	}
 	else {
 		ibuf = ED_view3d_draw_offscreen_imbuf(
 		        scene, v3d, ar,
 		        BLEN_THUMB_SIZE * 2, BLEN_THUMB_SIZE * 2,
-		        IB_rect, false, R_ALPHAPREMUL, 0, false, NULL,
+		        IB_rect, V3D_OFSDRAW_NONE, R_ALPHAPREMUL, 0, NULL,
 		        NULL, NULL, err_out);
 	}
 
@@ -1472,40 +1471,52 @@ static int wm_userpref_write_exec(bContext *C, wmOperator *op)
 	wmWindowManager *wm = CTX_wm_manager(C);
 	char filepath[FILE_MAX];
 	const char *cfgdir;
-	bool ok = false;
+	bool ok = true;
 
 	/* update keymaps in user preferences */
 	WM_keyconfig_update(wm);
 
 	if ((cfgdir = BKE_appdir_folder_id_create(BLENDER_USER_CONFIG, NULL))) {
+		bool ok_write;
 		BLI_path_join(filepath, sizeof(filepath), cfgdir, BLENDER_USERPREF_FILE, NULL);
 		printf("trying to save userpref at %s ", filepath);
-		if (BKE_blendfile_userdef_write(filepath, op->reports) != 0) {
+
+		if (U.app_template[0]) {
+			ok_write = BKE_blendfile_userdef_write_app_template(filepath, op->reports);
+		}
+		else {
+			ok_write = BKE_blendfile_userdef_write(filepath, op->reports);
+		}
+
+		if (ok_write) {
 			printf("ok\n");
-			ok = true;
 		}
 		else {
 			printf("fail\n");
+			ok = false;
 		}
 	}
 	else {
 		BKE_report(op->reports, RPT_ERROR, "Unable to create userpref path");
 	}
 
-	if (U.app_template[0] && (cfgdir = BKE_appdir_folder_id_create(BLENDER_USER_CONFIG, U.app_template))) {
-		/* Also save app-template prefs */
-		BLI_path_join(filepath, sizeof(filepath), cfgdir, BLENDER_USERPREF_FILE, NULL);
-		printf("trying to save app-template userpref at %s ", filepath);
-		if (BKE_blendfile_userdef_write(filepath, op->reports) == 0) {
-			printf("fail\n");
-			ok = true;
+	if (U.app_template[0]) {
+		if ((cfgdir = BKE_appdir_folder_id_create(BLENDER_USER_CONFIG, U.app_template))) {
+			/* Also save app-template prefs */
+			BLI_path_join(filepath, sizeof(filepath), cfgdir, BLENDER_USERPREF_FILE, NULL);
+			printf("trying to save app-template userpref at %s ", filepath);
+			if (BKE_blendfile_userdef_write(filepath, op->reports) != 0) {
+				printf("ok\n");
+			}
+			else {
+				printf("fail\n");
+				ok = false;
+			}
 		}
 		else {
-			printf("ok\n");
+			BKE_report(op->reports, RPT_ERROR, "Unable to create app-template userpref path");
+			ok = false;
 		}
-	}
-	else if (U.app_template[0]) {
-		BKE_report(op->reports, RPT_ERROR, "Unable to create app-template userpref path");
 	}
 
 	return ok ? OPERATOR_FINISHED : OPERATOR_CANCELLED;

@@ -45,7 +45,7 @@ if(${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_BINARY_DIR})
 	endif()
 endif()
 
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.5)
 
 if(NOT EXECUTABLE_OUTPUT_PATH)
 	set(FIRST_RUN TRUE)
@@ -195,7 +195,7 @@ endif()
 # Options
 
 # First platform specific non-cached vars
-if(UNIX AND NOT APPLE)
+if(UNIX AND NOT (APPLE OR HAIKU))
 	set(WITH_X11 ON)
 endif()
 
@@ -760,7 +760,7 @@ if(WITH_INTERNATIONAL)
 endif()
 
 if(WITH_PYTHON)
-	# While we have this as an '#error' in bpy_util.h,
+	# While we have this as an '#error' in 'bpy_capi_utils.h',
 	# upgrading Python tends to cause confusion for users who build.
 	# Give the error message early to make this more obvious.
 	#

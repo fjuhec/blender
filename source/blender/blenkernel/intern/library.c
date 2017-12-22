@@ -661,7 +661,11 @@ bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, con
 	/* Do not make new copy local in case we are copying outside of main...
 	 * XXX TODO: is this behavior OK, or should we need own flag to control that? */
 	if ((flag & LIB_ID_CREATE_NO_MAIN) == 0) {
+		BLI_assert((flag & LIB_ID_COPY_KEEP_LIB) == 0);
 		BKE_id_copy_ensure_local(bmain, id, *r_newid);
+	}
+	else {
+		(*r_newid)->lib = id->lib;
 	}
 
 	return true;
@@ -2383,10 +2387,10 @@ void BKE_library_filepath_set(Library *lib, const char *filepath)
 
 void BKE_id_tag_set_atomic(ID *id, int tag)
 {
-	atomic_fetch_and_or_uint32((uint32_t *)&id->tag, tag);
+	atomic_fetch_and_or_int32(&id->tag, tag);
 }
 
 void BKE_id_tag_clear_atomic(ID *id, int tag)
 {
-	atomic_fetch_and_and_uint32((uint32_t *)&id->tag, ~tag);
+	atomic_fetch_and_and_int32(&id->tag, ~tag);
 }
