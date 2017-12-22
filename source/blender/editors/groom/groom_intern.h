@@ -33,5 +33,9 @@
 #ifndef __GROOM_INTERN_H__
 #define __GROOM_INTERN_H__
 
+struct wmOperatorType;
+
+/* editgroom_region.c */
+void GROOM_OT_region_add(struct wmOperatorType *ot);
 
 #endif /* __GROOM_INTERN_H__ */

@@ -46,7 +46,6 @@ void    ED_keymap_groom(struct wmKeyConfig *keyconf);
 
 /* editgroom.c */
 void    undo_push_groom(struct bContext *C, const char *name);
-ListBase *object_editgroom_get(struct Object *ob);
 
 void ED_groom_editgroom_load(struct Object *obedit);
 void ED_groom_editgroom_make(struct Object *obedit);

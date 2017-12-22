@@ -61,6 +61,7 @@
 #include "BKE_mball.h"
 #include "BKE_mesh.h"
 #include "BKE_image.h"
+#include "BKE_groom.h"
 
 #include "MEM_guardedalloc.h"
 #include "DEG_depsgraph.h"
@@ -324,6 +325,9 @@ void BKE_object_eval_uber_data(const EvaluationContext *eval_ctx,
 		case OB_MBALL:
 			BKE_mball_batch_cache_dirty(ob->data, BKE_MBALL_BATCH_DIRTY_ALL);
 			break;
+		case OB_GROOM:
+			BKE_groom_batch_cache_dirty(ob->data, BKE_GROOM_BATCH_DIRTY_ALL);
+			break;
 	}
 
 	if (DEG_depsgraph_use_copy_on_write()) {
@@ -428,6 +432,10 @@ void BKE_object_data_select_update(const EvaluationContext *UNUSED(eval_ctx),
 		case ID_LT:
 			BKE_lattice_batch_cache_dirty((struct Lattice *)object_data,
 			                              BKE_CURVE_BATCH_DIRTY_SELECT);
+			break;
+		case ID_GM:
+			BKE_groom_batch_cache_dirty((struct Groom *)object_data,
+			                              BKE_GROOM_BATCH_DIRTY_SELECT);
 			break;
 		default:
 			break;

@@ -36,6 +36,7 @@ set(INC_SYS
 set(SRC
 	groom_ops.c
 	editgroom.c
+	editgroom_region.c
 
 	groom_intern.h
 )

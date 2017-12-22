@@ -52,6 +52,7 @@
 
 void ED_operatortypes_groom(void)
 {
+	WM_operatortype_append(GROOM_OT_region_add);
 }
 
 void ED_operatormacros_groom(void)
