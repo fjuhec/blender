@@ -810,8 +810,8 @@ static Gwn_Batch *curve_batch_cache_get_pos_and_normals(CurveRenderData *rdata, 
 		if (cache->surface.triangles_in_order == NULL) {
 			cache->surface.triangles_in_order = DRW_displist_indexbuf_calc_triangles_in_order(lb);
 		}
-		cache->surface.batch = GWN_batch_create_ex(
-		        GWN_PRIM_TRIS, cache->surface.verts, cache->surface.triangles_in_order, 0);
+		cache->surface.batch = GWN_batch_create(
+		        GWN_PRIM_TRIS, cache->surface.verts, cache->surface.triangles_in_order);
 	}
 
 	return cache->surface.batch;
@@ -1021,7 +1021,6 @@ Gwn_Batch **DRW_curve_batch_cache_get_surface_shaded(
 
 	if (cache->surface.mat_len != gpumat_array_len) {
 		/* TODO: deduplicate code */
-		GWN_INDEXBUF_DISCARD_SAFE(cache->surface.triangles_in_order);
 		if (cache->surface.shaded_triangles) {
 			for (int i = 0; i < cache->surface.mat_len; ++i) {
 				GWN_BATCH_DISCARD_SAFE(cache->surface.shaded_triangles[i]);
@@ -1044,7 +1043,7 @@ Gwn_Batch **DRW_curve_batch_cache_get_surface_shaded(
 
 		for (int i = 0; i < gpumat_array_len; ++i) {
 			cache->surface.shaded_triangles[i] = GWN_batch_create_ex(
-			        GWN_PRIM_TRIS, cache->surface.verts, el[i], el[i] ? GWN_BATCH_OWNS_INDEX : 0);
+			        GWN_PRIM_TRIS, cache->surface.verts, el[i], GWN_BATCH_OWNS_INDEX);
 
 			/* TODO: Add vertbuff for UV */
 		}

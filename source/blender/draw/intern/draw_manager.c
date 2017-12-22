@@ -354,6 +354,7 @@ static struct DRWGlobalState {
 		unsigned int is_depth : 1;
 		unsigned int is_image_render : 1;
 		unsigned int is_scene_render : 1;
+		unsigned int draw_background : 1;
 	} options;
 
 	/* Current rendering context */
@@ -2214,7 +2215,7 @@ bool DRW_object_is_renderable(Object *ob)
 	Scene *scene = DST.draw_ctx.scene;
 	Object *obedit = scene->obedit;
 
-	BLI_assert(BKE_object_is_visible(ob));
+	BLI_assert(BKE_object_is_visible(ob, OB_VISIBILITY_CHECK_UNKNOWN_RENDER_MODE));
 
 	if (ob->type == OB_MESH) {
 		if (ob == obedit) {
@@ -2233,6 +2234,18 @@ bool DRW_object_is_renderable(Object *ob)
 	return true;
 }
 
+/**
+ * Return whether this object is visible depending if
+ * we are rendering or drawing in the viewport.
+ */
+bool DRW_check_object_visible_within_active_context(Object *ob)
+{
+	const eObjectVisibilityCheck mode = DRW_state_is_scene_render() ?
+	                                     OB_VISIBILITY_CHECK_FOR_RENDER :
+	                                     OB_VISIBILITY_CHECK_FOR_VIEWPORT;
+	return BKE_object_is_visible(ob, mode);
+}
+
 bool DRW_object_is_flat_normal(const Object *ob)
 {
 	if (ob->type == OB_MESH) {
@@ -2243,7 +2256,6 @@ bool DRW_object_is_flat_normal(const Object *ob)
 	}
 	return true;
 }
-
 
 /**
  * Return true if the object has its own draw mode.
@@ -3402,7 +3414,7 @@ void DRW_draw_render_loop_ex(
 		PROFILE_START(stime);
 		drw_engines_cache_init();
 
-		DEG_OBJECT_ITER_FOR_RENDER_ENGINE(graph, ob)
+		DEG_OBJECT_ITER_FOR_RENDER_ENGINE(graph, ob, DRW_iterator_mode_get())
 		{
 			drw_engines_cache_populate(ob);
 		}
@@ -3416,7 +3428,10 @@ void DRW_draw_render_loop_ex(
 
 	/* Start Drawing */
 	DRW_state_reset();
-	drw_engines_draw_background();
+
+	if (DRW_state_draw_background()) {
+		drw_engines_draw_background();
+	}
 
 	/* WIP, single image drawn over the camera view (replace) */
 	bool do_bg_image = false;
@@ -3456,10 +3471,14 @@ void DRW_draw_render_loop_ex(
 	if (DST.draw_ctx.evil_C) {
 		/* needed so manipulator isn't obscured */
 		glDisable(GL_DEPTH_TEST);
-		DRW_draw_manipulator();
-		glEnable(GL_DEPTH_TEST);
+		DRW_draw_manipulator_3d();
 
 		DRW_draw_region_info();
+
+		/* Draw 2D after region info so we can draw on top of the camera passepartout overlay.
+		 * 'DRW_draw_region_info' sets the projection in pixel-space. */
+		DRW_draw_manipulator_2d();
+		glEnable(GL_DEPTH_TEST);
 	}
 
 	DRW_stats_reset();
@@ -3499,7 +3518,7 @@ void DRW_draw_render_loop(
 
 void DRW_draw_render_loop_offscreen(
         struct Depsgraph *graph, RenderEngineType *engine_type,
-        ARegion *ar, View3D *v3d, GPUOffScreen *ofs)
+        ARegion *ar, View3D *v3d, const bool draw_background, GPUOffScreen *ofs)
 {
 	RegionView3D *rv3d = ar->regiondata;
 
@@ -3513,6 +3532,7 @@ void DRW_draw_render_loop_offscreen(
 	/* Reset before using it. */
 	memset(&DST, 0x0, sizeof(DST));
 	DST.options.is_image_render = true;
+	DST.options.draw_background = draw_background;
 	DRW_draw_render_loop_ex(graph, engine_type, ar, v3d, NULL);
 
 	/* restore */
@@ -3611,7 +3631,7 @@ void DRW_draw_select_loop(
 			drw_engines_cache_populate(scene->obedit);
 		}
 		else {
-			DEG_OBJECT_ITER(graph, ob,
+			DEG_OBJECT_ITER(graph, ob, DRW_iterator_mode_get(),
 			                DEG_ITER_OBJECT_FLAG_LINKED_DIRECTLY |
 			                DEG_ITER_OBJECT_FLAG_VISIBLE |
 			                DEG_ITER_OBJECT_FLAG_DUPLI)
@@ -3706,7 +3726,7 @@ void DRW_draw_depth_loop(
 	if (cache_is_dirty) {
 		drw_engines_cache_init();
 
-		DEG_OBJECT_ITER_FOR_RENDER_ENGINE(graph, ob)
+		DEG_OBJECT_ITER_FOR_RENDER_ENGINE(graph, ob, DRW_iterator_mode_get())
 		{
 			drw_engines_cache_populate(ob);
 		}
@@ -3792,6 +3812,15 @@ bool DRW_state_is_scene_render(void)
 }
 
 /**
+ * Gives you the iterator mode to use for depsgraph.
+ */
+eDepsObjectIteratorMode DRW_iterator_mode_get(void)
+{
+	return DRW_state_is_scene_render() ? DEG_ITER_OBJECT_MODE_RENDER :
+	                                     DEG_ITER_OBJECT_MODE_VIEWPORT;
+}
+
+/**
  * Should text draw in this mode?
  */
 bool DRW_state_show_text(void)
@@ -3811,6 +3840,17 @@ bool DRW_state_draw_support(void)
 	return (DRW_state_is_scene_render() == false) &&
 	        (v3d != NULL) &&
 	        ((v3d->flag2 & V3D_RENDER_OVERRIDE) == 0);
+}
+
+/**
+ * Whether we should render the background
+ */
+bool DRW_state_draw_background(void)
+{
+	if (DRW_state_is_image_render() == false) {
+		return true;
+	}
+	return DST.options.draw_background;
 }
 
 /** \} */
