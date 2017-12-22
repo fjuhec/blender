@@ -473,6 +473,8 @@ Nurb *ED_curve_add_nurbs_primitive(bContext *C, Object *obedit, float mat[4][4],
 
 static int curvesurf_prim_add(bContext *C, wmOperator *op, int type, int isSurf)
 {
+	WorkSpace *workspace = CTX_wm_workspace(C);
+	eObjectMode initial_workspace_mode = workspace->preferred_mode;
 	Object *obedit = CTX_data_edit_object(C);
 	ListBase *editnurb;
 	Nurb *nu;
@@ -532,6 +534,8 @@ static int curvesurf_prim_add(bContext *C, wmOperator *op, int type, int isSurf)
 	/* userdef */
 	if (newob && !enter_editmode) {
 		ED_object_editmode_exit(C, EM_FREEDATA);
+		/* restore workspace mode */
+		workspace->preferred_mode = initial_workspace_mode;
 	}
 
 	WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, obedit);

@@ -338,6 +338,8 @@ static Object *createRepresentation(bContext *C, struct recast_polyMesh *pmesh, 
 	int i, j, k;
 	unsigned short *v;
 	int face[3];
+	WorkSpace *workspace = CTX_wm_workspace(C);
+	eObjectMode initial_workspace_mode = workspace->preferred_mode;
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	Object *obedit;
 	int createob = base == NULL;
@@ -449,7 +451,9 @@ static Object *createRepresentation(bContext *C, struct recast_polyMesh *pmesh, 
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
 
 
-	ED_object_editmode_exit(C, EM_FREEDATA); 
+	ED_object_editmode_exit(C, EM_FREEDATA);
+	/* restore workspace mode */
+	workspace->preferred_mode = initial_workspace_mode;
 	WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, obedit);
 
 	if (createob) {

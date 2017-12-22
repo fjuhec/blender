@@ -92,6 +92,7 @@
 #include "BKE_scene.h"
 #include "BKE_screen.h"
 #include "BKE_speaker.h"
+#include "BKE_workspace.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_build.h"
@@ -594,6 +595,8 @@ void OBJECT_OT_lightprobe_add(wmOperatorType *ot)
 /* for object add operator */
 static int effector_add_exec(bContext *C, wmOperator *op)
 {
+	WorkSpace *workspace = CTX_wm_workspace(C);
+	eObjectMode initial_workspace_mode = workspace->preferred_mode;
 	Object *ob;
 	int type;
 	bool enter_editmode;
@@ -619,8 +622,11 @@ static int effector_add_exec(bContext *C, wmOperator *op)
 		ED_object_editmode_enter(C, 0);
 		ED_object_new_primitive_matrix(C, ob, loc, rot, mat);
 		BLI_addtail(&cu->editnurb->nurbs, ED_curve_add_nurbs_primitive(C, ob, mat, CU_NURBS | CU_PRIM_PATH, dia));
-		if (!enter_editmode)
+		if (!enter_editmode) {
 			ED_object_editmode_exit(C, EM_FREEDATA);
+			/* restore workspace mode */
+			workspace->preferred_mode = initial_workspace_mode;
+		}
 	}
 	else {
 		const char *name = CTX_DATA_(BLT_I18NCONTEXT_ID_OBJECT, "Field");
@@ -720,6 +726,8 @@ void OBJECT_OT_camera_add(wmOperatorType *ot)
 
 static int object_metaball_add_exec(bContext *C, wmOperator *op)
 {
+	WorkSpace *workspace = CTX_wm_workspace(C);
+	eObjectMode initial_workspace_mode = workspace->preferred_mode;
 	Object *obedit = CTX_data_edit_object(C);
 	bool newob = false;
 	bool enter_editmode;
@@ -748,6 +756,8 @@ static int object_metaball_add_exec(bContext *C, wmOperator *op)
 	/* userdef */
 	if (newob && !enter_editmode) {
 		ED_object_editmode_exit(C, EM_FREEDATA);
+		/* restore workspace mode */
+		workspace->preferred_mode = initial_workspace_mode;
 	}
 
 	WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, obedit);
@@ -824,7 +834,9 @@ void OBJECT_OT_text_add(wmOperatorType *ot)
 static int object_armature_add_exec(bContext *C, wmOperator *op)
 {
 	Object *obedit = CTX_data_edit_object(C);
+	WorkSpace *workspace = CTX_wm_workspace(C);
 	RegionView3D *rv3d = CTX_wm_region_view3d(C);
+	eObjectMode initial_workspace_mode = workspace->preferred_mode;
 	bool newob = false;
 	bool enter_editmode;
 	unsigned int layer;
@@ -853,8 +865,11 @@ static int object_armature_add_exec(bContext *C, wmOperator *op)
 	ED_armature_edit_bone_add_primitive(obedit, dia, view_aligned);
 
 	/* userdef */
-	if (newob && !enter_editmode)
+	if (newob && !enter_editmode) {
 		ED_object_editmode_exit(C, EM_FREEDATA);
+		/* restore workspace mode */
+		workspace->preferred_mode = initial_workspace_mode;
+	}
 
 	WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, obedit);
 

@@ -40,6 +40,7 @@
 #include "BKE_context.h"
 #include "BKE_library.h"
 #include "BKE_editmesh.h"
+#include "BKE_workspace.h"
 
 #include "RNA_define.h"
 #include "RNA_access.h"
@@ -61,6 +62,7 @@
 /* ********* add primitive operators ************* */
 
 typedef struct MakePrimitiveData {
+	eObjectMode initial_workspace_mode;
 	float mat[4][4];
 	bool was_editmode;
 } MakePrimitiveData;
@@ -73,6 +75,11 @@ static Object *make_prim_init(bContext *C, const char *idname,
 
 	r_creation_data->was_editmode = false;
 	if (obedit == NULL || obedit->type != OB_MESH) {
+		const WorkSpace *workspace = CTX_wm_workspace(C);
+
+		/* may have to reset this later */
+		r_creation_data->initial_workspace_mode = workspace->preferred_mode;
+
 		obedit = ED_object_add_type(C, OB_MESH, idname, loc, rot, false, layer);
 
 		/* create editmode */
@@ -100,6 +107,12 @@ static void make_prim_finish(bContext *C, Object *obedit, const MakePrimitiveDat
 	/* userdef */
 	if (exit_editmode) {
 		ED_object_editmode_exit(C, EM_FREEDATA); /* adding EM_DO_UNDO messes up operator redo */
+
+		if (creation_data->initial_workspace_mode != OB_MODE_OBJECT) {
+			WorkSpace *workspace = CTX_wm_workspace(C);
+			/* restore workspace mode */
+			workspace->preferred_mode = creation_data->initial_workspace_mode;
+		}
 	}
 	WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, obedit);
 }
