@@ -77,6 +77,8 @@ static void deformStroke(ModifierData *md, const EvaluationContext *UNUSED(eval_
 	{
 		return;
 	}
+	
+	gps->palcolor->fill[3] = gps->palcolor->fill[3] * mmd->factor;
 
 	/* if factor is > 1, then force opacity */
 	if (mmd->factor > 1.0f) {
