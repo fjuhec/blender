@@ -636,72 +636,68 @@ void do_versions_after_linking_280(Main *main)
 			}
 		}
 	}
-}
-	}
 
 	/* Grease Pencil Object */
-	if (!MAIN_VERSION_ATLEAST(main, 280, 2)) {
-		/* Convert grease pencil datablock to GP object */
-		for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
-			if (scene->gpd) {
-				Object *ob;
-				ViewLayer *view_layer = BKE_view_layer_from_scene_get(scene);
-				if (view_layer == NULL) {
-					view_layer = BKE_view_layer_add(scene, "Viewport");
-					printf("added scene layer again - %p\n", view_layer);
-				}
-
-				ob = BKE_object_add_for_data(main, scene, view_layer, OB_GPENCIL, "GP_Scene", &scene->gpd->id, false);
-				zero_v3(ob->loc);
-				scene->gpd = NULL;
-
-				/* set cache as dirty */
-				BKE_gpencil_batch_cache_dirty(ob->data);
+	/* Convert grease pencil datablock to GP object */
+	for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
+		if (scene->gpd) {
+			Object *ob;
+			ViewLayer *view_layer = BKE_view_layer_from_scene_get(scene);
+			if (view_layer == NULL) {
+				view_layer = BKE_view_layer_add(scene, "Viewport");
+				printf("added scene layer again - %p\n", view_layer);
 			}
-		}
-		/* init grease pencil grids and paper */
-		for (bScreen *screen = main->screen.first; screen; screen = screen->id.next) {
-			for (ScrArea *area = screen->areabase.first; area; area = area->next) {
-				for (SpaceLink *sl = area->spacedata.first; sl; sl = sl->next) {
-					if (sl->spacetype == SPACE_VIEW3D) {
-						View3D *v3d = (View3D *)sl;
-						v3d->gpencil_grid_size[0] = GP_DEFAULT_GRID_SIZE;
-						v3d->gpencil_grid_size[1] = GP_DEFAULT_GRID_SIZE;
-						ARRAY_SET_ITEMS(v3d->gpencil_paper_color, 1.0f, 1.0f, 1.0f, 0.7f);
-					}
-				}
-			}
-		}
 
-		/* Handle object-linked grease pencil datablocks */
-		for (Object *ob = main->object.first; ob; ob = ob->id.next) {
-			if (ob->gpd) {
-				if (ob->type == OB_GPENCIL) {
-					/* GP Object - remap the links */
-					ob->data = ob->gpd;
-					ob->gpd = NULL;
-				}
-				else if (ob->type == OB_EMPTY) {
-					/* Empty with GP data - This should be able to be converted
-					 * to a GP object with little data loss
-					 */
-					ob->data = ob->gpd;
-					ob->gpd = NULL;
-					ob->type = OB_GPENCIL;
-				}
-				else {
-					/* FIXME: What to do in this case?
-					 *
-					 * We cannot create new objects for these, as we don't have a scene & scene layer
-					 * to put them into from here...
-					 */
-					printf("WARNING: Old Grease Pencil data ('%s') still exists on Object '%s'\n",
-					       ob->gpd->id.name+2, ob->id.name+2);
-				}
-			}
-		}
+			ob = BKE_object_add_for_data(main, scene, view_layer, OB_GPENCIL, "GP_Scene", &scene->gpd->id, false);
+			zero_v3(ob->loc);
+			scene->gpd = NULL;
 
+			/* set cache as dirty */
+			BKE_gpencil_batch_cache_dirty(ob->data);
+		}
 	}
+	/* init grease pencil grids and paper */
+	for (bScreen *screen = main->screen.first; screen; screen = screen->id.next) {
+		for (ScrArea *area = screen->areabase.first; area; area = area->next) {
+			for (SpaceLink *sl = area->spacedata.first; sl; sl = sl->next) {
+				if (sl->spacetype == SPACE_VIEW3D) {
+					View3D *v3d = (View3D *)sl;
+					v3d->gpencil_grid_size[0] = GP_DEFAULT_GRID_SIZE;
+					v3d->gpencil_grid_size[1] = GP_DEFAULT_GRID_SIZE;
+					ARRAY_SET_ITEMS(v3d->gpencil_paper_color, 1.0f, 1.0f, 1.0f, 0.7f);
+				}
+			}
+		}
+	}
+
+	/* Handle object-linked grease pencil datablocks */
+	for (Object *ob = main->object.first; ob; ob = ob->id.next) {
+		if (ob->gpd) {
+			if (ob->type == OB_GPENCIL) {
+				/* GP Object - remap the links */
+				ob->data = ob->gpd;
+				ob->gpd = NULL;
+			}
+			else if (ob->type == OB_EMPTY) {
+				/* Empty with GP data - This should be able to be converted
+				 * to a GP object with little data loss
+				 */
+				ob->data = ob->gpd;
+				ob->gpd = NULL;
+				ob->type = OB_GPENCIL;
+			}
+			else {
+				/* FIXME: What to do in this case?
+				 *
+				 * We cannot create new objects for these, as we don't have a scene & scene layer
+				 * to put them into from here...
+				 */
+				printf("WARNING: Old Grease Pencil data ('%s') still exists on Object '%s'\n",
+					ob->gpd->id.name + 2, ob->id.name + 2);
+			}
+		}
+	}
+
 }
 
 static void do_version_layer_collections_idproperties(ListBase *lb)
