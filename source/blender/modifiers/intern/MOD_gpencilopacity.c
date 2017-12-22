@@ -68,6 +68,8 @@ static void deformStroke(ModifierData *md, const EvaluationContext *UNUSED(eval_
 {
 	GpencilOpacityModifierData *mmd = (GpencilOpacityModifierData *)md;
 	int vindex = defgroup_name_index(ob, mmd->vgname);
+	bGPDspoint *pt;
+	float weight;
 
 	if (!is_stroke_affected_by_modifier(
 	        mmd->layername, mmd->pass_index, 3, gpl, gps,
@@ -75,9 +77,6 @@ static void deformStroke(ModifierData *md, const EvaluationContext *UNUSED(eval_
 	{
 		return;
 	}
-
-	gps->palcolor->rgb[3] = gps->palcolor->rgb[3] * mmd->factor;
-	gps->palcolor->fill[3] = gps->palcolor->fill[3] * mmd->factor;
 
 	/* if factor is > 1, then force opacity */
 	if (mmd->factor > 1.0f) {
@@ -87,26 +86,43 @@ static void deformStroke(ModifierData *md, const EvaluationContext *UNUSED(eval_
 		}
 	}
 
-
 	CLAMP(gps->palcolor->rgb[3], 0.0f, 1.0f);
 	CLAMP(gps->palcolor->fill[3], 0.0f, 1.0f);
 
 	/* if opacity > 1.0, affect the strength of the stroke */
 	if (mmd->factor > 1.0f) {
 		for (int i = 0; i < gps->totpoints; i++) {
-			bGPDspoint *pt = &gps->points[i];
+			pt = &gps->points[i];
 			
 			/* verify vertex group */
-			float weight = is_point_affected_by_modifier(pt, (int)(!(mmd->flag & GP_OPACITY_INVERSE_VGROUP) == 0), vindex);
+			weight = is_point_affected_by_modifier(pt, (int)(!(mmd->flag & GP_OPACITY_INVERSE_VGROUP) == 0), vindex);
 			if (weight < 0) {
 				pt->strength += mmd->factor - 1.0f;
 			}
 			else {
-				pt->strength += ((mmd->factor * weight) - 1.0f);
+				pt->strength += (mmd->factor - 1.0f) * weight;
 			}
 			CLAMP(pt->strength, 0.0f, 1.0f);
 		}
 	}
+	else {
+		for (int i = 0; i < gps->totpoints; i++) {
+			pt = &gps->points[i];
+
+			/* verify vertex group */
+			if (mmd->vgname == NULL) {
+				pt->strength *= mmd->factor;
+			}
+			else {
+				weight = is_point_affected_by_modifier(pt, (int)(!(mmd->flag & GP_OPACITY_INVERSE_VGROUP) == 0), vindex);
+				if (weight >= 0) {
+					pt->strength *= mmd->factor * weight;
+				}
+			}
+			CLAMP(pt->strength, 0.0f, 1.0f);
+		}
+	}
+
 }
 
 static void bakeModifierGP(const bContext *UNUSED(C), const EvaluationContext *eval_ctx,
