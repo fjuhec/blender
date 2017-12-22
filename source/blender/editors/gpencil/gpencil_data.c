@@ -46,6 +46,7 @@
 
 #include "BLT_translation.h"
 
+#include "DNA_anim_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
@@ -58,6 +59,7 @@
 #include "BKE_main.h"
 #include "BKE_animsys.h"
 #include "BKE_context.h"
+#include "BKE_fcurve.h"
 #include "BKE_global.h"
 #include "BKE_gpencil.h"
 #include "BKE_paint.h"
@@ -1881,6 +1883,80 @@ void GPENCIL_OT_vertex_group_deselect(wmOperatorType *ot)
 
 /****************************** Join ***********************************/
 
+/* userdata for joined_gpencil_fix_animdata_cb() */
+typedef struct tJoinGPencil_AdtFixData {
+	bGPdata *src_gpd;
+	bGPdata *tar_gpd;
+	
+	GHash *names_map;
+} tJoinGPencil_AdtFixData;
+
+/* Callback to pass to BKE_fcurves_main_cb() for RNA Paths attached to each F-Curve used in the AnimData */
+static void joined_gpencil_fix_animdata_cb(ID *id, FCurve *fcu, void *user_data)
+{
+	tJoinGPencil_AdtFixData *afd = (tJoinGPencil_AdtFixData *)user_data;
+	ID *src_id = &afd->src_gpd->id;
+	ID *dst_id = &afd->tar_gpd->id;
+	
+	GHashIterator gh_iter;
+	
+	/* Fix paths - If this is the target datablock, it will have some "dirty" paths */
+	if ((id == src_id) && fcu->rna_path && strstr(fcu->rna_path, "layers[")) {
+		GHASH_ITER(gh_iter, afd->names_map) {
+			const char *old_name = BLI_ghashIterator_getKey(&gh_iter);
+			const char *new_name = BLI_ghashIterator_getValue(&gh_iter);
+			
+			/* only remap if changed; this still means there will be some waste if there aren't many drivers/keys */
+			if (!STREQ(old_name, new_name) && strstr(fcu->rna_path, old_name)) {
+				fcu->rna_path = BKE_animsys_fix_rna_path_rename(id, fcu->rna_path, "layers",
+				                                                old_name, new_name, 0, 0, false);
+				
+				/* we don't want to apply a second remapping on this F-Curve now, 
+				 * so stop trying to fix names names
+				 */
+				break;
+			}
+		}
+	}
+	
+	/* Fix driver targets */
+	if (fcu->driver) {
+		/* Fix driver references to invalid ID's */
+		for (DriverVar *dvar = fcu->driver->variables.first; dvar; dvar = dvar->next) {
+			/* only change the used targets, since the others will need fixing manually anyway */
+			DRIVER_TARGETS_USED_LOOPER(dvar)
+			{
+				/* change the ID's used... */
+				if (dtar->id == src_id) {
+					dtar->id = dst_id;
+					
+					/* also check on the subtarget...
+					 * XXX: We duplicate the logic from drivers_path_rename_fix() here, with our own
+					 *      little twists so that we know that it isn't going to clobber the wrong data
+					 */
+					if (dtar->rna_path && strstr(dtar->rna_path, "layers[")) {
+						GHASH_ITER(gh_iter, afd->names_map) {
+							const char *old_name = BLI_ghashIterator_getKey(&gh_iter);
+							const char *new_name = BLI_ghashIterator_getValue(&gh_iter);
+							
+							/* only remap if changed */
+							if (!STREQ(old_name, new_name)) {
+								if ((dtar->rna_path) && strstr(dtar->rna_path, old_name)) {
+									/* Fix up path */
+									dtar->rna_path = BKE_animsys_fix_rna_path_rename(id, dtar->rna_path, "layers",
+									                                                 old_name, new_name, 0, 0, false);
+									break; /* no need to try any more names for layer path */
+								}
+							}
+						}
+					}
+				}
+			}
+			DRIVER_TARGETS_LOOPER_END
+		}
+	}
+}
+
 /* join objects called from OBJECT_OT_join */
 int ED_gpencil_join_objects_exec(bContext *C, wmOperator *op)
 {
@@ -1983,6 +2059,11 @@ int ED_gpencil_join_objects_exec(bContext *C, wmOperator *op)
 				}
 
 				/* duplicate bGPDlayers  */
+				tJoinGPencil_AdtFixData afd = {0};
+				afd.src_gpd = gpd_src;
+				afd.tar_gpd = gpd_dst;
+				afd.names_map = BLI_ghash_str_new("joined_gp_layers_map");
+				
 				float imat[3][3], bmat[3][3];
 				float offset_global[3];
 				float offset_local[3];
@@ -1992,6 +2073,7 @@ int ED_gpencil_join_objects_exec(bContext *C, wmOperator *op)
 				invert_m3_m3(imat, bmat);
 				mul_m3_v3(imat, offset_global);
 				mul_v3_m3v3(offset_local, imat, offset_global);
+
 
 				for (bGPDlayer *gpl_src = gpd_src->layers.first; gpl_src; gpl_src = gpl_src->next) {
 					bGPDlayer *gpl_new = BKE_gpencil_layer_duplicate(gpl_src);
@@ -2014,13 +2096,44 @@ int ED_gpencil_join_objects_exec(bContext *C, wmOperator *op)
 							}
 						}
 					}
+					
 					/* be sure name is unique in new object */
 					BLI_uniquename(&gpd_dst->layers, gpl_new, DATA_("GP_Layer"), '.', offsetof(bGPDlayer, info), sizeof(gpl_new->info));
+					BLI_ghash_insert(afd.names_map, BLI_strdup(gpl_src->info), gpl_new->info);
+					
 					/* add to destination datablock */
 					BLI_addtail(&gpd_dst->layers, gpl_new);
 				}
-
-				/* TODO: copy animdata */
+				
+				/* Fix all the animation data */
+				BKE_fcurves_main_cb(bmain, joined_gpencil_fix_animdata_cb, &afd);
+				BLI_ghash_free(afd.names_map, MEM_freeN, NULL);
+				
+				/* Only copy over animdata now, after all the remapping has been done, 
+				 * so that we don't have to worry about ambiguities re which datablock
+				 * a layer came from!
+				 */
+				if (base->object->adt) {
+					if (obact->adt == NULL) {
+						/* no animdata, so just use a copy of the whole thing */
+						obact->adt = BKE_animdata_copy(bmain, base->object->adt, false);
+					}
+					else {
+						/* merge in data - we'll fix the drivers manually */
+						BKE_animdata_merge_copy(&obact->id, &base->object->id, ADT_MERGECOPY_KEEP_DST, false);
+					}
+				}
+				
+				if (gpd_src->adt) {
+					if (gpd_dst->adt == NULL) {
+						/* no animdata, so just use a copy of the whole thing */
+						gpd_dst->adt = BKE_animdata_copy(bmain, gpd_src->adt, false);
+					}
+					else {
+						/* merge in data - we'll fix the drivers manually */
+						BKE_animdata_merge_copy(&gpd_dst->id, &gpd_src->id, ADT_MERGECOPY_KEEP_DST, false);
+					}
+				}
 			}
 
 			/* Free the old object */
