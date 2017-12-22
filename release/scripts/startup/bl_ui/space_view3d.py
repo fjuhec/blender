@@ -50,7 +50,9 @@ class VIEW3D_HT_header(Header):
         if obj:
             mode = obj.mode
             # Particle edit
-            if mode == 'PARTICLE_EDIT':
+            if mode == 'EDIT' and obj.type == 'GROOM':
+                row.prop(toolsettings.groom_edit_settings, "mode", text="", expand=True)
+            elif mode == 'PARTICLE_EDIT':
                 row.prop(toolsettings.particle_edit, "select_mode", text="", expand=True)
 
             # Occlude geometry

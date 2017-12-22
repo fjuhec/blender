@@ -241,6 +241,22 @@ static char *rna_ParticleEdit_path(PointerRNA *UNUSED(ptr))
 	return BLI_strdup("tool_settings.particle_edit");
 }
 
+static char *rna_GroomEditSettings_path(PointerRNA *UNUSED(ptr))
+{
+	return BLI_strdup("tool_settings.groom_edit_settings");
+}
+
+static void rna_GroomEditSettings_update(bContext *C, PointerRNA *UNUSED(ptr))
+{
+	ViewLayer *view_layer = CTX_data_view_layer(C);
+	Object *ob = OBACT(view_layer);
+
+	if (ob)
+	{
+		DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+	}
+}
+
 static int rna_Brush_mode_poll(PointerRNA *ptr, PointerRNA value)
 {
 	Scene *scene = (Scene *)ptr->id.data;
@@ -1028,6 +1044,29 @@ static void rna_def_particle_edit(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Curve", "");
 }
 
+static void rna_def_groom_edit_settings(BlenderRNA *brna)
+{
+	StructRNA *srna;
+	PropertyRNA *prop;
+
+	static const EnumPropertyItem mode_items[] = {
+	    {GM_EDIT_MODE_REGIONS, "REGIONS", ICON_NONE, "Regions", "Region edit mode"},
+	    {GM_EDIT_MODE_CURVES, "CURVES", ICON_NONE, "Curves", "Curve edit mode"},
+	    {GM_EDIT_MODE_SECTIONS, "SECTIONS", ICON_NONE, "Sections", "Section edit mode"},
+	    {0, NULL, 0, NULL, NULL}
+	};
+
+	srna = RNA_def_struct(brna, "GroomEditSettings", NULL);
+	RNA_def_struct_path_func(srna, "rna_GroomEditSettings_path");
+	RNA_def_struct_ui_text(srna, "Groom Edit", "Properties of groom editing mode");
+
+	prop = RNA_def_property(srna, "mode", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_items(prop, mode_items);
+	RNA_def_property_ui_text(prop, "Mode", "Select mode");
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
+	RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_GroomEditSettings_update");
+}
+
 static void rna_def_gpencil_sculpt(BlenderRNA *brna)
 {
 	static const EnumPropertyItem prop_direction_items[] = {
@@ -1141,6 +1180,7 @@ void RNA_def_sculpt_paint(BlenderRNA *brna)
 	rna_def_vertex_paint(brna);
 	rna_def_image_paint(brna);
 	rna_def_particle_edit(brna);
+	rna_def_groom_edit_settings(brna);
 	rna_def_gpencil_sculpt(brna);
 	RNA_define_animate_sdna(true);
 }

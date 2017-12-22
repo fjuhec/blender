@@ -25,7 +25,7 @@
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file blender/editors/curve/editgroom_region.c
+/** \file blender/editors/groom/editgroom_region.c
  *  \ingroup edgroom
  */
 
