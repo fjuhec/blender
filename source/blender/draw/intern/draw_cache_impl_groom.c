@@ -39,6 +39,7 @@
 #include "BLI_listbase.h"
 
 #include "DNA_groom_types.h"
+#include "DNA_scene_types.h"
 #include "DNA_userdef_types.h"
 
 #include "BKE_groom.h"
@@ -179,45 +180,107 @@ BLI_INLINE char make_vertex_flag(bool active, bool selected)
 	return vflag;
 }
 
-#define GM_ATTR_ID_UNUSED 0xFFFFFFFF
+/* Parts of the groom object to render */
+typedef enum GroomRenderPart
+{
+	GM_RENDER_REGIONS   = (1 << 0),   /* Draw scalp regions */
+	GM_RENDER_CURVES    = (1 << 1),   /* Draw center curves of bundles */
+	GM_RENDER_SECTIONS  = (1 << 2),   /* Draw section curves */
+	
+	GM_RENDER_ALL       = GM_RENDER_REGIONS | GM_RENDER_CURVES | GM_RENDER_SECTIONS,
+} GroomRenderPart;
 
-static void groom_create_center_curves(
-        Groom *groom,
-        int tessellation,
-        Gwn_VertBuf *vbo,
-        Gwn_IndexBuf **ibo,
-        uint id_pos,
-        uint id_flag)
+static int groom_count_verts(Groom *groom, int parts, int tessellation)
 {
 	UNUSED_VARS(tessellation);
 	
-	Gwn_IndexBufBuilder elb;
-	
 	int vert_len = 0;
-	int edge_len = 0;
-	for (GroomBundle *bundle = groom->bundles.first; bundle; bundle = bundle->next)
-	{
-		int numsections = BLI_listbase_count(&bundle->sections);
-		vert_len += numsections;
-		edge_len += numsections - 1;
-	}
 	
-	if (vbo)
+	if (parts & GM_RENDER_REGIONS)
 	{
-		GWN_vertbuf_data_alloc(vbo, vert_len);
+		// TODO
 	}
-	if (ibo)
+	if (parts & GM_RENDER_CURVES)
 	{
-		GWN_indexbuf_init(&elb, GWN_PRIM_LINES, edge_len, vert_len);
-	}
-	
-	uint idx = 0;
-	for (GroomBundle *bundle = groom->bundles.first; bundle; bundle = bundle->next)
-	{
-		const bool active = bundle->flag & GM_BUNDLE_SELECT;
-		for (GroomBundleSection *section = bundle->sections.first; section; section = section->next)
+		for (GroomBundle *bundle = groom->bundles.first; bundle; bundle = bundle->next)
 		{
-			if (vbo)
+			int numsections = BLI_listbase_count(&bundle->sections);
+			vert_len += numsections;
+		}
+	}
+	if (parts & GM_RENDER_SECTIONS)
+	{
+		for (GroomBundle *bundle = groom->bundles.first; bundle; bundle = bundle->next)
+		{
+			for (GroomBundleSection *section = bundle->sections.first; section; section = section->next)
+			{
+				// TODO
+				//vert_len += ...;
+			}
+		}
+	}
+	
+	return vert_len;
+}
+
+static int groom_count_edges(Groom *groom, int parts, int tessellation)
+{
+	UNUSED_VARS(tessellation);
+	
+	int edge_len = 0;
+	
+	if (parts & GM_RENDER_REGIONS)
+	{
+		// TODO
+	}
+	if (parts & GM_RENDER_CURVES)
+	{
+		for (GroomBundle *bundle = groom->bundles.first; bundle; bundle = bundle->next)
+		{
+			int numsections = BLI_listbase_count(&bundle->sections);
+			edge_len += numsections - 1;
+		}
+	}
+	if (parts & GM_RENDER_SECTIONS)
+	{
+		for (GroomBundle *bundle = groom->bundles.first; bundle; bundle = bundle->next)
+		{
+			for (GroomBundleSection *section = bundle->sections.first; section; section = section->next)
+			{
+				// TODO
+				//edge_len += ...;
+			}
+		}
+	}
+	
+	return edge_len;
+}
+
+#define GM_ATTR_ID_UNUSED 0xFFFFFFFF
+
+static void groom_get_verts(
+        Groom *groom,
+        int parts,
+        int tessellation,
+        Gwn_VertBuf *vbo,
+        uint id_pos,
+        uint id_flag)
+{
+	int vert_len = groom_count_verts(groom, parts, tessellation);
+	
+	GWN_vertbuf_data_alloc(vbo, vert_len);
+	
+	if (parts & GM_RENDER_REGIONS)
+	{
+		// TODO
+	}
+	if (parts & GM_RENDER_CURVES)
+	{
+		uint idx = 0;
+		for (GroomBundle *bundle = groom->bundles.first; bundle; bundle = bundle->next)
+		{
+			const bool active = bundle->flag & GM_BUNDLE_SELECT;
+			for (GroomBundleSection *section = bundle->sections.first; section; section = section->next)
 			{
 				if (id_pos != GM_ATTR_ID_UNUSED)
 				{
@@ -228,83 +291,76 @@ static void groom_create_center_curves(
 					char vflag = make_vertex_flag(active, section->flag & GM_SECTION_SELECT);
 					GWN_vertbuf_attr_set(vbo, id_flag, idx, &vflag);
 				}
+				
+				++idx;
 			}
-			if (ibo)
+		}
+	}
+	if (parts & GM_RENDER_SECTIONS)
+	{
+		uint idx = 0;
+		for (GroomBundle *bundle = groom->bundles.first; bundle; bundle = bundle->next)
+		{
+			for (GroomBundleSection *section = bundle->sections.first; section; section = section->next)
+			{
+				// TODO
+				UNUSED_VARS(idx);
+			}
+		}
+	}
+}
+
+static void groom_get_edges(
+        Groom *groom,
+        int parts,
+        int tessellation,
+        Gwn_IndexBuf **ibo)
+{
+	Gwn_IndexBufBuilder elb;
+	
+	int vert_len = groom_count_verts(groom, parts, tessellation);
+	int edge_len = groom_count_edges(groom, parts, tessellation);
+	
+	GWN_indexbuf_init(&elb, GWN_PRIM_LINES, edge_len, vert_len);
+	
+	if (parts & GM_RENDER_REGIONS)
+	{
+		// TODO
+	}
+	if (parts & GM_RENDER_CURVES)
+	{
+		uint idx = 0;
+		for (GroomBundle *bundle = groom->bundles.first; bundle; bundle = bundle->next)
+		{
+			for (GroomBundleSection *section = bundle->sections.first; section; section = section->next)
 			{
 				if (section->prev)
 				{
 					GWN_indexbuf_add_line_verts(&elb, idx-1, idx);
 				}
+				
+				++idx;
 			}
-			
-			++idx;
 		}
 	}
-	
-	if (ibo)
+	if (parts & GM_RENDER_SECTIONS)
 	{
-		*ibo = GWN_indexbuf_build(&elb);
-	}
-}
-
-static void groom_create_section_curves(
-        Groom *groom,
-        int tessellation,
-        Gwn_VertBuf *vbo,
-        Gwn_IndexBuf **ibo,
-        uint id_pos,
-        uint id_flag)
-{
-	UNUSED_VARS(tessellation, id_pos, id_flag);
-	
-	Gwn_IndexBufBuilder elb;
-	
-	const int vert_len = 0;
-	const int edge_len = 0;
-	for (GroomBundle *bundle = groom->bundles.first; bundle; bundle = bundle->next)
-	{
-		for (GroomBundleSection *section = bundle->sections.first; section; section = section->next)
+		uint idx = 0;
+		for (GroomBundle *bundle = groom->bundles.first; bundle; bundle = bundle->next)
 		{
-			// TODO
-			//vert_len += ...;
-			//edge_len += ...;
-		}
-	}
-	if (vbo)
-	{
-		GWN_vertbuf_data_alloc(vbo, vert_len);
-	}
-	if (ibo)
-	{
-		GWN_indexbuf_init(&elb, GWN_PRIM_LINES, edge_len, vert_len);
-	}
-	
-	uint idx = 0;
-	for (GroomBundle *bundle = groom->bundles.first; bundle; bundle = bundle->next)
-	{
-		for (GroomBundleSection *section = bundle->sections.first; section; section = section->next)
-		{
-			// TODO
-			UNUSED_VARS(idx);
+			for (GroomBundleSection *section = bundle->sections.first; section; section = section->next)
+			{
+				// TODO
+				UNUSED_VARS(idx);
+			}
 		}
 	}
 	
-	if (ibo)
-	{
-		*ibo = GWN_indexbuf_build(&elb);
-	}
+	*ibo = GWN_indexbuf_build(&elb);
 }
-
-/* Parts of the groom object to render */
-typedef enum GroomRenderPart
-{
-	GM_RENDER_REGIONS   = (1 << 0),   /* Draw scalp regions */
-	GM_RENDER_CURVES    = (1 << 1),   /* Draw center curves of bundles */
-	GM_RENDER_SECTIONS  = (1 << 2),   /* Draw section curves */
-} GroomRenderPart;
 
 /* Gwn_Batch cache usage. */
-static Gwn_VertBuf *groom_batch_cache_get_pos(Groom *groom, GroomBatchCache *cache, GroomRenderPart part)
+static Gwn_VertBuf *groom_batch_cache_get_pos(Groom *groom, GroomBatchCache *cache, int parts)
 {
 	if (cache->pos == NULL) {
 		static Gwn_VertFormat format = { 0 };
@@ -317,42 +373,22 @@ static Gwn_VertBuf *groom_batch_cache_get_pos(Groom *groom, GroomBatchCache *cac
 		
 		cache->pos = GWN_vertbuf_create_with_format(&format);
 		
-		switch (part)
-		{
-			case GM_RENDER_REGIONS:
-				break;
-			case GM_RENDER_CURVES:
-				groom_create_center_curves(groom, 0, cache->pos, NULL, attr_id.pos, GM_ATTR_ID_UNUSED);
-				break;
-			case GM_RENDER_SECTIONS:
-				groom_create_section_curves(groom, 0, cache->pos, NULL, attr_id.pos, GM_ATTR_ID_UNUSED);
-				break;
-		}
+		groom_get_verts(groom, parts, 0, cache->pos, attr_id.pos, GM_ATTR_ID_UNUSED);
 	}
 
 	return cache->pos;
 }
 
-static Gwn_IndexBuf *groom_batch_cache_get_edges(Groom *groom, GroomBatchCache *cache, GroomRenderPart part)
+static Gwn_IndexBuf *groom_batch_cache_get_edges(Groom *groom, GroomBatchCache *cache, int parts)
 {
 	if (cache->edges == NULL) {
-		switch (part)
-		{
-			case GM_RENDER_REGIONS:
-				break;
-			case GM_RENDER_CURVES:
-				groom_create_center_curves(groom, 0, NULL, &cache->edges, GM_ATTR_ID_UNUSED, GM_ATTR_ID_UNUSED);
-				break;
-			case GM_RENDER_SECTIONS:
-				groom_create_section_curves(groom, 0, NULL, &cache->edges, GM_ATTR_ID_UNUSED, GM_ATTR_ID_UNUSED);
-				break;
-		}
+		groom_get_edges(groom, parts, 0, &cache->edges);
 	}
 
 	return cache->edges;
 }
 
-static void groom_batch_cache_create_overlay_batches(Groom *groom, GroomBatchCache *cache, GroomRenderPart part)
+static void groom_batch_cache_create_overlay_batches(Groom *groom, GroomBatchCache *cache, int parts)
 {
 	if (cache->overlay_verts == NULL) {
 		static Gwn_VertFormat format = { 0 };
@@ -365,32 +401,21 @@ static void groom_batch_cache_create_overlay_batches(Groom *groom, GroomBatchCac
 		
 		Gwn_VertBuf *vbo = GWN_vertbuf_create_with_format(&format);
 		
-		switch (part)
-		{
-			case GM_RENDER_REGIONS:
-				break;
-			case GM_RENDER_CURVES:
-				groom_create_center_curves(groom, 0, vbo, NULL, attr_id.pos, attr_id.data);
-				break;
-			case GM_RENDER_SECTIONS:
-				groom_create_section_curves(groom, 0, vbo, NULL, attr_id.pos, attr_id.data);
-				break;
-		}
-
+		groom_get_verts(groom, parts, 0, vbo, attr_id.pos, attr_id.data);
+		
 		cache->overlay_verts = GWN_batch_create_ex(GWN_PRIM_POINTS, vbo, NULL, GWN_BATCH_OWNS_VBO);
 	}	
 }
 
 Gwn_Batch *DRW_groom_batch_cache_get_all_edges(Groom *groom)
 {
-	const GroomRenderPart part = GM_RENDER_CURVES;
 	GroomBatchCache *cache = groom_batch_cache_get(groom);
 
 	if (cache->all_edges == NULL) {
 		cache->all_edges = GWN_batch_create(
 		                       GWN_PRIM_LINES,
-		                       groom_batch_cache_get_pos(groom, cache, part),
-		                       groom_batch_cache_get_edges(groom, cache, part));
+		                       groom_batch_cache_get_pos(groom, cache, GM_RENDER_ALL),
+		                       groom_batch_cache_get_edges(groom, cache, GM_RENDER_ALL));
 	}
 
 	return cache->all_edges;
@@ -398,26 +423,32 @@ Gwn_Batch *DRW_groom_batch_cache_get_all_edges(Groom *groom)
 
 Gwn_Batch *DRW_groom_batch_cache_get_all_verts(Groom *groom)
 {
-	const GroomRenderPart part = GM_RENDER_CURVES;
 	GroomBatchCache *cache = groom_batch_cache_get(groom);
 
 	if (cache->all_verts == NULL) {
 		cache->all_verts = GWN_batch_create(
 		                       GWN_PRIM_POINTS,
-		                       groom_batch_cache_get_pos(groom, cache, part),
+		                       groom_batch_cache_get_pos(groom, cache, GM_RENDER_ALL),
 		                       NULL);
 	}
 
 	return cache->all_verts;
 }
 
-Gwn_Batch *DRW_groom_batch_cache_get_overlay_verts(Groom *groom)
+Gwn_Batch *DRW_groom_batch_cache_get_overlay_verts(Groom *groom, int mode)
 {
-	const GroomRenderPart part = GM_RENDER_CURVES;
 	GroomBatchCache *cache = groom_batch_cache_get(groom);
 
 	if (cache->overlay_verts == NULL) {
-		groom_batch_cache_create_overlay_batches(groom, cache, part);
+		GroomRenderPart parts = 0;
+		switch ((GroomEditMode)mode)
+		{
+			case GM_EDIT_MODE_REGIONS: parts |= GM_RENDER_REGIONS; break;
+			case GM_EDIT_MODE_CURVES: parts |= GM_RENDER_CURVES; break;
+			case GM_EDIT_MODE_SECTIONS: parts |= GM_RENDER_SECTIONS; break;
+		}
+		
+		groom_batch_cache_create_overlay_batches(groom, cache, parts);
 	}
 
 	return cache->overlay_verts;

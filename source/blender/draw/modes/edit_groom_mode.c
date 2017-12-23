@@ -196,6 +196,7 @@ static void EDIT_GROOM_cache_populate(void *vedata, Object *ob)
 	const DRWContextState *draw_ctx = DRW_context_state_get();
 	Scene *scene = draw_ctx->scene;
 	Object *obedit = scene->obedit;
+	GroomEditSettings *editsettings = &scene->toolsettings->groom_edit_settings;
 
 	UNUSED_VARS(psl);
 
@@ -207,7 +208,7 @@ static void EDIT_GROOM_cache_populate(void *vedata, Object *ob)
 			geom = DRW_cache_groom_wire_get(ob);
 			DRW_shgroup_call_add(stl->g_data->wire_shgrp, geom, ob->obmat);
 
-			geom = DRW_cache_groom_vert_overlay_get(ob);
+			geom = DRW_cache_groom_vert_overlay_get(ob, editsettings->mode);
 			DRW_shgroup_call_add(stl->g_data->vert_shgrp, geom, ob->obmat);
 		}
 	}

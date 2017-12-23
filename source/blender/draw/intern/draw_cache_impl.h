@@ -98,7 +98,7 @@ struct Gwn_Batch *DRW_lattice_batch_cache_get_overlay_verts(struct Lattice *lt);
 /* Groom */
 struct Gwn_Batch *DRW_groom_batch_cache_get_all_edges(struct Groom *groom);
 struct Gwn_Batch *DRW_groom_batch_cache_get_all_verts(struct Groom *groom);
-struct Gwn_Batch *DRW_groom_batch_cache_get_overlay_verts(struct Groom *groom);
+struct Gwn_Batch *DRW_groom_batch_cache_get_overlay_verts(struct Groom *groom, int mode);
 
 /* Mesh */
 

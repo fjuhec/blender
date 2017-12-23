@@ -2498,12 +2498,12 @@ Gwn_Batch *DRW_cache_groom_wire_get(Object *ob)
 	return DRW_groom_batch_cache_get_all_edges(groom);
 }
 
-Gwn_Batch *DRW_cache_groom_vert_overlay_get(Object *ob)
+Gwn_Batch *DRW_cache_groom_vert_overlay_get(Object *ob, int mode)
 {
 	BLI_assert(ob->type == OB_GROOM);
 
 	struct Groom *groom = ob->data;
-	return DRW_groom_batch_cache_get_overlay_verts(groom);
+	return DRW_groom_batch_cache_get_overlay_verts(groom, mode);
 }
 
 /** \} */
