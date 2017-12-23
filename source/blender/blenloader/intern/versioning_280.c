@@ -357,7 +357,7 @@ void do_versions_after_linking_280(Main *main)
 						view_layer->id_properties = srl->prop;
 
 						/* unlink master collection  */
-						BKE_collection_unlink(view_layer, view_layer->layer_collections.first);
+						BKE_collection_unlink(view_layer, view_layer->layer_collections.first, main);
 
 						/* Add new collection bases. */
 						for (int layer = 0; layer < 20; layer++) {
@@ -568,7 +568,7 @@ void do_versions_after_linking_280(Main *main)
 		/* Since we don't have access to FileData we check the (always valid) master collection of the group. */
 		for (Group *group = main->group.first; group; group = group->id.next) {
 			if (group->collection == NULL) {
-				BKE_group_init(group);
+				BKE_group_init(group, main);
 				SceneCollection *sc = GROUP_MASTER_COLLECTION(group);
 				SceneCollection *sc_hidden = NULL;
 

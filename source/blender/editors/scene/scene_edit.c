@@ -194,7 +194,7 @@ bool ED_scene_view_layer_delete(
 	BKE_workspace_view_layer_remove_references(bmain, layer);
 	view_layer_remove_unset_nodetrees(bmain, scene, layer);
 
-	BKE_view_layer_free(layer);
+	BKE_view_layer_free(layer, bmain);
 
 	DEG_id_tag_update(&scene->id, 0);
 	DEG_relations_tag_update(bmain);

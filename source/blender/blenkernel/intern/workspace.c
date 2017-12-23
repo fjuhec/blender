@@ -378,6 +378,26 @@ WorkSpaceLayout *BKE_workspace_layout_iter_circular(
 	return NULL;
 }
 
+void BKE_workspace_active_base_changed(const Main *bmain, const ViewLayer *active_view_layer)
+{
+	if (!active_view_layer->basact) {
+		/* Nothing to be done */
+		return;
+	}
+
+	for (WorkSpace *workspace = bmain->workspaces.first; workspace; workspace = workspace->id.next) {
+		for (WorkSpaceDataRelation *relation = workspace->scene_viewlayer_relations.first;
+		     relation != NULL;
+		     relation = relation->next)
+		{
+			if (relation->value == active_view_layer) {
+				Object *active_object = active_view_layer->basact->object;
+				BKE_workspace_object_mode_ensure_updated(workspace, active_object, active_object->mode, true);
+			}
+		}
+	}
+}
+
 
 /* -------------------------------------------------------------------- */
 /* Getters/Setters */

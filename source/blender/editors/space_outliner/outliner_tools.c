@@ -834,6 +834,7 @@ static void modifier_cb(int event, TreeElement *te, TreeStoreElem *UNUSED(tselem
 static void collection_cb(int event, TreeElement *te, TreeStoreElem *UNUSED(tselem), void *Carg)
 {
 	bContext *C = (bContext *)Carg;
+	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
 	LayerCollection *lc = te->directdata;
 	ID *id = te->store_elem->id;
@@ -849,8 +850,6 @@ static void collection_cb(int event, TreeElement *te, TreeStoreElem *UNUSED(tsel
 		WM_event_add_notifier(C, NC_SCENE | ND_LAYER, scene);
 	}
 	else if (event == OL_COLLECTION_OP_OBJECTS_REMOVE) {
-		Main *bmain = CTX_data_main(C);
-
 		CTX_DATA_BEGIN (C, Object *, ob, selected_objects)
 		{
 			BKE_collection_object_remove(bmain, id, sc, ob, true);
@@ -878,14 +877,14 @@ static void collection_cb(int event, TreeElement *te, TreeStoreElem *UNUSED(tsel
 			TODO_LAYER_OPERATORS; /* this shouldn't be in the menu in those cases */
 		}
 		else {
-			BKE_collection_unlink(view_layer, lc);
-			DEG_relations_tag_update(CTX_data_main(C));
+			BKE_collection_unlink(view_layer, lc, bmain);
+			DEG_relations_tag_update(bmain);
 			WM_event_add_notifier(C, NC_SCENE | ND_LAYER, scene);
 		}
 	}
 	else if (event == OL_COLLECTION_OP_COLLECTION_DEL) {
-		if (BKE_collection_remove(id, sc)) {
-			DEG_relations_tag_update(CTX_data_main(C));
+		if (BKE_collection_remove(id, sc, bmain)) {
+			DEG_relations_tag_update(bmain);
 			WM_event_add_notifier(C, NC_SCENE | ND_LAYER, scene);
 		}
 		else {
@@ -894,7 +893,6 @@ static void collection_cb(int event, TreeElement *te, TreeStoreElem *UNUSED(tsel
 		}
 	}
 	else if (event == OL_COLLECTION_OP_GROUP_CREATE) {
-		Main *bmain = CTX_data_main(C);
 		BKE_collection_group_create(bmain, scene, lc);
 		DEG_relations_tag_update(bmain);
 		/* TODO(sergey): Use proper flag for tagging here. */

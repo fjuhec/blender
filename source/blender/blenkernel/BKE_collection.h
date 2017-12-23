@@ -47,7 +47,7 @@ struct SceneCollection;
 
 struct SceneCollection *BKE_collection_add(
         struct ID *owner_id, struct SceneCollection *sc_parent, const int type, const char *name);
-bool BKE_collection_remove(struct ID *owner_id, struct SceneCollection *sc);
+bool BKE_collection_remove(struct ID *owner_id, struct SceneCollection *sc, const struct Main *bmain);
 void BKE_collection_copy_data(struct SceneCollection *sc_dst, struct SceneCollection *sc_src, const int flag);
 struct SceneCollection *BKE_collection_master(const struct ID *owner_id);
 void BKE_collection_rename(const struct Scene *scene, struct SceneCollection *sc, const char *name);
@@ -63,9 +63,9 @@ struct Group *BKE_collection_group_create(struct Main *bmain, struct Scene *scen
 void BKE_collection_reinsert_after(const struct Scene *scene, struct SceneCollection *sc_reinsert, struct SceneCollection *sc_after);
 void BKE_collection_reinsert_into(struct SceneCollection *sc_reinsert, struct SceneCollection *sc_into);
 
-bool BKE_collection_move_above(const struct ID *owner_id, struct SceneCollection *sc_dst, struct SceneCollection *sc_src);
-bool BKE_collection_move_below(const struct ID *owner_id, struct SceneCollection *sc_dst, struct SceneCollection *sc_src);
-bool BKE_collection_move_into(const struct ID *owner_id, struct SceneCollection *sc_dst, struct SceneCollection *sc_src);
+bool BKE_collection_move_above(const struct ID *owner_id, struct SceneCollection *sc_dst, struct SceneCollection *sc_src, const struct Main *bmain);
+bool BKE_collection_move_below(const struct ID *owner_id, struct SceneCollection *sc_dst, struct SceneCollection *sc_src, const struct Main *bmain);
+bool BKE_collection_move_into(const struct ID *owner_id, struct SceneCollection *sc_dst, struct SceneCollection *sc_src, const struct Main *bmain);
 
 typedef void (*BKE_scene_objects_Cb)(struct Object *ob, void *data);
 typedef void (*BKE_scene_collections_Cb)(struct SceneCollection *ob, void *data);

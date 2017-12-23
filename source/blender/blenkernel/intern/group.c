@@ -64,7 +64,7 @@ void BKE_group_free(Group *group)
 	BKE_previewimg_free(&group->preview);
 
 	if (group->view_layer != NULL) {
-		BKE_view_layer_free(group->view_layer);
+		BKE_view_layer_free(group->view_layer, G.main); /* XXX pass as parameter */
 		group->view_layer = NULL;
 	}
 
@@ -78,14 +78,14 @@ void BKE_group_free(Group *group)
 /**
  * Run when adding new groups or during doversion.
  */
-void BKE_group_init(Group *group)
+void BKE_group_init(Group *group, const Main *bmain)
 {
 	group->collection = MEM_callocN(sizeof(SceneCollection), __func__);
 	BLI_strncpy(group->collection->name, "Master Collection", sizeof(group->collection->name));
 	group->view_layer = BKE_view_layer_group_add(group);
 
 	/* Unlink the master collection. */
-	BKE_collection_unlink(group->view_layer, group->view_layer->layer_collections.first);
+	BKE_collection_unlink(group->view_layer, group->view_layer->layer_collections.first, bmain);
 
 	/* Create and link a new default collection. */
 	SceneCollection *defaut_collection = BKE_collection_add(&group->id, NULL, COLLECTION_TYPE_GROUP_INTERNAL, NULL);
@@ -102,7 +102,7 @@ Group *BKE_group_add(Main *bmain, const char *name)
 	group->layer = (1 << 20) - 1;
 
 	group->preview = NULL;
-	BKE_group_init(group);
+	BKE_group_init(group, bmain);
 	return group;
 }
 

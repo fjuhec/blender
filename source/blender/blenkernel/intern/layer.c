@@ -61,7 +61,7 @@
 
 /* prototype */
 struct EngineSettingsCB_Type;
-static void layer_collection_free(ViewLayer *view_layer, LayerCollection *lc);
+static void layer_collection_free(ViewLayer *view_layer, LayerCollection *lc, const Main *bmain);
 static void layer_collection_objects_populate(ViewLayer *view_layer, LayerCollection *lc, ListBase *objects);
 static LayerCollection *layer_collection_add(ViewLayer *view_layer, LayerCollection *parent, SceneCollection *sc);
 static LayerCollection *find_layer_collection_by_scene_collection(LayerCollection *lc, const SceneCollection *sc);
@@ -166,7 +166,7 @@ ViewLayer *BKE_view_layer_group_add(Group *group)
 /**
  * Free (or release) any data used by this ViewLayer.
  */
-void BKE_view_layer_free(ViewLayer *view_layer)
+void BKE_view_layer_free(ViewLayer *view_layer, const Main *bmain)
 {
 	view_layer->basact = NULL;
 
@@ -179,7 +179,7 @@ void BKE_view_layer_free(ViewLayer *view_layer)
 	BLI_freelistN(&view_layer->object_bases);
 
 	for (LayerCollection *lc = view_layer->layer_collections.first; lc; lc = lc->next) {
-		layer_collection_free(NULL, lc);
+		layer_collection_free(NULL, lc, bmain);
 	}
 	BLI_freelistN(&view_layer->layer_collections);
 
@@ -317,20 +317,14 @@ void BKE_view_layer_base_deselect_all(ViewLayer *view_layer)
 	}
 }
 
-void BKE_view_layer_base_select(ViewLayer *view_layer, Base *selbase, WorkSpace *workspace)
+void BKE_view_layer_base_select(ViewLayer *view_layer, Base *selbase, const Main *bmain)
 {
 	view_layer->basact = selbase;
 	if ((selbase->flag & BASE_SELECTABLED) != 0) {
 		selbase->flag |= BASE_SELECTED;
 	}
 
-	if (workspace) {
-		BKE_workspace_object_mode_ensure_updated(workspace, selbase->object, selbase->object->mode, true);
-	}
-	else {
-		/* workspace must only be NULL if object is in object-mode */
-		BLI_assert(selbase->object->mode == OB_MODE_OBJECT);
-	}
+	BKE_workspace_active_base_changed(bmain, view_layer);
 }
 
 /****************************************************************************/
@@ -441,7 +435,7 @@ void BKE_view_layer_copy_data(
 	}
 }
 
-static void view_layer_object_base_unref(ViewLayer *view_layer, Base *base)
+static void view_layer_object_base_unref(ViewLayer *view_layer, Base *base, const Main *bmain)
 {
 	base->refcount--;
 
@@ -449,6 +443,7 @@ static void view_layer_object_base_unref(ViewLayer *view_layer, Base *base)
 	if (base->refcount == 0) {
 		if (view_layer->basact == base) {
 			view_layer->basact = NULL;
+			BKE_workspace_active_base_changed(bmain, view_layer);
 		}
 
 		if (base->collection_properties) {
@@ -487,11 +482,11 @@ static Base *object_base_add(ViewLayer *view_layer, Object *ob)
 
 /* LayerCollection */
 
-static void layer_collection_objects_unpopulate(ViewLayer *view_layer, LayerCollection *lc)
+static void layer_collection_objects_unpopulate(ViewLayer *view_layer, LayerCollection *lc, const Main *bmain)
 {
 	if (view_layer) {
 		for (LinkData *link = lc->object_bases.first; link; link = link->next) {
-			view_layer_object_base_unref(view_layer, link->data);
+			view_layer_object_base_unref(view_layer, link->data, bmain);
 		}
 	}
 
@@ -502,9 +497,9 @@ static void layer_collection_objects_unpopulate(ViewLayer *view_layer, LayerColl
  * When freeing the entire ViewLayer at once we don't bother with unref
  * otherwise ViewLayer is passed to keep the syncing of the LayerCollection tree
  */
-static void layer_collection_free(ViewLayer *view_layer, LayerCollection *lc)
+static void layer_collection_free(ViewLayer *view_layer, LayerCollection *lc, const Main *bmain)
 {
-	layer_collection_objects_unpopulate(view_layer, lc);
+	layer_collection_objects_unpopulate(view_layer, lc, bmain);
 	BLI_freelistN(&lc->overrides);
 
 	if (lc->properties) {
@@ -518,7 +513,7 @@ static void layer_collection_free(ViewLayer *view_layer, LayerCollection *lc)
 	}
 
 	for (LayerCollection *nlc = lc->layer_collections.first; nlc; nlc = nlc->next) {
-		layer_collection_free(view_layer, nlc);
+		layer_collection_free(view_layer, nlc, bmain);
 	}
 
 	BLI_freelistN(&lc->layer_collections);
@@ -528,9 +523,9 @@ static void layer_collection_free(ViewLayer *view_layer, LayerCollection *lc)
  * Free (or release) LayerCollection from ViewLayer
  * (does not free the LayerCollection itself).
  */
-void BKE_layer_collection_free(ViewLayer *view_layer, LayerCollection *lc)
+void BKE_layer_collection_free(ViewLayer *view_layer, LayerCollection *lc, const Main *bmain)
 {
-	layer_collection_free(view_layer, lc);
+	layer_collection_free(view_layer, lc, bmain);
 }
 
 /* LayerCollection */
@@ -724,7 +719,7 @@ static void layer_collection_swap(
  * Move \a lc_src into \a lc_dst. Both have to be stored in \a view_layer.
  * If \a lc_src is directly linked to the ViewLayer it's unlinked
  */
-bool BKE_layer_collection_move_into(const ID *owner_id, LayerCollection *lc_dst, LayerCollection *lc_src)
+bool BKE_layer_collection_move_into(const ID *owner_id, LayerCollection *lc_dst, LayerCollection *lc_src, const Main *bmain)
 {
 	ViewLayer *view_layer = BKE_view_layer_find_from_collection(owner_id, lc_src);
 	bool is_directly_linked = false;
@@ -750,7 +745,7 @@ bool BKE_layer_collection_move_into(const ID *owner_id, LayerCollection *lc_dst,
 		layer_collection_swap(view_layer, &lc_dst->layer_collections, NULL, lc_dst->layer_collections.last, lc_src);
 
 		if (BLI_findindex(&view_layer->layer_collections, lc_swap) != -1) {
-			BKE_collection_unlink(view_layer, lc_swap);
+			BKE_collection_unlink(view_layer, lc_swap, bmain);
 		}
 		return true;
 	}
@@ -765,11 +760,11 @@ bool BKE_layer_collection_move_into(const ID *owner_id, LayerCollection *lc_dst,
 			layer_collection_swap(view_layer, &view_layer->layer_collections, NULL, lc_temp, lc_src);
 		}
 
-		if (!BKE_collection_move_into(owner_id, lc_dst->scene_collection, lc_src->scene_collection)) {
+		if (!BKE_collection_move_into(owner_id, lc_dst->scene_collection, lc_src->scene_collection, bmain)) {
 			if (!is_directly_linked) {
 				/* Swap back and remove */
 				layer_collection_swap(view_layer, NULL, NULL, lc_temp, lc_src);
-				BKE_collection_unlink(view_layer, lc_temp);
+				BKE_collection_unlink(view_layer, lc_temp, bmain);
 			}
 			return false;
 		}
@@ -782,7 +777,7 @@ bool BKE_layer_collection_move_into(const ID *owner_id, LayerCollection *lc_dst,
 
 	/* If it's directly linked, unlink it after the swap */
 	if (BLI_findindex(&view_layer->layer_collections, lc_new) != -1) {
-		BKE_collection_unlink(view_layer, lc_new);
+		BKE_collection_unlink(view_layer, lc_new, bmain);
 	}
 
 	return true;
@@ -792,7 +787,7 @@ bool BKE_layer_collection_move_into(const ID *owner_id, LayerCollection *lc_dst,
  * Move \a lc_src above \a lc_dst. Both have to be stored in \a view_layer.
  * If \a lc_src is directly linked to the ViewLayer it's unlinked
  */
-bool BKE_layer_collection_move_above(const ID *owner_id, LayerCollection *lc_dst, LayerCollection *lc_src)
+bool BKE_layer_collection_move_above(const ID *owner_id, LayerCollection *lc_dst, LayerCollection *lc_src, const Main *bmain)
 {
 	ViewLayer *view_layer = BKE_view_layer_find_from_collection(owner_id, lc_src);
 	const bool is_directly_linked_src = BLI_findindex(&view_layer->layer_collections, lc_src) != -1;
@@ -814,7 +809,7 @@ bool BKE_layer_collection_move_above(const ID *owner_id, LayerCollection *lc_dst
 		layer_collection_swap(view_layer, NULL, NULL, lc_dst->prev, lc_src);
 
 		if (BLI_findindex(&view_layer->layer_collections, lc_swap) != -1) {
-			BKE_collection_unlink(view_layer, lc_swap);
+			BKE_collection_unlink(view_layer, lc_swap, bmain);
 		}
 		return true;
 	}
@@ -841,11 +836,11 @@ bool BKE_layer_collection_move_above(const ID *owner_id, LayerCollection *lc_dst
 			layer_collection_swap(view_layer, &view_layer->layer_collections, NULL, lc_temp, lc_src);
 		}
 
-		if (!BKE_collection_move_above(owner_id, lc_dst->scene_collection, lc_src->scene_collection)) {
+		if (!BKE_collection_move_above(owner_id, lc_dst->scene_collection, lc_src->scene_collection, bmain)) {
 			if (!is_directly_linked_src) {
 				/* Swap back and remove */
 				layer_collection_swap(view_layer, NULL, NULL, lc_temp, lc_src);
-				BKE_collection_unlink(view_layer, lc_temp);
+				BKE_collection_unlink(view_layer, lc_temp, bmain);
 			}
 			return false;
 		}
@@ -857,7 +852,7 @@ bool BKE_layer_collection_move_above(const ID *owner_id, LayerCollection *lc_dst
 
 	/* If it's directly linked, unlink it after the swap */
 	if (BLI_findindex(&view_layer->layer_collections, lc_new) != -1) {
-		BKE_collection_unlink(view_layer, lc_new);
+		BKE_collection_unlink(view_layer, lc_new, bmain);
 	}
 
 	return true;
@@ -867,7 +862,7 @@ bool BKE_layer_collection_move_above(const ID *owner_id, LayerCollection *lc_dst
  * Move \a lc_src below \a lc_dst. Both have to be stored in \a view_layer.
  * If \a lc_src is directly linked to the ViewLayer it's unlinked
  */
-bool BKE_layer_collection_move_below(const ID *owner_id, LayerCollection *lc_dst, LayerCollection *lc_src)
+bool BKE_layer_collection_move_below(const ID *owner_id, LayerCollection *lc_dst, LayerCollection *lc_src, const Main *bmain)
 {
 	ViewLayer *view_layer = BKE_view_layer_find_from_collection(owner_id, lc_src);
 	const bool is_directly_linked_src = BLI_findindex(&view_layer->layer_collections, lc_src) != -1;
@@ -889,7 +884,7 @@ bool BKE_layer_collection_move_below(const ID *owner_id, LayerCollection *lc_dst
 		layer_collection_swap(view_layer, NULL, NULL, lc_dst->next, lc_src);
 
 		if (BLI_findindex(&view_layer->layer_collections, lc_swap) != -1) {
-			BKE_collection_unlink(view_layer, lc_swap);
+			BKE_collection_unlink(view_layer, lc_swap, bmain);
 		}
 		return true;
 	}
@@ -916,11 +911,11 @@ bool BKE_layer_collection_move_below(const ID *owner_id, LayerCollection *lc_dst
 			layer_collection_swap(view_layer, &view_layer->layer_collections, NULL, lc_temp, lc_src);
 		}
 
-		if (!BKE_collection_move_below(owner_id, lc_dst->scene_collection, lc_src->scene_collection)) {
+		if (!BKE_collection_move_below(owner_id, lc_dst->scene_collection, lc_src->scene_collection, bmain)) {
 			if (!is_directly_linked_src) {
 				/* Swap back and remove */
 				layer_collection_swap(view_layer, NULL, NULL, lc_temp, lc_src);
-				BKE_collection_unlink(view_layer, lc_temp);
+				BKE_collection_unlink(view_layer, lc_temp, bmain);
 			}
 			return false;
 		}
@@ -932,13 +927,13 @@ bool BKE_layer_collection_move_below(const ID *owner_id, LayerCollection *lc_dst
 
 	/* If it's directly linked, unlink it after the swap */
 	if (BLI_findindex(&view_layer->layer_collections, lc_new) != -1) {
-		BKE_collection_unlink(view_layer, lc_new);
+		BKE_collection_unlink(view_layer, lc_new, bmain);
 	}
 
 	return true;
 }
 
-static bool layer_collection_resync(ViewLayer *view_layer, LayerCollection *lc, const SceneCollection *sc)
+static bool layer_collection_resync(ViewLayer *view_layer, LayerCollection *lc, const SceneCollection *sc, const Main *bmain)
 {
 	if (lc->scene_collection == sc) {
 		ListBase collections = {NULL};
@@ -956,7 +951,7 @@ static bool layer_collection_resync(ViewLayer *view_layer, LayerCollection *lc, 
 		}
 
 		for (LayerCollection *lc_nested = collections.first; lc_nested; lc_nested = lc_nested->next) {
-			layer_collection_free(view_layer, lc_nested);
+			layer_collection_free(view_layer, lc_nested, bmain);
 		}
 		BLI_freelistN(&collections);
 
@@ -967,7 +962,7 @@ static bool layer_collection_resync(ViewLayer *view_layer, LayerCollection *lc, 
 	}
 
 	for (LayerCollection *lc_nested = lc->layer_collections.first; lc_nested; lc_nested = lc_nested->next) {
-		if (layer_collection_resync(view_layer, lc_nested, sc)) {
+		if (layer_collection_resync(view_layer, lc_nested, sc, bmain)) {
 			return true;
 		}
 	}
@@ -979,11 +974,11 @@ static bool layer_collection_resync(ViewLayer *view_layer, LayerCollection *lc, 
  * Update the scene layers so that any LayerCollection that points
  * to \a sc is re-synced again
  */
-void BKE_layer_collection_resync(const ID *owner_id, const SceneCollection *sc)
+void BKE_layer_collection_resync(const ID *owner_id, const SceneCollection *sc, const Main *bmain)
 {
 	for (ViewLayer *view_layer = BKE_view_layer_first_from_id(owner_id); view_layer; view_layer = view_layer->next) {
 		for (LayerCollection *lc = view_layer->layer_collections.first; lc; lc = lc->next) {
-			layer_collection_resync(view_layer, lc, sc);
+			layer_collection_resync(view_layer, lc, sc, bmain);
 		}
 	}
 }
@@ -1005,9 +1000,9 @@ LayerCollection *BKE_collection_link(ViewLayer *view_layer, SceneCollection *sc)
  * Unlink a collection base from a renderlayer
  * The corresponding collection is not removed from the master collection
  */
-void BKE_collection_unlink(ViewLayer *view_layer, LayerCollection *lc)
+void BKE_collection_unlink(ViewLayer *view_layer, LayerCollection *lc, const Main *bmain)
 {
-	BKE_layer_collection_free(view_layer, lc);
+	BKE_layer_collection_free(view_layer, lc, bmain);
 	BLI_remlink(&view_layer->layer_collections, lc);
 	MEM_freeN(lc);
 	view_layer->active_collection = 0;
@@ -1066,7 +1061,7 @@ static void layer_collection_object_add(ViewLayer *view_layer, LayerCollection *
 	BLI_addtail(&lc->object_bases, BLI_genericNodeN(base));
 }
 
-static void layer_collection_object_remove(ViewLayer *view_layer, LayerCollection *lc, Object *ob)
+static void layer_collection_object_remove(ViewLayer *view_layer, LayerCollection *lc, Object *ob, const Main *bmain)
 {
 	Base *base;
 	base = BKE_view_layer_base_find(view_layer, ob);
@@ -1075,7 +1070,7 @@ static void layer_collection_object_remove(ViewLayer *view_layer, LayerCollectio
 	BLI_remlink(&lc->object_bases, link);
 	MEM_freeN(link);
 
-	view_layer_object_base_unref(view_layer, base);
+	view_layer_object_base_unref(view_layer, base, bmain);
 }
 
 static void layer_collection_objects_populate(ViewLayer *view_layer, LayerCollection *lc, ListBase *objects)
@@ -1200,13 +1195,13 @@ void BKE_layer_sync_object_link(const ID *owner_id, SceneCollection *sc, Object 
  * Remove the equivalent object base to all layers that have this collection
  * also remove all reference to ob in the filter_objects
  */
-void BKE_layer_sync_object_unlink(const ID *owner_id, SceneCollection *sc, Object *ob)
+void BKE_layer_sync_object_unlink(const ID *owner_id, SceneCollection *sc, Object *ob, const Main *bmain)
 {
 	for (ViewLayer *view_layer = BKE_view_layer_first_from_id(owner_id); view_layer; view_layer = view_layer->next) {
 		for (LayerCollection *lc = view_layer->layer_collections.first; lc; lc = lc->next) {
 			LayerCollection *found = find_layer_collection_by_scene_collection(lc, sc);
 			if (found) {
-				layer_collection_object_remove(view_layer, found, ob);
+				layer_collection_object_remove(view_layer, found, ob, bmain);
 			}
 		}
 	}

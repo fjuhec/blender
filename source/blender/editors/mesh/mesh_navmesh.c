@@ -359,7 +359,7 @@ static Object *createRepresentation(bContext *C, struct recast_polyMesh *pmesh, 
 	else {
 		obedit = base->object;
 		BKE_view_layer_base_deselect_all(view_layer);
-		BKE_view_layer_base_select(view_layer, base, CTX_wm_workspace(C));
+		BKE_view_layer_base_select(view_layer, base, CTX_data_main(C));
 		copy_v3_v3(obedit->loc, co);
 		copy_v3_v3(obedit->rot, rot);
 	}

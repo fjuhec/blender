@@ -772,7 +772,7 @@ Object *BKE_object_add(
 	BKE_collection_object_add(&scene->id, layer_collection->scene_collection, ob);
 
 	base = BKE_view_layer_base_find(view_layer, ob);
-	BKE_view_layer_base_select(view_layer, base, NULL);
+	BKE_view_layer_base_select(view_layer, base, bmain);
 
 	return ob;
 }
@@ -793,7 +793,7 @@ Object *BKE_object_add_from(
 	BKE_collection_object_add_from(scene, ob_src, ob);
 
 	base = BKE_view_layer_base_find(view_layer, ob);
-	BKE_view_layer_base_select(view_layer, base, NULL);
+	BKE_view_layer_base_select(view_layer, base, bmain);
 
 	return ob;
 }
@@ -1246,7 +1246,6 @@ void BKE_object_copy_data(Main *UNUSED(bmain), Object *ob_dst, const Object *ob_
 	BKE_constraints_copy_ex(&ob_dst->constraints, &ob_src->constraints, flag_subdata, true);
 
 	ob_dst->mode = OB_MODE_OBJECT;
-//	BKE_workspace_object_mode_ensure_updated(NULL, ob_dst, OB_MODE_OBJECT, true);
 	ob_dst->sculpt = NULL;
 
 	if (ob_src->pd) {

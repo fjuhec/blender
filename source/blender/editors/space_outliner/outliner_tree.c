@@ -1365,13 +1365,13 @@ static void outliner_layer_collections_reorder(
 	ID *id = insert_element->store_elem->id;
 
 	if (action == TE_INSERT_BEFORE) {
-		BKE_layer_collection_move_above(id, lc_handle, lc_insert);
+		BKE_layer_collection_move_above(id, lc_handle, lc_insert, bmain);
 	}
 	else if (action == TE_INSERT_AFTER) {
-		BKE_layer_collection_move_below(id, lc_handle, lc_insert);
+		BKE_layer_collection_move_below(id, lc_handle, lc_insert, bmain);
 	}
 	else if (action == TE_INSERT_INTO) {
-		BKE_layer_collection_move_into(id, lc_handle, lc_insert);
+		BKE_layer_collection_move_into(id, lc_handle, lc_insert, bmain);
 	}
 	else {
 		BLI_assert(0);
@@ -1428,13 +1428,13 @@ static void outliner_scene_collections_reorder(
 
 	BLI_assert((action == TE_INSERT_INTO) || (sc_handle != BKE_collection_master(id)));
 	if (action == TE_INSERT_BEFORE) {
-		BKE_collection_move_above(id, sc_handle, sc_insert);
+		BKE_collection_move_above(id, sc_handle, sc_insert, bmain);
 	}
 	else if (action == TE_INSERT_AFTER) {
-		BKE_collection_move_below(id, sc_handle, sc_insert);
+		BKE_collection_move_below(id, sc_handle, sc_insert, bmain);
 	}
 	else if (action == TE_INSERT_INTO) {
-		BKE_collection_move_into(id, sc_handle, sc_insert);
+		BKE_collection_move_into(id, sc_handle, sc_insert, bmain);
 	}
 	else {
 		BLI_assert(0);

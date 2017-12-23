@@ -458,10 +458,12 @@ void BKE_scene_make_local(Main *bmain, Scene *sce, const bool lib_local)
 /** Free (or release) any data used by this scene (does not free the scene itself). */
 void BKE_scene_free_ex(Scene *sce, const bool do_id_user)
 {
+	Main *bmain = G.main; /* XXX pass as arg */
+
 	BKE_animdata_free((ID *)sce, false);
 
 	/* check all sequences */
-	BKE_sequencer_clear_scene_in_allseqs(G.main, sce);
+	BKE_sequencer_clear_scene_in_allseqs(bmain, sce);
 
 	BKE_sequencer_editing_free(sce);
 
@@ -540,7 +542,7 @@ void BKE_scene_free_ex(Scene *sce, const bool do_id_user)
 		view_layer_next = view_layer->next;
 
 		BLI_remlink(&sce->view_layers, view_layer);
-		BKE_view_layer_free(view_layer);
+		BKE_view_layer_free(view_layer, bmain);
 	}
 
 	/* Master Collection */

@@ -264,6 +264,7 @@ static int collection_unlink_exec(bContext *C, wmOperator *op)
 {
 	LayerCollection *lc = outliner_collection_active(C);
 	SpaceOops *soops = CTX_wm_space_outliner(C);
+	Main *bmain = CTX_data_main(C);
 
 	if (lc == NULL) {
 		BKE_report(op->reports, RPT_ERROR, "Active element is not a collection");
@@ -271,13 +272,13 @@ static int collection_unlink_exec(bContext *C, wmOperator *op)
 	}
 
 	ViewLayer *view_layer = CTX_data_view_layer(C);
-	BKE_collection_unlink(view_layer, lc);
+	BKE_collection_unlink(view_layer, lc, bmain);
 
 	if (soops) {
 		outliner_cleanup_tree(soops);
 	}
 
-	DEG_relations_tag_update(CTX_data_main(C));
+	DEG_relations_tag_update(bmain);
 
 	/* TODO(sergey): Use proper flag for tagging here. */
 	DEG_id_tag_update(&CTX_data_scene(C)->id, 0);
@@ -419,7 +420,7 @@ static int collection_delete_exec(bContext *C, wmOperator *UNUSED(op))
 	GSET_ITER(collections_to_delete_iter, data.collections_to_delete) {
 
 		SceneCollection *sc = BLI_gsetIterator_getKey(&collections_to_delete_iter);
-		BKE_collection_remove(&data.scene->id, sc);
+		BKE_collection_remove(&data.scene->id, sc, CTX_data_main(C));
 	}
 
 	BLI_gset_free(data.collections_to_delete, NULL);

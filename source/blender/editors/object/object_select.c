@@ -121,7 +121,7 @@ void ED_object_base_activate(bContext *C, Base *base)
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	view_layer->basact = base;
 
-	BKE_workspace_object_mode_ensure_updated(CTX_wm_workspace(C), base->object, base->object->mode, true);
+	BKE_workspace_active_base_changed(CTX_data_main(C), view_layer);
 
 	if (base) {
 		WM_event_add_notifier(C, NC_SCENE | ND_OB_ACTIVE, view_layer);

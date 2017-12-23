@@ -83,6 +83,9 @@ struct WorkSpaceLayout *BKE_workspace_layout_iter_circular(
         bool (*callback)(const struct WorkSpaceLayout *layout, void *arg),
         void *arg, const bool iter_backward);
 
+void BKE_workspace_active_base_changed(
+        const struct Main *bmain,
+        const struct ViewLayer *active_view_layer);
 
 /* -------------------------------------------------------------------- */
 /* Getters/Setters */

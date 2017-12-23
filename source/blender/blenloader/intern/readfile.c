@@ -10344,6 +10344,7 @@ static void give_base_to_groups(
 			BKE_scene_object_base_flag_sync_from_base(base);
 			DEG_id_tag_update(&ob->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
 			view_layer->basact = base;
+			BKE_workspace_active_base_changed(mainvar, view_layer);
 
 			/* Assign the group. */
 			ob->dup_group = group;

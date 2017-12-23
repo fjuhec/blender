@@ -489,6 +489,7 @@ void update_copy_on_write_scene(const Depsgraph *depsgraph,
 			Object *obact_cow = (Object *)depsgraph->get_cow_id(&obact_orig->id);
 			view_layer_cow->basact = BKE_view_layer_base_find(view_layer_cow, obact_cow);
 		}
+		/* XXX should we call BKE_workspace_active_base_changed here? */
 		// Update base flags.
 		//
 		// TODO(sergey): We should probably check visibled/selectabled

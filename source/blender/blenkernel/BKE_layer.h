@@ -65,7 +65,7 @@ struct ViewLayer *BKE_view_layer_group_add(struct Group *group);
 /* DEPRECATED */
 struct ViewLayer *BKE_view_layer_context_active_PLACEHOLDER(const struct Scene *scene);
 
-void BKE_view_layer_free(struct ViewLayer *view_layer);
+void BKE_view_layer_free(struct ViewLayer *view_layer, const struct Main *bmain);
 
 void BKE_view_layer_selected_objects_tag(struct ViewLayer *view_layer, const int tag);
 
@@ -74,14 +74,14 @@ struct ViewLayer *BKE_view_layer_first_from_id(const struct ID *owner_id);
 struct ViewLayer *BKE_view_layer_find_from_collection(const struct ID *owner_id, struct LayerCollection *lc);
 struct Base *BKE_view_layer_base_find(struct ViewLayer *view_layer, struct Object *ob);
 void BKE_view_layer_base_deselect_all(struct ViewLayer *view_layer);
-void BKE_view_layer_base_select(struct ViewLayer *view_layer, struct Base *selbase, struct WorkSpace *workspace);
+void BKE_view_layer_base_select(struct ViewLayer *view_layer, struct Base *selbase, const struct Main *bmain);
 
 void BKE_view_layer_copy_data(
         struct ViewLayer *view_layer_dst, struct ViewLayer *view_layer_src,
         struct SceneCollection *mc_dst, struct SceneCollection *mc_src,
         const int flag);
 
-void BKE_layer_collection_free(struct ViewLayer *view_layer, struct LayerCollection *lc);
+void BKE_layer_collection_free(struct ViewLayer *view_layer, struct LayerCollection *lc, const struct Main *bmain);
 
 struct LayerCollection *BKE_layer_collection_get_active(struct ViewLayer *view_layer);
 struct LayerCollection *BKE_layer_collection_get_active_ensure(struct Scene *scene, struct ViewLayer *view_layer);
@@ -91,15 +91,15 @@ int BKE_layer_collection_count(struct ViewLayer *view_layer);
 struct LayerCollection *BKE_layer_collection_from_index(struct ViewLayer *view_layer, const int index);
 int BKE_layer_collection_findindex(struct ViewLayer *view_layer, const struct LayerCollection *lc);
 
-bool BKE_layer_collection_move_above(const struct ID *owner_id, struct LayerCollection *lc_dst, struct LayerCollection *lc_src);
-bool BKE_layer_collection_move_below(const struct ID *owner_id, struct LayerCollection *lc_dst, struct LayerCollection *lc_src);
-bool BKE_layer_collection_move_into(const struct ID *owner_id, struct LayerCollection *lc_dst, struct LayerCollection *lc_src);
+bool BKE_layer_collection_move_above(const struct ID *owner_id, struct LayerCollection *lc_dst, struct LayerCollection *lc_src, const struct Main *bmain);
+bool BKE_layer_collection_move_below(const struct ID *owner_id, struct LayerCollection *lc_dst, struct LayerCollection *lc_src, const struct Main *bmain);
+bool BKE_layer_collection_move_into(const struct ID *owner_id, struct LayerCollection *lc_dst, struct LayerCollection *lc_src, const struct Main *bmain);
 
-void BKE_layer_collection_resync(const struct ID *owner_id, const struct SceneCollection *sc);
+void BKE_layer_collection_resync(const struct ID *owner_id, const struct SceneCollection *sc, const struct Main *bmain);
 
 struct LayerCollection *BKE_collection_link(struct ViewLayer *view_layer, struct SceneCollection *sc);
 
-void BKE_collection_unlink(struct ViewLayer *view_layer, struct LayerCollection *lc);
+void BKE_collection_unlink(struct ViewLayer *view_layer, struct LayerCollection *lc, const struct Main *bmain);
 
 void BKE_collection_enable(struct ViewLayer *view_layer, struct LayerCollection *lc);
 
@@ -110,7 +110,7 @@ bool BKE_scene_has_object(struct Scene *scene, struct Object *ob);
 
 void BKE_layer_sync_new_scene_collection(struct ID *owner_id, const struct SceneCollection *sc_parent, struct SceneCollection *sc);
 void BKE_layer_sync_object_link(const struct ID *owner_id, struct SceneCollection *sc, struct Object *ob);
-void BKE_layer_sync_object_unlink(const struct ID *owner_id, struct SceneCollection *sc, struct Object *ob);
+void BKE_layer_sync_object_unlink(const struct ID *owner_id, struct SceneCollection *sc, struct Object *ob, const struct Main *bmain);
 
 /* override */
 

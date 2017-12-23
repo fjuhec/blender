@@ -146,12 +146,12 @@ static bool collection_remlink(SceneCollection *sc_parent, SceneCollection *sc_g
 /**
  * Recursively remove any instance of this SceneCollection
  */
-static void layer_collection_remove(ViewLayer *view_layer, ListBase *lb, const SceneCollection *sc)
+static void layer_collection_remove(ViewLayer *view_layer, ListBase *lb, const SceneCollection *sc, const Main *bmain)
 {
 	LayerCollection *lc = lb->first;
 	while (lc) {
 		if (lc->scene_collection == sc) {
-			BKE_layer_collection_free(view_layer, lc);
+			BKE_layer_collection_free(view_layer, lc, bmain);
 			BLI_remlink(lb, lc);
 
 			LayerCollection *lc_next = lc->next;
@@ -167,7 +167,7 @@ static void layer_collection_remove(ViewLayer *view_layer, ListBase *lb, const S
 		}
 
 		else {
-			layer_collection_remove(view_layer, &lc->layer_collections, sc);
+			layer_collection_remove(view_layer, &lc->layer_collections, sc, bmain);
 			lc = lc->next;
 		}
 	}
@@ -176,7 +176,7 @@ static void layer_collection_remove(ViewLayer *view_layer, ListBase *lb, const S
 /**
  * Remove a collection from the scene, and syncronize all render layers
  */
-bool BKE_collection_remove(ID *owner_id, SceneCollection *sc)
+bool BKE_collection_remove(ID *owner_id, SceneCollection *sc, const Main *bmain)
 {
 	SceneCollection *sc_master = collection_master_from_id(owner_id);
 
@@ -195,7 +195,7 @@ bool BKE_collection_remove(ID *owner_id, SceneCollection *sc)
 
 	/* check all layers that use this collection and clear them */
 	for (ViewLayer *view_layer = BKE_view_layer_first_from_id(owner_id); view_layer; view_layer = view_layer->next) {
-		layer_collection_remove(view_layer, &view_layer->layer_collections, sc);
+		layer_collection_remove(view_layer, &view_layer->layer_collections, sc, bmain);
 		view_layer->active_collection = 0;
 	}
 
@@ -375,7 +375,7 @@ bool BKE_collection_object_remove(Main *bmain, ID *owner_id, SceneCollection *sc
 	MEM_freeN(link);
 
 	TODO_LAYER_SYNC_FILTER; /* need to remove all instances of ob in scene collections -> filter_objects */
-	BKE_layer_sync_object_unlink(owner_id, sc, ob);
+	BKE_layer_sync_object_unlink(owner_id, sc, ob, bmain);
 
 	if (GS(owner_id->name) == ID_SCE) {
 		if (free_us) {
@@ -444,11 +444,11 @@ static void layer_collection_sync(LayerCollection *lc_dst, LayerCollection *lc_s
  * Leave only the master collection in, remove everything else.
  * @param group
  */
-static void collection_group_cleanup(Group *group)
+static void collection_group_cleanup(Group *group, const Main *bmain)
 {
 	/* Unlink all the LayerCollections. */
 	while (group->view_layer->layer_collections.last != NULL) {
-		BKE_collection_unlink(group->view_layer, group->view_layer->layer_collections.last);
+		BKE_collection_unlink(group->view_layer, group->view_layer->layer_collections.last, bmain);
 	}
 
 	/* Remove all the SceneCollections but the master. */
@@ -482,7 +482,7 @@ Group *BKE_collection_group_create(Main *bmain, Scene *scene, LayerCollection *l
 
 	/* Create new group with the same data as the original collection. */
 	Group *group = BKE_group_add(bmain, sc_src->name);
-	collection_group_cleanup(group);
+	collection_group_cleanup(group, bmain);
 
 	sc_dst = BKE_collection_add(&group->id, NULL, COLLECTION_TYPE_GROUP_INTERNAL, sc_src->name);
 	BKE_collection_copy_data(sc_dst, sc_src, 0);
@@ -531,7 +531,7 @@ static bool is_collection_in_tree(const SceneCollection *sc_reference, SceneColl
 	return find_collection_parent(sc_reference, sc_parent) != NULL;
 }
 
-bool BKE_collection_move_above(const ID *owner_id, SceneCollection *sc_dst, SceneCollection *sc_src)
+bool BKE_collection_move_above(const ID *owner_id, SceneCollection *sc_dst, SceneCollection *sc_src, const Main *bmain)
 {
 	/* Find the SceneCollection the sc_src belongs to */
 	SceneCollection *sc_master = master_collection_from_id(owner_id);
@@ -564,13 +564,13 @@ bool BKE_collection_move_above(const ID *owner_id, SceneCollection *sc_dst, Scen
 	BLI_insertlinkbefore(&sc_dst_parent->scene_collections, sc_dst, sc_src);
 
 	/* Update the tree */
-	BKE_layer_collection_resync(owner_id, sc_src_parent);
-	BKE_layer_collection_resync(owner_id, sc_dst_parent);
+	BKE_layer_collection_resync(owner_id, sc_src_parent, bmain);
+	BKE_layer_collection_resync(owner_id, sc_dst_parent, bmain);
 
 	return true;
 }
 
-bool BKE_collection_move_below(const ID *owner_id, SceneCollection *sc_dst, SceneCollection *sc_src)
+bool BKE_collection_move_below(const ID *owner_id, SceneCollection *sc_dst, SceneCollection *sc_src, const Main *bmain)
 {
 	/* Find the SceneCollection the sc_src belongs to */
 	SceneCollection *sc_master = master_collection_from_id(owner_id);
@@ -603,13 +603,13 @@ bool BKE_collection_move_below(const ID *owner_id, SceneCollection *sc_dst, Scen
 	BLI_insertlinkafter(&sc_dst_parent->scene_collections, sc_dst, sc_src);
 
 	/* Update the tree */
-	BKE_layer_collection_resync(owner_id, sc_src_parent);
-	BKE_layer_collection_resync(owner_id, sc_dst_parent);
+	BKE_layer_collection_resync(owner_id, sc_src_parent, bmain);
+	BKE_layer_collection_resync(owner_id, sc_dst_parent, bmain);
 
 	return true;
 }
 
-bool BKE_collection_move_into(const ID *owner_id, SceneCollection *sc_dst, SceneCollection *sc_src)
+bool BKE_collection_move_into(const ID *owner_id, SceneCollection *sc_dst, SceneCollection *sc_src, const Main *bmain)
 {
 	/* Find the SceneCollection the sc_src belongs to */
 	SceneCollection *sc_master = master_collection_from_id(owner_id);
@@ -638,8 +638,8 @@ bool BKE_collection_move_into(const ID *owner_id, SceneCollection *sc_dst, Scene
 	BLI_addtail(&sc_dst->scene_collections, sc_src);
 
 	/* Update the tree */
-	BKE_layer_collection_resync(owner_id, sc_src_parent);
-	BKE_layer_collection_resync(owner_id, sc_dst);
+	BKE_layer_collection_resync(owner_id, sc_src_parent, bmain);
+	BKE_layer_collection_resync(owner_id, sc_dst, bmain);
 
 	return true;
 }

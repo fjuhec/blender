@@ -117,7 +117,7 @@ static PointerRNA rna_SceneCollection_objects_get(CollectionPropertyIterator *it
 
 static int rna_SceneCollection_move_above(ID *id, SceneCollection *sc_src, Main *bmain, SceneCollection *sc_dst)
 {
-	if (!BKE_collection_move_above(id, sc_dst, sc_src)) {
+	if (!BKE_collection_move_above(id, sc_dst, sc_src, bmain)) {
 		return 0;
 	}
 
@@ -129,7 +129,7 @@ static int rna_SceneCollection_move_above(ID *id, SceneCollection *sc_src, Main 
 
 static int rna_SceneCollection_move_below(ID *id, SceneCollection *sc_src, Main *bmain, SceneCollection *sc_dst)
 {
-	if (!BKE_collection_move_below(id, sc_dst, sc_src)) {
+	if (!BKE_collection_move_below(id, sc_dst, sc_src, bmain)) {
 		return 0;
 	}
 
@@ -141,7 +141,7 @@ static int rna_SceneCollection_move_below(ID *id, SceneCollection *sc_src, Main 
 
 static int rna_SceneCollection_move_into(ID *id, SceneCollection *sc_src, Main *bmain, SceneCollection *sc_dst)
 {
-	if (!BKE_collection_move_into(id, sc_dst, sc_src)) {
+	if (!BKE_collection_move_into(id, sc_dst, sc_src, bmain)) {
 		return 0;
 	}
 
@@ -174,7 +174,7 @@ static void rna_SceneCollection_remove(
 		return;
 	}
 
-	if (!BKE_collection_remove(id, sc)) {
+	if (!BKE_collection_remove(id, sc, bmain)) {
 		BKE_reportf(reports, RPT_ERROR, "Collection '%s' could not be removed from collection '%s'",
 		            sc->name, sc_parent->name);
 		return;
@@ -661,7 +661,7 @@ static PointerRNA rna_LayerCollection_objects_get(CollectionPropertyIterator *it
 
 static int rna_LayerCollection_move_above(ID *id, LayerCollection *lc_src, Main *bmain, LayerCollection *lc_dst)
 {
-	if (!BKE_layer_collection_move_above(id, lc_dst, lc_src)) {
+	if (!BKE_layer_collection_move_above(id, lc_dst, lc_src, bmain)) {
 		return 0;
 	}
 
@@ -673,7 +673,7 @@ static int rna_LayerCollection_move_above(ID *id, LayerCollection *lc_src, Main 
 
 static int rna_LayerCollection_move_below(ID *id, LayerCollection *lc_src, Main *bmain, LayerCollection *lc_dst)
 {
-	if (!BKE_layer_collection_move_below(id, lc_dst, lc_src)) {
+	if (!BKE_layer_collection_move_below(id, lc_dst, lc_src, bmain)) {
 		return 0;
 	}
 
@@ -685,7 +685,7 @@ static int rna_LayerCollection_move_below(ID *id, LayerCollection *lc_src, Main 
 
 static int rna_LayerCollection_move_into(ID *id, LayerCollection *lc_src, Main *bmain, LayerCollection *lc_dst)
 {
-	if (!BKE_layer_collection_move_into(id, lc_dst, lc_src)) {
+	if (!BKE_layer_collection_move_into(id, lc_dst, lc_src, bmain)) {
 		return 0;
 	}
 
@@ -790,7 +790,7 @@ static void rna_ViewLayer_collection_unlink(
 		return;
 	}
 
-	BKE_collection_unlink(view_layer, lc);
+	BKE_collection_unlink(view_layer, lc, bmain);
 
 	DEG_relations_tag_update(bmain);
 	/* TODO(sergey): Use proper flag for tagging here. */
