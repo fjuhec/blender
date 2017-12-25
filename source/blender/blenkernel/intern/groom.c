@@ -75,7 +75,7 @@ static void groom_bundles_free(ListBase *bundles)
 {
 	for (GroomBundle *bundle = bundles->first; bundle; bundle = bundle->next)
 	{
-		for (GroomBundleSection *section = bundle->sections.first; section; section = section->next)
+		for (GroomSection *section = bundle->sections.first; section; section = section->next)
 		{
 			if (section->verts)
 			{
@@ -125,7 +125,7 @@ void BKE_groom_copy_data(Main *UNUSED(bmain), Groom *groom_dst, const Groom *gro
 	for (GroomBundle *bundle = groom_dst->bundles.first; bundle; bundle = bundle->next)
 	{
 		BLI_duplicatelist(&bundle->sections, &bundle->sections);
-		for (GroomBundleSection *section = bundle->sections.first; section; section = section->next)
+		for (GroomSection *section = bundle->sections.first; section; section = section->next)
 		{
 			if (section->verts)
 			{

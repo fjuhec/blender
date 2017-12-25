@@ -214,7 +214,7 @@ static int groom_count_verts(Groom *groom, int parts, int tessellation)
 	{
 		for (GroomBundle *bundle = bundles->first; bundle; bundle = bundle->next)
 		{
-			for (GroomBundleSection *section = bundle->sections.first; section; section = section->next)
+			for (GroomSection *section = bundle->sections.first; section; section = section->next)
 			{
 				vert_len += section->totverts;
 			}
@@ -247,7 +247,7 @@ static int groom_count_edges(Groom *groom, int parts, int tessellation)
 	{
 		for (GroomBundle *bundle = bundles->first; bundle; bundle = bundle->next)
 		{
-			for (GroomBundleSection *section = bundle->sections.first; section; section = section->next)
+			for (GroomSection *section = bundle->sections.first; section; section = section->next)
 			{
 				// Closed edge loop, 1 edge per vertex
 				edge_len += section->totverts;
@@ -283,7 +283,7 @@ static void groom_get_verts(
 		for (GroomBundle *bundle = bundles->first; bundle; bundle = bundle->next)
 		{
 			const bool active = bundle->flag & GM_BUNDLE_SELECT;
-			for (GroomBundleSection *section = bundle->sections.first; section; section = section->next)
+			for (GroomSection *section = bundle->sections.first; section; section = section->next)
 			{
 				if (id_pos != GM_ATTR_ID_UNUSED)
 				{
@@ -304,7 +304,7 @@ static void groom_get_verts(
 		uint idx = 0;
 		for (GroomBundle *bundle = bundles->first; bundle; bundle = bundle->next)
 		{
-			for (GroomBundleSection *section = bundle->sections.first; section; section = section->next)
+			for (GroomSection *section = bundle->sections.first; section; section = section->next)
 			{
 				const bool active = (bundle->flag & GM_BUNDLE_SELECT) && (section->flag & GM_SECTION_SELECT);
 				float mat[4][4];
@@ -358,7 +358,7 @@ static void groom_get_edges(
 		uint idx = 0;
 		for (GroomBundle *bundle = bundles->first; bundle; bundle = bundle->next)
 		{
-			for (GroomBundleSection *section = bundle->sections.first; section; section = section->next)
+			for (GroomSection *section = bundle->sections.first; section; section = section->next)
 			{
 				if (section->prev)
 				{
@@ -374,7 +374,7 @@ static void groom_get_edges(
 		uint idx = 0;
 		for (GroomBundle *bundle = bundles->first; bundle; bundle = bundle->next)
 		{
-			for (GroomBundleSection *section = bundle->sections.first; section; section = section->next)
+			for (GroomSection *section = bundle->sections.first; section; section = section->next)
 			{
 				if (section->totverts > 1)
 				{

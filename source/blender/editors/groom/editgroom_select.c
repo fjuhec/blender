@@ -71,7 +71,7 @@ bool ED_groom_select_check_curves(const EditGroom *edit)
 {
 	for (GroomBundle* bundle = edit->bundles.first; bundle; bundle = bundle->next)
 	{
-		for (GroomBundleSection *section = bundle->sections.first; section; section = section->next)
+		for (GroomSection *section = bundle->sections.first; section; section = section->next)
 		{
 			if (section->flag & GM_SECTION_SELECT) {
 				return true;
@@ -86,7 +86,7 @@ bool ED_groom_select_check_sections(const EditGroom *edit)
 {
 	for (GroomBundle* bundle = edit->bundles.first; bundle; bundle = bundle->next)
 	{
-		for (GroomBundleSection *section = bundle->sections.first; section; section = section->next)
+		for (GroomSection *section = bundle->sections.first; section; section = section->next)
 		{
 			GroomSectionVertex *vertex = section->verts;
 			for (int i = 0; i < section->totverts; ++i, ++vertex)
@@ -122,7 +122,7 @@ void ED_groom_select_curves(EditGroom *edit, EditGroomSelectCb select_cb, void *
 {
 	for (GroomBundle* bundle = edit->bundles.first; bundle; bundle = bundle->next)
 	{
-		for (GroomBundleSection *section = bundle->sections.first; section; section = section->next)
+		for (GroomSection *section = bundle->sections.first; section; section = section->next)
 		{
 			const bool select = select_cb(userdata, section->flag & GM_SECTION_SELECT);
 			if (select)
@@ -141,7 +141,7 @@ void ED_groom_select_sections(EditGroom *edit, EditGroomSelectCb select_cb, void
 {
 	for (GroomBundle* bundle = edit->bundles.first; bundle; bundle = bundle->next)
 	{
-		for (GroomBundleSection *section = bundle->sections.first; section; section = section->next)
+		for (GroomSection *section = bundle->sections.first; section; section = section->next)
 		{
 			GroomSectionVertex *vertex = section->verts;
 			for (int i = 0; i < section->totverts; ++i, ++vertex)

@@ -59,9 +59,9 @@
 
 #include "groom_intern.h"
 
-static GroomBundleSection* groom_add_bundle_section(float mat[4][4], float cparam)
+static GroomSection* groom_add_bundle_section(float mat[4][4], float cparam)
 {
-	GroomBundleSection *section = MEM_callocN(sizeof(GroomBundleSection), "groom bundle section");
+	GroomSection *section = MEM_callocN(sizeof(GroomSection), "groom bundle section");
 	
 	madd_v3_v3v3fl(section->center, mat[3], mat[2], cparam);
 	copy_v3_v3(section->normal, mat[2]);

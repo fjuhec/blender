@@ -53,8 +53,8 @@ typedef enum GroomVertexFlag
 } GroomVertexFlag;
 
 /* Cross-section of a bundle */
-typedef struct GroomBundleSection {
-	struct GroomBundleSection *next, *prev; /* Pointers for ListBase element */
+typedef struct GroomSection {
+	struct GroomSection *next, *prev; /* Pointers for ListBase element */
 	
 	int flag;
 	int pad;
@@ -65,12 +65,12 @@ typedef struct GroomBundleSection {
 	GroomSectionVertex *verts;
 	int totverts;
 	int pad2;
-} GroomBundleSection;
+} GroomSection;
 
-typedef enum GroomBundleSectionFlag
+typedef enum GroomSectionFlag
 {
 	GM_SECTION_SELECT       = (1 << 0),
-} GroomBundleSectionFlag;
+} GroomSectionFlag;
 
 /* Bundle of hair strands following the same curve path */
 typedef struct GroomBundle {
@@ -79,7 +79,7 @@ typedef struct GroomBundle {
 	int flag;
 	int pad;
 	
-	ListBase sections;                  /* List of GroomBundleSection */
+	ListBase sections;                  /* List of GroomSection */
 } GroomBundle;
 
 typedef enum GroomBundleFlag
