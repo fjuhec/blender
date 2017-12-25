@@ -51,4 +51,14 @@ void ED_groom_editgroom_load(struct Object *obedit);
 void ED_groom_editgroom_make(struct Object *obedit);
 void ED_groom_editgroom_free(struct Object *obedit);
 
+/* editgroom_select.c */
+bool ED_groom_select_check_regions(const struct EditGroom *edit);
+bool ED_groom_select_check_curves(const struct EditGroom *edit);
+bool ED_groom_select_check_sections(const struct EditGroom *edit);
+
+typedef bool (*EditGroomSelectCb)(void *userdata, bool is_selected);
+void ED_groom_select_regions(struct EditGroom *edit, EditGroomSelectCb select_cb, void *userdata);
+void ED_groom_select_curves(struct EditGroom *edit, EditGroomSelectCb select_cb, void *userdata);
+void ED_groom_select_sections(struct EditGroom *edit, EditGroomSelectCb select_cb, void *userdata);
+
 #endif /* __ED_GROOM_H__ */

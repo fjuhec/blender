@@ -1767,6 +1767,9 @@ wmKeyMap *WM_keymap_guess_opname(const bContext *C, const char *opname)
 	else if (STRPREFIX(opname, "PARTICLE_OT")) {
 		km = WM_keymap_find_all(C, "Particle", 0, 0);
 	}
+	else if (STRPREFIX(opname, "GROOM_OT")) {
+		km = WM_keymap_find_all(C, "Groom", 0, 0);
+	}
 	else if (STRPREFIX(opname, "FONT_OT")) {
 		km = WM_keymap_find_all(C, "Font", 0, 0);
 	}

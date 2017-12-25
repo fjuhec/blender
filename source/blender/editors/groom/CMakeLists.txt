@@ -37,6 +37,7 @@ set(SRC
 	groom_ops.c
 	editgroom.c
 	editgroom_region.c
+	editgroom_select.c
 
 	groom_intern.h
 )

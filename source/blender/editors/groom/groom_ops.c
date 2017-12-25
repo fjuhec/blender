@@ -53,6 +53,8 @@
 void ED_operatortypes_groom(void)
 {
 	WM_operatortype_append(GROOM_OT_region_add);
+
+	WM_operatortype_append(GROOM_OT_select_all);
 }
 
 void ED_operatormacros_groom(void)
@@ -67,11 +69,15 @@ void ED_keymap_groom(wmKeyConfig *keyconf)
 {
 	wmKeyMap *keymap;
 	wmKeyMapItem *kmi;
-	UNUSED_VARS(kmi);
 	
 	keymap = WM_keymap_find(keyconf, "Groom", 0, 0);
 	keymap->poll = ED_operator_editgroom;
-
+	
+	kmi = WM_keymap_add_item(keymap, "GROOM_OT_select_all", AKEY, KM_PRESS, 0, 0);
+	RNA_enum_set(kmi->ptr, "action", SEL_TOGGLE);
+	kmi = WM_keymap_add_item(keymap, "GROOM_OT_select_all", IKEY, KM_PRESS, KM_CTRL, 0);
+	RNA_enum_set(kmi->ptr, "action", SEL_INVERT);
+	
 	ED_keymap_proportional_cycle(keyconf, keymap);
 	ED_keymap_proportional_editmode(keyconf, keymap, true);
 }

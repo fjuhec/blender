@@ -8402,8 +8402,8 @@ static void direct_link_groom(FileData *fd, Groom *groom)
 	}
 	
 	groom->bb = NULL;
-	
 	groom->editgroom = NULL;
+	groom->batch_cache = NULL;
 }
 
 /* ************** GENERAL & MAIN ******************** */
