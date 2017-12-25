@@ -61,10 +61,6 @@ typedef struct GroomSection {
 	
 	float center[3];                        /* Center point */
 	float normal[3];                        /* Normal direction of the section plane */
-	
-	GroomSectionVertex *verts;
-	int totverts;
-	int pad2;
 } GroomSection;
 
 typedef enum GroomSectionFlag
@@ -77,9 +73,13 @@ typedef struct GroomBundle {
 	struct GroomBundle *next, *prev;    /* Pointers for ListBase element */
 	
 	int flag;
-	int pad;
 	
-	ListBase sections;                  /* List of GroomSection */
+	int numloopverts;                   /* Vertices per section loop */
+	int totsections;                    /* Number of sections along the curve */
+	int totverts;                       /* Number of vertices of all sections combined */
+	
+	struct GroomSection *sections;      /* List of sections */
+	struct GroomSectionVertex *verts;   /* List of vertices */
 } GroomBundle;
 
 typedef enum GroomBundleFlag

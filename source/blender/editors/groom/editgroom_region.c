@@ -59,20 +59,14 @@
 
 #include "groom_intern.h"
 
-static GroomSection* groom_add_bundle_section(float mat[4][4], float cparam)
+static void groom_bundle_section_init(GroomSection *section, GroomSectionVertex *verts, int numverts, float mat[4][4], float cparam)
 {
-	GroomSection *section = MEM_callocN(sizeof(GroomSection), "groom bundle section");
-	
 	madd_v3_v3v3fl(section->center, mat[3], mat[2], cparam);
 	copy_v3_v3(section->normal, mat[2]);
 	
 	{
-		const int numverts = 6;
-		section->totverts = numverts;
-		section->verts = MEM_mallocN(sizeof(GroomSectionVertex) * numverts, "groom section vertices");
-		
 		const float radius = 0.5f;
-		GroomSectionVertex *vertex = section->verts;
+		GroomSectionVertex *vertex = verts;
 		for (int i = 0; i < numverts; ++i, ++vertex)
 		{
 			float angle = 2*M_PI * (float)i / (float)numverts;
@@ -80,16 +74,21 @@ static GroomSection* groom_add_bundle_section(float mat[4][4], float cparam)
 			vertex->co[1] = sin(angle) * radius;
 		}
 	}
-	
-	return section;
 }
 
 static GroomBundle* groom_add_bundle(float mat[4][4])
 {
 	GroomBundle *bundle = MEM_callocN(sizeof(GroomBundle), "groom bundle");
 	
-	BLI_addtail(&bundle->sections, groom_add_bundle_section(mat, 0.0f));
-	BLI_addtail(&bundle->sections, groom_add_bundle_section(mat, 1.0f));
+	bundle->numloopverts = 6;
+	bundle->totsections = 2;
+	bundle->totverts = bundle->numloopverts * bundle->totsections;
+	bundle->sections = MEM_mallocN(sizeof(GroomSection) * bundle->totsections, "groom bundle sections");
+	bundle->verts = MEM_mallocN(sizeof(GroomSectionVertex) * bundle->totverts, "groom bundle vertices");
+	
+	int numverts = bundle->numloopverts;
+	groom_bundle_section_init(&bundle->sections[0], &bundle->verts[numverts * 0], numverts, mat, 0.0f);
+	groom_bundle_section_init(&bundle->sections[1], &bundle->verts[numverts * 1], numverts, mat, 1.0f);
 	
 	return bundle;
 }

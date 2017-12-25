@@ -8398,11 +8398,8 @@ static void direct_link_groom(FileData *fd, Groom *groom)
 	link_list(fd, &groom->bundles);
 	for (GroomBundle *bundle = groom->bundles.first; bundle; bundle = bundle->next)
 	{
-		link_list(fd, &bundle->sections);
-		for (GroomSection *section = bundle->sections.first; section; section = section->next)
-		{
-			section->verts = newdataadr(fd, section->verts);
-		}
+		bundle->sections = newdataadr(fd, bundle->sections);
+		bundle->verts = newdataadr(fd, bundle->verts);
 	}
 	
 	groom->bb = NULL;

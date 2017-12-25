@@ -72,14 +72,14 @@ static void groom_bundles_free(ListBase *bundles)
 {
 	for (GroomBundle *bundle = bundles->first; bundle; bundle = bundle->next)
 	{
-		for (GroomSection *section = bundle->sections.first; section; section = section->next)
+		if (bundle->verts)
 		{
-			if (section->verts)
-			{
-				MEM_freeN(section->verts);
-			}
+			MEM_freeN(bundle->verts);
 		}
-		BLI_freelistN(&bundle->sections);
+		if (bundle->sections)
+		{
+			MEM_freeN(bundle->sections);
+		}
 	}
 	BLI_freelistN(bundles);
 }
@@ -89,13 +89,13 @@ static void groom_bundles_copy(ListBase *bundles_dst, ListBase *bundles_src)
 	BLI_duplicatelist(bundles_dst, bundles_src);
 	for (GroomBundle *bundle = bundles_dst->first; bundle; bundle = bundle->next)
 	{
-		BLI_duplicatelist(&bundle->sections, &bundle->sections);
-		for (GroomSection *section = bundle->sections.first; section; section = section->next)
+		if (bundle->sections)
 		{
-			if (section->verts)
-			{
-				section->verts = MEM_dupallocN(section->verts);
-			}
+			bundle->sections = MEM_dupallocN(bundle->sections);
+		}
+		if (bundle->verts)
+		{
+			bundle->verts = MEM_dupallocN(bundle->verts);
 		}
 	}
 }

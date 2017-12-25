@@ -206,18 +206,14 @@ static int groom_count_verts(Groom *groom, int parts, int tessellation)
 	{
 		for (GroomBundle *bundle = bundles->first; bundle; bundle = bundle->next)
 		{
-			int numsections = BLI_listbase_count(&bundle->sections);
-			vert_len += numsections;
+			vert_len += bundle->totsections;
 		}
 	}
 	if (parts & GM_RENDER_SECTIONS)
 	{
 		for (GroomBundle *bundle = bundles->first; bundle; bundle = bundle->next)
 		{
-			for (GroomSection *section = bundle->sections.first; section; section = section->next)
-			{
-				vert_len += section->totverts;
-			}
+			vert_len += bundle->totverts;
 		}
 	}
 	
@@ -239,19 +235,15 @@ static int groom_count_edges(Groom *groom, int parts, int tessellation)
 	{
 		for (GroomBundle *bundle = bundles->first; bundle; bundle = bundle->next)
 		{
-			int numsections = BLI_listbase_count(&bundle->sections);
-			edge_len += numsections - 1;
+			edge_len += bundle->totsections - 1;
 		}
 	}
 	if (parts & GM_RENDER_SECTIONS)
 	{
 		for (GroomBundle *bundle = bundles->first; bundle; bundle = bundle->next)
 		{
-			for (GroomSection *section = bundle->sections.first; section; section = section->next)
-			{
-				// Closed edge loop, 1 edge per vertex
-				edge_len += section->totverts;
-			}
+			// Closed edge loop, 1 edge per vertex
+			edge_len += bundle->totverts;
 		}
 	}
 	
@@ -283,7 +275,8 @@ static void groom_get_verts(
 		for (GroomBundle *bundle = bundles->first; bundle; bundle = bundle->next)
 		{
 			const bool active = bundle->flag & GM_BUNDLE_SELECT;
-			for (GroomSection *section = bundle->sections.first; section; section = section->next)
+			GroomSection *section = bundle->sections;
+			for (int i = 0; i < bundle->totsections; ++i, ++section)
 			{
 				if (id_pos != GM_ATTR_ID_UNUSED)
 				{
@@ -304,15 +297,16 @@ static void groom_get_verts(
 		uint idx = 0;
 		for (GroomBundle *bundle = bundles->first; bundle; bundle = bundle->next)
 		{
-			for (GroomSection *section = bundle->sections.first; section; section = section->next)
+			GroomSection *section = bundle->sections;
+			GroomSectionVertex *vertex = bundle->verts;
+			for (int i = 0; i < bundle->totsections; ++i, ++section)
 			{
 				const bool active = (bundle->flag & GM_BUNDLE_SELECT) && (section->flag & GM_SECTION_SELECT);
 				float mat[4][4];
 				unit_m4(mat); // TODO rotation
 				copy_v3_v3(mat[3], section->center); // translation
 				
-				GroomSectionVertex *vertex = section->verts;
-				for (int i = 0; i < section->totverts; ++i, ++vertex)
+				for (int j = 0; j < bundle->numloopverts; ++j, ++vertex)
 				{
 					if (id_pos != GM_ATTR_ID_UNUSED)
 					{
@@ -358,12 +352,10 @@ static void groom_get_edges(
 		uint idx = 0;
 		for (GroomBundle *bundle = bundles->first; bundle; bundle = bundle->next)
 		{
-			for (GroomSection *section = bundle->sections.first; section; section = section->next)
+			GroomSection *section = bundle->sections;
+			for (int i = 0; i < bundle->totsections - 1; ++i, ++section)
 			{
-				if (section->prev)
-				{
-					GWN_indexbuf_add_line_verts(&elb, idx-1, idx);
-				}
+				GWN_indexbuf_add_line_verts(&elb, idx, idx + 1);
 				
 				++idx;
 			}
@@ -374,20 +366,22 @@ static void groom_get_edges(
 		uint idx = 0;
 		for (GroomBundle *bundle = bundles->first; bundle; bundle = bundle->next)
 		{
-			for (GroomSection *section = bundle->sections.first; section; section = section->next)
+			if (bundle->numloopverts > 1)
 			{
-				if (section->totverts > 1)
+				GroomSection *section = bundle->sections;
+				for (int i = 0; i < bundle->totsections; ++i, ++section)
 				{
-					for (int i = 0; i < section->totverts - 1; ++i)
+					uint idx0 = idx + i * bundle->numloopverts;
+					for (int j = 0; j < bundle->numloopverts - 1; ++j)
 					{
-						GWN_indexbuf_add_line_verts(&elb, idx + i, idx + i + 1);
+						GWN_indexbuf_add_line_verts(&elb, idx0 + j, idx0 + j + 1);
 					}
 					// close the loop
-					GWN_indexbuf_add_line_verts(&elb, idx + section->totverts - 1, idx);
+					GWN_indexbuf_add_line_verts(&elb, idx0 + bundle->numloopverts - 1, idx0);
 				}
-				
-				idx += section->totverts;
 			}
+			
+			idx += bundle->totverts;
 		}
 	}
 	

@@ -71,7 +71,8 @@ bool ED_groom_select_check_curves(const EditGroom *edit)
 {
 	for (GroomBundle* bundle = edit->bundles.first; bundle; bundle = bundle->next)
 	{
-		for (GroomSection *section = bundle->sections.first; section; section = section->next)
+		GroomSection *section = bundle->sections;
+		for (int i = 0; i < bundle->totsections; ++i, ++section)
 		{
 			if (section->flag & GM_SECTION_SELECT) {
 				return true;
@@ -86,15 +87,12 @@ bool ED_groom_select_check_sections(const EditGroom *edit)
 {
 	for (GroomBundle* bundle = edit->bundles.first; bundle; bundle = bundle->next)
 	{
-		for (GroomSection *section = bundle->sections.first; section; section = section->next)
+		GroomSectionVertex *vertex = bundle->verts;
+		for (int i = 0; i < bundle->totverts; ++i, ++vertex)
 		{
-			GroomSectionVertex *vertex = section->verts;
-			for (int i = 0; i < section->totverts; ++i, ++vertex)
+			if (vertex->flag & GM_VERTEX_SELECT)
 			{
-				if (vertex->flag & GM_VERTEX_SELECT)
-				{
-					return true;
-				}
+				return true;
 			}
 		}
 	}
@@ -122,7 +120,8 @@ void ED_groom_select_curves(EditGroom *edit, EditGroomSelectCb select_cb, void *
 {
 	for (GroomBundle* bundle = edit->bundles.first; bundle; bundle = bundle->next)
 	{
-		for (GroomSection *section = bundle->sections.first; section; section = section->next)
+		GroomSection *section = bundle->sections;
+		for (int i = 0; i < bundle->totsections; ++i, ++section)
 		{
 			const bool select = select_cb(userdata, section->flag & GM_SECTION_SELECT);
 			if (select)
@@ -141,20 +140,17 @@ void ED_groom_select_sections(EditGroom *edit, EditGroomSelectCb select_cb, void
 {
 	for (GroomBundle* bundle = edit->bundles.first; bundle; bundle = bundle->next)
 	{
-		for (GroomSection *section = bundle->sections.first; section; section = section->next)
+		GroomSectionVertex *vertex = bundle->verts;
+		for (int i = 0; i < bundle->totverts; ++i, ++vertex)
 		{
-			GroomSectionVertex *vertex = section->verts;
-			for (int i = 0; i < section->totverts; ++i, ++vertex)
+			const bool select = select_cb(userdata, vertex->flag & GM_VERTEX_SELECT);
+			if (select)
 			{
-				const bool select = select_cb(userdata, vertex->flag & GM_VERTEX_SELECT);
-				if (select)
-				{
-					vertex->flag |= GM_VERTEX_SELECT;
-				}
-				else
-				{
-					vertex->flag &= ~GM_VERTEX_SELECT;
-				}
+				vertex->flag |= GM_VERTEX_SELECT;
+			}
+			else
+			{
+				vertex->flag &= ~GM_VERTEX_SELECT;
 			}
 		}
 	}
