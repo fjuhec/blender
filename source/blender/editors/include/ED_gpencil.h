@@ -136,6 +136,9 @@ typedef struct tGPDfill {
 	struct bGPDlayer *gpl;            /* layer */
 	struct bGPDframe *gpf;            /* frame */
 
+	int center[2];                    /* mouse fill center position */
+	int sizex;                        /* windows width */
+	int sizey;                        /* window height */
 	int lock_axis;                    /* lock to viewport axis */
 
 	void *draw_handle_3d;             /* handle for drawing strokes while operator is running 3d stuff */

@@ -34,6 +34,7 @@
 #include "BLI_utildefines.h"
 #include "BLI_blenlib.h"
 #include "BLI_math.h"
+#include "BLI_stack.h"
 
 #include "DNA_object_types.h"
 #include "DNA_gpencil_types.h"
@@ -52,6 +53,7 @@
 
 #include "GPU_immediate.h"
 #include "GPU_draw.h"
+#include "GPU_matrix.h"
 #include "GPU_framebuffer.h"
 
 #include "WM_api.h"
@@ -62,6 +64,7 @@ static void gp_draw_offscreen_stroke(const bGPDspoint *points, int totpoints,
 	const float diff_mat[4][4], bool cyclic)
 {
 	float fpt[3];
+	/* red 100% */
 	float ink[4] = { 1.0f, 0.0f, 0.0f, 1.0f };
 
 	/* if cyclic needs more vertex */
@@ -98,22 +101,31 @@ static void gp_draw_offscreen_stroke(const bGPDspoint *points, int totpoints,
 }
 
  /* draw strokes in offscreen buffer */
-static unsigned int *gp_draw_offscreen_strokes(Scene *scene, Object *ob, rcti rect)
+static unsigned char *gp_draw_offscreen_strokes(tGPDfill *tgpf)
 {
+	Scene *scene = tgpf->scene;
+	Object *ob = tgpf->ob;
 	bGPdata *gpd = (bGPdata *)ob->data;
 	float diff_mat[4][4];
-	unsigned int *data = (unsigned int *)malloc(rect.xmax * rect.ymax * 4 * sizeof(unsigned int));
 	if (!gpd) {
 		return NULL;
 	}
 
+
 	/* TODO: Create all code to send the output to offscreen buffer */
 	char err_out[256] = "unknown";
-	GPUOffScreen *offscreen = GPU_offscreen_create(rect.xmax - rect.xmin, rect.ymax - rect.ymin, 0, err_out);
+	GPUOffScreen *offscreen = GPU_offscreen_create(tgpf->sizex, tgpf->sizey, 0, err_out);
 
 	GPU_offscreen_bind(offscreen, true);
+
 	glClearColor(0.0, 0.0, 0.0, 0.0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	//gpuPushMatrix();
+	//gpuLoadMatrix(tgpf->rv3d->viewmat);
+
+	//wmOrtho2(0, tgpf->sizex, 0, tgpf->sizey);
+	//gpuTranslate2f(tgpf->sizex / 2.0f, tgpf->sizey / 2.0f);
 
 	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
 		/* calculate parent position */
@@ -146,13 +158,126 @@ static unsigned int *gp_draw_offscreen_strokes(Scene *scene, Object *ob, rcti re
 		}
 	}
 
+	//gpuPopMatrix();
+
+	/* read result pixels */
+	unsigned char *pixeldata = MEM_mallocN(tgpf->sizex * tgpf->sizey * sizeof(unsigned char) * 4, "gpencil offscreen fill");
+	GPU_offscreen_read_pixels(offscreen, GL_UNSIGNED_BYTE, pixeldata);
+	
 	/* switch back to window-system-provided framebuffer */
-	GPU_offscreen_read_pixels(offscreen, GL_UNSIGNED_BYTE, data);
 	GPU_offscreen_unbind(offscreen, true);
 	GPU_offscreen_free(offscreen);
 
 	/* return texture data */
-	return data;
+	return pixeldata;
+}
+
+/* return pixel data (rgba) at index */
+static unsigned char *get_pixel(unsigned char *pixeldata, int idx)
+{
+	if (idx >= 0) {
+		return &pixeldata[idx];
+	}
+	else {
+		return NULL;
+	}
+}
+
+/* set pixel data (rgba) at index */
+static void set_pixel(unsigned char *pixeldata, int idx)
+{
+	if (idx >= 0) {
+		/* enable Green & Alpha channel */
+		pixeldata[idx] = 0; /* red 0% */
+		pixeldata[idx + 1] = 255; /* green 100% */
+		pixeldata[idx + 3] = 255; /* alpha 100% */
+	}
+}
+
+/* Boundary fill inside strokes 
+ * Fills the space created by a set of strokes using the stroke color as the boundary
+ * of the shape to fill.
+ *
+ * \param tgpf       Temporary fill data
+ * \param pixeldata  Array of pixels from offscreen render
+ */
+static void gpencil_fill_area(tGPDfill *tgpf, unsigned char *pixeldata)
+{
+	const int maxpixel = (tgpf->sizex * tgpf->sizey * 4) - 4;
+	unsigned char *rgba;
+
+	BLI_Stack *stack = BLI_stack_new(sizeof(int), __func__);
+
+	/* calculate index of the seed point using the position of the mouse */
+	int index = ((tgpf->sizex * tgpf->center[0]) + tgpf->center[1]) * 4;
+	if ((index >= 0) && (index < maxpixel)) {
+		BLI_stack_push(stack, &index);
+	}
+
+	/* the fill use a stack to save the pixel list instead of the common recursive
+	* 4-contact point method.
+	* The problem with recursive calls is that for big fill areas, we can get max limit
+	* of recursive calls and STACK_OVERFLOW error.
+	*
+	* The 4-contact point analyze the pixels to the left, right, bottom and top
+	*      -----------
+	*      |    X    |
+	*      |   XoX   |
+	*      |    X    |
+	*      -----------
+	*/
+	while (!BLI_stack_is_empty(stack)) {
+		int v;
+		BLI_stack_pop(stack, &v);
+
+		rgba = get_pixel(pixeldata, v);
+		if (rgba) {
+			/* check if no border(red) or already filled color(green) */
+			if ((rgba[0] != 255) && (rgba[1] != 255))
+			{
+				/* fill current pixel */
+				set_pixel(pixeldata, v);
+
+				/* add contact pixels */
+				/* pixel left */
+				if (v - 4 >= 0) {
+					index = v - 4;
+					BLI_stack_push(stack, &index);
+				}
+				/* pixel right */
+				if (v + 4 < maxpixel) {
+					index = v + 4;
+					BLI_stack_push(stack, &index);
+				}
+				/* pixel top */
+				if (v + tgpf->sizex < maxpixel) {
+					index = v + tgpf->sizex;
+					BLI_stack_push(stack, &index);
+				}
+				/* pixel bottom */
+				if (v - tgpf->sizex >= 0) {
+					index = v - tgpf->sizex;
+					BLI_stack_push(stack, &index);
+				}
+			}
+		}
+
+	}
+
+#if 0 /* debug code */
+	for (int x = 0; x <= maxpixel; x++) {
+		rgba = get_pixel(pixeldata, x);
+		if (rgba[3] > 0) {
+			printf("%d->RGBA(%d, %d, %d, %d)\n", x, rgba[0], rgba[1], rgba[2], rgba[3]);
+			set_pixel(pixeldata, x);
+		}
+	}
+
+	printf("\n");
+#endif
+
+	/* free temp stack data*/
+	BLI_stack_free(stack);
 }
 
 /* ----------------------- */
@@ -305,6 +430,8 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
 	Scene *scene = CTX_data_scene(C);
 	Object *ob = CTX_data_active_object(C);
+	unsigned char *pixeldata;
+	tGPDfill *tgpf = op->customdata;
 
 	int estate = OPERATOR_PASS_THROUGH; /* default exit state - pass through */
 	
@@ -326,11 +453,20 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
 			in_bounds = BLI_rcti_isect_pt_v(&region_rect, event->mval);
 
 			if ((in_bounds) && (ar->regiontype == RGN_TYPE_WINDOW)) {
+				tgpf->center[0] = event->x;
+				tgpf->center[1] = event->y;
+
+				tgpf->sizex = region_rect.xmax - region_rect.xmin;
+				tgpf->sizey = region_rect.ymax - region_rect.ymin;
+
 				/* TODO: Add fill code here */
 				printf("(%d, %d) in (%d, %d) -> (%d, %d) Do all here!\n", event->mval[0], event->mval[1],
 						region_rect.xmin, region_rect.ymin, region_rect.xmax, region_rect.ymax);
-				gp_draw_offscreen_strokes(scene, ob, region_rect);
 
+				pixeldata = gp_draw_offscreen_strokes(tgpf);
+				gpencil_fill_area(tgpf, pixeldata);
+
+				MEM_SAFE_FREE(pixeldata);
 				estate = OPERATOR_FINISHED;
 			}
 			else {
