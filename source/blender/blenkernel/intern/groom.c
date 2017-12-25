@@ -75,6 +75,13 @@ static void groom_bundles_free(ListBase *bundles)
 {
 	for (GroomBundle *bundle = bundles->first; bundle; bundle = bundle->next)
 	{
+		for (GroomBundleSection *section = bundle->sections.first; section; section = section->next)
+		{
+			if (section->verts)
+			{
+				MEM_freeN(section->verts);
+			}
+		}
 		BLI_freelistN(&bundle->sections);
 	}
 	BLI_freelistN(bundles);
@@ -115,6 +122,17 @@ void BKE_groom_copy_data(Main *UNUSED(bmain), Groom *groom_dst, const Groom *gro
 	groom_dst->bb = MEM_dupallocN(groom_src->bb);
 	
 	BLI_duplicatelist(&groom_dst->bundles, &groom_src->bundles);
+	for (GroomBundle *bundle = groom_dst->bundles.first; bundle; bundle = bundle->next)
+	{
+		BLI_duplicatelist(&bundle->sections, &bundle->sections);
+		for (GroomBundleSection *section = bundle->sections.first; section; section = section->next)
+		{
+			if (section->verts)
+			{
+				section->verts = MEM_dupallocN(section->verts);
+			}
+		}
+	}
 	
 	groom_dst->editgroom = NULL;
 }

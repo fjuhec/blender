@@ -40,6 +40,18 @@
 extern "C" {
 #endif
 
+/* Vertex in a closed curve for a bundle section */
+typedef struct GroomSectionVertex
+{
+	int flag;
+	float co[2];                            /* Location in the section plane */
+} GroomSectionVertex;
+
+typedef enum GroomVertexFlag
+{
+	GM_VERTEX_SELECT        = (1 << 0),
+} GroomVertexFlag;
+
 /* Cross-section of a bundle */
 typedef struct GroomBundleSection {
 	struct GroomBundleSection *next, *prev; /* Pointers for ListBase element */
@@ -49,6 +61,10 @@ typedef struct GroomBundleSection {
 	
 	float center[3];                        /* Center point */
 	float normal[3];                        /* Normal direction of the section plane */
+	
+	GroomSectionVertex *verts;
+	int totverts;
+	int pad2;
 } GroomBundleSection;
 
 typedef enum GroomBundleSectionFlag

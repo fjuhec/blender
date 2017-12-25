@@ -37,6 +37,7 @@
 
 #include "BLI_utildefines.h"
 #include "BLI_listbase.h"
+#include "BLI_math.h"
 
 #include "DNA_groom_types.h"
 #include "DNA_scene_types.h"
@@ -215,8 +216,7 @@ static int groom_count_verts(Groom *groom, int parts, int tessellation)
 		{
 			for (GroomBundleSection *section = bundle->sections.first; section; section = section->next)
 			{
-				// TODO
-				//vert_len += ...;
+				vert_len += section->totverts;
 			}
 		}
 	}
@@ -249,8 +249,8 @@ static int groom_count_edges(Groom *groom, int parts, int tessellation)
 		{
 			for (GroomBundleSection *section = bundle->sections.first; section; section = section->next)
 			{
-				// TODO
-				//edge_len += ...;
+				// Closed edge loop, 1 edge per vertex
+				edge_len += section->totverts;
 			}
 		}
 	}
@@ -306,8 +306,30 @@ static void groom_get_verts(
 		{
 			for (GroomBundleSection *section = bundle->sections.first; section; section = section->next)
 			{
-				// TODO
-				UNUSED_VARS(idx);
+				const bool active = (bundle->flag & GM_BUNDLE_SELECT) && (section->flag & GM_SECTION_SELECT);
+				float mat[4][4];
+				unit_m4(mat); // TODO rotation
+				copy_v3_v3(mat[3], section->center); // translation
+				
+				GroomSectionVertex *vertex = section->verts;
+				for (int i = 0; i < section->totverts; ++i, ++vertex)
+				{
+					if (id_pos != GM_ATTR_ID_UNUSED)
+					{
+						float co[3];
+						copy_v2_v2(co, vertex->co);
+						co[2] = 0.0f;
+						mul_m4_v3(mat, co);
+						GWN_vertbuf_attr_set(vbo, id_pos, idx, co);
+					}
+					if (id_flag != GM_ATTR_ID_UNUSED)
+					{
+						char vflag = make_vertex_flag(active, vertex->flag & GM_VERTEX_SELECT);
+						GWN_vertbuf_attr_set(vbo, id_flag, idx, &vflag);
+					}
+					
+					++idx;
+				}
 			}
 		}
 	}
@@ -354,8 +376,17 @@ static void groom_get_edges(
 		{
 			for (GroomBundleSection *section = bundle->sections.first; section; section = section->next)
 			{
-				// TODO
-				UNUSED_VARS(idx);
+				if (section->totverts > 1)
+				{
+					for (int i = 0; i < section->totverts - 1; ++i)
+					{
+						GWN_indexbuf_add_line_verts(&elb, idx + i, idx + i + 1);
+					}
+					// close the loop
+					GWN_indexbuf_add_line_verts(&elb, idx + section->totverts - 1, idx);
+				}
+				
+				idx += section->totverts;
 			}
 		}
 	}

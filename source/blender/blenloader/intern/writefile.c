@@ -3826,6 +3826,10 @@ static void write_groom(WriteData *wd, Groom *groom)
 	for (GroomBundle *bundle = groom->bundles.first; bundle; bundle = bundle->next)
 	{
 		writelist(wd, DATA, GroomBundleSection, &bundle->sections);
+		for (GroomBundleSection *section = bundle->sections.first; section; section = section->next)
+		{
+			writestruct(wd, DATA, GroomSectionVertex, section->totverts, section->verts);
+		}
 	}
 }
 

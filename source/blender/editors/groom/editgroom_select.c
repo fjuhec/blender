@@ -84,7 +84,20 @@ bool ED_groom_select_check_curves(const EditGroom *edit)
 
 bool ED_groom_select_check_sections(const EditGroom *edit)
 {
-	// TODO
+	for (GroomBundle* bundle = edit->bundles.first; bundle; bundle = bundle->next)
+	{
+		for (GroomBundleSection *section = bundle->sections.first; section; section = section->next)
+		{
+			GroomSectionVertex *vertex = section->verts;
+			for (int i = 0; i < section->totverts; ++i, ++vertex)
+			{
+				if (vertex->flag & GM_VERTEX_SELECT)
+				{
+					return true;
+				}
+			}
+		}
+	}
 	
 	return false;
 }
@@ -126,7 +139,25 @@ void ED_groom_select_curves(EditGroom *edit, EditGroomSelectCb select_cb, void *
 
 void ED_groom_select_sections(EditGroom *edit, EditGroomSelectCb select_cb, void *userdata)
 {
-	// TODO
+	for (GroomBundle* bundle = edit->bundles.first; bundle; bundle = bundle->next)
+	{
+		for (GroomBundleSection *section = bundle->sections.first; section; section = section->next)
+		{
+			GroomSectionVertex *vertex = section->verts;
+			for (int i = 0; i < section->totverts; ++i, ++vertex)
+			{
+				const bool select = select_cb(userdata, vertex->flag & GM_VERTEX_SELECT);
+				if (select)
+				{
+					vertex->flag |= GM_VERTEX_SELECT;
+				}
+				else
+				{
+					vertex->flag &= ~GM_VERTEX_SELECT;
+				}
+			}
+		}
+	}
 }
 
 static bool groom_select_all_cb(void *UNUSED(userdata), bool UNUSED(is_selected))

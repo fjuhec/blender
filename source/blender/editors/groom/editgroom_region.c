@@ -66,6 +66,21 @@ static GroomBundleSection* groom_add_bundle_section(float mat[4][4], float cpara
 	madd_v3_v3v3fl(section->center, mat[3], mat[2], cparam);
 	copy_v3_v3(section->normal, mat[2]);
 	
+	{
+		const int numverts = 6;
+		section->totverts = numverts;
+		section->verts = MEM_mallocN(sizeof(GroomSectionVertex) * numverts, "groom section vertices");
+		
+		const float radius = 0.5f;
+		GroomSectionVertex *vertex = section->verts;
+		for (int i = 0; i < numverts; ++i, ++vertex)
+		{
+			float angle = 2*M_PI * (float)i / (float)numverts;
+			vertex->co[0] = cos(angle) * radius;
+			vertex->co[1] = sin(angle) * radius;
+		}
+	}
+	
 	return section;
 }
 
