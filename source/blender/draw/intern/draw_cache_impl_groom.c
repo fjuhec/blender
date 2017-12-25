@@ -194,6 +194,7 @@ static int groom_count_verts(Groom *groom, int parts, int tessellation)
 {
 	UNUSED_VARS(tessellation);
 	
+	const ListBase *bundles = groom->editgroom ? &groom->editgroom->bundles : &groom->bundles;
 	int vert_len = 0;
 	
 	if (parts & GM_RENDER_REGIONS)
@@ -202,7 +203,7 @@ static int groom_count_verts(Groom *groom, int parts, int tessellation)
 	}
 	if (parts & GM_RENDER_CURVES)
 	{
-		for (GroomBundle *bundle = groom->bundles.first; bundle; bundle = bundle->next)
+		for (GroomBundle *bundle = bundles->first; bundle; bundle = bundle->next)
 		{
 			int numsections = BLI_listbase_count(&bundle->sections);
 			vert_len += numsections;
@@ -210,7 +211,7 @@ static int groom_count_verts(Groom *groom, int parts, int tessellation)
 	}
 	if (parts & GM_RENDER_SECTIONS)
 	{
-		for (GroomBundle *bundle = groom->bundles.first; bundle; bundle = bundle->next)
+		for (GroomBundle *bundle = bundles->first; bundle; bundle = bundle->next)
 		{
 			for (GroomBundleSection *section = bundle->sections.first; section; section = section->next)
 			{
@@ -227,6 +228,7 @@ static int groom_count_edges(Groom *groom, int parts, int tessellation)
 {
 	UNUSED_VARS(tessellation);
 	
+	const ListBase *bundles = groom->editgroom ? &groom->editgroom->bundles : &groom->bundles;
 	int edge_len = 0;
 	
 	if (parts & GM_RENDER_REGIONS)
@@ -235,7 +237,7 @@ static int groom_count_edges(Groom *groom, int parts, int tessellation)
 	}
 	if (parts & GM_RENDER_CURVES)
 	{
-		for (GroomBundle *bundle = groom->bundles.first; bundle; bundle = bundle->next)
+		for (GroomBundle *bundle = bundles->first; bundle; bundle = bundle->next)
 		{
 			int numsections = BLI_listbase_count(&bundle->sections);
 			edge_len += numsections - 1;
@@ -243,7 +245,7 @@ static int groom_count_edges(Groom *groom, int parts, int tessellation)
 	}
 	if (parts & GM_RENDER_SECTIONS)
 	{
-		for (GroomBundle *bundle = groom->bundles.first; bundle; bundle = bundle->next)
+		for (GroomBundle *bundle = bundles->first; bundle; bundle = bundle->next)
 		{
 			for (GroomBundleSection *section = bundle->sections.first; section; section = section->next)
 			{
@@ -267,6 +269,7 @@ static void groom_get_verts(
         uint id_flag)
 {
 	int vert_len = groom_count_verts(groom, parts, tessellation);
+	const ListBase *bundles = groom->editgroom ? &groom->editgroom->bundles : &groom->bundles;
 	
 	GWN_vertbuf_data_alloc(vbo, vert_len);
 	
@@ -277,7 +280,7 @@ static void groom_get_verts(
 	if (parts & GM_RENDER_CURVES)
 	{
 		uint idx = 0;
-		for (GroomBundle *bundle = groom->bundles.first; bundle; bundle = bundle->next)
+		for (GroomBundle *bundle = bundles->first; bundle; bundle = bundle->next)
 		{
 			const bool active = bundle->flag & GM_BUNDLE_SELECT;
 			for (GroomBundleSection *section = bundle->sections.first; section; section = section->next)
@@ -299,7 +302,7 @@ static void groom_get_verts(
 	if (parts & GM_RENDER_SECTIONS)
 	{
 		uint idx = 0;
-		for (GroomBundle *bundle = groom->bundles.first; bundle; bundle = bundle->next)
+		for (GroomBundle *bundle = bundles->first; bundle; bundle = bundle->next)
 		{
 			for (GroomBundleSection *section = bundle->sections.first; section; section = section->next)
 			{
@@ -320,6 +323,7 @@ static void groom_get_edges(
 	
 	int vert_len = groom_count_verts(groom, parts, tessellation);
 	int edge_len = groom_count_edges(groom, parts, tessellation);
+	const ListBase *bundles = groom->editgroom ? &groom->editgroom->bundles : &groom->bundles;
 	
 	GWN_indexbuf_init(&elb, GWN_PRIM_LINES, edge_len, vert_len);
 	
@@ -330,7 +334,7 @@ static void groom_get_edges(
 	if (parts & GM_RENDER_CURVES)
 	{
 		uint idx = 0;
-		for (GroomBundle *bundle = groom->bundles.first; bundle; bundle = bundle->next)
+		for (GroomBundle *bundle = bundles->first; bundle; bundle = bundle->next)
 		{
 			for (GroomBundleSection *section = bundle->sections.first; section; section = section->next)
 			{
@@ -346,7 +350,7 @@ static void groom_get_edges(
 	if (parts & GM_RENDER_SECTIONS)
 	{
 		uint idx = 0;
-		for (GroomBundle *bundle = groom->bundles.first; bundle; bundle = bundle->next)
+		for (GroomBundle *bundle = bundles->first; bundle; bundle = bundle->next)
 		{
 			for (GroomBundleSection *section = bundle->sections.first; section; section = section->next)
 			{
