@@ -99,6 +99,7 @@ static int region_add_exec(bContext *C, wmOperator *op)
 	BLI_addtail(&editgroom->bundles, bundle);
 
 	WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, obedit);
+	DEG_id_tag_update(&obedit->id, OB_RECALC_DATA);
 
 	return OPERATOR_FINISHED;
 }
