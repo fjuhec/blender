@@ -44,6 +44,7 @@ struct bGPDpalette;
 struct bGPDpalettecolor;
 struct bGPDspoint;
 struct ID;
+struct Image;
 struct KeyframeEditData;
 struct ListBase;
 struct Object;
@@ -59,6 +60,7 @@ struct ViewLayer;
 struct wmWindowManager;
 struct wmKeyConfig;
 struct wmWindowManager;
+struct EvaluationContext;
 
 /* ------------- Grease-Pencil Helpers ---------------- */
 typedef struct tGPDinterpolate_layer {
@@ -124,24 +126,26 @@ typedef struct tGPDprimitive {
 
 /* Temporary fill operation data */
 typedef struct tGPDfill {
-	struct Scene *scene;              /* current scene from context */
-	struct Object *ob;                /* current active gp object */
-	struct ScrArea *sa;               /* area where painting originated */
-	struct RegionView3D *rv3d;        /* region where painting originated */
-	struct View3D *v3d;               /* view3 where painting originated */
-	struct ARegion *ar;               /* region where painting originated */
-	struct bGPdata *gpd;              /* current GP datablock */
-	struct Palette *palette;          /* current palette */
-	struct PaletteColor *palcolor;    /* current palette color */
-	struct bGPDlayer *gpl;            /* layer */
-	struct bGPDframe *gpf;            /* frame */
+	struct Scene *scene;				/* current scene from context */
+	struct Object *ob;					/* current active gp object */
+	struct EvaluationContext *eval_ctx; /* eval context */
+	struct ScrArea *sa;					/* area where painting originated */
+	struct RegionView3D *rv3d;			/* region where painting originated */
+	struct View3D *v3d;					/* view3 where painting originated */
+	struct ARegion *ar;					/* region where painting originated */
+	struct bGPdata *gpd;				/* current GP datablock */
+	struct Palette *palette;			/* current palette */
+	struct PaletteColor *palcolor;		/* current palette color */
+	struct bGPDlayer *gpl;				/* layer */
+	struct bGPDframe *gpf;				/* frame */
 
-	int center[2];                    /* mouse fill center position */
-	int sizex;                        /* windows width */
-	int sizey;                        /* window height */
-	int lock_axis;                    /* lock to viewport axis */
+	int center[2];						/* mouse fill center position */
+	int sizex;							/* windows width */
+	int sizey;							/* window height */
+	int lock_axis;						/* lock to viewport axis */
 
-	void *draw_handle_3d;             /* handle for drawing strokes while operator is running 3d stuff */
+	Image *ima;							/* temp image */
+	void *draw_handle_3d;				/* handle for drawing strokes while operator is running 3d stuff */
 } tGPDfill;
 
 /* Temporary 'Stroke Point' data

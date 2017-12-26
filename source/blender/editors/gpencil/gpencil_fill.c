@@ -41,7 +41,9 @@
 #include "DNA_windowmanager_types.h"
 
 #include "BKE_main.h" 
+#include "BKE_image.h" 
 #include "BKE_gpencil.h"
+#include "BKE_camera.h" 
 #include "BKE_context.h"
 #include "BKE_screen.h"
 #include "BKE_paint.h" 
@@ -50,6 +52,10 @@
 #include "ED_gpencil.h"
 #include "ED_screen.h"
 #include "ED_space_api.h" 
+#include "ED_view3d.h"
+
+#include "IMB_imbuf.h"
+#include "IMB_imbuf_types.h"
 
 #include "GPU_immediate.h"
 #include "GPU_draw.h"
@@ -61,11 +67,9 @@
 
  /* draw a given stroke in offscreen */
 static void gp_draw_offscreen_stroke(const bGPDspoint *points, int totpoints, 
-	const float diff_mat[4][4], bool cyclic)
+	const float diff_mat[4][4], bool cyclic, float ink[4])
 {
 	float fpt[3];
-	/* red 100% */
-	float ink[4] = { 1.0f, 0.0f, 0.0f, 1.0f };
 
 	/* if cyclic needs more vertex */
 	int cyclic_add = (cyclic) ? 1 : 0;
@@ -77,7 +81,7 @@ static void gp_draw_offscreen_stroke(const bGPDspoint *points, int totpoints,
 	immBindBuiltinProgram(GPU_SHADER_3D_FLAT_COLOR);
 	
 	/* draw stroke curve */
-	glLineWidth(4.0f);
+	glLineWidth(2.0f);
 	immBeginAtMost(GWN_PRIM_LINE_STRIP, totpoints + cyclic_add);
 	const bGPDspoint *pt = points;
 
@@ -100,31 +104,10 @@ static void gp_draw_offscreen_stroke(const bGPDspoint *points, int totpoints,
 	immUnbindProgram();
 }
 
- /* draw strokes in offscreen buffer */
-static unsigned char *gp_draw_offscreen_strokes(tGPDfill *tgpf)
+/* loop all layers */
+static void gp_draw_datablock(Scene *scene, Object *ob, bGPdata *gpd, float ink[4])
 {
-	Scene *scene = tgpf->scene;
-	Object *ob = tgpf->ob;
-	bGPdata *gpd = (bGPdata *)ob->data;
 	float diff_mat[4][4];
-	if (!gpd) {
-		return NULL;
-	}
-
-	char err_out[256] = "unknown";
-	GPUOffScreen *offscreen = GPU_offscreen_create(tgpf->sizex, tgpf->sizey, 0, err_out);
-
-	GPU_offscreen_bind(offscreen, true);
-
-	glClearColor(0.0, 0.0, 0.0, 0.0);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-	//gpuPushMatrix();
-	//gpuLoadMatrix(tgpf->rv3d->viewmat);
-
-	//wmOrtho2(0, tgpf->sizex, 0, tgpf->sizey);
-	//gpuTranslate2f(tgpf->sizex / 2.0f, tgpf->sizey / 2.0f);
-
 	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
 		/* calculate parent position */
 		ED_gpencil_parent_location(ob, gpd, gpl, diff_mat);
@@ -152,26 +135,124 @@ static unsigned char *gp_draw_offscreen_strokes(tGPDfill *tgpf)
 
 			/* 3D Lines - OpenGL primitives-based */
 			gp_draw_offscreen_stroke(gps->points, gps->totpoints,
-				diff_mat, gps->flag & GP_STROKE_CYCLIC);
+				diff_mat, gps->flag & GP_STROKE_CYCLIC, ink);
+		}
+	}
+}
+
+ /* draw strokes in offscreen buffer */
+static void gp_render_offscreen(tGPDfill *tgpf)
+{
+	Scene *scene = tgpf->scene;
+	Object *ob = tgpf->ob;
+	bGPdata *gpd = (bGPdata *)ob->data;
+	const char *viewname = "GP";
+	bool is_ortho = false;
+	float winmat[4][4];
+
+	if (!gpd) {
+		return;
+	}
+
+	char err_out[256] = "unknown";
+	GPUOffScreen *offscreen = GPU_offscreen_create(tgpf->sizex, tgpf->sizey, 0, err_out);
+	GPU_offscreen_bind(offscreen, true);
+	unsigned int flag = IB_rect | IB_rectfloat;
+	ImBuf *ibuf = IMB_allocImBuf(tgpf->sizex, tgpf->sizey, 32, flag);
+
+	/* render 3d view */
+	if (tgpf->rv3d->persp == RV3D_CAMOB && tgpf->v3d->camera) {
+		CameraParams params;
+		Object *camera = BKE_camera_multiview_render(scene, tgpf->v3d->camera, viewname);
+
+		BKE_camera_params_init(&params);
+		/* fallback for non camera objects */
+		params.clipsta = tgpf->v3d->near;
+		params.clipend = tgpf->v3d->far;
+		BKE_camera_params_from_object(&params, camera);
+		BKE_camera_multiview_params(&scene->r, &params, camera, viewname);
+		BKE_camera_params_compute_viewplane(&params, tgpf->sizex, tgpf->sizey, scene->r.xasp, scene->r.yasp);
+		BKE_camera_params_compute_matrix(&params);
+
+		is_ortho = params.is_ortho;
+		copy_m4_m4(winmat, params.winmat);
+	}
+	else {
+		rctf viewplane;
+		float clipsta, clipend;
+
+		is_ortho = ED_view3d_viewplane_get(tgpf->v3d, tgpf->rv3d, tgpf->sizex, tgpf->sizey, &viewplane, &clipsta, &clipend, NULL);
+		if (is_ortho) {
+			orthographic_m4(winmat, viewplane.xmin, viewplane.xmax, viewplane.ymin, viewplane.ymax, -clipend, clipend);
+		}
+		else {
+			perspective_m4(winmat, viewplane.xmin, viewplane.xmax, viewplane.ymin, viewplane.ymax, clipsta, clipend);
 		}
 	}
 
-	//gpuPopMatrix();
+	/* set temporary new size */
+	int bwinx = tgpf->ar->winx;
+	int bwiny = tgpf->ar->winy;
+	rcti brect = tgpf->ar->winrct;
+
+	tgpf->ar->winx = tgpf->sizex;
+	tgpf->ar->winy = tgpf->sizey;
+	tgpf->ar->winrct.xmin = 0;
+	tgpf->ar->winrct.ymin = 0;
+	tgpf->ar->winrct.xmax = tgpf->sizex;
+	tgpf->ar->winrct.ymax = tgpf->sizey;
+
+	gpuPushProjectionMatrix();
+	gpuLoadIdentity();
+	gpuPushMatrix();
+	gpuLoadIdentity();
+
+	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	ED_view3d_update_viewmat(tgpf->eval_ctx, tgpf->scene, tgpf->v3d, tgpf->ar,
+							NULL, winmat, NULL);
+	/* set for opengl */
+	gpuLoadProjectionMatrix(tgpf->rv3d->winmat);
+	gpuLoadMatrix(tgpf->rv3d->viewmat);
+
+	/* draw strokes */
+	float ink[4] = { 1.0f, 0.0f, 0.0f, 1.0f };
+	gp_draw_datablock(scene, ob, gpd, ink);
+
+	/* restore size */
+	tgpf->ar->winx = bwinx;
+	tgpf->ar->winy = bwiny;
+	tgpf->ar->winrct = brect;
+
+	gpuPopProjectionMatrix();
+	gpuPopMatrix();
 
 	/* read result pixels */
-	unsigned char *pixeldata = MEM_mallocN(tgpf->sizex * tgpf->sizey * sizeof(unsigned char) * 4, "gpencil offscreen fill");
-	GPU_offscreen_read_pixels(offscreen, GL_UNSIGNED_BYTE, pixeldata);
-	
+	//unsigned char *pixeldata = MEM_mallocN(tgpf->sizex * tgpf->sizey * sizeof(unsigned char) * 4, "gpencil offscreen fill");
+	//GPU_offscreen_read_pixels(offscreen, GL_UNSIGNED_BYTE, pixeldata);
+
+	/* create a image to see result of template */
+	if (ibuf->rect_float) {
+		GPU_offscreen_read_pixels(offscreen, GL_FLOAT, ibuf->rect_float);
+	}
+	else if (ibuf->rect) {
+		GPU_offscreen_read_pixels(offscreen, GL_UNSIGNED_BYTE, ibuf->rect);
+	}
+	if (ibuf->rect_float && ibuf->rect) {
+		IMB_rect_from_float(ibuf);
+	}
+
+	tgpf->ima = BKE_image_add_from_imbuf(ibuf, "GP_fill");
+	BKE_image_release_ibuf(tgpf->ima, ibuf, NULL);
+
 	/* switch back to window-system-provided framebuffer */
 	GPU_offscreen_unbind(offscreen, true);
 	GPU_offscreen_free(offscreen);
-
-	/* return texture data */
-	return pixeldata;
 }
 
 /* return pixel data (rgba) at index */
-static unsigned char *get_pixel(unsigned char *pixeldata, int idx)
+static unsigned int *get_pixel(unsigned int *pixeldata, int idx)
 {
 	if (idx >= 0) {
 		return &pixeldata[idx];
@@ -182,7 +263,7 @@ static unsigned char *get_pixel(unsigned char *pixeldata, int idx)
 }
 
 /* set pixel data (rgba) at index */
-static void set_pixel(unsigned char *pixeldata, int idx)
+static void set_pixel(unsigned int *pixeldata, int idx)
 {
 	if (idx >= 0) {
 		/* enable Green & Alpha channel */
@@ -199,10 +280,16 @@ static void set_pixel(unsigned char *pixeldata, int idx)
  * \param tgpf       Temporary fill data
  * \param pixeldata  Array of pixels from offscreen render
  */
-static void gpencil_fill_area(tGPDfill *tgpf, unsigned char *pixeldata)
+static void gpencil_fill_area(tGPDfill *tgpf)
 {
-	const int maxpixel = (tgpf->sizex * tgpf->sizey * 4) - 4;
-	unsigned char *rgba;
+	ImBuf *ibuf;
+	unsigned int *rgba;
+	unsigned int *pixeldata;
+	void *lock;
+
+	ibuf = BKE_image_acquire_ibuf(tgpf->ima, NULL, &lock);
+	const int maxpixel = (ibuf->x * ibuf->y) - 4;
+	pixeldata = ibuf->rect;
 
 	BLI_Stack *stack = BLI_stack_new(sizeof(int), __func__);
 
@@ -224,6 +311,7 @@ static void gpencil_fill_area(tGPDfill *tgpf, unsigned char *pixeldata)
 	*      |    X    |
 	*      -----------
 	*/
+#if 0
 	while (!BLI_stack_is_empty(stack)) {
 		int v;
 		BLI_stack_pop(stack, &v);
@@ -261,18 +349,22 @@ static void gpencil_fill_area(tGPDfill *tgpf, unsigned char *pixeldata)
 		}
 
 	}
+#endif
 
-#if 0 /* debug code */
-	for (int x = 0; x <= maxpixel; x++) {
+//#if 0 /* debug code */
+	for (int x = 0; x < ibuf->x * ibuf->y; x++) {
 		rgba = get_pixel(pixeldata, x);
 		if (rgba[3] > 0) {
 			printf("%d->RGBA(%d, %d, %d, %d)\n", x, rgba[0], rgba[1], rgba[2], rgba[3]);
-			set_pixel(pixeldata, x);
+			//set_pixel(pixeldata, x);
 		}
 	}
-
 	printf("\n");
-#endif
+//#endif
+
+	if (ibuf) {
+		BKE_image_release_ibuf(tgpf->ima, ibuf, lock);
+	}
 
 	/* free temp stack data*/
 	BLI_stack_free(stack);
@@ -281,58 +373,24 @@ static void gpencil_fill_area(tGPDfill *tgpf, unsigned char *pixeldata)
 /* ----------------------- */
 /* Drawing Callbacks */
 
-/* draw strokes for DEBUG only */
-static void DEBUG_draw_fill(const bContext *UNUSED(C), tGPDfill *tgpf)
+/* draw boundary lines to see fill limits */
+static void gpencil_draw_boundary_lines(const bContext *UNUSED(C), tGPDfill *tgpf)
 {
 	Scene *scene = tgpf->scene;
 	Object *ob = tgpf->ob;
 	bGPdata *gpd = (bGPdata *)ob->data;
-	float diff_mat[4][4];
 	if (!gpd) {
 		return;
 	}
-
-	glEnable(GL_BLEND);
-
-	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
-		/* calculate parent position */
-		ED_gpencil_parent_location(ob, gpd, gpl, diff_mat);
-
-		/* don't draw layer if hidden */
-		if (gpl->flag & GP_LAYER_HIDE)
-			continue;
-
-		/* get frame to draw */
-		bGPDframe *gpf = BKE_gpencil_layer_getframe(gpl, CFRA, 0);
-		if (gpf == NULL)
-			continue;
-
-		for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
-			/* check if stroke can be drawn */
-			if ((gps->points == NULL) || (gps->totpoints < 2)) {
-				continue;
-			}
-			/* check if the color is visible */
-			PaletteColor *palcolor = gps->palcolor;
-			if ((palcolor == NULL) || (palcolor->flag & PC_COLOR_HIDE))
-			{
-				continue;
-			}
-
-			/* 3D Lines - OpenGL primitives-based */
-			gp_draw_offscreen_stroke(gps->points, gps->totpoints,
-				diff_mat, gps->flag & GP_STROKE_CYCLIC);
-		}
-	}
-
-	glDisable(GL_BLEND);
+	float ink[4] = { 1.0f, 0.0f, 0.0f, 1.0f };
+	gp_draw_datablock(scene, ob, gpd, ink);
 }
 
 /* Drawing callback for modal operator in 3d mode */
 static void gpencil_fill_draw_3d(const bContext *C, ARegion *UNUSED(ar), void *arg)
 {
 	tGPDfill *tgpf = (tGPDfill *)arg;
-	DEBUG_draw_fill(C, tgpf); 
+	gpencil_draw_boundary_lines(C, tgpf); 
 }
 
 /* check if context is suitable for filling */
@@ -370,6 +428,7 @@ static tGPDfill *gp_session_init_fill(bContext *C, wmOperator *op)
 	tgpf->ob = CTX_data_active_object(C);
 	tgpf->sa = CTX_wm_area(C);
 	tgpf->ar = CTX_wm_region(C);
+	tgpf->eval_ctx = bmain->eval_ctx;
 	tgpf->rv3d = tgpf->ar->regiondata;
 	tgpf->v3d = tgpf->sa->spacedata.first;
 
@@ -479,7 +538,6 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
 	Scene *scene = CTX_data_scene(C);
 	Object *ob = CTX_data_active_object(C);
-	unsigned char *pixeldata;
 	tGPDfill *tgpf = op->customdata;
 
 	int estate = OPERATOR_PASS_THROUGH; /* default exit state - pass through */
@@ -512,10 +570,9 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
 				printf("(%d, %d) in (%d, %d) -> (%d, %d) Do all here!\n", event->mval[0], event->mval[1],
 						region_rect.xmin, region_rect.ymin, region_rect.xmax, region_rect.ymax);
 
-				pixeldata = gp_draw_offscreen_strokes(tgpf);
-				gpencil_fill_area(tgpf, pixeldata);
+				gp_render_offscreen(tgpf);
+				gpencil_fill_area(tgpf);
 
-				MEM_SAFE_FREE(pixeldata);
 				estate = OPERATOR_FINISHED;
 			}
 			else {
