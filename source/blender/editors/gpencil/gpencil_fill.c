@@ -77,7 +77,7 @@ static void gp_draw_offscreen_stroke(const bGPDspoint *points, int totpoints,
 	immBindBuiltinProgram(GPU_SHADER_3D_FLAT_COLOR);
 	
 	/* draw stroke curve */
-	glLineWidth(2.0f);
+	glLineWidth(4.0f);
 	immBeginAtMost(GWN_PRIM_LINE_STRIP, totpoints + cyclic_add);
 	const bGPDspoint *pt = points;
 
@@ -111,8 +111,6 @@ static unsigned char *gp_draw_offscreen_strokes(tGPDfill *tgpf)
 		return NULL;
 	}
 
-
-	/* TODO: Create all code to send the output to offscreen buffer */
 	char err_out[256] = "unknown";
 	GPUOffScreen *offscreen = GPU_offscreen_create(tgpf->sizex, tgpf->sizey, 0, err_out);
 
@@ -283,11 +281,58 @@ static void gpencil_fill_area(tGPDfill *tgpf, unsigned char *pixeldata)
 /* ----------------------- */
 /* Drawing Callbacks */
 
+/* draw strokes for DEBUG only */
+static void DEBUG_draw_fill(const bContext *UNUSED(C), tGPDfill *tgpf)
+{
+	Scene *scene = tgpf->scene;
+	Object *ob = tgpf->ob;
+	bGPdata *gpd = (bGPdata *)ob->data;
+	float diff_mat[4][4];
+	if (!gpd) {
+		return;
+	}
+
+	glEnable(GL_BLEND);
+
+	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+		/* calculate parent position */
+		ED_gpencil_parent_location(ob, gpd, gpl, diff_mat);
+
+		/* don't draw layer if hidden */
+		if (gpl->flag & GP_LAYER_HIDE)
+			continue;
+
+		/* get frame to draw */
+		bGPDframe *gpf = BKE_gpencil_layer_getframe(gpl, CFRA, 0);
+		if (gpf == NULL)
+			continue;
+
+		for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
+			/* check if stroke can be drawn */
+			if ((gps->points == NULL) || (gps->totpoints < 2)) {
+				continue;
+			}
+			/* check if the color is visible */
+			PaletteColor *palcolor = gps->palcolor;
+			if ((palcolor == NULL) || (palcolor->flag & PC_COLOR_HIDE))
+			{
+				continue;
+			}
+
+			/* 3D Lines - OpenGL primitives-based */
+			gp_draw_offscreen_stroke(gps->points, gps->totpoints,
+				diff_mat, gps->flag & GP_STROKE_CYCLIC);
+		}
+	}
+
+	glDisable(GL_BLEND);
+}
+
 /* Drawing callback for modal operator in 3d mode */
 static void gpencil_fill_draw_3d(const bContext *C, ARegion *UNUSED(ar), void *arg)
 {
 	tGPDfill *tgpf = (tGPDfill *)arg;
-	//ED_gp_draw_fill(C, tgpf, REGION_DRAW_POST_VIEW); 
+	DEBUG_draw_fill(C, tgpf); 
 }
 
 /* check if context is suitable for filling */
@@ -372,6 +417,8 @@ static void gpencil_fill_exit(bContext *C, wmOperator *op)
 		BKE_gpencil_batch_cache_dirty(gpd);
 		gpd->flag |= GP_DATA_CACHE_IS_DIRTY;
 	}
+
+	WM_event_add_notifier(C, NC_GPENCIL | NA_EDITED, NULL);
 }
 
 static void gpencil_fill_cancel(bContext *C, wmOperator *op)
@@ -418,6 +465,8 @@ static int gpencil_fill_invoke(bContext *C, wmOperator *op, const wmEvent *event
 	tgpf->draw_handle_3d = ED_region_draw_cb_activate(tgpf->ar->type, gpencil_fill_draw_3d, tgpf, REGION_DRAW_POST_VIEW);
 
 	WM_cursor_modal_set(CTX_wm_window(C), BC_PAINTBRUSHCURSOR);
+	BKE_gpencil_batch_cache_dirty(tgpf->gpd);
+	WM_event_add_notifier(C, NC_GPENCIL | NA_EDITED, NULL);
 
 	/* add a modal handler for this operator*/
 	WM_event_add_modal_handler(C, op);
