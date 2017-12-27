@@ -358,7 +358,7 @@ void do_versions_after_linking_280(Main *main)
 						view_layer->pass_xor = srl->pass_xor;
 						view_layer->pass_alpha_threshold = srl->pass_alpha_threshold;
 
-						BKE_freestyle_config_free(&view_layer->freestyle_config);
+						BKE_freestyle_config_free(&view_layer->freestyle_config, true);
 						view_layer->freestyle_config = srl->freestyleConfig;
 						view_layer->id_properties = srl->prop;
 
@@ -431,7 +431,7 @@ void do_versions_after_linking_280(Main *main)
 							IDP_FreeProperty(srl->prop);
 							MEM_freeN(srl->prop);
 						}
-						BKE_freestyle_config_free(&srl->freestyleConfig);
+						BKE_freestyle_config_free(&srl->freestyleConfig, true);
 					}
 				}
 				BLI_freelistN(&scene->r.layers);
@@ -546,7 +546,7 @@ void do_versions_after_linking_280(Main *main)
 					IDP_FreeProperty(srl->prop);
 					MEM_freeN(srl->prop);
 				}
-				BKE_freestyle_config_free(&srl->freestyleConfig);
+				BKE_freestyle_config_free(&srl->freestyleConfig, true);
 			}
 			BLI_freelistN(&scene->r.layers);
 		}
