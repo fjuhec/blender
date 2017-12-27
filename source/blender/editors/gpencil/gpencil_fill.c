@@ -43,7 +43,6 @@
 #include "BKE_main.h" 
 #include "BKE_image.h" 
 #include "BKE_gpencil.h"
-#include "BKE_camera.h" 
 #include "BKE_context.h"
 #include "BKE_screen.h"
 #include "BKE_paint.h" 
@@ -81,7 +80,7 @@ static void gp_draw_offscreen_stroke(const bGPDspoint *points, int totpoints,
 	immBindBuiltinProgram(GPU_SHADER_3D_FLAT_COLOR);
 	
 	/* draw stroke curve */
-	glLineWidth(2.0f);
+	glLineWidth(1.0f);
 	immBeginAtMost(GWN_PRIM_LINE_STRIP, totpoints + cyclic_add);
 	const bGPDspoint *pt = points;
 
@@ -160,34 +159,15 @@ static void gp_render_offscreen(tGPDfill *tgpf)
 	unsigned int flag = IB_rect | IB_rectfloat;
 	ImBuf *ibuf = IMB_allocImBuf(tgpf->sizex, tgpf->sizey, 32, flag);
 
-	/* render 3d view */
-	if (tgpf->rv3d->persp == RV3D_CAMOB && tgpf->v3d->camera) {
-		CameraParams params;
-		Object *camera = BKE_camera_multiview_render(scene, tgpf->v3d->camera, viewname);
+	rctf viewplane;
+	float clipsta, clipend;
 
-		BKE_camera_params_init(&params);
-		/* fallback for non camera objects */
-		params.clipsta = tgpf->v3d->near;
-		params.clipend = tgpf->v3d->far;
-		BKE_camera_params_from_object(&params, camera);
-		BKE_camera_multiview_params(&scene->r, &params, camera, viewname);
-		BKE_camera_params_compute_viewplane(&params, tgpf->sizex, tgpf->sizey, scene->r.xasp, scene->r.yasp);
-		BKE_camera_params_compute_matrix(&params);
-
-		is_ortho = params.is_ortho;
-		copy_m4_m4(winmat, params.winmat);
+	is_ortho = ED_view3d_viewplane_get(tgpf->v3d, tgpf->rv3d, tgpf->sizex, tgpf->sizey, &viewplane, &clipsta, &clipend, NULL);
+	if (is_ortho) {
+		orthographic_m4(winmat, viewplane.xmin, viewplane.xmax, viewplane.ymin, viewplane.ymax, -clipend, clipend);
 	}
 	else {
-		rctf viewplane;
-		float clipsta, clipend;
-
-		is_ortho = ED_view3d_viewplane_get(tgpf->v3d, tgpf->rv3d, tgpf->sizex, tgpf->sizey, &viewplane, &clipsta, &clipend, NULL);
-		if (is_ortho) {
-			orthographic_m4(winmat, viewplane.xmin, viewplane.xmax, viewplane.ymin, viewplane.ymax, -clipend, clipend);
-		}
-		else {
-			perspective_m4(winmat, viewplane.xmin, viewplane.xmax, viewplane.ymin, viewplane.ymax, clipsta, clipend);
-		}
+		perspective_m4(winmat, viewplane.xmin, viewplane.xmax, viewplane.ymin, viewplane.ymax, clipsta, clipend);
 	}
 
 	/* set temporary new size */
@@ -211,7 +191,7 @@ static void gp_render_offscreen(tGPDfill *tgpf)
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	ED_view3d_update_viewmat(tgpf->eval_ctx, tgpf->scene, tgpf->v3d, tgpf->ar,
-							NULL, winmat, NULL);
+		NULL, winmat, NULL);
 	/* set for opengl */
 	gpuLoadProjectionMatrix(tgpf->rv3d->winmat);
 	gpuLoadMatrix(tgpf->rv3d->viewmat);
@@ -244,32 +224,48 @@ static void gp_render_offscreen(tGPDfill *tgpf)
 	}
 
 	tgpf->ima = BKE_image_add_from_imbuf(ibuf, "GP_fill");
+	tgpf->ima->id.tag |= LIB_TAG_DOIT;
+
 	BKE_image_release_ibuf(tgpf->ima, ibuf, NULL);
 
 	/* switch back to window-system-provided framebuffer */
 	GPU_offscreen_unbind(offscreen, true);
 	GPU_offscreen_free(offscreen);
 }
-
 /* return pixel data (rgba) at index */
-static unsigned int *get_pixel(unsigned int *pixeldata, int idx)
+static void get_pixel(ImBuf *ibuf, int idx, float r_col[4])
 {
-	if (idx >= 0) {
-		return &pixeldata[idx];
-	}
-	else {
-		return NULL;
+	if (ibuf->rect_float) {
+		float *frgba = &ibuf->rect_float[idx * 4];
+		r_col[0] = *frgba++;
+		r_col[1] = *frgba++;
+		r_col[2] = *frgba++;
+		r_col[3] = *frgba;
 	}
 }
 
 /* set pixel data (rgba) at index */
-static void set_pixel(unsigned int *pixeldata, int idx)
+static void set_pixel(ImBuf *ibuf, int idx, const float col[4])
 {
-	if (idx >= 0) {
-		/* enable Green & Alpha channel */
-		pixeldata[idx] = 0; /* red 0% */
-		pixeldata[idx + 1] = 255; /* green 100% */
-		pixeldata[idx + 3] = 255; /* alpha 100% */
+	if (ibuf->rect) {
+		unsigned int *rrect = &ibuf->rect[idx];
+		char ccol[4];
+
+		ccol[0] = (int)(col[0] * 255);
+		ccol[1] = (int)(col[1] * 255);
+		ccol[2] = (int)(col[2] * 255);
+		ccol[3] = (int)(col[3] * 255);
+
+		*rrect = *((unsigned int *)ccol);
+	}
+
+	if (ibuf->rect_float) {
+		float *rrectf = &ibuf->rect_float[idx * 4];
+
+		*rrectf++ = col[0];
+		*rrectf++ = col[1];
+		*rrectf++ = col[2];
+		*rrectf = col[3];
 	}
 }
 
@@ -278,23 +274,20 @@ static void set_pixel(unsigned int *pixeldata, int idx)
  * of the shape to fill.
  *
  * \param tgpf       Temporary fill data
- * \param pixeldata  Array of pixels from offscreen render
  */
-static void gpencil_fill_area(tGPDfill *tgpf)
+static void gpencil_boundaryfill_area(tGPDfill *tgpf)
 {
 	ImBuf *ibuf;
-	unsigned int *rgba;
-	unsigned int *pixeldata;
+	float rgba[4];
 	void *lock;
-
+	const float fill_col[4] = { 0.0f, 1.0f, 0.0f, 1.0f };
 	ibuf = BKE_image_acquire_ibuf(tgpf->ima, NULL, &lock);
-	const int maxpixel = (ibuf->x * ibuf->y) - 4;
-	pixeldata = ibuf->rect;
+	const int maxpixel = (ibuf->x * ibuf->y) - 1;
 
 	BLI_Stack *stack = BLI_stack_new(sizeof(int), __func__);
 
 	/* calculate index of the seed point using the position of the mouse */
-	int index = ((tgpf->sizex * tgpf->center[0]) + tgpf->center[1]) * 4;
+	int index = (tgpf->sizex * tgpf->center[1]) + tgpf->center[0];
 	if ((index >= 0) && (index < maxpixel)) {
 		BLI_stack_push(stack, &index);
 	}
@@ -311,28 +304,28 @@ static void gpencil_fill_area(tGPDfill *tgpf)
 	*      |    X    |
 	*      -----------
 	*/
-#if 0
 	while (!BLI_stack_is_empty(stack)) {
 		int v;
 		BLI_stack_pop(stack, &v);
 
-		rgba = get_pixel(pixeldata, v);
+		get_pixel(ibuf, v, rgba);
+
 		if (rgba) {
 			/* check if no border(red) or already filled color(green) */
-			if ((rgba[0] != 255) && (rgba[1] != 255))
+			if ((rgba[0] != 1.0f) && (rgba[1] != 1.0f))
 			{
 				/* fill current pixel */
-				set_pixel(pixeldata, v);
+				set_pixel(ibuf, v, fill_col);
 
 				/* add contact pixels */
 				/* pixel left */
-				if (v - 4 >= 0) {
-					index = v - 4;
+				if (v - 1 >= 0) {
+					index = v - 1;
 					BLI_stack_push(stack, &index);
 				}
 				/* pixel right */
-				if (v + 4 < maxpixel) {
-					index = v + 4;
+				if (v + 1 < maxpixel) {
+					index = v + 1;
 					BLI_stack_push(stack, &index);
 				}
 				/* pixel top */
@@ -349,23 +342,13 @@ static void gpencil_fill_area(tGPDfill *tgpf)
 		}
 
 	}
-#endif
 
-//#if 0 /* debug code */
-	for (int x = 0; x < ibuf->x * ibuf->y; x++) {
-		rgba = get_pixel(pixeldata, x);
-		if (rgba[3] > 0) {
-			printf("%d->RGBA(%d, %d, %d, %d)\n", x, rgba[0], rgba[1], rgba[2], rgba[3]);
-			//set_pixel(pixeldata, x);
-		}
-	}
-	printf("\n");
-//#endif
-
+	/* release ibuf */
 	if (ibuf) {
 		BKE_image_release_ibuf(tgpf->ima, ibuf, lock);
 	}
 
+	tgpf->ima->id.tag |= LIB_TAG_DOIT;
 	/* free temp stack data*/
 	BLI_stack_free(stack);
 }
@@ -548,7 +531,6 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
 			estate = OPERATOR_CANCELLED;
 		}
 	}
-	
 	if ELEM(event->type, LEFTMOUSE) {
 		ARegion *ar = BKE_area_find_region_xy(CTX_wm_area(C), RGN_TYPE_ANY, event->x, event->y);
 		if (ar) {
@@ -560,19 +542,26 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
 			in_bounds = BLI_rcti_isect_pt_v(&region_rect, event->mval);
 
 			if ((in_bounds) && (ar->regiontype == RGN_TYPE_WINDOW)) {
-				tgpf->center[0] = event->x;
-				tgpf->center[1] = event->y;
+				tgpf->center[0] = event->mval[0];
+				tgpf->center[1] = event->mval[1];
 
-				tgpf->sizex = region_rect.xmax - region_rect.xmin;
-				tgpf->sizey = region_rect.ymax - region_rect.ymin;
+				/* save size (don't sub minsize data to get right mouse click position) */
+				tgpf->sizex = region_rect.xmax;
+				tgpf->sizey = region_rect.ymax;
 
-				/* TODO: Add fill code here */
+#if 0
 				printf("(%d, %d) in (%d, %d) -> (%d, %d) Do all here!\n", event->mval[0], event->mval[1],
 						region_rect.xmin, region_rect.ymin, region_rect.xmax, region_rect.ymax);
-
+#endif
+				/* render screen to temp image */
 				gp_render_offscreen(tgpf);
-				gpencil_fill_area(tgpf);
 
+				/* apply boundary fill */
+				gpencil_boundaryfill_area(tgpf);
+
+				/* TODO: analyze outline */
+				/* TODO: create stroke and reproject */
+				/* TODO: delete temp image */
 				estate = OPERATOR_FINISHED;
 			}
 			else {
