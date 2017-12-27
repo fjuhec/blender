@@ -254,6 +254,7 @@ static void rna_GroomEditSettings_update(bContext *C, PointerRNA *UNUSED(ptr))
 	if (ob)
 	{
 		DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+		WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
 	}
 }
 
