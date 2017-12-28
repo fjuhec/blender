@@ -64,6 +64,8 @@
 #include "WM_api.h"
 #include "WM_types.h"
 
+#include "gpencil_intern.h"
+
  /* draw a given stroke using same thickness and color for all points */
 static void gp_draw_basic_stroke(const bGPDspoint *points, int totpoints, 
 	const float diff_mat[4][4], bool cyclic, float ink[4])
@@ -347,8 +349,40 @@ static void gpencil_boundaryfill_area(tGPDfill *tgpf)
 	BLI_stack_free(stack);
 }
 
+/* clean external border of image to avoid infinite loops */
+static void gpencil_clean_borders(tGPDfill *tgpf)
+{
+	ImBuf *ibuf;
+	void *lock;
+	const float fill_col[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+	ibuf = BKE_image_acquire_ibuf(tgpf->ima, NULL, &lock);
+	int idx;
+
+	/* horizontal lines */
+	for (idx = 0; idx < ibuf->x; idx++) {
+		/* bottom line */
+		set_pixel(ibuf, idx, fill_col);
+		/* top line */
+		set_pixel(ibuf, idx + (ibuf->x * (ibuf->y - 1)), fill_col);
+	}
+	/* vertical lines */
+	for (idx = 0; idx < ibuf->y; idx++) {
+		/* left line */
+		set_pixel(ibuf, ibuf->x * idx, fill_col);
+		/* right line */
+		set_pixel(ibuf, ibuf->x * idx + (ibuf->x - 1), fill_col);
+	}
+
+	/* release ibuf */
+	if (ibuf) {
+		BKE_image_release_ibuf(tgpf->ima, ibuf, lock);
+	}
+
+	tgpf->ima->id.tag |= LIB_TAG_DOIT;
+}
+
 /* helper to copy points 2D */
-MINLINE void copyint_v2_v2(int r[2], const int a[2])
+static void copyint_v2_v2(int r[2], const int a[2])
 {
 	r[0] = a[0];
 	r[1] = a[1];
@@ -359,7 +393,7 @@ MINLINE void copyint_v2_v2(int r[2], const int a[2])
  * This is a Blender customized version of the general algorithm described 
  * in https://en.wikipedia.org/wiki/Moore_neighborhood
  */
-static void gpencil_get_outline_points(tGPDfill *tgpf)
+static  void gpencil_get_outline_points(tGPDfill *tgpf)
 {
 	ImBuf *ibuf;
 	float rgba[4];
@@ -386,7 +420,7 @@ static void gpencil_get_outline_points(tGPDfill *tgpf)
 		{ -1, 0 }
 	};
 
-	BLI_Stack *stack = BLI_stack_new(sizeof(int[2]), __func__);
+	tgpf->stack = BLI_stack_new(sizeof(int[2]), __func__);
 
 	ibuf = BKE_image_acquire_ibuf(tgpf->ima, NULL, &lock);
 	int imagesize = ibuf->x * ibuf->y;
@@ -404,7 +438,7 @@ static void gpencil_get_outline_points(tGPDfill *tgpf)
 			backtracked_offset[0][1] = backtracked_co[1] - boundary_co[1];
 			copyint_v2_v2(prev_check_co, start_co);
 
-			BLI_stack_push(stack, &boundary_co);
+			BLI_stack_push(tgpf->stack, &boundary_co);
 			start_found = true;
 			break;
 		}
@@ -439,7 +473,7 @@ static void gpencil_get_outline_points(tGPDfill *tgpf)
 				backtracked_offset[0][0] = backtracked_co[0] - boundary_co[0];
 				backtracked_offset[0][1] = backtracked_co[1] - boundary_co[1];
 
-				BLI_stack_push(stack, &boundary_co);
+				BLI_stack_push(tgpf->stack, &boundary_co);
 
 				break;
 			}
@@ -451,7 +485,7 @@ static void gpencil_get_outline_points(tGPDfill *tgpf)
 		if (boundary_co[0] == start_co[0] &&
 			boundary_co[1] == start_co[1])
 		{
-			BLI_stack_pop(stack, &v);
+			BLI_stack_pop(tgpf->stack, &v);
 			boundary_found = true;
 			break;
 		}
@@ -462,18 +496,111 @@ static void gpencil_get_outline_points(tGPDfill *tgpf)
 		BKE_image_release_ibuf(tgpf->ima, ibuf, lock);
 	}
 
-	/* debug code */
+#if 0	/* debug code (paint in blue outline in debug image) */
 	const float outline_col[4] = { 0.0f, 0.0f, 1.0f, 1.0f };
-	while (!BLI_stack_is_empty(stack)) {
-		BLI_stack_pop(stack, &v);
-		printf("(%d, %d)\n", v[0], v[1]);
+	while (!BLI_stack_is_empty(tgpf->stack)) {
+		BLI_stack_pop(tgpf->stack, &v);
 		int idx = ibuf->x * v[1] + v[0];
 		set_pixel(ibuf, idx, outline_col);
 	}
+#endif 
 
-	/* free temp stack data*/
-	BLI_stack_free(stack);
 }
+
+/* create a grease pencil stroke using points in stack */
+static void gpencil_stroke_from_stack(tGPDfill *tgpf)
+{
+	Scene *scene = tgpf->scene;
+	ToolSettings *ts = tgpf->scene->toolsettings;
+	bGPDspoint *pt;
+	tGPspoint point2D;
+	float r_out[3];
+	int totpoints = BLI_stack_count(tgpf->stack);
+	if (totpoints == 0) {
+		return;
+	}
+
+	/* get frame or create a new one */
+	tgpf->gpf = BKE_gpencil_layer_getframe(tgpf->gpl, CFRA, GP_GETFRAME_ADD_NEW);
+
+	/* create new stroke */
+	bGPDstroke *gps = MEM_callocN(sizeof(bGPDstroke), "bGPDstroke");
+	gps->thickness = 1.0f;
+	gps->inittime = 0.0f;
+
+	/* the polygon must be closed, so enabled cyclic */
+	gps->flag |= GP_STROKE_CYCLIC;
+	gps->flag |= GP_STROKE_3DSPACE;
+
+	gps->palette = tgpf->palette;
+	gps->palcolor = tgpf->palcolor;
+
+	/* allocate memory for storage points */
+	gps->totpoints = totpoints;
+	gps->points = MEM_callocN(sizeof(bGPDspoint) * totpoints, "gp_stroke_points");
+	
+	/* initialize triangle memory to dummy data */
+	gps->tot_triangles = 0;
+	gps->triangles = NULL;
+	gps->flag |= GP_STROKE_RECALC_CACHES;
+
+	/* add to strokes to head to be on back */
+	BLI_addhead(&tgpf->gpf->strokes, gps);
+
+	/* add points */
+	pt = gps->points;
+	int i = 0;
+	while (!BLI_stack_is_empty(tgpf->stack)) {
+		int v[2];
+		BLI_stack_pop(tgpf->stack, &v);
+		point2D.x = v[0];
+		point2D.y = v[1];
+
+		/* convert screen-coordinates to 3D coordinates */
+		gp_stroke_convertcoords_tpoint(tgpf->scene, tgpf->ar, tgpf->v3d, &point2D, r_out);
+		copy_v3_v3(&pt->x, r_out);
+		/* if parented change position relative to parent object */
+		gp_apply_parent_point(tgpf->ob, tgpf->gpd, tgpf->gpl, pt);
+
+		pt->pressure = 1.0f;
+		pt->strength = 1.0f;;
+		pt->time = 0.0f;
+		pt->totweight = 0;
+		pt->weights = NULL;
+
+		pt++;
+	}
+
+#if 0
+	/* smooth stroke */
+	float reduce = 0.0f;
+	float smoothfac = 1.0f;
+	for (int r = 0; r < 1; ++r) {
+		for (i = 0; i < gps->totpoints; i++) {
+			BKE_gp_smooth_stroke(gps, i, smoothfac - reduce, false);
+		}
+		reduce += 0.25f;  // reduce the factor
+	}
+
+	/* simplify stroke using Ramer-Douglas-Peucker algorithm */
+	BKE_gpencil_simplify_stroke(tgpf->gpl, gps, 1.0f);
+#endif
+
+	/* if axis locked, reproject to plane locked */
+	if (tgpf->lock_axis > GP_LOCKAXIS_NONE) {
+		float origin[3];
+		bGPDspoint *tpt = gps->points;
+		ED_gp_get_drawing_reference(tgpf->v3d, tgpf->scene, tgpf->ob, tgpf->gpl,
+			ts->gpencil_v3d_align, origin);
+
+		for (int i = 0; i < gps->totpoints; i++, tpt++) {
+			ED_gp_project_point_to_plane(tgpf->ob, tgpf->rv3d, origin,
+				ts->gp_sculpt.lock_axis - 1,
+				ts->gpencil_src, tpt);
+		}
+	}
+}
+
 /* ----------------------- */
 /* Drawing Callbacks */
 
@@ -538,6 +665,7 @@ static tGPDfill *gp_session_init_fill(bContext *C, wmOperator *op)
 
 	/* set GP datablock */
 	tgpf->gpd = gpd;
+	tgpf->gpl = BKE_gpencil_layer_getactive(gpd);
 
 	/* get palette and color info */
 	bGPDpaletteref *palslot = BKE_gpencil_paletteslot_validate(bmain, gpd);
@@ -676,11 +804,25 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
 				/* apply boundary fill */
 				gpencil_boundaryfill_area(tgpf);
 
+				/* clean borders to avoid infinite loops */
+				gpencil_clean_borders(tgpf);
+
 				/* analyze outline */
 				gpencil_get_outline_points(tgpf);
+				
+				/* create stroke and reproject */
+				gpencil_stroke_from_stack(tgpf);
 
-				/* TODO: create stroke and reproject */
-				/* TODO: delete temp image */
+				/* delete temp image */
+				if (tgpf->ima) {
+					BKE_image_free(tgpf->ima);
+				}
+
+				/* free temp stack data */
+				if (tgpf->stack) {
+					BLI_stack_free(tgpf->stack);
+				}
+
 				estate = OPERATOR_FINISHED;
 			}
 			else {

@@ -45,6 +45,7 @@ struct bGPDpalettecolor;
 struct bGPDspoint;
 struct ID;
 struct Image;
+struct BLI_Stack;
 struct KeyframeEditData;
 struct ListBase;
 struct Object;
@@ -144,7 +145,8 @@ typedef struct tGPDfill {
 	int sizey;							/* window height */
 	int lock_axis;						/* lock to viewport axis */
 
-	Image *ima;							/* temp image */
+	struct Image *ima;					/* temp image */
+	struct BLI_Stack *stack;			/* temp points data */
 	void *draw_handle_3d;				/* handle for drawing strokes while operator is running 3d stuff */
 } tGPDfill;
 
