@@ -571,7 +571,6 @@ static void gpencil_stroke_from_stack(tGPDfill *tgpf)
 		pt++;
 	}
 
-#if 0
 	/* smooth stroke */
 	float reduce = 0.0f;
 	float smoothfac = 1.0f;
@@ -582,8 +581,10 @@ static void gpencil_stroke_from_stack(tGPDfill *tgpf)
 		reduce += 0.25f;  // reduce the factor
 	}
 
+#if 0
+
 	/* simplify stroke using Ramer-Douglas-Peucker algorithm */
-	BKE_gpencil_simplify_stroke(tgpf->gpl, gps, 1.0f);
+	BKE_gpencil_simplify_stroke(tgpf->gpl, gps, 0.2f);
 #endif
 
 	/* if axis locked, reproject to plane locked */
