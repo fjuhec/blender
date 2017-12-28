@@ -244,7 +244,8 @@ static void ed_keymap_gpencil_sculpt(wmKeyMap *keymap)
 	kmi = WM_keymap_add_item(keymap, "WM_OT_radial_control", FKEY, KM_PRESS, 0, 0);
 	RNA_string_set(kmi->ptr, "data_path_primary", "tool_settings.gpencil_sculpt.brush.size");
 
-
+	/* menu sculpt specials */
+	WM_keymap_add_menu(keymap, "GPENCIL_MT_gpencil_sculpt_specials", WKEY, KM_PRESS, 0, 0);
 }
 
 static void ed_keymap_gpencil_weight(wmKeyMap *keymap)
@@ -489,7 +490,8 @@ static void ed_keymap_gpencil_painting(wmKeyConfig *keyconf)
 	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_sculptmode_toggle", EKEY, KM_PRESS, 0, 0);
 	RNA_int_set(kmi->ptr, "back", 1);
 
-	/* menu draw specials */
+	/* menu draw specials (add two keys to make more easy for user) */
+	WM_keymap_add_menu(keymap, "GPENCIL_MT_gpencil_draw_specials", WKEY, KM_PRESS, 0, 0);
 	WM_keymap_add_menu(keymap, "GPENCIL_MT_gpencil_draw_specials", XKEY, KM_PRESS, 0, 0);
 }
 
@@ -675,7 +677,8 @@ void ED_operatortypes_gpencil(void)
 	
 	WM_operatortype_append(GPENCIL_OT_active_frame_delete);
 	WM_operatortype_append(GPENCIL_OT_active_frames_delete_all);
-	
+	WM_operatortype_append(GPENCIL_OT_frame_duplicate);
+
 	WM_operatortype_append(GPENCIL_OT_convert);
 	WM_operatortype_append(GPENCIL_OT_convert_scene_to_object);
 

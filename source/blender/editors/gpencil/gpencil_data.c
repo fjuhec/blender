@@ -371,6 +371,66 @@ void GPENCIL_OT_layer_duplicate(wmOperatorType *ot)
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
+/* ********************* Duplicate Frame ************************** */
+enum {
+	GP_FRAME_DUP_ACTIVE = 0,
+	GP_FRAME_DUP_ALL = 1
+};
+
+static int gp_frame_duplicate_exec(bContext *C, wmOperator *op)
+{
+	Scene *scene = CTX_data_scene(C);
+	bGPdata *gpd = ED_gpencil_data_get_active(C);
+	bGPDlayer *gpl = BKE_gpencil_layer_getactive(gpd);
+
+	int mode = RNA_enum_get(op->ptr, "mode");
+	
+	/* sanity checks */
+	if (ELEM(NULL, gpd, gpl))
+		return OPERATOR_CANCELLED;
+
+	if (mode == 0) {
+		BKE_gpencil_frame_addcopy(gpl, CFRA);
+	}
+	else {
+		for (gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+			if ((gpl->flag & GP_LAYER_LOCKED) == 0) {
+				BKE_gpencil_frame_addcopy(gpl, CFRA);
+			}
+		}
+
+	}
+	/* notifiers */
+	BKE_gpencil_batch_cache_dirty(gpd);
+	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
+
+	return OPERATOR_FINISHED;
+}
+
+void GPENCIL_OT_frame_duplicate(wmOperatorType *ot)
+{
+	static const EnumPropertyItem duplicate_mode[] = {
+		{ GP_FRAME_DUP_ACTIVE, "ACTIVE", 0, "Active", "Duplicate frame in active layer only" },
+		{ GP_FRAME_DUP_ALL, "ALL", 0, "All", "Duplicate active frames in all layers" },
+		{ 0, NULL, 0, NULL, NULL }
+		};
+
+
+	/* identifiers */
+	ot->name = "Duplicate Frame";
+	ot->idname = "GPENCIL_OT_frame_duplicate";
+	ot->description = "Make a copy of the active Grease Pencil Frame";
+
+	/* callbacks */
+	ot->exec = gp_frame_duplicate_exec;
+	ot->poll = gp_active_layer_poll;
+
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+	ot->prop = RNA_def_enum(ot->srna, "mode", duplicate_mode, GP_FRAME_DUP_ACTIVE, "Mode", "");
+}
+
 /* *********************** Hide Layers ******************************** */
 
 static int gp_hide_exec(bContext *C, wmOperator *op)

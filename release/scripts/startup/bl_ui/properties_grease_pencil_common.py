@@ -264,6 +264,10 @@ class GreasePencilAnimationPanel:
         col.operator("gpencil.active_frames_delete_all", icon='X', text="Delete Frame(s)")
 
         col.separator()
+        col.operator("gpencil.frame_duplicate", text="Duplicate Active Frame")
+        col.operator("gpencil.frame_duplicate", text="Duplicate All Layers").mode = 'ALL'
+
+        col.separator()
         col.prop(context.tool_settings, "use_gpencil_additive_drawing", text="Additive Drawing")
 
 
@@ -955,9 +959,30 @@ class GPENCIL_MT_gpencil_edit_specials(Menu):
         layout.operator("gpencil.stroke_join", text="Join & Copy").type = 'JOINCOPY'
         layout.operator("gpencil.stroke_flip", text="Flip Direction")
 
+        layout.separator()
+        layout.operator("gpencil.frame_duplicate", text="Duplicate Active Frame")
+        layout.operator("gpencil.frame_duplicate", text="Duplicate Active Frame All Layers").mode = 'ALL'
+
         if is_3d_view:
             layout.separator()
             layout.operator("gpencil.reproject")
+
+class GPENCIL_MT_gpencil_sculpt_specials(Menu):
+    bl_label = "GPencil Specials"
+
+    def draw(self, context):
+        layout = self.layout
+        is_3d_view = context.space_data.type == 'VIEW_3D'
+
+        layout.operator_context = 'INVOKE_REGION_WIN'
+
+        layout.operator("gpencil.frame_duplicate", text="Duplicate Active Frame")
+        layout.operator("gpencil.frame_duplicate", text="Duplicate Active Frame All Layers").mode = 'ALL'
+
+        layout.separator()
+
+        layout.operator("gpencil.stroke_subdivide", text="Subdivide")
+        layout.operator("gpencil.stroke_simplify", text="Simplify")
 
 
 class GPENCIL_MT_gpencil_draw_specials(Menu):
@@ -969,6 +994,9 @@ class GPENCIL_MT_gpencil_draw_specials(Menu):
 
         layout.operator_context = 'INVOKE_REGION_WIN'
 
+        layout.operator("gpencil.frame_duplicate", text="Duplicate Active Frame")
+        layout.operator("gpencil.frame_duplicate", text="Duplicate Active Frame All Layers").mode = 'ALL'
+        layout.separator()
         layout.operator("gpencil.active_frames_delete_all", text="Delete Frame")
 
 
@@ -1620,6 +1648,7 @@ classes = (
     GPENCIL_MT_pie_sculpt,
     GPENCIL_MT_snap,
     GPENCIL_MT_gpencil_edit_specials,
+    GPENCIL_MT_gpencil_sculpt_specials,
     GPENCIL_MT_gpencil_draw_specials,
     GPENCIL_MT_gpencil_vertex_group,
     GPENCIL_UL_brush,
