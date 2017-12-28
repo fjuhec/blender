@@ -347,6 +347,133 @@ static void gpencil_boundaryfill_area(tGPDfill *tgpf)
 	BLI_stack_free(stack);
 }
 
+/* helper to copy points 2D */
+MINLINE void copyint_v2_v2(int r[2], const int a[2])
+{
+	r[0] = a[0];
+	r[1] = a[1];
+}
+
+/* Get the outline points of a shape using Moore Neighborhood algorithm 
+ *
+ * This is a Blender customized version of the general algorithm described 
+ * in https://en.wikipedia.org/wiki/Moore_neighborhood
+ */
+static void gpencil_get_outline_points(tGPDfill *tgpf)
+{
+	ImBuf *ibuf;
+	float rgba[4];
+	void *lock;
+	int v[2];
+	int boundary_co[2];
+	int start_co[2];
+	int backtracked_co[2];
+	int current_check_co[2];
+	int prev_check_co[2];
+	int backtracked_offset[1][2] = { { 0,0 } };
+	bool boundary_found = false;
+	bool start_found = false;
+	const int NEIGHBOR_COUNT = 8;
+
+	int offset[8][2] = {
+		{ -1, -1 },
+		{ 0, -1 },
+		{ 1, -1 },
+		{ 1, 0 },
+		{ 1, 1 },
+		{ 0, 1 },
+		{ -1, 1 },
+		{ -1, 0 }
+	};
+
+	BLI_Stack *stack = BLI_stack_new(sizeof(int[2]), __func__);
+
+	ibuf = BKE_image_acquire_ibuf(tgpf->ima, NULL, &lock);
+	int imagesize = ibuf->x * ibuf->y;
+
+	/* find the initial point to start outline analysis */
+	for (int idx = imagesize; idx >= 0; idx--) {
+		get_pixel(ibuf, idx, rgba);
+		if (rgba[1] == 1.0f) {
+			boundary_co[0] = idx % ibuf->x;
+			boundary_co[1] = idx / ibuf->x;
+			copyint_v2_v2(start_co, boundary_co);
+			backtracked_co[0] = (idx - 1) % ibuf->x;
+			backtracked_co[1] = (idx - 1) / ibuf->x;
+			backtracked_offset[0][0] = backtracked_co[0] - boundary_co[0];
+			backtracked_offset[0][1] = backtracked_co[1] - boundary_co[1];
+			copyint_v2_v2(prev_check_co, start_co);
+
+			BLI_stack_push(stack, &boundary_co);
+			start_found = true;
+			break;
+		}
+	}
+
+	while (true && start_found)
+	{
+		int cur_back_offset = -1;
+		for (int i = 0; i < NEIGHBOR_COUNT; i++) {
+			if (backtracked_offset[0][0] == offset[i][0] &&
+				backtracked_offset[0][1] == offset[i][1])
+			{
+				/* Finding the bracktracked pixel's offset index */
+				cur_back_offset = i;
+				break;
+			}
+		}
+
+		int loop = 0;
+		while (loop < (NEIGHBOR_COUNT - 1) && cur_back_offset != -1) {
+			int offset_idx = (cur_back_offset + 1) % NEIGHBOR_COUNT;
+			current_check_co[0] = boundary_co[0] + offset[offset_idx][0];
+			current_check_co[1] = boundary_co[1] + offset[offset_idx][1];
+			
+			int image_idx = ibuf->x * current_check_co[1] + current_check_co[0];
+			get_pixel(ibuf, image_idx, rgba);
+
+			/* find next boundary pixel */
+			if (rgba[1] == 1.0f) {
+				copyint_v2_v2(boundary_co, current_check_co);
+				copyint_v2_v2(backtracked_co, prev_check_co);
+				backtracked_offset[0][0] = backtracked_co[0] - boundary_co[0];
+				backtracked_offset[0][1] = backtracked_co[1] - boundary_co[1];
+
+				BLI_stack_push(stack, &boundary_co);
+
+				break;
+			}
+			copyint_v2_v2(prev_check_co, current_check_co);
+			cur_back_offset++;
+			loop++;
+		}
+		/* current pixel is equal to starting pixel */
+		if (boundary_co[0] == start_co[0] &&
+			boundary_co[1] == start_co[1])
+		{
+			BLI_stack_pop(stack, &v);
+			boundary_found = true;
+			break;
+		}
+	}
+
+	/* release ibuf */
+	if (ibuf) {
+		BKE_image_release_ibuf(tgpf->ima, ibuf, lock);
+	}
+
+	/* debug code */
+	const float outline_col[4] = { 0.0f, 0.0f, 1.0f, 1.0f };
+	while (!BLI_stack_is_empty(stack)) {
+		BLI_stack_pop(stack, &v);
+		printf("(%d, %d)\n", v[0], v[1]);
+		int idx = ibuf->x * v[1] + v[0];
+		set_pixel(ibuf, idx, outline_col);
+	}
+
+	/* free temp stack data*/
+	BLI_stack_free(stack);
+}
 /* ----------------------- */
 /* Drawing Callbacks */
 
@@ -549,7 +676,9 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
 				/* apply boundary fill */
 				gpencil_boundaryfill_area(tgpf);
 
-				/* TODO: analyze outline */
+				/* analyze outline */
+				gpencil_get_outline_points(tgpf);
+
 				/* TODO: create stroke and reproject */
 				/* TODO: delete temp image */
 				estate = OPERATOR_FINISHED;
