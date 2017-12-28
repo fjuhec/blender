@@ -39,10 +39,13 @@
 struct bGPdata;
 struct bGPDstroke;
 struct bGPDspoint;
+struct tGPspoint;
 
 struct GHash;
 
+struct Scene;
 struct ARegion;
+struct View3D;
 struct View2D;
 struct wmOperatorType;
 
@@ -93,6 +96,9 @@ void gp_apply_parent(struct Object *obact, bGPdata *gpd, bGPDlayer *gpl, bGPDstr
 void gp_apply_parent_point(struct Object *obact, bGPdata *gpd, bGPDlayer *gpl, bGPDspoint *pt);
 
 bool gp_point_xy_to_3d(GP_SpaceConversion *gsc, struct Scene *scene, const float screen_co[2], float r_out[3]);
+
+/* helper to convert 2d to 3d */
+void gp_stroke_convertcoords_tpoint(struct Scene *scene, struct ARegion *ar, struct View3D *v3d, const struct tGPspoint *point2D, float out[3]);
 
 /* Poll Callbacks ------------------------------------ */
 /* gpencil_utils.c */

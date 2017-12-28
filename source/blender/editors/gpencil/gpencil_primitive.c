@@ -224,33 +224,6 @@ static void gpencil_primitive_status_indicators(tGPDprimitive *tgpi)
 
 }
 
-/* helper to convert 2d to 3d */
-static void gpencil_stroke_convertcoords(Scene *scene, ARegion *ar, View3D *v3d, const tGPspoint *point2D, float out[3])
-{
-	float mval_f[2];
-	ARRAY_SET_ITEMS(mval_f, point2D->x, point2D->y);
-	float mval_prj[2];
-	float rvec[3], dvec[3];
-	float zfac;
-
-	/* Current method just converts each point in screen-coordinates to
-	* 3D-coordinates using the 3D-cursor as reference.
-	*/
-	const float *cursor = ED_view3d_cursor3d_get(scene, v3d);
-	copy_v3_v3(rvec, cursor);
-
-	zfac = ED_view3d_calc_zfac(ar->regiondata, rvec, NULL);
-
-	if (ED_view3d_project_float_global(ar, rvec, mval_prj, V3D_PROJ_TEST_NOP) == V3D_PROJ_RET_OK) {
-		sub_v2_v2v2(mval_f, mval_prj, mval_f);
-		ED_view3d_win_to_delta(ar, mval_f, dvec, zfac);
-		sub_v3_v3v3(out, rvec, dvec);
-	}
-	else {
-		zero_v3(out);
-	}
-}
-
 /* create a rectangle */
 static void gp_primitive_rectangle(tGPDprimitive *tgpi, bGPDstroke *gps)
 {
@@ -270,7 +243,7 @@ static void gp_primitive_rectangle(tGPDprimitive *tgpi, bGPDstroke *gps)
 
 		pt = &gps->points[i];
 		/* convert screen-coordinates to 3D coordinates */
-		gpencil_stroke_convertcoords(tgpi->scene, tgpi->ar, tgpi->v3d, &point2D, r_out);
+		gp_stroke_convertcoords_tpoint(tgpi->scene, tgpi->ar, tgpi->v3d, &point2D, r_out);
 		copy_v3_v3(&pt->x, r_out);
 		/* if parented change position relative to parent object */
 		gp_apply_parent_point(tgpi->ob, tgpi->gpd, tgpi->gpl, pt);
@@ -326,7 +299,7 @@ static void gp_primitive_circle(tGPDprimitive *tgpi, bGPDstroke *gps)
 
 		pt = &gps->points[i];
 		/* convert screen-coordinates to 3D coordinates */
-		gpencil_stroke_convertcoords(tgpi->scene, tgpi->ar, tgpi->v3d, &point2D, r_out);
+		gp_stroke_convertcoords_tpoint(tgpi->scene, tgpi->ar, tgpi->v3d, &point2D, r_out);
 		copy_v3_v3(&pt->x, r_out);
 		/* if parented change position relative to parent object */
 		gp_apply_parent_point(tgpi->ob, tgpi->gpd, tgpi->gpl, pt);
