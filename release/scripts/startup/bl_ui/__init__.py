@@ -35,6 +35,7 @@ _modules = [
     "properties_data_camera",
     "properties_data_curve",
     "properties_data_empty",
+    "properties_data_groom",
     "properties_data_lamp",
     "properties_data_lattice",
     "properties_data_mesh",

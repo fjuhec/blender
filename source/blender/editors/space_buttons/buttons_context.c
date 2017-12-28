@@ -810,7 +810,7 @@ const char *buttons_context_dir[] = {
 	"texture", "texture_user", "texture_user_property", "bone", "edit_bone",
 	"pose_bone", "particle_system", "particle_system_editable", "particle_settings",
 	"cloth", "soft_body", "fluid", "smoke", "collision", "brush", "dynamic_paint",
-	"line_style", "collection", "workspace", NULL
+	"line_style", "collection", "workspace", "groom", NULL
 };
 
 int buttons_context(const bContext *C, const char *member, bContextDataResult *result)
@@ -1140,6 +1140,10 @@ int buttons_context(const bContext *C, const char *member, bContextDataResult *r
 	}
 	else if (CTX_data_equals(member, "collection")) {
 		set_pointer_type(path, result, &RNA_LayerCollection);
+		return 1;
+	}
+	else if (CTX_data_equals(member, "groom")) {
+		set_pointer_type(path, result, &RNA_Groom);
 		return 1;
 	}
 	else {
