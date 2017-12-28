@@ -739,8 +739,6 @@ static int gpencil_fill_init(bContext *C, wmOperator *op)
 /* start of interactive part of operator */
 static int gpencil_fill_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
-	BKE_report(op->reports, RPT_WARNING, "This operator is not implemented yet");
-
 	tGPDfill *tgpf = NULL;
 
 	/* try to initialize context data needed */
