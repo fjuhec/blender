@@ -64,8 +64,8 @@
 #include "WM_api.h"
 #include "WM_types.h"
 
- /* draw a given stroke in offscreen */
-static void gp_draw_offscreen_stroke(const bGPDspoint *points, int totpoints, 
+ /* draw a given stroke using same thickness and color for all points */
+static void gp_draw_basic_stroke(const bGPDspoint *points, int totpoints, 
 	const float diff_mat[4][4], bool cyclic, float ink[4])
 {
 	float fpt[3];
@@ -96,7 +96,6 @@ static void gp_draw_offscreen_stroke(const bGPDspoint *points, int totpoints,
 		immAttrib4fv(color, ink);
 		mul_v3_m4v3(fpt, diff_mat, &points->x);
 		immVertex3fv(pos, fpt);
-
 	}
 
 	immEnd();
@@ -133,7 +132,7 @@ static void gp_draw_datablock(Scene *scene, Object *ob, bGPdata *gpd, float ink[
 			}
 
 			/* 3D Lines - OpenGL primitives-based */
-			gp_draw_offscreen_stroke(gps->points, gps->totpoints,
+			gp_draw_basic_stroke(gps->points, gps->totpoints,
 				diff_mat, gps->flag & GP_STROKE_CYCLIC, ink);
 		}
 	}
@@ -191,7 +190,7 @@ static void gp_render_offscreen(tGPDfill *tgpf)
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	ED_view3d_update_viewmat(tgpf->eval_ctx, tgpf->scene, tgpf->v3d, tgpf->ar,
-		NULL, winmat, NULL);
+							NULL, winmat, NULL);
 	/* set for opengl */
 	gpuLoadProjectionMatrix(tgpf->rv3d->winmat);
 	gpuLoadMatrix(tgpf->rv3d->viewmat);
@@ -207,10 +206,6 @@ static void gp_render_offscreen(tGPDfill *tgpf)
 
 	gpuPopProjectionMatrix();
 	gpuPopMatrix();
-
-	/* read result pixels */
-	//unsigned char *pixeldata = MEM_mallocN(tgpf->sizex * tgpf->sizey * sizeof(unsigned char) * 4, "gpencil offscreen fill");
-	//GPU_offscreen_read_pixels(offscreen, GL_UNSIGNED_BYTE, pixeldata);
 
 	/* create a image to see result of template */
 	if (ibuf->rect_float) {
@@ -340,7 +335,6 @@ static void gpencil_boundaryfill_area(tGPDfill *tgpf)
 				}
 			}
 		}
-
 	}
 
 	/* release ibuf */
@@ -549,10 +543,6 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
 				tgpf->sizex = region_rect.xmax;
 				tgpf->sizey = region_rect.ymax;
 
-#if 0
-				printf("(%d, %d) in (%d, %d) -> (%d, %d) Do all here!\n", event->mval[0], event->mval[1],
-						region_rect.xmin, region_rect.ymin, region_rect.xmax, region_rect.ymax);
-#endif
 				/* render screen to temp image */
 				gp_render_offscreen(tgpf);
 
@@ -608,5 +598,4 @@ void GPENCIL_OT_fill(wmOperatorType *ot)
 
 	/* flags */
 	ot->flag = OPTYPE_BLOCKING;
-	
 }
