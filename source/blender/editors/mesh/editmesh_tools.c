@@ -6826,13 +6826,16 @@ static int edbm_custom_normal_tools_exec(bContext *C, wmOperator *op)
 				BM_loop_normal_free(ld);
 				return OPERATOR_CANCELLED;
 			}
-			bool join = ld->totloop > 0 ? true : false;
+			bool join = true;
 			for (int i = 0; i < ld->totloop; i++, tld++) {
 				if (!compare_v3v3(ld->normal->nloc, tld->nloc, 1e-4f)) {
 					join = false;
 				}
 			}
-			if (bm->totfacesel == 1) {
+			if (ld->totloop == 1) {
+				copy_v3_v3(scene->toolsettings->normal_vector, ld->normal->nloc);
+			}
+			else if (bm->totfacesel == 1) {
 				BMFace *f;
 				BMIter fiter;
 				BM_ITER_MESH(f, &fiter, bm, BM_FACES_OF_MESH) {
@@ -6841,13 +6844,8 @@ static int edbm_custom_normal_tools_exec(bContext *C, wmOperator *op)
 					}
 				}
 			}
-			else if (ld->totloop == 1 || join) {
+			else if (join) {
 				copy_v3_v3(scene->toolsettings->normal_vector, ld->normal->nloc);
-			}
-			else if (!join) {
-				BKE_report(op->reports, RPT_ERROR, "Can only copy Split normal, Averaged vertex normal or Face normal");
-				BM_loop_normal_free(ld);
-				return OPERATOR_CANCELLED;
 			}
 			break;
 
