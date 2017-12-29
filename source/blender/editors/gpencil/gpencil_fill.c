@@ -18,7 +18,7 @@
  * The Original Code is Copyright (C) 2017, Blender Foundation, Joshua Leung
  * This is a new part of Blender
  *
- * Contributor(s): Joshua Leung, Antonio Vazquez
+ * Contributor(s): Antonio Vazquez, Joshua Leung
  *
  * ***** END GPL LICENSE BLOCK *****
  */
@@ -35,6 +35,8 @@
 #include "BLI_blenlib.h"
 #include "BLI_math.h"
 #include "BLI_stack.h"
+
+#include "BLT_translation.h"
 
 #include "DNA_object_types.h"
 #include "DNA_gpencil_types.h"
@@ -60,6 +62,8 @@
 #include "GPU_draw.h"
 #include "GPU_matrix.h"
 #include "GPU_framebuffer.h"
+
+#include "UI_interface.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -603,7 +607,22 @@ static void gpencil_stroke_from_stack(tGPDfill *tgpf)
 }
 
 /* ----------------------- */
-/* Drawing Callbacks */
+/* Drawing                 */
+/* Helper: Draw status message while the user is running the operator */
+static void gpencil_fill_status_indicators(tGPDfill *tgpf)
+{
+	Scene *scene = tgpf->scene;
+	char status_str[UI_MAX_DRAW_STR];
+
+	if (tgpf->flag & GP_FILL_HIDE_LINES) {
+		BLI_snprintf(status_str, sizeof(status_str), IFACE_("Fill: ESC/RMB cancel, LMB Fill, H Toggle lines, A/Z Threshold: %0.2f"), tgpf->threshold);
+	}
+	else {
+		BLI_snprintf(status_str, sizeof(status_str), IFACE_("Fill: ESC/RMB cancel, LMB Fill, H Toggle lines"));
+	}
+
+	ED_area_headerprint(tgpf->sa, status_str);
+}
 
 /* draw boundary lines to see fill limits */
 static void gpencil_draw_boundary_lines(const bContext *UNUSED(C), tGPDfill *tgpf)
@@ -674,7 +693,8 @@ static tGPDfill *gp_session_init_fill(bContext *C, wmOperator *op)
 	tgpf->palcolor = BKE_palette_color_get_active(tgpf->palette);
 
 	tgpf->lock_axis = ts->gp_sculpt.lock_axis;
-
+	
+	tgpf->threshold = 0.1f;
 	/* return context data for running operator */
 	return tgpf;
 }
@@ -686,11 +706,15 @@ static void gpencil_fill_exit(bContext *C, wmOperator *op)
 	/* restore cursor to indicate end of fill */
 	WM_cursor_modal_restore(CTX_wm_window(C));
 
+
 	tGPDfill *tgpf = op->customdata;
 	bGPdata *gpd = tgpf->gpd;
 
 	/* don't assume that operator data exists at all */
 	if (tgpf) {
+		/* clear status message area */
+		ED_area_headerprint(tgpf->sa, NULL);
+
 		/* remove drawing handler */
 		if (tgpf->draw_handle_3d) {
 			ED_region_draw_cb_exit(tgpf->ar->type, tgpf->draw_handle_3d);
@@ -755,6 +779,9 @@ static int gpencil_fill_invoke(bContext *C, wmOperator *op, const wmEvent *event
 	tgpf->draw_handle_3d = ED_region_draw_cb_activate(tgpf->ar->type, gpencil_fill_draw_3d, tgpf, REGION_DRAW_POST_VIEW);
 
 	WM_cursor_modal_set(CTX_wm_window(C), BC_PAINTBRUSHCURSOR);
+	
+	gpencil_fill_status_indicators(tgpf);
+
 	BKE_gpencil_batch_cache_dirty(tgpf->gpd);
 	WM_event_add_notifier(C, NC_GPENCIL | NA_EDITED, NULL);
 
@@ -778,6 +805,22 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
 		if (ELEM(event->type, ESCKEY)) {
 			estate = OPERATOR_CANCELLED;
 		}
+		if (ELEM(event->type, HKEY)) {
+			/* Just toggle lines */
+			tgpf->flag ^= GP_FILL_HIDE_LINES;
+		}
+		if (ELEM(event->type, AKEY)) {
+			tgpf->threshold -= 0.1f;
+		}
+		if (ELEM(event->type, ZKEY)) {
+			tgpf->threshold += 0.1f;
+		}
+
+		CLAMP(tgpf->threshold, 0.0f, 1.0f);
+		gpencil_fill_status_indicators(tgpf);
+	}
+	if ELEM(event->type, RIGHTMOUSE) {
+		estate = OPERATOR_CANCELLED;
 	}
 	if ELEM(event->type, LEFTMOUSE) {
 		ARegion *ar = BKE_area_find_region_xy(CTX_wm_area(C), RGN_TYPE_ANY, event->x, event->y);

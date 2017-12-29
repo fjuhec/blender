@@ -139,16 +139,24 @@ typedef struct tGPDfill {
 	struct PaletteColor *palcolor;		/* current palette color */
 	struct bGPDlayer *gpl;				/* layer */
 	struct bGPDframe *gpf;				/* frame */
+	
+	int flag;                           /* flags */
 
 	int center[2];						/* mouse fill center position */
 	int sizex;							/* windows width */
 	int sizey;							/* window height */
+	float threshold;                    /* minimum opacity */
 	int lock_axis;						/* lock to viewport axis */
 
 	struct Image *ima;					/* temp image */
 	struct BLI_Stack *stack;			/* temp points data */
 	void *draw_handle_3d;				/* handle for drawing strokes while operator is running 3d stuff */
 } tGPDfill;
+
+typedef enum eGPDfill_Flag {
+	/* hide invisible lines */
+	GP_FILL_HIDE_LINES = (1 << 0),
+} eGPDfill_Flag;
 
 /* Temporary 'Stroke Point' data
  *
