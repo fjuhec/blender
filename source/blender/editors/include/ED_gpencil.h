@@ -62,6 +62,8 @@ struct wmWindowManager;
 struct wmKeyConfig;
 struct wmWindowManager;
 struct EvaluationContext;
+struct Depsgraph;
+struct wmWindow;
 
 /* ------------- Grease-Pencil Helpers ---------------- */
 typedef struct tGPDinterpolate_layer {
@@ -98,6 +100,8 @@ typedef struct tGPDinterpolate {
 
 /* Temporary primitive operation data */
 typedef struct tGPDprimitive {
+	struct Depsgraph *graph;
+	struct wmWindow *win;             /* window where painting originated */
 	struct Scene *scene;              /* current scene from context */
 	struct Object *ob;                /* current active gp object */
 	struct ScrArea *sa;               /* area where painting originated */
@@ -127,6 +131,8 @@ typedef struct tGPDprimitive {
 
 /* Temporary fill operation data */
 typedef struct tGPDfill {
+	struct Depsgraph *graph;
+	struct wmWindow *win;               /* window where painting originated */
 	struct Scene *scene;				/* current scene from context */
 	struct Object *ob;					/* current active gp object */
 	struct EvaluationContext *eval_ctx; /* eval context */
@@ -141,6 +147,7 @@ typedef struct tGPDfill {
 	struct bGPDframe *gpf;				/* frame */
 	
 	int flag;                           /* flags */
+	short oldkey;                       /* avoid too fast events */
 
 	int center[2];						/* mouse fill center position */
 	int sizex;							/* windows width */

@@ -243,7 +243,7 @@ static void gp_primitive_rectangle(tGPDprimitive *tgpi, bGPDstroke *gps)
 
 		pt = &gps->points[i];
 		/* convert screen-coordinates to 3D coordinates */
-		gp_stroke_convertcoords_tpoint(tgpi->scene, tgpi->ar, tgpi->v3d, &point2D, r_out);
+		gp_stroke_convertcoords_tpoint(tgpi->scene, tgpi->ar, tgpi->v3d, tgpi->ob, tgpi->gpl, &point2D, r_out);
 		copy_v3_v3(&pt->x, r_out);
 		/* if parented change position relative to parent object */
 		gp_apply_parent_point(tgpi->ob, tgpi->gpd, tgpi->gpl, pt);
@@ -296,7 +296,7 @@ static void gp_primitive_circle(tGPDprimitive *tgpi, bGPDstroke *gps)
 
 		pt = &gps->points[i];
 		/* convert screen-coordinates to 3D coordinates */
-		gp_stroke_convertcoords_tpoint(tgpi->scene, tgpi->ar, tgpi->v3d, &point2D, r_out);
+		gp_stroke_convertcoords_tpoint(tgpi->scene, tgpi->ar, tgpi->v3d, tgpi->ob, tgpi->gpl, &point2D, r_out);
 		copy_v3_v3(&pt->x, r_out);
 		/* if parented change position relative to parent object */
 		gp_apply_parent_point(tgpi->ob, tgpi->gpd, tgpi->gpl, pt);
@@ -410,7 +410,9 @@ static bool gp_primitive_set_init_values(bContext *C, wmOperator *op, tGPDprimit
 	tgpi->ar = CTX_wm_region(C);
 	tgpi->rv3d = tgpi->ar->regiondata;
 	tgpi->v3d = tgpi->sa->spacedata.first;
-	
+	tgpi->graph = CTX_data_depsgraph(C);
+	tgpi->win = CTX_wm_window(C);
+
 	/* set current frame number */
 	tgpi->cframe = tgpi->scene->r.cfra;
 	

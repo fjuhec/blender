@@ -71,10 +71,15 @@
 #include "gpencil_intern.h"
 
  /* draw a given stroke using same thickness and color for all points */
-static void gp_draw_basic_stroke(const bGPDspoint *points, int totpoints, 
-	const float diff_mat[4][4], bool cyclic, float ink[4])
+static void gp_draw_basic_stroke(bGPDstroke *gps, const float diff_mat[4][4], 
+								bool cyclic, float ink[4], int flag, float thershold)
 {
+	bGPDspoint *points = gps->points;
+	int totpoints = gps->totpoints;
 	float fpt[3];
+	float col[4];
+
+	copy_v4_v4(col, ink);
 
 	/* if cyclic needs more vertex */
 	int cyclic_add = (cyclic) ? 1 : 0;
@@ -91,15 +96,24 @@ static void gp_draw_basic_stroke(const bGPDspoint *points, int totpoints,
 	const bGPDspoint *pt = points;
 
 	for (int i = 0; i < totpoints; i++, pt++) {
+
+		if (flag & GP_FILL_HIDE_LINES) {
+			float alpha = gps->palcolor->rgb[3] * pt->strength;
+			CLAMP(alpha, 0.0f, 1.0f);
+			col[3] = alpha <= thershold ? 0.0f : 1.0f;
+		}
+		else {
+			col[3] = 1.0f;
+		}
 		/* set point */
-		immAttrib4fv(color, ink);
+		immAttrib4fv(color, col);
 		mul_v3_m4v3(fpt, diff_mat, &pt->x);
 		immVertex3fv(pos, fpt);
 	}
 
 	if (cyclic && totpoints > 2) {
 		/* draw line to first point to complete the cycle */
-		immAttrib4fv(color, ink);
+		immAttrib4fv(color, col);
 		mul_v3_m4v3(fpt, diff_mat, &points->x);
 		immVertex3fv(pos, fpt);
 	}
@@ -109,8 +123,14 @@ static void gp_draw_basic_stroke(const bGPDspoint *points, int totpoints,
 }
 
 /* loop all layers */
-static void gp_draw_datablock(Scene *scene, Object *ob, bGPdata *gpd, float ink[4])
+static void gp_draw_datablock(tGPDfill *tgpf, float ink[4])
 {
+	Scene *scene = tgpf->scene;
+	Object *ob = tgpf->ob;
+	bGPdata *gpd = tgpf->gpd;
+
+	glEnable(GL_BLEND);
+
 	float diff_mat[4][4];
 	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
 		/* calculate parent position */
@@ -138,23 +158,22 @@ static void gp_draw_datablock(Scene *scene, Object *ob, bGPdata *gpd, float ink[
 			}
 
 			/* 3D Lines - OpenGL primitives-based */
-			gp_draw_basic_stroke(gps->points, gps->totpoints,
-				diff_mat, gps->flag & GP_STROKE_CYCLIC, ink);
+			gp_draw_basic_stroke(gps, diff_mat, gps->flag & GP_STROKE_CYCLIC, ink, 
+								tgpf->flag, tgpf->threshold);
 		}
 	}
+
+	glDisable(GL_BLEND);
 }
 
  /* draw strokes in offscreen buffer */
 static void gp_render_offscreen(tGPDfill *tgpf)
 {
-	Scene *scene = tgpf->scene;
-	Object *ob = tgpf->ob;
-	bGPdata *gpd = (bGPdata *)ob->data;
 	const char *viewname = "GP";
 	bool is_ortho = false;
 	float winmat[4][4];
 
-	if (!gpd) {
+	if (!tgpf->gpd) {
 		return;
 	}
 
@@ -203,7 +222,7 @@ static void gp_render_offscreen(tGPDfill *tgpf)
 
 	/* draw strokes */
 	float ink[4] = { 1.0f, 0.0f, 0.0f, 1.0f };
-	gp_draw_datablock(scene, ob, gpd, ink);
+	gp_draw_datablock(tgpf, ink);
 
 	/* restore size */
 	tgpf->ar->winx = bwinx;
@@ -561,8 +580,9 @@ static void gpencil_stroke_from_stack(tGPDfill *tgpf)
 		point2D.y = v[1];
 
 		/* convert screen-coordinates to 3D coordinates */
-		gp_stroke_convertcoords_tpoint(tgpf->scene, tgpf->ar, tgpf->v3d, &point2D, r_out);
+		gp_stroke_convertcoords_tpoint(tgpf->scene, tgpf->ar, tgpf->v3d, tgpf->ob, tgpf->gpl, &point2D, r_out);
 		copy_v3_v3(&pt->x, r_out);
+
 		/* if parented change position relative to parent object */
 		gp_apply_parent_point(tgpf->ob, tgpf->gpd, tgpf->gpl, pt);
 
@@ -586,7 +606,6 @@ static void gpencil_stroke_from_stack(tGPDfill *tgpf)
 	}
 
 #if 0
-
 	/* simplify stroke using Ramer-Douglas-Peucker algorithm */
 	BKE_gpencil_simplify_stroke(tgpf->gpl, gps, 0.2f);
 #endif
@@ -597,12 +616,8 @@ static void gpencil_stroke_from_stack(tGPDfill *tgpf)
 		bGPDspoint *tpt = gps->points;
 		ED_gp_get_drawing_reference(tgpf->v3d, tgpf->scene, tgpf->ob, tgpf->gpl,
 			ts->gpencil_v3d_align, origin);
-
-		for (int i = 0; i < gps->totpoints; i++, tpt++) {
-			ED_gp_project_point_to_plane(tgpf->ob, tgpf->rv3d, origin,
-				ts->gp_sculpt.lock_axis - 1,
-				ts->gpencil_src, tpt);
-		}
+		ED_gp_project_stroke_to_plane(tgpf->ob, tgpf->rv3d, gps, origin, 
+			tgpf->lock_axis - 1, ts->gpencil_src);
 	}
 }
 
@@ -627,14 +642,11 @@ static void gpencil_fill_status_indicators(tGPDfill *tgpf)
 /* draw boundary lines to see fill limits */
 static void gpencil_draw_boundary_lines(const bContext *UNUSED(C), tGPDfill *tgpf)
 {
-	Scene *scene = tgpf->scene;
-	Object *ob = tgpf->ob;
-	bGPdata *gpd = (bGPdata *)ob->data;
-	if (!gpd) {
+	if (!tgpf->gpd) {
 		return;
 	}
 	float ink[4] = { 1.0f, 0.0f, 0.0f, 1.0f };
-	gp_draw_datablock(scene, ob, gpd, ink);
+	gp_draw_datablock(tgpf, ink);
 }
 
 /* Drawing callback for modal operator in 3d mode */
@@ -682,6 +694,8 @@ static tGPDfill *gp_session_init_fill(bContext *C, wmOperator *op)
 	tgpf->eval_ctx = bmain->eval_ctx;
 	tgpf->rv3d = tgpf->ar->regiondata;
 	tgpf->v3d = tgpf->sa->spacedata.first;
+	tgpf->graph = CTX_data_depsgraph(C);
+	tgpf->win = CTX_wm_window(C);
 
 	/* set GP datablock */
 	tgpf->gpd = gpd;
@@ -694,7 +708,8 @@ static tGPDfill *gp_session_init_fill(bContext *C, wmOperator *op)
 
 	tgpf->lock_axis = ts->gp_sculpt.lock_axis;
 	
-	tgpf->threshold = 0.1f;
+	tgpf->threshold = 0.01f;
+	tgpf->oldkey = -1;
 	/* return context data for running operator */
 	return tgpf;
 }
@@ -805,19 +820,33 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
 		if (ELEM(event->type, ESCKEY)) {
 			estate = OPERATOR_CANCELLED;
 		}
-		if (ELEM(event->type, HKEY)) {
-			/* Just toggle lines */
-			tgpf->flag ^= GP_FILL_HIDE_LINES;
-		}
-		if (ELEM(event->type, AKEY)) {
-			tgpf->threshold -= 0.1f;
-		}
-		if (ELEM(event->type, ZKEY)) {
-			tgpf->threshold += 0.1f;
-		}
+		/* avoid double press */
+		if (tgpf->oldkey != event->type) {
+			if (ELEM(event->type, HKEY)) {
+				/* Just toggle lines */
+				tgpf->flag ^= GP_FILL_HIDE_LINES;
+				estate = OPERATOR_RUNNING_MODAL;
+			}
+			if (ELEM(event->type, AKEY)) {
+				tgpf->threshold -= 0.01f;
+				estate = OPERATOR_RUNNING_MODAL;
+			}
+			if (ELEM(event->type, ZKEY)) {
+				tgpf->threshold += 0.01f;
+				estate = OPERATOR_RUNNING_MODAL;
+			}
 
-		CLAMP(tgpf->threshold, 0.0f, 1.0f);
-		gpencil_fill_status_indicators(tgpf);
+			CLAMP(tgpf->threshold, 0.0f, 1.0f);
+			gpencil_fill_status_indicators(tgpf);
+			tgpf->oldkey = event->type;
+			float ink[4] = { 1.0f, 0.0f, 0.0f, 1.0f };
+			/* update */
+			gp_draw_datablock(tgpf, ink);
+			WM_event_add_notifier(C, NC_GPENCIL | NA_EDITED, NULL);
+		}
+		else {
+			tgpf->oldkey = -1;
+		}
 	}
 	if ELEM(event->type, RIGHTMOUSE) {
 		estate = OPERATOR_CANCELLED;
@@ -855,11 +884,11 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
 				/* create stroke and reproject */
 				gpencil_stroke_from_stack(tgpf);
 
-				/* delete temp image */
+#if 0				/* delete temp image */
 				if (tgpf->ima) {
 					BKE_image_free(tgpf->ima);
 				}
-
+#endif
 				/* free temp stack data */
 				if (tgpf->stack) {
 					BLI_stack_free(tgpf->stack);
@@ -888,7 +917,6 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
 			break;
 		
 		case OPERATOR_RUNNING_MODAL | OPERATOR_PASS_THROUGH:
-			/* event doesn't need to be handled */
 			break;
 	}
 	
@@ -910,5 +938,5 @@ void GPENCIL_OT_fill(wmOperatorType *ot)
 	ot->cancel = gpencil_fill_cancel;
 
 	/* flags */
-	ot->flag = OPTYPE_BLOCKING;
+	ot->flag = OPTYPE_UNDO | OPTYPE_BLOCKING;
 }

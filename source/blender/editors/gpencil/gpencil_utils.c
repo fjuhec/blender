@@ -1416,8 +1416,11 @@ void ED_gpencil_vgroup_deselect(bContext *C, Object *ob)
 }
 
 /* helper to convert tGPspoint (2d) to 3d */
-void gp_stroke_convertcoords_tpoint(Scene *scene, ARegion *ar, View3D *v3d, const tGPspoint *point2D, float out[3])
+void gp_stroke_convertcoords_tpoint(Scene *scene, ARegion *ar, View3D *v3d, 
+								struct Object *ob, bGPDlayer *gpl, 
+								const tGPspoint *point2D, float out[3])
 {
+	ToolSettings *ts = scene->toolsettings;
 	float mval_f[2];
 	ARRAY_SET_ITEMS(mval_f, point2D->x, point2D->y);
 	float mval_prj[2];
@@ -1427,9 +1430,7 @@ void gp_stroke_convertcoords_tpoint(Scene *scene, ARegion *ar, View3D *v3d, cons
 	/* Current method just converts each point in screen-coordinates to
 	* 3D-coordinates using the 3D-cursor as reference.
 	*/
-	const float *cursor = ED_view3d_cursor3d_get(scene, v3d);
-	copy_v3_v3(rvec, cursor);
-
+	ED_gp_get_drawing_reference(v3d, scene, ob, gpl, ts->gpencil_v3d_align, rvec);
 	zfac = ED_view3d_calc_zfac(ar->regiondata, rvec, NULL);
 
 	if (ED_view3d_project_float_global(ar, rvec, mval_prj, V3D_PROJ_TEST_NOP) == V3D_PROJ_RET_OK) {
