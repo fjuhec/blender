@@ -999,6 +999,8 @@ class GPENCIL_MT_gpencil_draw_specials(Menu):
         layout.separator()
         layout.operator("gpencil.active_frames_delete_all", text="Delete Frame")
 
+        layout.separator()
+        layout.operator("gpencil.fill", icon='BRUSH_DATA', text="Fill")
 
 class GPENCIL_MT_gpencil_vertex_group(Menu):
     bl_label = "GP Vertex Groups"
