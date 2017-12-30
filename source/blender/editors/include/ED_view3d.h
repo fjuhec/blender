@@ -44,6 +44,9 @@ struct Camera;
 struct Depsgraph;
 struct EditBone;
 struct EvaluationContext;
+struct GroomBundle;
+struct GroomSection;
+struct GroomSectionVertex;
 struct ImBuf;
 struct MVert;
 struct Main;
@@ -195,6 +198,15 @@ void pose_foreachScreenBone(
         struct ViewContext *vc,
         void (*func)(void *userData, struct bPoseChannel *pchan,
                      const float screen_co_a[2], const float screen_co_b[2]),
+        void *userData, const eV3DProjTest clip_flag);
+void groom_foreachScreenVert(
+        struct ViewContext *vc,
+        void (*func)(
+            void *userData,
+            struct GroomBundle *bundle,
+            struct GroomSection *section,
+            struct GroomSectionVertex *vert,
+            const float screen_co[2]),
         void *userData, const eV3DProjTest clip_flag);
 /* *** end iterators *** */
 

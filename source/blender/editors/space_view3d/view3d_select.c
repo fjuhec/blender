@@ -89,6 +89,7 @@
 #include "ED_screen.h"
 #include "ED_sculpt.h"
 #include "ED_mball.h"
+#include "ED_groom.h"
 
 #include "UI_interface.h"
 
@@ -2345,6 +2346,8 @@ static int view3d_select_exec(bContext *C, wmOperator *op)
 			retval = ED_mball_select_pick(C, location, extend, deselect, toggle);
 		else if (obedit->type == OB_FONT)
 			retval = ED_curve_editfont_select_pick(C, location, extend, deselect, toggle);
+		else if (obedit->type == OB_GROOM)
+			retval = ED_groom_select_pick(C, location, extend, deselect, toggle);
 			
 	}
 	else if (obact && obact->mode & OB_MODE_PARTICLE_EDIT)

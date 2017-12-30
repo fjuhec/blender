@@ -31,9 +31,11 @@
 #include "DNA_armature_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
+#include "DNA_groom_types.h"
 
 #include "BLI_utildefines.h"
 #include "BLI_rect.h"
+#include "BLI_math.h"
 
 #include "BKE_armature.h"
 #include "BKE_curve.h"
@@ -41,6 +43,7 @@
 #include "BKE_displist.h"
 #include "BKE_editmesh.h"
 #include "BKE_context.h"
+#include "BKE_groom.h"
 
 #include "DEG_depsgraph.h"
 
@@ -394,6 +397,75 @@ void lattice_foreachScreenVert(
 				func(userData, bp, screen_co);
 			}
 		}
+	}
+}
+
+/* ------------------------------------------------------------------------ */
+
+void groom_foreachScreenVert(
+        ViewContext *vc,
+        void (*func)(
+            void *userData,
+            GroomBundle *bundle,
+            GroomSection *section,
+            GroomSectionVertex *vert,
+            const float screen_co[2]),
+        void *userData, const eV3DProjTest clip_flag)
+{
+	GroomEditSettings *edit_settings = &vc->scene->toolsettings->groom_edit_settings;
+	Object *obedit = vc->obedit;
+	Groom *groom = obedit->data;
+	ListBase *bundles = &groom->editgroom->bundles;
+
+	ED_view3d_check_mats_rv3d(vc->rv3d);
+
+	if (clip_flag & V3D_PROJ_TEST_CLIP_BB) {
+		ED_view3d_clipping_local(vc->rv3d, obedit->obmat); /* for local clipping lookups */
+	}
+
+	switch (edit_settings->mode)
+	{
+		case GM_EDIT_MODE_REGIONS:
+			// TODO
+			break;
+
+		case GM_EDIT_MODE_CURVES:
+			for (GroomBundle *bundle = bundles->first; bundle; bundle = bundle->next)
+			{
+				GroomSection *section = bundle->sections;
+				for (int i = 0; i < bundle->totsections; ++i, ++section)
+				{
+					float screen_co[2];
+					if (ED_view3d_project_float_object(vc->ar, section->center, screen_co, clip_flag) == V3D_PROJ_RET_OK)
+					{
+						func(userData, bundle, section, NULL, screen_co);
+					}
+				}
+			}
+			break;
+
+		case GM_EDIT_MODE_SECTIONS:
+			for (GroomBundle *bundle = bundles->first; bundle; bundle = bundle->next)
+			{
+				GroomSectionVertex *vertex = bundle->verts;
+				GroomSection *section = bundle->sections;
+				for (int i = 0; i < bundle->totsections; ++i, ++section)
+				{
+					for (int j = 0; j < bundle->numloopverts; ++j, ++vertex)
+					{
+						float co[3] = {vertex->co[0], vertex->co[1], 0.0f};
+						mul_m3_v3(section->mat, co);
+						add_v3_v3(co, section->center);
+						
+						float screen_co[2];
+						if (ED_view3d_project_float_object(vc->ar, co, screen_co, clip_flag) == V3D_PROJ_RET_OK)
+						{
+							func(userData, bundle, section, vertex, screen_co);
+						}
+					}
+				}
+			}
+			break;
 	}
 }
 

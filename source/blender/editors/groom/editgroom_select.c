@@ -250,3 +250,193 @@ void GROOM_OT_select_all(wmOperatorType *ot)
 	/* properties */
 	WM_operator_properties_select_all(ot);
 }
+
+/****************************** Mouse Selection *************************/
+
+static void select_pick_findnearest_cb(
+        void *userdata,
+        GroomBundle *bundle,
+        GroomSection *section,
+        GroomSectionVertex *vertex,
+        const float screen_co[2])
+{
+	struct
+	{
+		GroomBundle *bundle;
+		GroomSection *section;
+		GroomSectionVertex *vertex;
+		float dist;
+		bool select;
+		float mval_fl[2];
+	} *data = userdata;
+
+	float dist_test = len_manhattan_v2v2(data->mval_fl, screen_co);
+	
+	/* bias towards unselected items */
+	if (data->select &&
+	    ((vertex && vertex->flag & GM_VERTEX_SELECT) ||
+	     (section && section->flag & GM_SECTION_SELECT) ||
+	     (bundle && bundle->flag & GM_BUNDLE_SELECT)))
+	{
+		dist_test += 5.0f;
+	}
+
+	if (dist_test < data->dist) {
+		data->dist = dist_test;
+		data->bundle = bundle;
+		data->section = section;
+		data->vertex = vertex;
+	}
+}
+
+static void groom_set_region_select_flags(Groom *groom, int flag)
+{
+	for (GroomBundle *bundle = groom->editgroom->bundles.first; bundle; bundle = bundle->next)
+	{
+		bundle->flag = (bundle->flag & ~GM_BUNDLE_SELECT) | (flag & GM_BUNDLE_SELECT);
+	}
+}
+
+static void groom_set_curve_select_flags(Groom *groom, int flag)
+{
+	for (GroomBundle *bundle = groom->editgroom->bundles.first; bundle; bundle = bundle->next)
+	{
+		GroomSection *section = bundle->sections;
+		for (int i = 0; i < bundle->totsections; ++i, ++section)
+		{
+			section->flag = (section->flag & ~GM_SECTION_SELECT) | (flag & GM_SECTION_SELECT);
+		}
+	}
+}
+
+static void groom_set_section_select_flags(Groom *groom, int flag)
+{
+	for (GroomBundle *bundle = groom->editgroom->bundles.first; bundle; bundle = bundle->next)
+	{
+		GroomSectionVertex *vertex = bundle->verts;
+		for (int i = 0; i < bundle->totverts; ++i, ++vertex)
+		{
+			vertex->flag = (vertex->flag & ~GM_VERTEX_SELECT) | (flag & GM_VERTEX_SELECT);
+		}
+	}
+}
+
+bool ED_groom_select_pick(bContext *C, const int mval[2], bool extend, bool deselect, bool toggle)
+{
+	ViewContext vc;
+	view3d_set_viewcontext(C, &vc);
+	Groom *groom = vc.obedit->data;
+
+	struct
+	{
+		GroomBundle *bundle;
+		GroomSection *section;
+		GroomSectionVertex *vertex;
+		float dist;
+		bool select;
+		float mval_fl[2];
+	} data = {NULL};
+
+	data.dist = ED_view3d_select_dist_px();
+	data.select = true;
+	data.mval_fl[0] = mval[0];
+	data.mval_fl[1] = mval[1];
+
+	ED_view3d_init_mats_rv3d(vc.obedit, vc.rv3d);
+	groom_foreachScreenVert(&vc, select_pick_findnearest_cb, &data, V3D_PROJ_TEST_CLIP_DEFAULT);
+
+	bool found = false;
+	if (data.vertex)
+	{
+		if (extend)
+		{
+			data.vertex->flag |= GM_VERTEX_SELECT;
+		}
+		else if (deselect)
+		{
+			data.vertex->flag &= ~GM_VERTEX_SELECT;
+		}
+		else if (toggle)
+		{
+			data.vertex->flag ^= GM_VERTEX_SELECT;
+		}
+		else
+		{
+			/* deselect all other verts */
+			groom_set_section_select_flags(groom, 0);
+			data.vertex->flag |= GM_VERTEX_SELECT;
+		}
+		
+		if (data.vertex->flag & GM_VERTEX_SELECT)
+		{
+			/* set active section */
+			groom_set_region_select_flags(groom, 0);
+			groom_set_curve_select_flags(groom, 0);
+			data.section->flag |= GM_SECTION_SELECT;
+			data.bundle->flag |= GM_BUNDLE_SELECT;
+		}
+		
+		found = true;
+	}
+	else if (data.section)
+	{
+		if (extend)
+		{
+			data.section->flag |= GM_SECTION_SELECT;
+		}
+		else if (deselect)
+		{
+			data.section->flag &= ~GM_SECTION_SELECT;
+		}
+		else if (toggle)
+		{
+			data.section->flag ^= GM_SECTION_SELECT;
+		}
+		else
+		{
+			/* deselect all other sections */
+			groom_set_curve_select_flags(groom, 0);
+			data.section->flag |= GM_SECTION_SELECT;
+		}
+		
+		if (data.section->flag & GM_SECTION_SELECT)
+		{
+			/* set active region */
+			groom_set_region_select_flags(groom, 0);
+			data.bundle->flag |= GM_BUNDLE_SELECT;
+		}
+		
+		found = true;
+	}
+	else if (data.bundle)
+	{
+		if (extend)
+		{
+			data.bundle->flag |= GM_BUNDLE_SELECT;
+		}
+		else if (deselect)
+		{
+			data.bundle->flag &= ~GM_BUNDLE_SELECT;
+		}
+		else if (toggle)
+		{
+			data.bundle->flag ^= GM_BUNDLE_SELECT;
+		}
+		else
+		{
+			/* deselect all other regions */
+			groom_set_region_select_flags(groom, 0);
+			data.bundle->flag |= GM_BUNDLE_SELECT;
+		}
+		
+		found = true;
+	}
+
+	if (found)
+	{
+		WM_event_add_notifier(C, NC_GEOM | ND_SELECT, vc.obedit->data);
+		return true;
+	}
+
+	return false;
+}

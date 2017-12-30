@@ -61,4 +61,6 @@ void ED_groom_select_regions(struct EditGroom *edit, EditGroomSelectCb select_cb
 void ED_groom_select_curves(struct EditGroom *edit, EditGroomSelectCb select_cb, void *userdata);
 void ED_groom_select_sections(struct EditGroom *edit, EditGroomSelectCb select_cb, void *userdata);
 
+bool ED_groom_select_pick(struct bContext *C, const int mval[2], bool extend, bool deselect, bool toggle);
+
 #endif /* __ED_GROOM_H__ */
