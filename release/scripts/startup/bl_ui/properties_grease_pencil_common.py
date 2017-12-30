@@ -1002,6 +1002,11 @@ class GPENCIL_MT_gpencil_draw_specials(Menu):
         layout.separator()
         layout.operator("gpencil.fill", icon='BRUSH_DATA', text="Fill")
 
+        layout.separator()
+        layout.operator("gpencil.primitive", text="Rectangle", icon='UV_FACESEL').type = 'BOX'
+        layout.operator("gpencil.primitive", text="Circle", icon='ANTIALIASED').type = 'CIRCLE'
+
+
 class GPENCIL_MT_gpencil_vertex_group(Menu):
     bl_label = "GP Vertex Groups"
 
