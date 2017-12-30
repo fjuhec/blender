@@ -710,6 +710,10 @@ static tGPDfill *gp_session_init_fill(bContext *C, wmOperator *op)
 	
 	tgpf->threshold = 0.01f;
 	tgpf->oldkey = -1;
+
+	/* init undo */
+	gpencil_undo_init(tgpf->gpd);
+
 	/* return context data for running operator */
 	return tgpf;
 }
@@ -718,6 +722,10 @@ static tGPDfill *gp_session_init_fill(bContext *C, wmOperator *op)
 static void gpencil_fill_exit(bContext *C, wmOperator *op)
 {
 	Object *ob = CTX_data_active_object(C);
+
+	/* clear undo stack */
+	gpencil_undo_finish();
+
 	/* restore cursor to indicate end of fill */
 	WM_cursor_modal_restore(CTX_wm_window(C));
 
@@ -903,6 +911,9 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
 					BLI_stack_free(tgpf->stack);
 				}
 
+				/* push undo data */
+				gpencil_undo_push(tgpf->gpd);
+
 				estate = OPERATOR_FINISHED;
 			}
 			else {
@@ -947,6 +958,5 @@ void GPENCIL_OT_fill(wmOperatorType *ot)
 	ot->cancel = gpencil_fill_cancel;
 
 	/* flags */
-	/* XXX: The undo is not working */
-	ot->flag = OPTYPE_BLOCKING;
+	ot->flag = OPTYPE_UNDO | OPTYPE_BLOCKING;
 }
