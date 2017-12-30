@@ -583,9 +583,6 @@ static void gpencil_stroke_from_stack(tGPDfill *tgpf)
 		gp_stroke_convertcoords_tpoint(tgpf->scene, tgpf->ar, tgpf->v3d, tgpf->ob, tgpf->gpl, &point2D, r_out);
 		copy_v3_v3(&pt->x, r_out);
 
-		/* if parented change position relative to parent object */
-		gp_apply_parent_point(tgpf->ob, tgpf->gpd, tgpf->gpl, pt);
-
 		pt->pressure = 1.0f;
 		pt->strength = 1.0f;;
 		pt->time = 0.0f;
@@ -619,6 +616,13 @@ static void gpencil_stroke_from_stack(tGPDfill *tgpf)
 		ED_gp_project_stroke_to_plane(tgpf->ob, tgpf->rv3d, gps, origin, 
 			tgpf->lock_axis - 1, ts->gpencil_src);
 	}
+
+	/* if parented change position relative to parent object */
+	for (int i = 0; i < totpoints; i++) {
+		pt = &gps->points[i];
+		gp_apply_parent_point(tgpf->ob, tgpf->gpd, tgpf->gpl, pt);
+	}
+
 }
 
 /* ----------------------- */
