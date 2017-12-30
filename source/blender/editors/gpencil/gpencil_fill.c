@@ -527,7 +527,6 @@ static  void gpencil_get_outline_points(tGPDfill *tgpf)
 		set_pixel(ibuf, idx, outline_col);
 	}
 #endif 
-
 }
 
 /* create a grease pencil stroke using points in stack */
@@ -620,7 +619,6 @@ static void gpencil_stroke_from_stack(tGPDfill *tgpf)
 
 	/* simplify stroke */
 	BKE_gpencil_simplify_fixed(tgpf->gpl, gps);
-
 }
 
 /* ----------------------- */
