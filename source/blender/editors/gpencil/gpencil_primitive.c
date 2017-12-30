@@ -245,8 +245,6 @@ static void gp_primitive_rectangle(tGPDprimitive *tgpi, bGPDstroke *gps)
 		/* convert screen-coordinates to 3D coordinates */
 		gp_stroke_convertcoords_tpoint(tgpi->scene, tgpi->ar, tgpi->v3d, tgpi->ob, tgpi->gpl, &point2D, r_out);
 		copy_v3_v3(&pt->x, r_out);
-		/* if parented change position relative to parent object */
-		gp_apply_parent_point(tgpi->ob, tgpi->gpd, tgpi->gpl, pt);
 
 		pt->pressure = 1.0f;
 		pt->strength = tgpi->brush->draw_strength;
@@ -266,6 +264,12 @@ static void gp_primitive_rectangle(tGPDprimitive *tgpi, bGPDstroke *gps)
 
 		ED_gp_project_stroke_to_plane(tgpi->ob, tgpi->rv3d, gps, origin,
 			tgpi->lock_axis - 1, ts->gpencil_src);
+	}
+
+	/* if parented change position relative to parent object */
+	for (int i = 0; i < totpoints; i++) {
+		pt = &gps->points[i];
+		gp_apply_parent_point(tgpi->ob, tgpi->gpd, tgpi->gpl, pt);
 	}
 
 	/* force fill recalc */
@@ -298,8 +302,6 @@ static void gp_primitive_circle(tGPDprimitive *tgpi, bGPDstroke *gps)
 		/* convert screen-coordinates to 3D coordinates */
 		gp_stroke_convertcoords_tpoint(tgpi->scene, tgpi->ar, tgpi->v3d, tgpi->ob, tgpi->gpl, &point2D, r_out);
 		copy_v3_v3(&pt->x, r_out);
-		/* if parented change position relative to parent object */
-		gp_apply_parent_point(tgpi->ob, tgpi->gpd, tgpi->gpl, pt);
 
 		pt->pressure = 1.0f;
 		pt->strength = tgpi->brush->draw_strength;
@@ -322,6 +324,12 @@ static void gp_primitive_circle(tGPDprimitive *tgpi, bGPDstroke *gps)
 			                             ts->gp_sculpt.lock_axis - 1,
 			                             ts->gpencil_src, tpt);
 		}
+	}
+
+	/* if parented change position relative to parent object */
+	for (int i = 0; i < totpoints; i++) {
+		pt = &gps->points[i];
+		gp_apply_parent_point(tgpi->ob, tgpi->gpd, tgpi->gpl, pt);
 	}
 
 	/* force fill recalc */
