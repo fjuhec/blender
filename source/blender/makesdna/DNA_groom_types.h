@@ -74,6 +74,12 @@ typedef struct GroomCurveCache
 	float mat[3][3];                    /* Local coordinate frame */
 } GroomCurveCache;
 
+/* Shape curve for an interpolated section */
+typedef struct GroomShapeCache
+{
+	float co[2];                        /* Location in the section plane */
+} GroomShapeCache;
+
 /* Bundle of hair strands following the same curve path */
 typedef struct GroomBundle {
 	struct GroomBundle *next, *prev;    /* Pointers for ListBase element */
@@ -83,12 +89,13 @@ typedef struct GroomBundle {
 	int numloopverts;                       /* Vertices per section loop */
 	int totsections;                        /* Number of sections along the curve */
 	int totverts;                           /* Number of vertices of all sections combined */
-	int totcache;                           /* Number of cached curve steps */
-	int pad;
+	int totcurvecache;                      /* Number of cached curve steps */
+	int totshapecache;                      /* Number of cached shape vectors */
 	
 	struct GroomSection *sections;          /* List of sections */
 	struct GroomSectionVertex *verts;       /* List of vertices */
-	struct GroomCurveCache *curve_cache;    /* Cached curve step */
+	struct GroomCurveCache *curvecache;     /* Cached center curve */
+	struct GroomShapeCache *shapecache;     /* Cached 2D shape curves */
 } GroomBundle;
 
 typedef enum GroomBundleFlag

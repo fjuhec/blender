@@ -72,9 +72,13 @@ static void groom_bundles_free(ListBase *bundles)
 {
 	for (GroomBundle *bundle = bundles->first; bundle; bundle = bundle->next)
 	{
-		if (bundle->curve_cache)
+		if (bundle->curvecache)
 		{
-			MEM_freeN(bundle->curve_cache);
+			MEM_freeN(bundle->curvecache);
+		}
+		if (bundle->shapecache)
+		{
+			MEM_freeN(bundle->shapecache);
 		}
 		if (bundle->verts)
 		{
@@ -93,9 +97,13 @@ static void groom_bundles_copy(ListBase *bundles_dst, ListBase *bundles_src)
 	BLI_duplicatelist(bundles_dst, bundles_src);
 	for (GroomBundle *bundle = bundles_dst->first; bundle; bundle = bundle->next)
 	{
-		if (bundle->curve_cache)
+		if (bundle->curvecache)
 		{
-			bundle->curve_cache = MEM_dupallocN(bundle->curve_cache);
+			bundle->curvecache = MEM_dupallocN(bundle->curvecache);
+		}
+		if (bundle->shapecache)
+		{
+			bundle->shapecache = MEM_dupallocN(bundle->shapecache);
 		}
 		if (bundle->sections)
 		{

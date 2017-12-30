@@ -79,9 +79,13 @@ static void groom_bundles_free(ListBase *bundles)
 {
 	for (GroomBundle *bundle = bundles->first; bundle; bundle = bundle->next)
 	{
-		if (bundle->curve_cache)
+		if (bundle->curvecache)
 		{
-			MEM_freeN(bundle->curve_cache);
+			MEM_freeN(bundle->curvecache);
+		}
+		if (bundle->shapecache)
+		{
+			MEM_freeN(bundle->shapecache);
 		}
 		if (bundle->sections)
 		{
@@ -132,9 +136,13 @@ void BKE_groom_copy_data(Main *UNUSED(bmain), Groom *groom_dst, const Groom *gro
 	BLI_duplicatelist(&groom_dst->bundles, &groom_src->bundles);
 	for (GroomBundle *bundle = groom_dst->bundles.first; bundle; bundle = bundle->next)
 	{
-		if (bundle->curve_cache)
+		if (bundle->curvecache)
 		{
-			bundle->curve_cache = MEM_dupallocN(bundle->curve_cache);
+			bundle->curvecache = MEM_dupallocN(bundle->curvecache);
+		}
+		if (bundle->shapecache)
+		{
+			bundle->shapecache = MEM_dupallocN(bundle->shapecache);
 		}
 		if (bundle->sections)
 		{
@@ -206,34 +214,6 @@ void BKE_groom_boundbox_calc(Groom *groom, float r_loc[3], float r_size[3])
 
 /* === Depsgraph evaluation === */
 
-/* linear bspline section eval */
-static void groom_eval_curve_cache_section_linear(
-        GroomBundle *bundle,
-        int isection,
-        int curve_res)
-{
-	BLI_assert(bundle->totsections > 1);
-	BLI_assert(isection < bundle->totsections - 1);
-	BLI_assert(curve_res >= 1);
-	
-	GroomSection *section = &bundle->sections[isection];
-	const float *co0 = section->center;
-	const float *co1 = (section+1)->center;
-	
-	float dx[3];
-	sub_v3_v3v3(dx, co1, co0);
-	mul_v3_fl(dx, 1.0f / curve_res);
-	
-	GroomCurveCache *cache = bundle->curve_cache + curve_res * isection;
-	float x[3];
-	copy_v3_v3(x, co0);
-	for (int i = 0; i <= curve_res; ++i, ++cache)
-	{
-		copy_v3_v3(cache->co, x);
-		add_v3_v3(x, dx);
-	}
-}
-
 /* forward differencing method for cubic polynomial eval */
 static void groom_forward_diff_cubic(float a, float b, float c, float d, float *p, int it, int stride)
 {
@@ -257,17 +237,17 @@ static void groom_forward_diff_cubic(float a, float b, float c, float d, float *
 }
 
 /* cubic bspline section eval */
-static void groom_eval_curve_cache_section_cubic(
+static void groom_eval_curve_cache_section(
         GroomBundle *bundle,
         int isection,
         int curve_res)
 {
-	BLI_assert(bundle->totsections > 2);
+	BLI_assert(bundle->totsections >= 2);
 	BLI_assert(isection < bundle->totsections - 1);
 	BLI_assert(curve_res >= 1);
 	
 	GroomSection *section = &bundle->sections[isection];
-	GroomCurveCache *cache = bundle->curve_cache + curve_res * isection;
+	GroomCurveCache *cache = bundle->curvecache + curve_res * isection;
 	
 	const float *co0 = (section-1)->center;
 	const float *co1 = section->center;
@@ -279,19 +259,22 @@ static void groom_eval_curve_cache_section_cubic(
 	{
 		/* define tangents from segment direction */
 		float n1, n2;
+		
 		if (isection == 0)
 		{
 			n1 = co2[k] - co1[k];
-			n2 = 0.5f * (co3[k] - co1[k]);
-		}
-		else if (isection == bundle->totsections - 2)
-		{
-			n1 = 0.5f * (co2[k] - co0[k]);
-			n2 = co2[k] - co1[k];
 		}
 		else
 		{
 			n1 = 0.5f * (co2[k] - co0[k]);
+		}
+		
+		if (isection == bundle->totsections - 2)
+		{
+			n2 = co2[k] - co1[k];
+		}
+		else
+		{
 			n2 = 0.5f * (co3[k] - co1[k]);
 		}
 		
@@ -302,6 +285,64 @@ static void groom_eval_curve_cache_section_cubic(
 		d = co1[k];
 		
 		groom_forward_diff_cubic(a, b, c, d, cache->co + k, curve_res, sizeof(GroomCurveCache));
+	}
+}
+
+/* cubic bspline section eval */
+static void groom_eval_shape_cache_section(
+        GroomBundle *bundle,
+        int isection,
+        int curve_res)
+{
+	BLI_assert(bundle->totsections > 1);
+	BLI_assert(isection < bundle->totsections - 1);
+	BLI_assert(curve_res >= 1);
+	
+	const int numloopverts = bundle->numloopverts;
+	GroomSectionVertex *loop0 = &bundle->verts[numloopverts * (isection-1)];
+	GroomSectionVertex *loop1 = &bundle->verts[numloopverts * isection];
+	GroomSectionVertex *loop2 = &bundle->verts[numloopverts * (isection+1)];
+	GroomSectionVertex *loop3 = &bundle->verts[numloopverts * (isection+2)];
+	GroomShapeCache *cache = bundle->shapecache + curve_res * numloopverts * isection;
+	for (int v = 0; v < numloopverts; ++v, ++loop0, ++loop1, ++loop2, ++loop3, ++cache)
+	{
+		const float *co0 = loop0->co;
+		const float *co1 = loop1->co;
+		const float *co2 = loop2->co;
+		const float *co3 = loop3->co;
+		
+		float a, b, c, d;
+		for (int k = 0; k < 2; ++k)
+		{
+			/* define tangents from segment direction */
+			float n1, n2;
+			
+			if (isection == 0)
+			{
+				n1 = co2[k] - co1[k];
+			}
+			else
+			{
+				n1 = 0.5f * (co2[k] - co0[k]);
+			}
+			
+			if (isection == bundle->totsections - 2)
+			{
+				n2 = co2[k] - co1[k];
+			}
+			else
+			{
+				n2 = 0.5f * (co3[k] - co1[k]);
+			}
+			
+			/* Hermite spline interpolation */
+			a = 2.0f * (co1[k] - co2[k]) + n1 + n2;
+			b = 3.0f * (co2[k] - co1[k]) - 2.0f * n1 - n2;
+			c = n1;
+			d = co1[k];
+			
+			groom_forward_diff_cubic(a, b, c, d, cache->co + k, curve_res, sizeof(GroomShapeCache) * numloopverts);
+		}
 	}
 }
 
@@ -357,29 +398,36 @@ void BKE_groom_eval_curve_cache(const EvaluationContext *UNUSED(eval_ctx), Scene
 		if (totsections == 0)
 		{
 			/* clear cache */
-			if (bundle->curve_cache)
+			if (bundle->curvecache)
 			{
-				MEM_freeN(bundle->curve_cache);
-				bundle->curve_cache = NULL;
-				bundle->totcache = 0;
+				MEM_freeN(bundle->curvecache);
+				bundle->curvecache = NULL;
+				bundle->totcurvecache = 0;
+			}
+			if (bundle->shapecache)
+			{
+				MEM_freeN(bundle->shapecache);
+				bundle->shapecache = NULL;
+				bundle->totshapecache = 0;
 			}
 			
 			/* nothing to do */
 			continue;
 		}
 		
-		bundle->totcache = (totsections-1) * groom->curve_res + 1;
-		bundle->curve_cache = MEM_reallocN_id(bundle->curve_cache, sizeof(GroomCurveCache) * bundle->totcache, "groom bundle curve cache");
+		bundle->totcurvecache = (totsections-1) * groom->curve_res + 1;
+		bundle->totshapecache = bundle->totcurvecache * bundle->numloopverts;
+		bundle->curvecache = MEM_reallocN_id(bundle->curvecache, sizeof(GroomCurveCache) * bundle->totcurvecache, "groom bundle curve cache");
+		bundle->shapecache = MEM_reallocN_id(bundle->shapecache, sizeof(GroomShapeCache) * bundle->totshapecache, "groom bundle shape cache");
 		
 		if (totsections == 1)
 		{
 			/* degenerate case */
-			copy_v3_v3(bundle->curve_cache[0].co, bundle->sections[0].center);
-		}
-		else if (totsections == 2)
-		{
-			/* single section, linear */
-			groom_eval_curve_cache_section_linear(bundle, 0, groom->curve_res);
+			copy_v3_v3(bundle->curvecache[0].co, bundle->sections[0].center);
+			for (int i = 0; i < bundle->numloopverts; ++i)
+			{
+				copy_v2_v2(bundle->shapecache[i].co, bundle->verts[i].co);
+			}
 		}
 		else
 		{
@@ -387,18 +435,19 @@ void BKE_groom_eval_curve_cache(const EvaluationContext *UNUSED(eval_ctx), Scene
 			GroomSection *section = bundle->sections;
 			for (int i = 0; i < totsections-1; ++i, ++section)
 			{
-				groom_eval_curve_cache_section_cubic(bundle, i, groom->curve_res);
+				groom_eval_curve_cache_section(bundle, i, groom->curve_res);
+				groom_eval_shape_cache_section(bundle, i, groom->curve_res);
 			}
 		}
 		
 		float basemat[3][3];
 		unit_m3(basemat); // TODO
-		groom_eval_curve_cache_mats(bundle->curve_cache, bundle->totcache, basemat);
+		groom_eval_curve_cache_mats(bundle->curvecache, bundle->totcurvecache, basemat);
 		
 		/* Copy coordinate frame to sections */
 		{
 			GroomSection *section = bundle->sections;
-			GroomCurveCache *cache = bundle->curve_cache;
+			GroomCurveCache *cache = bundle->curvecache;
 			for (int i = 0; i < totsections; ++i, ++section, cache += groom->curve_res)
 			{
 				copy_m3_m3(section->mat, cache->mat);
@@ -411,11 +460,17 @@ static void groom_bundles_curve_cache_clear(ListBase *bundles)
 {
 	for (GroomBundle *bundle = bundles->first; bundle; bundle = bundle->next)
 	{
-		if (bundle->curve_cache)
+		if (bundle->curvecache)
 		{
-			MEM_freeN(bundle->curve_cache);
-			bundle->curve_cache = NULL;
-			bundle->totcache = 0;
+			MEM_freeN(bundle->curvecache);
+			bundle->curvecache = NULL;
+			bundle->totcurvecache = 0;
+		}
+		if (bundle->shapecache)
+		{
+			MEM_freeN(bundle->shapecache);
+			bundle->shapecache = NULL;
+			bundle->totshapecache = 0;
 		}
 	}
 }
