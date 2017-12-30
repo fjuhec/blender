@@ -602,11 +602,6 @@ static void gpencil_stroke_from_stack(tGPDfill *tgpf)
 		reduce += 0.25f;  // reduce the factor
 	}
 
-#if 0
-	/* simplify stroke using Ramer-Douglas-Peucker algorithm */
-	BKE_gpencil_simplify_stroke(tgpf->gpl, gps, 0.2f);
-#endif
-
 	/* if axis locked, reproject to plane locked */
 	if (tgpf->lock_axis > GP_LOCKAXIS_NONE) {
 		float origin[3];
@@ -622,6 +617,9 @@ static void gpencil_stroke_from_stack(tGPDfill *tgpf)
 		pt = &gps->points[i];
 		gp_apply_parent_point(tgpf->ob, tgpf->gpd, tgpf->gpl, pt);
 	}
+
+	/* simplify stroke */
+	BKE_gpencil_simplify_fixed(tgpf->gpl, gps);
 
 }
 
