@@ -567,8 +567,8 @@ static void gpencil_stroke_from_stack(tGPDfill *tgpf)
 	gps->triangles = NULL;
 	gps->flag |= GP_STROKE_RECALC_CACHES;
 
-	/* add to strokes to head to be on back */
-	BLI_addhead(&tgpf->gpf->strokes, gps);
+	/* add stroke to frame */
+	BLI_addtail(&tgpf->gpf->strokes, gps);
 
 	/* add points */
 	pt = gps->points;
