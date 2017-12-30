@@ -790,6 +790,13 @@ static int gpencil_fill_invoke(bContext *C, wmOperator *op, const wmEvent *event
 		tgpf = op->customdata;
 	}
 
+	/* Must use a color with pill */
+	if (tgpf->palcolor->fill[3] < GPENCIL_ALPHA_OPACITY_THRESH) {
+		BKE_report(op->reports, RPT_ERROR, "The current color must have fill enabled");
+		return OPERATOR_CANCELLED;
+	}
+
+
 	/* Enable custom drawing handlers */
 	tgpf->draw_handle_3d = ED_region_draw_cb_activate(tgpf->ar->type, gpencil_fill_draw_3d, tgpf, REGION_DRAW_POST_VIEW);
 
