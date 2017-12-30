@@ -894,7 +894,9 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
 #if 0				/* delete temp image */
 				if (tgpf->ima) {
 					BKE_image_free(tgpf->ima);
-				}
+					MEM_SAFE_FREE(tgpf->ima);
+					tgpf->ima = NULL;
+			}
 #endif
 				/* free temp stack data */
 				if (tgpf->stack) {
@@ -945,5 +947,6 @@ void GPENCIL_OT_fill(wmOperatorType *ot)
 	ot->cancel = gpencil_fill_cancel;
 
 	/* flags */
-	ot->flag = OPTYPE_UNDO | OPTYPE_BLOCKING;
+	/* XXX: The undo is not working */
+	ot->flag = OPTYPE_BLOCKING;
 }
