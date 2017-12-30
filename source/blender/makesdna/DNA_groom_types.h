@@ -54,13 +54,12 @@ typedef enum GroomVertexFlag
 
 /* Cross-section of a bundle */
 typedef struct GroomSection {
-	struct GroomSection *next, *prev; /* Pointers for ListBase element */
-	
 	int flag;
 	int pad;
 	
 	float center[3];                        /* Center point */
-	float normal[3];                        /* Normal direction of the section plane */
+	
+	float mat[3][3];                        /* Local coordinate frame */
 } GroomSection;
 
 typedef enum GroomSectionFlag
@@ -68,18 +67,28 @@ typedef enum GroomSectionFlag
 	GM_SECTION_SELECT       = (1 << 0),
 } GroomSectionFlag;
 
+/* Single interpolated step along a groom curve */
+typedef struct GroomCurveCache
+{
+	float co[3];                        /* Translation vector */
+	float mat[3][3];                    /* Local coordinate frame */
+} GroomCurveCache;
+
 /* Bundle of hair strands following the same curve path */
 typedef struct GroomBundle {
 	struct GroomBundle *next, *prev;    /* Pointers for ListBase element */
 	
 	int flag;
 	
-	int numloopverts;                   /* Vertices per section loop */
-	int totsections;                    /* Number of sections along the curve */
-	int totverts;                       /* Number of vertices of all sections combined */
+	int numloopverts;                       /* Vertices per section loop */
+	int totsections;                        /* Number of sections along the curve */
+	int totverts;                           /* Number of vertices of all sections combined */
+	int totcache;                           /* Number of cached curve steps */
+	int pad;
 	
-	struct GroomSection *sections;      /* List of sections */
-	struct GroomSectionVertex *verts;   /* List of vertices */
+	struct GroomSection *sections;          /* List of sections */
+	struct GroomSectionVertex *verts;       /* List of vertices */
+	struct GroomCurveCache *curve_cache;    /* Cached curve step */
 } GroomBundle;
 
 typedef enum GroomBundleFlag
@@ -89,17 +98,20 @@ typedef enum GroomBundleFlag
 
 /* Editable groom data */
 typedef struct EditGroom {
-	ListBase bundles;       /* List of GroomBundle */
+	ListBase bundles;           /* List of GroomBundle */
 } EditGroom;
 
 /* Groom curves for creating hair styles */
 typedef struct Groom {
-	ID id;                  /* Groom data is a datablock */
-	struct AnimData *adt;   /* Animation data - for animating settings */
+	ID id;                      /* Groom data is a datablock */
+	struct AnimData *adt;       /* Animation data - for animating settings */
+	
+	int curve_res;              /* Curve resolution */
+	int pad;
 	
 	struct BoundBox *bb;
 	
-	ListBase bundles;       /* List of GroomBundle */
+	ListBase bundles;           /* List of GroomBundle */
 	
 	EditGroom *editgroom;
 	void *batch_cache;

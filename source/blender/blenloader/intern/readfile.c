@@ -8400,6 +8400,8 @@ static void direct_link_groom(FileData *fd, Groom *groom)
 	{
 		bundle->sections = newdataadr(fd, bundle->sections);
 		bundle->verts = newdataadr(fd, bundle->verts);
+		bundle->curve_cache = NULL;
+		bundle->totcache = 0;
 	}
 	
 	groom->bb = NULL;

@@ -32,8 +32,11 @@
  *  \ingroup bke
  */
 
+struct EvaluationContext;
 struct Groom;
 struct Main;
+struct Object;
+struct Scene;
 
 void BKE_groom_init(struct Groom *groom);
 void *BKE_groom_add(struct Main *bmain, const char *name);
@@ -48,6 +51,13 @@ void BKE_groom_make_local(struct Main *bmain, struct Groom *groom, const bool li
 
 bool BKE_groom_minmax(struct Groom *groom, float min[3], float max[3]);
 void BKE_groom_boundbox_calc(struct Groom *groom, float r_loc[3], float r_size[3]);
+
+
+/* === Depsgraph evaluation === */
+
+void BKE_groom_eval_curve_cache(const struct EvaluationContext *eval_ctx, struct Scene *scene, struct Object *ob);
+void BKE_groom_clear_curve_cache(struct Object *ob);
+void BKE_groom_eval_geometry(const struct EvaluationContext *eval_ctx, struct Groom *groom);
 
 
 /* === Draw Cache === */

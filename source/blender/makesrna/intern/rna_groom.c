@@ -56,10 +56,17 @@
 
 #include "BKE_groom.h"
 
+#include "DEG_depsgraph.h"
 
 static void UNUSED_FUNCTION(rna_Groom_update)(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *UNUSED(ptr))
 {
 	WM_main_add_notifier(NC_GROOM | NA_EDITED, NULL);
+}
+
+static void rna_Groom_update_data(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)
+{
+	DEG_id_tag_update(ptr->id.data, 0);
+	WM_main_add_notifier(NC_GROOM | ND_DATA, ptr->id.data);
 }
 
 #else
@@ -73,6 +80,13 @@ static void rna_def_groom(BlenderRNA *brna)
 	RNA_def_struct_sdna(srna, "Groom");
 	RNA_def_struct_ui_text(srna, "Groom", "Guide curve geometry for hair");
 	RNA_def_struct_ui_icon(srna, ICON_NONE);
+
+	prop = RNA_def_property(srna, "curve_resolution", PROP_INT, PROP_NONE);
+	RNA_def_property_int_sdna(prop, NULL, "curve_res");
+	RNA_def_property_range(prop, 1, 1024);
+	RNA_def_property_ui_range(prop, 1, 64, 1, -1);
+	RNA_def_property_ui_text(prop, "Curve Resolution", "Curve subdivisions per segment");
+	RNA_def_property_update(prop, 0, "rna_Groom_update_data");
 
 	/* Animation Data */
 	rna_def_animdata_common(srna);

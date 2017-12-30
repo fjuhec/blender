@@ -59,10 +59,19 @@
 
 #include "groom_intern.h"
 
-static void groom_bundle_section_init(GroomSection *section, GroomSectionVertex *verts, int numverts, float mat[4][4], float cparam)
+static void groom_bundle_section_init(
+        GroomSection *section,
+        GroomSectionVertex *verts,
+        int numverts,
+        float mat[4][4],
+        float x,
+        float y,
+        float z)
 {
-	madd_v3_v3v3fl(section->center, mat[3], mat[2], cparam);
-	copy_v3_v3(section->normal, mat[2]);
+	section->center[0] = x;
+	section->center[1] = y;
+	section->center[2] = z;
+	mul_m4_v3(mat, section->center);
 	
 	{
 		const float radius = 0.5f;
@@ -81,14 +90,16 @@ static GroomBundle* groom_add_bundle(float mat[4][4])
 	GroomBundle *bundle = MEM_callocN(sizeof(GroomBundle), "groom bundle");
 	
 	bundle->numloopverts = 6;
-	bundle->totsections = 2;
+	bundle->totsections = 4;
 	bundle->totverts = bundle->numloopverts * bundle->totsections;
 	bundle->sections = MEM_mallocN(sizeof(GroomSection) * bundle->totsections, "groom bundle sections");
 	bundle->verts = MEM_mallocN(sizeof(GroomSectionVertex) * bundle->totverts, "groom bundle vertices");
 	
 	int numverts = bundle->numloopverts;
-	groom_bundle_section_init(&bundle->sections[0], &bundle->verts[numverts * 0], numverts, mat, 0.0f);
-	groom_bundle_section_init(&bundle->sections[1], &bundle->verts[numverts * 1], numverts, mat, 1.0f);
+	groom_bundle_section_init(&bundle->sections[0], &bundle->verts[numverts * 0], numverts, mat, 0.0, 0.0, 0.0);
+	groom_bundle_section_init(&bundle->sections[1], &bundle->verts[numverts * 1], numverts, mat, 0.0, 0.0, 1.0);
+	groom_bundle_section_init(&bundle->sections[2], &bundle->verts[numverts * 2], numverts, mat, 0.4, -0.2, 1.2);
+	groom_bundle_section_init(&bundle->sections[3], &bundle->verts[numverts * 3], numverts, mat, 0.01, 0.7, 1.6);
 	
 	return bundle;
 }
