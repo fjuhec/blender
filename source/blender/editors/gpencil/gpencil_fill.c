@@ -556,6 +556,8 @@ static void gpencil_stroke_from_stack(tGPDfill *tgpf)
 
 	gps->palette = tgpf->palette;
 	gps->palcolor = tgpf->palcolor;
+	if (tgpf->palcolor)
+		BLI_strncpy(gps->colorname, tgpf->palcolor->info, sizeof(gps->colorname));
 
 	/* allocate memory for storage points */
 	gps->totpoints = totpoints;
