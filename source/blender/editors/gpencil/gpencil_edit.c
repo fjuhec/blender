@@ -2671,8 +2671,10 @@ void GPENCIL_OT_stroke_flip(wmOperatorType *ot)
 /* ***************** Reproject Strokes ********************** */
 
 typedef enum eGP_ReprojectModes {
+	/* Axis (equal to lock axis) */
+	GP_REPROJECT_AXIS = 0,
 	/* On same plane, parallel to viewplane */
-	GP_REPROJECT_PLANAR = 0,
+	GP_REPROJECT_PLANAR,
 	/* Reprojected on to the scene geometry */
 	GP_REPROJECT_SURFACE,
 } eGP_ReprojectModes;
@@ -2690,12 +2692,27 @@ static int gp_strokes_reproject_exec(bContext *C, wmOperator *op)
 {
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
 	Scene *scene = CTX_data_scene(C);
+	ToolSettings *ts = CTX_data_tool_settings(C);
+	Object *ob = CTX_data_active_object(C);
+	ScrArea *sa = CTX_wm_area(C);
+	ARegion *ar = CTX_wm_region(C);
+ 	RegionView3D *rv3d = ar->regiondata;
+	View3D *v3d = sa->spacedata.first;
+
 	GP_SpaceConversion gsc = {NULL};
-	eGP_ReprojectModes mode = RNA_boolean_get(op->ptr, "type");
+	eGP_ReprojectModes mode = RNA_enum_get(op->ptr, "type");
 	
+	int lock_axis = ts->gp_sculpt.lock_axis;
+	float origin[3];
+
+	if ((mode == GP_REPROJECT_AXIS) && (lock_axis == GP_LOCKAXIS_NONE)) {
+		BKE_report(op->reports, RPT_ERROR, "To reproject by axis, a lock axis must be set before");
+		return OPERATOR_CANCELLED;
+	}
+
 	/* init space conversion stuff */
 	gp_point_conversion_init(C, &gsc);
-	
+
 	/* init autodist for geometry projection */
 	if (mode == GP_REPROJECT_SURFACE) {
 		EvaluationContext eval_ctx;
@@ -2719,7 +2736,7 @@ static int gp_strokes_reproject_exec(bContext *C, wmOperator *op)
 			/* Compute inverse matrix for unapplying parenting once instead of doing per-point */
 			/* TODO: add this bit to the iteration macro? */
 			invert_m4_m4(inverse_diff_mat, diff_mat);
-			
+
 			/* Adjust each point */
 			for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
 				float xy[2];
@@ -2733,10 +2750,22 @@ static int gp_strokes_reproject_exec(bContext *C, wmOperator *op)
 				gp_point_to_parent_space(pt, diff_mat, &pt2);
 				gp_point_to_xy_fl(&gsc, gps, &pt2, &xy[0], &xy[1]);
 				
+				/* Project stroke in the axis locked */
+				if (mode == GP_REPROJECT_AXIS) {
+					if (lock_axis > GP_LOCKAXIS_NONE) {
+						ED_gp_get_drawing_reference(v3d, scene, ob, gpl,
+							ts->gpencil_v3d_align, origin);
+						ED_gp_project_point_to_plane(ob, rv3d, origin, 
+							lock_axis - 1, ts->gpencil_src, pt);
+						
+						/* apply parent again */
+						gp_apply_parent_point(ob, gpd, gpl, pt);
+					}
+				}
 				/* Project screenspace back to 3D space (from current perspective)
 				 * so that all points have been treated the same way
 				 */
-				if (mode == GP_REPROJECT_PLANAR) {
+				else if (mode == GP_REPROJECT_PLANAR) {
 					/* Planar - All on same plane parallel to the viewplane */
 					gp_point_xy_to_3d(&gsc, scene, xy, &pt->x);
 				}
@@ -2759,7 +2788,9 @@ static int gp_strokes_reproject_exec(bContext *C, wmOperator *op)
 				}
 				
 				/* Unapply parent corrections */
-				mul_m4_v3(inverse_diff_mat, &pt->x);
+				if (mode != GP_REPROJECT_AXIS) {
+					mul_m4_v3(inverse_diff_mat, &pt->x);
+				}
 			}
 		}
 	}
@@ -2773,7 +2804,10 @@ static int gp_strokes_reproject_exec(bContext *C, wmOperator *op)
 void GPENCIL_OT_reproject(wmOperatorType *ot)
 {
 	static const EnumPropertyItem reproject_type[] = {
-		{GP_REPROJECT_PLANAR, "PLANAR", 0, "Planar", 
+		{ GP_REPROJECT_AXIS, "AXIS", 0, "Axis",
+		"Reproject the strokes using the current lock axis configuration. This is the same projection using while"
+		"drawing new strokes" },
+		{GP_REPROJECT_PLANAR, "PLANAR", 0, "Planar",
 		 "Reproject the strokes to end up on the same plane, as if drawn from the current viewpoint "
 		 "using 'Cursor' Stroke Placement"},
 		{GP_REPROJECT_SURFACE, "SURFACE", 0, "Surface",
