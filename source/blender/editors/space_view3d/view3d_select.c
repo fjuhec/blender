@@ -38,6 +38,7 @@
 #include "DNA_action_types.h"
 #include "DNA_armature_types.h"
 #include "DNA_curve_types.h"
+#include "DNA_groom_types.h"
 #include "DNA_meta_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
@@ -63,6 +64,7 @@
 #include "BKE_armature.h"
 #include "BKE_context.h"
 #include "BKE_curve.h"
+#include "BKE_groom.h"
 #include "BKE_layer.h"
 #include "BKE_mball.h"
 #include "BKE_mesh.h"
@@ -590,6 +592,49 @@ static void do_lasso_select_lattice(ViewContext *vc, const int mcords[][2], shor
 	lattice_foreachScreenVert(vc, do_lasso_select_lattice__doSelect, &data, V3D_PROJ_TEST_CLIP_DEFAULT);
 }
 
+static void do_lasso_select_groom__doSelect(
+        void *userData,
+        GroomBundle *bundle,
+        GroomSection *section,
+        GroomSectionVertex *vertex,
+        const float screen_co[2])
+{
+	LassoSelectUserData *data = userData;
+
+	if (BLI_rctf_isect_pt_v(data->rect_fl, screen_co) &&
+	    BLI_lasso_is_point_inside(data->mcords, data->moves, screen_co[0], screen_co[1], IS_CLIPPED))
+	{
+		if (vertex)
+		{
+			vertex->flag = data->select ? (vertex->flag | GM_VERTEX_SELECT) : (vertex->flag & ~GM_VERTEX_SELECT);
+		}
+		else if (section)
+		{
+			section->flag = data->select ? (section->flag | GM_SECTION_SELECT) : (section->flag & ~GM_SECTION_SELECT);
+		}
+		else if (bundle)
+		{
+			bundle->flag = data->select ? (bundle->flag | GM_BUNDLE_SELECT) : (bundle->flag & ~GM_BUNDLE_SELECT);
+		}
+	}
+}
+
+static void do_lasso_select_groom(ViewContext *vc, const int mcords[][2], short moves, bool extend, bool select)
+{
+	LassoSelectUserData data;
+	rcti rect;
+
+	BLI_lasso_boundbox(&rect, mcords, moves);
+
+	view3d_userdata_lassoselect_init(&data, vc, &rect, mcords, moves, select);
+
+	if (extend == false && select)
+		ED_lattice_flags_set(vc->obedit, 0);
+
+	ED_view3d_init_mats_rv3d(vc->obedit, vc->rv3d); /* for foreach's screen/vert projection */
+	groom_foreachScreenVert(vc, do_lasso_select_groom__doSelect, &data, V3D_PROJ_TEST_CLIP_DEFAULT);
+}
+
 static void do_lasso_select_armature__doSelectBone(void *userData, struct EditBone *ebone, const float screen_co_a[2], const float screen_co_b[2])
 {
 	LassoSelectUserData *data = userData;
@@ -845,6 +890,9 @@ static void view3d_lasso_select(bContext *C, ViewContext *vc,
 				break;
 			case OB_MBALL:
 				do_lasso_select_meta(vc, mcords, moves, extend, select);
+				break;
+			case OB_GROOM:
+				do_lasso_select_groom(vc, mcords, moves, extend, select);
 				break;
 			default:
 				assert(!"lasso select on incorrect object type");
