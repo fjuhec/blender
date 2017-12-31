@@ -1865,6 +1865,47 @@ static int do_lattice_box_select(ViewContext *vc, rcti *rect, bool select, bool 
 	return OPERATOR_FINISHED;
 }
 
+static void do_groom_box_select__doSelect(
+        void *userData,
+        GroomBundle *bundle,
+        GroomSection *section,
+        GroomSectionVertex *vertex,
+        const float screen_co[2])
+{
+	BoxSelectUserData *data = userData;
+
+	if (BLI_rctf_isect_pt_v(data->rect_fl, screen_co))
+	{
+		if (vertex)
+		{
+			vertex->flag = data->select ? (vertex->flag | GM_VERTEX_SELECT) : (vertex->flag & ~GM_VERTEX_SELECT);
+		}
+		else if (section)
+		{
+			section->flag = data->select ? (section->flag | GM_SECTION_SELECT) : (section->flag & ~GM_SECTION_SELECT);
+		}
+		else if (bundle)
+		{
+			bundle->flag = data->select ? (bundle->flag | GM_BUNDLE_SELECT) : (bundle->flag & ~GM_BUNDLE_SELECT);
+		}
+	}
+}
+
+static int do_groom_box_select(ViewContext *vc, rcti *rect, bool select, bool extend)
+{
+	BoxSelectUserData data;
+
+	view3d_userdata_boxselect_init(&data, vc, rect, select);
+
+	if (extend == false && select)
+		ED_lattice_flags_set(vc->obedit, 0);
+
+	ED_view3d_init_mats_rv3d(vc->obedit, vc->rv3d); /* for foreach's screen/vert projection */
+	groom_foreachScreenVert(vc, do_groom_box_select__doSelect, &data, V3D_PROJ_TEST_CLIP_DEFAULT);
+	
+	return OPERATOR_FINISHED;
+}
+
 static void do_mesh_box_select__doSelectVert(void *userData, BMVert *eve, const float screen_co[2], int UNUSED(index))
 {
 	BoxSelectUserData *data = userData;
@@ -2244,6 +2285,12 @@ static int view3d_borderselect_exec(bContext *C, wmOperator *op)
 				break;
 			case OB_LATTICE:
 				ret = do_lattice_box_select(&vc, &rect, select, extend);
+				if (ret & OPERATOR_FINISHED) {
+					WM_event_add_notifier(C, NC_GEOM | ND_SELECT, vc.obedit->data);
+				}
+				break;
+			case OB_GROOM:
+				ret = do_groom_box_select(&vc, &rect, select, extend);
 				if (ret & OPERATOR_FINISHED) {
 					WM_event_add_notifier(C, NC_GEOM | ND_SELECT, vc.obedit->data);
 				}
