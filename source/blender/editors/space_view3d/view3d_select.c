@@ -2715,6 +2715,43 @@ static void lattice_circle_select(ViewContext *vc, const bool select, const int 
 }
 
 
+static void groom_circle_select__doSelect(
+        void *userData,
+        GroomBundle *bundle,
+        GroomSection *section,
+        GroomSectionVertex *vertex,
+        const float screen_co[2])
+{
+	CircleSelectUserData *data = userData;
+
+	if (len_squared_v2v2(data->mval_fl, screen_co) <= data->radius_squared)
+	{
+		if (vertex)
+		{
+			vertex->flag = data->select ? (vertex->flag | GM_VERTEX_SELECT) : (vertex->flag & ~GM_VERTEX_SELECT);
+		}
+		else if (section)
+		{
+			section->flag = data->select ? (section->flag | GM_SECTION_SELECT) : (section->flag & ~GM_SECTION_SELECT);
+		}
+		else if (bundle)
+		{
+			bundle->flag = data->select ? (bundle->flag | GM_BUNDLE_SELECT) : (bundle->flag & ~GM_BUNDLE_SELECT);
+		}
+	}
+}
+
+static void groom_circle_select(ViewContext *vc, const bool select, const int mval[2], float rad)
+{
+	CircleSelectUserData data;
+
+	view3d_userdata_circleselect_init(&data, vc, select, mval, rad);
+
+	ED_view3d_init_mats_rv3d(vc->obedit, vc->rv3d); /* for foreach's screen/vert projection */
+	groom_foreachScreenVert(vc, groom_circle_select__doSelect, &data, V3D_PROJ_TEST_CLIP_DEFAULT);
+}
+
+
 /* NOTE: pose-bone case is copied from editbone case... */
 static bool pchan_circle_doSelectJoint(void *userData, bPoseChannel *pchan, const float screen_co[2])
 {
@@ -2918,6 +2955,9 @@ static void obedit_circle_select(
 			break;
 		case OB_MBALL:
 			mball_circle_select(vc, select, mval, rad);
+			break;
+		case OB_GROOM:
+			groom_circle_select(vc, select, mval, rad);
 			break;
 		default:
 			return;
