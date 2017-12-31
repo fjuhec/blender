@@ -153,6 +153,8 @@ static void gp_primitive_set_initdata(bContext *C, tGPDprimitive *tgpi)
 
 	gps->palette = tgpi->palette;
 	gps->palcolor = tgpi->palcolor;
+	if (tgpi->palcolor)
+		BLI_strncpy(gps->colorname, tgpi->palcolor->info, sizeof(gps->colorname));
 
 	/* allocate memory for storage points, but keep empty */
 	gps->totpoints = 0;
