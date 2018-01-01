@@ -69,4 +69,30 @@ enum {
 void BKE_groom_batch_cache_dirty(struct Groom *groom, int mode);
 void BKE_groom_batch_cache_free(struct Groom *groom);
 
+/* === Iterators === */
+
+/* Utility class for iterating over groom elements */
+typedef struct GroomIterator
+{
+	int isection;                       /* section index */
+	struct GroomSection *section;       /* section data pointer */
+	
+	int ivertex;                        /* vertex index */
+	int isectionvertex;                 /* vertex index for the inner loop */
+	struct GroomSectionVertex *vertex;  /* vertex data pointer */
+} GroomIterator;
+
+#define GROOM_ITER_SECTIONS(iter, bundle) \
+	for (iter.isection = 0, iter.section = (bundle)->sections; \
+	     iter.isection < (bundle)->totsections; \
+	     ++iter.isection, ++iter.section)
+
+#define GROOM_ITER_SECTION_LOOPS(iter, sectionvar, vertexvar, bundle) \
+	for (iter.isection = 0, iter.section = (bundle)->sections, iter.ivertex = 0, iter.vertex = (bundle)->verts; \
+	     iter.isection < (bundle)->totsections; \
+	     ++iter.isection, ++iter.section) \
+		for (iter.isectionvertex = 0; \
+		     iter.isectionvertex < (bundle)->numloopverts; \
+		     ++iter.isectionvertex, ++iter.vertex)
+
 #endif /*  __BKE_GROOM_H__ */
