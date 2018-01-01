@@ -753,7 +753,6 @@ static void gpencil_fill_exit(bContext *C, wmOperator *op)
 					BLI_remlink(&G.main->image, ima);
 					BKE_image_free(tgpf->ima);
 					MEM_SAFE_FREE(tgpf->ima);
-					tgpf->ima = NULL;
 					break;
 				}
 			}
