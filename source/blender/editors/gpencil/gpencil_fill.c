@@ -519,15 +519,6 @@ static  void gpencil_get_outline_points(tGPDfill *tgpf)
 	if (ibuf) {
 		BKE_image_release_ibuf(tgpf->ima, ibuf, lock);
 	}
-
-#if 0	/* debug code (paint in blue outline in debug image) */
-	const float outline_col[4] = { 0.0f, 0.0f, 1.0f, 1.0f };
-	while (!BLI_stack_is_empty(tgpf->stack)) {
-		BLI_stack_pop(tgpf->stack, &v);
-		int idx = ibuf->x * v[1] + v[0];
-		set_pixel(ibuf, idx, outline_col);
-	}
-#endif 
 }
 
 /* create a grease pencil stroke using points in stack */
@@ -732,7 +723,6 @@ static void gpencil_fill_exit(bContext *C, wmOperator *op)
 	/* restore cursor to indicate end of fill */
 	WM_cursor_modal_restore(CTX_wm_window(C));
 
-
 	tGPDfill *tgpf = op->customdata;
 	bGPdata *gpd = tgpf->gpd;
 
@@ -818,7 +808,6 @@ static int gpencil_fill_invoke(bContext *C, wmOperator *op, const wmEvent *event
 		BKE_report(op->reports, RPT_ERROR, "The current color must have fill enabled");
 		return OPERATOR_CANCELLED;
 	}
-
 
 	/* Enable custom drawing handlers */
 	tgpf->draw_handle_3d = ED_region_draw_cb_activate(tgpf->ar->type, gpencil_fill_draw_3d, tgpf, REGION_DRAW_POST_VIEW);
