@@ -42,6 +42,7 @@
 #include "DNA_gpencil_types.h"
 #include "DNA_windowmanager_types.h"
 
+#include "BKE_global.h" 
 #include "BKE_main.h" 
 #include "BKE_image.h" 
 #include "BKE_gpencil.h"
@@ -745,6 +746,19 @@ static void gpencil_fill_exit(bContext *C, wmOperator *op)
 			ED_region_draw_cb_exit(tgpf->ar->type, tgpf->draw_handle_3d);
 		}
 
+		/* delete temp image */
+		if (tgpf->ima) {
+			for (Image *ima = G.main->image.first; ima; ima = ima->id.next) {
+				if (ima == tgpf->ima) {
+					BLI_remlink(&G.main->image, ima);
+					BKE_image_free(tgpf->ima);
+					MEM_SAFE_FREE(tgpf->ima);
+					tgpf->ima = NULL;
+					break;
+				}
+			}
+		}
+
 		/* finally, free memory used by temp data */
 		MEM_freeN(tgpf);
 	}
@@ -901,13 +915,6 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
 				/* create stroke and reproject */
 				gpencil_stroke_from_stack(tgpf);
 
-#if 0				/* delete temp image */
-				if (tgpf->ima) {
-					BKE_image_free(tgpf->ima);
-					MEM_SAFE_FREE(tgpf->ima);
-					tgpf->ima = NULL;
-			}
-#endif
 				/* free temp stack data */
 				if (tgpf->stack) {
 					BLI_stack_free(tgpf->stack);
