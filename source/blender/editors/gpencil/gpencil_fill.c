@@ -70,6 +70,10 @@
 
 #include "gpencil_intern.h"
 
+#define LEAK_HORZ 0
+#define LEAK_VERT 1
+#define LEAK_LIMIT 10
+
  /* draw a given stroke using same thickness and color for all points */
 static void gp_draw_basic_stroke(bGPDstroke *gps, const float diff_mat[4][4], 
 								bool cyclic, float ink[4], int flag, float thershold)
@@ -289,6 +293,111 @@ static void set_pixel(ImBuf *ibuf, int idx, const float col[4])
 	}
 }
 
+/* check if the size of the leak is narrow to determine if the stroke is closed
+ * this is used for strokes with small gaps between them to get a full fill
+ * and don't get a full screen fill.
+ *
+ * \param ibuf      Image pixel data
+ * \param maxpixel  Maximum index
+ * \param limit     Limit of pixels to analize
+ * \param index     Index of current pixel
+ * \param type      0-Horizontal 1-Verical
+ */
+static bool is_leak_narrow(ImBuf *ibuf, const int maxpixel, int limit, int index, int type)
+{
+	float rgba[4];
+	int i;
+	int pt;
+	bool t_a = false;
+	bool t_b = false;
+
+	/* Horizontal leak (check vertical pixels) 
+	 *     X
+	 *	   X
+	 *	==>·
+	 *	   X
+	 *	   X
+	 */
+	if (type == LEAK_HORZ) {
+		/* pixels on top */
+		for (i = 1; i <= limit; i++) {
+			pt = index + (ibuf->x * i);
+			if (pt <= maxpixel) {
+				get_pixel(ibuf, pt, rgba);
+				if (rgba[0] == 1.0f) {
+					t_a =  true;
+					break;
+				}
+			}
+			else {
+				t_a = true; /* edge of image*/
+				break;
+			}
+		}
+		/* pixels on bottom */
+		for (i = 1; i <= limit; i++) {
+			pt = index - (ibuf->x * i);
+			if (pt >= 0) {
+				get_pixel(ibuf, pt, rgba);
+				if (rgba[0] == 1.0f) {
+					t_b = true;
+					break;
+				}
+			}
+			else {
+				t_b = true; /* edge of image*/
+				break;
+			}
+		}
+	}
+
+	/* Vertical leak (check horizontal pixels 
+	 *
+	 *  XXX·XXX
+	 *     ^
+	 *     |
+	 *
+	 */
+	if (type == LEAK_VERT) {
+		/* get pixel range of the row */
+		int row = index / ibuf->x;
+		int lowpix = row * ibuf->x;
+		int higpix = lowpix + ibuf->x - 1;
+
+		/* pixels to right */
+		for (i = 0; i < limit; i++) {
+			pt = index - (limit - i);
+			if (pt >= lowpix) {
+				get_pixel(ibuf, pt, rgba);
+				if (rgba[0] == 1.0f) {
+					t_a = true;
+					break;
+				}
+			}
+			else {
+				t_a = true; /* edge of image*/
+				break;
+			}
+		}
+		/* pixels to left */
+		for (i = 0; i < limit; i++) {
+			pt = index + (limit - i);
+			if (pt <= higpix) {
+				get_pixel(ibuf, pt, rgba);
+				if (rgba[0] == 1.0f) {
+					t_b = true;
+					break;
+				}
+			}
+			else {
+				t_b = true; /* edge of image*/
+				break;
+			}
+		}
+	}
+	return (bool)(t_a && t_b);
+}
+
 /* Boundary fill inside strokes 
  * Fills the space created by a set of strokes using the stroke color as the boundary
  * of the shape to fill.
@@ -341,22 +450,30 @@ static void gpencil_boundaryfill_area(tGPDfill *tgpf)
 				/* pixel left */
 				if (v - 1 >= 0) {
 					index = v - 1;
-					BLI_stack_push(stack, &index);
+					if (!is_leak_narrow(ibuf, maxpixel, LEAK_LIMIT, v, LEAK_HORZ)) {
+						BLI_stack_push(stack, &index);
+					}
 				}
 				/* pixel right */
 				if (v + 1 < maxpixel) {
 					index = v + 1;
-					BLI_stack_push(stack, &index);
+					if (!is_leak_narrow(ibuf, maxpixel, LEAK_LIMIT, v, LEAK_HORZ)) {
+						BLI_stack_push(stack, &index);
+					}
 				}
 				/* pixel top */
 				if (v + tgpf->sizex < maxpixel) {
 					index = v + tgpf->sizex;
-					BLI_stack_push(stack, &index);
+					if (!is_leak_narrow(ibuf, maxpixel, LEAK_LIMIT, v, LEAK_VERT)) {
+						BLI_stack_push(stack, &index);
+					}
 				}
 				/* pixel bottom */
 				if (v - tgpf->sizex >= 0) {
 					index = v - tgpf->sizex;
-					BLI_stack_push(stack, &index);
+					if (!is_leak_narrow(ibuf, maxpixel, LEAK_LIMIT, v, LEAK_VERT)) {
+						BLI_stack_push(stack, &index);
+					}
 				}
 			}
 		}
