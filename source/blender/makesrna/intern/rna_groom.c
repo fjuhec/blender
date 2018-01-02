@@ -75,21 +75,29 @@ static void rna_def_groom(BlenderRNA *brna)
 {
 	StructRNA *srna;
 	PropertyRNA *prop;
-
+	
 	srna = RNA_def_struct(brna, "Groom", "ID");
 	RNA_def_struct_sdna(srna, "Groom");
 	RNA_def_struct_ui_text(srna, "Groom", "Guide curve geometry for hair");
 	RNA_def_struct_ui_icon(srna, ICON_NONE);
-
+	
+	/* Animation Data */
+	rna_def_animdata_common(srna);
+	
 	prop = RNA_def_property(srna, "curve_resolution", PROP_INT, PROP_NONE);
 	RNA_def_property_int_sdna(prop, NULL, "curve_res");
 	RNA_def_property_range(prop, 1, 1024);
 	RNA_def_property_ui_range(prop, 1, 64, 1, -1);
 	RNA_def_property_ui_text(prop, "Curve Resolution", "Curve subdivisions per segment");
 	RNA_def_property_update(prop, 0, "rna_Groom_update_data");
-
-	/* Animation Data */
-	rna_def_animdata_common(srna);
+	
+	prop = RNA_def_property(srna, "hair_system", PROP_POINTER, PROP_NONE);
+	RNA_def_property_ui_text(prop, "Hair", "Hair data");
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+	
+	prop = RNA_def_property(srna, "hair_draw_settings", PROP_POINTER, PROP_NONE);
+	RNA_def_property_ui_text(prop, "Hair Draw Settings", "Hair draw settings");
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 	
 	UNUSED_VARS(prop);
 }

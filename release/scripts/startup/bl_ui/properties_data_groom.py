@@ -65,6 +65,20 @@ class DATA_PT_groom(DataButtonsPanel, Panel):
         col.prop(groom, "curve_resolution")
 
 
+class DATA_PT_groom_draw_settings(DataButtonsPanel, Panel):
+    bl_label = "Draw Settings"
+
+    def draw(self, context):
+        layout = self.layout
+        groom = context.groom
+        ds = groom.hair_draw_settings
+
+        split = layout.split()
+        col = split.column()
+        col.label("Follicles:")
+        col.prop(ds, "follicle_mode", expand=True)
+
+
 class DATA_PT_custom_props_groom(DataButtonsPanel, PropertyPanel, Panel):
     _context_path = "object.data"
     _property_type = bpy.types.Groom
@@ -73,6 +87,7 @@ class DATA_PT_custom_props_groom(DataButtonsPanel, PropertyPanel, Panel):
 classes = (
     DATA_PT_context_groom,
     DATA_PT_groom,
+    DATA_PT_groom_draw_settings,
     DATA_PT_custom_props_groom,
 )
 
