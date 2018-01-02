@@ -1006,6 +1006,15 @@ class GPENCIL_MT_gpencil_draw_specials(Menu):
         layout.operator("gpencil.primitive", text="Rectangle", icon='UV_FACESEL').type = 'BOX'
         layout.operator("gpencil.primitive", text="Circle", icon='ANTIALIASED').type = 'CIRCLE'
 
+        # colors
+        layout.separator()
+        palette = context.active_gpencil_palette
+        i = 0
+        for palcolor in palette.colors:
+            layout.operator("palette.palettecolor_choose", text=palcolor.name).index=i
+            i += 1
+
+
 
 class GPENCIL_MT_gpencil_vertex_group(Menu):
     bl_label = "GP Vertex Groups"

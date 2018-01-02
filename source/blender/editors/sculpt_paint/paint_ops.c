@@ -745,6 +745,47 @@ static void PALETTE_OT_palettecolor_select(wmOperatorType *ot)
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
+/* ***************** Choose Palette color by index ************************ */
+static int palettecolor_choose_exec(bContext *C, wmOperator *op)
+{
+	const int index = RNA_int_get(op->ptr, "index");
+
+	Palette *palette = BKE_palette_get_active_from_context(C);
+
+	/* sanity checks */
+	if (ELEM(NULL, palette))
+		return OPERATOR_CANCELLED;
+
+	int totcolors = BLI_listbase_count(&palette->colors);
+	if ((index >= 0) && (index < totcolors)) {
+		palette->active_color = index;
+	}
+
+	/* notifiers */
+	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
+
+	return OPERATOR_FINISHED;
+}
+
+static void PALETTE_OT_palettecolor_choose(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Choose Color";
+	ot->idname = "PALETTE_OT_palettecolor_choose";
+	ot->description = "Active a palette color";
+
+	/* callbacks */
+	ot->exec = palettecolor_choose_exec;
+	ot->poll = palette_active_poll;
+
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+	
+	/* properties */
+	RNA_def_int(ot->srna, "index", 0, 0, INT_MAX, "Index", "Index of Color", 0, INT_MAX);
+}
+
+
 /* ***************** Duplicate Palette color ************************ */
 
 static int palettecolor_duplicate_exec(bContext *C, wmOperator *op)
@@ -1565,6 +1606,7 @@ void ED_operatortypes_paint(void)
 	WM_operatortype_append(PALETTE_OT_palettecolor_move);
 	WM_operatortype_append(PALETTE_OT_palettecolor_select);
 	WM_operatortype_append(PALETTE_OT_palettecolor_duplicate);
+	WM_operatortype_append(PALETTE_OT_palettecolor_choose);
 
 	/* paint curve */
 	WM_operatortype_append(PAINTCURVE_OT_new);
