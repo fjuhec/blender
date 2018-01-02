@@ -519,7 +519,7 @@ static void gp_brush_curvemap_reset(CurveMap *cuma, int preset)
 		MEM_freeN(cuma->curve);
 
 	cuma->totpoint = 3;
-	cuma->curve = MEM_callocN(cuma->totpoint * sizeof(CurveMapPoint), "curve points");
+	cuma->curve = MEM_callocN(cuma->totpoint * sizeof(CurveMapPoint), __func__);
 
 	switch (preset) {
 		case GPCURVE_PRESET_PENCIL:
@@ -639,7 +639,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 
 	/* Curve */
 	custom_curve = brush->cur_sensitivity;
-	curvemapping_set_defaults(custom_curve, 1, 0.0f, 0.0f, 1.0f, 1.0f);
+	curvemapping_set_defaults(custom_curve, 0, 0.0f, 0.0f, 1.0f, 1.0f);
 	curvemapping_initialize(custom_curve);
 	gp_brush_curvemap_reset(custom_curve->cm, GPCURVE_PRESET_INK);
 
@@ -669,7 +669,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 
 	/* Curve */
 	custom_curve = brush->cur_sensitivity;
-	curvemapping_set_defaults(custom_curve, 1, 0.0f, 0.0f, 1.0f, 1.0f);
+	curvemapping_set_defaults(custom_curve, 0, 0.0f, 0.0f, 1.0f, 1.0f);
 	curvemapping_initialize(custom_curve);
 	gp_brush_curvemap_reset(custom_curve->cm, GPCURVE_PRESET_INKNOISE);
 
