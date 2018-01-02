@@ -546,7 +546,5 @@ void BKE_groom_batch_cache_free(Groom *groom)
 
 struct DerivedMesh* BKE_groom_get_scalp(struct Groom *groom)
 {
-	// TODO
-	UNUSED_VARS(groom);
-	return NULL;
+	return groom->scalp_object ? groom->scalp_object->derivedFinal : NULL;
 }
