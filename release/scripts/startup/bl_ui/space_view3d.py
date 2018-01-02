@@ -3139,6 +3139,28 @@ class VIEW3D_MT_edit_lattice(Menu):
         layout.menu("VIEW3D_MT_edit_proportional")
 
 
+class VIEW3D_MT_edit_groom(Menu):
+    bl_label = "Groom"
+
+    def draw(self, context):
+        layout = self.layout
+
+        edit_object = context.edit_object
+        groom = edit_object.data
+
+        layout.menu("VIEW3D_MT_undo_redo")
+
+        layout.separator()
+
+        layout.menu("VIEW3D_MT_transform")
+        layout.menu("VIEW3D_MT_mirror")
+        layout.menu("VIEW3D_MT_snap")
+
+        layout.separator()
+
+        layout.operator("groom.region_add")
+
+
 class VIEW3D_MT_edit_armature(Menu):
     bl_label = "Armature"
 
@@ -3983,6 +4005,7 @@ classes = (
     VIEW3D_MT_edit_meta,
     VIEW3D_MT_edit_meta_showhide,
     VIEW3D_MT_edit_lattice,
+    VIEW3D_MT_edit_groom,
     VIEW3D_MT_edit_armature,
     VIEW3D_MT_armature_specials,
     VIEW3D_MT_edit_armature_parent,
