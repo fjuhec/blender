@@ -36,6 +36,7 @@
 #include "DNA_anim_types.h"
 #include "DNA_brush_types.h"
 #include "DNA_armature_types.h"
+#include "DNA_groom_types.h"
 #include "DNA_lattice_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meta_types.h"
@@ -71,6 +72,7 @@
 #include "BKE_fcurve.h"
 #include "BKE_global.h"
 #include "BKE_gpencil.h"
+#include "BKE_groom.h"
 #include "BKE_layer.h"
 #include "BKE_key.h"
 #include "BKE_main.h"
@@ -1883,6 +1885,225 @@ static void createTransLatticeVerts(TransInfo *t)
 			}
 		}
 		bp++;
+	}
+}
+
+/* ********************* groom *************** */
+
+static int groom_trans_count_regions(EditGroom *edit, bool is_prop_edit)
+{
+	// TODO
+	UNUSED_VARS(edit, is_prop_edit);
+	return 0;
+}
+
+static void groom_transdata_init_regions(
+        EditGroom *edit,
+        bool is_prop_edit,
+        float obmat[4][4],
+        TransData *tdata)
+{
+	// TODO
+	UNUSED_VARS(edit, is_prop_edit, obmat, tdata);
+}
+
+static int groom_trans_count_curves(EditGroom *edit, bool is_prop_edit)
+{
+	int count = 0, countsel = 0;
+	for (GroomBundle *bundle = edit->bundles.first; bundle; bundle = bundle->next)
+	{
+		GroomSection *section = bundle->sections;
+		for (int i = 0; i < bundle->totsections; ++i, ++section)
+		{
+			++count;
+			if (section->flag & GM_SECTION_SELECT)
+			{
+				++countsel;
+			}
+		}
+	}
+
+	/* note: in prop mode we need at least 1 selected */
+	if (countsel > 0)
+	{
+		return is_prop_edit ? count : countsel;
+	}
+	return 0;
+}
+
+static void groom_transdata_init_curves(
+        EditGroom *edit,
+        bool is_prop_edit,
+        float obmat[4][4],
+        TransData *tdata)
+{
+	float mtx[3][3], smtx[3][3];
+	copy_m3_m4(mtx, obmat);
+	pseudoinverse_m3_m3(smtx, mtx, PSEUDOINVERSE_EPSILON);
+	
+	TransData *td = tdata;
+	for (GroomBundle *bundle = edit->bundles.first; bundle; bundle = bundle->next)
+	{
+		GroomSection *section = bundle->sections;
+		for (int i = 0; i < bundle->totsections; ++i, ++section)
+		{
+			if (is_prop_edit || (section->flag & GM_SECTION_SELECT))
+			{
+				copy_v3_v3(td->iloc, section->center);
+				copy_v3_v3(td->center, section->center);
+				td->loc = section->center;
+				
+				if (section->flag & GM_SECTION_SELECT)
+				{
+					td->flag = TD_SELECTED;
+				}
+				else
+				{
+					td->flag = 0;
+				}
+				
+				copy_m3_m3(td->smtx, smtx);
+				copy_m3_m3(td->mtx, mtx);
+				
+				td->ext = NULL;
+				td->val = NULL;
+				
+				++td;
+			}
+		}
+	}
+}
+
+static int groom_trans_count_verts(EditGroom *edit, bool is_prop_edit)
+{
+	int count = 0, countsel = 0;
+	for (GroomBundle *bundle = edit->bundles.first; bundle; bundle = bundle->next)
+	{
+		GroomSectionVertex *vertex = bundle->verts;
+		for (int i = 0; i < bundle->totverts; ++i, ++vertex)
+		{
+			++count;
+			if (vertex->flag & GM_VERTEX_SELECT)
+			{
+				++countsel;
+			}
+		}
+	}
+
+	/* note: in prop mode we need at least 1 selected */
+	if (countsel > 0)
+	{
+		return is_prop_edit ? count : countsel;
+	}
+	return 0;
+}
+
+static void groom_transdata_init_verts(
+        EditGroom *edit,
+        bool is_prop_edit,
+        float obmat[4][4],
+        TransData *tdata,
+        TransData2D *tdata2d)
+{
+	float obmat3[3][3];
+	copy_m3_m4(obmat3, obmat);
+
+	TransData *td = tdata;
+	TransData2D *td2d = tdata2d;
+	for (GroomBundle *bundle = edit->bundles.first; bundle; bundle = bundle->next)
+	{
+		GroomSection *section = bundle->sections;
+		GroomSectionVertex *vertex = bundle->verts;
+		for (int i = 0; i < bundle->totsections; ++i, ++section)
+		{
+			/* local coordinate frame for the section */
+			float mtx[3][3], smtx[3][3];
+			mul_m3_m3m3(mtx, obmat3, section->mat);
+			pseudoinverse_m3_m3(smtx, mtx, PSEUDOINVERSE_EPSILON);
+			
+			for (int j = 0; j < bundle->numloopverts; ++j, ++vertex)
+			{
+				if (is_prop_edit || (vertex->flag & GM_VERTEX_SELECT))
+				{
+					copy_v2_v2(td2d->loc, vertex->co);
+					td2d->loc2d = vertex->co;
+					
+					td->loc = td2d->loc;
+					copy_v3_v3(td->iloc, td->loc);
+					/* section verts are centered around the curve */
+					zero_v3(td->center);
+					
+					if (vertex->flag & GM_VERTEX_SELECT)
+					{
+						td->flag = TD_SELECTED;
+					}
+					else
+					{
+						td->flag = 0;
+					}
+					
+					copy_m3_m3(td->smtx, smtx);
+					copy_m3_m3(td->mtx, mtx);
+					
+					memset(td->axismtx, 0, sizeof(td->axismtx));
+					td->axismtx[2][2] = 1.0f;
+					
+					td->ext = NULL;
+					td->val = NULL;
+					
+					++td;
+					++td2d;
+				}
+			}
+		}
+	}
+}
+
+static void createTransGroomVerts(TransInfo *t)
+{
+	const ToolSettings *tsettings = t->scene->toolsettings;
+	const bool is_prop_edit = t->flag & T_PROP_EDIT;
+	EditGroom *edit = ((Groom *)t->obedit->data)->editgroom;
+
+	switch (tsettings->groom_edit_settings.mode)
+	{
+		case GM_EDIT_MODE_REGIONS:
+			t->total = groom_trans_count_regions(edit, is_prop_edit);
+			if (t->total > 0)
+			{
+				// TODO
+				groom_transdata_init_regions(edit, is_prop_edit, t->obedit->obmat, t->data);
+			}
+			break;
+		case GM_EDIT_MODE_CURVES:
+			t->total = groom_trans_count_curves(edit, is_prop_edit);
+			if (t->total > 0)
+			{
+				t->data = MEM_callocN(t->total * sizeof(TransData), "TransData(Groom EditMode)");
+				
+				groom_transdata_init_curves(edit, is_prop_edit, t->obedit->obmat, t->data);
+			}
+			break;
+		case GM_EDIT_MODE_SECTIONS:
+			t->total = groom_trans_count_verts(edit, is_prop_edit);
+			if (t->total > 0)
+			{
+				t->data = MEM_callocN(t->total * sizeof(TransData), "TransData(Groom EditMode)");
+				t->data2d = MEM_callocN(t->total * sizeof(TransData2D), "TransData2D(Groom EditMode)");
+				
+				groom_transdata_init_verts(edit, is_prop_edit, t->obedit->obmat, t->data, t->data2d);
+			}
+			break;
+	}
+}
+
+void flushTransGroom(TransInfo *t)
+{
+	TransData2D *td2d = t->data2d;
+
+	for (int i = 0; i < t->total; ++i, ++td2d)
+	{
+		copy_v2_v2(td2d->loc2d, td2d->loc);
 	}
 }
 
@@ -8195,6 +8416,9 @@ void createTransData(bContext *C, TransInfo *t)
 		}
 		else if (t->obedit->type == OB_MBALL) {
 			createTransMBallVerts(t);
+		}
+		else if (t->obedit->type == OB_GROOM) {
+			createTransGroomVerts(t);
 		}
 		else if (t->obedit->type == OB_ARMATURE) {
 			t->flag &= ~T_PROP_EDIT;

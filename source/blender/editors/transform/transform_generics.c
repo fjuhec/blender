@@ -758,6 +758,11 @@ static void recalcData_objects(TransInfo *t)
 			
 			if (la->editlatt->latt->flag & LT_OUTSIDE) outside_lattice(la->editlatt->latt);
 		}
+		else if (t->obedit->type == OB_GROOM) {
+			flushTransGroom(t);
+			
+			DEG_id_tag_update(t->obedit->data, 0);  /* sets recalc flags */
+		}
 		else if (t->obedit->type == OB_MESH) {
 			BMEditMesh *em = BKE_editmesh_from_object(t->obedit);
 			/* mirror modifier clipping? */
