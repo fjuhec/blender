@@ -1015,7 +1015,6 @@ class GPENCIL_MT_gpencil_draw_specials(Menu):
             i += 1
 
 
-
 class GPENCIL_MT_gpencil_vertex_group(Menu):
     bl_label = "GP Vertex Groups"
 
