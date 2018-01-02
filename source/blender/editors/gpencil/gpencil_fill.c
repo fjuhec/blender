@@ -42,7 +42,6 @@
 #include "DNA_gpencil_types.h"
 #include "DNA_windowmanager_types.h"
 
-#include "BKE_global.h" 
 #include "BKE_main.h" 
 #include "BKE_image.h" 
 #include "BKE_gpencil.h"
@@ -715,6 +714,7 @@ static tGPDfill *gp_session_init_fill(bContext *C, wmOperator *op)
 /* end operator */
 static void gpencil_fill_exit(bContext *C, wmOperator *op)
 {
+	Main *bmain = CTX_data_main(C);
 	Object *ob = CTX_data_active_object(C);
 
 	/* clear undo stack */
@@ -738,9 +738,9 @@ static void gpencil_fill_exit(bContext *C, wmOperator *op)
 
 		/* delete temp image */
 		if (tgpf->ima) {
-			for (Image *ima = G.main->image.first; ima; ima = ima->id.next) {
+			for (Image *ima = bmain->image.first; ima; ima = ima->id.next) {
 				if (ima == tgpf->ima) {
-					BLI_remlink(&G.main->image, ima);
+					BLI_remlink(&bmain->image, ima);
 					BKE_image_free(tgpf->ima);
 					MEM_SAFE_FREE(tgpf->ima);
 					break;
