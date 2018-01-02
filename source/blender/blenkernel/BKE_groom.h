@@ -95,4 +95,8 @@ typedef struct GroomIterator
 		     iter.isectionvertex < (bundle)->numloopverts; \
 		     ++iter.isectionvertex, ++iter.vertex)
 
+/* === Utility functions (DerivedMesh SOON TO BE DEPRECATED!) === */
+struct DerivedMesh;
+struct DerivedMesh* BKE_groom_get_scalp(struct Groom *groom);
+
 #endif /*  __BKE_GROOM_H__ */

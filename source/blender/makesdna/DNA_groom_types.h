@@ -120,6 +120,9 @@ typedef struct Groom {
 	
 	ListBase bundles;           /* List of GroomBundle */
 	
+	struct HairSystem *hair_system;         /* Renderable hair geometry */
+	struct HairDrawSettings *hair_draw_settings; /* Draw settings for hair geometry */
+	
 	EditGroom *editgroom;
 	void *batch_cache;
 } Groom;

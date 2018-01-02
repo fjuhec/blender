@@ -50,6 +50,7 @@
 #include "BKE_animsys.h"
 #include "BKE_global.h"
 #include "BKE_groom.h"
+#include "BKE_hair.h"
 #include "BKE_library.h"
 #include "BKE_main.h"
 #include "BKE_object.h"
@@ -64,6 +65,9 @@ void BKE_groom_init(Groom *groom)
 	groom->bb = BKE_boundbox_alloc_unit();
 	
 	groom->curve_res = 12;
+	
+	groom->hair_system = BKE_hair_new();
+	groom->hair_draw_settings = BKE_hair_draw_settings_new();
 }
 
 void *BKE_groom_add(Main *bmain, const char *name)
@@ -116,6 +120,15 @@ void BKE_groom_free(Groom *groom)
 	
 	MEM_SAFE_FREE(groom->bb);
 	
+	if (groom->hair_system)
+	{
+		BKE_hair_free(groom->hair_system);
+	}
+	if (groom->hair_draw_settings)
+	{
+		BKE_hair_draw_settings_free(groom->hair_draw_settings);
+	}
+	
 	groom_bundles_free(&groom->bundles);
 	
 	BKE_animdata_free(&groom->id, false);
@@ -155,6 +168,15 @@ void BKE_groom_copy_data(Main *UNUSED(bmain), Groom *groom_dst, const Groom *gro
 	}
 	
 	groom_dst->editgroom = NULL;
+	
+	if (groom_dst->hair_system)
+	{
+		groom_dst->hair_system = BKE_hair_copy(groom_dst->hair_system);
+	}
+	if (groom_dst->hair_draw_settings)
+	{
+		groom_dst->hair_draw_settings = BKE_hair_draw_settings_copy(groom_dst->hair_draw_settings);
+	}
 }
 
 Groom *BKE_groom_copy(Main *bmain, const Groom *groom)
@@ -518,4 +540,13 @@ void BKE_groom_batch_cache_free(Groom *groom)
 	{
 		BKE_groom_batch_cache_free_cb(groom);
 	}
+}
+
+/* === Utility functions (DerivedMesh SOON TO BE DEPRECATED!) === */
+
+struct DerivedMesh* BKE_groom_get_scalp(struct Groom *groom)
+{
+	// TODO
+	UNUSED_VARS(groom);
+	return NULL;
 }

@@ -8406,6 +8406,10 @@ static void direct_link_groom(FileData *fd, Groom *groom)
 		bundle->totshapecache = 0;
 	}
 	
+	groom->hair_system = newdataadr(fd, groom->hair_system);
+	direct_link_hair(fd, groom->hair_system);
+	groom->hair_draw_settings = newdataadr(fd, groom->hair_draw_settings);
+	
 	groom->bb = NULL;
 	groom->editgroom = NULL;
 	groom->batch_cache = NULL;

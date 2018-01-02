@@ -30,6 +30,7 @@
 #include "DNA_armature_types.h"
 #include "DNA_camera_types.h"
 #include "DNA_curve_types.h"
+#include "DNA_groom_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meta_types.h"
 #include "DNA_modifier_types.h"
@@ -45,6 +46,7 @@
 #include "BKE_camera.h"
 #include "BKE_curve.h"
 #include "BKE_global.h"
+#include "BKE_groom.h"
 #include "BKE_mball.h"
 #include "BKE_modifier.h"
 #include "BKE_object.h"
@@ -1871,12 +1873,15 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 		{
 			Object *obedit = scene->obedit;
 			if (ob != obedit) {
+				Groom *groom = ob->data;
 				struct Gwn_Batch *geom = DRW_cache_groom_wire_get(ob);
 				if (theme_id == TH_UNDEFINED) {
 					theme_id = DRW_object_wire_theme_get(ob, view_layer, NULL);
 				}
 				DRWShadingGroup *shgroup = shgroup_theme_id_to_wire_or(stl, theme_id, stl->g_data->wire);
 				DRW_shgroup_call_add(shgroup, geom, ob->obmat);
+				
+				DRW_shgroup_hair(ob, groom->hair_system, groom->hair_draw_settings, BKE_groom_get_scalp(groom), stl->g_data->hair_verts, stl->g_data->hair_edges);
 			}
 			break;
 		}

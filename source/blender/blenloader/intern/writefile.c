@@ -3828,6 +3828,15 @@ static void write_groom(WriteData *wd, Groom *groom)
 		writestruct(wd, DATA, GroomSection, bundle->totsections, bundle->sections);
 		writestruct(wd, DATA, GroomSectionVertex, bundle->totverts, bundle->verts);
 	}
+	
+	if (groom->hair_system) {
+		writestruct(wd, DATA, HairSystem, 1, groom->hair_system);
+		write_hair(wd, groom->hair_system);
+	}
+	if (groom->hair_draw_settings)
+	{
+		writestruct(wd, DATA, HairDrawSettings, 1, groom->hair_draw_settings);
+	}
 }
 
 /* Keep it last of write_foodata functions. */
