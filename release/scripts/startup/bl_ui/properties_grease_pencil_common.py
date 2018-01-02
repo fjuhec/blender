@@ -994,13 +994,13 @@ class GPENCIL_MT_gpencil_draw_specials(Menu):
 
         layout.operator_context = 'INVOKE_REGION_WIN'
 
+        layout.operator("gpencil.fill", icon='BRUSH_DATA', text="Fill")
+
+        layout.separator()
         layout.operator("gpencil.frame_duplicate", text="Duplicate Active Frame")
         layout.operator("gpencil.frame_duplicate", text="Duplicate Active Frame All Layers").mode = 'ALL'
         layout.separator()
         layout.operator("gpencil.active_frames_delete_all", text="Delete Frame")
-
-        layout.separator()
-        layout.operator("gpencil.fill", icon='BRUSH_DATA', text="Fill")
 
         layout.separator()
         layout.operator("gpencil.primitive", text="Rectangle", icon='UV_FACESEL').type = 'BOX'
