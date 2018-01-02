@@ -8373,7 +8373,7 @@ static void direct_link_linestyle(FileData *fd, FreestyleLineStyle *linestyle)
 
 /* ************ READ GROOM *************** */
 
-static void lib_link_grooms(FileData *fd, Main *bmain)
+static void lib_link_groom(FileData *fd, Main *bmain)
 {
 	for (Groom *groom = bmain->grooms.first; groom; groom = groom->id.next) {
 		ID *id = (ID *)groom;
@@ -8384,7 +8384,7 @@ static void lib_link_grooms(FileData *fd, Main *bmain)
 		IDP_LibLinkProperty(id->properties, fd);
 		id_us_ensure_real(id);
 
-		// LIBLINK STUFF HERE
+		groom->scalp_object = newlibadr(fd, id->lib, groom->scalp_object);
 
 		id->tag &= ~LIB_TAG_NEED_LINK;
 	}
@@ -8906,7 +8906,7 @@ static void lib_link_all(FileData *fd, Main *main)
 	lib_link_gpencil(fd, main);
 	lib_link_cachefiles(fd, main);
 	lib_link_workspaces(fd, main);
-	lib_link_grooms(fd, main);
+	lib_link_groom(fd, main);
 
 	lib_link_library(fd, main);    /* only init users */
 }
@@ -9528,6 +9528,11 @@ static void expand_particlesettings(FileData *fd, Main *mainvar, ParticleSetting
 			}
 		}
 	}
+}
+
+static void expand_groom(FileData *fd, Main *mainvar, Groom *groom)
+{
+	expand_doit(fd, mainvar, groom->scalp_object);
 }
 
 static void expand_group(FileData *fd, Main *mainvar, Group *group)
@@ -10274,6 +10279,9 @@ void BLO_expand_main(void *fdhandle, Main *mainvar)
 						break;
 					case ID_AC:
 						expand_action(fd, mainvar, (bAction *)id); // XXX deprecated - old animation system
+						break;
+					case ID_GM:
+						expand_groom(fd, mainvar, (Groom *)id);
 						break;
 					case ID_GR:
 						expand_group(fd, mainvar, (Group *)id);

@@ -99,6 +99,12 @@ static void rna_def_groom(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Hair Draw Settings", "Hair draw settings");
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 	
+	prop = RNA_def_property(srna, "scalp_object", PROP_POINTER, PROP_NONE);
+	RNA_def_property_pointer_sdna(prop, NULL, "scalp_object");
+	RNA_def_property_ui_text(prop, "Scalp Object", "Surface for attaching hairs");
+	RNA_def_property_flag(prop, PROP_EDITABLE);
+	RNA_def_property_update(prop, 0, "rna_Groom_update_data");
+	
 	UNUSED_VARS(prop);
 }
 

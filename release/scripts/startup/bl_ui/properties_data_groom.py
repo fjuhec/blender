@@ -62,7 +62,12 @@ class DATA_PT_groom(DataButtonsPanel, Panel):
         split = layout.split()
 
         col = split.column()
-        col.prop(groom, "curve_resolution")
+        col.label("Scalp Object:")
+        col.prop(groom, "scalp_object", "")
+
+        col = split.column()
+        col.label("Curves:")
+        col.prop(groom, "curve_resolution", "Resolution")
 
 
 class DATA_PT_groom_draw_settings(DataButtonsPanel, Panel):

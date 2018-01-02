@@ -671,7 +671,7 @@ void BKE_library_foreach_ID_link(Main *bmain, ID *id, LibraryIDLinkCallback call
 			case ID_GM:
 			{
 				Groom *groom = (Groom *) id;
-				UNUSED_VARS(groom);
+				CALLBACK_INVOKE(groom->scalp_object, IDWALK_CB_NOP);
 				break;
 			}
 
