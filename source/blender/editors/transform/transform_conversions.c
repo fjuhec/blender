@@ -2099,11 +2099,21 @@ static void createTransGroomVerts(TransInfo *t)
 
 void flushTransGroom(TransInfo *t)
 {
-	TransData2D *td2d = t->data2d;
-
-	for (int i = 0; i < t->total; ++i, ++td2d)
+	switch (t->scene->toolsettings->groom_edit_settings.mode)
 	{
-		copy_v2_v2(td2d->loc2d, td2d->loc);
+		case GM_EDIT_MODE_REGIONS:
+			break;
+		case GM_EDIT_MODE_CURVES:
+			break;
+		case GM_EDIT_MODE_SECTIONS:
+		{
+			TransData2D *td2d = t->data2d;
+			for (int i = 0; i < t->total; ++i, ++td2d)
+			{
+				copy_v2_v2(td2d->loc2d, td2d->loc);
+			}
+			break;
+		}
 	}
 }
 
