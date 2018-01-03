@@ -127,9 +127,9 @@ static void WIDGETGROUP_navigate_setup(const bContext *UNUSED(C), wmManipulatorG
 		const struct NavigateManipulatorInfo *info = &g_navigate_params[i];
 		navgroup->mpr_array[i] = WM_manipulator_new(info->manipulator, mgroup, NULL);
 		wmManipulator *mpr = navgroup->mpr_array[i];
-		mpr->flag |= WM_MANIPULATOR_GRAB_CURSOR;
-		copy_v3_fl(mpr->color, 1.0f);
-		mpr->color[3] = 0.4f;
+		mpr->flag |= WM_MANIPULATOR_GRAB_CURSOR | WM_MANIPULATOR_DRAW_MODAL;
+		mpr->color[3] = 0.2f;
+		mpr->color_hi[3] = 0.4f;
 
 		/* may be overwritten later */
 		mpr->scale_basis = (MANIPULATOR_SIZE * MANIPULATOR_MINI_FAC) / 2;
@@ -159,10 +159,13 @@ static void WIDGETGROUP_navigate_setup(const bContext *UNUSED(C), wmManipulatorG
 			RV3D_VIEW_TOP,
 		};
 
-		for (int part_index = 0; part_index < 6; part_index+= 1) {
-			PointerRNA *ptr = WM_manipulator_operator_set(mpr, mapping[part_index], ot_viewnumpad, NULL);
-			RNA_enum_set(ptr, "type", RV3D_VIEW_FRONT + part_index);
+		for (int part_index = 0; part_index < 6; part_index += 1) {
+			PointerRNA *ptr = WM_manipulator_operator_set(mpr, part_index + 1, ot_viewnumpad, NULL);
+			RNA_enum_set(ptr, "type", mapping[part_index]);
 		}
+
+		/* When dragging an axis, use this instead. */
+		mpr->drag_part = 0;
 	}
 
 	mgroup->customdata = navgroup;
@@ -188,8 +191,8 @@ static void WIDGETGROUP_navigate_draw_prepare(const bContext *C, wmManipulatorGr
 	navgroup->region_size[1] = ar->winy;
 
 	const float icon_size = MANIPULATOR_SIZE;
-	const float icon_offset = (icon_size / 2.0) * MANIPULATOR_OFFSET_FAC * U.pixelsize;
-	const float icon_offset_mini = icon_size * MANIPULATOR_MINI_OFFSET_FAC * U.pixelsize;
+	const float icon_offset = (icon_size / 2.0) * MANIPULATOR_OFFSET_FAC * U.ui_scale;
+	const float icon_offset_mini = icon_size * MANIPULATOR_MINI_OFFSET_FAC * U.ui_scale;
 	const float co[2] = {ar->winx - icon_offset, ar->winy - icon_offset};
 
 	wmManipulator *mpr;
@@ -220,7 +223,8 @@ void VIEW3D_WGT_navigate(wmManipulatorGroupType *wgt)
 	wgt->idname = "VIEW3D_WGT_navigate";
 
 	wgt->flag |= (WM_MANIPULATORGROUPTYPE_PERSISTENT |
-	              WM_MANIPULATORGROUPTYPE_SCALE);
+	              WM_MANIPULATORGROUPTYPE_SCALE |
+	              WM_MANIPULATORGROUPTYPE_DRAW_MODAL_ALL);
 
 	wgt->poll = WIDGETGROUP_navigate_poll;
 	wgt->setup = WIDGETGROUP_navigate_setup;

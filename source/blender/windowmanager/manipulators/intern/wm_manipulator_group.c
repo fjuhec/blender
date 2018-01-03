@@ -39,6 +39,7 @@
 
 #include "BLI_listbase.h"
 #include "BLI_string.h"
+#include "BLI_math.h"
 
 #include "BKE_context.h"
 #include "BKE_main.h"
@@ -60,6 +61,10 @@
 #ifdef WITH_PYTHON
 #  include "BPY_extern.h"
 #endif
+
+/* Allow manipulator part's to be single click only,
+ * dragging falls back to activating their 'drag_part' action. */
+#define USE_DRAG_DETECT
 
 /* -------------------------------------------------------------------- */
 /** \name wmManipulatorGroup
@@ -307,15 +312,71 @@ typedef struct ManipulatorTweakData {
 
 	int init_event; /* initial event type */
 	int flag;       /* tweak flags */
+
+#ifdef USE_DRAG_DETECT
+	/* True until the mouse is moved (only use when the operator has no modal).
+	 * this allows some manipulators to be click-only. */
+	enum {
+		/* Don't detect dragging. */
+		DRAG_NOP = 0,
+		/* Detect dragging (wait until a drag or click is detected). */
+		DRAG_DETECT,
+		/* Drag has started, idle until there is no active modal operator.
+		 * This is needed because finishing the modal operator also exits
+		 * the modal manipulator state (un-grabbs the cursor).
+		 * Ideally this workaround could be removed later. */
+		DRAG_IDLE,
+	} drag_state;
+#endif
+
 } ManipulatorTweakData;
 
-static void manipulator_tweak_finish(bContext *C, wmOperator *op, const bool cancel)
+static bool manipulator_tweak_start(
+        bContext *C, wmManipulatorMap *mmap, wmManipulator *mpr, const wmEvent *event)
+{
+	/* activate highlighted manipulator */
+	wm_manipulatormap_modal_set(mmap, C, mpr, event, true);
+
+	return (mpr->state & WM_MANIPULATOR_STATE_MODAL);
+}
+
+static bool manipulator_tweak_start_and_finish(
+        bContext *C, wmManipulatorMap *mmap, wmManipulator *mpr, const wmEvent *event, bool *r_is_modal)
+{
+	wmManipulatorOpElem *mpop = WM_manipulator_operator_get(mpr, mpr->highlight_part);
+	if (r_is_modal) {
+		*r_is_modal = false;
+	}
+	if (mpop && mpop->type) {
+		/* XXX temporary workaround for modal manipulator operator
+		 * conflicting with modal operator attached to manipulator */
+		if (mpop->type->modal) {
+			/* activate highlighted manipulator */
+			wm_manipulatormap_modal_set(mmap, C, mpr, event, true);
+			if (r_is_modal) {
+				*r_is_modal = true;
+			}
+		}
+		else {
+			/* Allow for 'button' manipulators, single click to run an action. */
+			WM_operator_name_call_ptr(C, mpop->type, WM_OP_INVOKE_DEFAULT, &mpop->ptr);
+		}
+		return true;
+	}
+	else {
+		return false;
+	}
+}
+
+static void manipulator_tweak_finish(bContext *C, wmOperator *op, const bool cancel, bool clear_modal)
 {
 	ManipulatorTweakData *mtweak = op->customdata;
 	if (mtweak->mpr_modal->type->exit) {
 		mtweak->mpr_modal->type->exit(C, mtweak->mpr_modal, cancel);
 	}
-	wm_manipulatormap_modal_set(mtweak->mmap, C, mtweak->mpr_modal, NULL, false);
+	if (clear_modal) {
+		wm_manipulatormap_modal_set(mtweak->mmap, C, mtweak->mpr_modal, NULL, false);
+	}
 	MEM_freeN(mtweak);
 }
 
@@ -323,27 +384,68 @@ static int manipulator_tweak_modal(bContext *C, wmOperator *op, const wmEvent *e
 {
 	ManipulatorTweakData *mtweak = op->customdata;
 	wmManipulator *mpr = mtweak->mpr_modal;
+	int retval = OPERATOR_PASS_THROUGH;
+	bool clear_modal = true;
 
 	if (mpr == NULL) {
 		BLI_assert(0);
 		return (OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH);
 	}
 
-	if (event->type == mtweak->init_event && event->val == KM_RELEASE) {
-		manipulator_tweak_finish(C, op, false);
-		return OPERATOR_FINISHED;
+#ifdef USE_DRAG_DETECT
+	wmManipulatorMap *mmap = mtweak->mmap;
+	if (mtweak->drag_state == DRAG_DETECT) {
+		if (ELEM(event->type, MOUSEMOVE, INBETWEEN_MOUSEMOVE)) {
+			if (len_manhattan_v2v2_int(&event->x, mmap->mmap_context.event_xy) > 2) {
+				mtweak->drag_state = DRAG_IDLE;
+				mpr->highlight_part = mpr->drag_part;
+			}
+		}
+		else if (event->type == mtweak->init_event && event->val == KM_RELEASE) {
+			mtweak->drag_state = DRAG_NOP;
+			retval = OPERATOR_FINISHED;
+		}
+
+		if (mtweak->drag_state != DRAG_DETECT) {
+			/* Follow logic in 'manipulator_tweak_invoke' */
+			bool is_modal = false;
+			if (manipulator_tweak_start_and_finish(C, mmap, mpr, event, &is_modal)) {
+				if (is_modal) {
+					clear_modal = false;
+				}
+			}
+			else {
+				if (!manipulator_tweak_start(C, mmap, mpr, event)) {
+					retval = OPERATOR_FINISHED;
+				}
+			}
+		}
 	}
+	if (mtweak->drag_state == DRAG_IDLE) {
+		if (mmap->mmap_context.modal != NULL) {
+			return OPERATOR_PASS_THROUGH;
+		}
+		else {
+			manipulator_tweak_finish(C, op, false, false);
+			return OPERATOR_FINISHED;
+		}
+	}
+#endif  /* USE_DRAG_DETECT */
 
-
-	if (event->type == EVT_MODAL_MAP) {
+	if (retval == OPERATOR_FINISHED) {
+		/* pass */
+	}
+	else if (event->type == mtweak->init_event && event->val == KM_RELEASE) {
+		retval = OPERATOR_FINISHED;
+	}
+	else if (event->type == EVT_MODAL_MAP) {
 		switch (event->val) {
 			case TWEAK_MODAL_CANCEL:
-				manipulator_tweak_finish(C, op, true);
-				return OPERATOR_CANCELLED;
+				retval = OPERATOR_CANCELLED;
+				break;
 			case TWEAK_MODAL_CONFIRM:
-				manipulator_tweak_finish(C, op, false);
-				return OPERATOR_FINISHED;
-
+				retval = OPERATOR_FINISHED;
+				break;
 			case TWEAK_MODAL_PRECISION_ON:
 				mtweak->flag |= WM_MANIPULATOR_TWEAK_PRECISE;
 				break;
@@ -360,20 +462,28 @@ static int manipulator_tweak_modal(bContext *C, wmOperator *op, const wmEvent *e
 		}
 	}
 
-	/* handle manipulator */
-	wmManipulatorFnModal modal_fn = mpr->custom_modal ? mpr->custom_modal : mpr->type->modal;
-	int retval = modal_fn(C, mpr, event, mtweak->flag);
-
-	if ((retval & OPERATOR_RUNNING_MODAL) == 0) {
-		manipulator_tweak_finish(C, op, (retval & OPERATOR_CANCELLED) != 0);
-		return OPERATOR_FINISHED;
+	if (retval != OPERATOR_PASS_THROUGH) {
+		manipulator_tweak_finish(C, op, retval != OPERATOR_FINISHED, clear_modal);
+		return retval;
 	}
 
-	/* Ugly hack to send manipulator events */
-	((wmEvent *)event)->type = EVT_MANIPULATOR_UPDATE;
+	/* handle manipulator */
+	wmManipulatorFnModal modal_fn = mpr->custom_modal ? mpr->custom_modal : mpr->type->modal;
+	if (modal_fn) {
+		int modal_retval = modal_fn(C, mpr, event, mtweak->flag);
+
+		if ((modal_retval & OPERATOR_RUNNING_MODAL) == 0) {
+			manipulator_tweak_finish(C, op, (modal_retval & OPERATOR_CANCELLED) != 0, true);
+			return OPERATOR_FINISHED;
+		}
+
+		/* Ugly hack to send manipulator events */
+		((wmEvent *)event)->type = EVT_MANIPULATOR_UPDATE;
+	}
 
 	/* always return PASS_THROUGH so modal handlers
 	 * with manipulators attached can update */
+	BLI_assert(retval == OPERATOR_PASS_THROUGH);
 	return OPERATOR_PASS_THROUGH;
 }
 
@@ -383,36 +493,44 @@ static int manipulator_tweak_invoke(bContext *C, wmOperator *op, const wmEvent *
 	wmManipulatorMap *mmap = ar->manipulator_map;
 	wmManipulator *mpr = mmap->mmap_context.highlight;
 
+	/* Needed for single click actions which don't enter modal state. */
+	WM_manipulatormap_tooltip_clear(C, mmap);
+
 	if (!mpr) {
 		/* wm_handlers_do_intern shouldn't let this happen */
 		BLI_assert(0);
 		return (OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH);
 	}
 
-	wmManipulatorOpElem *mpop = WM_manipulator_operator_get(mpr, mpr->highlight_part);
+	bool use_drag_fallback = false;
 
-	/* Allow for 'button' manipulators, single click to run an action. */
-	if (mpop && mpop->type) {
-		if (mpop->type->modal == NULL) {
-			WM_operator_name_call_ptr(C, mpop->type, WM_OP_INVOKE_DEFAULT, &mpop->ptr);
+#ifdef USE_DRAG_DETECT
+	use_drag_fallback = !ELEM(mpr->drag_part, -1, mpr->highlight_part);
+#endif
+
+	if (use_drag_fallback == false) {
+		if (manipulator_tweak_start_and_finish(C, mmap, mpr, event, NULL)) {
 			return OPERATOR_FINISHED;
 		}
 	}
 
-	/* activate highlighted manipulator */
-	wm_manipulatormap_modal_set(mmap, C, mpr, event, true);
-
-	/* XXX temporary workaround for modal manipulator operator
-	 * conflicting with modal operator attached to manipulator */
-	if (mpop && mpop->type) {
-		if (mpop->type->modal) {
-			return OPERATOR_FINISHED;
+	bool use_drag_detect = false;
+#ifdef USE_DRAG_DETECT
+	if (use_drag_fallback) {
+		wmManipulatorOpElem *mpop = WM_manipulator_operator_get(mpr, mpr->highlight_part);
+		if (mpop && mpop->type) {
+			if (mpop->type->modal == NULL) {
+				use_drag_detect = true;
+			}
 		}
 	}
+#endif
 
-	/* Couldn't start the manipulator. */
-	if ((mpr->state & WM_MANIPULATOR_STATE_MODAL) == 0) {
-		return OPERATOR_PASS_THROUGH;
+	if (use_drag_detect == false) {
+		if (!manipulator_tweak_start(C, mmap, mpr, event)) {
+			/* failed to start */
+			return OPERATOR_PASS_THROUGH;
+		}
 	}
 
 	ManipulatorTweakData *mtweak = MEM_mallocN(sizeof(ManipulatorTweakData), __func__);
@@ -421,6 +539,10 @@ static int manipulator_tweak_invoke(bContext *C, wmOperator *op, const wmEvent *
 	mtweak->mpr_modal = mmap->mmap_context.highlight;
 	mtweak->mmap = mmap;
 	mtweak->flag = 0;
+
+#ifdef USE_DRAG_DETECT
+	mtweak->drag_state = use_drag_detect ? DRAG_DETECT : DRAG_NOP;
+#endif
 
 	op->customdata = mtweak;
 

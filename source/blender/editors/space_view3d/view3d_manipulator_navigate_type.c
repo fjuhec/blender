@@ -43,7 +43,6 @@
 #include "GPU_immediate.h"
 #include "GPU_immediate_util.h"
 #include "GPU_matrix.h"
-#include "GPU_select.h"
 
 #include "RNA_access.h"
 #include "RNA_define.h"
@@ -54,8 +53,6 @@
 #include "WM_types.h"
 
 #include "ED_screen.h"
-#include "ED_view3d.h"
-#include "ED_manipulator_library.h"
 
 #include "view3d_intern.h"
 
@@ -96,8 +93,9 @@ static void axis_geom_draw(
 	};
 	qsort(&axis_order, ARRAY_SIZE(axis_order), sizeof(axis_order[0]), BLI_sortutil_cmp_float);
 
-	const float scale_axis = 0.33f;
+	const float scale_axis = 0.25f;
 	static const float axis_highlight[4] = {1, 1, 1, 1};
+	static const float axis_nop[4] = {1, 1, 1, 0};
 	static const float axis_black[4] = {0, 0, 0, 1};
 	static float axis_color[3][4];
 	gpuPushMatrix();
@@ -138,7 +136,8 @@ static void axis_geom_draw(
 				glEnable(GL_LINE_SMOOTH);
 				glEnable(GL_BLEND);
 				glLineWidth(1.0f);
-				immUniformColor4fv(axis_highlight);
+				/* Just draw depth values. */
+				immUniformColor4fv(axis_nop);
 				imm_draw_cube_fill_3d(pos_id, center, size);
 				immUniformColor4fv(axis_black);
 				madd_v3_v3fl(
@@ -224,7 +223,7 @@ static void axis3d_draw_intern(
 static void manipulator_axis_draw(const bContext *C, wmManipulator *mpr)
 {
 	const bool is_modal = mpr->state & WM_MANIPULATOR_STATE_MODAL;
-	const bool is_highlight = (mpr->state & WM_MANIPULATOR_STATE_HIGHLIGHT) != 0 && (mpr->highlight_part == 0);
+	const bool is_highlight = (mpr->state & WM_MANIPULATOR_STATE_HIGHLIGHT) != 0;
 
 	(void)is_modal;
 
@@ -238,16 +237,17 @@ static int manipulator_axis_test_select(
 {
 	float point_local[2] = {UNPACK2(event->mval)};
 	sub_v2_v2(point_local, mpr->matrix_basis[3]);
-	mul_v2_fl(point_local, 1.0f / mpr->scale_basis);
+	mul_v2_fl(point_local, 1.0f / (mpr->scale_basis * U.ui_scale));
 
 	const float len_sq = len_squared_v2(point_local);
-	if (len_sq > SQUARE(1.0 + HANDLE_SIZE)) {
+	if (len_sq > 1.0) {
 		return -1;
 	}
 
 	int part_best = -1;
 	int part_index = 1;
-	float i_best_len_sq = SQUARE(HANDLE_SIZE);
+	/* Use 'SQUARE(HANDLE_SIZE)' if we want to be able to _not_ focus on one of the axis. */
+	float i_best_len_sq = FLT_MAX;
 	for (int i = 0; i < 3; i++) {
 		for (int is_pos = 0; is_pos < 2; is_pos++) {
 			float co[2] = {

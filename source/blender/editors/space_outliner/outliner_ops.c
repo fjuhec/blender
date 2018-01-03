@@ -335,6 +335,9 @@ void outliner_operatortypes(void)
 	WM_operatortype_append(OUTLINER_OT_collection_objects_remove);
 	WM_operatortype_append(OUTLINER_OT_collection_objects_select);
 	WM_operatortype_append(OUTLINER_OT_collection_objects_deselect);
+
+	WM_operatortype_append(OUTLINER_OT_collection_nested_new);
+	WM_operatortype_append(OUTLINER_OT_collection_delete_selected);
 }
 
 static wmKeyMap *outliner_item_drag_drop_modal_keymap(wmKeyConfig *keyconf)
@@ -431,6 +434,9 @@ void outliner_keymap(wmKeyConfig *keyconf)
 	
 	WM_keymap_verify_item(keymap, "OUTLINER_OT_drivers_add_selected", DKEY, KM_PRESS, 0, 0);
 	WM_keymap_verify_item(keymap, "OUTLINER_OT_drivers_delete_selected", DKEY, KM_PRESS, KM_ALT, 0);
+
+	WM_keymap_verify_item(keymap, "OUTLINER_OT_collection_nested_new", CKEY, KM_PRESS, 0, 0);
+	WM_keymap_verify_item(keymap, "OUTLINER_OT_collection_delete_selected", XKEY, KM_PRESS, 0, 0);
 
 	outliner_item_drag_drop_modal_keymap(keyconf);
 }

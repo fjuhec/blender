@@ -126,7 +126,8 @@ static int curve_render_normal_len_get(const ListBase *lb, const CurveCache *ob_
 			nr -= skip;
 		}
 #else
-		normal_len += max_ii((nr + max_ii(skip - 1, 0)) / (skip + 1), 0);
+		/* Same as loop above */
+		normal_len += (nr / (skip + 1)) + ((nr % (skip + 1)) != 0);
 #endif
 	}
 	return normal_len;
@@ -1043,7 +1044,7 @@ Gwn_Batch **DRW_curve_batch_cache_get_surface_shaded(
 
 		for (int i = 0; i < gpumat_array_len; ++i) {
 			cache->surface.shaded_triangles[i] = GWN_batch_create_ex(
-			        GWN_PRIM_TRIS, cache->surface.verts, el[i], el[i] ? GWN_BATCH_OWNS_INDEX : 0);
+			        GWN_PRIM_TRIS, cache->surface.verts, el[i], GWN_BATCH_OWNS_INDEX);
 
 			/* TODO: Add vertbuff for UV */
 		}

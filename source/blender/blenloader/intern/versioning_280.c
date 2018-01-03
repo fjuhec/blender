@@ -45,6 +45,7 @@
 #include "DNA_lightprobe_types.h"
 #include "DNA_material_types.h"
 #include "DNA_mesh_types.h"
+#include "DNA_particle_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
 #include "DNA_view3d_types.h"
@@ -351,7 +352,7 @@ void do_versions_after_linking_280(Main *main)
 						view_layer->pass_xor = srl->pass_xor;
 						view_layer->pass_alpha_threshold = srl->pass_alpha_threshold;
 
-						BKE_freestyle_config_free(&view_layer->freestyle_config);
+						BKE_freestyle_config_free(&view_layer->freestyle_config, true);
 						view_layer->freestyle_config = srl->freestyleConfig;
 						view_layer->id_properties = srl->prop;
 
@@ -424,7 +425,7 @@ void do_versions_after_linking_280(Main *main)
 							IDP_FreeProperty(srl->prop);
 							MEM_freeN(srl->prop);
 						}
-						BKE_freestyle_config_free(&srl->freestyleConfig);
+						BKE_freestyle_config_free(&srl->freestyleConfig, true);
 					}
 				}
 				BLI_freelistN(&scene->r.layers);
@@ -479,11 +480,6 @@ void do_versions_after_linking_280(Main *main)
 
 					/* keep lay around for forward compatibility (open those files in 2.79) */
 					base->lay = base->object->lay;
-				}
-
-				/* Fallback name if only one layer was found in the original file */
-				if (BLI_listbase_is_single(&sc_master->scene_collections)) {
-					BKE_collection_rename(scene, sc_master->scene_collections.first, "Default Collection");
 				}
 
 				/* remove bases once and for all */
@@ -544,7 +540,7 @@ void do_versions_after_linking_280(Main *main)
 					IDP_FreeProperty(srl->prop);
 					MEM_freeN(srl->prop);
 				}
-				BKE_freestyle_config_free(&srl->freestyleConfig);
+				BKE_freestyle_config_free(&srl->freestyleConfig, true);
 			}
 			BLI_freelistN(&scene->r.layers);
 		}
@@ -599,6 +595,38 @@ void do_versions_after_linking_280(Main *main)
 			GroupObject *go;
 			while ((go = BLI_pophead(&group->gobject))) {
 				MEM_freeN(go);
+			}
+		}
+	}
+
+	{
+		for (Object *object = main->object.first; object; object = object->id.next) {
+#ifndef VERSION_280_SUBVERSION_4
+			/* If any object already has an initialized value for
+			 * duplicator_visibility_flag it means we've already doversioned it.
+			 * TODO(all) remove the VERSION_280_SUBVERSION_4 code once the subversion was bumped. */
+			if (object->duplicator_visibility_flag != 0) {
+				break;
+			}
+#endif
+			if (object->particlesystem.first) {
+				object->duplicator_visibility_flag = OB_DUPLI_FLAG_VIEWPORT;
+				for (ParticleSystem *psys = object->particlesystem.first; psys; psys=psys->next) {
+					if (psys->part->draw & PART_DRAW_EMITTER) {
+						object->duplicator_visibility_flag |= OB_DUPLI_FLAG_RENDER;
+#ifndef VERSION_280_SUBVERSION_4
+						psys->part->draw &= ~PART_DRAW_EMITTER;
+#else
+						break;
+#endif
+					}
+				}
+			}
+			else if (object->transflag & OB_DUPLI){
+				object->duplicator_visibility_flag = OB_DUPLI_FLAG_VIEWPORT;
+			}
+			else {
+				object->duplicator_visibility_flag = OB_DUPLI_FLAG_VIEWPORT | OB_DUPLI_FLAG_RENDER;
 			}
 		}
 	}

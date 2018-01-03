@@ -870,7 +870,7 @@ static void rna_LayerObjects_selected_begin(CollectionPropertyIterator *iter, Po
 static void rna_ViewLayer_update_tagged(ViewLayer *UNUSED(view_layer), bContext *C)
 {
 	Depsgraph *graph = CTX_data_depsgraph(C);
-	DEG_OBJECT_ITER(graph, ob,
+	DEG_OBJECT_ITER(graph, ob, DEG_ITER_OBJECT_MODE_VIEWPORT,
 	                DEG_ITER_OBJECT_FLAG_LINKED_DIRECTLY |
 	                DEG_ITER_OBJECT_FLAG_LINKED_VIA_SET |
 	                DEG_ITER_OBJECT_FLAG_LINKED_INDIRECTLY |
@@ -991,15 +991,14 @@ static void rna_def_scene_collections(BlenderRNA *brna, PropertyRNA *cprop)
 	func = RNA_def_function(srna, "new", "rna_SceneCollection_new");
 	RNA_def_function_ui_description(func, "Add a collection to scene");
 	RNA_def_function_flag(func, FUNC_USE_SELF_ID | FUNC_USE_MAIN);
-	parm = RNA_def_string(func, "name", "SceneCollection", 0, "", "New name for the collection (not unique)");
-	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
+	parm = RNA_def_string(func, "name", NULL, 0, "", "New name for the collection (not unique)");
 	parm = RNA_def_pointer(func, "result", "SceneCollection", "", "Newly created collection");
 	RNA_def_function_return(func, parm);
 
 	func = RNA_def_function(srna, "remove", "rna_SceneCollection_remove");
-	RNA_def_function_ui_description(func, "Remove a collection layer");
+	RNA_def_function_ui_description(func, "Remove a collection and move its objects to the master collection");
 	RNA_def_function_flag(func, FUNC_USE_SELF_ID | FUNC_USE_MAIN | FUNC_USE_REPORTS);
-	parm = RNA_def_pointer(func, "layer", "SceneCollection", "", "Collection to remove");
+	parm = RNA_def_pointer(func, "collection", "SceneCollection", "", "Collection to remove");
 	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
 	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
 }

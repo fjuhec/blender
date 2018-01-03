@@ -1416,8 +1416,11 @@ static void outliner_draw_tree_element(
 			te->flag |= TE_ACTIVE; // for lookup in display hierarchies
 		}
 		
+		if ((soops->outlinevis == SO_COLLECTIONS) && te->parent == NULL) {
+			/* Master collection can't expand/collapse. */
+		}
+		else if (te->subtree.first || (tselem->type == 0 && te->idcode == ID_SCE) || (te->flag & TE_LAZY_CLOSED)) {
 		/* open/close icon, only when sublevels, except for scene */
-		if (te->subtree.first || (tselem->type == 0 && te->idcode == ID_SCE) || (te->flag & TE_LAZY_CLOSED)) {
 			int icon_x;
 			if (tselem->type == 0 && ELEM(te->idcode, ID_OB, ID_SCE))
 				icon_x = startx;
@@ -1456,6 +1459,11 @@ static void outliner_draw_tree_element(
 				UI_icon_draw_alpha((float)startx + offsx + 2 * ufac, (float)*starty + 2 * ufac, ICON_LIBRARY_DATA_DIRECT,
 				                   alpha_fac);
 			}
+			offsx += UI_UNIT_X + 2 * ufac;
+		}
+		else if (tselem->type == 0 && ID_IS_STATIC_OVERRIDE(tselem->id)) {
+			UI_icon_draw_alpha((float)startx + offsx + 2 * ufac, (float)*starty + 2 * ufac, ICON_LIBRARY_DATA_OVERRIDE,
+			                   alpha_fac);
 			offsx += UI_UNIT_X + 2 * ufac;
 		}
 		glDisable(GL_BLEND);

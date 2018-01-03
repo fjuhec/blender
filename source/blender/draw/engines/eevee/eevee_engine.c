@@ -56,7 +56,7 @@ static void eevee_engine_init(void *ved)
 		/* Alloc transient pointers */
 		stl->g_data = MEM_callocN(sizeof(*stl->g_data), __func__);
 	}
-	stl->g_data->background_alpha = 1.0f;
+	stl->g_data->background_alpha = DRW_state_draw_background() ? 1.0f : 0.0f;
 	stl->g_data->valid_double_buffer = (txl->color_double_buffer != NULL);
 
 	DRWFboTexture tex = {&txl->color, DRW_TEX_RGBA_16, DRW_TEX_FILTER | DRW_TEX_MIPMAP};
@@ -111,6 +111,10 @@ static void eevee_cache_populate(void *vedata, Object *ob)
 		if (DRW_object_is_mode_shade(ob) == true) {
 			return;
 		}
+	}
+
+	if (DRW_check_object_visible_within_active_context(ob) == false) {
+		return;
 	}
 
 	if (ELEM(ob->type, OB_MESH, OB_CURVE, OB_SURF, OB_FONT)) {
@@ -283,6 +287,13 @@ static void eevee_view_update(void *vedata)
 
 static void eevee_id_update(void *UNUSED(vedata), ID *id)
 {
+	/* This is a bit mask of components which update is to be ignored. */
+	const int ignore_updates = ID_RECALC_COLLECTIONS;
+	/* Check whether we have to do anything here. */
+	if ((id->recalc & ~ignore_updates) == 0) {
+		return;
+	}
+	/* Handle updates based on ID type. */
 	const ID_Type id_type = GS(id->name);
 	if (id_type == ID_OB) {
 		Object *object = (Object *)id;
@@ -407,8 +418,8 @@ DrawEngineType draw_engine_eevee_type = {
 	&eevee_cache_init,
 	&eevee_cache_populate,
 	&eevee_cache_finish,
+	NULL,
 	&eevee_draw_scene,
-	NULL, //&EEVEE_draw_scene
 	&eevee_view_update,
 	&eevee_id_update,
 };
