@@ -927,7 +927,9 @@ static int gpencil_fill_invoke(bContext *C, wmOperator *op, const wmEvent *event
 	}
 
 	/* Enable custom drawing handlers */
-	tgpf->draw_handle_3d = ED_region_draw_cb_activate(tgpf->ar->type, gpencil_fill_draw_3d, tgpf, REGION_DRAW_POST_VIEW);
+	if (tgpf->flag & GP_BRUSH_FILL_SHOW_BOUNDARY) {
+		tgpf->draw_handle_3d = ED_region_draw_cb_activate(tgpf->ar->type, gpencil_fill_draw_3d, tgpf, REGION_DRAW_POST_VIEW);
+	}
 
 	WM_cursor_modal_set(CTX_wm_window(C), BC_PAINTBRUSHCURSOR);
 	
@@ -962,7 +964,7 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
 	}
 	if ELEM(event->type, LEFTMOUSE) {
 		/* first time the event is not enabled to show help lines */
-		if (tgpf->oldkey != -1) {
+		if ((tgpf->oldkey != -1) || ((tgpf->flag & GP_BRUSH_FILL_SHOW_BOUNDARY) == 0)) {
 			ARegion *ar = BKE_area_find_region_xy(CTX_wm_area(C), RGN_TYPE_ANY, event->x, event->y);
 			if (ar) {
 				rcti region_rect;

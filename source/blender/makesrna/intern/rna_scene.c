@@ -2362,6 +2362,11 @@ static void rna_def_gpencil_brush(BlenderRNA *brna)
 	RNA_def_property_boolean_default(prop, true);
 	RNA_def_property_ui_text(prop, "Fill Only", "The brush is only for filling strokes");
 
+	prop = RNA_def_property(srna, "fill_show_boundary", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_BRUSH_FILL_SHOW_BOUNDARY);
+	RNA_def_property_boolean_default(prop, true);
+	RNA_def_property_ui_text(prop, "Show Boundary Lines", "Show help lines to visualize stroke boundaries");
+
 	prop = RNA_def_property(srna, "fill_hide", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_BRUSH_FILL_HIDE);
 	RNA_def_property_boolean_default(prop, true);

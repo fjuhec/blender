@@ -148,6 +148,8 @@ typedef enum eGPDbrush_Flag {
 	GP_BRUSH_FILL_ONLY = (1 << 7),
 	/* fill hide transparent */
 	GP_BRUSH_FILL_HIDE = (1 << 8),
+	/* fill show boundary lines */
+	GP_BRUSH_FILL_SHOW_BOUNDARY = (1 << 9),
 } eGPDbrush_Flag;
 
 /* ***************************************** */
