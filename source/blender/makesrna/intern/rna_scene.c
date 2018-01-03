@@ -645,10 +645,10 @@ static const EnumPropertyItem *rna_GPencilBrush_enum_itemf(
 		item_tmp.name = brush->info;
 		item_tmp.value = i;
 		if (brush->flag & GP_BRUSH_FILL_ONLY) {
-			item_tmp.icon = ICON_GROUP_VCOL;
+			item_tmp.icon = ICON_GPBRUSH_FILL;
 		}
 		else {
-			item_tmp.icon = ICON_BRUSH_DATA;
+			item_tmp.icon = ICON_GPBRUSH_DRAW;
 		}
 
 		RNA_enum_item_add(&item, &totitem, &item_tmp);

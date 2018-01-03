@@ -137,6 +137,9 @@ if(WITH_BLENDER)
 		data_to_c_simple(../../../../release/datafiles/brushicons/gp_brush_clone.png SRC)
 		data_to_c_simple(../../../../release/datafiles/brushicons/gp_brush_weight.png SRC)
 
+		data_to_c_simple(../../../../release/datafiles/brushicons/gp_brush_draw.png SRC)
+		data_to_c_simple(../../../../release/datafiles/brushicons/gp_brush_fill.png SRC)
+
 	endif()
 
 	data_to_c_simple(../../../../release/datafiles/startup.blend SRC)

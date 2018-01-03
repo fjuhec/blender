@@ -428,6 +428,10 @@ static void init_brush_icons(void)
 	INIT_BRUSH_ICON(ICON_GPBRUSH_CLONE, gp_brush_clone);
 	INIT_BRUSH_ICON(ICON_GPBRUSH_WEIGHT, gp_brush_weight);
 
+	/* grease pencil drawing brushes */
+	INIT_BRUSH_ICON(ICON_GPBRUSH_DRAW, gp_brush_draw);
+	INIT_BRUSH_ICON(ICON_GPBRUSH_FILL, gp_brush_fill);
+
 #undef INIT_BRUSH_ICON
 }
 
