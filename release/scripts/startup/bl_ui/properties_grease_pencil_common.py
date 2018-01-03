@@ -1014,9 +1014,14 @@ class GPENCIL_MT_gpencil_draw_specials(Menu):
         # colors
         layout.separator()
         palette = context.active_gpencil_palette
+        brush = context.active_gpencil_brush
         i = 0
         for palcolor in palette.colors:
-            layout.operator("palette.palettecolor_choose", text=palcolor.name).index=i
+            if brush is None or brush.is_fill_only is False:
+                layout.operator("palette.palettecolor_choose", text=palcolor.name).index=i
+            else:
+                if palcolor.fill_alpha > 0.0:
+                    layout.operator("palette.palettecolor_choose", text=palcolor.name).index = i
             i += 1
 
 
