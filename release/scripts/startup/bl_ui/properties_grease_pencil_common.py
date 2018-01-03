@@ -379,9 +379,6 @@ class GreasePencilBrushPanel:
             row = layout.row(align=False)
             row.prop(context.tool_settings, "use_gpencil_draw_onback", text="Draw on Back")
 
-        row = layout.row()
-        row.operator("gpencil.fill", icon='BRUSH_DATA', text="Fill")
-
 
 class GreasePencilBrushOptionsPanel:
     # subclass must set
@@ -994,9 +991,6 @@ class GPENCIL_MT_gpencil_draw_specials(Menu):
 
         layout.operator_context = 'INVOKE_REGION_WIN'
 
-        layout.operator("gpencil.fill", icon='BRUSH_DATA', text="Fill")
-
-        layout.separator()
         layout.operator("gpencil.frame_duplicate", text="Duplicate Active Frame")
         layout.operator("gpencil.frame_duplicate", text="Duplicate Active Frame All Layers").mode = 'ALL'
         layout.separator()
