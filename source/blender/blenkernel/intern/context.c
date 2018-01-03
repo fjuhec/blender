@@ -1052,6 +1052,7 @@ static const char *data_mode_strings[] = {
 	"armature_edit",
 	"mball_edit",
 	"lattice_edit",
+	"groom_edit",
 	"posemode",
 	"sculpt_mode",
 	"weightpaint",
