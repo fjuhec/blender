@@ -367,17 +367,26 @@ class GreasePencilBrushPanel:
         if brush is not None:
             row = layout.row()
             row.prop(brush, "name", text="")
-            row = layout.row(align=True)
-            row.prop(brush, "use_random_pressure", text="", icon='RNDCURVE')
-            row.prop(brush, "line_width", text="Radius")
-            row.prop(brush, "use_pressure", text="", icon='STYLUS_PRESSURE')
-            row = layout.row(align=True)
-            row.prop(brush, "use_random_strength", text="", icon='RNDCURVE')
-            row.prop(brush, "strength", slider=True)
-            row.prop(brush, "use_strength_pressure", text="", icon='STYLUS_PRESSURE')
+            if brush.is_fill_only is False:
+                row = layout.row(align=True)
+                row.prop(brush, "use_random_pressure", text="", icon='RNDCURVE')
+                row.prop(brush, "line_width", text="Radius")
+                row.prop(brush, "use_pressure", text="", icon='STYLUS_PRESSURE')
+                row = layout.row(align=True)
+                row.prop(brush, "use_random_strength", text="", icon='RNDCURVE')
+                row.prop(brush, "strength", slider=True)
+                row.prop(brush, "use_strength_pressure", text="", icon='STYLUS_PRESSURE')
 
-            row = layout.row(align=False)
-            row.prop(context.tool_settings, "use_gpencil_draw_onback", text="Draw on Back")
+                row = layout.row(align=False)
+                row.prop(context.tool_settings, "use_gpencil_draw_onback", text="Draw on Back")
+
+            if brush.is_fill_only is True:
+                row = layout.row(align=True)
+                row.prop(brush, "fill_threshold", text="Threshold")
+                row = layout.row(align=True)
+                row.prop(brush, "fill_leak", text="Leak Size")
+                row = layout.row(align=True)
+                row.prop(brush, "fill_hide", text="Hide Lines")
 
 
 class GreasePencilBrushOptionsPanel:

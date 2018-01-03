@@ -2296,6 +2296,22 @@ static void rna_def_gpencil_brush(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Curve Jitter", "Curve used for the jitter effect");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, NULL);
 
+	/* fill threshold for transparence */
+	prop = RNA_def_property(srna, "fill_threshold", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_sdna(prop, NULL, "fill_threshold");
+	RNA_def_property_range(prop, 0.0f, 1.0f);
+	RNA_def_property_ui_text(prop, "Threshold",
+		"Threshold to consider color transparent for filling");
+	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, NULL);
+
+	/* fill leak size */
+	prop = RNA_def_property(srna, "fill_leak", PROP_INT, PROP_PIXEL);
+	RNA_def_property_int_sdna(prop, NULL, "fill_leak");
+	RNA_def_property_range(prop, 0, 100);
+	RNA_def_property_ui_text(prop, "Leak Size",
+		"Size in pixels to consider the leak closed");
+	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, NULL);
+
 	/* Flags */
 	prop = RNA_def_property(srna, "use_pressure", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_BRUSH_USE_PRESSURE);
@@ -2345,6 +2361,11 @@ static void rna_def_gpencil_brush(BlenderRNA *brna)
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_BRUSH_FILL_ONLY);
 	RNA_def_property_boolean_default(prop, true);
 	RNA_def_property_ui_text(prop, "Fill Only", "The brush is only for filling strokes");
+
+	prop = RNA_def_property(srna, "fill_hide", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_BRUSH_FILL_HIDE);
+	RNA_def_property_boolean_default(prop, true);
+	RNA_def_property_ui_text(prop, "Hide", "Hide transparent lines to use s boundary for filling");
 }
 
 /* Grease Pencil Drawing Brushes API */

@@ -123,7 +123,9 @@ typedef struct bGPDbrush {
 	float curcolor[3];
 	float thick_smoothfac;    /* amount of thickness smoothing to apply to newly created strokes */
 	short thick_smoothlvl;    /* number of times to apply thickness smooth factor to new strokes */
-	char pad[6];
+
+	short fill_leak;          /* number of pixel to consider the leak is too small (x 2) */
+	float fill_threshold;     /* factor for transparency */
 } bGPDbrush;
 
 /* bGPDbrush->flag */
@@ -142,8 +144,10 @@ typedef enum eGPDbrush_Flag {
 	GP_BRUSH_USE_RANDOM_STRENGTH = (1 << 5),
 	/* enable screen cursor */
 	GP_BRUSH_ENABLE_CURSOR = (1 << 6),
-	/* enable screen cursor */
-	GP_BRUSH_FILL_ONLY = (1 << 7)
+	/* brush is only for filling */
+	GP_BRUSH_FILL_ONLY = (1 << 7),
+	/* fill hide transparent */
+	GP_BRUSH_FILL_HIDE = (1 << 8),
 } eGPDbrush_Flag;
 
 /* ***************************************** */

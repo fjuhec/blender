@@ -72,7 +72,6 @@
 
 #define LEAK_HORZ 0
 #define LEAK_VERT 1
-#define LEAK_LIMIT 10
 
  /* draw a given stroke using same thickness and color for all points */
 static void gp_draw_basic_stroke(bGPDstroke *gps, const float diff_mat[4][4], 
@@ -101,7 +100,7 @@ static void gp_draw_basic_stroke(bGPDstroke *gps, const float diff_mat[4][4],
 
 	for (int i = 0; i < totpoints; i++, pt++) {
 
-		if (flag & GP_FILL_HIDE_LINES) {
+		if (flag & GP_BRUSH_FILL_HIDE) {
 			float alpha = gps->palcolor->rgb[3] * pt->strength;
 			CLAMP(alpha, 0.0f, 1.0f);
 			col[3] = alpha <= thershold ? 0.0f : 1.0f;
@@ -163,7 +162,7 @@ static void gp_draw_datablock(tGPDfill *tgpf, float ink[4])
 
 			/* 3D Lines - OpenGL primitives-based */
 			gp_draw_basic_stroke(gps, diff_mat, gps->flag & GP_STROKE_CYCLIC, ink, 
-								tgpf->flag, tgpf->threshold);
+								tgpf->flag, tgpf->fill_threshold);
 		}
 	}
 
@@ -450,28 +449,28 @@ static void gpencil_boundaryfill_area(tGPDfill *tgpf)
 				/* pixel left */
 				if (v - 1 >= 0) {
 					index = v - 1;
-					if (!is_leak_narrow(ibuf, maxpixel, LEAK_LIMIT, v, LEAK_HORZ)) {
+					if (!is_leak_narrow(ibuf, maxpixel, tgpf->fill_leak, v, LEAK_HORZ)) {
 						BLI_stack_push(stack, &index);
 					}
 				}
 				/* pixel right */
 				if (v + 1 < maxpixel) {
 					index = v + 1;
-					if (!is_leak_narrow(ibuf, maxpixel, LEAK_LIMIT, v, LEAK_HORZ)) {
+					if (!is_leak_narrow(ibuf, maxpixel, tgpf->fill_leak, v, LEAK_HORZ)) {
 						BLI_stack_push(stack, &index);
 					}
 				}
 				/* pixel top */
 				if (v + tgpf->sizex < maxpixel) {
 					index = v + tgpf->sizex;
-					if (!is_leak_narrow(ibuf, maxpixel, LEAK_LIMIT, v, LEAK_VERT)) {
+					if (!is_leak_narrow(ibuf, maxpixel, tgpf->fill_leak, v, LEAK_VERT)) {
 						BLI_stack_push(stack, &index);
 					}
 				}
 				/* pixel bottom */
 				if (v - tgpf->sizex >= 0) {
 					index = v - tgpf->sizex;
-					if (!is_leak_narrow(ibuf, maxpixel, LEAK_LIMIT, v, LEAK_VERT)) {
+					if (!is_leak_narrow(ibuf, maxpixel, tgpf->fill_leak, v, LEAK_VERT)) {
 						BLI_stack_push(stack, &index);
 					}
 				}
@@ -739,13 +738,7 @@ static void gpencil_fill_status_indicators(tGPDfill *tgpf)
 	Scene *scene = tgpf->scene;
 	char status_str[UI_MAX_DRAW_STR];
 
-	if (tgpf->flag & GP_FILL_HIDE_LINES) {
-		BLI_snprintf(status_str, sizeof(status_str), IFACE_("Fill: ESC/RMB cancel, LMB Fill, H Toggle lines, A/Z Threshold: %0.2f"), tgpf->threshold);
-	}
-	else {
-		BLI_snprintf(status_str, sizeof(status_str), IFACE_("Fill: ESC/RMB cancel, LMB Fill, H Toggle lines"));
-	}
-
+	BLI_snprintf(status_str, sizeof(status_str), IFACE_("Fill: ESC/RMB cancel, LMB Fill"));
 	ED_area_headerprint(tgpf->sa, status_str);
 }
 
@@ -818,8 +811,13 @@ static tGPDfill *gp_session_init_fill(bContext *C, wmOperator *op)
 
 	tgpf->lock_axis = ts->gp_sculpt.lock_axis;
 	
-	tgpf->threshold = 0.01f;
 	tgpf->oldkey = -1;
+
+	/* save filling parameters */
+	bGPDbrush *brush = BKE_gpencil_brush_getactive(ts);
+	tgpf->flag = brush->flag;
+	tgpf->fill_leak = brush->fill_leak;
+	tgpf->fill_threshold = brush->fill_threshold;
 
 	/* init undo */
 	gpencil_undo_init(tgpf->gpd);
@@ -912,6 +910,7 @@ static int gpencil_fill_invoke(bContext *C, wmOperator *op, const wmEvent *event
 
 	/* try to initialize context data needed */
 	if (!gpencil_fill_init(C, op)) {
+		gpencil_fill_exit(C, op);
 		if (op->customdata)
 			MEM_freeN(op->customdata);
 		return OPERATOR_CANCELLED;
@@ -920,9 +919,10 @@ static int gpencil_fill_invoke(bContext *C, wmOperator *op, const wmEvent *event
 		tgpf = op->customdata;
 	}
 
-	/* Must use a color with pill */
+	/* Must use a color with fill */
 	if (tgpf->palcolor->fill[3] < GPENCIL_ALPHA_OPACITY_THRESH) {
 		BKE_report(op->reports, RPT_ERROR, "The current color must have fill enabled");
+		gpencil_fill_exit(C, op);
 		return OPERATOR_CANCELLED;
 	}
 
@@ -956,87 +956,64 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
 		if (ELEM(event->type, ESCKEY)) {
 			estate = OPERATOR_CANCELLED;
 		}
-		/* avoid double press */
-		if (tgpf->oldkey != event->type) {
-			if (ELEM(event->type, HKEY)) {
-				/* Just toggle lines */
-				tgpf->flag ^= GP_FILL_HIDE_LINES;
-				estate = OPERATOR_RUNNING_MODAL;
-			}
-			if (ELEM(event->type, AKEY)) {
-				tgpf->threshold -= 0.01f;
-				estate = OPERATOR_RUNNING_MODAL;
-			}
-			if (ELEM(event->type, ZKEY)) {
-				tgpf->threshold += 0.01f;
-				estate = OPERATOR_RUNNING_MODAL;
-			}
-
-			CLAMP(tgpf->threshold, 0.0f, 1.0f);
-			gpencil_fill_status_indicators(tgpf);
-			tgpf->oldkey = event->type;
-			float ink[4] = { 1.0f, 0.0f, 0.0f, 1.0f };
-			/* update */
-			gp_draw_datablock(tgpf, ink);
-			WM_event_add_notifier(C, NC_GPENCIL | NA_EDITED, NULL);
-		}
-		else {
-			tgpf->oldkey = -1;
-		}
 	}
 	if ELEM(event->type, RIGHTMOUSE) {
 		estate = OPERATOR_CANCELLED;
 	}
 	if ELEM(event->type, LEFTMOUSE) {
-		ARegion *ar = BKE_area_find_region_xy(CTX_wm_area(C), RGN_TYPE_ANY, event->x, event->y);
-		if (ar) {
-			rcti region_rect;
-			bool in_bounds = false;
+		/* first time the event is not enabled to show help lines */
+		if (tgpf->oldkey != -1) {
+			ARegion *ar = BKE_area_find_region_xy(CTX_wm_area(C), RGN_TYPE_ANY, event->x, event->y);
+			if (ar) {
+				rcti region_rect;
+				bool in_bounds = false;
 
-			/* Perform bounds check */
-			ED_region_visible_rect(ar, &region_rect);
-			in_bounds = BLI_rcti_isect_pt_v(&region_rect, event->mval);
+				/* Perform bounds check */
+				ED_region_visible_rect(ar, &region_rect);
+				in_bounds = BLI_rcti_isect_pt_v(&region_rect, event->mval);
 
-			if ((in_bounds) && (ar->regiontype == RGN_TYPE_WINDOW)) {
-				tgpf->center[0] = event->mval[0];
-				tgpf->center[1] = event->mval[1];
+				if ((in_bounds) && (ar->regiontype == RGN_TYPE_WINDOW)) {
+					tgpf->center[0] = event->mval[0];
+					tgpf->center[1] = event->mval[1];
 
-				/* save size (don't sub minsize data to get right mouse click position) */
-				tgpf->sizex = region_rect.xmax;
-				tgpf->sizey = region_rect.ymax;
+					/* save size (don't sub minsize data to get right mouse click position) */
+					tgpf->sizex = region_rect.xmax;
+					tgpf->sizey = region_rect.ymax;
 
-				/* render screen to temp image */
-				gp_render_offscreen(tgpf);
+					/* render screen to temp image */
+					gp_render_offscreen(tgpf);
 
-				/* apply boundary fill */
-				gpencil_boundaryfill_area(tgpf);
+					/* apply boundary fill */
+					gpencil_boundaryfill_area(tgpf);
 
-				/* clean borders to avoid infinite loops */
-				gpencil_clean_borders(tgpf);
+					/* clean borders to avoid infinite loops */
+					gpencil_clean_borders(tgpf);
 
-				/* analyze outline */
-				gpencil_get_outline_points(tgpf);
-				
-				/* create stroke and reproject */
-				gpencil_stroke_from_stack(tgpf);
+					/* analyze outline */
+					gpencil_get_outline_points(tgpf);
 
-				/* free temp stack data */
-				if (tgpf->stack) {
-					BLI_stack_free(tgpf->stack);
+					/* create stroke and reproject */
+					gpencil_stroke_from_stack(tgpf);
+
+					/* free temp stack data */
+					if (tgpf->stack) {
+						BLI_stack_free(tgpf->stack);
+					}
+
+					/* push undo data */
+					gpencil_undo_push(tgpf->gpd);
+
+					estate = OPERATOR_FINISHED;
 				}
-
-				/* push undo data */
-				gpencil_undo_push(tgpf->gpd);
-
-				estate = OPERATOR_FINISHED;
+				else {
+					estate = OPERATOR_CANCELLED;
+				}
 			}
 			else {
 				estate = OPERATOR_CANCELLED;
 			}
 		}
-		else {
-			estate = OPERATOR_CANCELLED;
-		}
+		tgpf->oldkey = event->type;
 	}
 	
 	/* process last operations before exiting */

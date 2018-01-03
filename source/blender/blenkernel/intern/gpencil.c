@@ -750,8 +750,10 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	/* Fill brush */
 	brush = BKE_gpencil_brush_addnew(ts, "Fill", false);
 	brush->thickness = 1.0f;
-	brush->flag |= GP_BRUSH_FILL_ONLY;
+	brush->flag |= (GP_BRUSH_FILL_ONLY | GP_BRUSH_ENABLE_CURSOR);
 	brush->draw_sensitivity = 1.0f;
+	brush->fill_leak = 3;
+	brush->fill_threshold = 0.1f;
 
 	brush->draw_strength = 1.0f;
 	copy_v3_v3(brush->curcolor, curcolor);
