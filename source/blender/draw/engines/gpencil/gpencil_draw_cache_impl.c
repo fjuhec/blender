@@ -790,8 +790,8 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 			}
 		}
 
-		/* edit points (only in edit mode) */
-		if (src_gps) {
+		/* edit points (only in edit mode and not play animation) */
+		if ((src_gps) && (!playing)) {
 			if (!stl->g_data->shgrps_edit_line) {
 				stl->g_data->shgrps_edit_line = DRW_shgroup_create(e_data->gpencil_line_sh, psl->edit_pass);
 				stl->g_data->tot_sh++;

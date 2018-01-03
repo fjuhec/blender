@@ -805,7 +805,9 @@ static void GPENCIL_draw_scene(void *vedata)
 				}
 			}
 			/* edit points */
-			DRW_draw_pass(psl->edit_pass);
+			if (!playing) {
+				DRW_draw_pass(psl->edit_pass);
+			}
 		}
 	}
 	/* free memory */
