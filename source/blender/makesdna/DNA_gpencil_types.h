@@ -141,7 +141,9 @@ typedef enum eGPDbrush_Flag {
 	/* brush use random for strength */
 	GP_BRUSH_USE_RANDOM_STRENGTH = (1 << 5),
 	/* enable screen cursor */
-	GP_BRUSH_ENABLE_CURSOR = (1 << 6)
+	GP_BRUSH_ENABLE_CURSOR = (1 << 6),
+	/* enable screen cursor */
+	GP_BRUSH_FILL_ONLY = (1 << 7)
 } eGPDbrush_Flag;
 
 /* ***************************************** */

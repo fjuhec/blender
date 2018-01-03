@@ -1531,6 +1531,12 @@ static void ed_default_handlers(wmWindowManager *wm, ScrArea *sa, ListBase *hand
 		wmKeyMap *keymap_paint = WM_keymap_find(wm->defaultconf, "Grease Pencil Stroke Paint Mode", 0, 0);
 		WM_event_add_keymap_handler(handlers, keymap_paint);
 
+		wmKeyMap *keymap_paint_draw = WM_keymap_find(wm->defaultconf, "Grease Pencil Stroke Paint (Draw brush)", 0, 0);
+		WM_event_add_keymap_handler(handlers, keymap_paint_draw);
+
+		wmKeyMap *keymap_paint_fill = WM_keymap_find(wm->defaultconf, "Grease Pencil Stroke Paint (Fill)", 0, 0);
+		WM_event_add_keymap_handler(handlers, keymap_paint_fill);
+
 		wmKeyMap *keymap_sculpt = WM_keymap_find(wm->defaultconf, "Grease Pencil Stroke Sculpt Mode", 0, 0);
 		WM_event_add_keymap_handler(handlers, keymap_sculpt);
 	}

@@ -746,6 +746,15 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->sublevel = 3;
 	brush->draw_random_sub = 0;
 	copy_v3_v3(brush->curcolor, curcolor);
+
+	/* Fill brush */
+	brush = BKE_gpencil_brush_addnew(ts, "Fill", false);
+	brush->thickness = 1.0f;
+	brush->flag |= GP_BRUSH_FILL_ONLY;
+	brush->draw_sensitivity = 1.0f;
+
+	brush->draw_strength = 1.0f;
+	copy_v3_v3(brush->curcolor, curcolor);
 }
 
 /* add a new gp-brush and make it the active */

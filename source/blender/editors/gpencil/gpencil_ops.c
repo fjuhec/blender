@@ -35,6 +35,7 @@
 #include "BLI_sys_types.h"
 
 #include "BKE_context.h"
+#include "BKE_gpencil.h"
 
 #include "DNA_gpencil_types.h"
 #include "DNA_object_types.h"
@@ -76,7 +77,6 @@ static void ed_keymap_gpencil_general(wmKeyConfig *keyconf)
 	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_draw", RIGHTMOUSE, KM_PRESS, KM_CTRL, DKEY);
 	RNA_enum_set(kmi->ptr, "mode", GP_PAINTMODE_DRAW_POLY);
 	RNA_boolean_set(kmi->ptr, "wait_for_input", false);
-	
 	/* Viewport Tools ------------------------------- */
 	
 	/* Enter EditMode */
@@ -110,6 +110,26 @@ static int gp_stroke_paintmode_poll(bContext *C)
 	/* TODO: limit this to mode, but review 2D editors */
 	bGPdata *gpd = CTX_data_gpencil_data(C);
 	return (gpd && (gpd->flag & GP_DATA_STROKE_PAINTMODE));
+}
+
+/* Poll callback for stroke painting (draw brush) */
+static int gp_stroke_paintmode_draw_poll(bContext *C)
+{
+	/* TODO: limit this to mode, but review 2D editors */
+	bGPdata *gpd = CTX_data_gpencil_data(C);
+	ToolSettings *ts = CTX_data_tool_settings(C);
+	bGPDbrush *brush = BKE_gpencil_brush_getactive(ts);
+	return (gpd && (gpd->flag & GP_DATA_STROKE_PAINTMODE) && (brush) && ((brush->flag & GP_BRUSH_FILL_ONLY) == 0));
+}
+
+/* Poll callback for stroke painting (fill) */
+static int gp_stroke_paintmode_fill_poll(bContext *C)
+{
+	/* TODO: limit this to mode, but review 2D editors */
+	bGPdata *gpd = CTX_data_gpencil_data(C);
+	ToolSettings *ts = CTX_data_tool_settings(C);
+	bGPDbrush *brush = BKE_gpencil_brush_getactive(ts);
+	return (gpd && (gpd->flag & GP_DATA_STROKE_PAINTMODE) && (brush) && (brush->flag & GP_BRUSH_FILL_ONLY));
 }
 
 /* Poll callback for stroke sculpting mode */
@@ -401,14 +421,14 @@ static void ed_keymap_gpencil_editing(wmKeyConfig *keyconf)
 	WM_keymap_add_menu(keymap, "GPENCIL_MT_gpencil_vertex_group", GKEY, KM_PRESS, KM_CTRL, 0);
 }
 
-/* Stroke Painting Keymap - Only when paintmode is enabled */
-static void ed_keymap_gpencil_painting(wmKeyConfig *keyconf)
+/* keys for draw with a drawing brush (no fill) */
+static void ed_keymap_gpencil_painting_draw(wmKeyConfig *keyconf)
 {
-	wmKeyMap *keymap = WM_keymap_find(keyconf, "Grease Pencil Stroke Paint Mode", 0, 0);
+	wmKeyMap *keymap = WM_keymap_find(keyconf, "Grease Pencil Stroke Paint (Draw brush)", 0, 0);
 	wmKeyMapItem *kmi;
 
-	/* set poll callback - so that this keymap only gets enabled when stroke paintmode is enabled */
-	keymap->poll = gp_stroke_paintmode_poll;
+	/* set poll callback */
+	keymap->poll = gp_stroke_paintmode_draw_poll;
 
 	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_draw", LEFTMOUSE, KM_PRESS, 0, 0);
 	RNA_enum_set(kmi->ptr, "mode", GP_PAINTMODE_DRAW);
@@ -423,7 +443,42 @@ static void ed_keymap_gpencil_painting(wmKeyConfig *keyconf)
 	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_draw", LEFTMOUSE, KM_PRESS, KM_SHIFT, 0);
 	RNA_enum_set(kmi->ptr, "mode", GP_PAINTMODE_DRAW_POLY);
 	RNA_boolean_set(kmi->ptr, "wait_for_input", false);
+}
 
+/* keys for draw with a fill brush */
+static void ed_keymap_gpencil_painting_fill(wmKeyConfig *keyconf)
+{
+	wmKeyMap *keymap = WM_keymap_find(keyconf, "Grease Pencil Stroke Paint (Fill)", 0, 0);
+
+	/* set poll callback */
+	keymap->poll = gp_stroke_paintmode_fill_poll;
+
+	WM_keymap_add_item(keymap, "GPENCIL_OT_fill", LEFTMOUSE, KM_PRESS, 0, 0);
+}
+
+/* Stroke Painting Keymap - Only when paintmode is enabled */
+static void ed_keymap_gpencil_painting(wmKeyConfig *keyconf)
+{
+	wmKeyMap *keymap = WM_keymap_find(keyconf, "Grease Pencil Stroke Paint Mode", 0, 0);
+	wmKeyMapItem *kmi;
+
+	/* set poll callback - so that this keymap only gets enabled when stroke paintmode is enabled */
+	keymap->poll = gp_stroke_paintmode_poll;
+#if 0
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_draw", LEFTMOUSE, KM_PRESS, 0, 0);
+	RNA_enum_set(kmi->ptr, "mode", GP_PAINTMODE_DRAW);
+	RNA_boolean_set(kmi->ptr, "wait_for_input", false);
+
+	/* draw - straight lines */
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_draw", LEFTMOUSE, KM_PRESS, KM_CTRL, 0);
+	RNA_enum_set(kmi->ptr, "mode", GP_PAINTMODE_DRAW_STRAIGHT);
+	RNA_boolean_set(kmi->ptr, "wait_for_input", false);
+
+	/* draw - poly lines */
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_draw", LEFTMOUSE, KM_PRESS, KM_SHIFT, 0);
+	RNA_enum_set(kmi->ptr, "mode", GP_PAINTMODE_DRAW_POLY);
+	RNA_boolean_set(kmi->ptr, "wait_for_input", false);
+#endif
 	/* erase */
 	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_draw", LEFTMOUSE, KM_PRESS, KM_ALT, 0);
 	RNA_enum_set(kmi->ptr, "mode", GP_PAINTMODE_ERASER);
@@ -493,9 +548,6 @@ static void ed_keymap_gpencil_painting(wmKeyConfig *keyconf)
 	/* menu draw specials (add two keys to make more easy for user) */
 	WM_keymap_add_menu(keymap, "GPENCIL_MT_gpencil_draw_specials", WKEY, KM_PRESS, 0, 0);
 	WM_keymap_add_menu(keymap, "GPENCIL_MT_gpencil_draw_specials", XKEY, KM_PRESS, 0, 0);
-
-	/* fill */
-	WM_keymap_add_item(keymap, "GPENCIL_OT_fill", PKEY, KM_PRESS, 0, 0);
 }
 
 /* Stroke Sculpting Keymap - Only when sculptmode is enabled */
@@ -606,6 +658,8 @@ void ED_keymap_gpencil(wmKeyConfig *keyconf)
 	ed_keymap_gpencil_general(keyconf);
 	ed_keymap_gpencil_editing(keyconf);
 	ed_keymap_gpencil_painting(keyconf);
+	ed_keymap_gpencil_painting_draw(keyconf);
+	ed_keymap_gpencil_painting_fill(keyconf);
 	ed_keymap_gpencil_sculpting(keyconf);
 	ed_keymap_gpencil_weightpainting(keyconf);
 }

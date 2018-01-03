@@ -949,7 +949,12 @@ const EnumPropertyItem *ED_gpencil_brushes_enum_itemf(
 		item_tmp.value = i;
 
 		if (brush->flag & GP_BRUSH_ACTIVE)
-			item_tmp.icon = ICON_BRUSH_DATA;
+			if (brush->flag & GP_BRUSH_FILL_ONLY) {
+				item_tmp.icon = ICON_GROUP_VCOL;
+			}
+			else {
+				item_tmp.icon = ICON_BRUSH_DATA;
+			}
 		else
 			item_tmp.icon = ICON_NONE;
 

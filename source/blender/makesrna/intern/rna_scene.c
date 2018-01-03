@@ -644,7 +644,12 @@ static const EnumPropertyItem *rna_GPencilBrush_enum_itemf(
 		item_tmp.identifier = brush->info;
 		item_tmp.name = brush->info;
 		item_tmp.value = i;
-		item_tmp.icon = ICON_BRUSH_DATA;
+		if (brush->flag & GP_BRUSH_FILL_ONLY) {
+			item_tmp.icon = ICON_GROUP_VCOL;
+		}
+		else {
+			item_tmp.icon = ICON_BRUSH_DATA;
+		}
 
 		RNA_enum_item_add(&item, &totitem, &item_tmp);
 	}
@@ -2335,6 +2340,11 @@ static void rna_def_gpencil_brush(BlenderRNA *brna)
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_BRUSH_ENABLE_CURSOR); 
 	RNA_def_property_boolean_default(prop, true);
 	RNA_def_property_ui_text(prop, "Enable Cursor", "Enable cursor on screen");
+
+	prop = RNA_def_property(srna, "is_fill_only", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_BRUSH_FILL_ONLY);
+	RNA_def_property_boolean_default(prop, true);
+	RNA_def_property_ui_text(prop, "Fill Only", "The brush is only for filling strokes");
 }
 
 /* Grease Pencil Drawing Brushes API */

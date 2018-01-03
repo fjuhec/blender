@@ -1361,6 +1361,10 @@ static int gp_brush_remove_exec(bContext *C, wmOperator *op)
 		return OPERATOR_CANCELLED;
 	}
 
+	if (brush->flag & GP_BRUSH_FILL_ONLY) {
+		BKE_report(op->reports, RPT_ERROR, "The fill brush cannot be deleted");
+		return OPERATOR_CANCELLED;
+	}
 
 	/* make the brush before this the new active brush
 	 * - use the one after if this is the first
