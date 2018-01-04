@@ -2357,7 +2357,7 @@ static void rna_def_gpencil_brush(BlenderRNA *brna)
 	RNA_def_property_boolean_default(prop, true);
 	RNA_def_property_ui_text(prop, "Enable Cursor", "Enable cursor on screen");
 
-	prop = RNA_def_property(srna, "is_fill_only", PROP_BOOLEAN, PROP_NONE);
+	prop = RNA_def_property(srna, "fill_only", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_BRUSH_FILL_ONLY);
 	RNA_def_property_boolean_default(prop, true);
 	RNA_def_property_ui_text(prop, "Fill Only", "The brush is only for filling strokes");
@@ -2370,7 +2370,7 @@ static void rna_def_gpencil_brush(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "fill_hide", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_BRUSH_FILL_HIDE);
 	RNA_def_property_boolean_default(prop, true);
-	RNA_def_property_ui_text(prop, "Hide", "Hide transparent lines to use s boundary for filling");
+	RNA_def_property_ui_text(prop, "Hide", "Hide transparent lines to use as boundary for filling");
 }
 
 /* Grease Pencil Drawing Brushes API */

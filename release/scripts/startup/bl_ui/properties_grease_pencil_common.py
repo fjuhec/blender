@@ -365,9 +365,11 @@ class GreasePencilBrushPanel:
 
         # Brush details
         if brush is not None:
-            row = layout.row()
+            row = layout.row(align=False)
             row.prop(brush, "name", text="")
-            if brush.is_fill_only is False:
+            row = layout.row(align=False)
+            row.prop(brush, "fill_only", text="Fill Brush")
+            if brush.fill_only is False:
                 row = layout.row(align=True)
                 row.prop(brush, "use_random_pressure", text="", icon='RNDCURVE')
                 row.prop(brush, "line_width", text="Radius")
@@ -380,13 +382,16 @@ class GreasePencilBrushPanel:
                 row = layout.row(align=False)
                 row.prop(context.tool_settings, "use_gpencil_draw_onback", text="Draw on Back")
 
-            if brush.is_fill_only is True:
-                row = layout.row(align=True)
-                row.prop(brush, "fill_threshold", text="Threshold")
+            if brush.fill_only is True:
                 row = layout.row(align=True)
                 row.prop(brush, "fill_leak", text="Leak Size")
+
                 row = layout.row(align=True)
-                row.prop(brush, "fill_hide", text="Hide Lines")
+                row.prop(brush, "fill_hide", text="Hide Transparent Lines")
+                row = layout.row(align=True)
+                row.enabled = brush.fill_hide
+                row.prop(brush, "fill_threshold", text="Threshold")
+
                 row = layout.row(align=True)
                 row.prop(brush, "fill_show_boundary", text="Show Boundary Lines")
 
@@ -1017,7 +1022,7 @@ class GPENCIL_MT_gpencil_draw_specials(Menu):
         brush = context.active_gpencil_brush
         i = 0
         for palcolor in palette.colors:
-            if brush is None or brush.is_fill_only is False:
+            if brush is None or brush.fill_only is False:
                 layout.operator("palette.palettecolor_choose", text=palcolor.name).index=i
             else:
                 if palcolor.fill_alpha > 0.0:
