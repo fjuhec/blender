@@ -14,30 +14,34 @@ from view_layer_common import *
 # ############################################################
 
 class UnitTesting(ViewLayerTesting):
-    def test_scene_collection_delete(self):
+    def test_scene_objects_a(self):
         """
-        See if a scene collection can be properly deleted even
-        when linked
+        Test vanilla scene
         """
         import bpy
 
-        # delete all initial objects
-        while bpy.data.objects:
-            bpy.data.objects.remove(bpy.data.objects[0])
-
-        # delete all initial collections
         scene = bpy.context.scene
+        self.assertEqual(len(scene.objects), 3)
+
+    def test_scene_objects_b(self):
+        """
+        Test scene with nested collections
+        """
+        import bpy
+        scene = bpy.context.scene
+
+        # move default objects to a nested collection
         master_collection = scene.master_collection
-        while master_collection.collections:
-            master_collection.collections.remove(master_collection.collections[0])
+        collection = master_collection.collections[0]
+        collection_nested = collection.collections.new()
 
-        collection_parent = master_collection.collections.new('parent')
-        collection_nested = collection_parent.collections.new('child linked')
-        bpy.context.view_layer.collections.link(collection_nested)
-        master_collection.collections.remove(collection_parent)
+        for ob in collection.objects:
+            collection_nested.objects.link(ob)
 
-        # Update depsgraph.
-        scene.update()
+        while collection.objects:
+            collection.objects.unlink(collection.objects[0])
+
+        self.assertEqual(len(scene.objects), 3)
 
 
 # ############################################################

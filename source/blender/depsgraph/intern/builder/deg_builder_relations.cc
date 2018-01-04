@@ -921,7 +921,7 @@ void DepsgraphRelationBuilder::build_animdata(ID *id)
 	/* Animation curves and NLA. */
 	build_animdata_curves(id);
 	/* Drivers. */
-	build_animdata_drievrs(id);
+	build_animdata_drivers(id);
 }
 
 void DepsgraphRelationBuilder::build_animdata_curves(ID *id)
@@ -990,7 +990,7 @@ void DepsgraphRelationBuilder::build_animdata_curves_targets(ID *id)
 	}
 }
 
-void DepsgraphRelationBuilder::build_animdata_drievrs(ID *id)
+void DepsgraphRelationBuilder::build_animdata_drivers(ID *id)
 {
 	AnimData *adt = BKE_animdata_from_id(id);
 	if (adt == NULL) {

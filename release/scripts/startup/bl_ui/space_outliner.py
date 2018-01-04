@@ -137,6 +137,9 @@ class OUTLINER_MT_edit_collections(Menu):
 
         layout.operator("outliner.collection_nested_new", text="New Collection", icon='NEW')
         layout.operator("outliner.collection_delete_selected", text="Delete Collections", icon='X')
+        layout.separator()
+        layout.operator("outliner.collection_objects_add", text="Add Selected", icon='ZOOMIN')
+        layout.operator("outliner.collection_objects_remove", text="Remove Selected", icon='ZOOMOUT')
 
 
 class OUTLINER_MT_edit_datablocks(Menu):
