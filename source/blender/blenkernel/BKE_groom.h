@@ -34,6 +34,7 @@
 
 struct EvaluationContext;
 struct Groom;
+struct GroomBundle;
 struct Main;
 struct Object;
 struct Scene;
@@ -57,6 +58,9 @@ void BKE_groom_boundbox_calc(struct Groom *groom, float r_loc[3], float r_size[3
 
 /* Try to bind bundles to their scalp regions */
 void BKE_groom_bind_scalp_regions(struct Groom *groom);
+
+bool BKE_groom_bundle_bind(struct Groom *groom, struct GroomBundle *bundle);
+void BKE_groom_bundle_unbind(struct GroomBundle *bundle);
 
 
 /* === Depsgraph evaluation === */

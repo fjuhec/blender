@@ -92,10 +92,11 @@ typedef struct GroomBundle {
 	int totcurvecache;                      /* Number of cached curve steps */
 	int totshapecache;                      /* Number of cached shape vectors */
 	
-	struct GroomSection *sections;          /* List of sections */
-	struct GroomSectionVertex *verts;       /* List of vertices */
-	struct GroomCurveCache *curvecache;     /* Cached center curve */
-	struct GroomShapeCache *shapecache;     /* Cached 2D shape curves */
+	struct GroomSection *sections;          /* List of sections [totsections] */
+	struct GroomSectionVertex *verts;       /* List of vertices [totsections][numloopverts] */
+	struct GroomCurveCache *curvecache;     /* Cached center curve [(totsections - 1) * groom.curve_res + 1] */
+	struct GroomShapeCache *shapecache;     /* Cached 2D shape curves [(totsections - 1) * groom.curve_res + 1][numloopverts] */
+	struct MeshSample *scalp_region;        /* Mesh samples bind to a scalp region [numloopverts] */
 	
 	/* Scalp Region */
 	/* XXX Vertex groups are used temporarily for creating regions,
@@ -106,8 +107,6 @@ typedef struct GroomBundle {
 typedef enum GroomBundleFlag
 {
 	GM_BUNDLE_SELECT        = (1 << 0),
-	
-	GM_BUNDLE_BOUND         = (1 << 8),     /* Bundle was successfully bound to a scalp region */
 } GroomBundleFlag;
 
 /* Editable groom data */

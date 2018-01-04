@@ -72,6 +72,12 @@ static void rna_Groom_update_data(Main *UNUSED(bmain), Scene *UNUSED(scene), Poi
 	WM_main_add_notifier(NC_GROOM | ND_DATA, ptr->id.data);
 }
 
+static int rna_GroomBundle_is_bound_get(PointerRNA *ptr)
+{
+	GroomBundle *bundle = (GroomBundle *)ptr->data;
+	return (bundle->scalp_region != NULL);
+}
+
 static void rna_GroomBundle_scalp_vgroup_name_set(PointerRNA *ptr, const char *value)
 {
 	Groom *groom = (Groom *)ptr->id.data;
@@ -132,7 +138,7 @@ static void rna_def_groom_bundle(BlenderRNA *brna)
 	RNA_def_struct_ui_text(srna, "Groom Bundle", "Bundle of hair originating from a scalp region");
 	
 	prop = RNA_def_property(srna, "is_bound", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag", GM_BUNDLE_BOUND);
+	RNA_def_property_boolean_funcs(prop, "rna_GroomBundle_is_bound_get", NULL);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 	RNA_def_property_ui_text(prop, "Bound", "Bundle was successfully bound to a scalp region");
 	RNA_def_property_update(prop, NC_GROOM | ND_DRAW, NULL);

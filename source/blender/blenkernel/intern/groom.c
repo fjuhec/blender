@@ -237,6 +237,24 @@ void BKE_groom_boundbox_calc(Groom *groom, float r_loc[3], float r_size[3])
 
 /* === Scalp regions === */
 
+void BKE_groom_bind_scalp_regions(Groom *groom)
+{
+	if (groom->editgroom)
+	{
+		for (GroomBundle *bundle = groom->editgroom->bundles.first; bundle; bundle = bundle->next)
+		{
+			BKE_groom_bundle_bind(groom, bundle);
+		}
+	}
+	else
+	{
+		for (GroomBundle *bundle = groom->bundles.first; bundle; bundle = bundle->next)
+		{
+			BKE_groom_bundle_bind(groom, bundle);
+		}
+	}
+}
+
 static bool groom_region_is_valid(Groom *groom, GroomBundle *bundle)
 {
 	if (!groom->scalp_object)
@@ -252,9 +270,9 @@ static bool groom_region_is_valid(Groom *groom, GroomBundle *bundle)
 	return true;
 }
 
-static bool groom_bind_bundle(Groom *groom, GroomBundle *bundle)
+bool BKE_groom_bundle_bind(Groom *groom, GroomBundle *bundle)
 {
-	bundle->flag &= ~GM_BUNDLE_BOUND;
+	BKE_groom_bundle_unbind(bundle);
 	if (!groom_region_is_valid(groom, bundle))
 	{
 		return false;
@@ -262,25 +280,15 @@ static bool groom_bind_bundle(Groom *groom, GroomBundle *bundle)
 	
 	// see BMW_init
 	
-	bundle->flag |= GM_BUNDLE_BOUND;
-	return true;
+	return (bundle->scalp_region != NULL);
 }
 
-void BKE_groom_bind_scalp_regions(Groom *groom)
+void BKE_groom_bundle_unbind(GroomBundle *bundle)
 {
-	if (groom->editgroom)
+	if (bundle->scalp_region)
 	{
-		for (GroomBundle *bundle = groom->editgroom->bundles.first; bundle; bundle = bundle->next)
-		{
-			groom_bind_bundle(groom, bundle);
-		}
-	}
-	else
-	{
-		for (GroomBundle *bundle = groom->bundles.first; bundle; bundle = bundle->next)
-		{
-			groom_bind_bundle(groom, bundle);
-		}
+		MEM_freeN(bundle->scalp_region);
+		bundle->scalp_region = NULL;
 	}
 }
 
