@@ -126,6 +126,8 @@ typedef struct bGPDbrush {
 
 	short fill_leak;          /* number of pixel to consider the leak is too small (x 2) */
 	float fill_threshold;     /* factor for transparency */
+	int   fill_simplylvl;     /* number of simplify steps */
+	char pad[4];
 } bGPDbrush;
 
 /* bGPDbrush->flag */

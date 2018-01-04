@@ -387,6 +387,9 @@ class GreasePencilBrushPanel:
                 row.prop(brush, "fill_leak", text="Leak Size")
 
                 row = layout.row(align=True)
+                row.prop(brush, "fill_simplyfy_lvl", text="Simplify")
+
+                row = layout.row(align=True)
                 row.prop(brush, "fill_hide", text="Hide Transparent Lines")
                 row = layout.row(align=True)
                 row.enabled = brush.fill_hide

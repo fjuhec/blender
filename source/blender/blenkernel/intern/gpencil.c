@@ -754,6 +754,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->draw_sensitivity = 1.0f;
 	brush->fill_leak = 3;
 	brush->fill_threshold = 0.1f;
+	brush->fill_simplylvl = 1;
 
 	brush->draw_strength = 1.0f;
 	copy_v3_v3(brush->curcolor, curcolor);

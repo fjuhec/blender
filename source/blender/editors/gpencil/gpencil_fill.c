@@ -721,13 +721,15 @@ static void gpencil_stroke_from_stack(tGPDfill *tgpf)
 	}
 
 	/* if parented change position relative to parent object */
-	for (int i = 0; i < totpoints; i++) {
-		pt = &gps->points[i];
+	for (int a = 0; a < totpoints; a++) {
+		pt = &gps->points[a];
 		gp_apply_parent_point(tgpf->ob, tgpf->gpd, tgpf->gpl, pt);
 	}
 
 	/* simplify stroke */
-	BKE_gpencil_simplify_fixed(tgpf->gpl, gps);
+	for (int b = 0; b < tgpf->fill_simplylvl; b++) {
+		BKE_gpencil_simplify_fixed(tgpf->gpl, gps);
+	}
 }
 
 /* ----------------------- */
@@ -818,6 +820,7 @@ static tGPDfill *gp_session_init_fill(bContext *C, wmOperator *op)
 	tgpf->flag = brush->flag;
 	tgpf->fill_leak = brush->fill_leak;
 	tgpf->fill_threshold = brush->fill_threshold;
+	tgpf->fill_simplylvl = brush->fill_simplylvl;
 
 	/* init undo */
 	gpencil_undo_init(tgpf->gpd);

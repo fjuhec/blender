@@ -2312,6 +2312,14 @@ static void rna_def_gpencil_brush(BlenderRNA *brna)
 		"Size in pixels to consider the leak closed");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, NULL);
 
+	/* fill simplify steps */
+	prop = RNA_def_property(srna, "fill_simplyfy_lvl", PROP_INT, PROP_NONE);
+	RNA_def_property_int_sdna(prop, NULL, "fill_simplylvl");
+	RNA_def_property_range(prop, 0, 10);
+	RNA_def_property_ui_text(prop, "Simplify",
+		"Number of simplify steps (large values reduce fill accuracy)");
+	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, NULL);
+
 	/* Flags */
 	prop = RNA_def_property(srna, "use_pressure", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_BRUSH_USE_PRESSURE);
