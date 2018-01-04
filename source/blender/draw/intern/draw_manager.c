@@ -1165,7 +1165,7 @@ void DRW_shgroup_uniform_buffer(DRWShadingGroup *shgroup, const char *name, GPUT
 	drw_interface_uniform(shgroup, name, DRW_UNIFORM_BUFFER, tex, 0, 1);
 }
 
-void DRW_shgroup_uniform_bool(DRWShadingGroup *shgroup, const char *name, const bool *value, int arraysize)
+void DRW_shgroup_uniform_bool(DRWShadingGroup *shgroup, const char *name, const int *value, int arraysize)
 {
 	drw_interface_uniform(shgroup, name, DRW_UNIFORM_BOOL, value, 1, arraysize);
 }
@@ -1608,7 +1608,8 @@ static void drw_state_set(DRWState state)
 				glEnable(GL_BLEND);
 
 				if ((state & DRW_STATE_BLEND) != 0) {
-					glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+					glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, /* RGB */
+					                    GL_ONE, GL_ONE_MINUS_SRC_ALPHA); /* Alpha */
 				}
 				else if ((state & DRW_STATE_MULTIPLY) != 0) {
 					glBlendFunc(GL_DST_COLOR, GL_ZERO);
@@ -1617,7 +1618,9 @@ static void drw_state_set(DRWState state)
 					glBlendFunc(GL_ONE, GL_SRC_ALPHA);
 				}
 				else if ((state & DRW_STATE_ADDITIVE) != 0) {
-					glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+					/* Do not let alpha accumulate but premult the source RGB by it. */
+					glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE, /* RGB */
+					                    GL_ZERO, GL_ONE); /* Alpha */
 				}
 				else {
 					BLI_assert(0);
@@ -2466,18 +2469,22 @@ void DRW_transform_to_display(GPUTexture *tex)
 
 	bool use_ocio = false;
 
-	{
+	/* View transform is already applied for offscreen, don't apply again, see: T52046 */
+	if (!(DST.options.is_image_render && !DST.options.is_scene_render)) {
 		Scene *scene = DST.draw_ctx.scene;
-		/* View transform is already applied for offscreen, don't apply again, see: T52046 */
-		ColorManagedViewSettings *view_settings =
-		        (DST.options.is_image_render && !DST.options.is_scene_render) ?
-		        NULL : &scene->view_settings;
 		use_ocio = IMB_colormanagement_setup_glsl_draw_from_space(
-		        view_settings, &scene->display_settings, NULL, dither, false);
+		        &scene->view_settings, &scene->display_settings, NULL, dither, false);
 	}
 
 	if (!use_ocio) {
-		immBindBuiltinProgram(GPU_SHADER_2D_IMAGE_LINEAR_TO_SRGB);
+		/* View transform is already applied for offscreen, don't apply again, see: T52046 */
+		if (DST.options.is_image_render && !DST.options.is_scene_render) {
+			immBindBuiltinProgram(GPU_SHADER_2D_IMAGE_COLOR);
+			immUniformColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+		}
+		else {
+			immBindBuiltinProgram(GPU_SHADER_2D_IMAGE_LINEAR_TO_SRGB);
+		}
 		immUniform1i("image", 0);
 	}
 
@@ -2899,7 +2906,9 @@ static void drw_engines_draw_background(void)
 	}
 
 	/* No draw_background found, doing default background */
-	DRW_draw_background();
+	if (DRW_state_draw_background()) {
+		DRW_draw_background();
+	}
 }
 
 static void drw_engines_draw_scene(void)
@@ -3437,9 +3446,7 @@ void DRW_draw_render_loop_ex(
 	/* Start Drawing */
 	DRW_state_reset();
 
-	if (DRW_state_draw_background()) {
-		drw_engines_draw_background();
-	}
+	drw_engines_draw_background();
 
 	/* WIP, single image drawn over the camera view (replace) */
 	bool do_bg_image = false;
