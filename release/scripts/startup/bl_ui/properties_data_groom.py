@@ -22,6 +22,20 @@ from bpy.types import Menu, Panel
 from rna_prop_ui import PropertyPanel
 
 
+class GROOM_UL_bundles(bpy.types.UIList):
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index, flt_flag):
+        ob = data
+        bundle = item
+
+        if self.layout_type in {'DEFAULT', 'COMPACT'}:
+            #layout.prop(groom, "name", text="", emboss=False, icon_value=icon)
+            layout.label(text="", icon_value=icon)
+
+        elif self.layout_type == 'GRID':
+            layout.alignment = 'CENTER'
+            layout.label(text="", icon_value=icon)
+
+
 class DataButtonsPanel:
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
@@ -59,6 +73,10 @@ class DATA_PT_groom(DataButtonsPanel, Panel):
 
         groom = context.groom
 
+        layout.template_list("GROOM_UL_bundles", "bundles",
+                             groom, "bundles",
+                             groom.bundles, "active_index")
+
         split = layout.split()
 
         col = split.column()
@@ -90,6 +108,7 @@ class DATA_PT_custom_props_groom(DataButtonsPanel, PropertyPanel, Panel):
 
 
 classes = (
+    GROOM_UL_bundles,
     DATA_PT_context_groom,
     DATA_PT_groom,
     DATA_PT_groom_draw_settings,

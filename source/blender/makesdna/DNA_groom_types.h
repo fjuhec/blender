@@ -96,6 +96,11 @@ typedef struct GroomBundle {
 	struct GroomSectionVertex *verts;       /* List of vertices */
 	struct GroomCurveCache *curvecache;     /* Cached center curve */
 	struct GroomShapeCache *shapecache;     /* Cached 2D shape curves */
+	
+	/* Scalp Region */
+	/* XXX Vertex groups are used temporarily for creating regions,
+	 * eventually should be replaced by a fully fledged 2D loop mesh */
+	char scalp_vgroup_name[64];             /* Scalp vertex group to use as region, MAX_VGROUP_NAME */
 } GroomBundle;
 
 typedef enum GroomBundleFlag
@@ -116,14 +121,16 @@ typedef struct Groom {
 	int curve_res;              /* Curve resolution */
 	int pad;
 	
-	struct BoundBox *bb;
-	
 	ListBase bundles;           /* List of GroomBundle */
+	int active_bundle;          /* Index of active bundle in bundles list */
+	int pad2;
 	
 	struct HairSystem *hair_system;                 /* Renderable hair geometry */
 	struct HairDrawSettings *hair_draw_settings;    /* Draw settings for hair geometry */
 	
 	struct Object *scalp_object;                    /* Surface for attaching hairs */
+	
+	struct BoundBox *bb;
 	
 	EditGroom *editgroom;
 	void *batch_cache;
