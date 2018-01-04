@@ -3011,3 +3011,55 @@ void GPENCIL_OT_stroke_simplify(wmOperatorType *ot)
 	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 
 }
+
+/* ** simplify stroke using fixed algorith *** */
+static int gp_stroke_simplify_fixed_exec(bContext *C, wmOperator *op)
+{
+	bGPdata *gpd = ED_gpencil_data_get_active(C);
+	int steps = RNA_int_get(op->ptr, "step");
+
+	/* sanity checks */
+	if (ELEM(NULL, gpd))
+		return OPERATOR_CANCELLED;
+
+	/* Go through each editable + selected stroke */
+	GP_EDITABLE_STROKES_BEGIN(C, gpl, gps)
+	{
+		if (gps->flag & GP_STROKE_SELECT) {
+			for (int i = 0; i < steps; i++) {
+				BKE_gpencil_simplify_fixed(gpl, gps);
+			}
+		}
+	}
+	GP_EDITABLE_STROKES_END;
+
+	/* notifiers */
+	BKE_gpencil_batch_cache_dirty(gpd);
+	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
+
+	return OPERATOR_FINISHED;
+}
+
+void GPENCIL_OT_stroke_simplify_fixed(wmOperatorType *ot)
+{
+	PropertyRNA *prop;
+
+	/* identifiers */
+	ot->name = "Simplify Fixed Stroke";
+	ot->idname = "GPENCIL_OT_stroke_simplify_fixed";
+	ot->description = "Simplify selected stroked reducing number of points using fixed algorithm";
+
+	/* api callbacks */
+	ot->exec = gp_stroke_simplify_fixed_exec;
+	ot->poll = gp_active_layer_poll;
+
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_BLOCKING;
+
+	/* properties */
+	prop = RNA_def_int(ot->srna, "step", 1, 1, 100, "Steps", "Number of simplify steps", 1, 10);
+	
+	/* avoid re-using last var */
+	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
+
+}

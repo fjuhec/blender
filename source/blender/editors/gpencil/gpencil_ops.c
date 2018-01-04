@@ -749,6 +749,7 @@ void ED_operatortypes_gpencil(void)
 	WM_operatortype_append(GPENCIL_OT_stroke_flip);
 	WM_operatortype_append(GPENCIL_OT_stroke_subdivide);
 	WM_operatortype_append(GPENCIL_OT_stroke_simplify);
+	WM_operatortype_append(GPENCIL_OT_stroke_simplify_fixed);
 
 	WM_operatortype_append(GPENCIL_OT_brush_add);
 	WM_operatortype_append(GPENCIL_OT_brush_remove);
