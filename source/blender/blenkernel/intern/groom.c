@@ -48,6 +48,7 @@
 #include "DNA_scene_types.h"
 
 #include "BKE_animsys.h"
+#include "BKE_deform.h"
 #include "BKE_global.h"
 #include "BKE_groom.h"
 #include "BKE_hair.h"
@@ -231,6 +232,56 @@ void BKE_groom_boundbox_calc(Groom *groom, float r_loc[3], float r_size[3])
 
 	BKE_boundbox_init_from_minmax(groom->bb, min, max);
 	groom->bb->flag &= ~BOUNDBOX_DIRTY;
+}
+
+
+/* === Scalp regions === */
+
+static bool groom_region_is_valid(Groom *groom, GroomBundle *bundle)
+{
+	if (!groom->scalp_object)
+	{
+		return false;
+	}
+	
+	if (!defgroup_find_name(groom->scalp_object, bundle->scalp_vgroup_name))
+	{
+		return false;
+	}
+	
+	return true;
+}
+
+static bool groom_bind_bundle(Groom *groom, GroomBundle *bundle)
+{
+	bundle->flag &= ~GM_BUNDLE_BOUND;
+	if (!groom_region_is_valid(groom, bundle))
+	{
+		return false;
+	}
+	
+	// see BMW_init
+	
+	bundle->flag |= GM_BUNDLE_BOUND;
+	return true;
+}
+
+void BKE_groom_bind_scalp_regions(Groom *groom)
+{
+	if (groom->editgroom)
+	{
+		for (GroomBundle *bundle = groom->editgroom->bundles.first; bundle; bundle = bundle->next)
+		{
+			groom_bind_bundle(groom, bundle);
+		}
+	}
+	else
+	{
+		for (GroomBundle *bundle = groom->bundles.first; bundle; bundle = bundle->next)
+		{
+			groom_bind_bundle(groom, bundle);
+		}
+	}
 }
 
 
@@ -514,6 +565,8 @@ void BKE_groom_eval_geometry(const EvaluationContext *UNUSED(eval_ctx), Groom *g
 	if (G.debug & G_DEBUG_DEPSGRAPH) {
 		printf("%s on %s\n", __func__, groom->id.name);
 	}
+	
+	BKE_groom_bind_scalp_regions(groom);
 	
 	if (groom->bb == NULL || (groom->bb->flag & BOUNDBOX_DIRTY)) {
 		BKE_groom_boundbox_calc(groom, NULL, NULL);

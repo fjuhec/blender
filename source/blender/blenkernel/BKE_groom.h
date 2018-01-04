@@ -53,6 +53,12 @@ bool BKE_groom_minmax(struct Groom *groom, float min[3], float max[3]);
 void BKE_groom_boundbox_calc(struct Groom *groom, float r_loc[3], float r_size[3]);
 
 
+/* === Scalp regions === */
+
+/* Try to bind bundles to their scalp regions */
+void BKE_groom_bind_scalp_regions(struct Groom *groom);
+
+
 /* === Depsgraph evaluation === */
 
 void BKE_groom_eval_curve_cache(const struct EvaluationContext *eval_ctx, struct Scene *scene, struct Object *ob);

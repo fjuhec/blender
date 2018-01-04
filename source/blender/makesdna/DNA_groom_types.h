@@ -106,6 +106,8 @@ typedef struct GroomBundle {
 typedef enum GroomBundleFlag
 {
 	GM_BUNDLE_SELECT        = (1 << 0),
+	
+	GM_BUNDLE_BOUND         = (1 << 8),     /* Bundle was successfully bound to a scalp region */
 } GroomBundleFlag;
 
 /* Editable groom data */

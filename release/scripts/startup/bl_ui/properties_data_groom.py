@@ -29,6 +29,8 @@ class GROOM_UL_bundles(bpy.types.UIList):
 
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             row = layout.row(align=True)
+            if not bundle.is_bound:
+                row.label(icon='ERROR')
             if groom.scalp_object:
                 row.prop_search(bundle, "scalp_vertex_group", groom.scalp_object, "vertex_groups", text="")
             else:
