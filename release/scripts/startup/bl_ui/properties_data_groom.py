@@ -24,12 +24,15 @@ from rna_prop_ui import PropertyPanel
 
 class GROOM_UL_bundles(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index, flt_flag):
-        ob = data
+        groom = data
         bundle = item
 
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
-            #layout.prop(groom, "name", text="", emboss=False, icon_value=icon)
-            layout.label(text="", icon_value=icon)
+            row = layout.row(align=True)
+            if groom.scalp_object:
+                row.prop_search(bundle, "scalp_vertex_group", groom.scalp_object, "vertex_groups", text="")
+            else:
+                row.prop(bundle, "scalp_vertex_group", text="")
 
         elif self.layout_type == 'GRID':
             layout.alignment = 'CENTER'
