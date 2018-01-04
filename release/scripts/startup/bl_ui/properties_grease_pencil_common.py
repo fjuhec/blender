@@ -1020,14 +1020,12 @@ class GPENCIL_MT_gpencil_draw_specials(Menu):
         layout.separator()
         palette = context.active_gpencil_palette
         brush = context.active_gpencil_brush
-        i = 0
-        for palcolor in palette.colors:
+        for i, palcolor in enumerate(palette.colors):
             if brush is None or brush.fill_only is False:
                 layout.operator("palette.palettecolor_choose", text=palcolor.name).index=i
             else:
                 if palcolor.fill_alpha > 0.0:
                     layout.operator("palette.palettecolor_choose", text=palcolor.name).index = i
-            i += 1
 
 
 class GPENCIL_MT_gpencil_vertex_group(Menu):
@@ -1158,7 +1156,7 @@ class GPENCIL_MT_layer_specials(Menu):
 
 
 class GPENCIL_MT_brush_specials(Menu):
-    bl_label = "Layer"
+    bl_label = "Brush"
 
     def draw(self, context):
         layout = self.layout
@@ -1167,12 +1165,13 @@ class GPENCIL_MT_brush_specials(Menu):
 
 
 class GPENCIL_MT_palettecolor_duplicate(Menu):
-    bl_label = "Layer"
+    bl_label = "Duplicate"
 
     def draw(self, context):
         layout = self.layout
 
         layout.operator_enum("palette.palettecolor_duplicate", "type")
+
 
 class GPENCIL_MT_palettecolor_specials(Menu):
     bl_label = "Layer"
@@ -1208,7 +1207,6 @@ class GreasePencilDataPanel:
 
     @classmethod
     def poll(cls, context):
-
         if context.gpencil_data is None:
             return False
 
@@ -1582,8 +1580,6 @@ class GreasePencilInfoPanel:
 
     @classmethod
     def poll(cls, context):
-        ts = context.scene.tool_settings
-
         if context.gpencil_data is None:
             return False
 
