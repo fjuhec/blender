@@ -2379,6 +2379,12 @@ static void rna_def_gpencil_brush(BlenderRNA *brna)
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_BRUSH_FILL_HIDE);
 	RNA_def_property_boolean_default(prop, true);
 	RNA_def_property_ui_text(prop, "Hide", "Hide transparent lines to use as boundary for filling");
+
+	prop = RNA_def_property(srna, "fill_allow_stroke_only", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_BRUSH_FILL_ALLOW_STROKEONLY);
+	RNA_def_property_boolean_default(prop, true);
+	RNA_def_property_ui_text(prop, "Allow Stroke Only", "Allow to use colors without fill (this can be used to create clean strokes)");
+
 }
 
 /* Grease Pencil Drawing Brushes API */

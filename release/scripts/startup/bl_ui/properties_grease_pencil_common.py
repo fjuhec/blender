@@ -398,6 +398,9 @@ class GreasePencilBrushPanel:
                 row = layout.row(align=True)
                 row.prop(brush, "fill_show_boundary", text="Show Boundary Lines")
 
+                row = layout.row(align=True)
+                row.prop(brush, "fill_allow_stroke_only", text="Allow Colors without fill")
+
 
 class GreasePencilBrushOptionsPanel:
     # subclass must set
@@ -1024,7 +1027,7 @@ class GPENCIL_MT_gpencil_draw_specials(Menu):
         palette = context.active_gpencil_palette
         brush = context.active_gpencil_brush
         for i, palcolor in enumerate(palette.colors):
-            if brush is None or brush.fill_only is False:
+            if brush is None or brush.fill_only is False or brush.fill_allow_stroke_only is True:
                 layout.operator("palette.palettecolor_choose", text=palcolor.name).index=i
             else:
                 if palcolor.fill_alpha > 0.0:
