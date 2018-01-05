@@ -44,6 +44,7 @@
 #include "DNA_movieclip_types.h"
 #include "DNA_scene_types.h"  /* PET modes */
 #include "DNA_workspace_types.h"
+#include "DNA_gpencil_types.h"
 
 #include "BLI_alloca.h"
 #include "BLI_utildefines.h"
@@ -4455,7 +4456,15 @@ static void applyTranslationValue(TransInfo *t, const float vec[3])
 		}
 		
 		mul_m3_v3(td->smtx, tvec);
-		mul_v3_fl(tvec, td->factor);
+		/* grease pencil falloff */
+		if (t->options & CTX_GPENCIL_STROKES) {
+			bGPDstroke *gps = (bGPDstroke *)td->extra;
+			mul_v3_fl(tvec, td->factor * gps->falloff);
+		}
+		else {
+			mul_v3_fl(tvec, td->factor);
+		}
+
 		
 		protectedTransBits(td->protectflag, tvec);
 		
