@@ -3783,7 +3783,15 @@ static void ElementRotation_ex(TransInfo *t, TransData *td, float mat[3][3], con
 	if (t->flag & T_POINTS) {
 		mul_m3_m3m3(totmat, mat, td->mtx);
 		mul_m3_m3m3(smat, td->smtx, totmat);
-		
+
+		/* apply gpencil falloff */
+		if (t->options & CTX_GPENCIL_STROKES) {
+			bGPDstroke *gps = (bGPDstroke *)td->extra;
+			mul_m3_fl(smat, gps->falloff);
+			/* fix scale */
+			smat[0][0] = smat[1][1] = smat[2][2] = 1.0f;
+		}
+
 		sub_v3_v3v3(vec, td->iloc, center);
 		mul_m3_v3(smat, vec);
 		
