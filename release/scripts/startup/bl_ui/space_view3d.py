@@ -174,7 +174,7 @@ class VIEW3D_HT_header(Header):
                 row.prop(gpd, "show_edit_lines", text="", icon="PARTICLE_POINT")
                 row.prop(gpd, "use_multiedit", text="Multi Frame", icon="FORCE_HARMONIC")
                 col = row.column()
-                col.enabled = gpd.use_multiedit and gpd.is_stroke_sculpt_mode
+                col.enabled = gpd.use_multiedit and (gpd.is_stroke_sculpt_mode or gpd.use_stroke_edit_mode)
                 col.prop(settings, "use_multiframe_falloff", text="", icon="SMOOTHCURVE")
                 col = row.column()
                 col.enabled = gpd.use_multiedit

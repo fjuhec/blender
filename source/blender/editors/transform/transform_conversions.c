@@ -91,6 +91,7 @@
 #include "BKE_editmesh.h"
 #include "BKE_tracking.h"
 #include "BKE_mask.h"
+#include "BKE_colortools.h"
 
 #include "BIK_api.h"
 
@@ -7828,7 +7829,11 @@ void flushTransPaintCurve(TransInfo *t)
 static void createTransGPencil(bContext *C, TransInfo *t)
 {
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
+	ToolSettings *ts = CTX_data_tool_settings(C);
+
 	bool is_multiedit = (bool)GPENCIL_MULTIEDIT_SESSIONS_ON(gpd);
+	bool use_multiframe_falloff = (ts->gp_sculpt.flag & GP_BRUSHEDIT_FLAG_FRAME_FALLOFF) != 0;
+
 	Object *obact = CTX_data_active_object(C);
 	bGPDlayer *gpl;
 	TransData *td = NULL;
@@ -7854,6 +7859,11 @@ static void createTransGPencil(bContext *C, TransInfo *t)
 	if (gpd == NULL)
 		return;
 	
+	/* initialize falloff curve */
+	if (is_multiedit) {
+		curvemapping_initialize(ts->gp_sculpt.cur_falloff);
+	}
+
 	/* First Pass: Count the number of datapoints required for the strokes, 
 	 * (and additional info about the configuration - e.g. 2D/3D?)
 	 */
@@ -7941,6 +7951,13 @@ static void createTransGPencil(bContext *C, TransInfo *t)
 			if (is_multiedit) {
 				init_gpf = gpl->frames.first;
 			}
+			/* init multiframe falloff options */
+			int f_init = 0;
+			int f_end = 0;
+
+			if (use_multiframe_falloff) {
+				BKE_gp_get_range_selected(gpl, &f_init, &f_end);
+			}
 
 			/* calculate difference matrix */
 			ED_gpencil_parent_location(obact, gpd, gpl, diff_mat);
@@ -7966,6 +7983,15 @@ static void createTransGPencil(bContext *C, TransInfo *t)
 			/* Loop over strokes, adding TransData for points as needed... */
 			for (gpf = init_gpf; gpf; gpf = gpf->next) {
 				if ((gpf == gpl->actframe) || ((gpf->flag & GP_FRAME_SELECT) && (is_multiedit))) {
+
+					/* if multiframe and falloff, recalculate and save value */
+					float falloff = 1.0f; /* by default no falloff */
+					if ((is_multiedit) && (use_multiframe_falloff)) {
+						/* Faloff depends on distance to active frame (relative to the overall frame range) */
+						falloff = BKE_gpencil_multiframe_falloff_calc(gpf, gpl->actframe->framenum,
+							f_init, f_end, ts->gp_sculpt.cur_falloff);
+					}
+
 					for (gps = gpf->strokes.first; gps; gps = gps->next) {
 						TransData *head = td;
 						TransData *tail = td;
@@ -8009,6 +8035,8 @@ static void createTransGPencil(bContext *C, TransInfo *t)
 								madd_v3_v3v3fl(center, center, &pt->x, ninv);
 							}
 #endif
+							/* save falloff factor */
+							gps->falloff = falloff;
 
 							/* add all necessary points... */
 							for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
@@ -8088,7 +8116,6 @@ static void createTransGPencil(bContext *C, TransInfo *t)
 		}
 	}
 }
-
 
 void createTransData(bContext *C, TransInfo *t)
 {

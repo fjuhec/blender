@@ -578,7 +578,7 @@ class GreasePencilMultiFramePanel:
         if context.editable_gpencil_strokes:
             is_3d_view = context.space_data.type == 'VIEW_3D'
             if is_3d_view:
-                return bool(gpd.is_stroke_sculpt_mode or gpd.is_stroke_weight_mode)
+                return bool(gpd.use_stroke_edit_mode or gpd.is_stroke_sculpt_mode or gpd.is_stroke_weight_mode)
 
         return False
 
