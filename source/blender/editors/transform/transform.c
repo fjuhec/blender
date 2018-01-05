@@ -3440,7 +3440,14 @@ static void ElementResize(TransInfo *t, TransData *td, float mat[3][3])
 	else
 		sub_v3_v3(vec, td->center);
 	
-	mul_v3_fl(vec, td->factor);
+	/* grease pencil falloff */
+	if (t->options & CTX_GPENCIL_STROKES) {
+		bGPDstroke *gps = (bGPDstroke *)td->extra;
+		mul_v3_fl(vec, td->factor * gps->falloff);
+	}
+	else {
+		mul_v3_fl(vec, td->factor);
+	}
 	
 	if (t->flag & (T_OBJECT | T_POSE)) {
 		mul_m3_v3(td->smtx, vec);
