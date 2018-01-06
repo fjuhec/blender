@@ -380,9 +380,6 @@ class GreasePencilBrushPanel:
                 row.prop(brush, "strength", slider=True)
                 row.prop(brush, "use_strength_pressure", text="", icon='STYLUS_PRESSURE')
 
-                row = layout.row(align=False)
-                row.prop(context.tool_settings, "use_gpencil_draw_onback", text="Draw on Back")
-
             if brush.fill_only is True:
                 row = layout.row(align=True)
                 row.prop(brush, "fill_leak", text="Leak Size")
@@ -402,6 +399,8 @@ class GreasePencilBrushPanel:
                 row = layout.row(align=True)
                 row.prop(brush, "fill_allow_stroke_only", text="Allow Colors without fill")
 
+            row = layout.row(align=False)
+            row.prop(context.tool_settings, "use_gpencil_draw_onback", text="Draw on Back")
 
 class GreasePencilBrushOptionsPanel:
     # subclass must set

@@ -676,7 +676,12 @@ static void gpencil_stroke_from_stack(tGPDfill *tgpf)
 	gps->flag |= GP_STROKE_RECALC_CACHES;
 
 	/* add stroke to frame */
-	BLI_addtail(&tgpf->gpf->strokes, gps);
+	if (ts->gpencil_flags & GP_TOOL_FLAG_PAINT_ONBACK) {
+		BLI_addhead(&tgpf->gpf->strokes, gps);
+	}
+	else {
+		BLI_addtail(&tgpf->gpf->strokes, gps);
+	}
 
 	/* add points */
 	pt = gps->points;
