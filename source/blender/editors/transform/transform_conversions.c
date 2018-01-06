@@ -8065,10 +8065,8 @@ static void createTransGPencil(bContext *C, TransInfo *t)
 										td->flag |= TD_SELECTED;
 
 									/* for other transform modes (e.g. shrink-fatten), need to additional data */
-									if (t->mode == TFM_GPENCIL_SHRINKFATTEN) {
-										td->val = &pt->pressure;
-										td->ival = pt->pressure;
-									}
+									td->val = &pt->pressure;
+									td->ival = pt->pressure;
 
 									/* screenspace needs special matrices... */
 									if ((gps->flag & (GP_STROKE_3DSPACE | GP_STROKE_2DSPACE | GP_STROKE_2DIMAGE)) == 0) {

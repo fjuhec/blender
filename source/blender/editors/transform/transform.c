@@ -3444,6 +3444,18 @@ static void ElementResize(TransInfo *t, TransData *td, float mat[3][3])
 	if (t->options & CTX_GPENCIL_STROKES) {
 		bGPDstroke *gps = (bGPDstroke *)td->extra;
 		mul_v3_fl(vec, td->factor * gps->falloff);
+
+		/* scale stroke thickness */
+		if (td->val) {
+			float ratio = t->values[0];
+			snapGridIncrement(t, &ratio);
+			applyNumInput(&t->num, &ratio);
+			t->values[0] = ratio;
+
+			*td->val = td->ival * ratio * gps->falloff;
+			CLAMP_MIN(*td->val, 0.001f);
+		}
+
 	}
 	else {
 		mul_v3_fl(vec, td->factor);
