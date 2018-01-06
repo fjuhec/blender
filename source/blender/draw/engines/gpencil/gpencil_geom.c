@@ -673,7 +673,7 @@ Gwn_Batch *DRW_gpencil_get_edit_geom(bGPDstroke *gps, float alpha, short dflag)
 			hsv_to_rgb(hue, 1.0f, 1.0f, &selectColor[0], &selectColor[1], &selectColor[2]);
 			selectColor[3] = 1.0f;
 			copy_v4_v4(fcolor, selectColor);
-			fsize = vsize + 3;
+			fsize = vsize;
 		}
 		else {
 			if (show_direction_hint && i == 0) {
