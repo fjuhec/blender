@@ -66,6 +66,28 @@ struct Depsgraph;
 struct wmWindow;
 
 /* ------------- Grease-Pencil Helpers ---------------- */
+
+/* Temporary draw data (no draw manager mode)  */
+typedef struct tGPDdraw {
+	struct RegionView3D *rv3d;			/* region to draw */
+	struct bGPdata *gpd;				/* current GP datablock */
+	struct bGPDlayer *gpl;				/* layer */
+	struct bGPDframe *gpf;              /* frame */
+	struct bGPDframe *t_gpf;            /* temporal frame */
+	struct bGPDstroke *gps;             /* stroke */
+	int offsx;                          /* windows offset x */
+	int offsy;                          /* windows offset y */
+	int winx;                           /* windows width */
+	int winy;                           /* windows height */
+	int dflag;                          /* flags datablock */
+	short lthick;                       /* layer thickness */
+	float opacity;                      /* opacity */
+	float tintcolor[4];                 /* tint color */
+	bool onion;                         /* onion flag */
+	bool custonion;                     /* use custom onion colors */
+	float diff_mat[4][4];               /* matrix */
+} tGPDdraw;
+
 typedef struct tGPDinterpolate_layer {
 	struct tGPDinterpolate_layer *next, *prev;
 
@@ -242,7 +264,7 @@ void ED_gpencil_draw_view3d_object(struct wmWindowManager *wm,
                                    struct View3D *v3d,
                                    struct ARegion *ar,
                                    bool only3d);
-void ED_gpencil_draw_ex(struct Scene *scene, struct bGPdata *gpd, int winx, int winy,
+void ED_gpencil_draw_ex(struct RegionView3D *rv3d, struct Scene *scene, struct bGPdata *gpd, int winx, int winy,
                         const int cfra, const char spacetype);
 void ED_gp_draw_interpolation(const struct bContext *C, struct tGPDinterpolate *tgpi, const int type);
 void ED_gp_draw_primitives(const struct bContext *C, struct tGPDprimitive *tgpi, const int type);
