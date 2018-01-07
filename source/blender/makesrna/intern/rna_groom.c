@@ -58,6 +58,7 @@
 #include "WM_api.h"
 
 #include "BKE_groom.h"
+#include "BKE_object_facemap.h"
 
 #include "DEG_depsgraph.h"
 
@@ -78,20 +79,22 @@ static int rna_GroomBundle_is_bound_get(PointerRNA *ptr)
 	return (bundle->scalp_region != NULL);
 }
 
-static void rna_GroomBundle_scalp_vgroup_name_set(PointerRNA *ptr, const char *value)
+static void rna_GroomBundle_scalp_facemap_name_set(PointerRNA *ptr, const char *value)
 {
 	Groom *groom = (Groom *)ptr->id.data;
 	GroomBundle *bundle = (GroomBundle *)ptr->data;
+	
 	if (groom->scalp_object)
 	{
-		PointerRNA scalp_ptr;
-		RNA_id_pointer_create(&groom->scalp_object->id, &scalp_ptr);
-		rna_object_vgroup_name_set(&scalp_ptr, value, bundle->scalp_vgroup_name, sizeof(bundle->scalp_vgroup_name));
+		bFaceMap *fm = BKE_object_facemap_find_name(groom->scalp_object, value);
+		if (fm) {
+			/* no need for BLI_strncpy_utf8, since this matches an existing facemap */
+			BLI_strncpy(bundle->scalp_facemap_name, value, sizeof(bundle->scalp_facemap_name));
+			return;
+		}
 	}
-	else
-	{
-		bundle->scalp_vgroup_name[0] = '\0';
-	}
+	
+	bundle->scalp_facemap_name[0] = '\0';
 }
 
 static PointerRNA rna_Groom_active_bundle_get(PointerRNA *ptr)
@@ -143,10 +146,10 @@ static void rna_def_groom_bundle(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Bound", "Bundle was successfully bound to a scalp region");
 	RNA_def_property_update(prop, NC_GROOM | ND_DRAW, NULL);
 	
-	prop = RNA_def_property(srna, "scalp_vertex_group", PROP_STRING, PROP_NONE);
-	RNA_def_property_string_sdna(prop, NULL, "scalp_vgroup_name");
-	RNA_def_property_ui_text(prop, "Scalp Vertex Group", "Vertex group name of the scalp region");
-	RNA_def_property_string_funcs(prop, NULL, NULL, "rna_GroomBundle_scalp_vgroup_name_set");
+	prop = RNA_def_property(srna, "scalp_facemap", PROP_STRING, PROP_NONE);
+	RNA_def_property_string_sdna(prop, NULL, "scalp_facemap_name");
+	RNA_def_property_ui_text(prop, "Scalp Vertex Group", "Face map name of the scalp region");
+	RNA_def_property_string_funcs(prop, NULL, NULL, "rna_GroomBundle_scalp_facemap_name_set");
 	RNA_def_property_update(prop, 0, "rna_Groom_update_data");
 }
 

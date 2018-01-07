@@ -43,12 +43,12 @@ void BKE_groom_init(struct Groom *groom);
 void *BKE_groom_add(struct Main *bmain, const char *name);
 
 void BKE_groom_free(struct Groom *groom);
+void BKE_groom_bundle_curve_cache_clear(struct GroomBundle *bundle);
 
 void BKE_groom_copy_data(struct Main *bmain, struct Groom *groom_dst, const struct Groom *groom_src, const int flag);
 struct Groom *BKE_groom_copy(struct Main *bmain, const struct Groom *groom);
 
 void BKE_groom_make_local(struct Main *bmain, struct Groom *groom, const bool lib_local);
-
 
 bool BKE_groom_minmax(struct Groom *groom, float min[3], float max[3]);
 void BKE_groom_boundbox_calc(struct Groom *groom, float r_loc[3], float r_size[3]);
@@ -66,7 +66,8 @@ void BKE_groom_bundle_unbind(struct GroomBundle *bundle);
 /* === Depsgraph evaluation === */
 
 void BKE_groom_eval_curve_cache(const struct EvaluationContext *eval_ctx, struct Scene *scene, struct Object *ob);
-void BKE_groom_clear_curve_cache(struct Object *ob);
+void BKE_groom_eval_curve_cache_clear(struct Object *ob);
+
 void BKE_groom_eval_geometry(const struct EvaluationContext *eval_ctx, struct Groom *groom);
 
 

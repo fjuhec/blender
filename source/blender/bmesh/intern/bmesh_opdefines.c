@@ -2018,6 +2018,26 @@ static BMOpDefine bmo_symmetrize_def = {
 	 BMO_OPTYPE_FLAG_SELECT_VALIDATE),
 };
 
+/*
+ * Face island boundary.
+ */
+static BMOpDefine bmo_face_island_boundary_def = {
+	"face_island_boundary",
+	/* slots_in */
+	{{"faces", BMO_OP_SLOT_ELEMENT_BUF, {BM_FACE}},
+	 {{'\0'}},
+	},
+	/* slots_out */
+	{{"boundary", BMO_OP_SLOT_ELEMENT_BUF, {BM_LOOP}},
+	 {{'\0'}},
+	},
+	bmo_face_island_boundary_exec,
+	(BMO_OPTYPE_FLAG_UNTAN_MULTIRES |
+	 BMO_OPTYPE_FLAG_NORMALS_CALC |
+	 BMO_OPTYPE_FLAG_SELECT_FLUSH |
+	 BMO_OPTYPE_FLAG_SELECT_VALIDATE),
+};
+
 const BMOpDefine *bmo_opdefines[] = {
 	&bmo_automerge_def,
 	&bmo_average_vert_facedata_def,
@@ -2053,6 +2073,7 @@ const BMOpDefine *bmo_opdefines[] = {
 	&bmo_duplicate_def,
 	&bmo_holes_fill_def,
 	&bmo_face_attribute_fill_def,
+	&bmo_face_island_boundary_def,
 	&bmo_offset_edgeloops_def,
 	&bmo_edgeloop_fill_def,
 	&bmo_edgenet_fill_def,

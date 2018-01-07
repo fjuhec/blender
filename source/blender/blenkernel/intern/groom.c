@@ -44,19 +44,27 @@
 #include "BLT_translation.h"
 
 #include "DNA_groom_types.h"
+#include "DNA_mesh_types.h"
+#include "DNA_meshdata_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 
 #include "BKE_animsys.h"
-#include "BKE_deform.h"
+#include "BKE_customdata.h"
+#include "BKE_cdderivedmesh.h"
 #include "BKE_global.h"
 #include "BKE_groom.h"
 #include "BKE_hair.h"
+#include "BKE_bvhutils.h"
 #include "BKE_library.h"
 #include "BKE_main.h"
+#include "BKE_mesh_sample.h"
 #include "BKE_object.h"
+#include "BKE_object_facemap.h"
 
 #include "DEG_depsgraph.h"
+
+#include "bmesh.h"
 
 
 void BKE_groom_init(Groom *groom)
@@ -80,18 +88,28 @@ void *BKE_groom_add(Main *bmain, const char *name)
 	return groom;
 }
 
+void BKE_groom_bundle_curve_cache_clear(GroomBundle *bundle)
+{
+	if (bundle->curvecache)
+	{
+		MEM_freeN(bundle->curvecache);
+		bundle->curvecache = NULL;
+		bundle->totcurvecache = 0;
+	}
+	if (bundle->shapecache)
+	{
+		MEM_freeN(bundle->shapecache);
+		bundle->shapecache = NULL;
+		bundle->totshapecache = 0;
+	}
+}
+
 static void groom_bundles_free(ListBase *bundles)
 {
 	for (GroomBundle *bundle = bundles->first; bundle; bundle = bundle->next)
 	{
-		if (bundle->curvecache)
-		{
-			MEM_freeN(bundle->curvecache);
-		}
-		if (bundle->shapecache)
-		{
-			MEM_freeN(bundle->shapecache);
-		}
+		BKE_groom_bundle_curve_cache_clear(bundle);
+		
 		if (bundle->sections)
 		{
 			MEM_freeN(bundle->sections);
@@ -255,30 +273,216 @@ void BKE_groom_bind_scalp_regions(Groom *groom)
 	}
 }
 
-static bool groom_region_is_valid(Groom *groom, GroomBundle *bundle)
+static bool groom_shape_rebuild(GroomBundle *bundle, int numshapeverts, Object *scalp_ob)
 {
-	if (!groom->scalp_object)
+	BLI_assert(bundle->scalp_region != NULL);
+	BLI_assert(scalp_ob->type == OB_MESH);
+	
+	bool result = true;
+	float (*shape)[2] = MEM_mallocN(sizeof(*shape) * numshapeverts, "groom section shape");
+	
+	Mesh *me = scalp_ob->data;
+	// XXX MeshSample will use Mesh instead of DerivedMesh in the future
+	DerivedMesh *dm = CDDM_from_mesh(me);
+	
+	/* last sample is the center position */
+	MeshSample *center_sample = &bundle->scalp_region[numshapeverts];
+	float center_co[3], center_nor[3], center_tang[3], center_binor[3];
+	if (!BKE_mesh_sample_eval(dm, center_sample, center_co, center_nor, center_tang))
+	{
+		result = false;
+		goto cleanup;
+	}
+	cross_v3_v3v3(center_binor, center_nor, center_tang);
+	
+	MeshSample *sample = bundle->scalp_region;
+	GroomSectionVertex *vert0 = bundle->verts;
+	for (int i = 0; i < numshapeverts; ++i, ++sample, ++vert0)
+	{
+		/* 3D position of the shape vertex origin on the mesh */
+		float co[3], nor[3], tang[3];
+		if (!BKE_mesh_sample_eval(dm, sample, co, nor, tang))
+		{
+			result = false;
+			goto cleanup;
+		}
+		/* Get relative offset from the center */
+		sub_v3_v3(co, center_co);
+		/* Convert mesh surface positions to 2D shape
+		 * by projecting onto the normal plane
+		 */
+		shape[i][0] = dot_v3v3(co, center_binor);
+		shape[i][1] = dot_v3v3(co, center_tang);
+	}
+	
+	bundle->numloopverts = numshapeverts;
+	bundle->totverts = numshapeverts * bundle->totsections;
+	bundle->verts = MEM_reallocN_id(bundle->verts, sizeof(*bundle->verts) * bundle->totverts, "groom bundle vertices");
+	/* Set the shape for all sections */
+	GroomSectionVertex *vert = bundle->verts;
+	for (int i = 0; i < bundle->totsections; ++i)
+	{
+		for (int j = 0; j < numshapeverts; ++j, ++vert)
+		{
+			copy_v2_v2(vert->co, shape[j]);
+			vert->flag = 0;
+		}
+	}
+	
+cleanup:
+	MEM_freeN(shape);
+	dm->release(dm);
+	
+	return result;
+}
+
+static BMesh *groom_create_scalp_bmesh(Mesh *me)
+{
+	const BMAllocTemplate allocsize = BMALLOC_TEMPLATE_FROM_ME(me);
+	
+	BMesh *bm = BM_mesh_create(&allocsize, &((struct BMeshCreateParams){
+	        .use_toolflags = true,
+	         }));
+	
+	BM_mesh_bm_from_me(bm, me, (&(struct BMeshFromMeshParams){
+	        .calc_face_normal = true, .use_shapekey = false,
+	        }));
+	
+	return bm;
+}
+
+static bool groom_bundle_region_from_mesh_fmap(GroomBundle *bundle, Object *scalp_ob)
+{
+	BLI_assert(scalp_ob->type == OB_MESH);
+	
+	BKE_groom_bundle_curve_cache_clear(bundle);
+	
+	Mesh *me = scalp_ob->data;
+	const int scalp_fmap_nr = BKE_object_facemap_name_index(scalp_ob, bundle->scalp_facemap_name);
+	const int cd_fmap_offset = CustomData_get_offset(&me->pdata, CD_FACEMAP);
+	if (scalp_fmap_nr < 0 || cd_fmap_offset < 0)
 	{
 		return false;
 	}
 	
-	if (!defgroup_find_name(groom->scalp_object, bundle->scalp_vgroup_name))
+	BMesh *bm = groom_create_scalp_bmesh(me);
+	bool result = true;
+	
+	/* Tag faces in the face map for the BMO walker */
 	{
-		return false;
+		BMFace *f;
+		BMIter iter;
+		BM_ITER_MESH(f, &iter, bm, BM_FACES_OF_MESH)
+		{
+			int fmap = BM_ELEM_CD_GET_INT(f, cd_fmap_offset);
+			BM_elem_flag_set(f, BM_ELEM_TAG, fmap == scalp_fmap_nr);
+		}
 	}
 	
-	return true;
+	BMOperator op;
+	BMO_op_initf(bm, &op, (BMO_FLAG_DEFAULTS & ~BMO_FLAG_RESPECT_HIDE),
+	             "face_island_boundary faces=%hf", BM_ELEM_TAG);
+	
+	BMO_op_exec(bm, &op);
+	if (BMO_error_occurred(bm))
+	{
+		result = false;
+		goto finalize;
+	}
+	
+	const int numshapeverts = BMO_slot_buffer_count(op.slots_out, "boundary");
+	bundle->scalp_region = MEM_callocN(sizeof(*bundle->scalp_region) * (numshapeverts + 1), "groom bundle scalp region");
+	
+	float center_co[3]; /* average vertex location for placing the center */
+	{
+		BMLoop *l;
+		BMOIter oiter;
+		MeshSample *sample = bundle->scalp_region;
+		zero_v3(center_co);
+		BMO_ITER (l, &oiter, op.slots_out, "boundary", BM_LOOP)
+		{
+			sample->orig_poly = BM_elem_index_get(l->f);
+			sample->orig_loops[0] = BM_elem_index_get(l);
+			sample->orig_verts[0] = BM_elem_index_get(l->v);
+			sample->orig_weights[0] = 1.0f;
+			BLI_assert(BKE_mesh_sample_is_valid(sample));
+			
+			add_v3_v3(center_co, l->v->co);
+			
+			++sample;
+		}
+		if (numshapeverts > 0)
+		{
+			mul_v3_fl(center_co, 1.0f / (float)(numshapeverts));
+		}
+	}
+	
+	{
+		/* BVH tree for binding the region center location */
+		DerivedMesh *dm = CDDM_from_mesh(me);
+		DM_ensure_tessface(dm);
+		BVHTreeFromMesh bvhtree;
+		//bvhtree_from_mesh_looptri(&bvhtree, dm, 0.0f, 4, 6);
+		bvhtree_from_mesh_faces(&bvhtree, dm, 0.0f, 4, 6);
+		if (bvhtree.tree != NULL) {
+			BVHTreeNearest nearest;
+			nearest.index = -1;
+			nearest.dist_sq = FLT_MAX;
+			
+			BLI_bvhtree_find_nearest(bvhtree.tree, center_co, &nearest, bvhtree.nearest_callback, &bvhtree);
+			if (nearest.index >= 0)
+			{
+				/* last sample is the center position */
+				MeshSample *center_sample = &bundle->scalp_region[numshapeverts];
+				BKE_mesh_sample_weights_from_loc(center_sample, dm, nearest.index, nearest.co);
+				BLI_assert(BKE_mesh_sample_is_valid(center_sample));
+			}
+		}
+		else
+		{
+			result = false;
+		}
+	
+		free_bvhtree_from_mesh(&bvhtree);
+		dm->release(dm);
+	}
+	
+finalize:
+	if (result == true)
+	{
+		groom_shape_rebuild(bundle, numshapeverts, scalp_ob);
+	}
+	else
+	{
+		if (bundle->scalp_region)
+		{
+			MEM_freeN(bundle->scalp_region);
+			bundle->scalp_region = NULL;
+		}
+	}
+	
+	BMO_op_finish(bm, &op);
+	BM_mesh_free(bm);
+	
+	return result;
 }
 
 bool BKE_groom_bundle_bind(Groom *groom, GroomBundle *bundle)
 {
 	BKE_groom_bundle_unbind(bundle);
-	if (!groom_region_is_valid(groom, bundle))
+	if (!groom->scalp_object)
+	{
+		return false;
+	}
+	if (!BKE_object_facemap_find_name(groom->scalp_object, bundle->scalp_facemap_name))
 	{
 		return false;
 	}
 	
-	// see BMW_init
+	if (groom->scalp_object->type == OB_MESH)
+	{
+		groom_bundle_region_from_mesh_fmap(bundle, groom->scalp_object);
+	}
 	
 	return (bundle->scalp_region != NULL);
 }
@@ -478,19 +682,7 @@ void BKE_groom_eval_curve_cache(const EvaluationContext *UNUSED(eval_ctx), Scene
 		const int totsections = bundle->totsections;
 		if (totsections == 0)
 		{
-			/* clear cache */
-			if (bundle->curvecache)
-			{
-				MEM_freeN(bundle->curvecache);
-				bundle->curvecache = NULL;
-				bundle->totcurvecache = 0;
-			}
-			if (bundle->shapecache)
-			{
-				MEM_freeN(bundle->shapecache);
-				bundle->shapecache = NULL;
-				bundle->totshapecache = 0;
-			}
+			BKE_groom_bundle_curve_cache_clear(bundle);
 			
 			/* nothing to do */
 			continue;
@@ -537,34 +729,21 @@ void BKE_groom_eval_curve_cache(const EvaluationContext *UNUSED(eval_ctx), Scene
 	}
 }
 
-static void groom_bundles_curve_cache_clear(ListBase *bundles)
-{
-	for (GroomBundle *bundle = bundles->first; bundle; bundle = bundle->next)
-	{
-		if (bundle->curvecache)
-		{
-			MEM_freeN(bundle->curvecache);
-			bundle->curvecache = NULL;
-			bundle->totcurvecache = 0;
-		}
-		if (bundle->shapecache)
-		{
-			MEM_freeN(bundle->shapecache);
-			bundle->shapecache = NULL;
-			bundle->totshapecache = 0;
-		}
-	}
-}
-
-void BKE_groom_clear_curve_cache(Object *ob)
+void BKE_groom_eval_curve_cache_clear(Object *ob)
 {
 	BLI_assert(ob->type == OB_GROOM);
 	Groom *groom = (Groom *)ob->data;
 	
-	groom_bundles_curve_cache_clear(&groom->bundles);
+	for (GroomBundle *bundle = groom->bundles.first; bundle; bundle = bundle->next)
+	{
+		BKE_groom_bundle_curve_cache_clear(bundle);
+	}
 	if (groom->editgroom)
 	{
-		groom_bundles_curve_cache_clear(&groom->editgroom->bundles);
+		for (GroomBundle *bundle = groom->editgroom->bundles.first; bundle; bundle = bundle->next)
+		{
+			BKE_groom_bundle_curve_cache_clear(bundle);
+		}
 	}
 }
 

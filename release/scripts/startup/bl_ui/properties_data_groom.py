@@ -32,9 +32,9 @@ class GROOM_UL_bundles(bpy.types.UIList):
             if not bundle.is_bound:
                 row.label(icon='ERROR')
             if groom.scalp_object:
-                row.prop_search(bundle, "scalp_vertex_group", groom.scalp_object, "vertex_groups", text="")
+                row.prop_search(bundle, "scalp_facemap", groom.scalp_object, "face_maps", text="")
             else:
-                row.prop(bundle, "scalp_vertex_group", text="")
+                row.prop(bundle, "scalp_facemap", text="")
 
         elif self.layout_type == 'GRID':
             layout.alignment = 'CENTER'

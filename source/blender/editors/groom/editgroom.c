@@ -72,14 +72,8 @@ static void groom_bundles_free(ListBase *bundles)
 {
 	for (GroomBundle *bundle = bundles->first; bundle; bundle = bundle->next)
 	{
-		if (bundle->curvecache)
-		{
-			MEM_freeN(bundle->curvecache);
-		}
-		if (bundle->shapecache)
-		{
-			MEM_freeN(bundle->shapecache);
-		}
+		BKE_groom_bundle_curve_cache_clear(bundle);
+		
 		if (bundle->verts)
 		{
 			MEM_freeN(bundle->verts);

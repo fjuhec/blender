@@ -46,6 +46,8 @@
 
 #include "BLI_strict_flags.h"
 
+#define SAMPLE_INDEX_INVALID 0xFFFFFFFF
+
 #define DEFAULT_TASK_SIZE 1024
 
 /* ==== Utility Functions ==== */
@@ -155,7 +157,7 @@ float* BKE_mesh_sample_calc_triangle_weights(DerivedMesh *dm, MeshSampleVertexWe
 	return tri_weights;
 }
 
-BLI_INLINE void mesh_sample_weights_from_loc(MeshSample *sample, DerivedMesh *dm, int face_index, const float loc[3])
+void BKE_mesh_sample_weights_from_loc(MeshSample *sample, DerivedMesh *dm, int face_index, const float loc[3])
 {
 	MFace *face = &dm->getTessFaceArray(dm)[face_index];
 	unsigned int index[4] = { face->v1, face->v2, face->v3, face->v4 };
@@ -180,9 +182,29 @@ BLI_INLINE void mesh_sample_weights_from_loc(MeshSample *sample, DerivedMesh *dm
 
 /* ==== Evaluate ==== */
 
+bool BKE_mesh_sample_is_valid(const struct MeshSample *sample)
+{
+	const unsigned int *v = sample->orig_verts;
+	
+	if (BKE_mesh_sample_is_volume_sample(sample))
+	{
+		/* volume sample stores position in the weight vector directly */
+		return true;
+	}
+	
+	if (v[0] == SAMPLE_INDEX_INVALID || v[1] == SAMPLE_INDEX_INVALID || v[2] == SAMPLE_INDEX_INVALID)
+	{
+		/* must have 3 valid indices */
+		return false;
+	}
+	
+	return true;
+}
+
 bool BKE_mesh_sample_is_volume_sample(const MeshSample *sample)
 {
-	return sample->orig_verts[0] == 0 && sample->orig_verts[1] == 0;
+	const unsigned int *v = sample->orig_verts;
+	return v[0] == SAMPLE_INDEX_INVALID && v[1] == SAMPLE_INDEX_INVALID && v[2] == SAMPLE_INDEX_INVALID;
 }
 
 bool BKE_mesh_sample_eval(DerivedMesh *dm, const MeshSample *sample, float loc[3], float nor[3], float tang[3])
@@ -711,7 +733,7 @@ static bool generator_raycast_make_sample(const MSurfaceSampleGenerator_RayCast 
 	if (BLI_bvhtree_ray_cast(gen->bvhdata.tree, ray_start, ray_dir, 0.0f,
 	                         &hit, gen->bvhdata.raycast_callback, (BVHTreeFromMesh *)(&gen->bvhdata)) >= 0) {
 		
-		mesh_sample_weights_from_loc(sample, gen->base.dm, hit.index, hit.co);
+		BKE_mesh_sample_weights_from_loc(sample, gen->base.dm, hit.index, hit.co);
 		
 		return true;
 	}
@@ -787,8 +809,6 @@ typedef struct MeshSampleCell {
 	unsigned int sample_start;
 	unsigned int sample;
 } MeshSampleCell;
-
-#define SAMPLE_INDEX_INVALID 0xFFFFFFFF
 
 typedef struct MSurfaceSampleGenerator_PoissonDisk_ThreadContext {
 	unsigned int trial;
@@ -1361,9 +1381,9 @@ static bool generator_volume_random_make_sample(const MVolumeSampleGenerator_Ran
 	
 	if (ctx->cur_sample < ctx->cur_tot) {
 		
-		sample->orig_verts[0] = 0;
-		sample->orig_verts[1] = 0;
-		sample->orig_verts[2] = 0;
+		sample->orig_verts[0] = SAMPLE_INDEX_INVALID;
+		sample->orig_verts[1] = SAMPLE_INDEX_INVALID;
+		sample->orig_verts[2] = SAMPLE_INDEX_INVALID;
 		
 		interp_v3_v3v3(sample->orig_weights, a->co, b->co, t);
 		

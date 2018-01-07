@@ -63,6 +63,7 @@ void bmo_dissolve_degenerate_exec(BMesh *bm, BMOperator *op);
 void bmo_duplicate_exec(BMesh *bm, BMOperator *op);
 void bmo_edgeloop_fill_exec(BMesh *bm, BMOperator *op);
 void bmo_face_attribute_fill_exec(BMesh *bm, BMOperator *op);
+void bmo_face_island_boundary_exec(BMesh *bm, BMOperator *op);
 void bmo_holes_fill_exec(BMesh *bm, BMOperator *op);
 void bmo_edgenet_fill_exec(BMesh *bm, BMOperator *op);
 void bmo_edgenet_prepare_exec(BMesh *bm, BMOperator *op);

@@ -96,12 +96,12 @@ typedef struct GroomBundle {
 	struct GroomSectionVertex *verts;       /* List of vertices [totsections][numloopverts] */
 	struct GroomCurveCache *curvecache;     /* Cached center curve [(totsections - 1) * groom.curve_res + 1] */
 	struct GroomShapeCache *shapecache;     /* Cached 2D shape curves [(totsections - 1) * groom.curve_res + 1][numloopverts] */
-	struct MeshSample *scalp_region;        /* Mesh samples bind to a scalp region [numloopverts] */
+	struct MeshSample *scalp_region;        /* Mesh samples bind to a scalp region [numloopverts + 1], last is center position */
 	
 	/* Scalp Region */
-	/* XXX Vertex groups are used temporarily for creating regions,
+	/* XXX Face maps are used temporarily for creating regions,
 	 * eventually should be replaced by a fully fledged 2D loop mesh */
-	char scalp_vgroup_name[64];             /* Scalp vertex group to use as region, MAX_VGROUP_NAME */
+	char scalp_facemap_name[64];             /* Scalp face map to use as region, MAX_VGROUP_NAME */
 } GroomBundle;
 
 typedef enum GroomBundleFlag

@@ -44,9 +44,12 @@ typedef bool (*MeshSampleRayFp)(void *userdata, void *thread_ctx, float ray_star
 
 float* BKE_mesh_sample_calc_triangle_weights(struct DerivedMesh *dm, MeshSampleVertexWeightFp vertex_weight_cb, void *userdata, float *r_area);
 
+void BKE_mesh_sample_weights_from_loc(struct MeshSample *sample, struct DerivedMesh *dm, int face_index, const float loc[3]);
+
 
 /* ==== Evaluate ==== */
 
+bool BKE_mesh_sample_is_valid(const struct MeshSample *sample);
 bool BKE_mesh_sample_is_volume_sample(const struct MeshSample *sample);
 
 bool BKE_mesh_sample_eval(struct DerivedMesh *dm, const struct MeshSample *sample, float loc[3], float nor[3], float tang[3]);
