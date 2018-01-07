@@ -128,16 +128,31 @@ static void gp_draw_basic_stroke(bGPDstroke *gps, const float diff_mat[4][4],
 /* loop all layers */
 static void gp_draw_datablock(tGPDfill *tgpf, float ink[4])
 {
+	/* duplicated */
+	typedef enum etempFlags {
+		GP_DRAWDATA_NOSTATUS = (1 << 0),   /* don't draw status info */
+		GP_DRAWDATA_ONLY3D = (1 << 1),   /* only draw 3d-strokes */
+	} etempFlags;
+
 	Scene *scene = tgpf->scene;
 	Object *ob = tgpf->ob;
 	bGPdata *gpd = tgpf->gpd;
 
+	tGPDdraw tgpw;
+	tgpw.rv3d = tgpf->rv3d;
+	tgpw.ob = ob;
+	tgpw.gpd = gpd;
+	tgpw.offsx = 0;
+	tgpw.offsy = 0;
+	tgpw.winx = tgpf->ar->winx;
+	tgpw.winy = tgpf->ar->winy;
+	tgpw.dflag |= (GP_DRAWDATA_ONLY3D | GP_DRAWDATA_NOSTATUS);
+
 	glEnable(GL_BLEND);
 
-	float diff_mat[4][4];
 	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
 		/* calculate parent position */
-		ED_gpencil_parent_location(ob, gpd, gpl, diff_mat);
+		ED_gpencil_parent_location(ob, gpd, gpl, tgpw.diff_mat);
 
 		/* don't draw layer if hidden */
 		if (gpl->flag & GP_LAYER_HIDE)
@@ -160,8 +175,22 @@ static void gp_draw_datablock(tGPDfill *tgpf, float ink[4])
 				continue;
 			}
 
+			tgpw.gps = gps;
+			tgpw.gpl = gpl;
+			tgpw.gpf = gpf;
+			tgpw.t_gpf = gpf;
+
+			tgpw.lthick = gpl->thickness;
+			tgpw.opacity = 1.0;
+			copy_v4_v4(tgpw.tintcolor, ink);
+			tgpw.onion = true;
+			tgpw.custonion = true;
+
+			//No dibuja nada
+			ED_gp_draw_fill(&tgpw);
+
 			/* 3D Lines - OpenGL primitives-based */
-			gp_draw_basic_stroke(gps, diff_mat, gps->flag & GP_STROKE_CYCLIC, ink, 
+			gp_draw_basic_stroke(gps, tgpw.diff_mat, gps->flag & GP_STROKE_CYCLIC, ink, 
 								tgpf->flag, tgpf->fill_threshold);
 		}
 	}

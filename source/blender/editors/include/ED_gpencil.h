@@ -43,6 +43,7 @@ struct bGPDstroke;
 struct bGPDpalette;
 struct bGPDpalettecolor;
 struct bGPDspoint;
+struct tGPDdraw;
 struct ID;
 struct Image;
 struct BLI_Stack;
@@ -269,6 +270,7 @@ void ED_gpencil_draw_ex(struct RegionView3D *rv3d, struct Scene *scene, struct b
                         const int cfra, const char spacetype);
 void ED_gp_draw_interpolation(const struct bContext *C, struct tGPDinterpolate *tgpi, const int type);
 void ED_gp_draw_primitives(const struct bContext *C, struct tGPDprimitive *tgpi, const int type);
+void ED_gp_draw_fill(struct tGPDdraw *tgpw);
 
 /* ----------- Grease-Pencil AnimEdit API ------------------ */
 bool  ED_gplayer_frames_looper(struct bGPDlayer *gpl, struct Scene *scene,

@@ -1533,12 +1533,10 @@ void ED_gp_draw_primitives(const bContext *C, tGPDprimitive *tgpi, const int typ
 	glDisable(GL_BLEND);
 }
 
-/* draw fill mask (used only while operator is running) */
-void ED_gp_draw_fill(const struct bContext *UNUSED(C), struct tGPDfill *UNUSED(tgpf))
+/* wrapper to draw strokes for filling operator */
+void ED_gp_draw_fill(tGPDdraw *tgpw)
 {
-	/* TODO: Not implemented yet */
-	float color[4];
-	UI_GetThemeColor3fv(TH_GP_VERTEX_SELECT, color);
+	gp_draw_strokes(tgpw);
 }
 
 /* loop over gpencil data layers, drawing them */
