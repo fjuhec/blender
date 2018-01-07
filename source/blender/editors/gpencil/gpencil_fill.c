@@ -190,9 +190,11 @@ static void gp_draw_datablock(tGPDfill *tgpf, float ink[4])
 
 			ED_gp_draw_fill(&tgpw);
 
-			/* 3D Lines - OpenGL primitives-based */
-			gp_draw_basic_stroke(gps, tgpw.diff_mat, gps->flag & GP_STROKE_CYCLIC, ink, 
-								tgpf->flag, tgpf->fill_threshold);
+			/* 3D Lines with basic shapes and invisible lines */
+			if (tgpf->flag & GP_BRUSH_FILL_SHOW_BOUNDARY) {
+				gp_draw_basic_stroke(gps, tgpw.diff_mat, gps->flag & GP_STROKE_CYCLIC, ink,
+					tgpf->flag, tgpf->fill_threshold);
+			}
 		}
 	}
 
@@ -671,6 +673,12 @@ static void gpencil_stroke_from_stack(tGPDfill *tgpf)
 {
 	Scene *scene = tgpf->scene;
 	ToolSettings *ts = tgpf->scene->toolsettings;
+	bGPDbrush *brush;
+	brush = BKE_gpencil_brush_getactive(ts);
+	if (brush == NULL) {
+		return;
+	}
+
 	bGPDspoint *pt;
 	tGPspoint point2D;
 	float r_out[3];
@@ -684,7 +692,7 @@ static void gpencil_stroke_from_stack(tGPDfill *tgpf)
 
 	/* create new stroke */
 	bGPDstroke *gps = MEM_callocN(sizeof(bGPDstroke), "bGPDstroke");
-	gps->thickness = 1.0f;
+	gps->thickness = brush->thickness;
 	gps->inittime = 0.0f;
 
 	/* the polygon must be closed, so enabled cyclic */

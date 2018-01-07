@@ -383,7 +383,8 @@ class GreasePencilBrushPanel:
             if brush.fill_only is True:
                 row = layout.row(align=True)
                 row.prop(brush, "fill_leak", text="Leak Size")
-
+                row = layout.row(align=True)
+                row.prop(brush, "line_width", text="Thickness")
                 row = layout.row(align=True)
                 row.prop(brush, "fill_simplyfy_lvl", text="Simplify")
 
