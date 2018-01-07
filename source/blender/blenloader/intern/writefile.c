@@ -3827,7 +3827,7 @@ static void write_groom(WriteData *wd, Groom *groom)
 	{
 		writestruct(wd, DATA, GroomSection, bundle->totsections, bundle->sections);
 		writestruct(wd, DATA, GroomSectionVertex, bundle->totverts, bundle->verts);
-		writestruct(wd, DATA, MeshSample, bundle->numloopverts + 1, bundle->scalp_region);
+		writestruct(wd, DATA, MeshSample, bundle->numshapeverts + 1, bundle->scalp_region);
 	}
 	
 	if (groom->hair_system) {

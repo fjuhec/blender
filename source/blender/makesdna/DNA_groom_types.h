@@ -86,7 +86,7 @@ typedef struct GroomBundle {
 	
 	int flag;
 	
-	int numloopverts;                       /* Vertices per section loop */
+	int numshapeverts;                       /* Vertices per section loop */
 	int totsections;                        /* Number of sections along the curve */
 	int totverts;                           /* Number of vertices of all sections combined */
 	int totcurvecache;                      /* Number of cached curve steps */

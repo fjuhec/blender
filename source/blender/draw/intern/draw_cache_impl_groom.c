@@ -265,12 +265,16 @@ static int groom_count_edges(Groom *groom, int parts, bool use_curve_cache)
 	{
 		for (GroomBundle *bundle = bundles->first; bundle; bundle = bundle->next)
 		{
-			if (bundle->numloopverts > 1)
+			if (bundle->numshapeverts > 1)
 			{
 				// Closed edge loop, 1 edge per vertex
 				if (use_curve_cache)
 				{
-					edge_len += 2 * bundle->totshapecache - bundle->numloopverts;
+					/* a curve for each shape vertex */
+					int numedges_curves = (bundle->totcurvecache - 1) * bundle->numshapeverts;
+					/* a loop for each section */
+					int numedges_sections = bundle->numshapeverts * bundle->totsections;
+					edge_len += numedges_curves + numedges_sections;
 				}
 				else
 				{
@@ -356,7 +360,7 @@ static void groom_get_verts(
 				GroomCurveCache *cache = bundle->curvecache;
 				for (int i = 0; i < bundle->totcurvecache; ++i, ++cache)
 				{
-					for (int j = 0; j < bundle->numloopverts; ++j, ++shape)
+					for (int j = 0; j < bundle->numshapeverts; ++j, ++shape)
 					{
 						if (id_pos != GM_ATTR_ID_UNUSED)
 						{
@@ -383,7 +387,7 @@ static void groom_get_verts(
 				{
 					const bool active = (bundle->flag & GM_BUNDLE_SELECT) && (section->flag & GM_SECTION_SELECT);
 					
-					for (int j = 0; j < bundle->numloopverts; ++j, ++vertex)
+					for (int j = 0; j < bundle->numshapeverts; ++j, ++vertex)
 					{
 						if (id_pos != GM_ATTR_ID_UNUSED)
 						{
@@ -451,30 +455,36 @@ static void groom_get_edges(
 	}
 	if (parts & GM_RENDER_SECTIONS)
 	{
+		const int curve_res = groom->curve_res;
 		for (GroomBundle *bundle = bundles->first; bundle; bundle = bundle->next)
 		{
-			const int numloopverts = bundle->numloopverts;
-			if (numloopverts > 1)
+			const int numshapeverts = bundle->numshapeverts;
+			if (numshapeverts > 1)
 			{
 				if (use_curve_cache)
 				{
-					for (int i = 0; i < bundle->totcurvecache; ++i)
+					/* a curve for each shape vertex */
+					for (int i = 0; i < numshapeverts; ++i)
 					{
-						uint idx0 = idx + i * numloopverts;
-						for (int j = 0; j < numloopverts - 1; ++j)
+						uint idx0 = idx + i;
+						for (int j = 0; j < bundle->totcurvecache - 1; ++j)
+						{
+							GWN_indexbuf_add_line_verts(
+							            &elb,
+							            idx0 +  j    * numshapeverts,
+							            idx0 + (j+1) * numshapeverts);
+						}
+					}
+					/* a loop for each section */
+					for (int i = 0; i < bundle->totsections; ++i)
+					{
+						uint idx0 = idx + i * curve_res * numshapeverts;
+						for (int j = 0; j < numshapeverts - 1; ++j)
 						{
 							GWN_indexbuf_add_line_verts(&elb, idx0 + j, idx0 + j + 1);
-							if (i < bundle->totcurvecache - 1)
-							{
-								GWN_indexbuf_add_line_verts(&elb, idx0 + j, idx0 + j + numloopverts);
-							}
 						}
 						// close the loop
-						GWN_indexbuf_add_line_verts(&elb, idx0 + (numloopverts-1), idx0);
-						if (i < bundle->totcurvecache - 1)
-						{
-							GWN_indexbuf_add_line_verts(&elb, idx0 + (numloopverts-1), idx0 + (numloopverts-1) + numloopverts);
-						}
+						GWN_indexbuf_add_line_verts(&elb, idx0 + (numshapeverts-1), idx0);
 					}
 					
 					idx += bundle->totshapecache;
@@ -483,13 +493,13 @@ static void groom_get_edges(
 				{
 					for (int i = 0; i < bundle->totsections; ++i)
 					{
-						uint idx0 = idx + i * numloopverts;
-						for (int j = 0; j < numloopverts - 1; ++j)
+						uint idx0 = idx + i * numshapeverts;
+						for (int j = 0; j < numshapeverts - 1; ++j)
 						{
 							GWN_indexbuf_add_line_verts(&elb, idx0 + j, idx0 + j + 1);
 						}
 						// close the loop
-						GWN_indexbuf_add_line_verts(&elb, idx0 + (numloopverts-1), idx0);
+						GWN_indexbuf_add_line_verts(&elb, idx0 + (numshapeverts-1), idx0);
 					}
 					
 					idx += bundle->totverts;

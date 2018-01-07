@@ -89,13 +89,13 @@ static GroomBundle* groom_add_bundle(float mat[4][4])
 {
 	GroomBundle *bundle = MEM_callocN(sizeof(GroomBundle), "groom bundle");
 	
-	bundle->numloopverts = 6;
+	bundle->numshapeverts = 6;
 	bundle->totsections = 4;
-	bundle->totverts = bundle->numloopverts * bundle->totsections;
+	bundle->totverts = bundle->numshapeverts * bundle->totsections;
 	bundle->sections = MEM_mallocN(sizeof(GroomSection) * bundle->totsections, "groom bundle sections");
 	bundle->verts = MEM_mallocN(sizeof(GroomSectionVertex) * bundle->totverts, "groom bundle vertices");
 	
-	int numverts = bundle->numloopverts;
+	int numverts = bundle->numshapeverts;
 	groom_bundle_section_init(&bundle->sections[0], &bundle->verts[numverts * 0], numverts, mat, 0.0, 0.0, 0.0);
 	groom_bundle_section_init(&bundle->sections[1], &bundle->verts[numverts * 1], numverts, mat, 0.0, 0.0, 1.0);
 	groom_bundle_section_init(&bundle->sections[2], &bundle->verts[numverts * 2], numverts, mat, 0.4, -0.2, 1.2);

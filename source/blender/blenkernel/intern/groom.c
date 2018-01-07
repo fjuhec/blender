@@ -315,7 +315,7 @@ static bool groom_shape_rebuild(GroomBundle *bundle, int numshapeverts, Object *
 		shape[i][1] = dot_v3v3(co, center_tang);
 	}
 	
-	bundle->numloopverts = numshapeverts;
+	bundle->numshapeverts = numshapeverts;
 	bundle->totverts = numshapeverts * bundle->totsections;
 	bundle->verts = MEM_reallocN_id(bundle->verts, sizeof(*bundle->verts) * bundle->totverts, "groom bundle vertices");
 	/* Set the shape for all sections */
@@ -583,7 +583,7 @@ static void groom_eval_shape_cache_section(
 	BLI_assert(isection < bundle->totsections - 1);
 	BLI_assert(curve_res >= 1);
 	
-	const int numloopverts = bundle->numloopverts;
+	const int numloopverts = bundle->numshapeverts;
 	GroomSectionVertex *loop0 = &bundle->verts[numloopverts * (isection-1)];
 	GroomSectionVertex *loop1 = &bundle->verts[numloopverts * isection];
 	GroomSectionVertex *loop2 = &bundle->verts[numloopverts * (isection+1)];
@@ -689,7 +689,7 @@ void BKE_groom_eval_curve_cache(const EvaluationContext *UNUSED(eval_ctx), Scene
 		}
 		
 		bundle->totcurvecache = (totsections-1) * groom->curve_res + 1;
-		bundle->totshapecache = bundle->totcurvecache * bundle->numloopverts;
+		bundle->totshapecache = bundle->totcurvecache * bundle->numshapeverts;
 		bundle->curvecache = MEM_reallocN_id(bundle->curvecache, sizeof(GroomCurveCache) * bundle->totcurvecache, "groom bundle curve cache");
 		bundle->shapecache = MEM_reallocN_id(bundle->shapecache, sizeof(GroomShapeCache) * bundle->totshapecache, "groom bundle shape cache");
 		
@@ -697,7 +697,7 @@ void BKE_groom_eval_curve_cache(const EvaluationContext *UNUSED(eval_ctx), Scene
 		{
 			/* degenerate case */
 			copy_v3_v3(bundle->curvecache[0].co, bundle->sections[0].center);
-			for (int i = 0; i < bundle->numloopverts; ++i)
+			for (int i = 0; i < bundle->numshapeverts; ++i)
 			{
 				copy_v2_v2(bundle->shapecache[i].co, bundle->verts[i].co);
 			}

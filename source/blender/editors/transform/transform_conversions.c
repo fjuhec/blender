@@ -2021,7 +2021,7 @@ static void groom_transdata_init_verts(
 			mul_m3_m3m3(mtx, obmat3, section->mat);
 			pseudoinverse_m3_m3(smtx, mtx, PSEUDOINVERSE_EPSILON);
 			
-			for (int j = 0; j < bundle->numloopverts; ++j, ++vertex)
+			for (int j = 0; j < bundle->numshapeverts; ++j, ++vertex)
 			{
 				if (is_prop_edit || (vertex->flag & GM_VERTEX_SELECT))
 				{
