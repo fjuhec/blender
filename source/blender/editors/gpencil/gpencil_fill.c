@@ -146,6 +146,7 @@ static void gp_draw_datablock(tGPDfill *tgpf, float ink[4])
 	tgpw.offsy = 0;
 	tgpw.winx = tgpf->ar->winx;
 	tgpw.winy = tgpf->ar->winy;
+	tgpw.dflag = 0;
 	tgpw.dflag |= (GP_DRAWDATA_ONLY3D | GP_DRAWDATA_NOSTATUS);
 
 	glEnable(GL_BLEND);
@@ -180,13 +181,13 @@ static void gp_draw_datablock(tGPDfill *tgpf, float ink[4])
 			tgpw.gpf = gpf;
 			tgpw.t_gpf = gpf;
 
-			tgpw.lthick = gpl->thickness;
+			/* reduce thickness to avoid gaps */
+			tgpw.lthick = gpl->thickness * 0.8f;
 			tgpw.opacity = 1.0;
 			copy_v4_v4(tgpw.tintcolor, ink);
 			tgpw.onion = true;
 			tgpw.custonion = true;
 
-			//No dibuja nada
 			ED_gp_draw_fill(&tgpw);
 
 			/* 3D Lines - OpenGL primitives-based */
