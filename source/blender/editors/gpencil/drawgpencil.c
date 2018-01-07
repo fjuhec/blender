@@ -732,7 +732,15 @@ static void gp_draw_stroke_3d(tGPDdraw *tgpw, short thickness, const float ink[4
 
 	immBindBuiltinProgram(GPU_SHADER_GPENCIL_STROKE);
 	immUniform2fv("Viewport", viewport);
-	//immUniform2fv("Offset", offset);
+	immUniform1f("pixsize", tgpw->rv3d->pixsize);
+	immUniform1f("pixelsize", U.pixelsize);
+	float obj_scale = (tgpw->ob->size[0] + tgpw->ob->size[1] + tgpw->ob->size[2]) / 3.0f;
+
+	immUniform1f("objscale", obj_scale);
+	int keep_size = (int)((tgpw->gpd) && (tgpw->gpd->flag & GP_DATA_STROKE_KEEPTHICKNESS));
+	immUniform1i("keep_size", keep_size);
+	immUniform1i("pixfactor", tgpw->gpd->pixfactor);
+	immUniform1i("xraymode", tgpw->gpd->xray_mode);
 
 	/* draw stroke curve */
 	glLineWidth(max_ff(curpressure * thickness, 1.0f));
@@ -1440,7 +1448,8 @@ void ED_gp_draw_interpolation(const bContext *C, tGPDinterpolate *tgpi, const in
 		dflag |= (GP_DRAWDATA_ONLY3D | GP_DRAWDATA_NOSTATUS);
 	}
 
-	tgpw.rv3d = rv3d;			
+	tgpw.rv3d = rv3d;	
+	tgpw.ob = obact;
 	tgpw.gpd = tgpi->gpd;
 	tgpw.offsx = 0;
 	tgpw.offsy = 0;
@@ -1493,6 +1502,7 @@ void ED_gp_draw_primitives(const bContext *C, tGPDprimitive *tgpi, const int typ
 	}
 
 	tgpw.rv3d = rv3d;
+	tgpw.ob = obact;
 	tgpw.gpd = tgpi->gpd;
 	tgpw.offsx = 0;
 	tgpw.offsy = 0;
@@ -1539,7 +1549,8 @@ static void gp_draw_data_layers(RegionView3D *rv3d,
 	float diff_mat[4][4];
 	tGPDdraw tgpw;
 
-	tgpw.rv3d = rv3d;			/* region to draw */
+	tgpw.rv3d = rv3d;
+	tgpw.ob = ob;
 	tgpw.gpd = gpd;
 	tgpw.gpl = NULL;
 	tgpw.gpf = NULL;        

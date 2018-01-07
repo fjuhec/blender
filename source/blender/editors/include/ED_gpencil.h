@@ -70,6 +70,7 @@ struct wmWindow;
 /* Temporary draw data (no draw manager mode)  */
 typedef struct tGPDdraw {
 	struct RegionView3D *rv3d;			/* region to draw */
+	struct Object *ob;                  /* object */
 	struct bGPdata *gpd;				/* current GP datablock */
 	struct bGPDlayer *gpl;				/* layer */
 	struct bGPDframe *gpf;              /* frame */
