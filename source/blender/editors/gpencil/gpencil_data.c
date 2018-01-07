@@ -2007,6 +2007,91 @@ void GPENCIL_OT_vertex_group_invert(wmOperatorType *ot)
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
+/* smooth */
+static int gpencil_vertex_group_smooth_exec(bContext *C, wmOperator *op)
+{
+	const float fac = RNA_float_get(op->ptr, "factor");
+	const int repeat = RNA_int_get(op->ptr, "repeat");
+
+	ToolSettings *ts = CTX_data_tool_settings(C);
+	Object *ob = CTX_data_active_object(C);
+
+	/* sanity checks */
+	if (ELEM(NULL, ts, ob, ob->data))
+		return OPERATOR_CANCELLED;
+
+	bGPDspoint *pta, *ptb, *ptc;
+
+	const int def_nr = ob->actdef - 1;
+	if (!BLI_findlink(&ob->defbase, def_nr))
+		return OPERATOR_CANCELLED;
+
+	CTX_DATA_BEGIN(C, bGPDstroke *, gps, editable_gpencil_strokes)
+	{
+		for (int s = 0; s < repeat; s++) {
+			for (int i = 0; i < gps->totpoints; i++) {
+				/* previous point */
+				if (i > 0) {
+					pta = &gps->points[i - 1];
+				}
+				else {
+					pta = &gps->points[i];
+				}
+				/* current */
+				ptb = &gps->points[i];
+				/* next point */
+				if (i + 1 < gps->totpoints) {
+					ptc = &gps->points[i + 1];
+				}
+				else {
+					ptc = &gps->points[i];
+				}
+
+				float wa = BKE_gpencil_vgroup_use_index(pta, def_nr);
+				float wb = BKE_gpencil_vgroup_use_index(ptb, def_nr);
+				float wc = BKE_gpencil_vgroup_use_index(ptc, def_nr);
+				CLAMP_MIN(wa, 0.0f);
+				CLAMP_MIN(wb, 0.0f);
+				CLAMP_MIN(wc, 0.0f);
+
+				/* the optimal value is the corresponding to the interpolation of the weight
+				*  at the distance of point b
+				*/
+				const float opfac = line_point_factor_v3(&ptb->x, &pta->x, &ptc->x);
+				const float optimal = interpf(wa, wb, opfac);
+				/* Based on influence factor, blend between original and optimal */
+				wb = interpf(wb, optimal, fac);
+				BKE_gpencil_vgroup_add_point_weight(ptb, def_nr, wb);
+			}
+		}
+	}
+	CTX_DATA_END;
+
+	/* notifiers */
+	BKE_gpencil_batch_cache_dirty(ob->data);
+	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED | ND_SPACE_PROPERTIES, NULL);
+
+	return OPERATOR_FINISHED;
+}
+
+void GPENCIL_OT_vertex_group_smooth(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Smooth Vertex Group";
+	ot->idname = "GPENCIL_OT_vertex_group_smooth";
+	ot->description = "Smooth weights to the active vertex group";
+
+	/* api callbacks */
+	ot->poll = gpencil_vertex_group_weight_poll;
+	ot->exec = gpencil_vertex_group_smooth_exec;
+
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+	RNA_def_float(ot->srna, "factor", 0.5f, 0.0f, 1.0, "Factor", "", 0.0f, 1.0f);
+	RNA_def_int(ot->srna, "repeat", 1, 1, 10000, "Iterations", "", 1, 200);
+}
+
 /****************************** Join ***********************************/
 
 /* userdata for joined_gpencil_fix_animdata_cb() */

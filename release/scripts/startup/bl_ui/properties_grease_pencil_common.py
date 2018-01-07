@@ -589,6 +589,7 @@ class GreasePencilWeightToolsPanel:
         layout = self.layout
         col = layout.column()
         col.operator("gpencil.vertex_group_invert", text="Invert")
+        col.operator("gpencil.vertex_group_smooth", text="Smooth")
 
 
 class GreasePencilMultiFramePanel:

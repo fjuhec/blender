@@ -774,6 +774,7 @@ void ED_operatortypes_gpencil(void)
 	WM_operatortype_append(GPENCIL_OT_vertex_group_select);
 	WM_operatortype_append(GPENCIL_OT_vertex_group_deselect);
 	WM_operatortype_append(GPENCIL_OT_vertex_group_invert);
+	WM_operatortype_append(GPENCIL_OT_vertex_group_smooth);
 
 
 	/* Editing (Time) --------------- */
