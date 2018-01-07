@@ -1505,8 +1505,8 @@ void ED_gp_draw_primitives(const bContext *C, tGPDprimitive *tgpi, const int typ
 	/* calculate parent position */
 	ED_gpencil_parent_location(obact, tgpi->gpd, tgpi->gpl, tgpw.diff_mat);
 	if (tgpi->gpf) {
-		bGPDstroke *gps = tgpi->gpf->strokes.first;
-		if (gps->totpoints > 0) {
+		tgpw.gps = tgpi->gpf->strokes.first;
+		if (tgpw.gps->totpoints > 0) {
 			tgpw.gpl = tgpi->gpl;
 			tgpw.gpf = tgpi->gpf;
 			tgpw.t_gpf = tgpi->gpf;
