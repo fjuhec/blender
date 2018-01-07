@@ -26,6 +26,7 @@ from .properties_grease_pencil_common import (
         GreasePencilInterpolatePanel,
         GreasePencilStrokeSculptPanel,
         GreasePencilWeightPaintPanel,
+        GreasePencilWeightToolsPanel,
         GreasePencilMultiFramePanel,
         GreasePencilBrushPanel,
         GreasePencilBrushOptionsPanel,
@@ -2077,6 +2078,9 @@ class VIEW3D_PT_tools_grease_pencil_sculpt(GreasePencilStrokeSculptPanel, Panel)
 class VIEW3D_PT_tools_grease_pencil_weight_paint(GreasePencilWeightPaintPanel, Panel):
     bl_space_type = 'VIEW_3D'
 
+# Grease Pencil weight painting operators
+class VIEW3D_PT_tools_grease_pencil_weight_tools(GreasePencilWeightToolsPanel, Panel):
+    bl_space_type = 'VIEW_3D'
 
 # Grease Pencil multiframe falloff tools
 class VIEW3D_PT_tools_grease_pencil_falloff(GreasePencilMultiFramePanel, Panel):
@@ -2136,6 +2140,7 @@ classes = (
     VIEW3D_PT_tools_grease_pencil_edit,
     VIEW3D_PT_tools_grease_pencil_sculpt,
     VIEW3D_PT_tools_grease_pencil_weight_paint,
+    VIEW3D_PT_tools_grease_pencil_weight_tools,
     VIEW3D_PT_tools_grease_pencil_falloff,
     VIEW3D_PT_tools_grease_pencil_brush,
     VIEW3D_PT_tools_grease_pencil_brush_option,

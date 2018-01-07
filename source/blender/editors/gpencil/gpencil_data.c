@@ -1808,6 +1808,20 @@ static int gpencil_vertex_group_poll(bContext *C)
 	}
 }
 
+static int gpencil_vertex_group_weight_poll(bContext *C)
+{
+	Object *ob = CTX_data_active_object(C);
+
+	if ((ob) && (ob->type == OB_GPENCIL)) {
+		return (!ID_IS_LINKED(ob) &&
+			!ID_IS_LINKED(ob->data) &&
+			(ob->defbase.first && (ob->mode == OB_MODE_GPENCIL_WEIGHT)));
+	}
+	else {
+		return false;
+	}
+}
+
 static int gpencil_vertex_group_assign_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	ToolSettings *ts = CTX_data_tool_settings(C);
@@ -1939,6 +1953,59 @@ void GPENCIL_OT_vertex_group_deselect(wmOperatorType *ot)
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
+/* invert */
+static int gpencil_vertex_group_invert_exec(bContext *C, wmOperator *UNUSED(op))
+{
+	ToolSettings *ts = CTX_data_tool_settings(C);
+	Object *ob = CTX_data_active_object(C);
+
+	/* sanity checks */
+	if (ELEM(NULL, ts, ob, ob->data))
+		return OPERATOR_CANCELLED;
+
+	bGPDspoint *pt;
+	const int def_nr = ob->actdef - 1;
+	if (!BLI_findlink(&ob->defbase, def_nr))
+		return OPERATOR_CANCELLED;
+
+	CTX_DATA_BEGIN(C, bGPDstroke *, gps, editable_gpencil_strokes)
+	{
+		for (int i = 0; i < gps->totpoints; i++) {
+			pt = &gps->points[i];
+			if (pt->weights == NULL) {
+				BKE_gpencil_vgroup_add_point_weight(pt, def_nr, 1.0f);
+			}
+			else if (pt->weights->factor == 1.0f) {
+				BKE_gpencil_vgroup_remove_point_weight(pt, def_nr);
+			}
+			else {
+				pt->weights->factor = 1.0f - pt->weights->factor;
+			}
+		}
+	}
+	CTX_DATA_END;
+
+	/* notifiers */
+	BKE_gpencil_batch_cache_dirty(ob->data);
+	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED | ND_SPACE_PROPERTIES, NULL);
+
+	return OPERATOR_FINISHED;
+}
+
+void GPENCIL_OT_vertex_group_invert(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Invert Vertex Group";
+	ot->idname = "GPENCIL_OT_vertex_group_invert";
+	ot->description = "Invert weights to the active vertex group";
+
+	/* api callbacks */
+	ot->poll = gpencil_vertex_group_weight_poll;
+	ot->exec = gpencil_vertex_group_invert_exec;
+
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+}
 
 /****************************** Join ***********************************/
 

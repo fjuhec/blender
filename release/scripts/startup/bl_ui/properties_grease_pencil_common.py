@@ -563,6 +563,33 @@ class GreasePencilWeightPaintPanel:
         col.prop(brush, "use_falloff")
 
 
+
+
+class GreasePencilWeightToolsPanel:
+    # subclass must set
+    # bl_space_type = 'IMAGE_EDITOR'
+    bl_label = "Weight Tools"
+    bl_category = "Tools"
+    bl_region_type = 'TOOLS'
+
+    @classmethod
+    def poll(cls, context):
+        if context.gpencil_data is None:
+            return False
+
+        gpd = context.gpencil_data
+        if context.editable_gpencil_strokes:
+            return bool(gpd.is_stroke_weight_mode)
+
+        return False
+
+    @staticmethod
+    def draw(self, context):
+        layout = self.layout
+        col = layout.column()
+        col.operator("gpencil.vertex_group_invert", text="Invert")
+
+
 class GreasePencilMultiFramePanel:
     bl_label = "Multi Frame"
     bl_category = "Tools"
