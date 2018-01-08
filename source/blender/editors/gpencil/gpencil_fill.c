@@ -147,6 +147,7 @@ static void gp_draw_datablock(tGPDfill *tgpf, float ink[4])
 	tgpw.winx = tgpf->ar->winx;
 	tgpw.winy = tgpf->ar->winy;
 	tgpw.dflag = 0;
+	tgpw.disable_fill = 1;
 	tgpw.dflag |= (GP_DRAWDATA_ONLY3D | GP_DRAWDATA_NOSTATUS);
 
 	glEnable(GL_BLEND);

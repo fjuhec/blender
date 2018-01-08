@@ -77,6 +77,7 @@ typedef struct tGPDdraw {
 	struct bGPDframe *gpf;              /* frame */
 	struct bGPDframe *t_gpf;            /* temporal frame */
 	struct bGPDstroke *gps;             /* stroke */
+	int disable_fill;                   /* disable fill */
 	int offsx;                          /* windows offset x */
 	int offsy;                          /* windows offset y */
 	int winx;                           /* windows width */
