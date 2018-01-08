@@ -173,6 +173,7 @@ typedef struct tGPDfill {
 	
 	short flag;                         /* flags */
 	short oldkey;                       /* avoid too fast events */
+	bool on_back;                       /* send to back stroke */
 
 	int center[2];						/* mouse fill center position */
 	int sizex;							/* windows width */

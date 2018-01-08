@@ -55,6 +55,9 @@
 #include "ED_space_api.h" 
 #include "ED_view3d.h"
 
+#include "RNA_access.h"
+#include "RNA_define.h"
+
 #include "IMB_imbuf.h"
 #include "IMB_imbuf_types.h"
 
@@ -715,7 +718,7 @@ static void gpencil_stroke_from_stack(tGPDfill *tgpf)
 	gps->flag |= GP_STROKE_RECALC_CACHES;
 
 	/* add stroke to frame */
-	if (ts->gpencil_flags & GP_TOOL_FLAG_PAINT_ONBACK) {
+	if ((ts->gpencil_flags & GP_TOOL_FLAG_PAINT_ONBACK) || (tgpf->on_back == true)){
 		BLI_addhead(&tgpf->gpf->strokes, gps);
 	}
 	else {
@@ -784,7 +787,7 @@ static void gpencil_fill_status_indicators(tGPDfill *tgpf)
 	Scene *scene = tgpf->scene;
 	char status_str[UI_MAX_DRAW_STR];
 
-	BLI_snprintf(status_str, sizeof(status_str), IFACE_("Fill: ESC/RMB cancel, LMB Fill"));
+	BLI_snprintf(status_str, sizeof(status_str), IFACE_("Fill: ESC/RMB cancel, LMB Fill, Shift Draw on Back"));
 	ED_area_headerprint(tgpf->sa, status_str);
 }
 
@@ -1001,72 +1004,69 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
 	tGPDfill *tgpf = op->customdata;
 
 	int estate = OPERATOR_PASS_THROUGH; /* default exit state - pass through */
-	
-	/* we don't pass on key events, GP is used with key-modifiers - prevents Dkey to insert drivers */
-	if (ISKEYBOARD(event->type)) {
-		if (ELEM(event->type, ESCKEY)) {
+
+	switch (event->type) {
+		case ESCKEY:
+		case RIGHTMOUSE:
 			estate = OPERATOR_CANCELLED;
-		}
-	}
-	if ELEM(event->type, RIGHTMOUSE) {
-		estate = OPERATOR_CANCELLED;
-	}
-	if ELEM(event->type, LEFTMOUSE) {
-		/* first time the event is not enabled to show help lines */
-		if ((tgpf->oldkey != -1) || ((tgpf->flag & GP_BRUSH_FILL_SHOW_BOUNDARY) == 0)) {
-			ARegion *ar = BKE_area_find_region_xy(CTX_wm_area(C), RGN_TYPE_ANY, event->x, event->y);
-			if (ar) {
-				rcti region_rect;
-				bool in_bounds = false;
+			break;
+		case LEFTMOUSE:
+			tgpf->on_back = RNA_boolean_get(op->ptr, "on_back");
+			/* first time the event is not enabled to show help lines */
+			if ((tgpf->oldkey != -1) || ((tgpf->flag & GP_BRUSH_FILL_SHOW_BOUNDARY) == 0)) {
+				ARegion *ar = BKE_area_find_region_xy(CTX_wm_area(C), RGN_TYPE_ANY, event->x, event->y);
+				if (ar) {
+					rcti region_rect;
+					bool in_bounds = false;
 
-				/* Perform bounds check */
-				ED_region_visible_rect(ar, &region_rect);
-				in_bounds = BLI_rcti_isect_pt_v(&region_rect, event->mval);
+					/* Perform bounds check */
+					ED_region_visible_rect(ar, &region_rect);
+					in_bounds = BLI_rcti_isect_pt_v(&region_rect, event->mval);
 
-				if ((in_bounds) && (ar->regiontype == RGN_TYPE_WINDOW)) {
-					tgpf->center[0] = event->mval[0];
-					tgpf->center[1] = event->mval[1];
+					if ((in_bounds) && (ar->regiontype == RGN_TYPE_WINDOW)) {
+						tgpf->center[0] = event->mval[0];
+						tgpf->center[1] = event->mval[1];
 
-					/* save size (don't sub minsize data to get right mouse click position) */
-					tgpf->sizex = region_rect.xmax;
-					tgpf->sizey = region_rect.ymax;
+						/* save size (don't sub minsize data to get right mouse click position) */
+						tgpf->sizex = region_rect.xmax;
+						tgpf->sizey = region_rect.ymax;
 
-					/* render screen to temp image */
-					gp_render_offscreen(tgpf);
+						/* render screen to temp image */
+						gp_render_offscreen(tgpf);
 
-					/* apply boundary fill */
-					gpencil_boundaryfill_area(tgpf);
+						/* apply boundary fill */
+						gpencil_boundaryfill_area(tgpf);
 
-					/* clean borders to avoid infinite loops */
-					gpencil_clean_borders(tgpf);
+						/* clean borders to avoid infinite loops */
+						gpencil_clean_borders(tgpf);
 
-					/* analyze outline */
-					gpencil_get_outline_points(tgpf);
+						/* analyze outline */
+						gpencil_get_outline_points(tgpf);
 
-					/* create stroke and reproject */
-					gpencil_stroke_from_stack(tgpf);
+						/* create stroke and reproject */
+						gpencil_stroke_from_stack(tgpf);
 
-					/* free temp stack data */
-					if (tgpf->stack) {
-						BLI_stack_free(tgpf->stack);
+						/* free temp stack data */
+						if (tgpf->stack) {
+							BLI_stack_free(tgpf->stack);
+						}
+
+						/* push undo data */
+						gpencil_undo_push(tgpf->gpd);
+
+						estate = OPERATOR_FINISHED;
 					}
-
-					/* push undo data */
-					gpencil_undo_push(tgpf->gpd);
-
-					estate = OPERATOR_FINISHED;
+					else {
+						estate = OPERATOR_CANCELLED;
+					}
 				}
 				else {
 					estate = OPERATOR_CANCELLED;
 				}
 			}
-			else {
-				estate = OPERATOR_CANCELLED;
-			}
-		}
-		tgpf->oldkey = event->type;
+			tgpf->oldkey = event->type;
+			break;
 	}
-	
 	/* process last operations before exiting */
 	switch (estate) {
 		case OPERATOR_FINISHED:
@@ -1088,6 +1088,8 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
 
 void GPENCIL_OT_fill(wmOperatorType *ot)
 {
+	PropertyRNA *prop;
+
 	/* identifiers */
 	ot->name = "Grease Pencil Fill";
 	ot->idname = "GPENCIL_OT_fill";
@@ -1101,4 +1103,7 @@ void GPENCIL_OT_fill(wmOperatorType *ot)
 
 	/* flags */
 	ot->flag = OPTYPE_UNDO | OPTYPE_BLOCKING;
+
+	prop = RNA_def_boolean(ot->srna, "on_back", false, "Draw On Back", "Send new stroke to Back");
+	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 }

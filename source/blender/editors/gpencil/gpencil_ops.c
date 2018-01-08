@@ -449,11 +449,16 @@ static void ed_keymap_gpencil_painting_draw(wmKeyConfig *keyconf)
 static void ed_keymap_gpencil_painting_fill(wmKeyConfig *keyconf)
 {
 	wmKeyMap *keymap = WM_keymap_find(keyconf, "Grease Pencil Stroke Paint (Fill)", 0, 0);
+	wmKeyMapItem *kmi;
 
 	/* set poll callback */
 	keymap->poll = gp_stroke_paintmode_fill_poll;
 
-	WM_keymap_add_item(keymap, "GPENCIL_OT_fill", LEFTMOUSE, KM_PRESS, 0, 0);
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_fill", LEFTMOUSE, KM_PRESS, 0, 0);
+	RNA_boolean_set(kmi->ptr, "on_back", false);
+
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_fill", LEFTMOUSE, KM_PRESS, KM_SHIFT, 0);
+	RNA_boolean_set(kmi->ptr, "on_back", true);
 }
 
 /* Stroke Painting Keymap - Only when paintmode is enabled */
