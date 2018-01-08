@@ -459,6 +459,8 @@ static void groom_get_edges(
 			{
 				if (use_curve_cache)
 				{
+					const int curvesize = bundle->curvesize;
+					
 					/* a curve for each shape vertex */
 					for (int i = 0; i < numshapeverts; ++i)
 					{
@@ -471,19 +473,18 @@ static void groom_get_edges(
 							            idx0 + (j+1));
 						}
 					}
-#if 0
+					
 					/* a loop for each section */
 					for (int i = 0; i < bundle->totsections; ++i)
 					{
-						uint idx0 = idx + i * curve_res * numshapeverts;
+						uint idx0 = idx + i * curve_res;
 						for (int j = 0; j < numshapeverts - 1; ++j)
 						{
-							GWN_indexbuf_add_line_verts(&elb, idx0 + j, idx0 + j + 1);
+							GWN_indexbuf_add_line_verts(&elb, idx0 + j * curvesize, idx0 + (j + 1) * curvesize);
 						}
 						// close the loop
-						GWN_indexbuf_add_line_verts(&elb, idx0 + (numshapeverts-1), idx0);
+						GWN_indexbuf_add_line_verts(&elb, idx0 + (numshapeverts-1) * curvesize, idx0);
 					}
-#endif
 					
 					idx += bundle->curvesize * bundle->numshapeverts;
 				}
