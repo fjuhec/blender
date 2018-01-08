@@ -246,20 +246,20 @@ void BKE_groom_boundbox_calc(Groom *groom, float r_loc[3], float r_size[3])
 
 /* === Scalp regions === */
 
-void BKE_groom_bind_scalp_regions(Groom *groom)
+void BKE_groom_bind_scalp_regions(Groom *groom, bool force_rebind)
 {
 	if (groom->editgroom)
 	{
 		for (GroomBundle *bundle = groom->editgroom->bundles.first; bundle; bundle = bundle->next)
 		{
-			BKE_groom_bundle_bind(groom, bundle);
+			BKE_groom_bundle_bind(groom, bundle, force_rebind);
 		}
 	}
 	else
 	{
 		for (GroomBundle *bundle = groom->bundles.first; bundle; bundle = bundle->next)
 		{
-			BKE_groom_bundle_bind(groom, bundle);
+			BKE_groom_bundle_bind(groom, bundle, force_rebind);
 		}
 	}
 }
@@ -458,8 +458,13 @@ finalize:
 	return result;
 }
 
-bool BKE_groom_bundle_bind(Groom *groom, GroomBundle *bundle)
+bool BKE_groom_bundle_bind(Groom *groom, GroomBundle *bundle, bool force_rebind)
 {
+	if (bundle->scalp_region && !force_rebind)
+	{
+		return true;
+	}
+	
 	BKE_groom_bundle_unbind(bundle);
 	if (!groom->scalp_object)
 	{
@@ -750,7 +755,7 @@ void BKE_groom_eval_geometry(const EvaluationContext *UNUSED(eval_ctx), Groom *g
 		printf("%s on %s\n", __func__, groom->id.name);
 	}
 	
-	BKE_groom_bind_scalp_regions(groom);
+	BKE_groom_bind_scalp_regions(groom, false);
 	
 	if (groom->bb == NULL || (groom->bb->flag & BOUNDBOX_DIRTY)) {
 		BKE_groom_boundbox_calc(groom, NULL, NULL);

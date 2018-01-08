@@ -57,9 +57,9 @@ void BKE_groom_boundbox_calc(struct Groom *groom, float r_loc[3], float r_size[3
 /* === Scalp regions === */
 
 /* Try to bind bundles to their scalp regions */
-void BKE_groom_bind_scalp_regions(struct Groom *groom);
+void BKE_groom_bind_scalp_regions(struct Groom *groom, bool force_rebind);
 
-bool BKE_groom_bundle_bind(struct Groom *groom, struct GroomBundle *bundle);
+bool BKE_groom_bundle_bind(struct Groom *groom, struct GroomBundle *bundle, bool force_rebind);
 void BKE_groom_bundle_unbind(struct GroomBundle *bundle);
 
 
