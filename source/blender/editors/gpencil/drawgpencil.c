@@ -1029,6 +1029,11 @@ static void gp_draw_strokes(tGPDdraw *tgpw)
 			continue;
 		}
 
+		/* if disable fill, the colors with fill must be omitted too */
+		if ((tgpw->disable_fill == 1) && (palcolor->fill[3] > 0.0f)) {
+				continue;
+		}
+
 		/* calculate thickness */
 		sthickness = gps->thickness + tgpw->lthick;
 
