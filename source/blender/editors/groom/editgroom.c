@@ -95,10 +95,6 @@ static void groom_bundles_copy(ListBase *bundles_dst, ListBase *bundles_src)
 		{
 			bundle->curvecache = MEM_dupallocN(bundle->curvecache);
 		}
-		if (bundle->shapecache)
-		{
-			bundle->shapecache = MEM_dupallocN(bundle->shapecache);
-		}
 		if (bundle->sections)
 		{
 			bundle->sections = MEM_dupallocN(bundle->sections);

@@ -8402,9 +8402,8 @@ static void direct_link_groom(FileData *fd, Groom *groom)
 		bundle->verts = newdataadr(fd, bundle->verts);
 		bundle->scalp_region = newdataadr(fd, bundle->scalp_region);
 		bundle->curvecache = NULL;
-		bundle->shapecache = NULL;
+		bundle->curvesize = 0;
 		bundle->totcurvecache = 0;
-		bundle->totshapecache = 0;
 	}
 	
 	groom->hair_system = newdataadr(fd, groom->hair_system);

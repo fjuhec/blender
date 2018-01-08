@@ -94,13 +94,8 @@ void BKE_groom_bundle_curve_cache_clear(GroomBundle *bundle)
 	{
 		MEM_freeN(bundle->curvecache);
 		bundle->curvecache = NULL;
+		bundle->curvesize = 0;
 		bundle->totcurvecache = 0;
-	}
-	if (bundle->shapecache)
-	{
-		MEM_freeN(bundle->shapecache);
-		bundle->shapecache = NULL;
-		bundle->totshapecache = 0;
 	}
 }
 
@@ -171,10 +166,6 @@ void BKE_groom_copy_data(Main *UNUSED(bmain), Groom *groom_dst, const Groom *gro
 		if (bundle->curvecache)
 		{
 			bundle->curvecache = MEM_dupallocN(bundle->curvecache);
-		}
-		if (bundle->shapecache)
-		{
-			bundle->shapecache = MEM_dupallocN(bundle->shapecache);
 		}
 		if (bundle->sections)
 		{
@@ -522,45 +513,30 @@ static void groom_forward_diff_cubic(float a, float b, float c, float d, float *
 }
 
 /* cubic bspline section eval */
-static void groom_eval_curve_cache_section(
-        GroomBundle *bundle,
-        int isection,
-        int curve_res)
+static void groom_eval_curve_cache_section(GroomCurveCache *cache, int curve_res, const float *co0, const float *co1, const float *co2, const float *co3)
 {
-	BLI_assert(bundle->totsections >= 2);
-	BLI_assert(isection < bundle->totsections - 1);
-	BLI_assert(curve_res >= 1);
-	
-	GroomSection *section = &bundle->sections[isection];
-	GroomCurveCache *cache = bundle->curvecache + curve_res * isection;
-	
-	const float *co0 = (section-1)->center;
-	const float *co1 = section->center;
-	const float *co2 = (section+1)->center;
-	const float *co3 = (section+2)->center;
-	
 	float a, b, c, d;
 	for (int k = 0; k < 3; ++k)
 	{
 		/* define tangents from segment direction */
 		float n1, n2;
 		
-		if (isection == 0)
-		{
-			n1 = co2[k] - co1[k];
-		}
-		else
+		if (co0)
 		{
 			n1 = 0.5f * (co2[k] - co0[k]);
 		}
-		
-		if (isection == bundle->totsections - 2)
+		else
 		{
-			n2 = co2[k] - co1[k];
+			n1 = co2[k] - co1[k];
+		}
+		
+		if (co3)
+		{
+			n2 = 0.5f * (co3[k] - co1[k]);
 		}
 		else
 		{
-			n2 = 0.5f * (co3[k] - co1[k]);
+			n2 = co2[k] - co1[k];
 		}
 		
 		/* Hermite spline interpolation */
@@ -569,64 +545,82 @@ static void groom_eval_curve_cache_section(
 		c = n1;
 		d = co1[k];
 		
-		groom_forward_diff_cubic(a, b, c, d, cache->co + k, curve_res, sizeof(GroomCurveCache));
+		groom_forward_diff_cubic(a, b, c, d, cache->co + k, curve_res, sizeof(*cache));
 	}
 }
 
-/* cubic bspline section eval */
-static void groom_eval_shape_cache_section(
+static void groom_eval_center_curve_section(
         GroomBundle *bundle,
-        int isection,
         int curve_res)
 {
-	BLI_assert(bundle->totsections > 1);
-	BLI_assert(isection < bundle->totsections - 1);
+	BLI_assert(bundle->totsections >= 2);
 	BLI_assert(curve_res >= 1);
 	
-	const int numloopverts = bundle->numshapeverts;
-	GroomSectionVertex *loop0 = &bundle->verts[numloopverts * (isection-1)];
-	GroomSectionVertex *loop1 = &bundle->verts[numloopverts * isection];
-	GroomSectionVertex *loop2 = &bundle->verts[numloopverts * (isection+1)];
-	GroomSectionVertex *loop3 = &bundle->verts[numloopverts * (isection+2)];
-	GroomShapeCache *cache = bundle->shapecache + curve_res * numloopverts * isection;
-	for (int v = 0; v < numloopverts; ++v, ++loop0, ++loop1, ++loop2, ++loop3, ++cache)
+	/* last cache curve is the center curve */
+	GroomCurveCache *cache = bundle->curvecache + bundle->curvesize * bundle->numshapeverts;
+	for (int i = 0; i < bundle->totsections-1; ++i, cache += curve_res)
 	{
-		const float *co0 = loop0->co;
-		const float *co1 = loop1->co;
-		const float *co2 = loop2->co;
-		const float *co3 = loop3->co;
-		
-		float a, b, c, d;
-		for (int k = 0; k < 2; ++k)
+		const GroomSection *section = &bundle->sections[i];
+		const float *co0 = (i > 0) ? section[-1].center : NULL;
+		const float *co1 = section[0].center;
+		const float *co2 = section[1].center;
+		const float *co3 = (i < bundle->totsections - 2) ? section[2].center : NULL;
+		groom_eval_curve_cache_section(cache, curve_res, co0, co1, co2, co3);
+	}
+}
+
+static void groom_eval_shape_curves(
+        GroomBundle *bundle,
+        int curve_res)
+{
+	BLI_assert(bundle->totsections >= 2);
+	BLI_assert(curve_res >= 1);
+	
+	for (int i = 0; i < bundle->numshapeverts; ++i)
+	{
+		GroomCurveCache *cache = bundle->curvecache + i * bundle->curvesize;
+		for (int j = 0; j < bundle->totsections-1; ++j, cache += curve_res)
 		{
-			/* define tangents from segment direction */
-			float n1, n2;
+			const GroomSection *section = &bundle->sections[j];
+			const float *co0 = NULL, *co1 = NULL, *co2 =NULL, *co3 = NULL;
 			
-			if (isection == 0)
+			float vec0[3], vec1[3], vec2[3], vec3[3];
+			if (j > 0)
 			{
-				n1 = co2[k] - co1[k];
+				const GroomSectionVertex *v0 = &bundle->verts[(j-1) * bundle->numshapeverts + i];
+				float tmp[3] = {0.0f, 0.0f, 0.0f};
+				copy_v2_v2(tmp, v0->co);
+				mul_v3_m3v3(vec0, section[-1].mat, tmp);
+				add_v3_v3(vec0, section[-1].center);
+				co0 = vec0;
 			}
-			else
 			{
-				n1 = 0.5f * (co2[k] - co0[k]);
+				const GroomSectionVertex *v1 = &bundle->verts[(j) * bundle->numshapeverts + i];
+				float tmp[3] = {0.0f, 0.0f, 0.0f};
+				copy_v2_v2(tmp, v1->co);
+				mul_v3_m3v3(vec1, section[0].mat, tmp);
+				add_v3_v3(vec1, section[0].center);
+				co1 = vec1;
+			}
+			{
+				const GroomSectionVertex *v2 = &bundle->verts[(j+1) * bundle->numshapeverts + i];
+				float tmp[3] = {0.0f, 0.0f, 0.0f};
+				copy_v2_v2(tmp, v2->co);
+				mul_v3_m3v3(vec2, section[+1].mat, tmp);
+				add_v3_v3(vec2, section[+1].center);
+				co2 = vec2;
+			}
+			if (j < bundle->totsections - 2)
+			{
+				const GroomSectionVertex *v3 = &bundle->verts[(j+2) * bundle->numshapeverts + i];
+				float tmp[3] = {0.0f, 0.0f, 0.0f};
+				copy_v2_v2(tmp, v3->co);
+				mul_v3_m3v3(vec3, section[+2].mat, tmp);
+				add_v3_v3(vec3, section[+2].center);
+				co3 = vec3;
 			}
 			
-			if (isection == bundle->totsections - 2)
-			{
-				n2 = co2[k] - co1[k];
-			}
-			else
-			{
-				n2 = 0.5f * (co3[k] - co1[k]);
-			}
-			
-			/* Hermite spline interpolation */
-			a = 2.0f * (co1[k] - co2[k]) + n1 + n2;
-			b = 3.0f * (co2[k] - co1[k]) - 2.0f * n1 - n2;
-			c = n1;
-			d = co1[k];
-			
-			groom_forward_diff_cubic(a, b, c, d, cache->co + k, curve_res, sizeof(GroomShapeCache) * numloopverts);
+			groom_eval_curve_cache_section(cache, curve_res, co0, co1, co2, co3);
 		}
 	}
 }
@@ -645,30 +639,41 @@ static void groom_eval_curve_step(float mat[3][3], const float mat_prev[3][3], c
 	mul_m3_m3m3(mat, rot, mat_prev);
 }
 
-static void groom_eval_curve_cache_mats(GroomCurveCache *cache, int totcache, float basemat[3][3])
+static void groom_eval_section_mats(GroomBundle *bundle, int curve_res)
 {
-	BLI_assert(totcache > 0);
+	const int curvesize = bundle->curvesize;
+	const int numshapeverts = bundle->numshapeverts;
 	
-	if (totcache == 1)
-	{
-		/* nothing to rotate, use basemat */
-		copy_m3_m3(cache->mat, basemat);
-		return;
-	}
+	float mat[3][3];
+	unit_m3(mat); // TODO take from scalp mesh sample
+	
+	GroomSection *section = bundle->sections;
+	/* last curve cache is center curve */
+	const GroomCurveCache *cache = bundle->curvecache + bundle->curvesize * numshapeverts;
 	
 	/* align to first segment */
-	groom_eval_curve_step(cache[0].mat, basemat, cache[1].co, cache[0].co);
+	groom_eval_curve_step(mat, mat, cache[0].co, cache[1].co);
+	copy_m3_m3(section->mat, mat);
 	++cache;
+	++section;
 	
-	/* align interior segments to average of prev and next segment */
-	for (int i = 1; i < totcache - 1; ++i)
+	for (int i = 1; i < curvesize - 1; ++i, ++cache)
 	{
-		groom_eval_curve_step(cache[0].mat, cache[-1].mat, cache[1].co, cache[-1].co);
-		++cache;
+		/* align interior points to average of prev and next segment */
+		groom_eval_curve_step(mat, mat, cache[-1].co, cache[+1].co);
+		
+		if (i % curve_res == 0)
+		{
+			/* set section matrix */
+			copy_m3_m3(section->mat, mat);
+			++section;
+		}
 	}
 	
 	/* align to last segment */
-	groom_eval_curve_step(cache[0].mat, cache[-1].mat, cache[0].co, cache[-1].co);
+	groom_eval_curve_step(mat, mat, cache[-1].co, cache[0].co);
+	/* last section is not handled in the loop */
+	copy_m3_m3(section->mat, mat);
 }
 
 void BKE_groom_eval_curve_cache(const EvaluationContext *UNUSED(eval_ctx), Scene *UNUSED(scene), Object *ob)
@@ -680,6 +685,8 @@ void BKE_groom_eval_curve_cache(const EvaluationContext *UNUSED(eval_ctx), Scene
 	for (GroomBundle *bundle = bundles->first; bundle; bundle = bundle->next)
 	{
 		const int totsections = bundle->totsections;
+		const int numshapeverts = bundle->numshapeverts;
+		const int curve_res = groom->curve_res;
 		if (totsections == 0)
 		{
 			BKE_groom_bundle_curve_cache_clear(bundle);
@@ -688,44 +695,34 @@ void BKE_groom_eval_curve_cache(const EvaluationContext *UNUSED(eval_ctx), Scene
 			continue;
 		}
 		
-		bundle->totcurvecache = (totsections-1) * groom->curve_res + 1;
-		bundle->totshapecache = bundle->totcurvecache * bundle->numshapeverts;
+		bundle->curvesize = (totsections-1) * curve_res + 1;
+		bundle->totcurvecache = bundle->curvesize * (numshapeverts + 1);
 		bundle->curvecache = MEM_reallocN_id(bundle->curvecache, sizeof(GroomCurveCache) * bundle->totcurvecache, "groom bundle curve cache");
-		bundle->shapecache = MEM_reallocN_id(bundle->shapecache, sizeof(GroomShapeCache) * bundle->totshapecache, "groom bundle shape cache");
 		
 		if (totsections == 1)
 		{
 			/* degenerate case */
-			copy_v3_v3(bundle->curvecache[0].co, bundle->sections[0].center);
-			for (int i = 0; i < bundle->numshapeverts; ++i)
+			copy_v3_v3(bundle->curvecache[numshapeverts].co, bundle->sections[0].center);
+			
+			unit_m3(bundle->sections[0].mat);
+			
+			for (int i = 0; i < numshapeverts; ++i)
 			{
-				copy_v2_v2(bundle->shapecache[i].co, bundle->verts[i].co);
+				copy_v2_v2(bundle->curvecache[i].co, bundle->verts[i].co);
+				bundle->curvecache[i].co[2] = 0.0f;
 			}
-		}
-		else
-		{
-			/* cubic splines */
-			GroomSection *section = bundle->sections;
-			for (int i = 0; i < totsections-1; ++i, ++section)
-			{
-				groom_eval_curve_cache_section(bundle, i, groom->curve_res);
-				groom_eval_shape_cache_section(bundle, i, groom->curve_res);
-			}
+			
+			continue;
 		}
 		
-		float basemat[3][3];
-		unit_m3(basemat); // TODO
-		groom_eval_curve_cache_mats(bundle->curvecache, bundle->totcurvecache, basemat);
+		/* Calculate center curve */
+		groom_eval_center_curve_section(bundle, curve_res);
 		
-		/* Copy coordinate frame to sections */
-		{
-			GroomSection *section = bundle->sections;
-			GroomCurveCache *cache = bundle->curvecache;
-			for (int i = 0; i < totsections; ++i, ++section, cache += groom->curve_res)
-			{
-				copy_m3_m3(section->mat, cache->mat);
-			}
-		}
+		/* Calculate coordinate frames for sections */
+		groom_eval_section_mats(bundle, curve_res);
+		
+		/* Calculate shape curves */
+		groom_eval_shape_curves(bundle, curve_res);
 	}
 }
 
