@@ -1098,14 +1098,18 @@ static void gp_draw_strokes(tGPDdraw *tgpw)
 			}
 			if (palcolor->flag & PAC_COLOR_DOT) {
 				/* volumetric stroke drawing */
-				gp_draw_stroke_volumetric_3d(gps->points, gps->totpoints, sthickness, ink);
+				if (tgpw->disable_fill != 1) {
+					gp_draw_stroke_volumetric_3d(gps->points, gps->totpoints, sthickness, ink);
+				}
 			}
 			else {
 				/* 3D Lines - OpenGL primitives-based */
 				if (gps->totpoints == 1) {
-					gp_draw_stroke_point(gps->points, sthickness, tgpw->dflag, gps->flag, 
-										tgpw->offsx, tgpw->offsy, tgpw->winx, tgpw->winy,
-										tgpw->diff_mat, ink);
+					if (tgpw->disable_fill != 1) {
+						gp_draw_stroke_point(gps->points, sthickness, tgpw->dflag, gps->flag,
+							tgpw->offsx, tgpw->offsy, tgpw->winx, tgpw->winy,
+							tgpw->diff_mat, ink);
+					}
 				}
 				else {
 					tgpw->gps = gps;
