@@ -47,10 +47,8 @@ typedef struct GPUViewport GPUViewport;
 typedef struct ViewportMemoryPool {
 	struct BLI_mempool *calls;
 	struct BLI_mempool *calls_generate;
-	struct BLI_mempool *calls_dynamic;
 	struct BLI_mempool *shgroups;
 	struct BLI_mempool *uniforms;
-	struct BLI_mempool *attribs;
 	struct BLI_mempool *passes;
 } ViewportMemoryPool;
 
@@ -106,6 +104,7 @@ GPUViewport *GPU_viewport_create_from_offscreen(struct GPUOffScreen *ofs);
 void GPU_viewport_clear_from_offscreen(GPUViewport *viewport);
 
 ViewportMemoryPool *GPU_viewport_mempool_get(GPUViewport *viewport);
+struct DRWInstanceDataList *GPU_viewport_instance_data_list_get(GPUViewport *viewport);
 
 void *GPU_viewport_engine_data_create(GPUViewport *viewport, void *engine_type);
 void *GPU_viewport_engine_data_get(GPUViewport *viewport, void *engine_type);
