@@ -69,9 +69,10 @@ class AMBER_PT_repositories(Panel, AmberPanel):
         col.operator("AMBER_OT_repository_remove", text="", icon='ZOOMOUT')
         col.operator("AMBER_OT_repository_remove", text="", icon='PANEL_CLOSE').do_erase = True
 
-        repo = ae.repositories_pg.repositories[ae.repositories_pg.repository_index_active]
-        row = self.layout.row()
-        row.prop(repo, "path", text="")
+        if 0 <= ae.repositories_pg.repository_index_active < len(ae.repositories_pg.repositories):
+            repo = ae.repositories_pg.repositories[ae.repositories_pg.repository_index_active]
+            row = self.layout.row()
+            row.prop(repo, "path", text="")
 
 
 class AMBER_UL_tags_filter(UIList):

@@ -718,7 +718,7 @@ class AmberDataRepositoryListItemPG(PropertyGroup):
 
 
 class AmberDataRepositoryListPG(PropertyGroup):
-    def repositories_update(self, context):
+    def repositories_active_update(self, context):
         space = context.space_data
         if space and space.type == 'FILE_BROWSER':
             ae = space.asset_engine
@@ -726,7 +726,8 @@ class AmberDataRepositoryListPG(PropertyGroup):
                 space.params.directory = self.repositories[self.repository_index_active].path
 
     repositories = CollectionProperty(name="Repositories", type=AmberDataRepositoryListItemPG)
-    repository_index_active = IntProperty(name="Active Repository", options={'HIDDEN'}, update=repositories_update, default=-1)
+    repository_index_active = IntProperty(name="Active Repository", options={'HIDDEN'},
+                                          update=repositories_active_update, default=-1)
 
 
 class AmberDataRepositoryList:

@@ -72,7 +72,7 @@ class AmberOpsRepositoryAdd(Operator, AmberOpsEditing):
         ae = context.space_data.asset_engine
         path = context.space_data.params.directory
 
-        if getattr(ae, "repo", None) is not None:
+        if getattr(ae, "repo", None):
             self.report({'INFO'}, "Current directory is already an Amber repository, '%s'" % ae.repo.name)
             return {'CANCELLED'}
         if os.path.exists(os.path.join(path, utils.AMBER_DB_NAME)):
@@ -140,6 +140,10 @@ class AmberOpsRepositoryRemove(Operator, AmberOpsEditing):
                     os.rmdir(data_path)
 
         ae.repositories_pg.repositories.remove(ae.repositories_pg.repository_index_active)
+        ae.repositories_pg.repository_index_active -= 1
+        repos = AmberDataRepositoryList()
+        repos.from_pg(ae.repositories_pg)
+        repos.save()
 
         if self.do_erase:
             os.remove(db_path)
