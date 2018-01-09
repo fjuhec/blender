@@ -691,7 +691,6 @@ Closure closure_mix(Closure cl1, Closure cl2, float fac)
 	}
 	else {
 		cl.ssr_data = mix(vec4(vec3(0.0), cl2.ssr_data.w), cl2.ssr_data.xyzw, fac); /* do not blend roughness */
-		cl.ssr_data = mix(vec4(vec3(0.0), cl2.ssr_data.w), cl2.ssr_data.xyzw, fac); /* do not blend roughness */
 		cl.ssr_normal = cl2.ssr_normal;
 		cl.ssr_id = cl2.ssr_id;
 	}
@@ -739,7 +738,7 @@ Closure closure_add(Closure cl1, Closure cl2)
 #endif
 #endif
 	cl.radiance = cl1.radiance + cl2.radiance;
-	cl.opacity = cl1.opacity + cl2.opacity;
+	cl.opacity = saturate(cl1.opacity + cl2.opacity);
 	return cl;
 }
 
@@ -774,6 +773,10 @@ vec4 volumetric_resolve(vec4 scene_color, vec2 frag_uvs, float frag_depth);
 void main()
 {
 	Closure cl = nodetree_exec();
+#ifndef USE_ALPHA_BLEND
+	/* Prevent alpha hash material writing into alpha channel. */
+	cl.opacity = 1.0;
+#endif
 
 #if defined(USE_ALPHA_BLEND_VOLUMETRICS)
 	/* XXX fragile, better use real viewport resolution */

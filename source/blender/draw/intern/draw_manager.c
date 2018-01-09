@@ -33,6 +33,7 @@
 
 #include "BIF_glutil.h"
 
+#include "BKE_curve.h"
 #include "BKE_global.h"
 #include "BKE_mesh.h"
 #include "BKE_object.h"
@@ -47,10 +48,12 @@
 #include "DRW_render.h"
 
 #include "DNA_camera_types.h"
+#include "DNA_curve_types.h"
 #include "DNA_view3d_types.h"
 #include "DNA_screen_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
+#include "DNA_meta_types.h"
 
 #include "ED_space_api.h"
 #include "ED_screen.h"
@@ -351,6 +354,7 @@ static struct DRWGlobalState {
 		unsigned int is_depth : 1;
 		unsigned int is_image_render : 1;
 		unsigned int is_scene_render : 1;
+		unsigned int draw_background : 1;
 	} options;
 
 	/* Current rendering context */
@@ -1161,7 +1165,7 @@ void DRW_shgroup_uniform_buffer(DRWShadingGroup *shgroup, const char *name, GPUT
 	drw_interface_uniform(shgroup, name, DRW_UNIFORM_BUFFER, tex, 0, 1);
 }
 
-void DRW_shgroup_uniform_bool(DRWShadingGroup *shgroup, const char *name, const bool *value, int arraysize)
+void DRW_shgroup_uniform_bool(DRWShadingGroup *shgroup, const char *name, const int *value, int arraysize)
 {
 	drw_interface_uniform(shgroup, name, DRW_UNIFORM_BOOL, value, 1, arraysize);
 }
@@ -1604,7 +1608,8 @@ static void drw_state_set(DRWState state)
 				glEnable(GL_BLEND);
 
 				if ((state & DRW_STATE_BLEND) != 0) {
-					glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+					glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, /* RGB */
+					                    GL_ONE, GL_ONE_MINUS_SRC_ALPHA); /* Alpha */
 				}
 				else if ((state & DRW_STATE_MULTIPLY) != 0) {
 					glBlendFunc(GL_DST_COLOR, GL_ZERO);
@@ -1613,7 +1618,9 @@ static void drw_state_set(DRWState state)
 					glBlendFunc(GL_ONE, GL_SRC_ALPHA);
 				}
 				else if ((state & DRW_STATE_ADDITIVE) != 0) {
-					glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+					/* Do not let alpha accumulate but premult the source RGB by it. */
+					glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE, /* RGB */
+					                    GL_ZERO, GL_ONE); /* Alpha */
 				}
 				else {
 					BLI_assert(0);
@@ -1870,8 +1877,24 @@ static void draw_geometry(DRWShadingGroup *shgroup, Gwn_Batch *geom, const float
 			case ID_ME:
 				BKE_mesh_texspace_get_reference((Mesh *)ob_data, NULL, &texcoloc, NULL, &texcosize);
 				break;
+			case ID_CU:
+			{
+				Curve *cu = (Curve *)ob_data;
+				if (cu->bb == NULL || (cu->bb->flag & BOUNDBOX_DIRTY)) {
+					BKE_curve_texspace_calc(cu);
+				}
+				texcoloc = cu->loc;
+				texcosize = cu->size;
+				break;
+			}
+			case ID_MB:
+			{
+				MetaBall *mb = (MetaBall *)ob_data;
+				texcoloc = mb->loc;
+				texcosize = mb->size;
+				break;
+			}
 			default:
-				/* TODO, curve, metaball? */
 				break;
 		}
 	}
@@ -2195,9 +2218,7 @@ bool DRW_object_is_renderable(Object *ob)
 	Scene *scene = DST.draw_ctx.scene;
 	Object *obedit = scene->obedit;
 
-	if (!BKE_object_is_visible(ob)) {
-		return false;
-	}
+	BLI_assert(BKE_object_is_visible(ob, OB_VISIBILITY_CHECK_UNKNOWN_RENDER_MODE));
 
 	if (ob->type == OB_MESH) {
 		if (ob == obedit) {
@@ -2216,6 +2237,18 @@ bool DRW_object_is_renderable(Object *ob)
 	return true;
 }
 
+/**
+ * Return whether this object is visible depending if
+ * we are rendering or drawing in the viewport.
+ */
+bool DRW_check_object_visible_within_active_context(Object *ob)
+{
+	const eObjectVisibilityCheck mode = DRW_state_is_scene_render() ?
+	                                     OB_VISIBILITY_CHECK_FOR_RENDER :
+	                                     OB_VISIBILITY_CHECK_FOR_VIEWPORT;
+	return BKE_object_is_visible(ob, mode);
+}
+
 bool DRW_object_is_flat_normal(const Object *ob)
 {
 	if (ob->type == OB_MESH) {
@@ -2226,7 +2259,6 @@ bool DRW_object_is_flat_normal(const Object *ob)
 	}
 	return true;
 }
-
 
 /**
  * Return true if the object has its own draw mode.
@@ -2437,18 +2469,22 @@ void DRW_transform_to_display(GPUTexture *tex)
 
 	bool use_ocio = false;
 
-	{
+	/* View transform is already applied for offscreen, don't apply again, see: T52046 */
+	if (!(DST.options.is_image_render && !DST.options.is_scene_render)) {
 		Scene *scene = DST.draw_ctx.scene;
-		/* View transform is already applied for offscreen, don't apply again, see: T52046 */
-		ColorManagedViewSettings *view_settings =
-		        (DST.options.is_image_render && !DST.options.is_scene_render) ?
-		        NULL : &scene->view_settings;
 		use_ocio = IMB_colormanagement_setup_glsl_draw_from_space(
-		        view_settings, &scene->display_settings, NULL, dither, false);
+		        &scene->view_settings, &scene->display_settings, NULL, dither, false);
 	}
 
 	if (!use_ocio) {
-		immBindBuiltinProgram(GPU_SHADER_2D_IMAGE_LINEAR_TO_SRGB);
+		/* View transform is already applied for offscreen, don't apply again, see: T52046 */
+		if (DST.options.is_image_render && !DST.options.is_scene_render) {
+			immBindBuiltinProgram(GPU_SHADER_2D_IMAGE_COLOR);
+			immUniformColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+		}
+		else {
+			immBindBuiltinProgram(GPU_SHADER_2D_IMAGE_LINEAR_TO_SRGB);
+		}
 		immUniform1i("image", 0);
 	}
 
@@ -2870,7 +2906,9 @@ static void drw_engines_draw_background(void)
 	}
 
 	/* No draw_background found, doing default background */
-	DRW_draw_background();
+	if (DRW_state_draw_background()) {
+		DRW_draw_background();
+	}
 }
 
 static void drw_engines_draw_scene(void)
@@ -3385,11 +3423,11 @@ void DRW_draw_render_loop_ex(
 		PROFILE_START(stime);
 		drw_engines_cache_init();
 
-		DEG_OBJECT_ITER(graph, ob, DEG_ITER_OBJECT_FLAG_ALL);
+		DEG_OBJECT_ITER_FOR_RENDER_ENGINE(graph, ob, DRW_iterator_mode_get())
 		{
 			drw_engines_cache_populate(ob);
 		}
-		DEG_OBJECT_ITER_END
+		DEG_OBJECT_ITER_FOR_RENDER_ENGINE_END
 
 		drw_engines_cache_finish();
 		PROFILE_END_ACCUM(DST.cache_time, stime);
@@ -3399,6 +3437,7 @@ void DRW_draw_render_loop_ex(
 
 	/* Start Drawing */
 	DRW_state_reset();
+
 	drw_engines_draw_background();
 
 	/* WIP, single image drawn over the camera view (replace) */
@@ -3439,10 +3478,14 @@ void DRW_draw_render_loop_ex(
 	if (DST.draw_ctx.evil_C) {
 		/* needed so manipulator isn't obscured */
 		glDisable(GL_DEPTH_TEST);
-		DRW_draw_manipulator();
-		glEnable(GL_DEPTH_TEST);
+		DRW_draw_manipulator_3d();
 
 		DRW_draw_region_info();
+
+		/* Draw 2D after region info so we can draw on top of the camera passepartout overlay.
+		 * 'DRW_draw_region_info' sets the projection in pixel-space. */
+		DRW_draw_manipulator_2d();
+		glEnable(GL_DEPTH_TEST);
 	}
 
 	DRW_stats_reset();
@@ -3480,9 +3523,11 @@ void DRW_draw_render_loop(
 	DRW_draw_render_loop_ex(graph, engine_type, ar, v3d, NULL);
 }
 
+/* @viewport CAN be NULL, in this case we create one. */
 void DRW_draw_render_loop_offscreen(
         struct Depsgraph *graph, RenderEngineType *engine_type,
-        ARegion *ar, View3D *v3d, GPUOffScreen *ofs)
+        ARegion *ar, View3D *v3d, const bool draw_background, GPUOffScreen *ofs,
+        GPUViewport *viewport)
 {
 	RegionView3D *rv3d = ar->regiondata;
 
@@ -3490,20 +3535,28 @@ void DRW_draw_render_loop_offscreen(
 	void *backup_viewport = rv3d->viewport;
 	{
 		/* backup (_never_ use rv3d->viewport) */
-		rv3d->viewport = GPU_viewport_create_from_offscreen(ofs);
+		if (viewport == NULL) {
+			rv3d->viewport = GPU_viewport_create_from_offscreen(ofs);
+		}
+		else {
+			rv3d->viewport = viewport;
+		}
 	}
 
 	/* Reset before using it. */
 	memset(&DST, 0x0, sizeof(DST));
 	DST.options.is_image_render = true;
+	DST.options.draw_background = draw_background;
 	DRW_draw_render_loop_ex(graph, engine_type, ar, v3d, NULL);
 
 	/* restore */
 	{
-		/* don't free data owned by 'ofs' */
-		GPU_viewport_clear_from_offscreen(rv3d->viewport);
-		GPU_viewport_free(rv3d->viewport);
-		MEM_freeN(rv3d->viewport);
+		if (viewport == NULL) {
+			/* don't free data owned by 'ofs' */
+			GPU_viewport_clear_from_offscreen(rv3d->viewport);
+			GPU_viewport_free(rv3d->viewport);
+			MEM_freeN(rv3d->viewport);
+		}
 
 		rv3d->viewport = backup_viewport;
 	}
@@ -3594,7 +3647,10 @@ void DRW_draw_select_loop(
 			drw_engines_cache_populate(scene->obedit);
 		}
 		else {
-			DEG_OBJECT_ITER(graph, ob, DEG_ITER_OBJECT_FLAG_DUPLI)
+			DEG_OBJECT_ITER(graph, ob, DRW_iterator_mode_get(),
+			                DEG_ITER_OBJECT_FLAG_LINKED_DIRECTLY |
+			                DEG_ITER_OBJECT_FLAG_VISIBLE |
+			                DEG_ITER_OBJECT_FLAG_DUPLI)
 			{
 				if ((ob->base_flag & BASE_SELECTABLED) != 0) {
 					DRW_select_load_id(ob->select_color);
@@ -3686,11 +3742,11 @@ void DRW_draw_depth_loop(
 	if (cache_is_dirty) {
 		drw_engines_cache_init();
 
-		DEG_OBJECT_ITER(graph, ob, DEG_ITER_OBJECT_FLAG_ALL)
+		DEG_OBJECT_ITER_FOR_RENDER_ENGINE(graph, ob, DRW_iterator_mode_get())
 		{
 			drw_engines_cache_populate(ob);
 		}
-		DEG_OBJECT_ITER_END
+		DEG_OBJECT_ITER_FOR_RENDER_ENGINE_END
 
 		drw_engines_cache_finish();
 	}
@@ -3772,6 +3828,15 @@ bool DRW_state_is_scene_render(void)
 }
 
 /**
+ * Gives you the iterator mode to use for depsgraph.
+ */
+eDepsObjectIteratorMode DRW_iterator_mode_get(void)
+{
+	return DRW_state_is_scene_render() ? DEG_ITER_OBJECT_MODE_RENDER :
+	                                     DEG_ITER_OBJECT_MODE_VIEWPORT;
+}
+
+/**
  * Should text draw in this mode?
  */
 bool DRW_state_show_text(void)
@@ -3791,6 +3856,17 @@ bool DRW_state_draw_support(void)
 	return (DRW_state_is_scene_render() == false) &&
 	        (v3d != NULL) &&
 	        ((v3d->flag2 & V3D_RENDER_OVERRIDE) == 0);
+}
+
+/**
+ * Whether we should render the background
+ */
+bool DRW_state_draw_background(void)
+{
+	if (DRW_state_is_image_render() == false) {
+		return true;
+	}
+	return DST.options.draw_background;
 }
 
 /** \} */

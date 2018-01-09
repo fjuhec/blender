@@ -40,7 +40,7 @@ class OBJECT_PT_context_object(ObjectButtonsPanel, Panel):
             layout.template_ID(space, "pin_id")
         else:
             row = layout.row()
-            row.template_ID(context.view_layer.objects, "active")
+            row.template_ID(context.view_layer.objects, "active", filter='AVAILABLE')
 
 
 class OBJECT_PT_transform(ObjectButtonsPanel, Panel):
@@ -277,6 +277,13 @@ class OBJECT_PT_display(ObjectButtonsPanel, Panel):
             # Only useful with object having faces/materials...
             col.label(text="Object Color:")
             col.prop(obj, "color", text="")
+
+        col = layout.column()
+        col.active = bool(is_dupli or obj.particle_systems)
+        col.label(text="Duplicator Visibility:")
+        row = col.row(align=True)
+        row.prop(obj, "show_duplicator_for_viewport", text="Viewport")
+        row.prop(obj, "show_duplicator_for_render", text="Render")
 
 
 class OBJECT_PT_duplication(ObjectButtonsPanel, Panel):

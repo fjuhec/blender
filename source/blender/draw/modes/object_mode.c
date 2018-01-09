@@ -749,8 +749,9 @@ static void OBJECT_cache_init(void *vedata)
 		DRWState state = DRW_STATE_WRITE_COLOR;
 		struct Gwn_Batch *quad = DRW_cache_fullscreen_quad_get();
 		static float alphaOcclu = 0.35f;
-		static bool bTrue = true;
-		static bool bFalse = false;
+		/* Reminder : bool uniforms need to be 4 bytes. */
+		static const int bTrue = true;
+		static const int bFalse = false;
 
 		psl->outlines_search = DRW_pass_create("Outlines Detect Pass", state);
 
@@ -1648,7 +1649,7 @@ static void DRW_shgroup_lightprobe(OBJECT_StorageList *stl, OBJECT_PassList *psl
 
 static void DRW_shgroup_relationship_lines(OBJECT_StorageList *stl, Object *ob)
 {
-	if (ob->parent && BKE_object_is_visible(ob->parent)) {
+	if (ob->parent && DRW_check_object_visible_within_active_context(ob->parent)) {
 		DRW_shgroup_call_dynamic_add(stl->g_data->relationship_lines, ob->obmat[3]);
 		DRW_shgroup_call_dynamic_add(stl->g_data->relationship_lines, ob->parent->obmat[3]);
 	}
@@ -1763,7 +1764,12 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 	View3D *v3d = draw_ctx->v3d;
 	int theme_id = TH_UNDEFINED;
 
-	if (!BKE_object_is_visible(ob)) {
+	/* Handle particles first in case the emitter itself shouldn't be rendered. */
+	if (ob->type == OB_MESH) {
+		OBJECT_cache_populate_particles(ob, psl);
+	}
+
+	if (DRW_check_object_visible_within_active_context(ob) == false) {
 		return;
 	}
 
@@ -1804,8 +1810,6 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 					}
 				}
 			}
-
-			OBJECT_cache_populate_particles(ob, psl);
 			break;
 		}
 		case OB_SURF:

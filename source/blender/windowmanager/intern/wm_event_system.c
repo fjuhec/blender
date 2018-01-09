@@ -1460,6 +1460,19 @@ int WM_operator_name_call(bContext *C, const char *opstring, short context, Poin
 }
 
 /**
+ * Call an existent menu. The menu can be created in C or Python.
+ */
+void WM_menu_name_call(bContext *C, const char *menu_name, short context)
+{
+	wmOperatorType *ot = WM_operatortype_find("WM_OT_call_menu", false);
+	PointerRNA ptr;
+	WM_operator_properties_create_ptr(&ptr, ot);
+	RNA_string_set(&ptr, "name", menu_name);
+	WM_operator_name_call_ptr(C, ot, context, &ptr);
+	WM_operator_properties_free(&ptr);
+}
+
+/**
  * Similar to #WM_operator_name_call called with #WM_OP_EXEC_DEFAULT context.
  *
  * - #wmOperatorType is used instead of operator name since python already has the operator type.
@@ -2252,13 +2265,32 @@ static int wm_handlers_do_intern(bContext *C, wmEvent *event, ListBase *handlers
 				wm_manipulatormap_handler_context(C, handler);
 				wm_region_mouse_co(C, event);
 
+				if (event->type == MOUSEMOVE) {
+					WM_manipulatormap_tooltip_clear(C, mmap);
+				}
+
 				/* handle manipulator highlighting */
 				if (event->type == MOUSEMOVE && !wm_manipulatormap_modal_get(mmap)) {
 					int part;
 					mpr = wm_manipulatormap_highlight_find(mmap, C, event, &part);
 					wm_manipulatormap_highlight_set(mmap, C, mpr, part);
+					if (mpr != NULL) {
+						WM_manipulatormap_tooltip_timer_init(C, mmap);
+					}
 				}
 				/* handle user configurable manipulator-map keymap */
+				else if ((event->type == TIMER) &&
+				         (event->customdata == WM_manipulatormap_tooltip_timer_get(mmap)))
+				{
+					if (mpr) {
+						if (mpr->state & WM_MANIPULATOR_STATE_MODAL) {
+							WM_manipulatormap_tooltip_clear(C, mmap);
+						}
+						else {
+							WM_manipulatormap_tooltip_create(C, mmap);
+						}
+					}
+				}
 				else {
 					/* Either we operate on a single highlighted item
 					 * or groups attached to the selected manipulators.

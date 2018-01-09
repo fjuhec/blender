@@ -51,6 +51,9 @@
 #include "WM_types.h"
 #include "wm_event_system.h"
 
+/* for tool-tips */
+#include "UI_interface.h"
+
 #include "DEG_depsgraph.h"
 
 /* own includes */
@@ -888,17 +891,15 @@ void wm_manipulatormap_modal_set(
 		BLI_assert(mmap->mmap_context.modal == NULL);
 		wmWindow *win = CTX_wm_window(C);
 
-		/* For now only grab cursor for 3D manipulators. */
-		int retval = OPERATOR_RUNNING_MODAL;
+		WM_manipulatormap_tooltip_clear(C, mmap);
 
 		if (mpr->type->invoke &&
 		    (mpr->type->modal || mpr->custom_modal))
 		{
-			retval = mpr->type->invoke(C, mpr, event);
-		}
-
-		if ((retval & OPERATOR_RUNNING_MODAL) == 0) {
-			return;
+			const int retval = mpr->type->invoke(C, mpr, event);
+			if ((retval & OPERATOR_RUNNING_MODAL) == 0) {
+				return;
+			}
 		}
 
 		mpr->state |= WM_MANIPULATOR_STATE_MODAL;
@@ -917,7 +918,10 @@ void wm_manipulatormap_modal_set(
 
 		struct wmManipulatorOpElem *mpop = WM_manipulator_operator_get(mpr, mpr->highlight_part);
 		if (mpop && mpop->type) {
-			WM_operator_name_call_ptr(C, mpop->type, WM_OP_INVOKE_DEFAULT, &mpop->ptr);
+			const int retval = WM_operator_name_call_ptr(C, mpop->type, WM_OP_INVOKE_DEFAULT, &mpop->ptr);
+			if ((retval & OPERATOR_RUNNING_MODAL) == 0) {
+				wm_manipulatormap_modal_set(mmap, C, mpr, event, false);
+			}
 
 			/* we failed to hook the manipulator to the operator handler or operator was cancelled, return */
 			if (!mmap->mmap_context.modal) {
@@ -953,6 +957,8 @@ void wm_manipulatormap_modal_set(
 			ED_region_tag_redraw(CTX_wm_region(C));
 			WM_event_add_mousemove(C);
 		}
+
+		mmap->mmap_context.event_xy[0] = INT_MAX;
 	}
 }
 
@@ -993,6 +999,54 @@ void WM_manipulatormap_message_subscribe(
 
 /** \} */ /* wmManipulatorMap */
 
+
+/* -------------------------------------------------------------------- */
+/** \name Tooltip Handling
+ *
+ * \{ */
+
+
+void WM_manipulatormap_tooltip_create(
+        bContext *C, wmManipulatorMap *mmap)
+{
+	WM_manipulatormap_tooltip_clear(C, mmap);
+	if (mmap->mmap_context.highlight) {
+		mmap->mmap_context.tooltip = UI_tooltip_create_from_manipulator(C, mmap->mmap_context.highlight);
+	}
+}
+
+void WM_manipulatormap_tooltip_clear(
+        bContext *C, wmManipulatorMap *mmap)
+{
+	if (mmap->mmap_context.tooltip_timer != NULL) {
+		wmWindowManager *wm = CTX_wm_manager(C);
+		wmWindow *win = CTX_wm_window(C);
+		WM_event_remove_timer(wm, win, mmap->mmap_context.tooltip_timer);
+		mmap->mmap_context.tooltip_timer = NULL;
+	}
+	if (mmap->mmap_context.tooltip != NULL) {
+		UI_tooltip_free(C, mmap->mmap_context.tooltip);
+		mmap->mmap_context.tooltip = NULL;
+	}
+}
+
+void WM_manipulatormap_tooltip_timer_init(
+        bContext *C, wmManipulatorMap *mmap)
+{
+	if (mmap->mmap_context.tooltip_timer == NULL) {
+		wmWindowManager *wm = CTX_wm_manager(C);
+		wmWindow *win = CTX_wm_window(C);
+		/* TODO: BUTTON_TOOLTIP_DELAY */
+		mmap->mmap_context.tooltip_timer = WM_event_add_timer(wm, win, TIMER, UI_TOOLTIP_DELAY);
+	}
+}
+
+const void *WM_manipulatormap_tooltip_timer_get(wmManipulatorMap *mmap)
+{
+	return mmap->mmap_context.tooltip_timer;
+}
+
+/** \} */ /* wmManipulatorMapType */
 
 /* -------------------------------------------------------------------- */
 /** \name wmManipulatorMapType

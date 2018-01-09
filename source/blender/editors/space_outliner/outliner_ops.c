@@ -164,7 +164,7 @@ static void outliner_item_drag_handle(
 	te_dragged->drag_data->insert_handle = te_insert_handle;
 }
 
-static bool outliner_item_drag_drop_apply(Main *bmain, TreeElement *dragged_te)
+static bool outliner_item_drag_drop_apply(Main *bmain, SpaceOops *soops, TreeElement *dragged_te)
 {
 	TreeElement *insert_handle = dragged_te->drag_data->insert_handle;
 	TreeElementInsertType insert_type = dragged_te->drag_data->insert_type;
@@ -178,7 +178,7 @@ static bool outliner_item_drag_drop_apply(Main *bmain, TreeElement *dragged_te)
 		/* call of assert above should not have changed insert_handle and insert_type at this point */
 		BLI_assert(dragged_te->drag_data->insert_handle == insert_handle &&
 		           dragged_te->drag_data->insert_type == insert_type);
-		dragged_te->reinsert(bmain, dragged_te, insert_handle, insert_type);
+		dragged_te->reinsert(bmain, soops, dragged_te, insert_handle, insert_type);
 		return true;
 	}
 
@@ -198,7 +198,7 @@ static int outliner_item_drag_drop_modal(bContext *C, wmOperator *op, const wmEv
 	switch (event->type) {
 		case EVT_MODAL_MAP:
 			if (event->val == OUTLINER_ITEM_DRAG_CONFIRM) {
-				if (outliner_item_drag_drop_apply(bmain, te_dragged)) {
+				if (outliner_item_drag_drop_apply(bmain, soops, te_dragged)) {
 					skip_rebuild = false;
 				}
 				retval = OPERATOR_FINISHED;
@@ -331,10 +331,13 @@ void outliner_operatortypes(void)
 	WM_operatortype_append(OUTLINER_OT_collection_unlink);
 	WM_operatortype_append(OUTLINER_OT_collection_new);
 	WM_operatortype_append(OUTLINER_OT_collection_override_new);
-	WM_operatortype_append(OUTLINER_OT_collection_objects_add);
-	WM_operatortype_append(OUTLINER_OT_collection_objects_remove);
 	WM_operatortype_append(OUTLINER_OT_collection_objects_select);
 	WM_operatortype_append(OUTLINER_OT_collection_objects_deselect);
+
+	WM_operatortype_append(OUTLINER_OT_collection_nested_new);
+	WM_operatortype_append(OUTLINER_OT_collection_delete_selected);
+	WM_operatortype_append(OUTLINER_OT_collection_objects_add);
+	WM_operatortype_append(OUTLINER_OT_collection_objects_remove);
 }
 
 static wmKeyMap *outliner_item_drag_drop_modal_keymap(wmKeyConfig *keyconf)
@@ -431,6 +434,9 @@ void outliner_keymap(wmKeyConfig *keyconf)
 	
 	WM_keymap_verify_item(keymap, "OUTLINER_OT_drivers_add_selected", DKEY, KM_PRESS, 0, 0);
 	WM_keymap_verify_item(keymap, "OUTLINER_OT_drivers_delete_selected", DKEY, KM_PRESS, KM_ALT, 0);
+
+	WM_keymap_verify_item(keymap, "OUTLINER_OT_collection_nested_new", CKEY, KM_PRESS, 0, 0);
+	WM_keymap_verify_item(keymap, "OUTLINER_OT_collection_delete_selected", XKEY, KM_PRESS, 0, 0);
 
 	outliner_item_drag_drop_modal_keymap(keyconf);
 }

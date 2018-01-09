@@ -341,13 +341,14 @@ void DRW_shgroup_attrib_float(DRWShadingGroup *shgroup, const char *name, int si
 void DRW_shgroup_uniform_texture(DRWShadingGroup *shgroup, const char *name, const struct GPUTexture *tex);
 void DRW_shgroup_uniform_block(DRWShadingGroup *shgroup, const char *name, const struct GPUUniformBuffer *ubo);
 void DRW_shgroup_uniform_buffer(DRWShadingGroup *shgroup, const char *name, struct GPUTexture **tex);
-void DRW_shgroup_uniform_bool(DRWShadingGroup *shgroup, const char *name, const bool *value, int arraysize);
 void DRW_shgroup_uniform_float(DRWShadingGroup *shgroup, const char *name, const float *value, int arraysize);
 void DRW_shgroup_uniform_vec2(DRWShadingGroup *shgroup, const char *name, const float *value, int arraysize);
 void DRW_shgroup_uniform_vec3(DRWShadingGroup *shgroup, const char *name, const float *value, int arraysize);
 void DRW_shgroup_uniform_vec4(DRWShadingGroup *shgroup, const char *name, const float *value, int arraysize);
 void DRW_shgroup_uniform_short_to_int(DRWShadingGroup *shgroup, const char *name, const short *value, int arraysize);
 void DRW_shgroup_uniform_short_to_float(DRWShadingGroup *shgroup, const char *name, const short *value, int arraysize);
+/* Boolean are expected to be 4bytes longs for opengl! */
+void DRW_shgroup_uniform_bool(DRWShadingGroup *shgroup, const char *name, const int *value, int arraysize);
 void DRW_shgroup_uniform_int(DRWShadingGroup *shgroup, const char *name, const int *value, int arraysize);
 void DRW_shgroup_uniform_ivec2(DRWShadingGroup *shgroup, const char *name, const int *value, int arraysize);
 void DRW_shgroup_uniform_ivec3(DRWShadingGroup *shgroup, const char *name, const int *value, int arraysize);
@@ -396,6 +397,7 @@ void DRW_lamp_engine_data_free(struct LampEngineData *led);
 
 /* Settings */
 bool DRW_object_is_renderable(struct Object *ob);
+bool DRW_check_object_visible_within_active_context(struct Object *ob);
 bool DRW_object_is_flat_normal(const struct Object *ob);
 int  DRW_object_is_mode_shade(const struct Object *ob);
 
@@ -431,6 +433,9 @@ bool DRW_state_is_image_render(void);
 bool DRW_state_is_scene_render(void);
 bool DRW_state_show_text(void);
 bool DRW_state_draw_support(void);
+bool DRW_state_draw_background(void);
+
+enum eDepsObjectIteratorMode DRW_iterator_mode_get(void);
 
 struct DRWTextStore *DRW_state_text_cache_get(void);
 

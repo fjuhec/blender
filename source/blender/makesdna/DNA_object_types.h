@@ -154,6 +154,7 @@ typedef struct Object {
 	
 	bAnimVizSettings avs;	/* settings for visualization of object-transform animation */
 	bMotionPath *mpath;		/* motion path cache for this object */
+	void *pad1;
 	
 	ListBase constraintChannels  DNA_DEPRECATED; // XXX deprecated... old animation system
 	ListBase effect  DNA_DEPRECATED;             // XXX deprecated... keep for readfile
@@ -207,7 +208,7 @@ typedef struct Object {
 
 	/* did last modifier stack generation need mapping support? */
 	char lastNeedMapping;  /* bool */
-	char pad;
+	char duplicator_visibility_flag;
 
 	/* dupli-frame settings */
 	int dupon, dupoff, dupsta, dupend;
@@ -276,8 +277,6 @@ typedef struct Object {
 	int gameflag;
 	int gameflag2;
 
-	struct BulletSoftBody *bsoft;	/* settings for game engine bullet soft body */
-
 	char restrictflag;		/* for restricting view, select, render etc. accessible in outliner */
 	char pad3;
 	short softflag;			/* softbody settings */
@@ -288,6 +287,7 @@ typedef struct Object {
 	ListBase hooks  DNA_DEPRECATED;				// XXX deprecated... old animation system
 	ListBase particlesystem;	/* particle systems */
 	
+	struct BulletSoftBody *bsoft;	/* settings for game engine bullet soft body */
 	struct PartDeflect *pd;		/* particle deflector/attractor/collision data */
 	struct SoftBody *soft;		/* if exists, saved in file */
 	struct Group *dup_group;	/* object duplicator for group */
@@ -300,6 +300,7 @@ typedef struct Object {
 	struct FluidsimSettings *fluidsimSettings; /* if fluidsim enabled, store additional settings */
 
 	struct DerivedMesh *derivedDeform, *derivedFinal;
+	void *pad7;
 	uint64_t lastDataMask;   /* the custom data layer mask that was last used to calculate derivedDeform and derivedFinal */
 	uint64_t customdata_mask; /* (extra) custom data layer mask to use for creating derivedmesh, set by depsgraph */
 	unsigned int state;			/* bit masks of game controllers that are active */
@@ -317,6 +318,7 @@ typedef struct Object {
 
 	float ima_ofs[2];		/* offset for image empties */
 	ImageUser *iuser;		/* must be non-null when oject is an empty image */
+	void *pad4;
 
 	ListBase lodlevels;		/* contains data for levels of detail */
 	LodLevel *currentlod;
@@ -326,7 +328,7 @@ typedef struct Object {
 	struct IDProperty *base_collection_properties; /* used by depsgraph, flushed from base */
 
 	ListBase drawdata;		/* runtime, ObjectEngineData */
-	int pad1;
+	int pad6;
 	int select_color;
 
 	/* Mesh structure createrd during object evaluaiton.
@@ -704,6 +706,12 @@ enum {
 	OB_LOCK_SCALE   = OB_LOCK_SCALEX | OB_LOCK_SCALEY | OB_LOCK_SCALEZ,
 	OB_LOCK_ROTW    = 1 << 9,
 	OB_LOCK_ROT4D   = 1 << 10,
+};
+
+/* ob->duplicator_visibility_flag */
+enum {
+	OB_DUPLI_FLAG_VIEWPORT = 1 << 0,
+	OB_DUPLI_FLAG_RENDER   = 1 << 1,
 };
 
 /* ob->mode */

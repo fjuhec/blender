@@ -44,6 +44,7 @@ struct ViewportEngineData;
 struct View3D;
 struct rcti;
 struct GPUOffScreen;
+struct GPUViewport;
 struct RenderEngineType;
 struct WorkSpace;
 
@@ -95,7 +96,9 @@ void DRW_draw_render_loop_offscreen(
         struct Depsgraph *graph,
         struct RenderEngineType *engine_type,
         struct ARegion *ar, struct View3D *v3d,
-        struct GPUOffScreen *ofs);
+        const bool draw_background,
+        struct GPUOffScreen *ofs,
+        struct GPUViewport *viewport);
 void DRW_draw_select_loop(
         struct Depsgraph *graph,
         struct ARegion *ar, struct View3D *v3d,

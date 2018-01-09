@@ -69,6 +69,7 @@ typedef enum TreeTraversalAction {
  * Callback type for reinserting elements at a different position, used to allow user customizable element order.
  */
 typedef void (*TreeElementReinsertFunc)(struct Main *bmain,
+                                        struct SpaceOops *soops,
                                         struct TreeElement *insert_element,
                                         struct TreeElement *insert_handle, TreeElementInsertType action);
 /**
@@ -143,12 +144,11 @@ typedef enum {
 /* size constants */
 #define OL_Y_OFFSET 2
 
-#define OL_TOG_RESTRICT_ENABLEX (UI_UNIT_X * 3.0f)
-#define OL_TOG_RESTRICT_VIEWX   (UI_UNIT_X * 2.0f)
-#define OL_TOG_RESTRICT_SELECTX UI_UNIT_X
+#define OL_TOG_RESTRICT_VIEWX   (UI_UNIT_X * 3.0f)
+#define OL_TOG_RESTRICT_SELECTX (UI_UNIT_X * 2.0f)
 #define OL_TOG_RESTRICT_RENDERX UI_UNIT_X
 
-#define OL_TOGW OL_TOG_RESTRICT_ENABLEX
+#define OL_TOGW OL_TOG_RESTRICT_VIEWX
 
 #define OL_RNA_COLX         (UI_UNIT_X * 15)
 #define OL_RNA_COL_SIZEX    (UI_UNIT_X * 7.5f)
@@ -333,10 +333,13 @@ void OUTLINER_OT_collection_link(struct wmOperatorType *ot);
 void OUTLINER_OT_collection_unlink(struct wmOperatorType *ot);
 void OUTLINER_OT_collection_new(struct wmOperatorType *ot);
 void OUTLINER_OT_collection_override_new(struct wmOperatorType *ot);
-void OUTLINER_OT_collection_objects_add(struct wmOperatorType *ot);
 void OUTLINER_OT_collection_objects_remove(struct wmOperatorType *ot);
 void OUTLINER_OT_collection_objects_select(struct wmOperatorType *ot);
 void OUTLINER_OT_collection_objects_deselect(struct wmOperatorType *ot);
+
+void OUTLINER_OT_collection_objects_add(struct wmOperatorType *ot);
+void OUTLINER_OT_collection_nested_new(struct wmOperatorType *ot);
+void OUTLINER_OT_collection_delete_selected(struct wmOperatorType *ot);
 
 /* outliner_utils.c ---------------------------------------------- */
 

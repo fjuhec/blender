@@ -60,8 +60,8 @@ namespace DEG {
 /* Typeinfo Struct (nti) */
 struct DepsNodeFactory {
 	virtual eDepsNode_Type type() const = 0;
-	virtual eDepsNode_Class tclass() const = 0;
 	virtual const char *tname() const = 0;
+	virtual int id_recalc_tag() const = 0;
 
 	virtual DepsNode *create_node(const ID *id,
 	                              const char *subdata,
@@ -71,8 +71,8 @@ struct DepsNodeFactory {
 template <class NodeType>
 struct DepsNodeFactoryImpl : public DepsNodeFactory {
 	eDepsNode_Type type() const { return NodeType::typeinfo.type; }
-	eDepsNode_Class tclass() const { return NodeType::typeinfo.tclass; }
 	const char *tname() const { return NodeType::typeinfo.tname; }
+	int id_recalc_tag() const { return NodeType::typeinfo.id_recalc_tag; }
 
 	DepsNode *create_node(const ID *id, const char *subdata, const char *name) const
 	{
@@ -80,7 +80,6 @@ struct DepsNodeFactoryImpl : public DepsNodeFactory {
 
 		/* populate base node settings */
 		node->type = type();
-		node->tclass = tclass();
 
 		if (name[0] != '\0') {
 			/* set name if provided ... */
@@ -103,10 +102,7 @@ struct DepsNodeFactoryImpl : public DepsNodeFactory {
 void deg_register_node_typeinfo(DepsNodeFactory *factory);
 
 /* Get typeinfo for specified type */
-DepsNodeFactory *deg_get_node_factory(const eDepsNode_Type type);
-
-/* Get typeinfo for provided node */
-DepsNodeFactory *deg_node_get_factory(const DepsNode *node);
+DepsNodeFactory *deg_type_get_factory(const eDepsNode_Type type);
 
 /* Editors Integration -------------------------------------------------- */
 
@@ -115,10 +111,6 @@ void deg_editors_id_update(const DEGEditorUpdateContext *update_ctx,
 
 void deg_editors_scene_update(const DEGEditorUpdateContext *update_ctx,
                               bool updated);
-
-/* Tagging helpers ------------------------------------------------------ */
-
-void lib_id_recalc_tag(struct Main *bmain, struct ID *id);
 
 #define DEG_DEBUG_PRINTF(...)               \
 	do {                                    \

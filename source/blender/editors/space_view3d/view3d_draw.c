@@ -1966,7 +1966,7 @@ void ED_view3d_draw_offscreen(
         float viewmat[4][4], float winmat[4][4],
         bool do_bgpic, bool do_sky, bool is_persp, const char *viewname,
         GPUFX *fx, GPUFXSettings *fx_settings,
-        GPUOffScreen *ofs)
+        GPUOffScreen *ofs, GPUViewport *viewport)
 {
 	bool do_compositing = false;
 	RegionView3D *rv3d = ar->regiondata;
@@ -2060,7 +2060,7 @@ void ED_view3d_draw_offscreen(
 		/* XXX, should take depsgraph as arg */
 		Depsgraph *depsgraph = BKE_scene_get_depsgraph(scene, view_layer, false);
 		BLI_assert(depsgraph != NULL);
-		DRW_draw_render_loop_offscreen(depsgraph, eval_ctx->engine_type, ar, v3d, ofs);
+		DRW_draw_render_loop_offscreen(depsgraph, eval_ctx->engine_type, ar, v3d, do_sky, ofs, viewport);
 	}
 
 	/* restore size */
@@ -2109,7 +2109,7 @@ ImBuf *ED_view3d_draw_offscreen_imbuf(
 
 	if (own_ofs) {
 		/* bind */
-		ofs = GPU_offscreen_create(sizex, sizey, use_full_sample ? 0 : samples, err_out);
+		ofs = GPU_offscreen_create(sizex, sizey, use_full_sample ? 0 : samples, false, err_out);
 		if (ofs == NULL) {
 			return NULL;
 		}
@@ -2159,7 +2159,7 @@ ImBuf *ED_view3d_draw_offscreen_imbuf(
 		ED_view3d_draw_offscreen(
 		        eval_ctx, scene, view_layer, v3d, ar, sizex, sizey, NULL, winmat,
 		        draw_background, draw_sky, !is_ortho, viewname,
-		        fx, &fx_settings, ofs);
+		        fx, &fx_settings, ofs, NULL);
 
 		if (ibuf->rect_float) {
 			GPU_offscreen_read_pixels(ofs, GL_FLOAT, ibuf->rect_float);
@@ -2173,9 +2173,9 @@ ImBuf *ED_view3d_draw_offscreen_imbuf(
 		 * Use because OpenGL may use a lower quality MSAA, and only over-sample edges. */
 		static float jit_ofs[32][2];
 		float winmat_jitter[4][4];
-		/* use imbuf as temp storage, before writing into it from accumulation buffer */
-		unsigned char *rect_temp = ibuf->rect ? (void *)ibuf->rect : (void *)ibuf->rect_float;
-		unsigned int *accum_buffer = MEM_mallocN(sizex * sizey * sizeof(int[4]), "accum1");
+		float *rect_temp = (ibuf->rect_float) ? ibuf->rect_float : MEM_mallocN(sizex * sizey * sizeof(float[4]), "rect_temp");
+		float *accum_buffer = MEM_mallocN(sizex * sizey * sizeof(float[4]), "accum_buffer");
+		GPUViewport *viewport = GPU_viewport_create_from_offscreen(ofs);
 
 		BLI_jitter_init(jit_ofs, samples);
 
@@ -2183,13 +2183,8 @@ ImBuf *ED_view3d_draw_offscreen_imbuf(
 		ED_view3d_draw_offscreen(
 		        eval_ctx, scene, view_layer, v3d, ar, sizex, sizey, NULL, winmat,
 		        draw_background, draw_sky, !is_ortho, viewname,
-		        fx, &fx_settings, ofs);
-		GPU_offscreen_read_pixels(ofs, GL_UNSIGNED_BYTE, rect_temp);
-
-		unsigned i = sizex * sizey * 4;
-		while (i--) {
-			accum_buffer[i] = rect_temp[i];
-		}
+		        fx, &fx_settings, ofs, viewport);
+		GPU_offscreen_read_pixels(ofs, GL_FLOAT, accum_buffer);
 
 		/* skip the first sample */
 		for (int j = 1; j < samples; j++) {
@@ -2202,27 +2197,38 @@ ImBuf *ED_view3d_draw_offscreen_imbuf(
 			ED_view3d_draw_offscreen(
 			        eval_ctx, scene, view_layer, v3d, ar, sizex, sizey, NULL, winmat_jitter,
 			        draw_background, draw_sky, !is_ortho, viewname,
-			        fx, &fx_settings, ofs);
-			GPU_offscreen_read_pixels(ofs, GL_UNSIGNED_BYTE, rect_temp);
+			        fx, &fx_settings, ofs, viewport);
+			GPU_offscreen_read_pixels(ofs, GL_FLOAT, rect_temp);
 
-			i = sizex * sizey * 4;
+			unsigned int i = sizex * sizey * 4;
 			while (i--) {
 				accum_buffer[i] += rect_temp[i];
 			}
 		}
 
+		{
+			/* don't free data owned by 'ofs' */
+			GPU_viewport_clear_from_offscreen(viewport);
+			GPU_viewport_free(viewport);
+			MEM_freeN(viewport);
+		}
+
+		if (ibuf->rect_float == NULL) {
+			MEM_freeN(rect_temp);
+		}
+
 		if (ibuf->rect_float) {
 			float *rect_float = ibuf->rect_float;
-			i = sizex * sizey * 4;
+			unsigned int i = sizex * sizey * 4;
 			while (i--) {
-				rect_float[i] = (float)(accum_buffer[i] / samples) * (1.0f / 255.0f);
+				rect_float[i] = accum_buffer[i] / samples;
 			}
 		}
 		else {
 			unsigned char *rect_ub = (unsigned char *)ibuf->rect;
-			i = sizex * sizey * 4;
+			unsigned int i = sizex * sizey * 4;
 			while (i--) {
-				rect_ub[i] = accum_buffer[i] / samples;
+				rect_ub[i] = (unsigned char)(255.0f * accum_buffer[i] / samples);
 			}
 		}
 

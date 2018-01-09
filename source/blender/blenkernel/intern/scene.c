@@ -540,7 +540,7 @@ void BKE_scene_free_ex(Scene *sce, const bool do_id_user)
 		view_layer_next = view_layer->next;
 
 		BLI_remlink(&sce->view_layers, view_layer);
-		BKE_view_layer_free(view_layer);
+		BKE_view_layer_free_ex(view_layer, do_id_user);
 	}
 
 	/* Master Collection */
@@ -1391,8 +1391,8 @@ static void prepare_mesh_for_viewport_render(Main *bmain, Scene *scene)
 	if (obedit) {
 		Mesh *mesh = obedit->data;
 		if ((obedit->type == OB_MESH) &&
-		    ((obedit->id.tag & LIB_TAG_ID_RECALC_ALL) ||
-		     (mesh->id.tag & LIB_TAG_ID_RECALC_ALL)))
+		    ((obedit->id.recalc & ID_RECALC_ALL) ||
+		     (mesh->id.recalc & ID_RECALC_ALL)))
 		{
 			if (check_rendered_viewport_visible(bmain)) {
 				BMesh *bm = mesh->edit_btmesh->bm;

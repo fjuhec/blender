@@ -81,6 +81,21 @@ void DRW_globals_update(void)
 	UI_GetThemeColor4fv(TH_FACE_DOT, ts.colorFaceDot);
 	UI_GetThemeColor4fv(TH_BACK, ts.colorBackground);
 
+	/* Curve */
+	UI_GetThemeColor4fv(TH_HANDLE_FREE, ts.colorHandleFree);
+	UI_GetThemeColor4fv(TH_HANDLE_AUTO, ts.colorHandleAuto);
+	UI_GetThemeColor4fv(TH_HANDLE_VECT, ts.colorHandleVect);
+	UI_GetThemeColor4fv(TH_HANDLE_ALIGN, ts.colorHandleAlign);
+	UI_GetThemeColor4fv(TH_HANDLE_AUTOCLAMP, ts.colorHandleAutoclamp);
+	UI_GetThemeColor4fv(TH_HANDLE_SEL_FREE, ts.colorHandleSelFree);
+	UI_GetThemeColor4fv(TH_HANDLE_SEL_AUTO, ts.colorHandleSelAuto);
+	UI_GetThemeColor4fv(TH_HANDLE_SEL_VECT, ts.colorHandleSelVect);
+	UI_GetThemeColor4fv(TH_HANDLE_SEL_ALIGN, ts.colorHandleSelAlign);
+	UI_GetThemeColor4fv(TH_HANDLE_SEL_AUTOCLAMP, ts.colorHandleSelAutoclamp);
+	UI_GetThemeColor4fv(TH_NURB_ULINE, ts.colorNurbUline);
+	UI_GetThemeColor4fv(TH_NURB_SEL_ULINE, ts.colorNurbSelUline);
+	UI_GetThemeColor4fv(TH_ACTIVE_SPLINE, ts.colorActiveSpline);
+
 	/* Grid */
 	UI_GetThemeColorShade4fv(TH_GRID, 10, ts.colorGrid);
 	/* emphasise division lines lighter instead of darker, if background is darker than grid */
@@ -308,8 +323,8 @@ DRWShadingGroup *shgroup_distance_lines_instance(DRWPass *pass, struct Gwn_Batch
 DRWShadingGroup *shgroup_spot_instance(DRWPass *pass, struct Gwn_Batch *geom)
 {
 	GPUShader *sh_inst = GPU_shader_get_builtin_shader(GPU_SHADER_INSTANCE_EDGES_VARIYING_COLOR);
-	static bool True = true;
-	static bool False = false;
+	static const int True = true;
+	static const int False = false;
 
 	DRWShadingGroup *grp = DRW_shgroup_instance_create(sh_inst, pass, geom);
 	DRW_shgroup_attrib_float(grp, "color", 3);
