@@ -65,6 +65,7 @@ struct wmWindowManager;
 struct EvaluationContext;
 struct Depsgraph;
 struct wmWindow;
+struct rcti;
 
 /* ------------- Grease-Pencil Helpers ---------------- */
 
@@ -188,6 +189,33 @@ typedef struct tGPDfill {
 	struct BLI_Stack *stack;			/* temp points data */
 	void *draw_handle_3d;				/* handle for drawing strokes while operator is running 3d stuff */
 } tGPDfill;
+
+/* Temporary color picker operation data */
+typedef struct tGPDpickColor {
+	rcti rect;		/* box position */
+	float rgba[4];	/* color */
+	float fill[4];  /*fill color */
+} tGPDpickColor;
+
+typedef struct tGPDpick {
+	struct Depsgraph *graph;
+	struct wmWindow *win;               /* window where painting originated */
+	struct Scene *scene;				/* current scene from context */
+	struct Object *ob;					/* current active gp object */
+	struct EvaluationContext *eval_ctx; /* eval context */
+	struct ScrArea *sa;					/* area where painting originated */
+	struct RegionView3D *rv3d;			/* region where painting originated */
+	struct View3D *v3d;					/* view3 where painting originated */
+	struct ARegion *ar;					/* region where painting originated */
+	struct Palette *palette;			/* current palette */
+
+	rcti rect;                          /* visible area */
+	int center[2];						/* mouse position */
+	int totcolor;						/* number of colors */
+	tGPDpickColor *colors;				/* colors of palette */
+
+	void *draw_handle_3d;				/* handle for drawing strokes while operator is running */
+} tGPDpick;
 
 /* Temporary 'Stroke Point' data
  *
