@@ -223,10 +223,10 @@ static tGPDpick *gp_session_init_colorpick(bContext *C, wmOperator *op)
 	tgpk->panel.ymax = tgpk->rect.ymax;
 
 	/* load color table */
-	tGPDpickColor *col = tgpk->colors;
+	tGPDpickColor *tcolor = tgpk->colors;
 	int idx = 0;
-	for (int r = 0; r < tgpk->row; r++) {
-		for (int c = 0; c < tgpk->col; c++, col++) {
+	for (int a = 0; a < tgpk->row; a++) {
+		for (int b = 0; b < tgpk->col; b++, tcolor++) {
 			PaletteColor *palcol = BLI_findlink(&tgpk->palette->colors, idx);
 			
 			/* exit if colors completed */
@@ -234,21 +234,21 @@ static tGPDpick *gp_session_init_colorpick(bContext *C, wmOperator *op)
 				break;
 			}
 
-			col->index = idx;
-			copy_v4_v4(col->rgba, palcol->rgb);
+			tcolor->index = idx;
+			copy_v4_v4(tcolor->rgba, palcol->rgb);
 			if (palcol->fill[3] > 0.0f) {
-				copy_v4_v4(col->fill, palcol->fill);
+				copy_v4_v4(tcolor->fill, palcol->fill);
 			}
 			else {
-				copy_v4_v4(col->fill, palcol->rgb);
+				copy_v4_v4(tcolor->fill, palcol->rgb);
 			}
 			
 			/* box position */
-			col->rect.xmin = tgpk->panel.xmin + (tgpk->boxsize[0] * c) + GP_BOX_GAP;
-			col->rect.xmax = col->rect.xmin + tgpk->boxsize[0] - (GP_BOX_GAP * 2);
+			tcolor->rect.xmin = tgpk->panel.xmin + (tgpk->boxsize[0] * b) + GP_BOX_GAP;
+			tcolor->rect.xmax = tcolor->rect.xmin + tgpk->boxsize[0] - (GP_BOX_GAP * 2);
 
-			col->rect.ymax = tgpk->panel.ymax - (tgpk->boxsize[1] * r) - GP_BOX_GAP;
-			col->rect.ymin = col->rect.ymax - tgpk->boxsize[0] + (GP_BOX_GAP * 2);
+			tcolor->rect.ymax = tgpk->panel.ymax - (tgpk->boxsize[1] * a) - GP_BOX_GAP;
+			tcolor->rect.ymin = tcolor->rect.ymax - tgpk->boxsize[0] + (GP_BOX_GAP * 2);
 
 			idx++;
 		}
