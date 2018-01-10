@@ -161,15 +161,6 @@ static void gp_draw_fill_box(rcti *box, float ink[4], float fill[4], int offset)
 
 /* ----------------------- */
 /* Drawing                 */
-/* Helper: Draw status message while the user is running the operator */
-static void gpencil_colorpick_status_indicators(tGPDpick *tgpk)
-{
-	Scene *scene = tgpk->scene;
-	char status_str[UI_MAX_DRAW_STR];
-
-	BLI_snprintf(status_str, sizeof(status_str), IFACE_("Select: ESC/RMB cancel, LMB Select color"));
-	ED_area_headerprint(tgpk->sa, status_str);
-}
 
 /* draw a toolbar with all colors of the palette */
 static void gpencil_draw_color_table(const bContext *UNUSED(C), tGPDpick *tgpk)
@@ -335,9 +326,6 @@ static void gpencil_colorpick_exit(bContext *C, wmOperator *op)
 
 	/* don't assume that operator data exists at all */
 	if (tgpk) {
-		/* clear status message area */
-		ED_area_headerprint(tgpk->sa, NULL);
-
 		/* remove drawing handler */
 		if (tgpk->draw_handle_3d) {
 			ED_region_draw_cb_exit(tgpk->ar->type, tgpk->draw_handle_3d);
@@ -396,8 +384,6 @@ static int gpencil_colorpick_invoke(bContext *C, wmOperator *op, const wmEvent *
 
 	/* Enable custom drawing handlers */
 	tgpk->draw_handle_3d = ED_region_draw_cb_activate(tgpk->ar->type, gpencil_colorpick_draw_3d, tgpk, REGION_DRAW_POST_PIXEL);
-
-	gpencil_colorpick_status_indicators(tgpk);
 
 	WM_event_add_notifier(C, NC_GPENCIL | NA_EDITED, NULL);
 
