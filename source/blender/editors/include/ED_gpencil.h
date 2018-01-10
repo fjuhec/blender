@@ -199,6 +199,7 @@ typedef struct tGPDpickColor {
 } tGPDpickColor;
 
 typedef struct tGPDpick {
+	struct wmWindow *win;               /* window */
 	struct Scene *scene;				/* current scene from context */
 	struct Object *ob;					/* current active gp object */
 	struct ScrArea *sa;					/* area where painting originated */

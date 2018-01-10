@@ -75,40 +75,85 @@
 #include "gpencil_intern.h"
 
 #define GP_BOX_SIZE 24
-#define GP_BOX_GAP 4
+#define GP_BOX_GAP 6
 
- /* draw a filled box */
-static void gp_draw_fill_box(rcti *box, float ink[4], float fill[4])
+ /* draw a box with lines */
+static void gp_draw_boxlines(rcti *box, float ink[4])
 {
 	Gwn_VertFormat *format = immVertexFormat();
 	unsigned pos = GWN_vertformat_attr_add(format, "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
 	unsigned color = GWN_vertformat_attr_add(format, "color", GWN_COMP_F32, 4, GWN_FETCH_FLOAT);
 
 	immBindBuiltinProgram(GPU_SHADER_2D_FLAT_COLOR);
-	
+
+	/* draw stroke curve */
+	glLineWidth(1.0f);
+	immBeginAtMost(GWN_PRIM_LINES, 8);
+
+	immAttrib4fv(color, ink);
+	immVertex2f(pos, box->xmin, box->ymax - 1);
+
+	immAttrib4fv(color, ink);
+	immVertex2f(pos, box->xmax, box->ymax - 1);
+
+	immAttrib4fv(color, ink);
+	immVertex2f(pos, box->xmin, box->ymin);
+
+	immAttrib4fv(color, ink);
+	immVertex2f(pos, box->xmax, box->ymin);
+
+	immAttrib4fv(color, ink);
+	immVertex2f(pos, box->xmax, box->ymax);
+
+	immAttrib4fv(color, ink);
+	immVertex2f(pos, box->xmax, box->ymin);
+
+	immAttrib4fv(color, ink);
+	immVertex2f(pos, box->xmin, box->ymax);
+
+	immAttrib4fv(color, ink);
+	immVertex2f(pos, box->xmin, box->ymin);
+
+	immEnd();
+	immUnbindProgram();
+}
+
+/* draw a filled box */
+static void gp_draw_fill_box(rcti *box, float ink[4], float fill[4], int offset)
+{
+	Gwn_VertFormat *format = immVertexFormat();
+	unsigned pos = GWN_vertformat_attr_add(format, "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
+	unsigned color = GWN_vertformat_attr_add(format, "color", GWN_COMP_F32, 4, GWN_FETCH_FLOAT);
+	int gap = 0;
+	if (offset > 0) {
+		gap = 1;
+	}
+
+	immBindBuiltinProgram(GPU_SHADER_2D_FLAT_COLOR);
+
 	/* draw stroke curve */
 	glLineWidth(1.0f);
 	immBeginAtMost(GWN_PRIM_TRIS, 6);
 
 	/* First triangle */
 	immAttrib4fv(color, ink);
-	immVertex2f(pos, box->xmin, box->ymin);
+	immVertex2f(pos, box->xmin - offset, box->ymin - offset);
 
 	immAttrib4fv(color, ink);
-	immVertex2f(pos, box->xmin, box->ymax);
+	immVertex2f(pos, box->xmin - offset, box->ymax + offset);
 
 	immAttrib4fv(color, ink);
-	immVertex2f(pos, box->xmax, box->ymax);
+	immVertex2f(pos, box->xmax + offset + gap, box->ymax + offset);
 
 	/* Second triangle */
 	immAttrib4fv(color, fill);
-	immVertex2f(pos, box->xmin, box->ymin);
+	immVertex2f(pos, box->xmin - offset, box->ymin - offset);
 
 	immAttrib4fv(color, fill);
-	immVertex2f(pos, box->xmax, box->ymax);
+	immVertex2f(pos, box->xmax + offset + gap, box->ymax + offset);
 
 	immAttrib4fv(color, fill);
-	immVertex2f(pos, box->xmax, box->ymin);
+	immVertex2f(pos, box->xmax + offset + gap, box->ymin - offset);
 
 	immEnd();
 	immUnbindProgram();
@@ -134,25 +179,41 @@ static void gpencil_draw_color_table(const bContext *UNUSED(C), tGPDpick *tgpk)
 	}
 
 	float ink[4];
-	
+	float select[4];
+	float line[4];
+
+	UI_GetThemeColor3fv(TH_SELECT, select);
+	select[3] = 1.0f;
+
+	UI_GetThemeColor3fv(TH_TAB_OUTLINE, line);
+	line[3] = 1.0f;
+
 	/* draw panel background */
 	UI_GetThemeColor4fv(TH_PANEL_BACK, ink);
-	gp_draw_fill_box(&tgpk->panel, ink, ink);
+	gp_draw_fill_box(&tgpk->panel, ink, ink, 0);
 
 	/* draw color boxes */
 	tGPDpickColor *col = tgpk->colors;
 	for (int i = 0; i < tgpk->totcolor; i++, col++) {
-		gp_draw_fill_box(&col->rect, col->rgba, col->fill);
+		/* focus to current color */
+		if (tgpk->palette->active_color == i) {
+			gp_draw_fill_box(&col->rect, select, select, 2);
+		}
+
+		gp_draw_fill_box(&col->rect, col->rgba, col->fill, 0);
+		gp_draw_boxlines(&col->rect, line);
 	}
-
-
 }
 
 /* Drawing callback for modal operator in 3d mode */
 static void gpencil_colorpick_draw_3d(const bContext *C, ARegion *UNUSED(ar), void *arg)
 {
 	tGPDpick *tgpk = (tGPDpick *)arg;
+	
+	glEnable(GL_BLEND);
 	gpencil_draw_color_table(C, tgpk); 
+	glDisable(GL_BLEND);
+
 }
 
 /* check if context is suitable */
@@ -186,6 +247,7 @@ static tGPDpick *gp_session_init_colorpick(bContext *C, wmOperator *op)
 	Main *bmain = CTX_data_main(C);
 
 	/* set current scene and window info */
+	tgpk->win = CTX_wm_window(C);
 	tgpk->scene = CTX_data_scene(C);
 	tgpk->ob = CTX_data_active_object(C);
 	tgpk->sa = CTX_wm_area(C);
@@ -204,11 +266,11 @@ static tGPDpick *gp_session_init_colorpick(bContext *C, wmOperator *op)
 	}
 
 	/* set size of color box */
-	tgpk->boxsize[0] = GP_BOX_SIZE + GP_BOX_GAP;
-	tgpk->boxsize[1] = GP_BOX_SIZE + GP_BOX_GAP;
+	tgpk->boxsize[0] = GP_BOX_SIZE;
+	tgpk->boxsize[1] = GP_BOX_SIZE;
 
 	/* get number of rows and columns */
-	tgpk->row = (tgpk->rect.ymax - tgpk->rect.ymin - GP_BOX_GAP) / tgpk->boxsize[1];
+	tgpk->row = (tgpk->rect.ymax - tgpk->rect.ymin - GP_BOX_GAP) / (tgpk->boxsize[1] + GP_BOX_GAP);
 	CLAMP_MIN(tgpk->row, 1);
 	tgpk->col = tgpk->totcolor / tgpk->row;
 	if (tgpk->totcolor % tgpk->row > 0) {
@@ -217,40 +279,42 @@ static tGPDpick *gp_session_init_colorpick(bContext *C, wmOperator *op)
 	CLAMP_MIN(tgpk->col, 1);
 
 	/* define panel size (vertical right) */
-	tgpk->panel.xmin = tgpk->rect.xmax - (GP_BOX_SIZE * tgpk->col ) - (GP_BOX_GAP * 2);
+	tgpk->panel.xmin = tgpk->rect.xmax - (GP_BOX_SIZE * tgpk->col ) - (GP_BOX_GAP * (tgpk->col + 1));
 	tgpk->panel.ymin = tgpk->rect.ymin;
 	tgpk->panel.xmax = tgpk->rect.xmax;
 	tgpk->panel.ymax = tgpk->rect.ymax;
 
 	/* load color table */
 	tGPDpickColor *tcolor = tgpk->colors;
+	Palette *palette = tgpk->palette;
 	int idx = 0;
-	for (int a = 0; a < tgpk->row; a++) {
-		for (int b = 0; b < tgpk->col; b++, tcolor++) {
-			PaletteColor *palcol = BLI_findlink(&tgpk->palette->colors, idx);
-			
-			/* exit if colors completed */
-			if (!palcol) {
-				break;
-			}
+	int row = 0;
+	int col = 0;
+	for (PaletteColor *palcol = palette->colors.first; palcol; palcol = palcol->next) {
+		
+		tcolor->index = idx;
+		copy_v4_v4(tcolor->rgba, palcol->rgb);
+		if (palcol->fill[3] > 0.0f) {
+			copy_v4_v4(tcolor->fill, palcol->fill);
+		}
+		else {
+			copy_v4_v4(tcolor->fill, palcol->rgb);
+		}
 
-			tcolor->index = idx;
-			copy_v4_v4(tcolor->rgba, palcol->rgb);
-			if (palcol->fill[3] > 0.0f) {
-				copy_v4_v4(tcolor->fill, palcol->fill);
-			}
-			else {
-				copy_v4_v4(tcolor->fill, palcol->rgb);
-			}
-			
-			/* box position */
-			tcolor->rect.xmin = tgpk->panel.xmin + (tgpk->boxsize[0] * b) + GP_BOX_GAP;
-			tcolor->rect.xmax = tcolor->rect.xmin + tgpk->boxsize[0] - (GP_BOX_GAP * 2);
+		/* box position */
+		tcolor->rect.xmin = tgpk->panel.xmin + (tgpk->boxsize[0] * col) + (GP_BOX_GAP * (col + 1 ));
+		tcolor->rect.xmax = tcolor->rect.xmin + tgpk->boxsize[0];
 
-			tcolor->rect.ymax = tgpk->panel.ymax - (tgpk->boxsize[1] * a) - GP_BOX_GAP;
-			tcolor->rect.ymin = tcolor->rect.ymax - tgpk->boxsize[0] + (GP_BOX_GAP * 2);
+		tcolor->rect.ymax = tgpk->panel.ymax - (tgpk->boxsize[1] * row) - (GP_BOX_GAP * (row + 1));
+		tcolor->rect.ymin = tcolor->rect.ymax - tgpk->boxsize[0];
 
-			idx++;
+		idx++;
+		row++;
+		tcolor++;
+
+		if (row > tgpk->row - 1) {
+			row = 0;
+			col++;
 		}
 	}
 
@@ -264,7 +328,7 @@ static void gpencil_colorpick_exit(bContext *C, wmOperator *op)
 	Main *bmain = CTX_data_main(C);
 	Object *ob = CTX_data_active_object(C);
 
-	/* restore cursor to indicate end of fill */
+	/* restore cursor to indicate end */
 	WM_cursor_modal_restore(CTX_wm_window(C));
 
 	tGPDpick *tgpk = op->customdata;
@@ -333,8 +397,6 @@ static int gpencil_colorpick_invoke(bContext *C, wmOperator *op, const wmEvent *
 	/* Enable custom drawing handlers */
 	tgpk->draw_handle_3d = ED_region_draw_cb_activate(tgpk->ar->type, gpencil_colorpick_draw_3d, tgpk, REGION_DRAW_POST_PIXEL);
 
-	WM_cursor_modal_set(CTX_wm_window(C), BC_EYEDROPPER_CURSOR);
-	
 	gpencil_colorpick_status_indicators(tgpk);
 
 	WM_event_add_notifier(C, NC_GPENCIL | NA_EDITED, NULL);
@@ -358,6 +420,16 @@ static int gpencil_colorpick_modal(bContext *C, wmOperator *op, const wmEvent *e
 		case ESCKEY:
 		case RIGHTMOUSE:
 			estate = OPERATOR_CANCELLED;
+			break;
+		case MOUSEMOVE:
+			if ((event->mval[0] >= tgpk->panel.xmin) && (event->mval[0] <= tgpk->panel.xmax) &&
+				(event->mval[1] >= tgpk->panel.ymin) && (event->mval[1] <= tgpk->panel.ymax)) 
+			{
+				WM_cursor_modal_set(tgpk->win, BC_EYEDROPPER_CURSOR);
+			}
+			else {
+				WM_cursor_modal_set(tgpk->win, CURSOR_STD);
+			}
 			break;
 		case LEFTMOUSE:
 			estate = OPERATOR_FINISHED;
