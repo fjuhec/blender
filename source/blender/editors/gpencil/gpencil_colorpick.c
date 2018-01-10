@@ -224,10 +224,10 @@ static tGPDpick *gp_session_init_colorpick(bContext *C, wmOperator *op)
 
 	/* load color table */
 	tGPDpickColor *col = tgpk->colors;
-	int idx = tgpk->totcolor - 1;
+	int idx = 0;
 	for (int r = 0; r < tgpk->row; r++) {
 		for (int c = 0; c < tgpk->col; c++, col++) {
-			PaletteColor *palcol = BLI_rfindlink(&tgpk->palette->colors, idx);
+			PaletteColor *palcol = BLI_findlink(&tgpk->palette->colors, idx);
 			
 			/* exit if colors completed */
 			if (!palcol) {
@@ -250,7 +250,7 @@ static tGPDpick *gp_session_init_colorpick(bContext *C, wmOperator *op)
 			col->rect.ymax = tgpk->panel.ymax - (tgpk->boxsize[1] * r) - GP_BOX_GAP;
 			col->rect.ymin = col->rect.ymax - tgpk->boxsize[0] + (GP_BOX_GAP * 2);
 
-			idx--;
+			idx++;
 		}
 	}
 
