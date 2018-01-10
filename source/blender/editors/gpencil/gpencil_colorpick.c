@@ -397,6 +397,13 @@ static int gpencil_colorpick_invoke(bContext *C, wmOperator *op, const wmEvent *
 static bool set_color(const wmEvent *event, tGPDpick *tgpk)
 {
 	tGPDpickColor *tcol = tgpk->colors;
+	/* if click out of panel end */
+	if ((event->mval[0] <= tgpk->panel.xmin) || (event->mval[0] >= tgpk->panel.xmax) ||
+		(event->mval[1] <= tgpk->panel.ymin) || (event->mval[1] >= tgpk->panel.ymax))
+	{
+		return true;
+	}
+
 	for (int i = 0; i < tgpk->totcolor; i++, tcol++) {
 		if ((event->mval[0] >= tcol->rect.xmin) && (event->mval[0] <= tcol->rect.xmax) &&
 			(event->mval[1] >= tcol->rect.ymin) && (event->mval[1] <= tcol->rect.ymax))
