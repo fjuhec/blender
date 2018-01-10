@@ -407,6 +407,22 @@ static int gpencil_colorpick_invoke(bContext *C, wmOperator *op, const wmEvent *
 	return OPERATOR_RUNNING_MODAL;
 }
 
+/* set active color */
+static bool set_color(const wmEvent *event, tGPDpick *tgpk)
+{
+	tGPDpickColor *tcol = tgpk->colors;
+	for (int i = 0; i < tgpk->totcolor; i++, tcol++) {
+		if ((event->mval[0] >= tcol->rect.xmin) && (event->mval[0] <= tcol->rect.xmax) &&
+			(event->mval[1] >= tcol->rect.ymin) && (event->mval[1] <= tcol->rect.ymax))
+		{
+			tgpk->palette->active_color = tcol->index;
+			return true;
+		}
+	}
+
+	return false;
+}
+
 /* events handling during interactive part of operator */
 static int gpencil_colorpick_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
@@ -432,7 +448,9 @@ static int gpencil_colorpick_modal(bContext *C, wmOperator *op, const wmEvent *e
 			}
 			break;
 		case LEFTMOUSE:
-			estate = OPERATOR_FINISHED;
+			if (set_color(event, tgpk) == true) {
+				estate = OPERATOR_FINISHED;
+			}
 			break;
 	}
 	/* process last operations before exiting */
