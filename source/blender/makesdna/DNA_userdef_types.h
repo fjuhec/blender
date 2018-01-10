@@ -502,13 +502,15 @@ typedef struct UserDef {
 	char keyconfigstr[64];
 	
 	short undosteps;
-	short undomemory;
+	short pad1;
+	int undomemory;
+	int pad3;
 	short gp_manhattendist, gp_euclideandist, gp_eraser;
 	short gp_settings;  /* eGP_UserdefSettings */
 	short tb_leftmouse, tb_rightmouse;
 	struct SolidLight light[3];
 	short manipulator_flag, manipulator_size;
-	int pad3;
+	int pad6;
 	short textimeout, texcollectrate;
 	short wmdrawmethod; /* eWM_DrawMethod */
 	short dragthreshold;
@@ -833,7 +835,7 @@ typedef enum eColorPicker_Types {
 } eColorPicker_Types;
 
 /* timecode display styles
-  * UserDef.timecode_style */
+ * UserDef.timecode_style */
 typedef enum eTimecodeStyles {
 	/* as little info as is necessary to show relevant info
 	 * with '+' to denote the frames 

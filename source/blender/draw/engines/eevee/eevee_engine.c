@@ -140,12 +140,7 @@ static void eevee_cache_populate(void *vedata, Object *ob)
 		}
 	}
 	else if (ob->type == OB_LAMP) {
-		if ((ob->base_flag & BASE_FROMDUPLI) != 0) {
-			/* TODO: Special case for dupli objects because we cannot save the object pointer. */
-		}
-		else {
-			EEVEE_lights_cache_add(sldata, ob);
-		}
+		EEVEE_lights_cache_add(sldata, ob);
 	}
 }
 
@@ -241,7 +236,7 @@ static void eevee_draw_background(void *vedata)
 		EEVEE_create_minmax_buffer(vedata, dtxl->depth, -1);
 		DRW_stats_group_end();
 
-		EEVEE_occlusion_compute(sldata, vedata);
+		EEVEE_occlusion_compute(sldata, vedata, dtxl->depth, -1);
 		EEVEE_volumes_compute(sldata, vedata);
 
 		/* Shading pass */
