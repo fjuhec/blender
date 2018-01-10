@@ -193,24 +193,23 @@ typedef struct tGPDfill {
 /* Temporary color picker operation data */
 typedef struct tGPDpickColor {
 	rcti rect;		/* box position */
+	int index;      /* index of color in palette */
 	float rgba[4];	/* color */
 	float fill[4];  /*fill color */
 } tGPDpickColor;
 
 typedef struct tGPDpick {
-	struct Depsgraph *graph;
-	struct wmWindow *win;               /* window where painting originated */
 	struct Scene *scene;				/* current scene from context */
 	struct Object *ob;					/* current active gp object */
-	struct EvaluationContext *eval_ctx; /* eval context */
 	struct ScrArea *sa;					/* area where painting originated */
-	struct RegionView3D *rv3d;			/* region where painting originated */
-	struct View3D *v3d;					/* view3 where painting originated */
 	struct ARegion *ar;					/* region where painting originated */
 	struct Palette *palette;			/* current palette */
 
 	rcti rect;                          /* visible area */
-	int center[2];						/* mouse position */
+	rcti panel;                         /* panel area */
+	int row, col;                       /* number of rows and columns */ 
+	int boxsize[2];                     /* size of each box color */
+
 	int totcolor;						/* number of colors */
 	tGPDpickColor *colors;				/* colors of palette */
 

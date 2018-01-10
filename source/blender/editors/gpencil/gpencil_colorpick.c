@@ -74,6 +74,9 @@
 
 #include "gpencil_intern.h"
 
+#define GP_BOX_SIZE 24
+#define GP_BOX_GAP 4
+
  /* draw a filled box */
 static void gp_draw_fill_box(rcti *box, float ink[4], float fill[4])
 {
@@ -129,17 +132,20 @@ static void gpencil_draw_color_table(const bContext *UNUSED(C), tGPDpick *tgpk)
 	if (!tgpk->palette) {
 		return;
 	}
-	rcti box;
-	box.xmin = tgpk->rect.xmax - 100;
-	box.ymin = tgpk->rect.ymin;
-	box.xmax = tgpk->rect.xmax;
-	box.ymax = tgpk->rect.ymax;
 
 	float ink[4];
+	
+	/* draw panel background */
 	UI_GetThemeColor4fv(TH_PANEL_BACK, ink);
+	gp_draw_fill_box(&tgpk->panel, ink, ink);
 
-	//float ink[4] = { 1.0, 0.0f, 0.0f, 1.0f };
-	gp_draw_fill_box(&box, ink, ink);
+	/* draw color boxes */
+	tGPDpickColor *col = tgpk->colors;
+	for (int i = 0; i < tgpk->totcolor; i++, col++) {
+		gp_draw_fill_box(&col->rect, col->rgba, col->fill);
+	}
+
+
 }
 
 /* Drawing callback for modal operator in 3d mode */
@@ -184,17 +190,69 @@ static tGPDpick *gp_session_init_colorpick(bContext *C, wmOperator *op)
 	tgpk->ob = CTX_data_active_object(C);
 	tgpk->sa = CTX_wm_area(C);
 	tgpk->ar = CTX_wm_region(C);
-	tgpk->eval_ctx = bmain->eval_ctx;
-	tgpk->rv3d = tgpk->ar->regiondata;
-	tgpk->v3d = tgpk->sa->spacedata.first;
-	tgpk->graph = CTX_data_depsgraph(C);
-	tgpk->win = CTX_wm_window(C);
 
 	ED_region_visible_rect(tgpk->ar, &tgpk->rect);
 
 	/* get palette */
 	bGPDpaletteref *palslot = BKE_gpencil_paletteslot_validate(bmain, gpd);
 	tgpk->palette = palslot->palette;
+
+	/* allocate color table */
+	tgpk->totcolor = BLI_listbase_count(&tgpk->palette->colors);
+	if (tgpk->totcolor > 0) {
+		tgpk->colors = MEM_callocN(sizeof(tGPDpickColor) * tgpk->totcolor, "gp_colorpicker");
+	}
+
+	/* set size of color box */
+	tgpk->boxsize[0] = GP_BOX_SIZE + GP_BOX_GAP;
+	tgpk->boxsize[1] = GP_BOX_SIZE + GP_BOX_GAP;
+
+	/* get number of rows and columns */
+	tgpk->row = (tgpk->rect.ymax - tgpk->rect.ymin - GP_BOX_GAP) / tgpk->boxsize[1];
+	CLAMP_MIN(tgpk->row, 1);
+	tgpk->col = tgpk->totcolor / tgpk->row;
+	if (tgpk->totcolor % tgpk->row > 0) {
+		tgpk->col++;
+	}
+	CLAMP_MIN(tgpk->col, 1);
+
+	/* define panel size (vertical right) */
+	tgpk->panel.xmin = tgpk->rect.xmax - (GP_BOX_SIZE * tgpk->col ) - (GP_BOX_GAP * 2);
+	tgpk->panel.ymin = tgpk->rect.ymin;
+	tgpk->panel.xmax = tgpk->rect.xmax;
+	tgpk->panel.ymax = tgpk->rect.ymax;
+
+	/* load color table */
+	tGPDpickColor *col = tgpk->colors;
+	int idx = tgpk->totcolor - 1;
+	for (int r = 0; r < tgpk->row; r++) {
+		for (int c = 0; c < tgpk->col; c++, col++) {
+			PaletteColor *palcol = BLI_rfindlink(&tgpk->palette->colors, idx);
+			
+			/* exit if colors completed */
+			if (!palcol) {
+				break;
+			}
+
+			col->index = idx;
+			copy_v4_v4(col->rgba, palcol->rgb);
+			if (palcol->fill[3] > 0.0f) {
+				copy_v4_v4(col->fill, palcol->fill);
+			}
+			else {
+				copy_v4_v4(col->fill, palcol->rgb);
+			}
+			
+			/* box position */
+			col->rect.xmin = tgpk->panel.xmin + (tgpk->boxsize[0] * c) + GP_BOX_GAP;
+			col->rect.xmax = col->rect.xmin + tgpk->boxsize[0] - (GP_BOX_GAP * 2);
+
+			col->rect.ymax = tgpk->panel.ymax - (tgpk->boxsize[1] * r) - GP_BOX_GAP;
+			col->rect.ymin = col->rect.ymax - tgpk->boxsize[0] + (GP_BOX_GAP * 2);
+
+			idx--;
+		}
+	}
 
 	/* return context data for running operator */
 	return tgpk;
@@ -220,6 +278,8 @@ static void gpencil_colorpick_exit(bContext *C, wmOperator *op)
 		if (tgpk->draw_handle_3d) {
 			ED_region_draw_cb_exit(tgpk->ar->type, tgpk->draw_handle_3d);
 		}
+		/* free color table */
+		MEM_SAFE_FREE(tgpk->colors);
 
 		/* finally, free memory used by temp data */
 		MEM_freeN(tgpk);
