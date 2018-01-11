@@ -174,7 +174,7 @@ static void gp_draw_pattern_box(rcti *box, int offset)
 	const int lvl = 3;
 	const int size = (box->xmax - box->xmin) / lvl;
 	float wcolor[4] = { 0.9f, 0.9f, 0.9f, 1.0f };
-	float gcolor[4] = { 0.6f, 0.6f, 0.6f, 0.9f };
+	float gcolor[4] = { 0.6f, 0.6f, 0.6f, 0.7f };
 
 	/* draw a full box in white */
 	gp_draw_fill_box(box, wcolor, wcolor, offset);
