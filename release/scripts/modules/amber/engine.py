@@ -152,7 +152,7 @@ class AmberJobPreviews(AmberJob):
         #~ time.sleep(0.1)  # 100% Artificial Lag (c)
         w = random.randint(8, 32)
         h = random.randint(8, 32)
-        return [w, h, [random.getrandbits(32) for i in range(w * h)]]
+        return [w, h, [random.randint(-2147483647, 2147483647) for i in range(w * h)]]
 
     def start(self, uuids):
         self.nbr = 0
