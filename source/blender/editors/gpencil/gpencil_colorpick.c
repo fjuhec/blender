@@ -74,8 +74,8 @@
 
 #include "gpencil_intern.h"
 
-#define GP_BOX_SIZE 24
-#define GP_BOX_GAP 6
+#define GP_BOX_SIZE (24 * U.ui_scale)
+#define GP_BOX_GAP (6 * U.ui_scale)
 
  /* draw a box with lines */
 static void gp_draw_boxlines(rcti *box, float ink[4])
