@@ -2175,7 +2175,7 @@ void BKE_gpencil_move_animdata_to_palettes(bContext *C, bGPdata *gpd)
 		}
 
 		/* create destination action */
-		dst_adt->action = add_empty_action(G.main, src_adt->action->id.name + 2);
+		dst_adt->action = BKE_action_add(G.main, src_adt->action->id.name + 2);
 		/* move fcurves */
 		action_move_fcurves_by_basepath(src_adt->action, dst_adt->action, "palettes");
 
