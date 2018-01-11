@@ -226,7 +226,7 @@ static void gpencil_draw_color_table(const bContext *UNUSED(C), tGPDpick *tgpk)
 	tGPDpickColor *col = tgpk->colors;
 	for (int i = 0; i < tgpk->totcolor; i++, col++) {
 		/* focus to current color */
-		if (tgpk->palette->active_color == i) {
+		if (tgpk->palette->active_color == col->index) {
 			gp_draw_fill_box(&col->rect, select, select, 2);
 		}
 		gp_draw_pattern_box(&col->rect, 0);
@@ -329,6 +329,7 @@ static tGPDpick *gp_session_init_colorpick(bContext *C, wmOperator *op)
 			if ((palcol->fill[3] < GPENCIL_ALPHA_OPACITY_THRESH) &&
 				((tgpk->brush->flag & GP_BRUSH_FILL_ALLOW_STROKEONLY) == 0))
 			{
+				idx++;
 				continue;
 			}
 		}
