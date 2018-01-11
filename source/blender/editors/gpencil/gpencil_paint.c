@@ -2188,7 +2188,7 @@ static void gpencil_draw_apply_event(wmOperator *op, const wmEvent *event)
 	p->mval[1] = event->mval[1] + 1;
 	
 	/* verify key status for straight lines */
-	if (event->ctrl > 0) {
+	if ((event->ctrl > 0) && (RNA_boolean_get(op->ptr, "no_straight") == false)) {
 		if (p->straight[0] == 0) {
 			int dx = abs(p->mval[0] - p->mvalo[0]);
 			int dy = abs(p->mval[1] - p->mvalo[1]);
@@ -2909,5 +2909,8 @@ void GPENCIL_OT_draw(wmOperatorType *ot)
 	
 	/* NOTE: wait for input is enabled by default, so that all UI code can work properly without needing users to know about this */
 	prop = RNA_def_boolean(ot->srna, "wait_for_input", true, "Wait for Input", "Wait for first click instead of painting immediately");
+	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
+
+	prop = RNA_def_boolean(ot->srna, "no_straight", false, "No Straight lines", "Disable Ctrl key for straight lines");
 	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 }

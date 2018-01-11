@@ -459,6 +459,13 @@ static void ed_keymap_gpencil_painting_fill(wmKeyConfig *keyconf)
 
 	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_fill", LEFTMOUSE, KM_PRESS, KM_SHIFT, 0);
 	RNA_boolean_set(kmi->ptr, "on_back", true);
+
+	/* if press alternative key, the brush now it's for drawing */	
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_draw", LEFTMOUSE, KM_PRESS, KM_CTRL, 0);
+	RNA_enum_set(kmi->ptr, "mode", GP_PAINTMODE_DRAW);
+	RNA_boolean_set(kmi->ptr, "wait_for_input", false);
+	/* disable straight lines with Ctrl because there is a conflict of keymaps */
+	RNA_boolean_set(kmi->ptr, "no_straight", true);
 }
 
 /* Stroke Painting Keymap - Only when paintmode is enabled */
