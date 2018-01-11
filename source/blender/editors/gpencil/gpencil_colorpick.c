@@ -219,6 +219,7 @@ static void gpencil_draw_color_table(const bContext *UNUSED(C), tGPDpick *tgpk)
 
 	/* draw panel background */
 	UI_GetThemeColor4fv(TH_PANEL_BACK, ink);
+	ink[3] = 1.0f;
 	gp_draw_fill_box(&tgpk->panel, ink, ink, 0);
 
 	/* draw color boxes */
