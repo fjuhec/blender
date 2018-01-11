@@ -279,9 +279,11 @@ static tGPDpick *gp_session_init_colorpick(bContext *C, wmOperator *op)
 	/* set current scene and window info */
 	tgpk->win = CTX_wm_window(C);
 	tgpk->scene = CTX_data_scene(C);
+	tgpk->ts = CTX_data_tool_settings(C);
 	tgpk->ob = CTX_data_active_object(C);
 	tgpk->sa = CTX_wm_area(C);
 	tgpk->ar = CTX_wm_region(C);
+	tgpk->brush = BKE_gpencil_brush_getactive(ts);
 
 	ED_region_visible_rect(tgpk->ar, &tgpk->rect);
 
@@ -322,6 +324,15 @@ static tGPDpick *gp_session_init_colorpick(bContext *C, wmOperator *op)
 	int col = 0;
 	for (PaletteColor *palcol = palette->colors.first; palcol; palcol = palcol->next) {
 		
+		/* Must use a color with fill with fill brushes */
+		if (tgpk->brush->flag & GP_BRUSH_FILL_ONLY) {
+			if ((palcol->fill[3] < GPENCIL_ALPHA_OPACITY_THRESH) &&
+				((tgpk->brush->flag & GP_BRUSH_FILL_ALLOW_STROKEONLY) == 0))
+			{
+				continue;
+			}
+		}
+
 		tcolor->index = idx;
 		copy_v4_v4(tcolor->rgba, palcol->rgb);
 		if (palcol->fill[3] > 0.0f) {
@@ -349,6 +360,7 @@ static tGPDpick *gp_session_init_colorpick(bContext *C, wmOperator *op)
 			col++;
 		}
 	}
+	tgpk->totcolor = idx;
 
 	/* return context data for running operator */
 	return tgpk;

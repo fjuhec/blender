@@ -202,10 +202,12 @@ typedef struct tGPDpickColor {
 typedef struct tGPDpick {
 	struct wmWindow *win;               /* window */
 	struct Scene *scene;				/* current scene from context */
+	struct ToolSettings *ts;			/* current toolsettings from context */
 	struct Object *ob;					/* current active gp object */
 	struct ScrArea *sa;					/* area where painting originated */
 	struct ARegion *ar;					/* region where painting originated */
 	struct Palette *palette;			/* current palette */
+	struct bGPDbrush *brush;            /* current brush */
 
 	rcti rect;                          /* visible area */
 	rcti panel;                         /* panel area */
