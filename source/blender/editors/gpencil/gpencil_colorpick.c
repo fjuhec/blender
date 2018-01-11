@@ -311,8 +311,8 @@ static tGPDpick *gp_session_init_colorpick(bContext *C, wmOperator *op)
 	/* define panel size (vertical right) */
 	tgpk->panel.xmin = tgpk->rect.xmax - (GP_BOX_SIZE * tgpk->col ) - (GP_BOX_GAP * (tgpk->col + 1));
 	tgpk->panel.ymin = tgpk->rect.ymin;
-	tgpk->panel.xmax = tgpk->rect.xmax;
-	tgpk->panel.ymax = tgpk->rect.ymax;
+	tgpk->panel.xmax = tgpk->rect.xmax + 1;
+	tgpk->panel.ymax = tgpk->rect.ymax + 1;
 
 	/* load color table */
 	tGPDpickColor *tcolor = tgpk->colors;
