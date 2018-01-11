@@ -389,13 +389,14 @@ class GreasePencilBrushPanel:
                 row.prop(brush, "fill_simplyfy_lvl", text="Simplify")
 
                 row = layout.row(align=True)
+                row.prop(brush, "fill_show_boundary", text="Mode")
+
+                row = layout.row(align=True)
+                row.enabled = brush.fill_show_boundary != "NONE" and brush.fill_show_boundary != "STROKE"
                 row.prop(brush, "fill_hide", text="Hide Transparent Lines")
                 row = layout.row(align=True)
                 row.enabled = brush.fill_hide
                 row.prop(brush, "fill_threshold", text="Threshold")
-
-                row = layout.row(align=True)
-                row.prop(brush, "fill_show_boundary", text="Show Boundary Lines")
 
                 row = layout.row(align=True)
                 row.prop(brush, "fill_allow_stroke_only", text="Allow Colors without fill")

@@ -127,7 +127,7 @@ typedef struct bGPDbrush {
 	short fill_leak;          /* number of pixel to consider the leak is too small (x 2) */
 	float fill_threshold;     /* factor for transparency */
 	int   fill_simplylvl;     /* number of simplify steps */
-	char pad[4];
+	int   fill_draw_mode;     /* type of control lines drawing mode */
 } bGPDbrush;
 
 /* bGPDbrush->flag */
@@ -150,10 +150,8 @@ typedef enum eGPDbrush_Flag {
 	GP_BRUSH_FILL_ONLY = (1 << 7),
 	/* fill hide transparent */
 	GP_BRUSH_FILL_HIDE = (1 << 8),
-	/* fill show boundary lines */
-	GP_BRUSH_FILL_SHOW_BOUNDARY = (1 << 9),
 	/* allow colors without fill factor defined */
-	GP_BRUSH_FILL_ALLOW_STROKEONLY = (1 << 10),
+	GP_BRUSH_FILL_ALLOW_STROKEONLY = (1 << 9),
 } eGPDbrush_Flag;
 
 /* ***************************************** */
@@ -518,6 +516,13 @@ typedef enum eGP_OnionModes {
 	GP_ONION_MODE_SELECTED = 2,
 } eGP_OnionModes;
 
+/* gpd->fill draw modes */
+typedef enum eGP_FillDrawModes {
+	GP_FILL_DMODE_NONE = 0,
+	GP_FILL_DMODE_STROKE = 1,
+	GP_FILL_DMODE_CONTROL = 2,
+	GP_FILL_DMODE_BOTH = 3,
+} eGP_FillDrawModes;
 
 /* xray modes (Depth Ordering) */
 typedef enum eGP_DepthOrdering {

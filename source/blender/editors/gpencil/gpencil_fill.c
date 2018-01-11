@@ -192,10 +192,18 @@ static void gp_draw_datablock(tGPDfill *tgpf, float ink[4])
 			tgpw.onion = true;
 			tgpw.custonion = true;
 
-			ED_gp_draw_fill(&tgpw);
+			/* normal strokes */
+			if ((tgpf->fill_draw_mode == GP_FILL_DMODE_NONE) || 
+				(tgpf->fill_draw_mode == GP_FILL_DMODE_STROKE) ||
+				(tgpf->fill_draw_mode == GP_FILL_DMODE_BOTH)) 
+			{
+				ED_gp_draw_fill(&tgpw);
+			}
 
 			/* 3D Lines with basic shapes and invisible lines */
-			if (tgpf->flag & GP_BRUSH_FILL_SHOW_BOUNDARY) {
+			if ((tgpf->fill_draw_mode == GP_FILL_DMODE_CONTROL) || 
+				(tgpf->fill_draw_mode == GP_FILL_DMODE_BOTH)) 
+			{
 				gp_draw_basic_stroke(gps, tgpw.diff_mat, gps->flag & GP_STROKE_CYCLIC, ink,
 					tgpf->flag, tgpf->fill_threshold);
 			}
@@ -868,6 +876,7 @@ static tGPDfill *gp_session_init_fill(bContext *C, wmOperator *op)
 	tgpf->fill_leak = brush->fill_leak;
 	tgpf->fill_threshold = brush->fill_threshold;
 	tgpf->fill_simplylvl = brush->fill_simplylvl;
+	tgpf->fill_draw_mode = brush->fill_draw_mode;
 
 	/* init undo */
 	gpencil_undo_init(tgpf->gpd);
@@ -979,7 +988,7 @@ static int gpencil_fill_invoke(bContext *C, wmOperator *op, const wmEvent *event
 	}
 
 	/* Enable custom drawing handlers */
-	if (tgpf->flag & GP_BRUSH_FILL_SHOW_BOUNDARY) {
+	if (tgpf->fill_draw_mode != GP_FILL_DMODE_NONE) {
 		tgpf->draw_handle_3d = ED_region_draw_cb_activate(tgpf->ar->type, gpencil_fill_draw_3d, tgpf, REGION_DRAW_POST_VIEW);
 	}
 
@@ -1013,7 +1022,7 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
 		case LEFTMOUSE:
 			tgpf->on_back = RNA_boolean_get(op->ptr, "on_back");
 			/* first time the event is not enabled to show help lines */
-			if ((tgpf->oldkey != -1) || ((tgpf->flag & GP_BRUSH_FILL_SHOW_BOUNDARY) == 0)) {
+			if ((tgpf->oldkey != -1) || ((tgpf->fill_draw_mode != GP_FILL_DMODE_NONE) == 0)) {
 				ARegion *ar = BKE_area_find_region_xy(CTX_wm_area(C), RGN_TYPE_ANY, event->x, event->y);
 				if (ar) {
 					rcti region_rect;

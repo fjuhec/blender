@@ -184,6 +184,7 @@ typedef struct tGPDfill {
 	short fill_leak;                    /* number of pixel to consider the leak is too small (x 2) */
 	float fill_threshold;               /* factor for transparency */
 	int fill_simplylvl;                 /* number of simplify steps */
+	int fill_draw_mode;                 /* boundary limits drawing mode */
 
 	struct Image *ima;					/* temp image */
 	struct BLI_Stack *stack;			/* temp points data */
