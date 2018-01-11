@@ -78,7 +78,7 @@
 #define GP_BOX_GAP (6 * U.ui_scale)
 
  /* draw a box with lines */
-static void gp_draw_boxlines(rcti *box, float ink[4])
+static void gp_draw_boxlines(rcti *box, float ink[4], bool diagonal)
 {
 	Gwn_VertFormat *format = immVertexFormat();
 	unsigned pos = GWN_vertformat_attr_add(format, "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
@@ -88,7 +88,7 @@ static void gp_draw_boxlines(rcti *box, float ink[4])
 
 	/* draw stroke curve */
 	glLineWidth(1.0f);
-	immBeginAtMost(GWN_PRIM_LINES, 8);
+	immBeginAtMost(GWN_PRIM_LINES, 10);
 
 	immAttrib4fv(color, ink);
 	immVertex2f(pos, box->xmin, box->ymax - 1);
@@ -113,6 +113,14 @@ static void gp_draw_boxlines(rcti *box, float ink[4])
 
 	immAttrib4fv(color, ink);
 	immVertex2f(pos, box->xmin, box->ymin);
+
+	if (diagonal == true) {
+		immAttrib4fv(color, ink);
+		immVertex2f(pos, box->xmin, box->ymin);
+
+		immAttrib4fv(color, ink);
+		immVertex2f(pos, box->xmax, box->ymax);
+	}
 
 	immEnd();
 	immUnbindProgram();
@@ -192,7 +200,7 @@ static void gpencil_draw_color_table(const bContext *UNUSED(C), tGPDpick *tgpk)
 		}
 
 		gp_draw_fill_box(&col->rect, col->rgba, col->fill, 0);
-		gp_draw_boxlines(&col->rect, line);
+		gp_draw_boxlines(&col->rect, line, col->fillmode);
 	}
 }
 
@@ -287,9 +295,11 @@ static tGPDpick *gp_session_init_colorpick(bContext *C, wmOperator *op)
 		copy_v4_v4(tcolor->rgba, palcol->rgb);
 		if (palcol->fill[3] > 0.0f) {
 			copy_v4_v4(tcolor->fill, palcol->fill);
+			tcolor->fillmode = true;
 		}
 		else {
 			copy_v4_v4(tcolor->fill, palcol->rgb);
+			tcolor->fillmode = false;
 		}
 
 		/* box position */

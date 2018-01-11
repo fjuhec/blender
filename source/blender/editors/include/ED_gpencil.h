@@ -196,6 +196,7 @@ typedef struct tGPDpickColor {
 	int index;      /* index of color in palette */
 	float rgba[4];	/* color */
 	float fill[4];  /*fill color */
+	bool fillmode;   /* flag fill is not enabled */
 } tGPDpickColor;
 
 typedef struct tGPDpick {
