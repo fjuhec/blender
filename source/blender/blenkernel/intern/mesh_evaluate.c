@@ -177,7 +177,10 @@ typedef struct MeshCalcNormalsData {
 	float (*vnors)[3];
 } MeshCalcNormalsData;
 
-static void mesh_calc_normals_poly_cb(void *userdata, const int pidx)
+static void mesh_calc_normals_poly_cb(
+        void *__restrict userdata, 
+        const int pidx,
+        const ParallelRangeTLS *__restrict UNUSED(tls))
 {
 	MeshCalcNormalsData *data = userdata;
 	const MPoly *mp = &data->mpolys[pidx];
@@ -185,7 +188,10 @@ static void mesh_calc_normals_poly_cb(void *userdata, const int pidx)
 	BKE_mesh_calc_poly_normal(mp, data->mloop + mp->loopstart, data->mverts, data->pnors[pidx]);
 }
 
-static void mesh_calc_normals_poly_prepare_cb(void *userdata, const int pidx)
+static void mesh_calc_normals_poly_prepare_cb(
+        void *__restrict userdata, 
+        const int pidx,
+        const ParallelRangeTLS *__restrict UNUSED(tls))
 {
 	MeshCalcNormalsData *data = userdata;
 	const MPoly *mp = &data->mpolys[pidx];
@@ -247,14 +253,20 @@ static void mesh_calc_normals_poly_prepare_cb(void *userdata, const int pidx)
 	}
 }
 
-static void mesh_calc_normals_poly_accum_cb(void *userdata, const int lidx)
+static void mesh_calc_normals_poly_accum_cb(
+        void *__restrict userdata,
+        const int lidx,
+        const ParallelRangeTLS *__restrict UNUSED(tls))
 {
 	MeshCalcNormalsData *data = userdata;
 
 	add_v3_v3(data->vnors[data->mloop[lidx].v], data->lnors_weighted[lidx]);
 }
 
-static void mesh_calc_normals_poly_finalize_cb(void *userdata, const int vidx)
+static void mesh_calc_normals_poly_finalize_cb(
+        void *__restrict userdata,
+        const int vidx,
+        const ParallelRangeTLS *__restrict UNUSED(tls))
 {
 	MeshCalcNormalsData *data = userdata;
 
@@ -278,6 +290,10 @@ void BKE_mesh_calc_normals_poly(
 	const bool do_threaded = (numPolys > BKE_MESH_OMP_LIMIT);
 	float (*pnors)[3] = r_polynors;
 
+	ParallelRangeSettings settings;
+	BLI_parallel_range_settings_defaults(&settings);
+	settings.use_threading = do_threaded;
+
 	if (only_face_normals) {
 		BLI_assert((pnors != NULL) || (numPolys == 0));
 		BLI_assert(r_vertnors == NULL);
@@ -286,7 +302,7 @@ void BKE_mesh_calc_normals_poly(
 		    .mpolys = mpolys, .mloop = mloop, .mverts = mverts, .pnors = pnors,
 		};
 
-		BLI_task_parallel_range(0, numPolys, &data, mesh_calc_normals_poly_cb, do_threaded);
+		BLI_task_parallel_range(0, numPolys, &data, mesh_calc_normals_poly_cb, &settings);
 		return;
 	}
 
@@ -309,13 +325,13 @@ void BKE_mesh_calc_normals_poly(
 	};
 
 	/* Compute poly normals, and prepare weighted loop normals. */
-	BLI_task_parallel_range(0, numPolys, &data, mesh_calc_normals_poly_prepare_cb, do_threaded);
+	BLI_task_parallel_range(0, numPolys, &data, mesh_calc_normals_poly_prepare_cb, &settings);
 
 	/* Actually accumulate weighted loop normals into vertex ones. */
-	BLI_task_parallel_range(0, numLoops, &data, mesh_calc_normals_poly_accum_cb, do_threaded);
+	BLI_task_parallel_range(0, numLoops, &data, mesh_calc_normals_poly_accum_cb, &settings);
 
 	/* Normalize and validate computed vertex normals. */
-	BLI_task_parallel_range(0, numVerts, &data, mesh_calc_normals_poly_finalize_cb, do_threaded);
+	BLI_task_parallel_range(0, numVerts, &data, mesh_calc_normals_poly_finalize_cb, &settings);
 
 	if (free_vnors) {
 		MEM_freeN(vnors);
