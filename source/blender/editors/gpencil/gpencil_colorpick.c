@@ -167,6 +167,36 @@ static void gp_draw_fill_box(rcti *box, float ink[4], float fill[4], int offset)
 	immUnbindProgram();
 }
 
+/* draw a pattern for alpha display */
+static void gp_draw_pattern_box(rcti *box, int offset)
+{
+	rcti rect;
+	const int lvl = 3;
+	const int size = (box->xmax - box->xmin) / lvl;
+	float wcolor[4] = { 0.9f, 0.9f, 0.9f, 1.0f };
+	float gcolor[4] = { 0.6f, 0.6f, 0.6f, 0.9f };
+
+	/* draw a full box in white */
+	gp_draw_fill_box(box, wcolor, wcolor, offset);
+
+	/* draw a pattern of boxes */
+	int i = 1;
+	for (int a = 0; a < lvl; a++) {
+		for (int b = 0; b < lvl; b++) {
+			rect.xmin = box->xmin + (size * a);
+			rect.xmax = rect.xmin + size;
+
+			rect.ymin = box->ymin + (size * b);
+			rect.ymax = rect.ymin + size;
+
+			if (i % 2 == 0) {
+				gp_draw_fill_box(&rect, gcolor, gcolor, offset);
+			}
+			i++;
+		}
+	}
+}
+
 /* ----------------------- */
 /* Drawing                 */
 
@@ -198,7 +228,7 @@ static void gpencil_draw_color_table(const bContext *UNUSED(C), tGPDpick *tgpk)
 		if (tgpk->palette->active_color == i) {
 			gp_draw_fill_box(&col->rect, select, select, 2);
 		}
-
+		gp_draw_pattern_box(&col->rect, 0);
 		gp_draw_fill_box(&col->rect, col->rgba, col->fill, 0);
 		gp_draw_boxlines(&col->rect, line, col->fillmode);
 	}
