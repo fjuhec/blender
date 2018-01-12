@@ -125,12 +125,15 @@ int EEVEE_depth_of_field_init(EEVEE_ViewLayerData *UNUSED(sldata), EEVEE_Data *v
 			        &fbl->dof_down_fb, &draw_engine_eevee_type,
 			        buffer_size[0], buffer_size[1], tex_down, 3);
 
-			DRWFboTexture tex_scatter_far = {&txl->dof_far_blur, DRW_TEX_RGBA_16, DRW_TEX_FILTER};
+			/* Go full 32bits for rendering and reduce the color artifacts. */
+			DRWTextureFormat fb_format = DRW_state_is_image_render() ? DRW_TEX_RGBA_32 : DRW_TEX_RGBA_16;
+
+			DRWFboTexture tex_scatter_far = {&txl->dof_far_blur, fb_format, DRW_TEX_FILTER};
 			DRW_framebuffer_init(
 			        &fbl->dof_scatter_far_fb, &draw_engine_eevee_type,
 			        buffer_size[0], buffer_size[1], &tex_scatter_far, 1);
 
-			DRWFboTexture tex_scatter_near = {&txl->dof_near_blur, DRW_TEX_RGBA_16, DRW_TEX_FILTER};
+			DRWFboTexture tex_scatter_near = {&txl->dof_near_blur, fb_format, DRW_TEX_FILTER};
 			DRW_framebuffer_init(
 			        &fbl->dof_scatter_near_fb, &draw_engine_eevee_type,
 			        buffer_size[0], buffer_size[1], &tex_scatter_near, 1);
@@ -213,7 +216,7 @@ void EEVEE_depth_of_field_cache_init(EEVEE_ViewLayerData *UNUSED(sldata), EEVEE_
 		DRW_shgroup_uniform_vec3(grp, "dofParams", effects->dof_params, 1);
 		DRW_shgroup_call_add(grp, quad, NULL);
 
-		psl->dof_scatter = DRW_pass_create("DoF Scatter", DRW_STATE_WRITE_COLOR | DRW_STATE_ADDITIVE);
+		psl->dof_scatter = DRW_pass_create("DoF Scatter", DRW_STATE_WRITE_COLOR | DRW_STATE_ADDITIVE_FULL);
 
 		/* This create an empty batch of N triangles to be positioned
 		 * by the vertex shader 0.4ms against 6ms with instancing */
