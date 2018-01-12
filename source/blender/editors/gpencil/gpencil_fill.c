@@ -152,7 +152,7 @@ static void gp_draw_datablock(tGPDfill *tgpf, float ink[4])
 	tgpw.dflag = 0;
 	tgpw.disable_fill = 1;
 	tgpw.dflag |= (GP_DRAWDATA_ONLY3D | GP_DRAWDATA_NOSTATUS);
-
+	
 	glEnable(GL_BLEND);
 
 	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
@@ -193,11 +193,11 @@ static void gp_draw_datablock(tGPDfill *tgpf, float ink[4])
 			tgpw.custonion = true;
 
 			/* normal strokes */
-			if ((tgpf->fill_draw_mode == GP_FILL_DMODE_NONE) || 
-				(tgpf->fill_draw_mode == GP_FILL_DMODE_STROKE) ||
+			if ((tgpf->fill_draw_mode == GP_FILL_DMODE_STROKE) ||
 				(tgpf->fill_draw_mode == GP_FILL_DMODE_BOTH)) 
 			{
 				ED_gp_draw_fill(&tgpw);
+
 			}
 
 			/* 3D Lines with basic shapes and invisible lines */
@@ -209,7 +209,7 @@ static void gp_draw_datablock(tGPDfill *tgpf, float ink[4])
 			}
 		}
 	}
-
+	
 	glDisable(GL_BLEND);
 }
 
@@ -987,8 +987,8 @@ static int gpencil_fill_invoke(bContext *C, wmOperator *op, const wmEvent *event
 		return OPERATOR_CANCELLED;
 	}
 
-	/* Enable custom drawing handlers */
-	if (tgpf->fill_draw_mode != GP_FILL_DMODE_NONE) {
+	/* Enable custom drawing handlers to show help lines */
+	if (tgpf->flag & GP_BRUSH_FILL_SHOW_HELPLINES) {
 		tgpf->draw_handle_3d = ED_region_draw_cb_activate(tgpf->ar->type, gpencil_fill_draw_3d, tgpf, REGION_DRAW_POST_VIEW);
 	}
 
@@ -1022,7 +1022,7 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
 		case LEFTMOUSE:
 			tgpf->on_back = RNA_boolean_get(op->ptr, "on_back");
 			/* first time the event is not enabled to show help lines */
-			if ((tgpf->oldkey != -1) || ((tgpf->fill_draw_mode != GP_FILL_DMODE_NONE) == 0)) {
+			if ((tgpf->oldkey != -1) || ((tgpf->flag & GP_BRUSH_FILL_SHOW_HELPLINES) == 0)) {
 				ARegion *ar = BKE_area_find_region_xy(CTX_wm_area(C), RGN_TYPE_ANY, event->x, event->y);
 				if (ar) {
 					rcti region_rect;

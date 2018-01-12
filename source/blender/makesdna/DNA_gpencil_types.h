@@ -152,6 +152,8 @@ typedef enum eGPDbrush_Flag {
 	GP_BRUSH_FILL_HIDE = (1 << 8),
 	/* allow colors without fill factor defined */
 	GP_BRUSH_FILL_ALLOW_STROKEONLY = (1 << 9),
+	/* show fill help lines */
+	GP_BRUSH_FILL_SHOW_HELPLINES = (1 << 10),
 } eGPDbrush_Flag;
 
 /* ***************************************** */
@@ -518,10 +520,9 @@ typedef enum eGP_OnionModes {
 
 /* gpd->fill draw modes */
 typedef enum eGP_FillDrawModes {
-	GP_FILL_DMODE_NONE = 0,
-	GP_FILL_DMODE_STROKE = 1,
-	GP_FILL_DMODE_CONTROL = 2,
-	GP_FILL_DMODE_BOTH = 3,
+	GP_FILL_DMODE_STROKE = 0,
+	GP_FILL_DMODE_CONTROL = 1,
+	GP_FILL_DMODE_BOTH = 2,
 } eGP_FillDrawModes;
 
 /* xray modes (Depth Ordering) */

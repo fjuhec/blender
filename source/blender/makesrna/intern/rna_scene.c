@@ -445,10 +445,9 @@ EnumPropertyItem rna_enum_gpencil_drawing_brushes_items[] = {
 };
 
 static EnumPropertyItem rna_enum_gpencil_fill_draw_modes_items[] = {
-{ GP_FILL_DMODE_NONE, "NONE", 0, "None", "Use strokes as fill boundary limits but do not display help lines" },
-{ GP_FILL_DMODE_STROKE, "STROKE", 0, "Strokes", "Use visible strokes as fill boundary limits and display help lines" },
-{ GP_FILL_DMODE_CONTROL, "CONTROL", 0, "Control", "Use internal control lines as fill boundary limits and display help lines" },
-{ GP_FILL_DMODE_BOTH, "BOTH", 0, "Both", "Use visible strokes and control lines as fill boundary limits and display help lines" },
+{ GP_FILL_DMODE_STROKE, "STROKE", 0, "Strokes", "Use visible strokes as fill boundary limits" },
+{ GP_FILL_DMODE_CONTROL, "CONTROL", 0, "Control", "Use internal control lines as fill boundary limits" },
+{ GP_FILL_DMODE_BOTH, "BOTH", 0, "Both", "Use visible strokes and control lines as fill boundary limits" },
 { 0, NULL, 0, NULL, NULL }
 };
 
@@ -2378,11 +2377,16 @@ static void rna_def_gpencil_brush(BlenderRNA *brna)
 	RNA_def_property_boolean_default(prop, true);
 	RNA_def_property_ui_text(prop, "Fill Only", "The brush is only for filling strokes");
 
-	prop = RNA_def_property(srna, "fill_show_boundary", PROP_ENUM, PROP_NONE);
+	prop = RNA_def_property(srna, "fill_draw_mode", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_sdna(prop, NULL, "fill_draw_mode");
 	RNA_def_property_enum_items(prop, rna_enum_gpencil_fill_draw_modes_items);
-	RNA_def_property_ui_text(prop, "Mode", "Mode to draw boundary limits and display help lines");
+	RNA_def_property_ui_text(prop, "Mode", "Mode to draw boundary limits");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+	prop = RNA_def_property(srna, "fill_show_boundary", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_BRUSH_FILL_SHOW_HELPLINES);
+	RNA_def_property_boolean_default(prop, true);
+	RNA_def_property_ui_text(prop, "Show Lines", "Show help lines for filling to see boundaries");
 
 	prop = RNA_def_property(srna, "fill_hide", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_BRUSH_FILL_HIDE);
