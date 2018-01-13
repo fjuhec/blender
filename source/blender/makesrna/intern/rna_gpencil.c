@@ -970,6 +970,13 @@ static void rna_def_gpencil_stroke(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Cyclic", "Enable cyclic drawing, closing the stroke");
 	RNA_def_property_update(prop, 0, "rna_GPencil_update");
 
+	/* No fill: The stroke never must fill area and must use fill color as stroke color (this is a special flag for fill brush) */
+	prop = RNA_def_property(srna, "is_nofill_stroke", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_STROKE_NOFILL);
+	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+	RNA_def_property_ui_text(prop, "No Fill", "Special stroke to use as boundary for filling areas");
+	RNA_def_property_update(prop, 0, "rna_GPencil_update");
+
 	/* Line Thickness */
 	prop = RNA_def_property(srna, "line_width", PROP_INT, PROP_PIXEL);
 	RNA_def_property_int_sdna(prop, NULL, "thickness");

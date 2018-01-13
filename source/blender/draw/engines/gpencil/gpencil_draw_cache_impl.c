@@ -548,8 +548,15 @@ static void gpencil_add_stroke_shgroup(GpencilBatchCache *cache, DRWShadingGroup
 
 	/* set color using palette, tint color and opacity */
 	if (!onion) {
-		interp_v3_v3v3(tcolor, gps->palcolor->rgb, tintcolor, tintcolor[3]);
-		tcolor[3] = gps->palcolor->rgb[3] * opacity;
+		/* if special stroke, use fill color as stroke color */
+		if (gps->flag & GP_STROKE_NOFILL) {
+			interp_v3_v3v3(tcolor, gps->palcolor->fill, tintcolor, tintcolor[3]);
+			tcolor[3] = gps->palcolor->fill[3] * opacity;
+		}
+		else {
+			interp_v3_v3v3(tcolor, gps->palcolor->rgb, tintcolor, tintcolor[3]);
+			tcolor[3] = gps->palcolor->rgb[3] * opacity;
+		}
 		copy_v4_v4(ink, tcolor);
 	}
 	else {
@@ -751,7 +758,8 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 			int id = stl->storage->shgroup_id;
 			if ((gps->totpoints > 1) && ((gps->palcolor->flag & PAC_COLOR_DOT) == 0)) {
 				if ((gps->totpoints > 2) && (!GP_SIMPLIFY_FILL(ts, playing)) && 
-					((gps->palcolor->fill[3] > GPENCIL_ALPHA_OPACITY_THRESH) || (gps->palcolor->fill_style > 0)))
+					((gps->palcolor->fill[3] > GPENCIL_ALPHA_OPACITY_THRESH) || (gps->palcolor->fill_style > 0)) &&
+					((gps->flag & GP_STROKE_NOFILL) == 0))
 				{
 					stl->shgroups[id].shgrps_fill = DRW_gpencil_shgroup_fill_create(e_data, vedata, psl->stroke_pass, e_data->gpencil_fill_sh, gpd, gps->palcolor, id);
 				}
@@ -855,7 +863,9 @@ void DRW_gpencil_populate_buffer_strokes(GPENCIL_e_data *e_data, void *vedata, T
 
 				DRW_shgroup_call_add(stl->g_data->shgrps_drawing_stroke, stl->g_data->batch_buffer_stroke, stl->storage->unit_matrix);
 
-				if ((gpd->sbuffer_size >= 3) && (gpd->sfill[3] > GPENCIL_ALPHA_OPACITY_THRESH)) {
+				if ((gpd->sbuffer_size >= 3) && (gpd->sfill[3] > GPENCIL_ALPHA_OPACITY_THRESH) && 
+					((gpd->sbuffer_sflag & GP_STROKE_NOFILL) == 0)) 
+				{
 					/* if not solid, fill is simulated with solid color */
 					if (gpd->bfill_style > 0) {
 						gpd->sfill[3] = 0.5f;

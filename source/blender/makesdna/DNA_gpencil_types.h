@@ -273,6 +273,8 @@ typedef enum eGPDstroke_Flag {
 	GP_STROKE_RECALC_COLOR = (1 << 5),
 	/* Flag used to indicate that stroke is closed and draw edge between last and first point */
 	GP_STROKE_CYCLIC = (1 << 7),
+	/* Flag used to indicate that stroke is used for fill close and must use fill color for stroke and no fill area */
+	GP_STROKE_NOFILL = (1 << 8),
 	/* only for use with stroke-buffer (while drawing eraser) */
 	GP_STROKE_ERASER		= (1 << 15)
 } eGPDstroke_Flag;

@@ -443,39 +443,6 @@ static void ed_keymap_gpencil_painting_draw(wmKeyConfig *keyconf)
 	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_draw", LEFTMOUSE, KM_PRESS, KM_SHIFT, 0);
 	RNA_enum_set(kmi->ptr, "mode", GP_PAINTMODE_DRAW_POLY);
 	RNA_boolean_set(kmi->ptr, "wait_for_input", false);
-}
-
-/* keys for draw with a fill brush */
-static void ed_keymap_gpencil_painting_fill(wmKeyConfig *keyconf)
-{
-	wmKeyMap *keymap = WM_keymap_find(keyconf, "Grease Pencil Stroke Paint (Fill)", 0, 0);
-	wmKeyMapItem *kmi;
-
-	/* set poll callback */
-	keymap->poll = gp_stroke_paintmode_fill_poll;
-
-	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_fill", LEFTMOUSE, KM_PRESS, 0, 0);
-	RNA_boolean_set(kmi->ptr, "on_back", false);
-
-	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_fill", LEFTMOUSE, KM_PRESS, KM_SHIFT, 0);
-	RNA_boolean_set(kmi->ptr, "on_back", true);
-
-	/* if press alternative key, the brush now it's for drawing */	
-	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_draw", LEFTMOUSE, KM_PRESS, KM_CTRL, 0);
-	RNA_enum_set(kmi->ptr, "mode", GP_PAINTMODE_DRAW);
-	RNA_boolean_set(kmi->ptr, "wait_for_input", false);
-	/* disable straight lines with Ctrl because there is a conflict of keymaps */
-	RNA_boolean_set(kmi->ptr, "no_straight", true);
-}
-
-/* Stroke Painting Keymap - Only when paintmode is enabled */
-static void ed_keymap_gpencil_painting(wmKeyConfig *keyconf)
-{
-	wmKeyMap *keymap = WM_keymap_find(keyconf, "Grease Pencil Stroke Paint Mode", 0, 0);
-	wmKeyMapItem *kmi;
-
-	/* set poll callback - so that this keymap only gets enabled when stroke paintmode is enabled */
-	keymap->poll = gp_stroke_paintmode_poll;
 
 	/* erase */
 	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_draw", LEFTMOUSE, KM_PRESS, KM_ALT, 0);
@@ -495,6 +462,48 @@ static void ed_keymap_gpencil_painting(wmKeyConfig *keyconf)
 	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_draw", TABLET_ERASER, KM_PRESS, 0, 0);
 	RNA_enum_set(kmi->ptr, "mode", GP_PAINTMODE_ERASER);
 	RNA_boolean_set(kmi->ptr, "wait_for_input", false);
+}
+
+/* keys for draw with a fill brush */
+static void ed_keymap_gpencil_painting_fill(wmKeyConfig *keyconf)
+{
+	wmKeyMap *keymap = WM_keymap_find(keyconf, "Grease Pencil Stroke Paint (Fill)", 0, 0);
+	wmKeyMapItem *kmi;
+
+	/* set poll callback */
+	keymap->poll = gp_stroke_paintmode_fill_poll;
+
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_fill", LEFTMOUSE, KM_PRESS, 0, 0);
+	RNA_boolean_set(kmi->ptr, "on_back", false);
+
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_fill", LEFTMOUSE, KM_PRESS, KM_SHIFT, 0);
+	RNA_boolean_set(kmi->ptr, "on_back", true);
+
+	/* if press alternative key, the brush now it's for drawing areas */	
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_draw", LEFTMOUSE, KM_PRESS, KM_CTRL, 0);
+	RNA_enum_set(kmi->ptr, "mode", GP_PAINTMODE_DRAW);
+	RNA_boolean_set(kmi->ptr, "wait_for_input", false);
+	/* disable straight lines with Ctrl because there is a conflict of keymaps */
+	RNA_boolean_set(kmi->ptr, "no_straight", true);
+
+	/* if press alternative key, the brush now it's for drawing lines */
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_draw", LEFTMOUSE, KM_PRESS, KM_ALT, 0);
+	RNA_enum_set(kmi->ptr, "mode", GP_PAINTMODE_DRAW);
+	RNA_boolean_set(kmi->ptr, "wait_for_input", false);
+	/* disable straight lines with Ctrl because there is a conflict of keymaps */
+	RNA_boolean_set(kmi->ptr, "no_straight", true);
+	/* enable special stroke with no fill flag */
+	RNA_boolean_set(kmi->ptr, "no_fill", true);
+}
+
+/* Stroke Painting Keymap - Only when paintmode is enabled */
+static void ed_keymap_gpencil_painting(wmKeyConfig *keyconf)
+{
+	wmKeyMap *keymap = WM_keymap_find(keyconf, "Grease Pencil Stroke Paint Mode", 0, 0);
+	wmKeyMapItem *kmi;
+
+	/* set poll callback - so that this keymap only gets enabled when stroke paintmode is enabled */
+	keymap->poll = gp_stroke_paintmode_poll;
 
 	/* Exit PaintMode */
 	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_editmode_toggle", TABKEY, KM_PRESS, 0, 0);

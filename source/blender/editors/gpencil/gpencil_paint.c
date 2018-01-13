@@ -1655,7 +1655,7 @@ static void gp_session_cleanup(tGPsdata *p)
 }
 
 /* init new stroke */
-static void gp_paint_initstroke(tGPsdata *p, eGPencil_PaintModes paintmode)
+static void gp_paint_initstroke(wmOperator *op, tGPsdata *p, eGPencil_PaintModes paintmode)
 {
 	Scene *scene = p->scene;
 	ToolSettings *ts = scene->toolsettings;
@@ -1772,10 +1772,16 @@ static void gp_paint_initstroke(tGPsdata *p, eGPencil_PaintModes paintmode)
 			}
 		}
 	}
-	
+
+	/* set special fill stroke mode */
+	if (RNA_boolean_get(op->ptr, "no_fill") == true) {
+		p->gpd->sbuffer_sflag |= GP_STROKE_NOFILL;
+		/* replace stroke color with fill color */
+		copy_v4_v4(p->gpd->scolor, p->gpd->sfill);
+	}
+
 	/* set 'initial run' flag, which is only used to denote when a new stroke is starting */
 	p->flags |= GP_PAINTFLAG_FIRSTRUN;
-	
 	
 	/* when drawing in the camera view, in 2D space, set the subrect */
 	p->subrect = NULL;
@@ -2041,7 +2047,7 @@ static int gpencil_draw_init(bContext *C, wmOperator *op, const wmEvent *event)
 	}
 	
 	/* init painting data */
-	gp_paint_initstroke(p, paintmode);
+	gp_paint_initstroke(op, p, paintmode);
 	if (p->status == GP_STATUS_ERROR) {
 		gpencil_draw_exit(C, op);
 		return 0;
@@ -2141,7 +2147,7 @@ static void gpencil_draw_apply(wmOperator *op, tGPsdata *p)
 			/* finish off old stroke */
 			gp_paint_strokeend(p);
 			/* And start a new one!!! Else, projection errors! */
-			gp_paint_initstroke(p, p->paintmode);
+			gp_paint_initstroke(op, p, p->paintmode);
 			
 			/* start a new stroke, starting from previous point */
 			/* XXX Must manually reset inittime... */
@@ -2344,7 +2350,7 @@ static int gpencil_draw_exec(bContext *C, wmOperator *op)
 			if ((p->flags & GP_PAINTFLAG_FIRSTRUN) == 0) {
 				/* TODO: both of these ops can set error-status, but we probably don't need to worry */
 				gp_paint_strokeend(p);
-				gp_paint_initstroke(p, p->paintmode);
+				gp_paint_initstroke(op, p, p->paintmode);
 			}
 		}
 		
@@ -2487,7 +2493,7 @@ static tGPsdata *gpencil_stroke_begin(bContext *C, wmOperator *op)
 	 *      it'd be nice to allow changing paint-mode when in sketching-sessions */
 	
 	if (gp_session_initdata(C, p))
-		gp_paint_initstroke(p, p->paintmode);
+		gp_paint_initstroke(op, p, p->paintmode);
 	
 	if (p->status != GP_STATUS_ERROR) {
 		p->status = GP_STATUS_PAINTING;
@@ -2912,5 +2918,8 @@ void GPENCIL_OT_draw(wmOperatorType *ot)
 	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 
 	prop = RNA_def_boolean(ot->srna, "no_straight", false, "No Straight lines", "Disable Ctrl key for straight lines");
+	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
+
+	prop = RNA_def_boolean(ot->srna, "no_fill", false, "No Fill Areas", "Disable fill to use stroke as fill boundary");
 	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 }
