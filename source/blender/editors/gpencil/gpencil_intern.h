@@ -233,6 +233,7 @@ void GPENCIL_OT_blank_frame_add(struct wmOperatorType *ot);
 void GPENCIL_OT_active_frame_delete(struct wmOperatorType *ot);
 void GPENCIL_OT_active_frames_delete_all(struct wmOperatorType *ot);
 void GPENCIL_OT_frame_duplicate(struct wmOperatorType *ot);
+void GPENCIL_OT_frame_clean_fill(struct wmOperatorType *ot);
 
 void GPENCIL_OT_convert(struct wmOperatorType *ot);
 void GPENCIL_OT_convert_scene_to_object(struct wmOperatorType *ot);

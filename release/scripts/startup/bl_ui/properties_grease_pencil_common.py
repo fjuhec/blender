@@ -234,6 +234,10 @@ class GreasePencilStrokeEditPanel:
         col.operator("gpencil.stroke_join", text="Join & Copy").type = 'JOINCOPY'
         col.operator("gpencil.stroke_flip", text="Flip Direction")
 
+        col.separator()
+        col.operator("gpencil.frame_clean_fill", text="Clean Boundary Strokes").mode = 'ACTIVE'
+        col.operator("gpencil.frame_clean_fill", text="Clean Boundary Strokes all Frames").mode = 'ALL'
+
         if is_3d_view:
             layout.separator()
             layout.operator_menu_enum("gpencil.reproject", text="Reproject Strokes...", property="type")
@@ -1011,6 +1015,11 @@ class GPENCIL_MT_gpencil_edit_specials(Menu):
         layout.operator("gpencil.stroke_flip", text="Flip Direction")
 
         layout.separator()
+
+        layout.operator("gpencil.frame_clean_fill", text="Clean Boundary Strokes").mode = 'ACTIVE'
+        layout.operator("gpencil.frame_clean_fill", text="Clean Boundary Strokes all Frames").mode = 'ALL'
+
+        layout.separator()
         layout.operator("gpencil.frame_duplicate", text="Duplicate Active Frame")
         layout.operator("gpencil.frame_duplicate", text="Duplicate Active Frame All Layers").mode = 'ALL'
 
@@ -1036,6 +1045,11 @@ class GPENCIL_MT_gpencil_sculpt_specials(Menu):
         layout.operator("gpencil.stroke_simplify_fixed", text="Simplify")
         layout.operator("gpencil.stroke_simplify", text="Simplify Adaptative")
 
+        layout.separator()
+
+        layout.operator("gpencil.frame_clean_fill", text="Clean Boundary Strokes").mode = 'ACTIVE'
+        layout.operator("gpencil.frame_clean_fill", text="Clean Boundary Strokes all Frames").mode = 'ALL'
+
 
 class GPENCIL_MT_gpencil_draw_specials(Menu):
     bl_label = "GPencil Draw Specials"
@@ -1050,6 +1064,10 @@ class GPENCIL_MT_gpencil_draw_specials(Menu):
         layout.operator("gpencil.frame_duplicate", text="Duplicate Active Frame All Layers").mode = 'ALL'
         layout.separator()
         layout.operator("gpencil.active_frames_delete_all", text="Delete Frame")
+
+        layout.separator()
+        layout.operator("gpencil.frame_clean_fill", text="Clean Boundary Strokes").mode = 'ACTIVE'
+        layout.operator("gpencil.frame_clean_fill", text="Clean Boundary Strokes all Frames").mode = 'ALL'
 
         layout.separator()
         layout.operator("gpencil.primitive", text="Rectangle", icon='UV_FACESEL').type = 'BOX'

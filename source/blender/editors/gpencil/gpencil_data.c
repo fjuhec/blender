@@ -431,6 +431,90 @@ void GPENCIL_OT_frame_duplicate(wmOperatorType *ot)
 	ot->prop = RNA_def_enum(ot->srna, "mode", duplicate_mode, GP_FRAME_DUP_ACTIVE, "Mode", "");
 }
 
+/* ********************* Clean Fill Boundaries on Frame ************************** */
+enum {
+	GP_FRAME_CLEAN_FILL_ACTIVE = 0,
+	GP_FRAME_CLEAN_FILL_ALL = 1
+};
+
+static int gp_frame_clean_fill_exec(bContext *C, wmOperator *op)
+{
+	bool changed = false;
+	bGPdata *gpd = ED_gpencil_data_get_active(C);
+	int mode = RNA_enum_get(op->ptr, "mode");
+
+	CTX_DATA_BEGIN(C, bGPDlayer *, gpl, editable_gpencil_layers)
+	{
+		bGPDframe *init_gpf = gpl->actframe;
+		if (mode == GP_FRAME_CLEAN_FILL_ALL) {
+			init_gpf = gpl->frames.first;
+		}
+
+		for (bGPDframe *gpf = init_gpf; gpf; gpf = gpf->next) {
+			if ((gpf == gpl->actframe) || (mode == GP_FRAME_CLEAN_FILL_ALL)) {
+				bGPDstroke *gps, *gpsn;
+
+				if (gpf == NULL)
+					continue;
+
+				/* simply delete strokes which are no fill */
+				for (gps = gpf->strokes.first; gps; gps = gpsn) {
+					gpsn = gps->next;
+
+					/* skip strokes that are invalid for current view */
+					if (ED_gpencil_stroke_can_use(C, gps) == false)
+						continue;
+
+					/* free stroke */
+					if (gps->flag & GP_STROKE_NOFILL) {
+						/* free stroke memory arrays, then stroke itself */
+						if (gps->points) {
+							BKE_gpencil_free_stroke_weights(gps);
+							MEM_freeN(gps->points);
+						}
+						if (gps->triangles) MEM_freeN(gps->triangles);
+						BLI_freelinkN(&gpf->strokes, gps);
+
+						changed = true;
+					}
+				}
+			}
+		}
+	}
+	CTX_DATA_END;
+
+	/* notifiers */
+	if (changed) {
+		BKE_gpencil_batch_cache_dirty(gpd);
+		WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
+	}
+
+	return OPERATOR_FINISHED;
+}
+
+void GPENCIL_OT_frame_clean_fill(wmOperatorType *ot)
+{
+	static const EnumPropertyItem duplicate_mode[] = {
+	{ GP_FRAME_CLEAN_FILL_ACTIVE, "ACTIVE", 0, "Active", "Clean active frame only" },
+	{ GP_FRAME_CLEAN_FILL_ALL, "ALL", 0, "All", "Clean all frames in all layers" },
+	{ 0, NULL, 0, NULL, NULL }
+	};
+
+	/* identifiers */
+	ot->name = "Clean Fill Boundaries";
+	ot->idname = "GPENCIL_OT_frame_clean_fill";
+	ot->description = "Clean boundary fill stroke";
+
+	/* callbacks */
+	ot->exec = gp_frame_clean_fill_exec;
+	ot->poll = gp_active_layer_poll;
+
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+	ot->prop = RNA_def_enum(ot->srna, "mode", duplicate_mode, GP_FRAME_DUP_ACTIVE, "Mode", "");
+}
+
 /* *********************** Hide Layers ******************************** */
 
 static int gp_hide_exec(bContext *C, wmOperator *op)

@@ -746,6 +746,7 @@ void ED_operatortypes_gpencil(void)
 	WM_operatortype_append(GPENCIL_OT_active_frame_delete);
 	WM_operatortype_append(GPENCIL_OT_active_frames_delete_all);
 	WM_operatortype_append(GPENCIL_OT_frame_duplicate);
+	WM_operatortype_append(GPENCIL_OT_frame_clean_fill);
 
 	WM_operatortype_append(GPENCIL_OT_convert);
 	WM_operatortype_append(GPENCIL_OT_convert_scene_to_object);
