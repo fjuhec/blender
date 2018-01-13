@@ -74,8 +74,8 @@
 
 #include "gpencil_intern.h"
 
-#define GP_BOX_SIZE (24 * U.ui_scale)
-#define GP_BOX_GAP (6 * U.ui_scale)
+#define GP_BOX_SIZE (32 * U.ui_scale)
+#define GP_BOX_GAP (18 * U.ui_scale)
 
  /* draw a box with lines */
 static void gp_draw_boxlines(rcti *box, float ink[4], bool diagonal)
@@ -124,6 +124,26 @@ static void gp_draw_boxlines(rcti *box, float ink[4], bool diagonal)
 
 	immEnd();
 	immUnbindProgram();
+}
+
+/* draw color name */
+static void gp_draw_color_name(tGPDpick *tgpk, tGPDpickColor *col, const uiFontStyle *fstyle)
+{
+	char drawstr[UI_MAX_DRAW_STR];
+	const float okwidth = tgpk->boxsize[0];
+	const size_t max_len = sizeof(drawstr);
+	const float minwidth = (float)(UI_DPI_ICON_SIZE);
+
+	unsigned char text_col[4];
+	UI_GetThemeColor4ubv(TH_TEXT, text_col);
+
+	/* color name */
+	BLI_strncpy(drawstr, col->name, sizeof(drawstr));
+	UI_text_clip_middle_ex(fstyle, drawstr, okwidth, minwidth, max_len, '\0');
+
+	//UI_fontstyle_draw(fstyle, &col->rect, drawstr, (unsigned char *)coltext);
+	UI_fontstyle_draw_simple(fstyle, col->rect.xmin, col->rect.ymin - (GP_BOX_GAP / 2) - 3, 
+							 drawstr, text_col);
 }
 
 /* draw a filled box */
@@ -206,7 +226,7 @@ static void gpencil_draw_color_table(const bContext *UNUSED(C), tGPDpick *tgpk)
 	if (!tgpk->palette) {
 		return;
 	}
-
+	const uiFontStyle *fstyle = UI_FSTYLE_WIDGET;
 	float ink[4];
 	float select[4];
 	float line[4];
@@ -232,6 +252,7 @@ static void gpencil_draw_color_table(const bContext *UNUSED(C), tGPDpick *tgpk)
 		gp_draw_pattern_box(&col->rect, 0);
 		gp_draw_fill_box(&col->rect, col->rgba, col->fill, 0);
 		gp_draw_boxlines(&col->rect, line, col->fillmode);
+		gp_draw_color_name(tgpk, col, fstyle);
 	}
 }
 
@@ -322,6 +343,7 @@ static tGPDpick *gp_session_init_colorpick(bContext *C, wmOperator *op)
 	int idx = 0;
 	int row = 0;
 	int col = 0;
+	int t = 0;
 	for (PaletteColor *palcol = palette->colors.first; palcol; palcol = palcol->next) {
 		
 		/* Must use a color with fill with fill brushes */
@@ -347,10 +369,10 @@ static tGPDpick *gp_session_init_colorpick(bContext *C, wmOperator *op)
 		}
 
 		/* box position */
-		tcolor->rect.xmin = tgpk->panel.xmin + (tgpk->boxsize[0] * col) + (GP_BOX_GAP * (col + 1 ));
+		tcolor->rect.xmin = tgpk->panel.xmin + (tgpk->boxsize[0] * col) + (GP_BOX_GAP * (col + 1));
 		tcolor->rect.xmax = tcolor->rect.xmin + tgpk->boxsize[0];
 
-		tcolor->rect.ymax = tgpk->panel.ymax - (tgpk->boxsize[1] * row) - (GP_BOX_GAP * (row + 1));
+		tcolor->rect.ymax = tgpk->panel.ymax - (tgpk->boxsize[1] * row) - (GP_BOX_GAP * row) - (GP_BOX_GAP / 2);
 		tcolor->rect.ymin = tcolor->rect.ymax - tgpk->boxsize[0];
 
 		idx++;
@@ -361,8 +383,10 @@ static tGPDpick *gp_session_init_colorpick(bContext *C, wmOperator *op)
 			row = 0;
 			col++;
 		}
+
+		t++;
 	}
-	tgpk->totcolor = idx;
+	tgpk->totcolor = t;
 
 	/* return context data for running operator */
 	return tgpk;
