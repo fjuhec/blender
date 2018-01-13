@@ -238,10 +238,11 @@ static void gpencil_draw_color_table(const bContext *UNUSED(C), tGPDpick *tgpk)
 	line[3] = 1.0f;
 
 	/* draw panel background */
-	UI_GetThemeColor4fv(TH_PANEL_BACK, ink);
-	ink[3] = 1.0f;
-	gp_draw_fill_box(&tgpk->panel, ink, ink, 0);
-
+	UI_GetThemeColor4fv(TH_BACK, ink);
+	ink[3] = 0.9f;
+	UI_draw_roundbox_4fv(true, tgpk->panel.xmin, tgpk->panel.ymin, 
+						tgpk->panel.xmax, tgpk->panel.ymax,
+						3.0f, ink);
 	/* draw color boxes */
 	tGPDpickColor *col = tgpk->colors;
 	for (int i = 0; i < tgpk->totcolor; i++, col++) {
@@ -288,7 +289,7 @@ static int gpencil_colorpick_poll(bContext *C)
 }
 
 /* Allocate memory and initialize values */
-static tGPDpick *gp_session_init_colorpick(bContext *C, wmOperator *op)
+static tGPDpick *gp_session_init_colorpick(bContext *C, wmOperator *op, const wmEvent *event)
 {
 	tGPDpick *tgpk = MEM_callocN(sizeof(tGPDpick), __func__);
 
@@ -305,6 +306,12 @@ static tGPDpick *gp_session_init_colorpick(bContext *C, wmOperator *op)
 	tgpk->sa = CTX_wm_area(C);
 	tgpk->ar = CTX_wm_region(C);
 	tgpk->brush = BKE_gpencil_brush_getactive(ts);
+	tgpk->bflag = tgpk->brush->flag;
+	tgpk->brush->flag &= ~GP_BRUSH_ENABLE_CURSOR;
+
+
+	tgpk->center[0] = event->mval[0];
+	tgpk->center[1] = event->mval[1];
 
 	ED_region_visible_rect(tgpk->ar, &tgpk->rect);
 
@@ -324,18 +331,19 @@ static tGPDpick *gp_session_init_colorpick(bContext *C, wmOperator *op)
 
 	/* get number of rows and columns */
 	tgpk->row = (tgpk->rect.ymax - tgpk->rect.ymin - GP_BOX_GAP) / (tgpk->boxsize[1] + GP_BOX_GAP);
-	CLAMP_MIN(tgpk->row, 1);
+	CLAMP(tgpk->row, 1, 6);
 	tgpk->col = tgpk->totcolor / tgpk->row;
 	if (tgpk->totcolor % tgpk->row > 0) {
 		tgpk->col++;
 	}
 	CLAMP_MIN(tgpk->col, 1);
 
-	/* define panel size (vertical right) */
-	tgpk->panel.xmin = tgpk->rect.xmax - (GP_BOX_SIZE * tgpk->col ) - (GP_BOX_GAP * (tgpk->col + 1));
-	tgpk->panel.ymin = tgpk->rect.ymin;
-	tgpk->panel.xmax = tgpk->rect.xmax + 1;
-	tgpk->panel.ymax = tgpk->rect.ymax + 1;
+	/* define panel size */
+	tgpk->panel.xmin = tgpk->center[0] - ((GP_BOX_SIZE * tgpk->col) + (GP_BOX_GAP * (tgpk->col + 1)) / 2);
+	tgpk->panel.ymin = tgpk->center[1] - ((GP_BOX_SIZE * tgpk->row) + (GP_BOX_GAP * (tgpk->row + 1)) / 2);
+
+	tgpk->panel.xmax = tgpk->panel.xmin + (GP_BOX_SIZE * tgpk->col) + (GP_BOX_GAP * (tgpk->col + 1));
+	tgpk->panel.ymax = tgpk->panel.ymin + (GP_BOX_SIZE * tgpk->row) + (GP_BOX_GAP * (tgpk->row + 1));
 
 	/* load color table */
 	tGPDpickColor *tcolor = tgpk->colors;
@@ -412,6 +420,9 @@ static void gpencil_colorpick_exit(bContext *C, wmOperator *op)
 		/* free color table */
 		MEM_SAFE_FREE(tgpk->colors);
 
+		/* rest brush flags */
+		tgpk->brush->flag = tgpk->bflag;
+
 		/* finally, free memory used by temp data */
 		MEM_freeN(tgpk);
 	}
@@ -429,12 +440,12 @@ static void gpencil_colorpick_cancel(bContext *C, wmOperator *op)
 }
 
 /* Init: Allocate memory and set init values */
-static int gpencil_colorpick_init(bContext *C, wmOperator *op)
+static int gpencil_colorpick_init(bContext *C, wmOperator *op, const wmEvent *event)
 {
 	tGPDpick *tgpk;
 
 	/* check context */
-	tgpk = op->customdata = gp_session_init_colorpick(C, op);
+	tgpk = op->customdata = gp_session_init_colorpick(C, op, event);
 	if (tgpk == NULL) {
 		/* something wasn't set correctly in context */
 		gpencil_colorpick_exit(C, op);
@@ -451,7 +462,7 @@ static int gpencil_colorpick_invoke(bContext *C, wmOperator *op, const wmEvent *
 	tGPDpick *tgpk = NULL;
 
 	/* try to initialize context data needed */
-	if (!gpencil_colorpick_init(C, op)) {
+	if (!gpencil_colorpick_init(C, op, event)) {
 		gpencil_colorpick_exit(C, op);
 		if (op->customdata)
 			MEM_freeN(op->customdata);
@@ -502,7 +513,7 @@ static int gpencil_colorpick_modal(bContext *C, wmOperator *op, const wmEvent *e
 	Object *ob = CTX_data_active_object(C);
 	tGPDpick *tgpk = op->customdata;
 
-	int estate = OPERATOR_PASS_THROUGH; /* default exit state - pass through */
+	int estate = OPERATOR_RUNNING_MODAL; 
 
 	switch (event->type) {
 		case ESCKEY:
@@ -535,7 +546,7 @@ static int gpencil_colorpick_modal(bContext *C, wmOperator *op, const wmEvent *e
 			gpencil_colorpick_exit(C, op);
 			break;
 		
-		case OPERATOR_RUNNING_MODAL | OPERATOR_PASS_THROUGH:
+		case OPERATOR_RUNNING_MODAL:
 			break;
 	}
 	

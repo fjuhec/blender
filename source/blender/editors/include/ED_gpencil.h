@@ -210,7 +210,9 @@ typedef struct tGPDpick {
 	struct ARegion *ar;					/* region where painting originated */
 	struct Palette *palette;			/* current palette */
 	struct bGPDbrush *brush;            /* current brush */
+	short bflag;                        /* previous brush flag */
 
+	int center[2];                      /* mouse center position */
 	rcti rect;                          /* visible area */
 	rcti panel;                         /* panel area */
 	int row, col;                       /* number of rows and columns */ 
