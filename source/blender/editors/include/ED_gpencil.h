@@ -193,6 +193,7 @@ typedef struct tGPDfill {
 
 /* Temporary color picker operation data */
 typedef struct tGPDpickColor {
+	char name[64];  /* color name. Must be unique. */
 	rcti rect;		/* box position */
 	int index;      /* index of color in palette */
 	float rgba[4];	/* color */

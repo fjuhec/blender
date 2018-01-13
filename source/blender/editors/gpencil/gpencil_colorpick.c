@@ -334,6 +334,7 @@ static tGPDpick *gp_session_init_colorpick(bContext *C, wmOperator *op)
 			}
 		}
 
+		BLI_strncpy(tcolor->name, palcol->info, sizeof(tcolor->name));
 		tcolor->index = idx;
 		copy_v4_v4(tcolor->rgba, palcol->rgb);
 		if (palcol->fill[3] > 0.0f) {
