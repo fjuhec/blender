@@ -288,6 +288,24 @@ static int gpencil_colorpick_poll(bContext *C)
 	return 0;
 }
 
+static int get_tot_colors(tGPDpick *tgpk)
+{
+	int tot = 0;
+	for (PaletteColor *palcol = tgpk->palette->colors.first; palcol; palcol = palcol->next) {
+
+		/* Must use a color with fill with fill brushes */
+		if (tgpk->brush->flag & GP_BRUSH_FILL_ONLY) {
+			if ((palcol->fill[3] < GPENCIL_ALPHA_OPACITY_THRESH) &&
+				((tgpk->brush->flag & GP_BRUSH_FILL_ALLOW_STROKEONLY) == 0))
+			{
+				continue;
+			}
+		}
+		tot++;
+	}
+	return tot;
+}
+
 /* Allocate memory and initialize values */
 static tGPDpick *gp_session_init_colorpick(bContext *C, wmOperator *op, const wmEvent *event)
 {
@@ -320,7 +338,7 @@ static tGPDpick *gp_session_init_colorpick(bContext *C, wmOperator *op, const wm
 	tgpk->palette = palslot->palette;
 
 	/* allocate color table */
-	tgpk->totcolor = BLI_listbase_count(&tgpk->palette->colors);
+	tgpk->totcolor = get_tot_colors(tgpk);
 	if (tgpk->totcolor > 0) {
 		tgpk->colors = MEM_callocN(sizeof(tGPDpickColor) * tgpk->totcolor, "gp_colorpicker");
 	}
@@ -331,6 +349,9 @@ static tGPDpick *gp_session_init_colorpick(bContext *C, wmOperator *op, const wm
 
 	/* get number of rows and columns */
 	tgpk->row = (tgpk->rect.ymax - tgpk->rect.ymin - GP_BOX_GAP) / (tgpk->boxsize[1] + GP_BOX_GAP);
+	if (tgpk->row > tgpk->totcolor) {
+		tgpk->row = tgpk->totcolor;
+	}
 	CLAMP(tgpk->row, 1, 6);
 	tgpk->col = tgpk->totcolor / tgpk->row;
 	if (tgpk->totcolor % tgpk->row > 0) {
@@ -339,11 +360,30 @@ static tGPDpick *gp_session_init_colorpick(bContext *C, wmOperator *op, const wm
 	CLAMP_MIN(tgpk->col, 1);
 
 	/* define panel size */
-	tgpk->panel.xmin = tgpk->center[0] - ((GP_BOX_SIZE * tgpk->col) + (GP_BOX_GAP * (tgpk->col + 1)) / 2);
-	tgpk->panel.ymin = tgpk->center[1] - ((GP_BOX_SIZE * tgpk->row) + (GP_BOX_GAP * (tgpk->row + 1)) / 2);
+	int width = (GP_BOX_SIZE * tgpk->col) + (GP_BOX_GAP * (tgpk->col + 1));
+	int height = (GP_BOX_SIZE * tgpk->row) + (GP_BOX_GAP * (tgpk->row + 1));
+	tgpk->panel.xmin = tgpk->center[0] - (width / 2) + tgpk->rect.xmin;
+	tgpk->panel.ymin = tgpk->center[1] - (height / 2) + tgpk->rect.ymin;
 
-	tgpk->panel.xmax = tgpk->panel.xmin + (GP_BOX_SIZE * tgpk->col) + (GP_BOX_GAP * (tgpk->col + 1));
-	tgpk->panel.ymax = tgpk->panel.ymin + (GP_BOX_SIZE * tgpk->row) + (GP_BOX_GAP * (tgpk->row + 1));
+	/* center in visible area */
+	if (tgpk->panel.xmin < tgpk->rect.xmin) {
+		tgpk->panel.xmin = tgpk->rect.xmin;
+	}
+	if (tgpk->panel.ymin < tgpk->rect.ymin) {
+		tgpk->panel.ymin = tgpk->rect.ymin;
+	}
+
+	tgpk->panel.xmax = tgpk->panel.xmin + width;
+	tgpk->panel.ymax = tgpk->panel.ymin + height;
+
+	if (tgpk->panel.xmax > tgpk->rect.xmax) {
+		tgpk->panel.xmin = tgpk->rect.xmax - width;
+		tgpk->panel.xmax = tgpk->panel.xmin + width;
+	}
+	if (tgpk->panel.ymax > tgpk->rect.ymax) {
+		tgpk->panel.ymin = tgpk->rect.ymax - height;
+		tgpk->panel.ymax = tgpk->panel.ymin + height;
+	}
 
 	/* load color table */
 	tGPDpickColor *tcolor = tgpk->colors;
