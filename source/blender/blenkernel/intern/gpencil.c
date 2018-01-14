@@ -586,7 +586,8 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->sublevel = 1;
 	brush->draw_random_sub = 0.0f;
 	copy_v3_v3(brush->curcolor, curcolor);
-	
+	brush->icon = GPBRUSH_PENCIL;
+
 	/* Pen brush */
 	brush = BKE_gpencil_brush_addnew(ts, "Pen", true);
 	brush->thickness = 30.0f;
@@ -612,6 +613,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->thick_smoothlvl = 3;
 	brush->draw_random_sub = 0.0f;
 	copy_v3_v3(brush->curcolor, curcolor);
+	brush->icon = GPBRUSH_PEN;
 
 	/* Ink brush */
 	brush = BKE_gpencil_brush_addnew(ts, "Ink", true);
@@ -636,6 +638,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->sublevel = 1;
 	brush->draw_random_sub = 0.0f;
 	copy_v3_v3(brush->curcolor, curcolor);
+	brush->icon = GPBRUSH_INK;
 
 	/* Curve */
 	custom_curve = brush->cur_sensitivity;
@@ -666,6 +669,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->sublevel = 1;
 	brush->draw_random_sub = 0.0f;
 	copy_v3_v3(brush->curcolor, curcolor);
+	brush->icon = GPBRUSH_INKNOISE;
 
 	/* Curve */
 	custom_curve = brush->cur_sensitivity;
@@ -697,6 +701,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->sublevel = 0;
 	brush->draw_random_sub = 0;
 	copy_v3_v3(brush->curcolor, curcolor);
+	brush->icon = GPBRUSH_BLOCK;
 
 	/* Marker brush */
 	brush = BKE_gpencil_brush_addnew(ts, "Marker", false);
@@ -721,6 +726,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->sublevel = 1;
 	brush->draw_random_sub = 0.0f;
 	copy_v3_v3(brush->curcolor, curcolor);
+	brush->icon = GPBRUSH_MARKER;
 
 	/* Experimental brush */
 	brush = BKE_gpencil_brush_addnew(ts, "Experimental", false);
@@ -746,6 +752,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->sublevel = 3;
 	brush->draw_random_sub = 0;
 	copy_v3_v3(brush->curcolor, curcolor);
+	brush->icon = GPBRUSH_CUSTOM;
 
 	/* Fill brush */
 	brush = BKE_gpencil_brush_addnew(ts, "Fill", false);
@@ -755,6 +762,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->fill_leak = 3;
 	brush->fill_threshold = 0.1f;
 	brush->fill_simplylvl = 1;
+	brush->icon = GPBRUSH_FILL;
 
 	brush->draw_strength = 1.0f;
 	copy_v3_v3(brush->curcolor, curcolor);
@@ -785,6 +793,7 @@ bGPDbrush *BKE_gpencil_brush_addnew(ToolSettings *ts, const char *name, bool set
 	brush->draw_strength = 1.0f;
 	brush->draw_jitter = 0.0f;
 	brush->flag |= GP_BRUSH_USE_JITTER_PRESSURE;
+	brush->icon = GPBRUSH_CUSTOM;
 
 	/* curves */
 	brush->cur_sensitivity = curvemapping_add(1, 0.0f, 0.0f, 1.0f, 1.0f);

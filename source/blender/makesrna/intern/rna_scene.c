@@ -49,6 +49,7 @@
 #include "BKE_paint.h"
 
 #include "ED_object.h"
+#include "ED_gpencil.h"
 
 #include "GPU_extensions.h"
 
@@ -655,7 +656,7 @@ static const EnumPropertyItem *rna_GPencilBrush_enum_itemf(
 			item_tmp.icon = ICON_GPBRUSH_FILL;
 		}
 		else {
-			item_tmp.icon = ICON_GPBRUSH_DRAW;
+			item_tmp.icon = gpencil_get_brush_icon(brush->icon);
 		}
 
 		RNA_enum_item_add(&item, &totitem, &item_tmp);

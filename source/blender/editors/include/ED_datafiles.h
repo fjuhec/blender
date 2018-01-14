@@ -271,8 +271,26 @@ extern char datatoc_gp_brush_clone_png[];
 extern int datatoc_gp_brush_weight_png_size;
 extern char datatoc_gp_brush_weight_png[];
 
-extern int datatoc_gp_brush_draw_png_size;
-extern char datatoc_gp_brush_draw_png[];
+extern int datatoc_gp_brush_pencil_png_size;
+extern char datatoc_gp_brush_pencil_png[];
+
+extern int datatoc_gp_brush_pen_png_size;
+extern char datatoc_gp_brush_pen_png[];
+
+extern int datatoc_gp_brush_ink_png_size;
+extern char datatoc_gp_brush_ink_png[];
+
+extern int datatoc_gp_brush_inknoise_png_size;
+extern char datatoc_gp_brush_inknoise_png[];
+
+extern int datatoc_gp_brush_block_png_size;
+extern char datatoc_gp_brush_block_png[];
+
+extern int datatoc_gp_brush_marker_png_size;
+extern char datatoc_gp_brush_marker_png[];
+
+extern int datatoc_gp_brush_custom_png_size;
+extern char datatoc_gp_brush_custom_png[];
 
 extern int datatoc_gp_brush_fill_png_size;
 extern char datatoc_gp_brush_fill_png[];

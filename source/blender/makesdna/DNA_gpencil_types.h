@@ -128,6 +128,8 @@ typedef struct bGPDbrush {
 	float fill_threshold;     /* factor for transparency */
 	int   fill_simplylvl;     /* number of simplify steps */
 	int   fill_draw_mode;     /* type of control lines drawing mode */
+	int   icon;               /* icon identifier */
+	char  pad[4];
 } bGPDbrush;
 
 /* bGPDbrush->flag */
@@ -533,6 +535,18 @@ typedef enum eGP_DepthOrdering {
 	GP_XRAY_3DSPACE = 1,
 	GP_XRAY_BACK  = 2
 } eGP_DepthOrdering;
+
+/* default brush icons */
+typedef enum eGP_BrushIcons {
+	GPBRUSH_CUSTOM = 0,
+	GPBRUSH_PENCIL = 1,
+	GPBRUSH_PEN = 2,
+	GPBRUSH_INK = 3,
+	GPBRUSH_INKNOISE = 4,
+	GPBRUSH_BLOCK = 5,
+	GPBRUSH_MARKER = 6,
+	GPBRUSH_FILL = 7
+} eGP_BrushIcons;
 
 /* ***************************************** */
 /* Mode Checking Macros */

@@ -953,7 +953,7 @@ const EnumPropertyItem *ED_gpencil_brushes_enum_itemf(
 				item_tmp.icon = ICON_GPBRUSH_FILL;
 			}
 			else {
-				item_tmp.icon = ICON_GPBRUSH_DRAW;
+				item_tmp.icon = gpencil_get_brush_icon(brush->icon);
 			}
 		else
 			item_tmp.icon = ICON_NONE;
@@ -1445,5 +1445,39 @@ void gp_stroke_convertcoords_tpoint(Scene *scene, ARegion *ar, View3D *v3d,
 	}
 	else {
 		zero_v3(out);
+	}
+}
+
+/* helper to get brush icon */
+int gpencil_get_brush_icon(int type)
+{
+	switch (type) {
+		case GPBRUSH_CUSTOM:
+			return ICON_GPBRUSH_CUSTOM;
+			break;
+		case GPBRUSH_PENCIL:
+			return ICON_GPBRUSH_PENCIL;
+			break;
+		case GPBRUSH_PEN:
+			return ICON_GPBRUSH_PEN;
+			break;
+		case GPBRUSH_INK:
+			return ICON_GPBRUSH_INK;
+			break;
+		case GPBRUSH_INKNOISE:
+			return ICON_GPBRUSH_INKNOISE;
+			break;
+		case GPBRUSH_BLOCK:
+			return ICON_GPBRUSH_BLOCK;
+			break;
+		case GPBRUSH_MARKER:
+			return ICON_GPBRUSH_MARKER;
+			break;
+		case GPBRUSH_FILL:
+			return ICON_GPBRUSH_FILL;
+			break;
+		default:
+			return ICON_GPBRUSH_CUSTOM;
+			break;
 	}
 }
