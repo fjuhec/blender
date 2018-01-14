@@ -240,9 +240,12 @@ static void gpencil_draw_color_table(const bContext *UNUSED(C), tGPDpick *tgpk)
 	/* draw panel background */
 	UI_GetThemeColor4fv(TH_BACK, ink);
 	ink[3] = 0.9f;
-	UI_draw_roundbox_4fv(true, tgpk->panel.xmin, tgpk->panel.ymin, 
+	glEnable(GL_BLEND);
+	UI_draw_roundbox_4fv(true, tgpk->panel.xmin, tgpk->panel.ymin,
 						tgpk->panel.xmax, tgpk->panel.ymax,
 						3.0f, ink);
+	glDisable(GL_BLEND);
+
 	/* draw color boxes */
 	tGPDpickColor *col = tgpk->colors;
 	for (int i = 0; i < tgpk->totcolor; i++, col++) {
@@ -250,9 +253,12 @@ static void gpencil_draw_color_table(const bContext *UNUSED(C), tGPDpick *tgpk)
 		if (tgpk->palette->active_color == col->index) {
 			gp_draw_fill_box(&col->rect, select, select, 2);
 		}
+		glEnable(GL_BLEND);
 		gp_draw_pattern_box(&col->rect, 0);
 		gp_draw_fill_box(&col->rect, col->rgba, col->fill, 0);
 		gp_draw_boxlines(&col->rect, line, col->fillmode);
+		glDisable(GL_BLEND);
+
 		gp_draw_color_name(tgpk, col, fstyle);
 	}
 }
@@ -262,10 +268,7 @@ static void gpencil_colorpick_draw_3d(const bContext *C, ARegion *UNUSED(ar), vo
 {
 	tGPDpick *tgpk = (tGPDpick *)arg;
 	
-	glEnable(GL_BLEND);
 	gpencil_draw_color_table(C, tgpk); 
-	glDisable(GL_BLEND);
-
 }
 
 /* check if context is suitable */
