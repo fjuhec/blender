@@ -243,8 +243,8 @@ static void gpencil_draw_color_table(const bContext *UNUSED(C), tGPDpick *tgpk)
 	line[3] = 1.0f;
 
 	/* draw panel background */
-	UI_GetThemeColor4fv(TH_BACK, ink);
-	ink[3] = 0.9f;
+	UI_GetThemeColor4fv(TH_PANEL_BACK, ink);
+	ink[3] = 0.8f;
 	glEnable(GL_BLEND);
 	UI_draw_roundbox_4fv(true, tgpk->panel.xmin, tgpk->panel.ymin,
 						tgpk->panel.xmax, tgpk->panel.ymax,
