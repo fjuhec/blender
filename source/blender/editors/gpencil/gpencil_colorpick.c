@@ -352,7 +352,12 @@ static tGPDpick *gp_session_init_colorpick(bContext *C, wmOperator *op, const wm
 	if (tgpk->row > tgpk->totcolor) {
 		tgpk->row = tgpk->totcolor;
 	}
-	CLAMP(tgpk->row, 1, 6);
+	if (tgpk->totcolor < 72) {
+		CLAMP(tgpk->row, 1, 6);
+	}
+	else {
+		CLAMP(tgpk->row, 1, 9);
+	}
 	tgpk->col = tgpk->totcolor / tgpk->row;
 	if (tgpk->totcolor % tgpk->row > 0) {
 		tgpk->col++;
