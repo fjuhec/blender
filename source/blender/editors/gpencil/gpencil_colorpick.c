@@ -127,7 +127,7 @@ static void gp_draw_boxlines(rcti *box, float ink[4], bool diagonal)
 }
 
 /* draw color name */
-static void gp_draw_color_name(tGPDpick *tgpk, tGPDpickColor *col, const uiFontStyle *fstyle)
+static void gp_draw_color_name(tGPDpick *tgpk, tGPDpickColor *col, const uiFontStyle *fstyle, bool focus)
 {
 	char drawstr[UI_MAX_DRAW_STR];
 	const float okwidth = tgpk->boxsize[0];
@@ -135,7 +135,12 @@ static void gp_draw_color_name(tGPDpick *tgpk, tGPDpickColor *col, const uiFontS
 	const float minwidth = (float)(UI_DPI_ICON_SIZE);
 
 	unsigned char text_col[4];
-	UI_GetThemeColor4ubv(TH_TEXT, text_col);
+	if (focus) {
+		UI_GetThemeColor4ubv(TH_TEXT_HI, text_col);
+	}
+	else {
+		UI_GetThemeColor4ubv(TH_TEXT, text_col);
+	}
 
 	/* color name */
 	BLI_strncpy(drawstr, col->name, sizeof(drawstr));
@@ -249,9 +254,11 @@ static void gpencil_draw_color_table(const bContext *UNUSED(C), tGPDpick *tgpk)
 	/* draw color boxes */
 	tGPDpickColor *col = tgpk->colors;
 	for (int i = 0; i < tgpk->totcolor; i++, col++) {
+		bool focus = false;
 		/* focus to current color */
 		if (tgpk->palette->active_color == col->index) {
 			gp_draw_fill_box(&col->rect, select, select, 2);
+			focus = true;
 		}
 		glEnable(GL_BLEND);
 		gp_draw_pattern_box(&col->rect, 0);
@@ -259,7 +266,7 @@ static void gpencil_draw_color_table(const bContext *UNUSED(C), tGPDpick *tgpk)
 		gp_draw_boxlines(&col->rect, line, col->fillmode);
 		glDisable(GL_BLEND);
 
-		gp_draw_color_name(tgpk, col, fstyle);
+		gp_draw_color_name(tgpk, col, fstyle, focus);
 	}
 }
 
