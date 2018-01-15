@@ -344,7 +344,7 @@ static void set_pixel(ImBuf *ibuf, int idx, const float col[4])
  * \param maxpixel  Maximum index
  * \param limit     Limit of pixels to analize
  * \param index     Index of current pixel
- * \param type      0-Horizontal 1-Verical
+ * \param type      0-Horizontal 1-Vertical
  */
 static bool is_leak_narrow(ImBuf *ibuf, const int maxpixel, int limit, int index, int type)
 {
@@ -394,7 +394,7 @@ static bool is_leak_narrow(ImBuf *ibuf, const int maxpixel, int limit, int index
 		}
 	}
 
-	/* Vertical leak (check horizontal pixels 
+	/* Vertical leak (check horizontal pixels) 
 	 *
 	 *  XXX·XXX
 	 *     ^

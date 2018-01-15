@@ -77,7 +77,7 @@
 #define GP_BOX_SIZE (32 * U.ui_scale)
 #define GP_BOX_GAP (18 * U.ui_scale)
 
- /* draw a box with lines */
+ /* draw a box with lines and optional diagonal line */
 static void gp_draw_boxlines(rcti *box, float ink[4], bool diagonal)
 {
 	Gwn_VertFormat *format = immVertexFormat();
@@ -126,7 +126,7 @@ static void gp_draw_boxlines(rcti *box, float ink[4], bool diagonal)
 	immUnbindProgram();
 }
 
-/* draw color name */
+/* draw color name using default font */
 static void gp_draw_color_name(tGPDpick *tgpk, tGPDpickColor *col, const uiFontStyle *fstyle, bool focus)
 {
 	char drawstr[UI_MAX_DRAW_STR];
@@ -145,13 +145,11 @@ static void gp_draw_color_name(tGPDpick *tgpk, tGPDpickColor *col, const uiFontS
 	/* color name */
 	BLI_strncpy(drawstr, col->name, sizeof(drawstr));
 	UI_text_clip_middle_ex(fstyle, drawstr, okwidth, minwidth, max_len, '\0');
-
-	//UI_fontstyle_draw(fstyle, &col->rect, drawstr, (unsigned char *)coltext);
 	UI_fontstyle_draw_simple(fstyle, col->rect.xmin, col->rect.ymin - (GP_BOX_GAP / 2) - 3, 
 							 drawstr, text_col);
 }
 
-/* draw a filled box */
+/* draw a filled box using two triangles */
 static void gp_draw_fill_box(rcti *box, float ink[4], float fill[4], int offset)
 {
 	Gwn_VertFormat *format = immVertexFormat();
@@ -222,9 +220,6 @@ static void gp_draw_pattern_box(rcti *box, int offset)
 	}
 }
 
-/* ----------------------- */
-/* Drawing                 */
-
 /* draw a toolbar with all colors of the palette */
 static void gpencil_draw_color_table(const bContext *UNUSED(C), tGPDpick *tgpk)
 {
@@ -261,11 +256,18 @@ static void gpencil_draw_color_table(const bContext *UNUSED(C), tGPDpick *tgpk)
 			focus = true;
 		}
 		glEnable(GL_BLEND);
+		/* draw a pattern to see alpha effect */
 		gp_draw_pattern_box(&col->rect, 0);
+
+		/* draw color box */
 		gp_draw_fill_box(&col->rect, col->rgba, col->fill, 0);
+
+		/* draw lines around box */
 		gp_draw_boxlines(&col->rect, line, col->fillmode);
+
 		glDisable(GL_BLEND);
 
+		/* draw color name */
 		gp_draw_color_name(tgpk, col, fstyle, focus);
 	}
 }
@@ -298,6 +300,7 @@ static int gpencil_colorpick_poll(bContext *C)
 	return 0;
 }
 
+/* get total number of available colors for brush */
 static int get_tot_colors(tGPDpick *tgpk)
 {
 	int tot = 0;
@@ -335,15 +338,15 @@ static tGPDpick *gp_session_init_colorpick(bContext *C, wmOperator *op, const wm
 	tgpk->ar = CTX_wm_region(C);
 	tgpk->brush = BKE_gpencil_brush_getactive(ts);
 	tgpk->bflag = tgpk->brush->flag;
+	/* disable cursor for brush */
 	tgpk->brush->flag &= ~GP_BRUSH_ENABLE_CURSOR;
-
 
 	tgpk->center[0] = event->mval[0];
 	tgpk->center[1] = event->mval[1];
 
 	ED_region_visible_rect(tgpk->ar, &tgpk->rect);
 
-	/* get palette */
+	/* get current palette */
 	bGPDpaletteref *palslot = BKE_gpencil_paletteslot_validate(bmain, gpd);
 	tgpk->palette = palslot->palette;
 
@@ -362,6 +365,7 @@ static tGPDpick *gp_session_init_colorpick(bContext *C, wmOperator *op, const wm
 	if (tgpk->row > tgpk->totcolor) {
 		tgpk->row = tgpk->totcolor;
 	}
+	/* if there are too many colors, use more rows */
 	if (tgpk->totcolor < 72) {
 		CLAMP(tgpk->row, 1, 6);
 	}
@@ -380,7 +384,7 @@ static tGPDpick *gp_session_init_colorpick(bContext *C, wmOperator *op, const wm
 	tgpk->panel.xmin = tgpk->center[0] - (width / 2) + tgpk->rect.xmin;
 	tgpk->panel.ymin = tgpk->center[1] - (height / 2) + tgpk->rect.ymin;
 
-	/* center in visible area */
+	/* center in visible area. If panel is outside visible area, move panel to make all visible */
 	if (tgpk->panel.xmin < tgpk->rect.xmin) {
 		tgpk->panel.xmin = tgpk->rect.xmin;
 	}
@@ -400,7 +404,7 @@ static tGPDpick *gp_session_init_colorpick(bContext *C, wmOperator *op, const wm
 		tgpk->panel.ymax = tgpk->panel.ymin + height;
 	}
 
-	/* load color table */
+	/* load color table in temp data */
 	tGPDpickColor *tcolor = tgpk->colors;
 	Palette *palette = tgpk->palette;
 	int idx = 0;
@@ -408,7 +412,6 @@ static tGPDpick *gp_session_init_colorpick(bContext *C, wmOperator *op, const wm
 	int col = 0;
 	int t = 0;
 	for (PaletteColor *palcol = palette->colors.first; palcol; palcol = palcol->next) {
-		
 		/* Must use a color with fill with fill brushes */
 		if (tgpk->brush->flag & GP_BRUSH_FILL_ONLY) {
 			if ((palcol->fill[3] < GPENCIL_ALPHA_OPACITY_THRESH) &&
@@ -488,6 +491,7 @@ static void gpencil_colorpick_exit(bContext *C, wmOperator *op)
 	WM_event_add_notifier(C, NC_GPENCIL | NA_EDITED, NULL);
 }
 
+/* cancel operator */
 static void gpencil_colorpick_cancel(bContext *C, wmOperator *op)
 {
 	/* this is just a wrapper around exit() */
@@ -538,7 +542,7 @@ static int gpencil_colorpick_invoke(bContext *C, wmOperator *op, const wmEvent *
 	return OPERATOR_RUNNING_MODAL;
 }
 
-/* set active color */
+/* set active color when user select one box of the toolbar */
 static bool set_color(const wmEvent *event, tGPDpick *tgpk)
 {
 	tGPDpickColor *tcol = tgpk->colors;
