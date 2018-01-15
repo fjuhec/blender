@@ -352,8 +352,11 @@ static bool get_normal_vector(bGPdata *gpd, float r_point[3], float r_normal[3])
 			if (gps->totpoints >= 3) {
 				bGPDspoint *pt = &gps->points[0];
 				BKE_gpencil_stroke_normal(gps, r_normal);
-				copy_v3_v3(r_point, &pt->x);
-				return true;
+				/* in some weird situations, the normal cannot be calculated, so try next stroke */
+				if ((r_normal[0] != 0.0f) || (r_normal[1] != 0.0f) || (r_normal[2] != 0.0f)) {
+					copy_v3_v3(r_point, &pt->x);
+					return true;
+				}
 			}
 		}
 	}
