@@ -1171,9 +1171,9 @@ void DepsgraphRelationBuilder::build_driver_variables(ID *id, FCurve *fcu)
 					continue;
 				}
 				OperationKey variable_key(dtar->id,
-				                        DEG_NODE_TYPE_BONE,
-				                        target_pchan->name,
-				                        DEG_OPCODE_BONE_DONE);
+				                          DEG_NODE_TYPE_BONE,
+				                          target_pchan->name,
+				                          DEG_OPCODE_BONE_DONE);
 				if (is_same_bone_dependency(variable_key, self_key)) {
 					continue;
 				}
@@ -1198,10 +1198,12 @@ void DepsgraphRelationBuilder::build_driver_variables(ID *id, FCurve *fcu)
 				if (RNA_pointer_is_null(&variable_key.ptr)) {
 					continue;
 				}
-				if (is_same_bone_dependency(variable_key, self_key)) {
+				if (is_same_bone_dependency(variable_key, self_key) ||
+				    is_nodetree_node_dependency(variable_key, self_key))
+				{
 					continue;
 				}
-				add_relation(variable_key, driver_key, "RNA Bone -> Driver");
+				add_relation(variable_key, driver_key, "RNA Target -> Driver");
 			}
 			else {
 				if (dtar->id == id) {
