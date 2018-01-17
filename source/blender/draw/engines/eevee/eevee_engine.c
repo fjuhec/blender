@@ -69,7 +69,7 @@ static void eevee_engine_init(void *ved)
 	/* EEVEE_effects_init needs to go first for TAA */
 	EEVEE_effects_init(sldata, vedata);
 
-	EEVEE_materials_init(stl);
+	EEVEE_materials_init(stl, fbl);
 	EEVEE_lights_init(sldata);
 	EEVEE_lightprobes_init(sldata, vedata);
 
@@ -168,23 +168,19 @@ static void eevee_draw_background(void *vedata)
 	int loop_ct = DRW_state_is_image_render() ? 4 : 1;
 
 	while (loop_ct--) {
+		unsigned int primes[3] = {2, 3, 7};
+		double offset[3] = {0.0, 0.0, 0.0};
+		double r[3];
 
-		/* XXX temp for denoising render. TODO plug number of samples here */
 		if (DRW_state_is_image_render()) {
-			double r;
-			BLI_halton_1D(2, 0.0, stl->effects->taa_current_sample - 1, &r);
-
+			BLI_halton_3D(primes, offset, stl->effects->taa_current_sample, r);
 			/* Set jitter offset */
-			/* PERF This is killing perf ! */
-			EEVEE_update_util_texture((float)r);
+			EEVEE_update_noise(psl, fbl, r);
 		}
-		else if (((stl->effects->enabled_effects & EFFECT_TAA) != 0) && (stl->effects->taa_current_sample > 1)) {
-			double r;
-			BLI_halton_1D(2, 0.0, stl->effects->taa_current_sample - 1, &r);
-
+		else if ((stl->effects->enabled_effects & EFFECT_TAA) != 0) {
+			BLI_halton_3D(primes, offset, stl->effects->taa_current_sample, r);
 			/* Set jitter offset */
-			/* PERF This is killing perf ! */
-			EEVEE_update_util_texture((float)r);
+			EEVEE_update_noise(psl, fbl, r);
 		}
 
 		/* Refresh Probes */
@@ -363,7 +359,6 @@ static void eevee_view_layer_settings_create(RenderEngine *UNUSED(engine), IDPro
 	BKE_collection_engine_property_add_bool(props, "ssr_enable", false);
 	BKE_collection_engine_property_add_bool(props, "ssr_refraction", false);
 	BKE_collection_engine_property_add_bool(props, "ssr_halfres", true);
-	BKE_collection_engine_property_add_int(props, "ssr_ray_count", 1);
 	BKE_collection_engine_property_add_float(props, "ssr_quality", 0.25f);
 	BKE_collection_engine_property_add_float(props, "ssr_max_roughness", 0.5f);
 	BKE_collection_engine_property_add_float(props, "ssr_thickness", 0.2f);
@@ -384,12 +379,10 @@ static void eevee_view_layer_settings_create(RenderEngine *UNUSED(engine), IDPro
 
 	BKE_collection_engine_property_add_bool(props, "gtao_enable", false);
 	BKE_collection_engine_property_add_bool(props, "gtao_use_bent_normals", true);
-	BKE_collection_engine_property_add_bool(props, "gtao_denoise", true);
 	BKE_collection_engine_property_add_bool(props, "gtao_bounce", true);
 	BKE_collection_engine_property_add_float(props, "gtao_distance", 0.2f);
 	BKE_collection_engine_property_add_float(props, "gtao_factor", 1.0f);
 	BKE_collection_engine_property_add_float(props, "gtao_quality", 0.25f);
-	BKE_collection_engine_property_add_int(props, "gtao_samples", 2);
 
 	BKE_collection_engine_property_add_bool(props, "dof_enable", false);
 	BKE_collection_engine_property_add_float(props, "bokeh_max_size", 100.0f);

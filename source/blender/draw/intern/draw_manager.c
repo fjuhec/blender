@@ -25,11 +25,11 @@
 
 #include <stdio.h>
 
-#include "BLI_dynstr.h"
 #include "BLI_listbase.h"
 #include "BLI_mempool.h"
 #include "BLI_rect.h"
 #include "BLI_string.h"
+#include "BLI_string_utils.h"
 
 #include "BIF_glutil.h"
 
@@ -584,24 +584,11 @@ GPUShader *DRW_shader_create_with_lib(
 	char *frag_with_lib = NULL;
 	char *geom_with_lib = NULL;
 
-	DynStr *ds_vert = BLI_dynstr_new();
-	BLI_dynstr_append(ds_vert, lib);
-	BLI_dynstr_append(ds_vert, vert);
-	vert_with_lib = BLI_dynstr_get_cstring(ds_vert);
-	BLI_dynstr_free(ds_vert);
-
-	DynStr *ds_frag = BLI_dynstr_new();
-	BLI_dynstr_append(ds_frag, lib);
-	BLI_dynstr_append(ds_frag, frag);
-	frag_with_lib = BLI_dynstr_get_cstring(ds_frag);
-	BLI_dynstr_free(ds_frag);
+	vert_with_lib = BLI_string_joinN(lib, vert);
+	frag_with_lib = BLI_string_joinN(lib, frag);
 
 	if (geom) {
-		DynStr *ds_geom = BLI_dynstr_new();
-		BLI_dynstr_append(ds_geom, lib);
-		BLI_dynstr_append(ds_geom, geom);
-		geom_with_lib = BLI_dynstr_get_cstring(ds_geom);
-		BLI_dynstr_free(ds_geom);
+		geom_with_lib = BLI_string_joinN(lib, geom);
 	}
 
 	sh = GPU_shader_create(vert_with_lib, frag_with_lib, geom_with_lib, NULL, defines);
@@ -2312,6 +2299,11 @@ static GPUTextureFormat convert_tex_format(
 	}
 }
 
+struct GPUFrameBuffer *DRW_framebuffer_create(void)
+{
+	return GPU_framebuffer_create();
+}
+
 void DRW_framebuffer_init(
         struct GPUFrameBuffer **fb, void *engine_type, int width, int height,
         DRWFboTexture textures[MAX_FBO_TEX], int textures_len)
@@ -2329,6 +2321,7 @@ void DRW_framebuffer_init(
 	for (int i = 0; i < textures_len; ++i) {
 		int channels;
 		bool is_depth;
+		bool create_tex = false;
 
 		DRWFboTexture fbotex = textures[i];
 		bool is_temp = (fbotex.flag & DRW_TEX_TEMP) != 0;
@@ -2341,16 +2334,18 @@ void DRW_framebuffer_init(
 				*fbotex.tex = GPU_viewport_texture_pool_query(
 				        DST.viewport, engine_type, width, height, channels, gpu_format);
 			}
-			else if (create_fb) {
+			else {
 				*fbotex.tex = GPU_texture_create_2D_custom(
 				        width, height, channels, gpu_format, NULL, NULL);
+				create_tex = true;
 			}
 		}
 
-		if (create_fb) {
-			if (!is_depth) {
-				++color_attachment;
-			}
+		if (!is_depth) {
+			++color_attachment;
+		}
+
+		if (create_fb || create_tex) {
 			drw_texture_set_parameters(*fbotex.tex, fbotex.flag);
 			GPU_framebuffer_texture_attach(*fb, *fbotex.tex, color_attachment, 0);
 		}
