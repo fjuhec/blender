@@ -1,5 +1,11 @@
 Project: OpenJPEG
 URL: http://www.openjpeg.org
 License: BSD 2-Clause
-Upstream version: 1.5.2
+Upstream version: 2.3
 Local modifications:
+
+Notes:
+- A complication, it doesn't load files saved from Blender
+  unless a define is set: "OPJ_DISABLE_TPSOT_FIX".
+  See: https://github.com/uclouvain/openjpeg/issues/254
+  So we can't use 'WITH_SYSTEM_OPENJPEG'.
