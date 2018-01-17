@@ -15,31 +15,32 @@
  * along with this program; if not, write to the Free Software Foundation,
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  *
+ * The Original Code is Copyright (C) 2013 Blender Foundation.
+ * All rights reserved.
+ *
+ * Original Author: Joshua Leung
+ * Contributor(s): None Yet
+ *
  * ***** END GPL LICENSE BLOCK *****
  */
 
-/** \file BKE_utildefines.h
- *  \ingroup bke
- *  \brief blender format specific macros
- *  \note generic defines should go in BLI_utildefines.h
+/** \file blender/depsgraph/intern/nodes/deg_node_time.cc
+ *  \ingroup depsgraph
  */
 
+#include "intern/nodes/deg_node_time.h"
 
-#ifndef __BKE_UTILDEFINES_H__
-#define __BKE_UTILDEFINES_H__
+#include "intern/depsgraph_intern.h"
+#include "util/deg_util_foreach.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+namespace DEG {
 
-#define BKE_BIT_TEST_SET(value, test, flag) \
-{                                           \
-	if (test) (value) |=  flag;             \
-	else      (value) &= ~flag;             \
-} (void)0
-
-#ifdef __cplusplus
+void TimeSourceDepsNode::tag_update(Depsgraph *graph)
+{
+	foreach (DepsRelation *rel, outlinks) {
+		DepsNode *node = rel->to;
+		node->tag_update(graph);
+	}
 }
-#endif
 
-#endif  /* __BKE_UTILDEFINES_H__ */
+}  // namespace DEG

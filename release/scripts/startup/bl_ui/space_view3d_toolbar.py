@@ -852,12 +852,12 @@ class VIEW3D_PT_tools_posemode(View3DPanel, Panel):
 
         draw_keyframing_tools(context, layout)
 
-        pchan = context.active_pose_bone
-        mpath = pchan.motion_path if pchan else None
+        ob = context.object
+        avs = ob.pose.animation_visualization
 
         col = layout.column(align=True)
         col.label(text="Motion Paths:")
-        if mpath:
+        if avs.motion_path.has_motion_paths:
             row = col.row(align=True)
             row.operator("pose.paths_update", text="Update")
             row.operator("pose.paths_clear", text="", icon='X')
@@ -1648,6 +1648,7 @@ class VIEW3D_PT_sculpt_options(Panel, View3DPaintPanel):
         layout.prop(sculpt, "show_low_resolution")
         layout.prop(sculpt, "use_deform_only")
         layout.prop(sculpt, "show_diffuse_color")
+        layout.prop(sculpt, "show_mask")
 
         self.unified_paint_settings(layout, context)
 
@@ -1810,12 +1811,6 @@ class VIEW3D_PT_tools_vertexpaint(Panel, View3DPaintPanel):
         vpaint = toolsettings.vertex_paint
 
         col = layout.column()
-        col.label("Falloff:")
-        row = col.row()
-        row.prop(vpaint, "use_normal_falloff")
-        sub = row.row()
-        sub.active = (vpaint.use_normal_falloff)
-        sub.prop(vpaint, "normal_angle", text="")
 
         self.unified_paint_settings(col, context)
 

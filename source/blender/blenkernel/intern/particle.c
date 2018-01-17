@@ -663,8 +663,9 @@ void psys_render_set(Object *ob, ParticleSystem *psys, float viewmat[4][4], floa
 	psys->renderdata = data;
 
 	/* Hair can and has to be recalculated if everything isn't displayed. */
-	if (psys->part->disp != 100 && psys->part->type == PART_HAIR)
+	if (psys->part->disp != 100 && ELEM(psys->part->type, PART_HAIR, PART_FLUID)) {
 		psys->recalc |= PSYS_RECALC_RESET;
+	}
 }
 
 void psys_render_restore(Object *ob, ParticleSystem *psys)
@@ -737,7 +738,7 @@ void psys_render_restore(Object *ob, ParticleSystem *psys)
 
 	if (disp != render_disp) {
 		/* Hair can and has to be recalculated if everything isn't displayed. */
-		if (psys->part->type == PART_HAIR) {
+		if (ELEM(psys->part->type, PART_HAIR, PART_FLUID)) {
 			psys->recalc |= PSYS_RECALC_RESET;
 		}
 		else {
@@ -3135,7 +3136,7 @@ ModifierData *object_add_particle_system(Scene *scene, Object *ob, const char *n
 	psys->pointcache = BKE_ptcache_add(&psys->ptcaches);
 	BLI_addtail(&ob->particlesystem, psys);
 
-	psys->part = psys_new_settings(DATA_("ParticleSettings"), NULL);
+	psys->part = BKE_particlesettings_add(NULL, DATA_("ParticleSettings"));
 
 	if (BLI_listbase_count_ex(&ob->particlesystem, 2) > 1)
 		BLI_snprintf(psys->name, sizeof(psys->name), DATA_("ParticleSystem %i"), BLI_listbase_count(&ob->particlesystem));
@@ -3293,7 +3294,7 @@ static void default_particle_settings(ParticleSettings *part)
 }
 
 
-ParticleSettings *psys_new_settings(const char *name, Main *main)
+ParticleSettings *BKE_particlesettings_add(Main *main, const char *name)
 {
 	ParticleSettings *part;
 

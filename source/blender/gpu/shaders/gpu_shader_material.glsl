@@ -954,8 +954,8 @@ void texco_orco(vec3 attorco, out vec3 orco)
 
 void texco_uv(vec2 attuv, out vec3 uv)
 {
-	/* disabled for now, works together with leaving out mtex_2d_mapping
-	   uv = vec3(attuv*2.0 - vec2(1.0, 1.0), 0.0); */
+	/* disabled for now, works together with leaving out mtex_2d_mapping */
+	// uv = vec3(attuv*2.0 - vec2(1.0, 1.0), 0.0); */
 	uv = vec3(attuv, 0.0);
 }
 
@@ -2971,7 +2971,10 @@ float calc_gradient(vec3 p, int gradient_type)
 		return atan(y, x) / (M_PI * 2) + 0.5;
 	}
 	else {
-		float r = max(1.0 - sqrt(x * x + y * y + z * z), 0.0);
+		/* Bias a little bit for the case where p is a unit length vector,
+		 * to get exactly zero instead of a small random value depending
+		 * on float precision. */
+		float r = max(0.999999 - sqrt(x * x + y * y + z * z), 0.0);
 		if (gradient_type == 5) {  /* quadratic sphere */
 			return r * r;
 		}

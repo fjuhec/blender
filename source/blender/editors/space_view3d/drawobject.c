@@ -926,14 +926,12 @@ void view3d_cached_text_draw_end(View3D *v3d, ARegion *ar, bool depth_write)
 					col_pack_prev = vos->col.pack;
 				}
 
-				((vos->flag & V3D_CACHE_TEXT_ASCII) ?
-				 BLF_draw_default_ascii :
-				 BLF_draw_default
-				 )((float)(vos->sco[0] + vos->xoffs),
-				   (float)(vos->sco[1]),
-				   (depth_write) ? 0.0f : 2.0f,
-				   vos->str,
-				   vos->str_len);
+				((vos->flag & V3D_CACHE_TEXT_ASCII) ? BLF_draw_default_ascii : BLF_draw_default)(
+				        (float)(vos->sco[0] + vos->xoffs),
+				        (float)(vos->sco[1]),
+				        (depth_write) ? 0.0f : 2.0f,
+				        vos->str,
+				        vos->str_len);
 			}
 		}
 
@@ -8273,6 +8271,7 @@ static DMDrawOption bbs_mesh_wire__setDrawOptions(void *userData, int index)
 static void bbs_mesh_wire(BMEditMesh *em, DerivedMesh *dm, int offset)
 {
 	drawBMOffset_userData data = {em->bm, offset};
+	glLineWidth(1);
 	dm->drawMappedEdges(dm, bbs_mesh_wire__setDrawOptions, &data);
 }
 
@@ -8432,14 +8431,21 @@ void draw_object_backbufsel(Scene *scene, View3D *v3d, RegionView3D *rv3d, Objec
 				bbs_mesh_solid_EM(em, scene, v3d, ob, dm, (ts->selectmode & SCE_SELECT_FACE) != 0);
 				if (ts->selectmode & SCE_SELECT_FACE)
 					bm_solidoffs = 1 + em->bm->totface;
-				else
+				else {
 					bm_solidoffs = 1;
+				}
 
 				ED_view3d_polygon_offset(rv3d, 1.0);
 
-				/* we draw edges always, for loop (select) tools */
-				bbs_mesh_wire(em, dm, bm_solidoffs);
-				bm_wireoffs = bm_solidoffs + em->bm->totedge;
+				/* we draw edges if edge select mode */
+				if (ts->selectmode & SCE_SELECT_EDGE) {
+					bbs_mesh_wire(em, dm, bm_solidoffs);
+					bm_wireoffs = bm_solidoffs + em->bm->totedge;
+				}
+				else {
+					/* `bm_vertoffs` is calculated from `bm_wireoffs`. (otherwise see T53512) */
+					bm_wireoffs = bm_solidoffs;
+				}
 
 				/* we draw verts if vert select mode. */
 				if (ts->selectmode & SCE_SELECT_VERTEX) {

@@ -529,8 +529,10 @@ void BKE_paint_init(Scene *sce, ePaintMode mode, const char col[3])
 		short ob_mode = BKE_paint_object_mode_from_paint_mode(mode);
 		brush = BKE_brush_first_search(G.main, ob_mode);
 
-		if (!brush)
+		if (!brush) {
 			brush = BKE_brush_add(G.main, "Brush", ob_mode);
+			id_us_min(&brush->id);  /* fake user only */
+		}
 		BKE_paint_brush_set(paint, brush);
 	}
 
@@ -638,8 +640,9 @@ void paint_update_brush_rake_rotation(UnifiedPaintSettings *ups, Brush *brush, f
 		ups->brush_rotation_sec = 0.0f;
 }
 
-void paint_calculate_rake_rotation(UnifiedPaintSettings *ups, Brush *brush, const float mouse_pos[2])
+bool paint_calculate_rake_rotation(UnifiedPaintSettings *ups, Brush *brush, const float mouse_pos[2])
 {
+	bool ok = false;
 	if ((brush->mtex.brush_angle_mode & MTEX_ANGLE_RAKE) || (brush->mask_mtex.brush_angle_mode & MTEX_ANGLE_RAKE)) {
 		const float r = RAKE_THRESHHOLD;
 		float rotation;
@@ -655,16 +658,20 @@ void paint_calculate_rake_rotation(UnifiedPaintSettings *ups, Brush *brush, cons
 			ups->last_rake_angle = rotation;
 
 			paint_update_brush_rake_rotation(ups, brush, rotation);
+			ok = true;
 		}
 		/* make sure we reset here to the last rotation to avoid accumulating
 		 * values in case a random rotation is also added */
 		else {
 			paint_update_brush_rake_rotation(ups, brush, ups->last_rake_angle);
+			ok = false;
 		}
 	}
 	else {
 		ups->brush_rotation = ups->brush_rotation_sec = 0.0f;
+		ok = true;
 	}
+	return ok;
 }
 
 void BKE_sculptsession_free_deformMats(SculptSession *ss)
@@ -877,6 +884,7 @@ void BKE_sculpt_update_mesh_elements(Scene *scene, Sculpt *sd, Object *ob,
 
 	ss->modifiers_active = sculpt_modifiers_active(scene, sd, ob);
 	ss->show_diffuse_color = (sd->flags & SCULPT_SHOW_DIFFUSE) != 0;
+	ss->show_mask = (sd->flags & SCULPT_HIDE_MASK) == 0;
 
 	ss->building_vp_handle = false;
 
@@ -931,6 +939,7 @@ void BKE_sculpt_update_mesh_elements(Scene *scene, Sculpt *sd, Object *ob,
 	ss->pmap = (need_pmap && dm->getPolyMap) ? dm->getPolyMap(ob, dm) : NULL;
 
 	pbvh_show_diffuse_color_set(ss->pbvh, ss->show_diffuse_color);
+	pbvh_show_mask_set(ss->pbvh, ss->show_mask);
 
 	if (ss->modifiers_active) {
 		if (!ss->orig_cos) {

@@ -1676,13 +1676,11 @@ typedef struct Scene {
 	/* Grease Pencil */
 	struct bGPdata *gpd;
 
-	/* Physics simulation settings */
-	struct PhysicsSettings physics_settings;
-
 	/* Movie Tracking */
 	struct MovieClip *clip;			/* active movie clip */
 
-	void *pad4;
+	/* Physics simulation settings */
+	struct PhysicsSettings physics_settings;
 
 	uint64_t customdata_mask;	/* XXX. runtime flag for drawing, actually belongs in the window, only used by BKE_object_handle_update() */
 	uint64_t customdata_mask_modal; /* XXX. same as above but for temp operator use (gl renders) */
@@ -1744,9 +1742,12 @@ typedef struct Scene {
 #define R_USE_WS_SHADING	0x8000000 /* use world space interpretation of lighting data */
 
 /* seq_flag */
-// #define R_SEQ_GL_PREV 1  // UNUSED, we just use setting from seq_prev_type now.
-// #define R_SEQ_GL_REND 2  // UNUSED, opengl render has its own operator now.
-#define R_SEQ_SOLID_TEX 4
+enum {
+	// R_SEQ_GL_PREV = (1 << 1),  // UNUSED, we just use setting from seq_prev_type now.
+	// R_SEQ_GL_REND = (1 << 2),  // UNUSED, opengl render has its own operator now.
+	R_SEQ_SOLID_TEX  = (1 << 3),
+	R_SEQ_CAMERA_DOF = (1 << 4),
+};
 
 /* displaymode */
 
@@ -2118,6 +2119,9 @@ typedef enum eSculptFlags {
 	/* If set, dynamic-topology detail size will be constant in object space */
 	SCULPT_DYNTOPO_DETAIL_CONSTANT = (1 << 13),
 	SCULPT_DYNTOPO_DETAIL_BRUSH = (1 << 14),
+
+	/* Don't display mask in viewport, but still use it for strokes. */
+	SCULPT_HIDE_MASK = (1 << 15),
 } eSculptFlags;
 
 typedef enum eImageePaintMode {

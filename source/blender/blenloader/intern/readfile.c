@@ -41,6 +41,7 @@
 #include <math.h> // for fabs
 #include <stdarg.h> /* for va_start/end */
 #include <time.h> /* for gmtime */
+#include <ctype.h> /* for isdigit */
 
 #include "BLI_utildefines.h"
 #ifndef WIN32
@@ -218,6 +219,15 @@
 
 /* Use GHash for restoring pointers by name */
 #define USE_GHASH_RESTORE_POINTER
+
+/* Define this to have verbose debug prints. */
+#define USE_DEBUG_PRINT
+
+#ifdef USE_DEBUG_PRINT
+#  define DEBUG_PRINTF(...) printf(__VA_ARGS__)
+#else
+#  define DEBUG_PRINTF(...)
+#endif
 
 /***/
 
@@ -882,39 +892,42 @@ static void decode_blender_header(FileData *fd)
 {
 	char header[SIZEOFBLENDERHEADER], num[4];
 	int readsize;
-	
+
 	/* read in the header data */
 	readsize = fd->read(fd, header, sizeof(header));
-	
-	if (readsize == sizeof(header)) {
-		if (STREQLEN(header, "BLENDER", 7)) {
-			fd->flags |= FD_FLAGS_FILE_OK;
-			
-			/* what size are pointers in the file ? */
-			if (header[7]=='_') {
-				fd->flags |= FD_FLAGS_FILE_POINTSIZE_IS_4;
-				if (sizeof(void *) != 4) {
-					fd->flags |= FD_FLAGS_POINTSIZE_DIFFERS;
-				}
+
+	if (readsize == sizeof(header) &&
+	    STREQLEN(header, "BLENDER", 7) &&
+	    ELEM(header[7], '_', '-') &&
+	    ELEM(header[8], 'v', 'V') &&
+	    (isdigit(header[9]) && isdigit(header[10]) && isdigit(header[11])))
+	{
+		fd->flags |= FD_FLAGS_FILE_OK;
+
+		/* what size are pointers in the file ? */
+		if (header[7] == '_') {
+			fd->flags |= FD_FLAGS_FILE_POINTSIZE_IS_4;
+			if (sizeof(void *) != 4) {
+				fd->flags |= FD_FLAGS_POINTSIZE_DIFFERS;
 			}
-			else {
-				if (sizeof(void *) != 8) {
-					fd->flags |= FD_FLAGS_POINTSIZE_DIFFERS;
-				}
-			}
-			
-			/* is the file saved in a different endian
-			 * than we need ?
-			 */
-			if (((header[8] == 'v') ? L_ENDIAN : B_ENDIAN) != ENDIAN_ORDER) {
-				fd->flags |= FD_FLAGS_SWITCH_ENDIAN;
-			}
-			
-			/* get the version number */
-			memcpy(num, header + 9, 3);
-			num[3] = 0;
-			fd->fileversion = atoi(num);
 		}
+		else {
+			if (sizeof(void *) != 8) {
+				fd->flags |= FD_FLAGS_POINTSIZE_DIFFERS;
+			}
+		}
+
+		/* is the file saved in a different endian
+		 * than we need ?
+		 */
+		if (((header[8] == 'v') ? L_ENDIAN : B_ENDIAN) != ENDIAN_ORDER) {
+			fd->flags |= FD_FLAGS_SWITCH_ENDIAN;
+		}
+
+		/* get the version number */
+		memcpy(num, header + 9, 3);
+		num[3] = 0;
+		fd->fileversion = atoi(num);
 	}
 }
 
@@ -2210,6 +2223,7 @@ static void direct_link_id(FileData *fd, ID *id)
 		/* this case means the data was written incorrectly, it should not happen */
 		IDP_DirectLinkGroup_OrFree(&id->properties, (fd->flags & FD_FLAGS_SWITCH_ENDIAN), fd);
 	}
+	id->py_instance = NULL;
 }
 
 /* ************ READ CurveMapping *************** */
@@ -3076,7 +3090,7 @@ static void direct_link_nodetree(FileData *fd, bNodeTree *ntree)
 	ntree->adt = newdataadr(fd, ntree->adt);
 	direct_link_animdata(fd, ntree->adt);
 	
-	ntree->id.tag &= ~(LIB_TAG_ID_RECALC|LIB_TAG_ID_RECALC_DATA);
+	ntree->id.recalc &= ~ID_RECALC_ALL;
 
 	link_list(fd, &ntree->nodes);
 	for (node = ntree->nodes.first; node; node = node->next) {
@@ -3964,10 +3978,6 @@ static void lib_link_material(FileData *fd, Main *main)
 		if (ma->id.tag & LIB_TAG_NEED_LINK) {
 			IDP_LibLinkProperty(ma->id.properties, fd);
 			lib_link_animdata(fd, &ma->id, ma->adt);
-			
-			/* Link ID Properties -- and copy this comment EXACTLY for easy finding
-			 * of library blocks that implement this.*/
-			IDP_LibLinkProperty(ma->id.properties, fd);
 			
 			ma->ipo = newlibadr_us(fd, ma->id.lib, ma->ipo);  // XXX deprecated - old animation system
 			ma->group = newlibadr_us(fd, ma->id.lib, ma->group);
@@ -7298,7 +7308,7 @@ static bool direct_link_screen(FileData *fd, bScreen *sc)
 				sseq->scopes.sep_waveform_ibuf = NULL;
 				sseq->scopes.vector_ibuf = NULL;
 				sseq->scopes.histogram_ibuf = NULL;
-
+				sseq->compositor = NULL;
 			}
 			else if (sl->spacetype == SPACE_BUTS) {
 				SpaceButs *sbuts = (SpaceButs *)sl;
@@ -8123,22 +8133,16 @@ static BHead *read_libblock(FileData *fd, Main *main, BHead *bhead, const short 
 	if (fd->memfile && ELEM(bhead->code, ID_LI, ID_ID)) {
 		const char *idname = bhead_id_name(fd, bhead);
 
-#ifdef PRINT_DEBUG
-		printf("Checking %s...\n", idname);
-#endif
+		DEBUG_PRINTF("Checking %s...\n", idname);
 
 		if (bhead->code == ID_LI) {
 			Main *libmain = fd->old_mainlist->first;
 			/* Skip oldmain itself... */
 			for (libmain = libmain->next; libmain; libmain = libmain->next) {
-#ifdef PRINT_DEBUG
-				printf("... against %s: ", libmain->curlib ? libmain->curlib->id.name : "<NULL>");
-#endif
+				DEBUG_PRINTF("... against %s: ", libmain->curlib ? libmain->curlib->id.name : "<NULL>");
 				if (libmain->curlib && STREQ(idname, libmain->curlib->id.name)) {
 					Main *oldmain = fd->old_mainlist->first;
-#ifdef PRINT_DEBUG
-					printf("FOUND!\n");
-#endif
+					DEBUG_PRINTF("FOUND!\n");
 					/* In case of a library, we need to re-add its main to fd->mainlist, because if we have later
 					 * a missing ID_ID, we need to get the correct lib it is linked to!
 					 * Order is crucial, we cannot bulk-add it in BLO_read_from_memfile() like it used to be... */
@@ -8152,19 +8156,13 @@ static BHead *read_libblock(FileData *fd, Main *main, BHead *bhead, const short 
 					}
 					return blo_nextbhead(fd, bhead);
 				}
-#ifdef PRINT_DEBUG
-				printf("nothing...\n");
-#endif
+				DEBUG_PRINTF("nothing...\n");
 			}
 		}
 		else {
-#ifdef PRINT_DEBUG
-			printf("... in %s (%s): ", main->curlib ? main->curlib->id.name : "<NULL>", main->curlib ? main->curlib->name : "<NULL>");
-#endif
+			DEBUG_PRINTF("... in %s (%s): ", main->curlib ? main->curlib->id.name : "<NULL>", main->curlib ? main->curlib->name : "<NULL>");
 			if ((id = BKE_libblock_find_name_ex(main, GS(idname), idname + 2))) {
-#ifdef PRINT_DEBUG
-				printf("FOUND!\n");
-#endif
+				DEBUG_PRINTF("FOUND!\n");
 				/* Even though we found our linked ID, there is no guarantee its address is still the same... */
 				if (id != bhead->old) {
 					oldnewmap_insert(fd->libmap, bhead->old, id, GS(id->name));
@@ -8176,9 +8174,7 @@ static BHead *read_libblock(FileData *fd, Main *main, BHead *bhead, const short 
 				}
 				return blo_nextbhead(fd, bhead);
 			}
-#ifdef PRINT_DEBUG
-			printf("nothing...\n");
-#endif
+			DEBUG_PRINTF("nothing...\n");
 		}
 	}
 
@@ -10035,11 +10031,13 @@ static ID *create_placeholder(Main *mainvar, const short idcode, const char *idn
 /* returns true if the item was found
  * but it may already have already been appended/linked */
 static ID *link_named_part(
-        Main *mainl, FileData *fd, const short idcode, const char *name,
-        const bool use_placeholders, const bool force_indirect)
+        Main *mainl, FileData *fd, const short idcode, const char *name, const int flag)
 {
 	BHead *bhead = find_bhead_from_code_name(fd, idcode, name);
 	ID *id;
+
+	const bool use_placeholders = (flag & BLO_LIBLINK_USE_PLACEHOLDERS) != 0;
+	const bool force_indirect = (flag & BLO_LIBLINK_FORCE_INDIRECT) != 0;
 
 	BLI_assert(BKE_idcode_is_linkable(idcode) && BKE_idcode_is_valid(idcode));
 
@@ -10080,7 +10078,7 @@ static ID *link_named_part(
 	return id;
 }
 
-static void link_object_postprocess(ID *id, Scene *scene, View3D *v3d, const short flag)
+static void link_object_postprocess(ID *id, Scene *scene, View3D *v3d, const int flag)
 {
 	if (scene) {
 		Base *base;
@@ -10146,10 +10144,10 @@ void BLO_library_link_copypaste(Main *mainl, BlendHandle *bh)
 }
 
 static ID *link_named_part_ex(
-        Main *mainl, FileData *fd, const short idcode, const char *name, const short flag,
-        Scene *scene, View3D *v3d, const bool use_placeholders, const bool force_indirect)
+        Main *mainl, FileData *fd, const short idcode, const char *name, const int flag,
+        Scene *scene, View3D *v3d)
 {
-	ID *id = link_named_part(mainl, fd, idcode, name, use_placeholders, force_indirect);
+	ID *id = link_named_part(mainl, fd, idcode, name, flag);
 
 	if (id && (GS(id->name) == ID_OB)) {	/* loose object: give a base */
 		link_object_postprocess(id, scene, v3d, flag);
@@ -10175,7 +10173,7 @@ static ID *link_named_part_ex(
 ID *BLO_library_link_named_part(Main *mainl, BlendHandle **bh, const short idcode, const char *name)
 {
 	FileData *fd = (FileData*)(*bh);
-	return link_named_part(mainl, fd, idcode, name, false, false);
+	return link_named_part(mainl, fd, idcode, name, 0);
 }
 
 /**
@@ -10189,18 +10187,15 @@ ID *BLO_library_link_named_part(Main *mainl, BlendHandle **bh, const short idcod
  * \param flag Options for linking, used for instantiating.
  * \param scene The scene in which to instantiate objects/groups (if NULL, no instantiation is done).
  * \param v3d The active View3D (only to define active layers for instantiated objects & groups, can be NULL).
- * \param use_placeholders If true, generate a placeholder (empty ID) if not found in current lib file.
- * \param force_indirect If true, force loaded ID to be tagged as LIB_TAG_INDIRECT (used in reload context only).
  * \return the linked ID when found.
  */
 ID *BLO_library_link_named_part_ex(
         Main *mainl, BlendHandle **bh,
-        const short idcode, const char *name, const short flag,
-        Scene *scene, View3D *v3d,
-        const bool use_placeholders, const bool force_indirect)
+        const short idcode, const char *name, const int flag,
+        Scene *scene, View3D *v3d)
 {
 	FileData *fd = (FileData*)(*bh);
-	return link_named_part_ex(mainl, fd, idcode, name, flag, scene, v3d, use_placeholders, force_indirect);
+	return link_named_part_ex(mainl, fd, idcode, name, flag, scene, v3d);
 }
 
 static void link_id_part(ReportList *reports, FileData *fd, Main *mainvar, ID *id, ID **r_id)

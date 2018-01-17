@@ -1841,8 +1841,8 @@ static void prepare_mesh_for_viewport_render(Main *bmain, Scene *scene)
 	if (obedit) {
 		Mesh *mesh = obedit->data;
 		if ((obedit->type == OB_MESH) &&
-		    ((obedit->id.tag & LIB_TAG_ID_RECALC_ALL) ||
-		     (mesh->id.tag & LIB_TAG_ID_RECALC_ALL)))
+		    ((obedit->id.recalc & ID_RECALC_ALL) ||
+		     (mesh->id.recalc & ID_RECALC_ALL)))
 		{
 			if (check_rendered_viewport_visible(bmain)) {
 				BMesh *bm = mesh->edit_btmesh->bm;
@@ -1866,7 +1866,7 @@ void BKE_scene_update_tagged(EvaluationContext *eval_ctx, Main *bmain, Scene *sc
 	/* (re-)build dependency graph if needed */
 	for (sce_iter = scene; sce_iter; sce_iter = sce_iter->set) {
 		DAG_scene_relations_update(bmain, sce_iter);
-		/* Uncomment this to check if graph was properly tagged for update. */
+		/* Uncomment this to check if dependency graph was properly tagged for update. */
 #if 0
 #ifdef WITH_LEGACY_DEPSGRAPH
 		if (use_new_eval)
@@ -1978,7 +1978,7 @@ void BKE_scene_update_for_newframe_ex(EvaluationContext *eval_ctx, Main *bmain, 
 #ifdef WITH_LEGACY_DEPSGRAPH
 	bool use_new_eval = !DEG_depsgraph_use_legacy();
 #else
-	/* TODO(sergey): Pass to evaluation routines instead of storing layer in the graph? */
+	/* TODO(sergey): Pass to evaluation routines instead of storing layer in the dependency graph? */
 	(void) do_invisible_flush;
 #endif
 

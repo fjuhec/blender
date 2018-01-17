@@ -59,6 +59,11 @@ ccl_device_forceinline bool kernel_path_scene_intersect(
 {
 	uint visibility = path_state_ray_visibility(kg, state);
 
+	if(path_state_ao_bounce(kg, state)) {
+		visibility = PATH_RAY_SHADOW;
+		ray->t = kernel_data.background.ao_distance;
+	}
+
 #ifdef __HAIR__
 	float difl = 0.0f, extmax = 0.0f;
 	uint lcg_state = 0;
@@ -72,11 +77,6 @@ ccl_device_forceinline bool kernel_path_scene_intersect(
 
 		extmax = kernel_data.curve.maximum_width;
 		lcg_state = lcg_state_init_addrspace(state, 0x51633e2d);
-	}
-
-	if(path_state_ao_bounce(kg, state)) {
-		visibility = PATH_RAY_SHADOW;
-		ray->t = kernel_data.background.ao_distance;
 	}
 
 	bool hit = scene_intersect(kg, *ray, visibility, isect, &lcg_state, difl, extmax);
@@ -136,11 +136,11 @@ ccl_device_forceinline void kernel_path_background(
 	PathRadiance *L)
 {
 	/* eval background shader if nothing hit */
-	if(kernel_data.background.transparent && (state->flag & PATH_RAY_CAMERA)) {
+	if(kernel_data.background.transparent && (state->flag & PATH_RAY_TRANSPARENT_BACKGROUND)) {
 		L->transparent += average(throughput);
 
 #ifdef __PASSES__
-		if(!(kernel_data.film.pass_flag & PASS_BACKGROUND))
+		if(!(kernel_data.film.light_pass_flag & PASSMASK(BACKGROUND)))
 #endif  /* __PASSES__ */
 			return;
 	}
@@ -280,7 +280,7 @@ ccl_device_forceinline bool kernel_path_shader_apply(
 {
 #ifdef __SHADOW_TRICKS__
 	if((sd->object_flag & SD_OBJECT_SHADOW_CATCHER)) {
-		if(state->flag & PATH_RAY_CAMERA) {
+		if(state->flag & PATH_RAY_TRANSPARENT_BACKGROUND) {
 			state->flag |= (PATH_RAY_SHADOW_CATCHER |
 						   PATH_RAY_STORE_SHADOW_INFO);
 
@@ -302,7 +302,7 @@ ccl_device_forceinline bool kernel_path_shader_apply(
 #ifdef __HOLDOUT__
 	if(((sd->flag & SD_HOLDOUT) ||
 		(sd->object_flag & SD_OBJECT_HOLDOUT_MASK)) &&
-	   (state->flag & PATH_RAY_CAMERA))
+	   (state->flag & PATH_RAY_TRANSPARENT_BACKGROUND))
 	{
 		if(kernel_data.background.transparent) {
 			float3 holdout_weight;

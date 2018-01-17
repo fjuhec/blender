@@ -61,6 +61,7 @@
 
 #include "PIL_time.h"
 
+#include "BKE_colorband.h"
 #include "BKE_blender_undo.h"
 #include "BKE_brush.h"
 #include "BKE_colortools.h"
@@ -68,7 +69,6 @@
 #include "BKE_idprop.h"
 #include "BKE_report.h"
 #include "BKE_screen.h"
-#include "BKE_texture.h"
 #include "BKE_tracking.h"
 #include "BKE_unit.h"
 #include "BKE_paint.h"
@@ -130,7 +130,6 @@ static bool ui_mouse_motion_keynav_test(struct uiKeyNavLock *keynav, const wmEve
 
 /***************** structs and defines ****************/
 
-#define BUTTON_TOOLTIP_DELAY        0.500
 #define BUTTON_FLASH_DELAY          0.020
 #define MENU_SCROLL_INTERVAL        0.1
 #define PIE_MENU_INTERVAL           0.01
@@ -2285,7 +2284,7 @@ static void ui_but_copy_paste(bContext *C, uiBut *but, uiHandleButtonData *data,
 				char buf_copy[UI_MAX_DRAW_STR];
 
 				if (array_length == 4) {
-					 values[3] = RNA_property_float_get_index(&but->rnapoin, but->rnaprop, 3);
+					values[3] = RNA_property_float_get_index(&but->rnapoin, but->rnaprop, 3);
 				}
 				else {
 					values[3] = 0.0f;
@@ -5933,7 +5932,7 @@ static bool ui_numedit_but_COLORBAND(uiBut *but, uiHandleButtonData *data, int m
 	data->dragcbd->pos += dx;
 	CLAMP(data->dragcbd->pos, 0.0f, 1.0f);
 	
-	colorband_update_sort(data->coba);
+	BKE_colorband_update_sort(data->coba);
 	data->dragcbd = data->coba->data + data->coba->cur;  /* because qsort */
 	
 	data->draglastx = mx;
@@ -5963,7 +5962,7 @@ static int ui_do_but_COLORBAND(
 			if (event->ctrl) {
 				/* insert new key on mouse location */
 				float pos = ((float)(mx - but->rect.xmin)) / BLI_rctf_size_x(&but->rect);
-				colorband_element_add(coba, pos);
+				BKE_colorband_element_add(coba, pos);
 				button_activate_state(C, but, BUTTON_STATE_EXIT);
 			}
 			else {
@@ -5984,6 +5983,7 @@ static int ui_do_but_COLORBAND(
 				}
 		
 				data->dragcbd = coba->data + coba->cur;
+				data->dragfstart = data->dragcbd->pos;
 				button_activate_state(C, but, BUTTON_STATE_NUM_EDITING);
 			}
 
@@ -6000,7 +6000,15 @@ static int ui_do_but_COLORBAND(
 		else if (event->type == LEFTMOUSE && event->val != KM_PRESS) {
 			button_activate_state(C, but, BUTTON_STATE_EXIT);
 		}
-		
+		else if (ELEM(event->type, ESCKEY, RIGHTMOUSE)) {
+			if (event->val == KM_PRESS) {
+				data->dragcbd->pos = data->dragfstart;
+				BKE_colorband_update_sort(data->coba);
+				data->cancel = true;
+				data->escapecancel = true;
+				button_activate_state(C, but, BUTTON_STATE_EXIT);
+			}
+		}
 		return WM_UI_HANDLER_BREAK;
 	}
 
@@ -6009,8 +6017,8 @@ static int ui_do_but_COLORBAND(
 
 static bool ui_numedit_but_CURVE(
         uiBlock *block, uiBut *but, uiHandleButtonData *data,
-                                 int evtx, int evty,
-                                 bool snap, const bool shift)
+        int evtx, int evty,
+        bool snap, const bool shift)
 {
 	CurveMapping *cumap = (CurveMapping *)but->poin;
 	CurveMap *cuma = cumap->cm + cumap->cur;
@@ -7648,8 +7656,8 @@ void UI_but_tooltip_refresh(bContext *C, uiBut *but)
 
 	data = but->active;
 	if (data && data->tooltip) {
-		ui_tooltip_free(C, data->tooltip);
-		data->tooltip = ui_tooltip_create(C, data->region, but);
+		UI_tooltip_free(C, data->tooltip);
+		data->tooltip = UI_tooltip_create_from_button(C, data->region, but);
 	}
 }
 
@@ -7666,7 +7674,7 @@ void UI_but_tooltip_timer_remove(bContext *C, uiBut *but)
 			data->tooltiptimer = NULL;
 		}
 		if (data->tooltip) {
-			ui_tooltip_free(C, data->tooltip);
+			UI_tooltip_free(C, data->tooltip);
 			data->tooltip = NULL;
 		}
 
@@ -7692,7 +7700,7 @@ static void button_tooltip_timer_reset(bContext *C, uiBut *but)
 	if ((U.flag & USER_TOOLTIPS) || (data->tooltip_force)) {
 		if (!but->block->tooltipdisabled) {
 			if (!wm->drags.first) {
-				data->tooltiptimer = WM_event_add_timer(data->wm, data->window, TIMER, BUTTON_TOOLTIP_DELAY);
+				data->tooltiptimer = WM_event_add_timer(data->wm, data->window, TIMER, UI_TOOLTIP_DELAY);
 			}
 		}
 	}
@@ -8393,7 +8401,7 @@ static int ui_handle_button_event(bContext *C, const wmEvent *event, uiBut *but)
 					data->tooltiptimer = NULL;
 
 					if (!data->tooltip)
-						data->tooltip = ui_tooltip_create(C, data->region, but);
+						data->tooltip = UI_tooltip_create_from_button(C, data->region, but);
 				}
 				/* handle menu auto open timer */
 				else if (event->customdata == data->autoopentimer) {

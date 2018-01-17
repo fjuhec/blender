@@ -433,7 +433,7 @@ static void ui_imageuser_pass_menu(bContext *UNUSED(C), uiLayout *layout, void *
 
 	uiItemS(layout);
 
-	nr = (rl == NULL)? 1: 0;
+	nr = (rl == NULL) ? 1 : 0;
 
 	ListBase added_passes;
 	BLI_listbase_clear(&added_passes);
@@ -871,8 +871,11 @@ void uiTemplateImage(uiLayout *layout, bContext *C, PointerRNA *ptr, const char 
 	uiLayoutSetContextPointer(layout, "edit_image", &imaptr);
 	uiLayoutSetContextPointer(layout, "edit_image_user", userptr);
 
-	if (!compact)
-		uiTemplateID(layout, C, ptr, propname, ima ? NULL : "IMAGE_OT_new", "IMAGE_OT_open", NULL);
+	if (!compact) {
+		uiTemplateID(
+		        layout, C, ptr, propname,
+		        ima ? NULL : "IMAGE_OT_new", "IMAGE_OT_open", NULL, UI_TEMPLATE_ID_FILTER_ALL);
+	}
 
 	if (ima) {
 		UI_block_funcN_set(block, rna_update_cb, MEM_dupallocN(cb), NULL);

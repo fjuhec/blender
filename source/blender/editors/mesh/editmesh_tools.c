@@ -1531,7 +1531,9 @@ void MESH_OT_flip_normals(wmOperatorType *ot)
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
-/* only accepts 1 selected edge, or 2 selected faces */
+/**
+ * Rotate the edges between selected faces, otherwise rotate the selected edges.
+ */
 static int edbm_edge_rotate_selected_exec(bContext *C, wmOperator *op)
 {
 	Object *obedit = CTX_data_edit_object(C);
@@ -1652,12 +1654,13 @@ void MESH_OT_hide(wmOperatorType *ot)
 	RNA_def_boolean(ot->srna, "unselected", false, "Unselected", "Hide unselected rather than selected");
 }
 
-static int edbm_reveal_exec(bContext *C, wmOperator *UNUSED(op))
+static int edbm_reveal_exec(bContext *C, wmOperator *op)
 {
 	Object *obedit = CTX_data_edit_object(C);
 	BMEditMesh *em = BKE_editmesh_from_object(obedit);
-	
-	EDBM_mesh_reveal(em);
+	const bool select = RNA_boolean_get(op->ptr, "select");
+
+	EDBM_mesh_reveal(em, select);
 
 	EDBM_update_generic(em, true, false);
 
@@ -1677,6 +1680,8 @@ void MESH_OT_reveal(wmOperatorType *ot)
 	
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+	RNA_def_boolean(ot->srna, "select", true, "Select", "");
 }
 
 static int edbm_normals_make_consistent_exec(bContext *C, wmOperator *op)

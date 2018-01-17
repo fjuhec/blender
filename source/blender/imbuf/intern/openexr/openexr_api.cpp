@@ -414,11 +414,13 @@ static bool imb_save_openexr_half(
 		frameBuffer.insert("R", Slice(HALF,  (char *) &to->r, xstride, ystride));
 		frameBuffer.insert("G", Slice(HALF,  (char *) &to->g, xstride, ystride));
 		frameBuffer.insert("B", Slice(HALF,  (char *) &to->b, xstride, ystride));
-		if (is_alpha)
+		if (is_alpha) {
 			frameBuffer.insert("A", Slice(HALF, (char *) &to->a, xstride, ystride));
-		if (is_zbuf)
+		}
+		if (is_zbuf) {
 			frameBuffer.insert("Z", Slice(Imf::FLOAT, (char *)(ibuf->zbuf_float + (height - 1) * width),
-							   sizeof(float), sizeof(float) * -width));
+			                              sizeof(float), sizeof(float) * -width));
+		}
 		if (ibuf->rect_float) {
 			float *from;
 
@@ -509,11 +511,13 @@ static bool imb_save_openexr_float(
 		frameBuffer.insert("R", Slice(Imf::FLOAT,  (char *)rect[0], xstride, ystride));
 		frameBuffer.insert("G", Slice(Imf::FLOAT,  (char *)rect[1], xstride, ystride));
 		frameBuffer.insert("B", Slice(Imf::FLOAT,  (char *)rect[2], xstride, ystride));
-		if (is_alpha)
+		if (is_alpha) {
 			frameBuffer.insert("A", Slice(Imf::FLOAT,  (char *)rect[3], xstride, ystride));
-		if (is_zbuf)
+		}
+		if (is_zbuf) {
 			frameBuffer.insert("Z", Slice(Imf::FLOAT, (char *) (ibuf->zbuf_float + (height - 1) * width),
-											  sizeof(float), sizeof(float) * -width));
+			                              sizeof(float), sizeof(float) * -width));
+		}
 
 		file.setFrameBuffer(frameBuffer);
 		file.writePixels(height);
@@ -1024,13 +1028,13 @@ void IMB_exr_write_channels(void *handle)
 				for (size_t i = 0; i < num_pixels; ++i, ++cur) {
 					*cur = rect[i * echan->xstride];
 				}
-				half *rect_to_write = current_rect_half + (data->height - 1) * data->width;
+				half *rect_to_write = current_rect_half + (data->height - 1L) * data->width;
 				frameBuffer.insert(echan->name, Slice(Imf::HALF,  (char *)rect_to_write,
 				                                      sizeof(half), -data->width * sizeof(half)));
 				current_rect_half += num_pixels;
 			}
 			else {
-				float *rect = echan->rect + echan->xstride * (data->height - 1) * data->width;
+				float *rect = echan->rect + echan->xstride * (data->height - 1L) * data->width;
 				frameBuffer.insert(echan->name, Slice(Imf::FLOAT,  (char *)rect,
 				                                      echan->xstride * sizeof(float), -echan->ystride * sizeof(float)));
 			}
@@ -1055,11 +1059,11 @@ void IMB_exr_write_channels(void *handle)
 
 /* temporary function, used for FSA and Save Buffers */
 /* called once per tile * view */
-void IMB_exrtile_write_channels(void *handle, int partx, int party, int level, const char *viewname)
+void IMB_exrtile_write_channels(void *handle, int partx, int party, int level, const char *viewname, bool empty)
 {
+	/* Can write empty channels for incomplete renders. */
 	ExrHandle *data = (ExrHandle *)handle;
 	FrameBuffer frameBuffer;
-	ExrChannel *echan;
 	std::string view(viewname);
 	const int view_id = imb_exr_get_multiView_id(*data->multiView, view);
 
@@ -1067,28 +1071,32 @@ void IMB_exrtile_write_channels(void *handle, int partx, int party, int level, c
 	exr_printf("%s %-6s %-22s \"%s\"\n", "p", "view", "name", "internal_name");
 	exr_printf("---------------------------------------------------------------------\n");
 
-	for (echan = (ExrChannel *)data->channels.first; echan; echan = echan->next) {
+	if (!empty) {
+		ExrChannel *echan;
 
-		/* eventually we can make the parts' channels to include
-		   only the current view TODO */
-		if (strcmp(viewname, echan->m->view.c_str()) != 0)
-			continue;
+		for (echan = (ExrChannel *)data->channels.first; echan; echan = echan->next) {
 
-		exr_printf("%d %-6s %-22s \"%s\"\n",
-		           echan->m->part_number,
-		           echan->m->view.c_str(),
-		           echan->m->name.c_str(),
-		           echan->m->internal_name.c_str()
-		           );
+			/* eventually we can make the parts' channels to include
+			   only the current view TODO */
+			if (strcmp(viewname, echan->m->view.c_str()) != 0)
+				continue;
 
-		float *rect = echan->rect - echan->xstride * partx - echan->ystride * party;
-		frameBuffer.insert(echan->m->internal_name,
-		                   Slice(Imf::FLOAT,
-		                         (char *)rect,
-		                         echan->xstride * sizeof(float),
-		                         echan->ystride * sizeof(float)
-		                        )
-		                  );
+			exr_printf("%d %-6s %-22s \"%s\"\n",
+			           echan->m->part_number,
+			           echan->m->view.c_str(),
+			           echan->m->name.c_str(),
+			           echan->m->internal_name.c_str()
+			           );
+
+			float *rect = echan->rect - echan->xstride * partx - echan->ystride * party;
+			frameBuffer.insert(echan->m->internal_name,
+			                   Slice(Imf::FLOAT,
+			                         (char *)rect,
+			                         echan->xstride * sizeof(float),
+			                         echan->ystride * sizeof(float)
+			                        )
+			);
+		}
 	}
 
 	TiledOutputPart out (*data->mpofile, view_id);
@@ -1125,7 +1133,7 @@ void IMB_exr_read_channels(void *handle)
 		ExrChannel *echan;
 
 		for (echan = (ExrChannel *)data->channels.first; echan; echan = echan->next) {
-			if(echan->m->part_number != i) {
+			if (echan->m->part_number != i) {
 				continue;
 			}
 

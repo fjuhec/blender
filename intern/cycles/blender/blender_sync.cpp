@@ -222,9 +222,7 @@ void BlenderSync::sync_data(BL::RenderSettings& b_render,
 
 void BlenderSync::sync_integrator()
 {
-#ifdef __CAMERA_MOTION__
 	BL::RenderSettings r = b_scene.render();
-#endif
 	PointerRNA cscene = RNA_pointer_get(&b_scene.ptr, "cycles");
 
 	experimental = (get_enum(cscene, "feature_set") != 0);
@@ -269,7 +267,6 @@ void BlenderSync::sync_integrator()
 
 	integrator->sample_clamp_direct = get_float(cscene, "sample_clamp_direct");
 	integrator->sample_clamp_indirect = get_float(cscene, "sample_clamp_indirect");
-#ifdef __CAMERA_MOTION__
 	if(!preview) {
 		if(integrator->motion_blur != r.use_motion_blur()) {
 			scene->object_manager->tag_update(scene);
@@ -278,7 +275,6 @@ void BlenderSync::sync_integrator()
 
 		integrator->motion_blur = r.use_motion_blur();
 	}
-#endif
 
 	integrator->method = (Integrator::Method)get_enum(cscene,
 	                                                  "progressive",
@@ -496,11 +492,13 @@ PassType BlenderSync::get_pass_type(BL::RenderPass& b_pass)
 	MAP_PASS("GlossDir", PASS_GLOSSY_DIRECT);
 	MAP_PASS("TransDir", PASS_TRANSMISSION_DIRECT);
 	MAP_PASS("SubsurfaceDir", PASS_SUBSURFACE_DIRECT);
+	MAP_PASS("VolumeDir", PASS_VOLUME_DIRECT);
 
 	MAP_PASS("DiffInd", PASS_DIFFUSE_INDIRECT);
 	MAP_PASS("GlossInd", PASS_GLOSSY_INDIRECT);
 	MAP_PASS("TransInd", PASS_TRANSMISSION_INDIRECT);
 	MAP_PASS("SubsurfaceInd", PASS_SUBSURFACE_INDIRECT);
+	MAP_PASS("VolumeInd", PASS_VOLUME_INDIRECT);
 
 	MAP_PASS("DiffCol", PASS_DIFFUSE_COLOR);
 	MAP_PASS("GlossCol", PASS_GLOSSY_COLOR);
@@ -518,6 +516,7 @@ PassType BlenderSync::get_pass_type(BL::RenderPass& b_pass)
 	MAP_PASS("Debug BVH Intersections", PASS_BVH_INTERSECTIONS);
 	MAP_PASS("Debug Ray Bounces", PASS_RAY_BOUNCES);
 #endif
+	MAP_PASS("Debug Render Time", PASS_RENDER_TIME);
 #undef MAP_PASS
 
 	return PASS_NONE;
@@ -604,6 +603,18 @@ array<Pass> BlenderSync::sync_render_passes(BL::RenderLayer& b_rlay,
 		Pass::add(PASS_RAY_BOUNCES, passes);
 	}
 #endif
+	if(get_boolean(crp, "pass_debug_render_time")) {
+		b_engine.add_pass("Debug Render Time", 1, "X", b_srlay.name().c_str());
+		Pass::add(PASS_RENDER_TIME, passes);
+	}
+	if(get_boolean(crp, "use_pass_volume_direct")) {
+		b_engine.add_pass("VolumeDir", 3, "RGB", b_srlay.name().c_str());
+		Pass::add(PASS_VOLUME_DIRECT, passes);
+	}
+	if(get_boolean(crp, "use_pass_volume_indirect")) {
+		b_engine.add_pass("VolumeInd", 3, "RGB", b_srlay.name().c_str());
+		Pass::add(PASS_VOLUME_INDIRECT, passes);
+	}
 
 	return passes;
 }

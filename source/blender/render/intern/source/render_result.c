@@ -925,6 +925,17 @@ bool RE_WriteRenderResult(ReportList *reports, RenderResult *rr, const char *fil
 				}
 			}
 
+			/* We only store RGBA passes as half float, for
+			 * others precision loss can be problematic. */
+			bool pass_half_float = half_float &&
+			                       (STREQ(rp->chan_id, "RGB") ||
+			                        STREQ(rp->chan_id, "RGBA") ||
+			                        STREQ(rp->chan_id, "R") ||
+			                        STREQ(rp->chan_id, "G") ||
+			                        STREQ(rp->chan_id, "B") ||
+			                        STREQ(rp->chan_id, "A"));
+
+
 			for (int a = 0; a < rp->channels; a++) {
 				/* Save Combined as RGBA if single layer save. */
 				char passname[EXR_PASS_MAXNAME];
@@ -940,10 +951,9 @@ bool RE_WriteRenderResult(ReportList *reports, RenderResult *rr, const char *fil
 					layname[0] = '\0';
 				}
 
-				/* Add channel. */
 				IMB_exr_add_channel(exrhandle, layname, passname, viewname,
 				                    rp->channels, rp->channels * rr->rectx, rp->rect + a,
-				                    STREQ(rp->name, RE_PASSNAME_Z) ? false : half_float);
+				                    pass_half_float);
 			}
 		}
 	}
@@ -1075,7 +1085,7 @@ static void save_render_result_tile(RenderResult *rr, RenderResult *rrpart, cons
 			continue;
 		}
 
-		IMB_exrtile_write_channels(rl->exrhandle, partx, party, 0, viewname);
+		IMB_exrtile_write_channels(rl->exrhandle, partx, party, 0, viewname, false);
 	}
 
 	BLI_unlock_thread(LOCK_IMAGE);
@@ -1089,13 +1099,11 @@ void render_result_save_empty_result_tiles(Render *re)
 	
 	for (rr = re->result; rr; rr = rr->next) {
 		for (rl = rr->layers.first; rl; rl = rl->next) {
-			IMB_exr_clear_channels(rl->exrhandle);
-		
 			for (pa = re->parts.first; pa; pa = pa->next) {
 				if (pa->status != PART_STATUS_MERGED) {
 					int party = pa->disprect.ymin - re->disprect.ymin + pa->crop;
 					int partx = pa->disprect.xmin - re->disprect.xmin + pa->crop;
-					IMB_exrtile_write_channels(rl->exrhandle, partx, party, 0, re->viewname);
+					IMB_exrtile_write_channels(rl->exrhandle, partx, party, 0, re->viewname, true);
 				}
 			}
 		}
@@ -1476,9 +1484,6 @@ static RenderView *duplicate_render_view(RenderView *rview)
 {
 	RenderView *new_rview = MEM_mallocN(sizeof(RenderView), "new render view");
 	*new_rview = *rview;
-	if (new_rview->rectf != NULL) {
-		new_rview->rectf = MEM_dupallocN(new_rview->rectf);
-	}
 	if (new_rview->rectf != NULL) {
 		new_rview->rectf = MEM_dupallocN(new_rview->rectf);
 	}

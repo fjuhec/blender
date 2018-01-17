@@ -187,7 +187,6 @@ ccl_device_inline void path_radiance_init(PathRadiance *L, int use_light_pass)
 		L->color_glossy = make_float3(0.0f, 0.0f, 0.0f);
 		L->color_transmission = make_float3(0.0f, 0.0f, 0.0f);
 		L->color_subsurface = make_float3(0.0f, 0.0f, 0.0f);
-		L->color_scatter = make_float3(0.0f, 0.0f, 0.0f);
 
 		L->direct_diffuse = make_float3(0.0f, 0.0f, 0.0f);
 		L->direct_glossy = make_float3(0.0f, 0.0f, 0.0f);
@@ -456,7 +455,7 @@ ccl_device_inline void path_radiance_accum_background(
 
 #ifdef __PASSES__
 	if(L->use_light_pass) {
-		if(state->bounce == 0)
+		if(state->flag & PATH_RAY_TRANSPARENT_BACKGROUND)
 			L->background += throughput*value;
 		else if(state->bounce == 1)
 			L->direct_emission += throughput*value;

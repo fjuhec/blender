@@ -661,7 +661,11 @@ bool BKE_id_copy_ex(Main *bmain, const ID *id, ID **r_newid, const int flag, con
 	/* Do not make new copy local in case we are copying outside of main...
 	 * XXX TODO: is this behavior OK, or should we need own flag to control that? */
 	if ((flag & LIB_ID_CREATE_NO_MAIN) == 0) {
+		BLI_assert((flag & LIB_ID_COPY_KEEP_LIB) == 0);
 		BKE_id_copy_ensure_local(bmain, id, *r_newid);
+	}
+	else {
+		(*r_newid)->lib = id->lib;
 	}
 
 	return true;
@@ -2142,8 +2146,8 @@ void BKE_library_make_local(
 			 * was not used locally would be a nasty bug! */
 			if (is_local || is_lib) {
 				printf("Warning, made-local proxy object %s will loose its link to %s, "
-					   "because the linked-in proxy is referenced (is_local=%i, is_lib=%i).\n",
-					   id->newid->name, ob->proxy->id.name, is_local, is_lib);
+				       "because the linked-in proxy is referenced (is_local=%i, is_lib=%i).\n",
+				       id->newid->name, ob->proxy->id.name, is_local, is_lib);
 			}
 			else {
 				/* we can switch the proxy'ing from the linked-in to the made-local proxy.
@@ -2199,8 +2203,8 @@ void BKE_library_make_local(
 				 * was not used locally would be a nasty bug! */
 				else if (is_local || is_lib) {
 					printf("Warning, made-local proxy object %s will loose its link to %s, "
-						   "because the linked-in proxy is referenced (is_local=%i, is_lib=%i).\n",
-						   id->newid->name, ob->proxy->id.name, is_local, is_lib);
+					       "because the linked-in proxy is referenced (is_local=%i, is_lib=%i).\n",
+					       id->newid->name, ob->proxy->id.name, is_local, is_lib);
 				}
 				else {
 					/* we can switch the proxy'ing from the linked-in to the made-local proxy.
@@ -2383,10 +2387,10 @@ void BKE_library_filepath_set(Library *lib, const char *filepath)
 
 void BKE_id_tag_set_atomic(ID *id, int tag)
 {
-	atomic_fetch_and_or_uint32((uint32_t *)&id->tag, tag);
+	atomic_fetch_and_or_int32(&id->tag, tag);
 }
 
 void BKE_id_tag_clear_atomic(ID *id, int tag)
 {
-	atomic_fetch_and_and_uint32((uint32_t *)&id->tag, ~tag);
+	atomic_fetch_and_and_int32(&id->tag, ~tag);
 }
