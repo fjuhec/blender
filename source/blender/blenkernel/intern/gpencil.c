@@ -579,8 +579,8 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->draw_angle = 0.0f;
 	brush->draw_angle_factor = 0.0f;
 
-	brush->draw_smoothfac = 1.0f;
-	brush->draw_smoothlvl = 3;
+	brush->draw_smoothfac = 0.5f;
+	brush->draw_smoothlvl = 1;
 	brush->thick_smoothfac = 1.0f;
 	brush->thick_smoothlvl = 3;
 	brush->sublevel = 1;
@@ -606,8 +606,8 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->draw_angle = 0.0f;
 	brush->draw_angle_factor = 0.0f;
 
-	brush->draw_smoothfac = 1.0f;
-	brush->draw_smoothlvl = 3;
+	brush->draw_smoothfac = 0.5f;
+	brush->draw_smoothlvl = 1;
 	brush->sublevel = 1;
 	brush->thick_smoothfac = 1.0f;
 	brush->thick_smoothlvl = 3;
@@ -631,8 +631,8 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->draw_angle = 0.0f;
 	brush->draw_angle_factor = 0.0f;
 
-	brush->draw_smoothfac = 1.0f;
-	brush->draw_smoothlvl = 3;
+	brush->draw_smoothfac = 0.5f;
+	brush->draw_smoothlvl = 1;
 	brush->thick_smoothfac = 1.0f;
 	brush->thick_smoothlvl = 3;
 	brush->sublevel = 1;
@@ -719,8 +719,8 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->draw_angle = M_PI_4; /* 45 degrees */
 	brush->draw_angle_factor = 1.0f;
 
-	brush->draw_smoothfac = 1.0f;
-	brush->draw_smoothlvl = 3;
+	brush->draw_smoothfac = 0.5f;
+	brush->draw_smoothlvl = 1;
 	brush->thick_smoothfac = 1.0f;
 	brush->thick_smoothlvl = 3;
 	brush->sublevel = 1;
@@ -763,6 +763,12 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->fill_threshold = 0.1f;
 	brush->fill_simplylvl = 1;
 	brush->icon = GPBRUSH_FILL;
+
+	brush->draw_smoothfac = 0.5f;
+	brush->draw_smoothlvl = 1;
+	brush->thick_smoothfac = 1.0f;
+	brush->thick_smoothlvl = 3;
+	brush->sublevel = 1;
 
 	brush->draw_strength = 1.0f;
 	copy_v3_v3(brush->curcolor, curcolor);
