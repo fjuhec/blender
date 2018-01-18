@@ -38,11 +38,16 @@ class OUTLINER_HT_header(Header):
 
         layout.prop(space, "display_mode", text="")
 
-        layout.prop(space, "filter_text", icon='VIEWZOOM', text="")
+        row = layout.row(align=True)
+        row.prop(space, "filter_text", icon='VIEWZOOM', text="")
+        row.prop(space, "use_filter_complete", text="")
+        row.prop(space, "use_filter_case_sensitive", text="")
 
-        layout.separator()
+        if space.display_mode not in {'DATABLOCKS', 'USER_PREFERENCES', 'KEYMAPS', 'ACT_LAYER', 'COLLECTIONS'}:
+            row.prop(space, "use_sort_alpha", text="")
 
-        if space.display_mode == 'DATABLOCKS':
+        elif space.display_mode == 'DATABLOCKS':
+            layout.separator()
             row = layout.row(align=True)
             row.operator("outliner.keyingset_add_selected", icon='ZOOMIN', text="")
             row.operator("outliner.keyingset_remove_selected", icon='ZOOMOUT', text="")
@@ -57,17 +62,6 @@ class OUTLINER_HT_header(Header):
             else:
                 row = layout.row()
                 row.label(text="No Keying Set Active")
-        elif space.display_mode == 'ORPHAN_DATA':
-            layout.operator("outliner.orphans_purge")
-
-        elif space.display_mode == 'ACT_LAYER':
-            row = layout.row(align=True)
-
-            row.operator("outliner.collection_new", text="", icon='NEW')
-            row.operator("outliner.collection_override_new", text="", icon='LINK_AREA')
-            row.operator("outliner.collection_link", text="", icon='LINKED')
-            row.operator("outliner.collection_unlink", text="", icon='UNLINKED')
-            row.operator("outliner.collections_delete", text="", icon='X')
 
 
 class OUTLINER_MT_editor_menus(Menu):
@@ -82,13 +76,15 @@ class OUTLINER_MT_editor_menus(Menu):
         space = context.space_data
 
         layout.menu("OUTLINER_MT_view")
-        layout.menu("OUTLINER_MT_search")
 
         if space.display_mode == 'DATABLOCKS':
             layout.menu("OUTLINER_MT_edit_datablocks")
 
-        elif space.display_mode == 'COLLECTIONS':
-            layout.menu("OUTLINER_MT_edit_collections")
+        elif space.display_mode == 'ORPHAN_DATA':
+            layout.menu("OUTLINER_MT_edit_orphan_data")
+
+        elif space.display_mode == 'ACT_LAYER':
+            layout.menu("OUTLINER_MT_edit_active_view_layer")
 
 
 class OUTLINER_MT_view(Menu):
@@ -100,8 +96,6 @@ class OUTLINER_MT_view(Menu):
         space = context.space_data
 
         if space.display_mode not in {'DATABLOCKS', 'USER_PREFERENCES', 'KEYMAPS'}:
-            if space.display_mode not in {'ACT_LAYER', 'COLLECTIONS'}:
-                layout.prop(space, "use_sort_alpha")
             layout.prop(space, "show_restrict_columns")
             layout.separator()
             layout.operator("outliner.show_active")
@@ -117,29 +111,14 @@ class OUTLINER_MT_view(Menu):
         layout.operator("screen.screen_full_area", text="Toggle Fullscreen Area").use_hide_panels = True
 
 
-class OUTLINER_MT_search(Menu):
-    bl_label = "Search"
-
-    def draw(self, context):
-        layout = self.layout
-
-        space = context.space_data
-
-        layout.prop(space, "use_filter_case_sensitive")
-        layout.prop(space, "use_filter_complete")
-
-
-class OUTLINER_MT_edit_collections(Menu):
+class OUTLINER_MT_edit_active_view_layer(Menu):
     bl_label = "Edit"
 
     def draw(self, context):
         layout = self.layout
 
-        layout.operator("outliner.collection_nested_new", text="New Collection", icon='NEW')
-        layout.operator("outliner.collection_delete_selected", text="Delete Collections", icon='X')
-        layout.separator()
-        layout.operator("outliner.collection_objects_add", text="Add Selected", icon='ZOOMIN')
-        layout.operator("outliner.collection_objects_remove", text="Remove Selected", icon='ZOOMOUT')
+        layout.operator("outliner.collection_link", icon='LINKED')
+        layout.operator("outliner.collection_new", icon='NEW')
 
 
 class OUTLINER_MT_edit_datablocks(Menu):
@@ -157,13 +136,35 @@ class OUTLINER_MT_edit_datablocks(Menu):
         layout.operator("outliner.drivers_delete_selected")
 
 
+class OUTLINER_MT_edit_orphan_data(Menu):
+    bl_label = "Edit"
+
+    def draw(self, context):
+        layout = self.layout
+        layout.operator("outliner.orphans_purge")
+
+
+class OUTLINER_MT_context_scene_collection(Menu):
+    bl_label = "Collection"
+
+    def draw(self, context):
+        layout = self.layout
+
+        layout.operator("outliner.collection_nested_new", text="New Collection", icon='NEW')
+        layout.operator("outliner.collection_delete_selected", text="Delete Collections", icon='X')
+        layout.separator()
+        layout.operator("outliner.collection_objects_add", text="Add Selected", icon='ZOOMIN')
+        layout.operator("outliner.collection_objects_remove", text="Remove Selected", icon='ZOOMOUT')
+
+
 classes = (
     OUTLINER_HT_header,
     OUTLINER_MT_editor_menus,
     OUTLINER_MT_view,
-    OUTLINER_MT_search,
-    OUTLINER_MT_edit_collections,
+    OUTLINER_MT_edit_active_view_layer,
     OUTLINER_MT_edit_datablocks,
+    OUTLINER_MT_edit_orphan_data,
+    OUTLINER_MT_context_scene_collection,
 )
 
 if __name__ == "__main__":  # only for live edit.
