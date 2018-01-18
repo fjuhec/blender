@@ -191,8 +191,8 @@ static OPJ_OFF_T opj_skip_from_buffer(OPJ_OFF_T p_nb_bytes, void *p_user_data)
 static OPJ_BOOL opj_seek_from_buffer(OPJ_OFF_T p_nb_bytes, void *p_user_data)
 {
 	struct BufInfo *p_file = p_user_data;
-	if (p_file->cur + p_nb_bytes < p_file->buf + p_file->len) {
-		p_file->cur += p_nb_bytes;
+	if (p_nb_bytes < p_file->len) {
+		p_file->cur = p_file->buf + p_nb_bytes;
 		return OPJ_TRUE;
 	}
 	p_file->cur = p_file->buf + p_file->len;

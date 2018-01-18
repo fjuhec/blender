@@ -34,7 +34,6 @@ set(INC_SYS
 add_definitions(
 	-DUSE_JPIP
 	# see: https://github.com/uclouvain/openjpeg/issues/254
-	-DOPJ_DISABLE_TPSOT_FIX
 	${OPENJPEG_DEFINES}
 )
 
