@@ -872,7 +872,7 @@ void DRW_gpencil_populate_buffer_strokes(GPENCIL_e_data *e_data, void *vedata, T
 					}
 					stl->g_data->shgrps_drawing_fill = DRW_shgroup_create(e_data->gpencil_drawing_fill_sh, psl->drawing_pass);
 					stl->g_data->tot_sh++;
-					stl->g_data->batch_buffer_fill = DRW_gpencil_get_buffer_fill_geom(gpd->sbuffer, gpd->sbuffer_size, gpd->sfill);
+					stl->g_data->batch_buffer_fill = DRW_gpencil_get_buffer_fill_geom(gpd, gpd->sbuffer, gpd->sbuffer_size, gpd->sfill);
 					DRW_shgroup_call_add(stl->g_data->shgrps_drawing_fill, stl->g_data->batch_buffer_fill, stl->storage->unit_matrix);
 				}
 			}
