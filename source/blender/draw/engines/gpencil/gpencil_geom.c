@@ -315,8 +315,14 @@ Gwn_Batch *DRW_gpencil_get_buffer_point_geom(bGPdata *gpd, float matrix[4][4], s
 }
 
 /* create batch geometry data for current buffer fill shader */
-Gwn_Batch *DRW_gpencil_get_buffer_fill_geom(bGPdata *gpd, const tGPspoint *points, int totpoints, float ink[4])
+Gwn_Batch *DRW_gpencil_get_buffer_fill_geom(bGPdata *gpd)
 {
+	if (gpd == NULL) {
+		return NULL;
+	}
+
+	const tGPspoint *points = gpd->sbuffer;
+	int totpoints = gpd->sbuffer_size;
 	if (totpoints < 3) {
 		return NULL;
 	}
@@ -372,7 +378,7 @@ Gwn_Batch *DRW_gpencil_get_buffer_fill_geom(bGPdata *gpd, const tGPspoint *point
 				tpt = &points[tmp_triangles[i][j]];
 				gpencil_tpoint_to_point(scene, ar, v3d, origin, tpt, &pt);
 				GWN_vertbuf_attr_set(vbo, pos_id, idx, &pt.x);
-				GWN_vertbuf_attr_set(vbo, color_id, idx, ink);
+				GWN_vertbuf_attr_set(vbo, color_id, idx, gpd->sfill);
 				idx++;
 			}
 		}

@@ -319,7 +319,7 @@ struct Gwn_Batch *DRW_gpencil_get_fill_geom(struct bGPDstroke *gps, const float 
 struct Gwn_Batch *DRW_gpencil_get_edit_geom(struct bGPDstroke *gps, float alpha, short dflag);
 struct Gwn_Batch *DRW_gpencil_get_edlin_geom(struct bGPDstroke *gps, float alpha, short dflag);
 struct Gwn_Batch *DRW_gpencil_get_buffer_stroke_geom(struct bGPdata *gpd, float matrix[4][4], short thickness);
-struct Gwn_Batch *DRW_gpencil_get_buffer_fill_geom(struct bGPdata *gpd, const struct tGPspoint *points, int totpoints, float ink[4]);
+struct Gwn_Batch *DRW_gpencil_get_buffer_fill_geom(struct bGPdata *gpd);
 struct Gwn_Batch *DRW_gpencil_get_buffer_point_geom(struct bGPdata *gpd, float matrix[4][4], short thickness);
 
 struct GPUTexture *DRW_gpencil_create_blank_texture(int width, int height);
