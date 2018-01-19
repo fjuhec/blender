@@ -233,7 +233,7 @@ static void gp_render_offscreen(tGPDfill *tgpf)
 	rctf viewplane;
 	float clipsta, clipend;
 
-	is_ortho = ED_view3d_viewplane_get(tgpf->v3d, tgpf->rv3d, tgpf->sizex, tgpf->sizey, &viewplane, &clipsta, &clipend, NULL);
+	is_ortho = ED_view3d_viewplane_get(tgpf->depsgraph, tgpf->v3d, tgpf->rv3d, tgpf->sizex, tgpf->sizey, &viewplane, &clipsta, &clipend, NULL);
 	if (is_ortho) {
 		orthographic_m4(winmat, viewplane.xmin, viewplane.xmax, viewplane.ymin, viewplane.ymax, -clipend, clipend);
 	}
@@ -854,7 +854,7 @@ static tGPDfill *gp_session_init_fill(bContext *C, wmOperator *op)
 	tgpf->eval_ctx = bmain->eval_ctx;
 	tgpf->rv3d = tgpf->ar->regiondata;
 	tgpf->v3d = tgpf->sa->spacedata.first;
-	tgpf->graph = CTX_data_depsgraph(C);
+	tgpf->depsgraph = CTX_data_depsgraph(C);
 	tgpf->win = CTX_wm_window(C);
 
 	/* set GP datablock */

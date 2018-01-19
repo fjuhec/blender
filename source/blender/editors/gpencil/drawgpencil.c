@@ -1956,7 +1956,7 @@ void ED_gpencil_draw_view3d(wmWindowManager *wm,
 
 /* draw grease-pencil sketches to specified 3d-view for gp object
 * assuming that matrices are already set correctly */
-void ED_gpencil_draw_view3d_object(wmWindowManager *wm, Scene *scene, Object *ob, View3D *v3d, ARegion *ar, bool only3d)
+void ED_gpencil_draw_view3d_object(wmWindowManager *wm, Scene *scene, const struct Depsgraph *depsgraph, Object *ob, View3D *v3d, ARegion *ar, bool only3d)
 {
 	int dflag = 0;
 	RegionView3D *rv3d = ar->regiondata;
@@ -1970,7 +1970,7 @@ void ED_gpencil_draw_view3d_object(wmWindowManager *wm, Scene *scene, Object *ob
 	* deal with the camera border, otherwise map the coords to the camera border. */
 	if ((rv3d->persp == RV3D_CAMOB) && !(G.f & G_RENDER_OGL)) {
 		rctf rectf;
-		ED_view3d_calc_camera_border(scene, ar, v3d, rv3d, &rectf, true); /* no shift */
+		ED_view3d_calc_camera_border(scene, depsgraph, ar, v3d, rv3d, &rectf, true); /* no shift */
 
 		offsx = round_fl_to_int(rectf.xmin);
 		offsy = round_fl_to_int(rectf.ymin);

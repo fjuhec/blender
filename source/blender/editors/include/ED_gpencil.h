@@ -157,7 +157,7 @@ typedef struct tGPDprimitive {
 
 /* Temporary fill operation data */
 typedef struct tGPDfill {
-	struct Depsgraph *graph;
+	struct Depsgraph *depsgraph;
 	struct wmWindow *win;               /* window where painting originated */
 	struct Scene *scene;				/* current scene from context */
 	struct Object *ob;					/* current active gp object */
@@ -300,7 +300,8 @@ void ED_gpencil_draw_view3d(struct wmWindowManager *wm,
                             bool only3d);
 void ED_gpencil_draw_view3d_object(struct wmWindowManager *wm,
                                    struct Scene *scene,
-                                   struct Object *ob,
+								   const struct Depsgraph *depsgraph,
+								   struct Object *ob,
                                    struct View3D *v3d,
                                    struct ARegion *ar,
                                    bool only3d);

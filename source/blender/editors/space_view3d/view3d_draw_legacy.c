@@ -1492,7 +1492,7 @@ CustomDataMask ED_view3d_screen_datamask(const Scene *scene, const bScreen *scre
 /**
 * Draw grease pencil object strokes
 */
-static void draw_gpencil_object_strokes(const bContext *C, Scene *scene, View3D *v3d, ARegion *ar, Base *base)
+static void draw_gpencil_object_strokes(const bContext *C, Scene *scene, const struct Depsgraph *depsgraph, View3D *v3d, ARegion *ar, Base *base)
 {
 	const bool render_override = (v3d->flag2 & V3D_RENDER_OVERRIDE) != 0;
 	Object *ob = base->object;
@@ -1512,7 +1512,7 @@ static void draw_gpencil_object_strokes(const bContext *C, Scene *scene, View3D 
 
 	wmWindowManager *wm = (C != NULL) ? CTX_wm_manager(C) : NULL;
 	if (v3d->zbuf) glDisable(GL_DEPTH_TEST);
-	ED_gpencil_draw_view3d_object(wm, scene, ob, v3d, ar, true);
+	ED_gpencil_draw_view3d_object(wm, scene, depsgraph, ob, v3d, ar, true);
 	if (v3d->zbuf) glEnable(GL_DEPTH_TEST);
 }
 
@@ -1528,7 +1528,7 @@ static int compare_gpencil_zdepth(const void *a1, const void *a2)
 }
 
 /* draw objects in cache from back to from */
-static void gpencil_draw_objects(const bContext *C,	Scene *scene, View3D *v3d, ARegion *ar, tGPencilSort *cache, int gp_cache_used)
+static void gpencil_draw_objects(const bContext *C,	Scene *scene, const struct Depsgraph *depsgraph, View3D *v3d, ARegion *ar, tGPencilSort *cache, int gp_cache_used)
 {
 	if (gp_cache_used > 0) {
 		/* sort by zdepth */
@@ -1536,7 +1536,7 @@ static void gpencil_draw_objects(const bContext *C,	Scene *scene, View3D *v3d, A
 		/* inverse loop to draw from back to front */
 		for (int i = gp_cache_used; i > 0; --i) {
 			Base *base = cache[i - 1].base;
-			draw_gpencil_object_strokes(C, scene, v3d, ar, base);
+			draw_gpencil_object_strokes(C, scene, depsgraph,v3d, ar, base);
 		}
 	}
 	/* free memory */
@@ -1653,7 +1653,7 @@ static void view3d_draw_objects(
 			}
 		}
 		/* draw pending gpencil strokes */
-		gpencil_draw_objects(C, scene, v3d, ar, gp_cache, gp_cache_used);
+		gpencil_draw_objects(C, scene, depsgraph, v3d, ar, gp_cache, gp_cache_used);
 	}
 	else {
 		unsigned int lay_used = 0;
@@ -1704,7 +1704,7 @@ static void view3d_draw_objects(
 			}
 		}
 		/* draw pending gpencil strokes */
-		gpencil_draw_objects(C, scene, v3d, ar, gp_cache, gp_cache_used);
+		gpencil_draw_objects(C, scene, depsgraph, v3d, ar, gp_cache, gp_cache_used);
 	}
 
 	/* perspective floor goes last to use scene depth and avoid writing to depth buffer */
@@ -2147,7 +2147,7 @@ static void view3d_main_region_draw_info(const bContext *C, Scene *scene,
 		ED_gpencil_draw_view3d(wm, scene, view_layer, depsgraph, v3d, ar, false);
 		Object *obact = CTX_data_active_object(C);
 		if (obact && obact->type == OB_GPENCIL) {
-			ED_gpencil_draw_view3d_object(wm, scene, obact, v3d, ar, false);
+			ED_gpencil_draw_view3d_object(wm, scene, depsgraph, obact, v3d, ar, false);
 		}
 	}
 

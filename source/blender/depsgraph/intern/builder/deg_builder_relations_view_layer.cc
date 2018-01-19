@@ -106,7 +106,7 @@ void DepsgraphRelationBuilder::build_view_layer(Scene *scene, ViewLayer *view_la
 	}
 
 	/* Palettes. */
-	LINKLIST_FOREACH(Palette *, palette, &bmain_->palettes) {
+	BLI_LISTBASE_FOREACH (Palette *, palette, &bmain_->palettes) {
 		build_palette(palette);
 	}
 

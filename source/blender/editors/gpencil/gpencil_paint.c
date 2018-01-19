@@ -179,6 +179,7 @@ typedef struct tGPsdata {
 	bGPDbrush *brush;    /* current drawing brush */
 	short straight[2];   /* 1: line horizontal, 2: line vertical, other: not defined, second element position */
 	int lock_axis;       /* lock drawing to one axis */
+	bool no_fill;        /* the stroke is no fill mode */
 
 	short keymodifier;   /* key used for invoking the operator */
 	
@@ -1393,7 +1394,7 @@ static void gp_init_palette(tGPsdata *p)
 }
 
 /* (re)init new painting data */
-static bool gp_session_initdata(bContext *C, tGPsdata *p)
+static bool gp_session_initdata(bContext *C, wmOperator *op, tGPsdata *p)
 {
 	bGPdata **gpd_ptr = NULL;
 	ScrArea *curarea = CTX_wm_area(C);
@@ -1416,6 +1417,7 @@ static bool gp_session_initdata(bContext *C, tGPsdata *p)
 	p->scene = CTX_data_scene(C);
 	p->graph = CTX_data_depsgraph(C);
 	p->win = CTX_wm_window(C);
+	p->no_fill = RNA_boolean_get(op->ptr, "no_fill");
 	
 	unit_m4(p->imat);
 	unit_m4(p->mat);
@@ -1613,14 +1615,14 @@ static bool gp_session_initdata(bContext *C, tGPsdata *p)
 }
 
 /* init new painting session */
-static tGPsdata *gp_session_initpaint(bContext *C)
+static tGPsdata *gp_session_initpaint(bContext *C, wmOperator *op)
 {
 	tGPsdata *p = NULL;
 	
 	/* create new context data */
 	p = MEM_callocN(sizeof(tGPsdata), "GPencil Drawing Data");
 	
-	gp_session_initdata(C, p);
+	gp_session_initdata(C, op, p);
 	
 	/* radius for eraser circle is defined in userprefs now */
 	/* NOTE: we do this here, so that if we exit immediately,
@@ -1774,7 +1776,7 @@ static void gp_paint_initstroke(tGPsdata *p, eGPencil_PaintModes paintmode, cons
 	}
 
 	/* set special fill stroke mode */
-	if (RNA_boolean_get(op->ptr, "no_fill") == true) {
+	if (p->no_fill == true) {
 		p->gpd->sbuffer_sflag |= GP_STROKE_NOFILL;
 		/* replace stroke color with fill color */
 		copy_v4_v4(p->gpd->scolor, p->gpd->sfill);
@@ -2039,7 +2041,7 @@ static int gpencil_draw_init(bContext *C, wmOperator *op, const wmEvent *event)
 	eGPencil_PaintModes paintmode = RNA_enum_get(op->ptr, "mode");
 	
 	/* check context */
-	p = op->customdata = gp_session_initpaint(C);
+	p = op->customdata = gp_session_initpaint(C, op);
 	if ((p == NULL) || (p->status == GP_STATUS_ERROR)) {
 		/* something wasn't set correctly in context */
 		gpencil_draw_exit(C, op);
@@ -2493,7 +2495,7 @@ static tGPsdata *gpencil_stroke_begin(bContext *C, wmOperator *op)
 	/* XXX: watch it with the paintmode! in future,
 	 *      it'd be nice to allow changing paint-mode when in sketching-sessions */
 	
-	if (gp_session_initdata(C, p))
+	if (gp_session_initdata(C, op, p))
 		gp_paint_initstroke(p, p->paintmode, CTX_data_depsgraph(C));
 	
 	if (p->status != GP_STATUS_ERROR) {
