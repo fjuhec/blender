@@ -3455,10 +3455,8 @@ void DRW_draw_render_loop_ex(
 		}
 	}
 
-	extern void view3d_draw_bgpic_test(Scene *scene, ARegion *ar, View3D *v3d,
-	                                   const bool do_foreground, const bool do_camera_frame);
 	if (do_bg_image) {
-		view3d_draw_bgpic_test(scene, ar, v3d, false, true);
+		ED_view3d_draw_bgpic_test(scene, depsgraph, ar, v3d, false, true);
 	}
 
 
@@ -3494,7 +3492,7 @@ void DRW_draw_render_loop_ex(
 	DRW_stats_reset();
 
 	if (do_bg_image) {
-		view3d_draw_bgpic_test(scene, ar, v3d, true, true);
+		ED_view3d_draw_bgpic_test(scene, depsgraph, ar, v3d, true, true);
 	}
 
 	if (G.debug_value > 20) {

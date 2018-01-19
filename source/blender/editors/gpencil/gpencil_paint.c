@@ -1655,7 +1655,7 @@ static void gp_session_cleanup(tGPsdata *p)
 }
 
 /* init new stroke */
-static void gp_paint_initstroke(wmOperator *op, tGPsdata *p, eGPencil_PaintModes paintmode)
+static void gp_paint_initstroke(tGPsdata *p, eGPencil_PaintModes paintmode, const Depsgraph *depsgraph)
 {
 	Scene *scene = p->scene;
 	ToolSettings *ts = scene->toolsettings;
@@ -1792,7 +1792,7 @@ static void gp_paint_initstroke(wmOperator *op, tGPsdata *p, eGPencil_PaintModes
 			
 			/* for camera view set the subrect */
 			if (rv3d->persp == RV3D_CAMOB) {
-				ED_view3d_calc_camera_border(p->scene, p->ar, v3d, rv3d, &p->subrect_data, true); /* no shift */
+				ED_view3d_calc_camera_border(p->scene, depsgraph, p->ar, v3d, rv3d, &p->subrect_data, true); /* no shift */
 				p->subrect = &p->subrect_data;
 			}
 		}
@@ -2047,7 +2047,7 @@ static int gpencil_draw_init(bContext *C, wmOperator *op, const wmEvent *event)
 	}
 	
 	/* init painting data */
-	gp_paint_initstroke(op, p, paintmode);
+	gp_paint_initstroke(p, paintmode, CTX_data_depsgraph(C));
 	if (p->status == GP_STATUS_ERROR) {
 		gpencil_draw_exit(C, op);
 		return 0;
@@ -2125,7 +2125,7 @@ static void gpencil_draw_status_indicators(tGPsdata *p)
 /* ------------------------------- */
 
 /* create a new stroke point at the point indicated by the painting context */
-static void gpencil_draw_apply(wmOperator *op, tGPsdata *p)
+static void gpencil_draw_apply(wmOperator *op, tGPsdata *p, const Depsgraph *depsgraph)
 {
 	/* handle drawing/erasing -> test for erasing first */
 	if (p->paintmode == GP_PAINTMODE_ERASER) {
@@ -2147,7 +2147,7 @@ static void gpencil_draw_apply(wmOperator *op, tGPsdata *p)
 			/* finish off old stroke */
 			gp_paint_strokeend(p);
 			/* And start a new one!!! Else, projection errors! */
-			gp_paint_initstroke(op, p, p->paintmode);
+			gp_paint_initstroke(p, p->paintmode, depsgraph);
 			
 			/* start a new stroke, starting from previous point */
 			/* XXX Must manually reset inittime... */
@@ -2180,7 +2180,7 @@ static void gpencil_draw_apply(wmOperator *op, tGPsdata *p)
 }
 
 /* handle draw event */
-static void gpencil_draw_apply_event(wmOperator *op, const wmEvent *event)
+static void gpencil_draw_apply_event(wmOperator *op, const wmEvent *event, const Depsgraph *depsgraph)
 {
 	tGPsdata *p = op->customdata;
 	PointerRNA itemptr;
@@ -2301,7 +2301,7 @@ static void gpencil_draw_apply_event(wmOperator *op, const wmEvent *event)
 	RNA_float_set(&itemptr, "time", p->curtime - p->inittime);
 	
 	/* apply the current latest drawing point */
-	gpencil_draw_apply(op, p);
+	gpencil_draw_apply(op, p, depsgraph);
 
 	/* force refresh */
 	ED_region_tag_redraw(p->ar); /* just active area for now, since doing whole screen is too slow */
@@ -2313,6 +2313,7 @@ static void gpencil_draw_apply_event(wmOperator *op, const wmEvent *event)
 static int gpencil_draw_exec(bContext *C, wmOperator *op)
 {
 	tGPsdata *p = NULL;
+	Depsgraph *depsgraph = CTX_data_depsgraph(C);
 	
 	/* printf("GPencil - Starting Re-Drawing\n"); */
 	
@@ -2350,7 +2351,7 @@ static int gpencil_draw_exec(bContext *C, wmOperator *op)
 			if ((p->flags & GP_PAINTFLAG_FIRSTRUN) == 0) {
 				/* TODO: both of these ops can set error-status, but we probably don't need to worry */
 				gp_paint_strokeend(p);
-				gp_paint_initstroke(op, p, p->paintmode);
+				gp_paint_initstroke(p, p->paintmode, depsgraph);
 			}
 		}
 		
@@ -2365,7 +2366,7 @@ static int gpencil_draw_exec(bContext *C, wmOperator *op)
 		}
 		
 		/* apply this data as necessary now (as per usual) */
-		gpencil_draw_apply(op, p);
+		gpencil_draw_apply(op, p, depsgraph);
 	}
 	RNA_END;
 		
@@ -2430,7 +2431,7 @@ static int gpencil_draw_invoke(bContext *C, wmOperator *op, const wmEvent *event
 		p->status = GP_STATUS_PAINTING;
 
 		/* handle the initial drawing - i.e. for just doing a simple dot */
-		gpencil_draw_apply_event(op, event);
+		gpencil_draw_apply_event(op, event, CTX_data_depsgraph(C));
 		op->flag |= OP_IS_MODAL_CURSOR_REGION;
 	}
 	else {
@@ -2493,7 +2494,7 @@ static tGPsdata *gpencil_stroke_begin(bContext *C, wmOperator *op)
 	 *      it'd be nice to allow changing paint-mode when in sketching-sessions */
 	
 	if (gp_session_initdata(C, p))
-		gp_paint_initstroke(op, p, p->paintmode);
+		gp_paint_initstroke(p, p->paintmode, CTX_data_depsgraph(C));
 	
 	if (p->status != GP_STATUS_ERROR) {
 		p->status = GP_STATUS_PAINTING;
@@ -2793,7 +2794,7 @@ static int gpencil_draw_modal(bContext *C, wmOperator *op, const wmEvent *event)
 		if (ELEM(event->type, MOUSEMOVE, INBETWEEN_MOUSEMOVE) || (p->flags & GP_PAINTFLAG_FIRSTRUN)) {
 			/* handle drawing event */
 			/* printf("\t\tGP - add point\n"); */
-			gpencil_draw_apply_event(op, event);
+			gpencil_draw_apply_event(op, event, CTX_data_depsgraph(C));
 
 			/* finish painting operation if anything went wrong just now */
 			if (p->status == GP_STATUS_ERROR) {

@@ -32,9 +32,13 @@
 
 #include "ED_numinput.h"
 
+struct ID;
+struct ListBase;
+struct bContext;
+struct Depsgraph;
+struct ScrArea;
 struct ARegion;
 struct bAnimContext;
-struct bContext;
 struct wmOperator;
 struct bGPdata;
 struct bGPDlayer;
@@ -44,17 +48,14 @@ struct bGPDpalette;
 struct bGPDpalettecolor;
 struct bGPDspoint;
 struct tGPDdraw;
-struct ID;
 struct Image;
 struct BLI_Stack;
 struct KeyframeEditData;
-struct ListBase;
 struct Object;
 struct Palette;
 struct PaletteColor;
 struct PointerRNA;
 struct RegionView3D;
-struct ScrArea;
 struct ToolSettings;
 struct View3D;
 struct Scene;
@@ -63,7 +64,6 @@ struct wmWindowManager;
 struct wmKeyConfig;
 struct wmWindowManager;
 struct EvaluationContext;
-struct Depsgraph;
 struct wmWindow;
 struct rcti;
 
@@ -294,6 +294,7 @@ void ED_gpencil_draw_view2d(const struct bContext *C, bool onlyv2d);
 void ED_gpencil_draw_view3d(struct wmWindowManager *wm,
                             struct Scene *scene,
                             struct ViewLayer *view_layer,
+                            const struct Depsgraph *depsgraph,
                             struct View3D *v3d,
                             struct ARegion *ar,
                             bool only3d);

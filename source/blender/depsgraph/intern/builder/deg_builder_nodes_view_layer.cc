@@ -84,7 +84,7 @@ void DepsgraphNodeBuilder::build_view_layer(
 		 * otherwise remapping will not replace objects with their CoW versions
 		 * for CoW bases.
 		 */
-		LINKLIST_FOREACH(Base *, base, &view_layer->object_bases) {
+		BLI_LISTBASE_FOREACH (Base *, base, &view_layer->object_bases) {
 			Object *object = base->object;
 			add_id_node(&object->id, false);
 		}
@@ -151,15 +151,15 @@ void DepsgraphNodeBuilder::build_view_layer(
 	}
 
 	/* Cache file. */
-	LINKLIST_FOREACH (CacheFile *, cachefile, &bmain_->cachefiles) {
+	BLI_LISTBASE_FOREACH (CacheFile *, cachefile, &bmain_->cachefiles) {
 		build_cachefile(cachefile);
 	}
 	/* Masks. */
-	LINKLIST_FOREACH (Mask *, mask, &bmain_->mask) {
+	BLI_LISTBASE_FOREACH (Mask *, mask, &bmain_->mask) {
 		build_mask(mask);
 	}
 	/* Movie clips. */
-	LINKLIST_FOREACH (MovieClip *, clip, &bmain_->movieclip) {
+	BLI_LISTBASE_FOREACH (MovieClip *, clip, &bmain_->movieclip) {
 		build_movieclip(clip);
 	}
 	/* Collections. */

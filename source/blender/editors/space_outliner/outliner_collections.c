@@ -100,7 +100,7 @@ static int collections_editor_poll(bContext *C)
 static int view_layer_editor_poll(bContext *C)
 {
 	SpaceOops *so = CTX_wm_space_outliner(C);
-	return (so != NULL) && (so->outlinevis == SO_ACT_LAYER);
+	return (so != NULL) && (so->outlinevis == SO_VIEW_LAYER);
 }
 
 /* -------------------------------------------------------------------- */
@@ -483,7 +483,7 @@ static int collection_objects_add_exec(bContext *C, wmOperator *op)
 
 	CTX_DATA_BEGIN (C, struct Object *, ob, selected_objects)
 	{
-		LINKLIST_FOREACH(LinkData *, link, &data.scene_collections_array) {
+		BLI_LISTBASE_FOREACH (LinkData *, link, &data.scene_collections_array) {
 			SceneCollection *scene_collection = link->data;
 			BKE_collection_object_add(
 			            &scene->id,
@@ -538,7 +538,7 @@ static int collection_objects_remove_exec(bContext *C, wmOperator *op)
 
 	CTX_DATA_BEGIN (C, struct Object *, ob, selected_objects)
 	{
-		LINKLIST_FOREACH(LinkData *, link, &data.scene_collections_array) {
+		BLI_LISTBASE_FOREACH (LinkData *, link, &data.scene_collections_array) {
 			SceneCollection *scene_collection = link->data;
 			BKE_collection_object_remove(
 			            bmain,

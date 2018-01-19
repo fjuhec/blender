@@ -28,8 +28,10 @@ class OUTLINER_HT_header(Header):
         layout = self.layout
 
         space = context.space_data
+        display_mode = space.display_mode
         scene = context.scene
         ks = context.scene.keying_sets.active
+        support_filters = display_mode in {'COLLECTIONS', 'VIEW_LAYER'}
 
         row = layout.row(align=True)
         row.template_header()
@@ -38,16 +40,9 @@ class OUTLINER_HT_header(Header):
 
         layout.prop(space, "display_mode", text="")
 
-        row = layout.row(align=True)
-        row.prop(space, "filter_text", icon='VIEWZOOM', text="")
-        row.prop(space, "use_filter_complete", text="")
-        row.prop(space, "use_filter_case_sensitive", text="")
-
-        if space.display_mode not in {'DATABLOCKS', 'USER_PREFERENCES', 'KEYMAPS', 'ACT_LAYER', 'COLLECTIONS'}:
-            row.prop(space, "use_sort_alpha", text="")
-
-        elif space.display_mode == 'DATABLOCKS':
+        if space.display_mode == 'DATABLOCKS':
             layout.separator()
+
             row = layout.row(align=True)
             row.operator("outliner.keyingset_add_selected", icon='ZOOMIN', text="")
             row.operator("outliner.keyingset_remove_selected", icon='ZOOMOUT', text="")
@@ -62,6 +57,54 @@ class OUTLINER_HT_header(Header):
             else:
                 row = layout.row()
                 row.label(text="No Keying Set Active")
+
+        row = layout.row(align=True)
+        row.prop(space, "use_filter_search", text="")
+        if space.use_filter_search:
+            row.prop(space, "filter_text", text="")
+            row.prop(space, "use_filter_complete", text="")
+            row.prop(space, "use_filter_case_sensitive", text="")
+
+        if support_filters:
+            row.separator()
+
+            row.prop(space, "use_filters", text="")
+            if space.use_filters:
+                row.separator()
+                row.prop(space, "use_filter_collection", text="")
+                row.prop(space, "use_filter_object", text="")
+                sub = row.row(align=True)
+                sub.active = space.use_filter_object
+                sub.prop(space, "use_filter_object_content", text="")
+                sub.prop(space, "use_filter_children", text="")
+
+                sub.separator()
+                sub.prop(space, "use_filter_object_type", text="")
+
+                if space.use_filter_object_type:
+                    if bpy.data.meshes:
+                        sub.prop(space, "use_filter_object_mesh", text="")
+                    if bpy.data.armatures:
+                        sub.prop(space, "use_filter_object_armature", text="")
+                    if bpy.data.lamps:
+                        sub.prop(space, "use_filter_object_lamp", text="")
+                    if bpy.data.cameras:
+                        sub.prop(space, "use_filter_object_camera", text="")
+
+                    sub.prop(space, "use_filter_object_empty", text="")
+
+                    if bpy.data.curves or \
+                       bpy.data.metaballs or \
+                       bpy.data.lightprobes or \
+                       bpy.data.lattices or \
+                       bpy.data.fonts or bpy.data.speakers:
+                        sub.prop(space, "use_filter_object_others", text="")
+
+                sub.separator()
+                sub.prop(space, "use_filter_object_state", text="")
+
+                if space.use_filter_object_state:
+                    sub.prop(space, "filter_state", text="", expand=True)
 
 
 class OUTLINER_MT_editor_menus(Menu):
@@ -83,8 +126,8 @@ class OUTLINER_MT_editor_menus(Menu):
         elif space.display_mode == 'ORPHAN_DATA':
             layout.menu("OUTLINER_MT_edit_orphan_data")
 
-        elif space.display_mode == 'ACT_LAYER':
-            layout.menu("OUTLINER_MT_edit_active_view_layer")
+        elif space.display_mode == 'VIEW_LAYER':
+            layout.menu("OUTLINER_MT_edit_view_layer")
 
 
 class OUTLINER_MT_view(Menu):
@@ -95,7 +138,8 @@ class OUTLINER_MT_view(Menu):
 
         space = context.space_data
 
-        if space.display_mode not in {'DATABLOCKS', 'USER_PREFERENCES', 'KEYMAPS'}:
+        if space.display_mode not in {'DATABLOCKS', 'USER_PREFERENCES'}:
+            layout.prop(space, "use_sort_alpha")
             layout.prop(space, "show_restrict_columns")
             layout.separator()
             layout.operator("outliner.show_active")
@@ -111,7 +155,7 @@ class OUTLINER_MT_view(Menu):
         layout.operator("screen.screen_full_area", text="Toggle Fullscreen Area").use_hide_panels = True
 
 
-class OUTLINER_MT_edit_active_view_layer(Menu):
+class OUTLINER_MT_edit_view_layer(Menu):
     bl_label = "Edit"
 
     def draw(self, context):
@@ -161,7 +205,7 @@ classes = (
     OUTLINER_HT_header,
     OUTLINER_MT_editor_menus,
     OUTLINER_MT_view,
-    OUTLINER_MT_edit_active_view_layer,
+    OUTLINER_MT_edit_view_layer,
     OUTLINER_MT_edit_datablocks,
     OUTLINER_MT_edit_orphan_data,
     OUTLINER_MT_context_scene_collection,
