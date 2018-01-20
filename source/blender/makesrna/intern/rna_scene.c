@@ -2836,21 +2836,6 @@ static void rna_def_tool_settings(BlenderRNA  *brna)
 	RNA_def_property_ui_text(prop, "Fill", "Do not apply VFX modifiers on viewport");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
-	prop = RNA_def_property(srna, "gpencil_simplify_render_fill", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "gpencil_simplify", GP_TOOL_FLAG_SIMPLIFY_RENDER_FILL);
-	RNA_def_property_ui_text(prop, "Fill", "Do not fill strokes on render");
-	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
-
-	prop = RNA_def_property(srna, "gpencil_simplify_render_modifier", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "gpencil_simplify", GP_TOOL_FLAG_SIMPLIFY_RENDER_MODIF);
-	RNA_def_property_ui_text(prop, "Fill", "Do not apply modifiers on render");
-	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
-
-	prop = RNA_def_property(srna, "gpencil_simplify_render_vfx", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "gpencil_simplify", GP_TOOL_FLAG_SIMPLIFY_RENDER_VFX);
-	RNA_def_property_ui_text(prop, "Fill", "Do not apply VFX modifiers on render");
-	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
-
 	prop = RNA_def_property(srna, "gpencil_disable_fast_drawing", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "gpencil_simplify", GP_TOOL_FLAG_DISABLE_FAST_DRAWING);
 	RNA_def_property_ui_text(prop, "Disable Fast Drawing", "Disable fast drawing while painting");

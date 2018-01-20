@@ -2229,12 +2229,6 @@ typedef enum eGPencil_SimplifyFlags {
 	GP_TOOL_FLAG_SIMPLIFY_VIEW_MODIF = (1 << 3),
 	/* Simplify vfx modifier on viewport */
 	GP_TOOL_FLAG_SIMPLIFY_VIEW_VFX = (1 << 4),
-	/* Simplify fill on render */
-	GP_TOOL_FLAG_SIMPLIFY_RENDER_FILL = (1 << 5),
-	/* Simplify modifier on render */
-	GP_TOOL_FLAG_SIMPLIFY_RENDER_MODIF = (1 << 6),
-	/* Simplify vfx modifier on render */
-	GP_TOOL_FLAG_SIMPLIFY_RENDER_VFX = (1 << 7),
 	/* Remove fill external line */
 	GP_TOOL_FLAG_SIMPLIFY_REMOVE_LINE = (1 << 8),
 	/* Disable fast drawing */

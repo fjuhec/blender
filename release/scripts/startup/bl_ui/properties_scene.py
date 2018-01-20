@@ -461,19 +461,10 @@ class SCENE_PT_gp_simplify(SceneButtonsPanel, Panel):
         split = layout.split()
 
         col = split.column()
-        col.label(text="Viewport:")
         col.prop(ts, "gpencil_simplify_view_fill", text="Fill")
         col.prop(ts, "gpencil_simplify_remove_lines", text="Remove Fill Lines")
         col.prop(ts, "gpencil_simplify_view_modifier", text="Modifiers")
         col.prop(ts, "gpencil_simplify_view_vfx", text="VFX")
-
-        col = split.column()
-        # TODO: keep disable while render workflow is defined
-        col.active = False
-        col.label(text="Render:")
-        col.prop(ts, "gpencil_simplify_render_fill", text="Fill")
-        col.prop(ts, "gpencil_simplify_render_modifier", text="Modifiers")
-        col.prop(ts, "gpencil_simplify_render_vfx", text="VFX")
 
         row = layout.row()
         row.prop(ts, "gpencil_disable_fast_drawing")
