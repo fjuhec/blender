@@ -24,7 +24,6 @@
  */
 
 #include "BKE_modifier.h"
-#include "BKE_global.h"
 #include "BKE_gpencil.h"
 
 #include "DRW_engine.h"
@@ -40,7 +39,7 @@
 #include "gpencil_engine.h"
 
 /* verify if this modifier is  available in the context, return NULL if not available */
-static ModifierData *modifier_available(Object *ob, ModifierType type)
+static ModifierData *modifier_available(Object *ob, ModifierType type, bool is_render)
 {
 	ModifierData *md = modifiers_findByType(ob, type);
 	if (md == NULL) {
@@ -56,8 +55,8 @@ static ModifierData *modifier_available(Object *ob, ModifierType type)
 	if (((md->mode & eModifierMode_Editmode) == 0) && (is_edit)) {
 		return NULL;
 	}
-	if (((md->mode & eModifierMode_Realtime) && ((G.f & G_RENDER_OGL) == 0)) ||
-	    ((md->mode & eModifierMode_Render) && (G.f & G_RENDER_OGL)))
+	if (((md->mode & eModifierMode_Realtime) && (is_render == false)) ||
+		((md->mode & eModifierMode_Render) && (is_render == true)))
 	{
 		return md;
 	}
@@ -66,7 +65,7 @@ static ModifierData *modifier_available(Object *ob, ModifierType type)
 }
 
 /* verify if this modifier is active */
-static bool modifier_is_active(Object *ob, ModifierData *md)
+static bool modifier_is_active(Object *ob, ModifierData *md, bool is_render)
 {
 	if (md == NULL) {
 		return false;
@@ -82,8 +81,8 @@ static bool modifier_is_active(Object *ob, ModifierData *md)
 		return false;
 	}
 
-	if (((md->mode & eModifierMode_Realtime) && ((G.f & G_RENDER_OGL) == 0)) ||
-	    ((md->mode & eModifierMode_Render) && (G.f & G_RENDER_OGL)))
+	if (((md->mode & eModifierMode_Realtime) && (is_render == false)) ||
+	    ((md->mode & eModifierMode_Render) && (is_render == true)))
 	{
 		return true;
 	}
@@ -427,8 +426,9 @@ void DRW_gpencil_vfx_modifiers(
         int ob_idx, struct GPENCIL_e_data *e_data, struct GPENCIL_Data *vedata,
         struct Object *ob, struct tGPencilObjectCache *cache)
 {
+	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 	bool ready = false;
-	ModifierData *md_wave = modifier_available(ob, eModifierType_GpencilWave);
+	ModifierData *md_wave = modifier_available(ob, eModifierType_GpencilWave, stl->storage->is_render);
 
 	if (md_wave) {
 		DRW_gpencil_vfx_wave(md_wave, ob_idx, e_data, vedata, ob, cache);
@@ -441,7 +441,7 @@ void DRW_gpencil_vfx_modifiers(
 	for (ModifierData *md = ob->modifiers.first; md; md = md->next) {
 		switch (md->type) {
 			case eModifierType_GpencilBlur:
-				if (modifier_is_active(ob, md)) {
+				if (modifier_is_active(ob, md, stl->storage->is_render)) {
 					if (!ready) {
 						DRW_gpencil_vfx_copy(ob_idx, e_data, vedata, ob, cache);
 						ready = true;
@@ -450,7 +450,7 @@ void DRW_gpencil_vfx_modifiers(
 				}
 				break;
 			case eModifierType_GpencilPixel:
-				if (modifier_is_active(ob, md)) {
+				if (modifier_is_active(ob, md, stl->storage->is_render)) {
 					if (!ready) {
 						DRW_gpencil_vfx_copy(ob_idx, e_data, vedata, ob, cache);
 						ready = true;
@@ -459,7 +459,7 @@ void DRW_gpencil_vfx_modifiers(
 				}
 				break;
 			case eModifierType_GpencilSwirl:
-				if (modifier_is_active(ob, md)) {
+				if (modifier_is_active(ob, md, stl->storage->is_render)) {
 					if (!ready) {
 						DRW_gpencil_vfx_copy(ob_idx, e_data, vedata, ob, cache);
 						ready = true;
@@ -468,7 +468,7 @@ void DRW_gpencil_vfx_modifiers(
 				}
 				break;
 			case eModifierType_GpencilFlip:
-				if (modifier_is_active(ob, md)) {
+				if (modifier_is_active(ob, md, stl->storage->is_render)) {
 					if (!ready) {
 						DRW_gpencil_vfx_copy(ob_idx, e_data, vedata, ob, cache);
 						ready = true;
@@ -477,7 +477,7 @@ void DRW_gpencil_vfx_modifiers(
 				}
 				break;
 			case eModifierType_GpencilLight:
-				if (modifier_is_active(ob, md)) {
+				if (modifier_is_active(ob, md, stl->storage->is_render)) {
 					if (!ready) {
 						DRW_gpencil_vfx_copy(ob_idx, e_data, vedata, ob, cache);
 						ready = true;

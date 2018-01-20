@@ -163,6 +163,7 @@ typedef struct GPENCIL_Storage {
 	float obj_scale;
 	int pixfactor;
 	int playing;
+	bool is_render;
 	int uselines;
 	float gridsize[2];
 	float gridcolor[3];

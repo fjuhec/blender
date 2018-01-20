@@ -353,15 +353,15 @@ bool BKE_gpencil_has_geometry_modifiers(Object *ob)
 }
 
 /* apply stroke modifiers */
-void BKE_gpencil_stroke_modifiers(EvaluationContext *eval_ctx, Object *ob, bGPDlayer *gpl, bGPDframe *UNUSED(gpf), bGPDstroke *gps)
+void BKE_gpencil_stroke_modifiers(EvaluationContext *eval_ctx, Object *ob, bGPDlayer *gpl, bGPDframe *UNUSED(gpf), bGPDstroke *gps, bool is_render)
 {
 	ModifierData *md;
 	bGPdata *gpd = ob->data;
 	bool is_edit = GPENCIL_ANY_EDIT_MODE(gpd);
 	
 	for (md = ob->modifiers.first; md; md = md->next) {
-		if (((md->mode & eModifierMode_Realtime) && ((G.f & G_RENDER_OGL) == 0)) ||
-		    ((md->mode & eModifierMode_Render) && (G.f & G_RENDER_OGL)))
+		if (((md->mode & eModifierMode_Realtime) && (is_render == false)) ||
+		    ((md->mode & eModifierMode_Render) && (is_render == true)))
 		{
 			const ModifierTypeInfo *mti = modifierType_getInfo(md->type);
 			
@@ -377,7 +377,7 @@ void BKE_gpencil_stroke_modifiers(EvaluationContext *eval_ctx, Object *ob, bGPDl
 }
 
 /* apply stroke geometry modifiers */
-void BKE_gpencil_geometry_modifiers(EvaluationContext *eval_ctx, Object *ob, bGPDlayer *gpl, bGPDframe *gpf)
+void BKE_gpencil_geometry_modifiers(EvaluationContext *eval_ctx, Object *ob, bGPDlayer *gpl, bGPDframe *gpf, bool is_render)
 {
 	ModifierData *md;
 	bGPdata *gpd = ob->data;
@@ -385,8 +385,8 @@ void BKE_gpencil_geometry_modifiers(EvaluationContext *eval_ctx, Object *ob, bGP
 
 	int id = 0;
 	for (md = ob->modifiers.first; md; md = md->next) {
-		if (((md->mode & eModifierMode_Realtime) && ((G.f & G_RENDER_OGL) == 0)) ||
-		    ((md->mode & eModifierMode_Render) && (G.f & G_RENDER_OGL)))
+		if (((md->mode & eModifierMode_Realtime) && (is_render == false)) ||
+		    ((md->mode & eModifierMode_Render) && (is_render == true)))
 		{
 			const ModifierTypeInfo *mti = modifierType_getInfo(md->type);
 			

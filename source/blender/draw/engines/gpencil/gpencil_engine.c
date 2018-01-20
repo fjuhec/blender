@@ -284,6 +284,8 @@ static void GPENCIL_cache_init(void *vedata)
 		if (draw_ctx->evil_C) {
 			stl->storage->playing = ED_screen_animation_playing(CTX_wm_manager(draw_ctx->evil_C)) != NULL ? 1 : 0;
 		}
+		/* save render state */
+		stl->storage->is_render = DRW_state_is_image_render();
 		/* detect if painting session */
 		bGPdata *obact_gpd = NULL;
 		if ((obact) && (obact->type == OB_GPENCIL) && (obact->data))
@@ -313,6 +315,10 @@ static void GPENCIL_cache_init(void *vedata)
 			* is changing.
 			*/
 			if (stl->storage->playing == 1) {
+				gpd->flag |= GP_DATA_CACHE_IS_DIRTY;
+			}
+			/* if render, set as dirty to update all data */
+			else if (stl->storage->is_render == true) {
 				gpd->flag |= GP_DATA_CACHE_IS_DIRTY;
 			}
 		}

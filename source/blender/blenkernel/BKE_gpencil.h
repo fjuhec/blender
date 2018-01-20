@@ -197,10 +197,10 @@ bool BKE_gpencil_has_geometry_modifiers(struct Object *ob);
 
 void BKE_gpencil_stroke_modifiers(
 		struct EvaluationContext *eval_ctx, struct Object *ob, 
-		struct bGPDlayer *gpl, struct bGPDframe *gpf, struct bGPDstroke *gps);
+		struct bGPDlayer *gpl, struct bGPDframe *gpf, struct bGPDstroke *gps, bool is_render);
 void BKE_gpencil_geometry_modifiers(
 		struct EvaluationContext *eval_ctx, struct Object *ob, 
-		struct bGPDlayer *gpl, struct bGPDframe *gpf);
+		struct bGPDlayer *gpl, struct bGPDframe *gpf, bool is_render);
 
 void BKE_gpencil_array_modifier_instance_tfm(struct GpencilArrayModifierData *mmd, const int elem_idx[3], float r_mat[4][4]);
 

@@ -714,7 +714,7 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 	if ((cache->is_dirty) && (ob->modifiers.first) && (!is_multiedit)) {
 		if (!GP_SIMPLIFY_MODIF(ts, playing)) {
 			if (BKE_gpencil_has_geometry_modifiers(ob)) {
-				BKE_gpencil_geometry_modifiers(&eval_ctx, ob, gpl, derived_gpf);
+				BKE_gpencil_geometry_modifiers(&eval_ctx, ob, gpl, derived_gpf, stl->storage->is_render);
 			}
 		}
 	}
@@ -785,7 +785,7 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 			/* apply modifiers (only modify geometry, but not create ) */
 			if ((cache->is_dirty) && (ob->modifiers.first) && (!is_multiedit)) {
 				if (!GP_SIMPLIFY_MODIF(ts, playing)) {
-					BKE_gpencil_stroke_modifiers(&eval_ctx, ob, gpl, derived_gpf, gps);
+					BKE_gpencil_stroke_modifiers(&eval_ctx, ob, gpl, derived_gpf, gps, stl->storage->is_render);
 				}
 			}
 			/* fill */
@@ -1298,8 +1298,8 @@ void gpencil_array_modifiers(GPENCIL_StorageList *stl, Object *ob)
 	}
 
 	for (ModifierData *md = ob->modifiers.first; md; md = md->next) {
-		if (((md->mode & eModifierMode_Realtime) && ((G.f & G_RENDER_OGL) == 0)) ||
-		    ((md->mode & eModifierMode_Render) && (G.f & G_RENDER_OGL)))
+		if (((md->mode & eModifierMode_Realtime) && (stl->storage->is_render == false)) ||
+		    ((md->mode & eModifierMode_Render) && (stl->storage->is_render == true)))
 		{
 			if (md->type == eModifierType_GpencilArray) {
 				GpencilArrayModifierData *mmd = (GpencilArrayModifierData *)md;
