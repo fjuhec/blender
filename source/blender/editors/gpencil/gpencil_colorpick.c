@@ -74,57 +74,8 @@
 
 #include "gpencil_intern.h"
 
-#define GP_BOX_SIZE (32 * U.ui_scale)
+#define GP_BOX_SIZE (40 * U.ui_scale)
 #define GP_BOX_GAP (18 * U.ui_scale)
-
- /* draw a box with lines and optional diagonal line */
-static void gp_draw_boxlines(rcti *box, float ink[4], bool diagonal)
-{
-	Gwn_VertFormat *format = immVertexFormat();
-	unsigned pos = GWN_vertformat_attr_add(format, "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
-	unsigned color = GWN_vertformat_attr_add(format, "color", GWN_COMP_F32, 4, GWN_FETCH_FLOAT);
-
-	immBindBuiltinProgram(GPU_SHADER_2D_FLAT_COLOR);
-
-	/* draw stroke curve */
-	glLineWidth(1.0f);
-	immBeginAtMost(GWN_PRIM_LINES, 10);
-
-	immAttrib4fv(color, ink);
-	immVertex2f(pos, box->xmin, box->ymax - 1);
-
-	immAttrib4fv(color, ink);
-	immVertex2f(pos, box->xmax, box->ymax - 1);
-
-	immAttrib4fv(color, ink);
-	immVertex2f(pos, box->xmin, box->ymin);
-
-	immAttrib4fv(color, ink);
-	immVertex2f(pos, box->xmax, box->ymin);
-
-	immAttrib4fv(color, ink);
-	immVertex2f(pos, box->xmax, box->ymax);
-
-	immAttrib4fv(color, ink);
-	immVertex2f(pos, box->xmax, box->ymin);
-
-	immAttrib4fv(color, ink);
-	immVertex2f(pos, box->xmin, box->ymax);
-
-	immAttrib4fv(color, ink);
-	immVertex2f(pos, box->xmin, box->ymin);
-
-	if (diagonal == true) {
-		immAttrib4fv(color, ink);
-		immVertex2f(pos, box->xmin, box->ymin);
-
-		immAttrib4fv(color, ink);
-		immVertex2f(pos, box->xmax, box->ymax);
-	}
-
-	immEnd();
-	immUnbindProgram();
-}
 
 /* draw color name using default font */
 static void gp_draw_color_name(tGPDpick *tgpk, tGPDpickColor *col, const uiFontStyle *fstyle, bool focus)
@@ -149,71 +100,33 @@ static void gp_draw_color_name(tGPDpick *tgpk, tGPDpickColor *col, const uiFontS
 							 drawstr, text_col);
 }
 
-/* draw a filled box using two triangles */
-static void gp_draw_fill_box(rcti *box, float ink[4], float fill[4], int offset)
-{
-	Gwn_VertFormat *format = immVertexFormat();
-	unsigned pos = GWN_vertformat_attr_add(format, "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
-	unsigned color = GWN_vertformat_attr_add(format, "color", GWN_COMP_F32, 4, GWN_FETCH_FLOAT);
-	int gap = 0;
-	if (offset > 0) {
-		gap = 1;
-	}
-
-	immBindBuiltinProgram(GPU_SHADER_2D_FLAT_COLOR);
-
-	/* draw stroke curve */
-	glLineWidth(1.0f);
-	immBeginAtMost(GWN_PRIM_TRIS, 6);
-
-	/* First triangle */
-	immAttrib4fv(color, ink);
-	immVertex2f(pos, box->xmin - offset, box->ymin - offset);
-
-	immAttrib4fv(color, ink);
-	immVertex2f(pos, box->xmin - offset, box->ymax + offset);
-
-	immAttrib4fv(color, ink);
-	immVertex2f(pos, box->xmax + offset + gap, box->ymax + offset);
-
-	/* Second triangle */
-	immAttrib4fv(color, fill);
-	immVertex2f(pos, box->xmin - offset, box->ymin - offset);
-
-	immAttrib4fv(color, fill);
-	immVertex2f(pos, box->xmax + offset + gap, box->ymax + offset);
-
-	immAttrib4fv(color, fill);
-	immVertex2f(pos, box->xmax + offset + gap, box->ymin - offset);
-
-	immEnd();
-	immUnbindProgram();
-}
-
 /* draw a pattern for alpha display */
-static void gp_draw_pattern_box(rcti *box, int offset)
+static void gp_draw_pattern_box(int xmin, int ymin, int xmax, int ymax)
 {
+	rcti box;
+	box.xmin = xmin;
+	box.ymin = ymin;
+	box.xmax = xmax;
+	box.ymax = ymax;
+
 	rcti rect;
 	const int lvl = 3;
-	const int size = (box->xmax - box->xmin) / lvl;
-	float wcolor[4] = { 0.9f, 0.9f, 0.9f, 1.0f };
-	float gcolor[4] = { 0.6f, 0.6f, 0.6f, 0.7f };
-
-	/* draw a full box in white */
-	gp_draw_fill_box(box, wcolor, wcolor, offset);
+	const int size = (box.xmax - box.xmin) / lvl;
+	float gcolor[4] = { 0.6f, 0.6f, 0.6f, 0.5f };
 
 	/* draw a pattern of boxes */
 	int i = 1;
 	for (int a = 0; a < lvl; a++) {
 		for (int b = 0; b < lvl; b++) {
-			rect.xmin = box->xmin + (size * a);
+			rect.xmin = box.xmin + (size * a);
 			rect.xmax = rect.xmin + size;
 
-			rect.ymin = box->ymin + (size * b);
+			rect.ymin = box.ymin + (size * b);
 			rect.ymax = rect.ymin + size;
 
 			if (i % 2 == 0) {
-				gp_draw_fill_box(&rect, gcolor, gcolor, offset);
+				UI_draw_roundbox_4fv(true, rect.xmin, rect.ymin, rect.xmax, rect.ymax,
+									0.0f, gcolor);
 			}
 			i++;
 		}
@@ -228,11 +141,13 @@ static void gpencil_draw_color_table(const bContext *UNUSED(C), tGPDpick *tgpk)
 	}
 	const uiFontStyle *fstyle = UI_FSTYLE_WIDGET;
 	float ink[4];
-	float select[4];
 	float line[4];
+	float radius = (0.4f * U.widget_unit);
+	float wcolor[4] = { 0.9f, 0.9f, 0.9f, 0.8f };
 
-	UI_GetThemeColor3fv(TH_SELECT, select);
-	select[3] = 1.0f;
+	/* boxes for stroke and fill color */
+	rcti sbox;
+	rcti fbox;
 
 	UI_GetThemeColor3fv(TH_TAB_OUTLINE, line);
 	line[3] = 1.0f;
@@ -241,31 +156,53 @@ static void gpencil_draw_color_table(const bContext *UNUSED(C), tGPDpick *tgpk)
 	UI_GetThemeColor4fv(TH_PANEL_BACK, ink);
 	ink[3] = 0.8f;
 	glEnable(GL_BLEND);
+	UI_draw_roundbox_corner_set(UI_CNR_ALL);
 	UI_draw_roundbox_4fv(true, tgpk->panel.xmin, tgpk->panel.ymin,
 						tgpk->panel.xmax, tgpk->panel.ymax,
-						3.0f, ink);
+						radius, ink);
 	glDisable(GL_BLEND);
 
 	/* draw color boxes */
 	tGPDpickColor *col = tgpk->colors;
 	for (int i = 0; i < tgpk->totcolor; i++, col++) {
 		bool focus = false;
+		glEnable(GL_BLEND);
+		glEnable(GL_LINE_SMOOTH);
+
+		int scalex = (col->rect.xmax - col->rect.xmin) / 3;
+		int scaley = (col->rect.ymax - col->rect.ymin) / 3;
+		sbox.xmin = col->rect.xmin;
+		sbox.ymin = col->rect.ymin + scaley;
+		sbox.xmax = col->rect.xmax - scalex;
+		sbox.ymax = col->rect.ymax;
+
+		fbox.xmin = col->rect.xmin + scalex;
+		fbox.ymin = col->rect.ymin;
+		fbox.xmax = col->rect.xmax;
+		fbox.ymax = col->rect.ymax - scaley;
+
 		/* focus to current color */
 		if (tgpk->palette->active_color == col->index) {
-			gp_draw_fill_box(&col->rect, select, select, 2);
 			focus = true;
 		}
-		glEnable(GL_BLEND);
-		/* draw a pattern to see alpha effect */
-		gp_draw_pattern_box(&col->rect, 0);
+		/* fill box */
+		UI_draw_roundbox_4fv(true, fbox.xmin, fbox.ymin, fbox.xmax, fbox.ymax, radius, wcolor);
+		gp_draw_pattern_box(fbox.xmin + 3, fbox.ymin + 3, fbox.xmax - 2, fbox.ymax - 2);
+		UI_draw_roundbox_4fv(true, fbox.xmin, fbox.ymin, fbox.xmax, fbox.ymax,
+			radius, col->fill);
+		UI_draw_roundbox_4fv(false, fbox.xmin, fbox.ymin, fbox.xmax, fbox.ymax,
+			radius, line);
 
-		/* draw color box */
-		gp_draw_fill_box(&col->rect, col->rgba, col->fill, 0);
-
-		/* draw lines around box */
-		gp_draw_boxlines(&col->rect, line, col->fillmode);
+		/* stroke box */
+		UI_draw_roundbox_4fv(true, sbox.xmin, sbox.ymin, sbox.xmax, sbox.ymax, radius, wcolor);
+		gp_draw_pattern_box(sbox.xmin + 3, sbox.ymin + 3, sbox.xmax - 2, sbox.ymax - 2);
+		UI_draw_roundbox_4fv(true, sbox.xmin, sbox.ymin, sbox.xmax, sbox.ymax,
+			radius, col->rgba);
+		UI_draw_roundbox_4fv(false, sbox.xmin, sbox.ymin, sbox.xmax, sbox.ymax,
+			radius, line);
 
 		glDisable(GL_BLEND);
+		glDisable(GL_LINE_SMOOTH);
 
 		/* draw color name */
 		gp_draw_color_name(tgpk, col, fstyle, focus);
@@ -425,12 +362,11 @@ static tGPDpick *gp_session_init_colorpick(bContext *C, wmOperator *op, const wm
 		BLI_strncpy(tcolor->name, palcol->info, sizeof(tcolor->name));
 		tcolor->index = idx;
 		copy_v4_v4(tcolor->rgba, palcol->rgb);
+		copy_v4_v4(tcolor->fill, palcol->fill);
 		if (palcol->fill[3] > 0.0f) {
-			copy_v4_v4(tcolor->fill, palcol->fill);
 			tcolor->fillmode = true;
 		}
 		else {
-			copy_v4_v4(tcolor->fill, palcol->rgb);
 			tcolor->fillmode = false;
 		}
 
