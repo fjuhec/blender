@@ -75,12 +75,15 @@ static void GPENCIL_engine_init(void *vedata)
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 	GPENCIL_FramebufferList *fbl = ((GPENCIL_Data *)vedata)->fbl;
 
+	/* Go full 32bits for rendering */
+	DRWTextureFormat fb_format = DRW_state_is_image_render() ? DRW_TEX_RGBA_32 : DRW_TEX_RGBA_16;
+
 	if (DRW_state_is_fbo()) {
 		const float *viewport_size = DRW_viewport_size_get();
 
 		DRWFboTexture tex_color[2] = {
 			{&e_data.temp_fbcolor_depth_tx, DRW_TEX_DEPTH_24_STENCIL_8, DRW_TEX_TEMP},
-			{&e_data.temp_fbcolor_color_tx, DRW_TEX_RGBA_16, DRW_TEX_TEMP}
+			{&e_data.temp_fbcolor_color_tx, fb_format, DRW_TEX_TEMP}
 		};
 		/* init temp framebuffer */
 		DRW_framebuffer_init(
@@ -91,7 +94,7 @@ static void GPENCIL_engine_init(void *vedata)
 		/* vfx */
 		DRWFboTexture vfx_color_a[2] = {
 			{&e_data.vfx_fbcolor_depth_tx_a, DRW_TEX_DEPTH_24_STENCIL_8, DRW_TEX_TEMP},
-			{&e_data.vfx_fbcolor_color_tx_a, DRW_TEX_RGBA_16, DRW_TEX_TEMP}
+			{&e_data.vfx_fbcolor_color_tx_a, fb_format, DRW_TEX_TEMP}
 		};
 		DRW_framebuffer_init(
 		        &fbl->vfx_color_fb_a, &draw_engine_gpencil_type,
@@ -100,14 +103,14 @@ static void GPENCIL_engine_init(void *vedata)
 
 		DRWFboTexture vfx_color_b[2] = {
 			{&e_data.vfx_fbcolor_depth_tx_b, DRW_TEX_DEPTH_24_STENCIL_8, DRW_TEX_TEMP},
-			{&e_data.vfx_fbcolor_color_tx_b, DRW_TEX_RGBA_16, DRW_TEX_TEMP}
+			{&e_data.vfx_fbcolor_color_tx_b, fb_format, DRW_TEX_TEMP}
 		};
 		DRW_framebuffer_init(
 		        &fbl->vfx_color_fb_b, &draw_engine_gpencil_type,
 		        (int)viewport_size[0], (int)viewport_size[1],
 		        vfx_color_b, ARRAY_SIZE(vfx_color_b));
 
-		/* painting framebuffer to speed up drawing process */
+		/* painting framebuffer to speed up drawing process (always 16 bits) */
 		DRWFboTexture tex_painting[2] = {
 			{&e_data.painting_depth_tx, DRW_TEX_DEPTH_24_STENCIL_8, DRW_TEX_TEMP},
 			{&e_data.painting_color_tx, DRW_TEX_RGBA_16, DRW_TEX_TEMP}
