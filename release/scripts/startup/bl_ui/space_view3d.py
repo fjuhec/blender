@@ -180,6 +180,9 @@ class VIEW3D_HT_header(Header):
                 col.enabled = gpd.use_multiedit
                 col.prop(gpd, "show_multiedit_line_only", text="", icon="GHOST")
 
+            if gpd.is_stroke_paint_mode:
+                row = layout.row(align=True)
+                row.operator("gpencil.colorpick", text="Colors", icon="GROUP_VCOL")
 
 class VIEW3D_MT_editor_menus(Menu):
     bl_space_type = 'VIEW3D_MT_editor_menus'
