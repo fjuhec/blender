@@ -755,8 +755,6 @@ void BKE_groom_eval_geometry(const EvaluationContext *UNUSED(eval_ctx), Groom *g
 		printf("%s on %s\n", __func__, groom->id.name);
 	}
 	
-	BKE_groom_bind_scalp_regions(groom, false);
-	
 	if (groom->bb == NULL || (groom->bb->flag & BOUNDBOX_DIRTY)) {
 		BKE_groom_boundbox_calc(groom, NULL, NULL);
 	}
