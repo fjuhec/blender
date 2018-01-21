@@ -47,6 +47,7 @@
 #include "DEG_depsgraph.h"
 
 #include "RNA_access.h"
+#include "RNA_define.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -58,6 +59,8 @@
 #include "ED_groom.h"
 
 #include "groom_intern.h"
+
+/* GROOM_OT_region_add */
 
 static void groom_bundle_section_init(
         GroomSection *section,
@@ -144,4 +147,48 @@ void GROOM_OT_region_add(wmOperatorType *ot)
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
 	ED_object_add_generic_props(ot, false);
+}
+
+/* GROOM_OT_region_bind */
+
+static int region_bind_exec(bContext *C, wmOperator *op)
+{
+	Object *ob = ED_object_context(C);
+	Groom *groom = ob->data;
+	const bool force_rebind = RNA_int_get(op->ptr, "force_rebind");
+
+	GroomBundle *bundle = CTX_data_pointer_get_type(C, "groom_bundle", &RNA_GroomBundle).data;
+	if (!bundle)
+	{
+		bundle = BLI_findlink(&groom->bundles, groom->active_bundle);
+		if (!bundle)
+		{
+			return OPERATOR_CANCELLED;
+		}
+	}
+
+	BKE_groom_bundle_bind(groom, bundle, force_rebind);
+
+	WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
+	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+
+	return OPERATOR_FINISHED;
+}
+
+void GROOM_OT_region_bind(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Bind Region";
+	ot->description = "Bind a groom bundle to its scalp region";
+	ot->idname = "GROOM_OT_region_bind";
+
+	/* api callbacks */
+	ot->exec = region_bind_exec;
+	ot->poll = ED_operator_scene_editable;
+
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+	RNA_def_boolean(ot->srna, "force_rebind", true, "Force Rebind",
+	                "Force rebinding of the groom region even if a binding already exists");
 }

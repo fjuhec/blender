@@ -37,6 +37,7 @@ struct wmOperatorType;
 
 /* editgroom_region.c */
 void GROOM_OT_region_add(struct wmOperatorType *ot);
+void GROOM_OT_region_bind(struct wmOperatorType *ot);
 
 /* editgroom_select.c */
 void GROOM_OT_select_all(struct wmOperatorType *ot);
