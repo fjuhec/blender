@@ -690,6 +690,7 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 	float viewmatrix[4][4];
 	bool is_multiedit = (bool)GPENCIL_MULTIEDIT_SESSIONS_ON(gpd);
 	bool playing = (bool)stl->storage->playing;
+	bool is_render = (bool)stl->storage->is_render;
 
 	/* Get evaluation context */
 	/* NOTE: We must check if C is valid, otherwise we get crashes when trying to save files
@@ -798,8 +799,8 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 			}
 		}
 
-		/* edit points (only in edit mode and not play animation) */
-		if ((src_gps) && (!playing)) {
+		/* edit points (only in edit mode and not play animation not render) */
+		if ((src_gps) && (!playing) && (!is_render)) {
 			if (!stl->g_data->shgrps_edit_line) {
 				stl->g_data->shgrps_edit_line = DRW_shgroup_create(e_data->gpencil_line_sh, psl->edit_pass);
 				stl->g_data->tot_sh++;
