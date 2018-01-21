@@ -350,12 +350,10 @@ RNA_LAYER_ENGINE_CLAY_GET_SET_FLOAT(hair_brightness_randomness)
 /* ViewLayer settings. */
 RNA_LAYER_ENGINE_EEVEE_GET_SET_BOOL(gtao_enable)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_BOOL(gtao_use_bent_normals)
-RNA_LAYER_ENGINE_EEVEE_GET_SET_BOOL(gtao_denoise)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_BOOL(gtao_bounce)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_FLOAT(gtao_factor)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_FLOAT(gtao_quality)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_FLOAT(gtao_distance)
-RNA_LAYER_ENGINE_EEVEE_GET_SET_INT(gtao_samples)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_BOOL(dof_enable)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_FLOAT(bokeh_max_size)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_FLOAT(bokeh_threshold)
@@ -387,7 +385,6 @@ RNA_LAYER_ENGINE_EEVEE_GET_SET_BOOL(sss_separate_albedo)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_BOOL(ssr_refraction)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_BOOL(ssr_enable)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_BOOL(ssr_halfres)
-RNA_LAYER_ENGINE_EEVEE_GET_SET_INT(ssr_ray_count)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_FLOAT(ssr_quality)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_FLOAT(ssr_max_roughness)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_FLOAT(ssr_thickness)
@@ -1299,14 +1296,6 @@ static void rna_def_view_layer_engine_settings_eevee(BlenderRNA *brna)
 	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
 	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_ViewLayerEngineSettings_update");
 
-	prop = RNA_def_property(srna, "ssr_ray_count", PROP_INT, PROP_NONE);
-	RNA_def_property_int_funcs(prop, "rna_LayerEngineSettings_Eevee_ssr_ray_count_get",
-	                               "rna_LayerEngineSettings_Eevee_ssr_ray_count_set", NULL);
-	RNA_def_property_ui_text(prop, "Samples", "Number of rays to trace per pixels");
-	RNA_def_property_range(prop, 1, 4);
-	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
-	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_ViewLayerEngineSettings_update");
-
 	prop = RNA_def_property(srna, "ssr_thickness", PROP_FLOAT, PROP_DISTANCE);
 	RNA_def_property_float_funcs(prop, "rna_LayerEngineSettings_Eevee_ssr_thickness_get",
 	                               "rna_LayerEngineSettings_Eevee_ssr_thickness_set", NULL);
@@ -1434,13 +1423,6 @@ static void rna_def_view_layer_engine_settings_eevee(BlenderRNA *brna)
 	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
 	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_ViewLayerEngineSettings_update");
 
-	prop = RNA_def_property(srna, "gtao_denoise", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_funcs(prop, "rna_LayerEngineSettings_Eevee_gtao_denoise_get",
-	                               "rna_LayerEngineSettings_Eevee_gtao_denoise_set");
-	RNA_def_property_ui_text(prop, "Denoise", "Use denoising to filter the resulting occlusion and bent normal but exhibit 2x2 pixel blocks");
-	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
-	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_ViewLayerEngineSettings_update");
-
 	prop = RNA_def_property(srna, "gtao_bounce", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_funcs(prop, "rna_LayerEngineSettings_Eevee_gtao_bounce_get",
 	                               "rna_LayerEngineSettings_Eevee_gtao_bounce_set");
@@ -1471,14 +1453,6 @@ static void rna_def_view_layer_engine_settings_eevee(BlenderRNA *brna)
 	RNA_def_property_ui_range(prop, 0.0f, 100.0f, 1, 3);
 	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
 	RNA_def_property_update(prop, 0, "rna_LayerCollectionEngineSettings_update");
-
-	prop = RNA_def_property(srna, "gtao_samples", PROP_INT, PROP_UNSIGNED);
-	RNA_def_property_int_funcs(prop, "rna_LayerEngineSettings_Eevee_gtao_samples_get",
-	                           "rna_LayerEngineSettings_Eevee_gtao_samples_set", NULL);
-	RNA_def_property_ui_text(prop, "Samples", "Number of samples to take to compute occlusion");
-	RNA_def_property_range(prop, 2, 32);
-	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
-	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_ViewLayerEngineSettings_update");
 
 	/* Depth of Field */
 	prop = RNA_def_property(srna, "dof_enable", PROP_BOOLEAN, PROP_NONE);

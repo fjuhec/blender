@@ -15,6 +15,7 @@ uniform float refractionDepth;
 #ifndef UTIL_TEX
 #define UTIL_TEX
 uniform sampler2DArray utilTex;
+#define texelfetch_noise_tex(coord) texelFetch(utilTex, ivec3(ivec2(coord) % LUT_SIZE, 2.0), 0)
 #endif /* UTIL_TEX */
 
 in vec3 worldPosition;
@@ -29,7 +30,6 @@ in vec3 viewNormal;
 #endif
 
 uniform float maxRoughness;
-uniform int rayCount;
 
 #endif /* LIT_SURFACE_UNIFORM */
 
@@ -176,7 +176,7 @@ void CLOSURE_NAME(
 
 	vec3 V = cameraVec;
 
-	vec4 rand = texture(utilTex, vec3(gl_FragCoord.xy / LUT_SIZE, 2.0));
+	vec4 rand = texelFetch(utilTex, ivec3(ivec2(gl_FragCoord.xy) % LUT_SIZE, 2.0), 0);
 
 	/* ---------------------------------------------------------------- */
 	/* -------------------- SCENE LAMPS LIGHTING ---------------------- */
@@ -315,13 +315,7 @@ void CLOSURE_NAME(
 	if (ssrToggle && roughness < maxRoughness + 0.2) {
 		/* Find approximated position of the 2nd refraction event. */
 		vec3 refr_vpos = (refractionDepth > 0.0) ? transform_point(ViewMatrix, refr_pos) : viewPosition;
-
-		float ray_ofs = 1.0 / float(rayCount);
-		vec4 trans = screen_space_refraction(refr_vpos, N, refr_V, final_ior, roughnessSquared, rand.xzw, 0.0);
-		if (rayCount > 1) trans += screen_space_refraction(refr_vpos, N, refr_V, final_ior, roughnessSquared, rand.xzw * vec3(1.0, -1.0, -1.0), 1.0 * ray_ofs);
-		if (rayCount > 2) trans += screen_space_refraction(refr_vpos, N, refr_V, final_ior, roughnessSquared, rand.xwz * vec3(1.0,  1.0, -1.0), 2.0 * ray_ofs);
-		if (rayCount > 3) trans += screen_space_refraction(refr_vpos, N, refr_V, final_ior, roughnessSquared, rand.xwz * vec3(1.0, -1.0,  1.0), 3.0 * ray_ofs);
-		trans /= float(rayCount);
+		vec4 trans = screen_space_refraction(refr_vpos, N, refr_V, final_ior, roughnessSquared, rand);
 		trans.a *= smoothstep(maxRoughness + 0.2, maxRoughness, roughness);
 		accumulate_light(trans.rgb, trans.a, refr_accum);
 	}
@@ -402,7 +396,7 @@ void CLOSURE_NAME(
 	/* ---------------------------- */
 #if defined(CLOSURE_GLOSSY) || defined(CLOSURE_DIFFUSE)
 	vec3 bent_normal;
-	float final_ao = occlusion_compute(N, viewPosition, ao, rand.rg, bent_normal);
+	float final_ao = occlusion_compute(N, viewPosition, ao, rand, bent_normal);
 #endif
 
 

@@ -28,6 +28,8 @@
 #include "BLI_dynstr.h"
 #include "BLI_ghash.h"
 #include "BLI_alloca.h"
+#include "BLI_rand.h"
+#include "BLI_string_utils.h"
 
 #include "BKE_particle.h"
 #include "BKE_paint.h"
@@ -51,16 +53,19 @@ static struct {
 	struct GPUShader *default_prepass_sh;
 	struct GPUShader *default_prepass_clip_sh;
 	struct GPUShader *default_lit[VAR_MAT_MAX];
-
 	struct GPUShader *default_background;
+	struct GPUShader *update_noise_sh;
 
 	/* 64*64 array texture containing all LUTs and other utilitarian arrays.
 	 * Packing enables us to same precious textures slots. */
 	struct GPUTexture *util_tex;
+	struct GPUTexture *noise_tex;
 
 	unsigned int sss_count;
 
 	float viewvecs[2][4];
+	float alpha_hash_offset;
+	float noise_offsets[3];
 } e_data = {NULL}; /* Engine data */
 
 extern char datatoc_lamps_lib_glsl[];
@@ -87,6 +92,7 @@ extern char datatoc_shadow_geom_glsl[];
 extern char datatoc_lightprobe_geom_glsl[];
 extern char datatoc_lightprobe_vert_glsl[];
 extern char datatoc_background_vert_glsl[];
+extern char datatoc_update_noise_frag_glsl[];
 extern char datatoc_volumetric_vert_glsl[];
 extern char datatoc_volumetric_geom_glsl[];
 extern char datatoc_volumetric_frag_glsl[];
@@ -105,13 +111,9 @@ static struct GPUTexture *create_ggx_lut_texture(int UNUSED(w), int UNUSED(h))
 	static float samples_ct = 8192.0f;
 	static float inv_samples_ct = 1.0f / 8192.0f;
 
-	char *lib_str = NULL;
-
-	DynStr *ds_vert = BLI_dynstr_new();
-	BLI_dynstr_append(ds_vert, datatoc_bsdf_common_lib_glsl);
-	BLI_dynstr_append(ds_vert, datatoc_bsdf_sampling_lib_glsl);
-	lib_str = BLI_dynstr_get_cstring(ds_vert);
-	BLI_dynstr_free(ds_vert);
+	char *lib_str = BLI_string_joinN(
+	        datatoc_bsdf_common_lib_glsl,
+	        datatoc_bsdf_sampling_lib_glsl);
 
 	struct GPUShader *sh = DRW_shader_create_with_lib(
 	        datatoc_lightprobe_vert_glsl, datatoc_lightprobe_geom_glsl, datatoc_bsdf_lut_frag_glsl, lib_str,
@@ -167,14 +169,10 @@ static struct GPUTexture *create_ggx_refraction_lut_texture(int w, int h)
 	static float a2 = 0.0f;
 	static float inv_samples_ct = 1.0f / 8192.0f;
 
-	char *frag_str = NULL;
-
-	DynStr *ds_vert = BLI_dynstr_new();
-	BLI_dynstr_append(ds_vert, datatoc_bsdf_common_lib_glsl);
-	BLI_dynstr_append(ds_vert, datatoc_bsdf_sampling_lib_glsl);
-	BLI_dynstr_append(ds_vert, datatoc_btdf_lut_frag_glsl);
-	frag_str = BLI_dynstr_get_cstring(ds_vert);
-	BLI_dynstr_free(ds_vert);
+	char *frag_str = BLI_string_joinN(
+	        datatoc_bsdf_common_lib_glsl,
+	        datatoc_bsdf_sampling_lib_glsl,
+	        datatoc_btdf_lut_frag_glsl);
 
 	struct GPUShader *sh = DRW_shader_create_fullscreen(frag_str,
 	        "#define HAMMERSLEY_SIZE 8192\n"
@@ -391,16 +389,14 @@ static void add_standard_uniforms(
 		DRW_shgroup_uniform_buffer(shgrp, "colorBuffer", &vedata->txl->refract_color);
 		DRW_shgroup_uniform_float(shgrp, "borderFadeFactor", &vedata->stl->effects->ssr_border_fac, 1);
 		DRW_shgroup_uniform_float(shgrp, "maxRoughness", &vedata->stl->effects->ssr_max_roughness, 1);
-		DRW_shgroup_uniform_int(shgrp, "rayCount", &vedata->stl->effects->ssr_ray_count, 1);
 	}
 
 	if (vedata->stl->effects->use_ao) {
 		DRW_shgroup_uniform_buffer(shgrp, "horizonBuffer", &vedata->txl->gtao_horizons);
-		DRW_shgroup_uniform_ivec2(shgrp, "aoHorizonTexSize", (int *)vedata->stl->effects->ao_texsize, 1);
 	}
 	else {
-		/* Use shadow_pool as fallback to avoid sampling problem on certain platform, see: T52593 */
-		DRW_shgroup_uniform_buffer(shgrp, "horizonBuffer", &sldata->shadow_pool);
+		/* Use maxzbuffer as fallback to avoid sampling problem on certain platform, see: T52593 */
+		DRW_shgroup_uniform_buffer(shgrp, "horizonBuffer", &vedata->txl->maxzbuffer);
 	}
 
 	if (vedata->stl->effects->use_volumetrics && use_alpha_blend) {
@@ -418,11 +414,9 @@ static void add_standard_uniforms(
 
 static void create_default_shader(int options)
 {
-	DynStr *ds_frag = BLI_dynstr_new();
-	BLI_dynstr_append(ds_frag, e_data.frag_shader_lib);
-	BLI_dynstr_append(ds_frag, datatoc_default_frag_glsl);
-	char *frag_str = BLI_dynstr_get_cstring(ds_frag);
-	BLI_dynstr_free(ds_frag);
+	char *frag_str = BLI_string_joinN(
+	        e_data.frag_shader_lib,
+	        datatoc_default_frag_glsl);
 
 	char *defines = eevee_get_defines(options);
 
@@ -432,11 +426,13 @@ static void create_default_shader(int options)
 	MEM_freeN(frag_str);
 }
 
-void EEVEE_update_util_texture(float offset)
+static void eevee_init_noise_texture(void)
 {
+	e_data.noise_tex = DRW_texture_create_2D(64, 64, DRW_TEX_RGBA_16, 0, (float *)blue_noise);
+}
 
-	/* TODO: split this into 2 functions : one for init,
-	 * and the other one that updates the noise with the offset. */
+static void eevee_init_util_texture(void)
+{
 	const int layers = 3 + 16;
 	float (*texels)[4] = MEM_mallocN(sizeof(float[4]) * 64 * 64 * layers, "utils texels");
 	float (*texels_layer)[4] = texels;
@@ -451,19 +447,16 @@ void EEVEE_update_util_texture(float offset)
 		texels_layer[i][0] = bsdf_split_sum_ggx[i * 2 + 0];
 		texels_layer[i][1] = bsdf_split_sum_ggx[i * 2 + 1];
 		texels_layer[i][2] = ltc_mag_ggx[i];
+		texels_layer[i][3] = ltc_disk_integral[i];
 	}
 	texels_layer += 64 * 64;
 
 	/* Copy blue noise in 3rd layer  */
 	for (int i = 0; i < 64 * 64; i++) {
-		float noise;
-		noise = fmod(blue_noise[i][0] + offset, 1.0f);
-		texels_layer[i][0] = noise;
-
-		noise = fmod(blue_noise[i][1] + offset, 1.0f);
-		texels_layer[i][1] = noise * 0.5f + 0.5f;
-		texels_layer[i][2] = cosf(noise * 2.0f * M_PI);
-		texels_layer[i][3] = sinf(noise * 2.0f * M_PI);
+		texels_layer[i][0] = blue_noise[i][0];
+		texels_layer[i][1] = blue_noise[i][1];
+		texels_layer[i][2] = cosf(blue_noise[i][1] * 2.0f * M_PI);
+		texels_layer[i][3] = sinf(blue_noise[i][1] * 2.0f * M_PI);
 	}
 	texels_layer += 64 * 64;
 
@@ -478,62 +471,70 @@ void EEVEE_update_util_texture(float offset)
 		texels_layer += 64 * 64;
 	}
 
-	if (e_data.util_tex == NULL) {
-		e_data.util_tex = DRW_texture_create_2D_array(
-		        64, 64, layers, DRW_TEX_RGBA_16, DRW_TEX_FILTER | DRW_TEX_WRAP, (float *)texels);
-	}
-	else {
-		DRW_texture_update(e_data.util_tex, (float *)texels);
-	}
+	e_data.util_tex = DRW_texture_create_2D_array(
+	        64, 64, layers, DRW_TEX_RGBA_16, DRW_TEX_FILTER | DRW_TEX_WRAP, (float *)texels);
 
 	MEM_freeN(texels);
 }
 
-void EEVEE_materials_init(EEVEE_StorageList *stl)
+void EEVEE_update_noise(EEVEE_PassList *psl, EEVEE_FramebufferList *fbl, double offsets[3])
+{
+	e_data.noise_offsets[0] = offsets[0];
+	e_data.noise_offsets[1] = offsets[1];
+	e_data.noise_offsets[2] = offsets[2];
+
+	/* Attach & detach because we don't currently support multiple FB per texture,
+	 * and this would be the case for multiple viewport. */
+	DRW_framebuffer_texture_layer_attach(fbl->update_noise_fb, e_data.util_tex, 0, 2, 0);
+	DRW_framebuffer_bind(fbl->update_noise_fb);
+	DRW_draw_pass(psl->update_noise_pass);
+	DRW_framebuffer_texture_detach(e_data.util_tex);
+}
+
+void EEVEE_materials_init(EEVEE_StorageList *stl, EEVEE_FramebufferList *fbl)
 {
 	if (!e_data.frag_shader_lib) {
 		char *frag_str = NULL;
 
 		/* Shaders */
-		DynStr *ds_frag = BLI_dynstr_new();
-		BLI_dynstr_append(ds_frag, datatoc_bsdf_common_lib_glsl);
-		BLI_dynstr_append(ds_frag, datatoc_bsdf_sampling_lib_glsl);
-		BLI_dynstr_append(ds_frag, datatoc_ambient_occlusion_lib_glsl);
-		BLI_dynstr_append(ds_frag, datatoc_raytrace_lib_glsl);
-		BLI_dynstr_append(ds_frag, datatoc_ssr_lib_glsl);
-		BLI_dynstr_append(ds_frag, datatoc_octahedron_lib_glsl);
-		BLI_dynstr_append(ds_frag, datatoc_irradiance_lib_glsl);
-		BLI_dynstr_append(ds_frag, datatoc_lightprobe_lib_glsl);
-		BLI_dynstr_append(ds_frag, datatoc_ltc_lib_glsl);
-		BLI_dynstr_append(ds_frag, datatoc_bsdf_direct_lib_glsl);
-		BLI_dynstr_append(ds_frag, datatoc_lamps_lib_glsl);
-		for (int i = 0; i < 7; ++i) {
-			/* Add one for each Closure */
-			BLI_dynstr_append(ds_frag, datatoc_lit_surface_frag_glsl);
-		}
-		BLI_dynstr_append(ds_frag, datatoc_volumetric_lib_glsl);
-		e_data.frag_shader_lib = BLI_dynstr_get_cstring(ds_frag);
-		BLI_dynstr_free(ds_frag);
+		e_data.frag_shader_lib = BLI_string_joinN(
+		        datatoc_bsdf_common_lib_glsl,
+		        datatoc_bsdf_sampling_lib_glsl,
+		        datatoc_ambient_occlusion_lib_glsl,
+		        datatoc_raytrace_lib_glsl,
+		        datatoc_ssr_lib_glsl,
+		        datatoc_octahedron_lib_glsl,
+		        datatoc_irradiance_lib_glsl,
+		        datatoc_lightprobe_lib_glsl,
+		        datatoc_ltc_lib_glsl,
+		        datatoc_bsdf_direct_lib_glsl,
+		        datatoc_lamps_lib_glsl,
+		        /* Add one for each Closure */
+		        datatoc_lit_surface_frag_glsl,
+		        datatoc_lit_surface_frag_glsl,
+		        datatoc_lit_surface_frag_glsl,
+		        datatoc_lit_surface_frag_glsl,
+		        datatoc_lit_surface_frag_glsl,
+		        datatoc_lit_surface_frag_glsl,
+		        datatoc_lit_surface_frag_glsl,
+		        datatoc_lit_surface_frag_glsl,
+		        datatoc_volumetric_lib_glsl);
 
-		ds_frag = BLI_dynstr_new();
-		BLI_dynstr_append(ds_frag, datatoc_bsdf_common_lib_glsl);
-		BLI_dynstr_append(ds_frag, datatoc_ambient_occlusion_lib_glsl);
-		BLI_dynstr_append(ds_frag, datatoc_octahedron_lib_glsl);
-		BLI_dynstr_append(ds_frag, datatoc_irradiance_lib_glsl);
-		BLI_dynstr_append(ds_frag, datatoc_lightprobe_lib_glsl);
-		BLI_dynstr_append(ds_frag, datatoc_ltc_lib_glsl);
-		BLI_dynstr_append(ds_frag, datatoc_bsdf_direct_lib_glsl);
-		BLI_dynstr_append(ds_frag, datatoc_lamps_lib_glsl);
-		BLI_dynstr_append(ds_frag, datatoc_volumetric_lib_glsl);
-		BLI_dynstr_append(ds_frag, datatoc_volumetric_frag_glsl);
-		e_data.volume_shader_lib = BLI_dynstr_get_cstring(ds_frag);
-		BLI_dynstr_free(ds_frag);
+		e_data.volume_shader_lib = BLI_string_joinN(
+		        datatoc_bsdf_common_lib_glsl,
+		        datatoc_ambient_occlusion_lib_glsl,
+		        datatoc_octahedron_lib_glsl,
+		        datatoc_irradiance_lib_glsl,
+		        datatoc_lightprobe_lib_glsl,
+		        datatoc_ltc_lib_glsl,
+		        datatoc_bsdf_direct_lib_glsl,
+		        datatoc_lamps_lib_glsl,
+		        datatoc_volumetric_lib_glsl,
+		        datatoc_volumetric_frag_glsl);
 
-		ds_frag = BLI_dynstr_new();
-		BLI_dynstr_append(ds_frag, e_data.frag_shader_lib);
-		BLI_dynstr_append(ds_frag, datatoc_default_frag_glsl);
-		frag_str = BLI_dynstr_get_cstring(ds_frag);
-		BLI_dynstr_free(ds_frag);
+		frag_str = BLI_string_joinN(
+		        e_data.frag_shader_lib,
+		        datatoc_default_frag_glsl);
 
 		e_data.default_background = DRW_shader_create(
 		        datatoc_background_vert_glsl, NULL, datatoc_default_world_frag_glsl,
@@ -549,7 +550,24 @@ void EEVEE_materials_init(EEVEE_StorageList *stl)
 
 		MEM_freeN(frag_str);
 
-		EEVEE_update_util_texture(0.0f);
+		e_data.update_noise_sh = DRW_shader_create_fullscreen(
+		        datatoc_update_noise_frag_glsl, NULL);
+
+		eevee_init_util_texture();
+		eevee_init_noise_texture();
+	}
+
+	/* Alpha hash scale: Non-flickering size if we are not refining the render. */
+	if (!DRW_state_is_image_render() &&
+		(((stl->effects->enabled_effects & EFFECT_TAA) == 0) ||
+		 (stl->effects->taa_current_sample == 1)))
+	{
+		e_data.alpha_hash_offset = 0.0f;
+	}
+	else {
+		double r;
+		BLI_halton_1D(5, 0.0, stl->effects->taa_current_sample, &r);
+		e_data.alpha_hash_offset = (float)r;
 	}
 
 	{
@@ -592,6 +610,13 @@ void EEVEE_materials_init(EEVEE_StorageList *stl)
 			mul_m4_v4(invproj, vec_far);
 			mul_v3_fl(vec_far, 1.0f / vec_far[3]);
 			stl->g_data->viewvecs[1][2] = vec_far[2] - viewvecs[0][2];
+		}
+	}
+
+	{
+		/* Update noise Framebuffer. */
+		if (fbl->update_noise_fb == NULL) {
+			fbl->update_noise_fb = DRW_framebuffer_create();
 		}
 	}
 }
@@ -728,11 +753,9 @@ struct GPUMaterial *EEVEE_material_mesh_depth_get(
 
 	char *defines = eevee_get_defines(options);
 
-	DynStr *ds_frag = BLI_dynstr_new();
-	BLI_dynstr_append(ds_frag, e_data.frag_shader_lib);
-	BLI_dynstr_append(ds_frag, datatoc_prepass_frag_glsl);
-	char *frag_str = BLI_dynstr_get_cstring(ds_frag);
-	BLI_dynstr_free(ds_frag);
+	char *frag_str = BLI_string_joinN(
+	        e_data.frag_shader_lib,
+	        datatoc_prepass_frag_glsl);
 
 	mat = GPU_material_from_nodetree(
 	        scene, ma->nodetree, &ma->gpumaterial, engine, options,
@@ -951,6 +974,15 @@ void EEVEE_materials_cache_init(EEVEE_Data *vedata)
 		DRWState state = DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_LESS | DRW_STATE_CLIP_PLANES | DRW_STATE_WIRE;
 		psl->transparent_pass = DRW_pass_create("Material Transparent Pass", state);
 	}
+
+	{
+		psl->update_noise_pass = DRW_pass_create("Update Noise Pass", DRW_STATE_WRITE_COLOR);
+		DRWShadingGroup *grp = DRW_shgroup_create(e_data.update_noise_sh, psl->update_noise_pass);
+		DRW_shgroup_uniform_texture(grp, "blueNoise", e_data.noise_tex);
+		DRW_shgroup_uniform_vec3(grp, "offsets", e_data.noise_offsets, 1);
+		DRW_shgroup_call_add(grp, DRW_cache_fullscreen_quad_get(), NULL);
+	}
+
 }
 
 #define ADD_SHGROUP_CALL(shgrp, ob, geom) do { \
@@ -991,9 +1023,11 @@ static void material_opaque(
 	float *rough_p = &ma->gloss_mir;
 
 	const bool use_gpumat = (ma->use_nodes && ma->nodetree);
-	const bool use_refract = ((ma->blend_flag & MA_BL_SS_REFRACTION) != 0) && ((stl->effects->enabled_effects & EFFECT_REFRACT) != 0);
-	const bool use_sss = ((ma->blend_flag & MA_BL_SS_SUBSURFACE) != 0) && ((stl->effects->enabled_effects & EFFECT_SSS) != 0);
-	const bool use_translucency = ((ma->blend_flag & MA_BL_TRANSLUCENCY) != 0) && ((stl->effects->enabled_effects & EFFECT_SSS) != 0);
+	const bool use_refract = ((ma->blend_flag & MA_BL_SS_REFRACTION) != 0) &&
+	                         ((stl->effects->enabled_effects & EFFECT_REFRACT) != 0);
+	const bool use_sss = ((ma->blend_flag & MA_BL_SS_SUBSURFACE) != 0) &&
+	                     ((stl->effects->enabled_effects & EFFECT_SSS) != 0);
+	const bool use_translucency = use_sss && ((ma->blend_flag & MA_BL_TRANSLUCENCY) != 0);
 
 	EeveeMaterialShadingGroups *emsg = BLI_ghash_lookup(material_hash, (const void *)ma);
 
@@ -1072,6 +1106,10 @@ static void material_opaque(
 				if (ma->blend_method == MA_BM_CLIP) {
 					DRW_shgroup_uniform_float(*shgrp_depth, "alphaThreshold", &ma->alpha_threshold, 1);
 					DRW_shgroup_uniform_float(*shgrp_depth_clip, "alphaThreshold", &ma->alpha_threshold, 1);
+				}
+				else if (ma->blend_method == MA_BM_HASHED) {
+					DRW_shgroup_uniform_float(*shgrp_depth, "hashAlphaOffset", &e_data.alpha_hash_offset, 1);
+					DRW_shgroup_uniform_float(*shgrp_depth_clip, "hashAlphaOffset", &e_data.alpha_hash_offset, 1);
 				}
 			}
 		}
@@ -1438,7 +1476,9 @@ void EEVEE_materials_free(void)
 	DRW_SHADER_FREE_SAFE(e_data.default_prepass_sh);
 	DRW_SHADER_FREE_SAFE(e_data.default_prepass_clip_sh);
 	DRW_SHADER_FREE_SAFE(e_data.default_background);
+	DRW_SHADER_FREE_SAFE(e_data.update_noise_sh);
 	DRW_TEXTURE_FREE_SAFE(e_data.util_tex);
+	DRW_TEXTURE_FREE_SAFE(e_data.noise_tex);
 }
 
 void EEVEE_draw_default_passes(EEVEE_PassList *psl)

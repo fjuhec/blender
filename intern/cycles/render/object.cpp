@@ -398,7 +398,6 @@ void ObjectManager::device_update_object_transform(UpdateObejctTransformState *s
 		memcpy(&objects_vector[object_index*OBJECT_VECTOR_SIZE+0], &mtfm.pre, sizeof(float4)*3);
 		memcpy(&objects_vector[object_index*OBJECT_VECTOR_SIZE+3], &mtfm.post, sizeof(float4)*3);
 	}
-#ifdef __OBJECT_MOTION__
 	else if(state->need_motion == Scene::MOTION_BLUR) {
 		if(ob->use_motion) {
 			/* decompose transformations for interpolation. */
@@ -410,7 +409,6 @@ void ObjectManager::device_update_object_transform(UpdateObejctTransformState *s
 			state->have_motion = true;
 		}
 	}
-#endif
 
 	/* Dupli object coords and motion info. */
 	int totalsteps = mesh->motion_steps;
@@ -475,14 +473,13 @@ void ObjectManager::device_update_object_transform_task(
 	}
 }
 
-void ObjectManager::device_update_transforms(Device *device,
-                                             DeviceScene *dscene,
+void ObjectManager::device_update_transforms(DeviceScene *dscene,
                                              Scene *scene,
                                              uint *object_flag,
                                              Progress& progress)
 {
 	UpdateObejctTransformState state;
-	state.need_motion = scene->need_motion(device->info.advanced_shading);
+	state.need_motion = scene->need_motion();
 	state.have_motion = false;
 	state.have_curves = false;
 	state.scene = scene;
@@ -562,7 +559,7 @@ void ObjectManager::device_update(Device *device, DeviceScene *dscene, Scene *sc
 
 	/* set object transform matrices, before applying static transforms */
 	progress.set_status("Updating Objects", "Copying Transformations to device");
-	device_update_transforms(device, dscene, scene, object_flag, progress);
+	device_update_transforms(dscene, scene, object_flag, progress);
 
 	if(progress.get_cancel()) return;
 
@@ -694,14 +691,9 @@ void ObjectManager::apply_static_transforms(DeviceScene *dscene, Scene *scene, u
 
 	/* counter mesh users */
 	map<Mesh*, int> mesh_users;
-#ifdef __OBJECT_MOTION__
 	Scene::MotionType need_motion = scene->need_motion();
 	bool motion_blur = need_motion == Scene::MOTION_BLUR;
 	bool apply_to_motion = need_motion != Scene::MOTION_PASS;
-#else
-	bool motion_blur = false;
-	bool apply_to_motion = false;
-#endif
 	int i = 0;
 	bool have_instancing = false;
 

@@ -266,6 +266,12 @@ typedef struct ID {
 	IDOverrideStatic *override_static;  /* Reference linked ID which this one overrides. */
 
 	AssetUUID *uuid;
+	void *pad_v;
+
+	/* Only set for datablocks which are coming from copy-on-write, points to
+	 * the original version of it.
+	 */
+	void *orig_id;
 
 	void *py_instance;
 } ID;

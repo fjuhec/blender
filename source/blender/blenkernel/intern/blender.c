@@ -265,6 +265,16 @@ void BKE_blender_userdef_app_template_data_swap(UserDef *userdef_a, UserDef *use
 	SWAP(ListBase, userdef_a->id, userdef_b->id); \
 } ((void)0)
 
+#define FLAG_SWAP(id, ty, flags) { \
+	CHECK_TYPE(&(userdef_a->id), ty *); \
+	const ty f = flags; \
+	const ty a = userdef_a->id; \
+	const ty b = userdef_b->id; \
+	userdef_a->id = (userdef_a->id & ~f) | (b & f); \
+	userdef_b->id = (userdef_b->id & ~f) | (a & f); \
+} ((void)0)
+
+
 	LIST_SWAP(uistyles);
 	LIST_SWAP(uifonts);
 	LIST_SWAP(themes);
@@ -278,10 +288,15 @@ void BKE_blender_userdef_app_template_data_swap(UserDef *userdef_a, UserDef *use
 	DATA_SWAP(keyconfigstr);
 
 	DATA_SWAP(manipulator_flag);
+	DATA_SWAP(app_flag);
+
+	/* We could add others. */
+	FLAG_SWAP(uiflag, int, USER_QUIT_PROMPT);
 
 #undef SWAP_TYPELESS
-#undef LIST_SWAP
 #undef DATA_SWAP
+#undef LIST_SWAP
+#undef FLAG_SWAP
 }
 
 void BKE_blender_userdef_app_template_data_set(UserDef *userdef)
