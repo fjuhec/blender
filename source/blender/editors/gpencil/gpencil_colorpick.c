@@ -41,6 +41,7 @@
 #include "DNA_object_types.h"
 #include "DNA_gpencil_types.h"
 #include "DNA_windowmanager_types.h"
+#include "DNA_userdef_types.h"
 
 #include "BKE_main.h" 
 #include "BKE_image.h" 
@@ -80,6 +81,9 @@
 /* draw color name using default font */
 static void gp_draw_color_name(tGPDpick *tgpk, tGPDpickColor *col, const uiFontStyle *fstyle, bool focus)
 {
+	bTheme *btheme = UI_GetTheme();
+	uiWidgetColors menuBack = btheme->tui.wcol_menu_back;
+
 	char drawstr[UI_MAX_DRAW_STR];
 	const float okwidth = tgpk->boxsize[0];
 	const size_t max_len = sizeof(drawstr);
@@ -87,10 +91,10 @@ static void gp_draw_color_name(tGPDpick *tgpk, tGPDpickColor *col, const uiFontS
 
 	unsigned char text_col[4];
 	if (focus) {
-		UI_GetThemeColor4ubv(TH_TEXT_HI, text_col);
+		copy_v4_v4_char(text_col, menuBack.text_sel);
 	}
 	else {
-		UI_GetThemeColor4ubv(TH_TEXT, text_col);
+		copy_v4_v4_char(text_col, menuBack.text);
 	}
 
 	/* color name */
@@ -149,12 +153,13 @@ static void gpencil_draw_color_table(const bContext *UNUSED(C), tGPDpick *tgpk)
 	rcti sbox;
 	rcti fbox;
 
-	UI_GetThemeColor3fv(TH_TAB_OUTLINE, line);
-	line[3] = 1.0f;
+	bTheme *btheme = UI_GetTheme();
+	uiWidgetColors menuBack = btheme->tui.wcol_menu_back;
+
+	rgba_uchar_to_float(line, menuBack.outline);
+	rgba_uchar_to_float(ink, menuBack.inner);
 
 	/* draw panel background */
-	UI_GetThemeColor4fv(TH_PANEL_BACK, ink);
-	ink[3] = 0.8f;
 	glEnable(GL_BLEND);
 	UI_draw_roundbox_corner_set(UI_CNR_ALL);
 	UI_draw_roundbox_4fv(true, tgpk->panel.xmin, tgpk->panel.ymin,
