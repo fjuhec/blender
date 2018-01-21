@@ -93,12 +93,14 @@ static CollectionOverride *outliner_override_active(bContext *UNUSED(C))
 
 static int collections_editor_poll(bContext *C)
 {
-	ScrArea *sa = CTX_wm_area(C);
-	if ((sa) && (sa->spacetype == SPACE_OUTLINER)) {
-		SpaceOops *so = CTX_wm_space_outliner(C);
-		return (so->outlinevis == SO_COLLECTIONS);
-	}
-	return 0;
+	SpaceOops *so = CTX_wm_space_outliner(C);
+	return (so != NULL) && (so->outlinevis == SO_COLLECTIONS);
+}
+
+static int view_layer_editor_poll(bContext *C)
+{
+	SpaceOops *so = CTX_wm_space_outliner(C);
+	return (so != NULL) && (so->outlinevis == SO_VIEW_LAYER);
 }
 
 /* -------------------------------------------------------------------- */
@@ -125,30 +127,28 @@ static SceneCollection *scene_collection_from_index(ListBase *lb, const int numb
 }
 
 typedef struct TreeElementFindData {
-	SceneCollection *sc;
-	TreeElement *te;
+	SceneCollection *collection;
+	TreeElement *r_result_te;
 } TreeElementFindData;
 
-static TreeTraversalAction tree_element_find_by_scene_collection(TreeElement *te, void *customdata)
+static TreeTraversalAction tree_element_find_by_scene_collection_cb(TreeElement *te, void *customdata)
 {
 	TreeElementFindData *data = customdata;
+	const SceneCollection *current_element_sc = outliner_scene_collection_from_tree_element(te);
 
-	SceneCollection *current_element_sc = outliner_scene_collection_from_tree_element(te);
-
-	if (current_element_sc == data->sc) {
-		data->te = te;
+	if (current_element_sc == data->collection) {
+		data->r_result_te = te;
 		return TRAVERSE_BREAK;
 	}
 
 	return TRAVERSE_CONTINUE;
 }
 
-static TreeElement *outliner_tree_element_from_layer_collection(bContext *C)
+static TreeElement *outliner_tree_element_from_layer_collection_index(
+        SpaceOops *soops, ViewLayer *view_layer,
+        const int index)
 {
-	ViewLayer *view_layer = CTX_data_view_layer(C);
-	SpaceOops *soops = CTX_wm_space_outliner(C);
-
-	LayerCollection *lc = BKE_layer_collection_from_index(view_layer, 0);
+	LayerCollection *lc = BKE_layer_collection_from_index(view_layer, index);
 
 	if (lc == NULL) {
 		return NULL;
@@ -156,12 +156,12 @@ static TreeElement *outliner_tree_element_from_layer_collection(bContext *C)
 
 	/* Find the tree element containing the LayerCollection's scene_collection. */
 	TreeElementFindData data = {
-		.sc = lc->scene_collection,
-		.te = NULL,
+		.collection = lc->scene_collection,
+		.r_result_te = NULL,
 	};
-	outliner_tree_traverse(soops, &soops->tree, 0, 0, tree_element_find_by_scene_collection, &data);
+	outliner_tree_traverse(soops, &soops->tree, 0, 0, tree_element_find_by_scene_collection_cb, &data);
 
-	return data.te;
+	return data.r_result_te;
 }
 
 static int collection_link_exec(bContext *C, wmOperator *op)
@@ -243,13 +243,14 @@ void OUTLINER_OT_collection_link(wmOperatorType *ot)
 	PropertyRNA *prop;
 
 	/* identifiers */
-	ot->name = "Add Collection";
+	ot->name = "Link Collection";
 	ot->idname = "OUTLINER_OT_collection_link";
 	ot->description = "Link a new collection to the active layer";
 
 	/* api callbacks */
 	ot->exec = collection_link_exec;
 	ot->invoke = collection_link_invoke;
+	ot->poll = view_layer_editor_poll;
 
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
@@ -266,6 +267,10 @@ void OUTLINER_OT_collection_link(wmOperatorType *ot)
  */
 static int collection_unlink_poll(bContext *C)
 {
+	if (view_layer_editor_poll(C) == 0) {
+		return 0;
+	}
+
 	LayerCollection *lc = outliner_collection_active(C);
 
 	if (lc == NULL) {
@@ -305,7 +310,7 @@ static int collection_unlink_exec(bContext *C, wmOperator *op)
 void OUTLINER_OT_collection_unlink(wmOperatorType *ot)
 {
 	/* identifiers */
-	ot->name = "Add Collection";
+	ot->name = "Unlink Collection";
 	ot->idname = "OUTLINER_OT_collection_unlink";
 	ot->description = "Unlink collection from the active layer";
 
@@ -440,6 +445,134 @@ void OUTLINER_OT_collection_delete_selected(wmOperatorType *ot)
 }
 
 /**********************************************************************************/
+/* Add new selected objects. */
+
+struct SceneCollectionSelectedData {
+	ListBase scene_collections_array;
+};
+
+static TreeTraversalAction collection_find_selected_scene_collections(TreeElement *te, void *customdata)
+{
+	struct SceneCollectionSelectedData *data = customdata;
+	SceneCollection *scene_collection = outliner_scene_collection_from_tree_element(te);
+
+	if (!scene_collection) {
+		return TRAVERSE_SKIP_CHILDS;
+	}
+
+	BLI_addtail(&data->scene_collections_array, BLI_genericNodeN(scene_collection));
+	return TRAVERSE_CONTINUE;
+}
+
+static int collection_objects_add_exec(bContext *C, wmOperator *op)
+{
+	SpaceOops *soops = CTX_wm_space_outliner(C);
+	Main *bmain = CTX_data_main(C);
+	Scene *scene = CTX_data_scene(C);
+
+	struct SceneCollectionSelectedData data = {
+		.scene_collections_array = {NULL, NULL},
+	};
+
+	outliner_tree_traverse(soops, &soops->tree, 0, TSE_SELECTED, collection_find_selected_scene_collections, &data);
+
+	if (BLI_listbase_is_empty(&data.scene_collections_array)) {
+		BKE_report(op->reports, RPT_ERROR, "No collection is selected");
+		return OPERATOR_CANCELLED;
+	}
+
+	CTX_DATA_BEGIN (C, struct Object *, ob, selected_objects)
+	{
+		BLI_LISTBASE_FOREACH (LinkData *, link, &data.scene_collections_array) {
+			SceneCollection *scene_collection = link->data;
+			BKE_collection_object_add(
+			            &scene->id,
+			            scene_collection,
+			            ob);
+		}
+	}
+	CTX_DATA_END;
+	BLI_freelistN(&data.scene_collections_array);
+
+	outliner_cleanup_tree(soops);
+	DEG_relations_tag_update(bmain);
+	WM_main_add_notifier(NC_SCENE | ND_LAYER, NULL);
+	return OPERATOR_FINISHED;
+}
+
+void OUTLINER_OT_collection_objects_add(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Add Objects";
+	ot->idname = "OUTLINER_OT_collection_objects_add";
+	ot->description = "Add selected objects to collection";
+
+	/* api callbacks */
+	ot->exec = collection_objects_add_exec;
+	ot->poll = collections_editor_poll;
+
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+}
+
+/**********************************************************************************/
+/* Remove selected objects. */
+
+
+static int collection_objects_remove_exec(bContext *C, wmOperator *op)
+{
+	SpaceOops *soops = CTX_wm_space_outliner(C);
+	Main *bmain = CTX_data_main(C);
+	Scene *scene = CTX_data_scene(C);
+
+	struct SceneCollectionSelectedData data = {
+		.scene_collections_array = {NULL, NULL},
+	};
+
+	outliner_tree_traverse(soops, &soops->tree, 0, TSE_SELECTED, collection_find_selected_scene_collections, &data);
+
+	if (BLI_listbase_is_empty(&data.scene_collections_array)) {
+		BKE_report(op->reports, RPT_ERROR, "No collection is selected");
+		return OPERATOR_CANCELLED;
+	}
+
+	CTX_DATA_BEGIN (C, struct Object *, ob, selected_objects)
+	{
+		BLI_LISTBASE_FOREACH (LinkData *, link, &data.scene_collections_array) {
+			SceneCollection *scene_collection = link->data;
+			BKE_collection_object_remove(
+			            bmain,
+			            &scene->id,
+			            scene_collection,
+			            ob,
+			            true);
+		}
+	}
+	CTX_DATA_END;
+	BLI_freelistN(&data.scene_collections_array);
+
+	outliner_cleanup_tree(soops);
+	DEG_relations_tag_update(bmain);
+	WM_main_add_notifier(NC_SCENE | ND_LAYER, NULL);
+	return OPERATOR_FINISHED;
+}
+
+void OUTLINER_OT_collection_objects_remove(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Remove Objects";
+	ot->idname = "OUTLINER_OT_collection_objects_remove";
+	ot->description = "Remove selected objects from collection";
+
+	/* api callbacks */
+	ot->exec = collection_objects_remove_exec;
+	ot->poll = collections_editor_poll;
+
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+}
+
+/**********************************************************************************/
 
 /**
  * Returns true is selected element is a collection
@@ -500,6 +633,26 @@ static TreeTraversalAction collection_find_data_to_delete(TreeElement *te, void 
 	}
 	else {
 		BLI_gset_add(data->collections_to_delete, scene_collection);
+		return TRAVERSE_SKIP_CHILDS; /* Childs will be gone anyway, no need to recurse deeper. */
+	}
+
+	return TRAVERSE_CONTINUE;
+}
+
+static TreeTraversalAction collection_delete_elements_from_collection(TreeElement *te, void *customdata)
+{
+	struct CollectionDeleteData *data = customdata;
+	SceneCollection *scene_collection = outliner_scene_collection_from_tree_element(te);
+
+	if (!scene_collection) {
+		return TRAVERSE_SKIP_CHILDS;
+	}
+
+	const bool will_be_deleted = BLI_gset_haskey(data->collections_to_delete, scene_collection);
+	if (will_be_deleted) {
+		outliner_free_tree_element(te, te->parent ? &te->parent->subtree : &data->soops->tree);
+		/* Childs are freed now, so don't recurse into them. */
+		return TRAVERSE_SKIP_CHILDS;
 	}
 
 	return TRAVERSE_CONTINUE;
@@ -507,9 +660,7 @@ static TreeTraversalAction collection_find_data_to_delete(TreeElement *te, void 
 
 static int collection_delete_exec(bContext *C, wmOperator *UNUSED(op))
 {
-	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
-	ViewLayer *view_layer = CTX_data_view_layer(C);
 	SpaceOops *soops = CTX_wm_space_outliner(C);
 	struct CollectionDeleteData data = {.scene = scene, .soops = soops};
 
@@ -520,21 +671,20 @@ static int collection_delete_exec(bContext *C, wmOperator *UNUSED(op))
 	/* We first walk over and find the SceneCollections we actually want to delete (ignoring duplicates). */
 	outliner_tree_traverse(soops, &soops->tree, 0, TSE_SELECTED, collection_find_data_to_delete, &data);
 
+	/* Now, delete all tree elements representing a collection that will be deleted. We'll look for a
+	 * new element to select in a few lines, so we can't wait until the tree is recreated on redraw. */
+	outliner_tree_traverse(soops, &soops->tree, 0, 0, collection_delete_elements_from_collection, &data);
+
 	/* Effectively delete the collections. */
 	GSetIterator collections_to_delete_iter;
 	GSET_ITER(collections_to_delete_iter, data.collections_to_delete) {
-
 		SceneCollection *sc = BLI_gsetIterator_getKey(&collections_to_delete_iter);
 		BKE_collection_remove(&data.scene->id, sc);
 	}
 
 	BLI_gset_free(data.collections_to_delete, NULL);
 
-	/* Rebuild the outliner tree before we select the tree element */
-	outliner_build_tree(bmain, scene, view_layer, soops);
-
-	TreeElement *select_te = outliner_tree_element_from_layer_collection(C);
-
+	TreeElement *select_te = outliner_tree_element_from_layer_collection_index(soops, CTX_data_view_layer(C), 0);
 	if (select_te) {
 		outliner_item_select(soops, select_te, false, false);
 	}
@@ -544,6 +694,7 @@ static int collection_delete_exec(bContext *C, wmOperator *UNUSED(op))
 	/* TODO(sergey): Use proper flag for tagging here. */
 	DEG_id_tag_update(&scene->id, 0);
 
+	soops->storeflag |= SO_TREESTORE_REDRAW;
 	WM_main_add_notifier(NC_SCENE | ND_LAYER, NULL);
 
 	return OPERATOR_FINISHED;
@@ -671,34 +822,6 @@ static int stubs_invoke(bContext *UNUSED(C), wmOperator *op, const wmEvent *UNUS
 	TODO_LAYER_OPERATORS;
 	BKE_report(op->reports, RPT_ERROR, "Operator not implemented yet");
 	return OPERATOR_CANCELLED;
-}
-
-void OUTLINER_OT_collection_objects_add(wmOperatorType *ot)
-{
-	/* identifiers */
-	ot->name = "Add Objects";
-	ot->idname = "OUTLINER_OT_collection_objects_add";
-	ot->description = "Add selected objects to collection";
-
-	/* api callbacks */
-	ot->invoke = stubs_invoke;
-
-	/* flags */
-	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
-}
-
-void OUTLINER_OT_collection_objects_remove(wmOperatorType *ot)
-{
-	/* identifiers */
-	ot->name = "Remove Object";
-	ot->idname = "OUTLINER_OT_collection_objects_remove";
-	ot->description = "Remove objects from collection";
-
-	/* api callbacks */
-	ot->invoke = stubs_invoke;
-
-	/* flags */
-	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
 void OUTLINER_OT_collection_objects_select(wmOperatorType *ot)

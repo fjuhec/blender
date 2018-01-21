@@ -30,6 +30,7 @@ struct ARegion;
 struct CollectionEngineSettings;
 struct Depsgraph;
 struct DRWPass;
+struct DRWInstanceDataList;
 struct Main;
 struct Material;
 struct Scene;
@@ -44,6 +45,7 @@ struct ViewportEngineData;
 struct View3D;
 struct rcti;
 struct GPUOffScreen;
+struct GPUViewport;
 struct RenderEngineType;
 struct WorkSpace;
 
@@ -72,6 +74,7 @@ void DRW_engine_viewport_data_size_get(
 
 typedef struct DRWUpdateContext {
 	struct Main *bmain;
+	struct Depsgraph *depsgraph;
 	struct Scene *scene;
 	struct ViewLayer *view_layer;
 	struct ARegion *ar;
@@ -84,29 +87,32 @@ void DRW_notify_id_update(const DRWUpdateContext *update_ctx, struct ID *id);
 void DRW_draw_view(const struct bContext *C);
 
 void DRW_draw_render_loop_ex(
-        struct Depsgraph *graph,
+        struct Depsgraph *depsgraph,
         struct RenderEngineType *engine_type,
         struct ARegion *ar, struct View3D *v3d,
         const struct bContext *evil_C);
 void DRW_draw_render_loop(
-        struct Depsgraph *graph,
+        struct Depsgraph *depsgraph,
         struct ARegion *ar, struct View3D *v3d);
 void DRW_draw_render_loop_offscreen(
-        struct Depsgraph *graph,
+        struct Depsgraph *depsgraph,
         struct RenderEngineType *engine_type,
         struct ARegion *ar, struct View3D *v3d,
         const bool draw_background,
-        struct GPUOffScreen *ofs);
+        struct GPUOffScreen *ofs,
+        struct GPUViewport *viewport);
 void DRW_draw_select_loop(
-        struct Depsgraph *graph,
+        struct Depsgraph *depsgraph,
         struct ARegion *ar, struct View3D *v3d,
         bool use_obedit_skip, bool use_nearest, const struct rcti *rect);
 void DRW_draw_depth_loop(
-        struct Depsgraph *graph,
+        struct Depsgraph *depsgraph,
         struct ARegion *ar, struct View3D *v3d);
 
 /* This is here because GPUViewport needs it */
 void DRW_pass_free(struct DRWPass *pass);
+struct DRWInstanceDataList *DRW_instance_data_list_create(void);
+void DRW_instance_data_list_free(struct DRWInstanceDataList *idatalist);
 
 /* Mode engines initialization */
 void OBJECT_collection_settings_create(struct IDProperty *properties);

@@ -65,6 +65,7 @@ set(SRC
 	intern/draw_cache_impl_particles.c
 	intern/draw_common.c
 	intern/draw_hair.c
+	intern/draw_instance_data.c
 	intern/draw_manager.c
 	intern/draw_manager_text.c
 	intern/draw_manager_profiling.c
@@ -108,6 +109,7 @@ set(SRC
 	intern/draw_cache.h
 	intern/draw_cache_impl.h
 	intern/draw_common.h
+	intern/draw_instance_data.h
 	intern/draw_manager_text.h
 	intern/draw_manager_profiling.h
 	intern/draw_view.h
@@ -186,6 +188,7 @@ data_to_c_simple(engines/eevee/shaders/bsdf_sampling_lib.glsl SRC)
 data_to_c_simple(engines/eevee/shaders/raytrace_lib.glsl SRC)
 data_to_c_simple(engines/eevee/shaders/ltc_lib.glsl SRC)
 data_to_c_simple(engines/eevee/shaders/ssr_lib.glsl SRC)
+data_to_c_simple(engines/eevee/shaders/update_noise_frag.glsl SRC)
 data_to_c_simple(engines/eevee/shaders/volumetric_lib.glsl SRC)
 data_to_c_simple(engines/eevee/shaders/volumetric_frag.glsl SRC)
 data_to_c_simple(engines/eevee/shaders/volumetric_geom.glsl SRC)
@@ -207,6 +210,7 @@ data_to_c_simple(modes/shaders/edit_mesh_overlay_mix_frag.glsl SRC)
 data_to_c_simple(modes/shaders/edit_mesh_overlay_facefill_vert.glsl SRC)
 data_to_c_simple(modes/shaders/edit_mesh_overlay_facefill_frag.glsl SRC)
 data_to_c_simple(modes/shaders/edit_curve_overlay_frag.glsl SRC)
+data_to_c_simple(modes/shaders/edit_curve_overlay_handle_geom.glsl SRC)
 data_to_c_simple(modes/shaders/edit_curve_overlay_loosevert_vert.glsl SRC)
 data_to_c_simple(modes/shaders/edit_groom_overlay_frag.glsl SRC)
 data_to_c_simple(modes/shaders/edit_groom_overlay_loosevert_vert.glsl SRC)

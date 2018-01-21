@@ -30,6 +30,7 @@
 #include "BLI_ghash.h"
 #include "BLI_iterator.h"
 #include "BLI_listbase.h"
+#include "BLI_math_base.h"
 #include "BLT_translation.h"
 #include "BLI_string_utils.h"
 
@@ -86,7 +87,12 @@ SceneCollection *BKE_collection_add(ID *owner_id, SceneCollection *sc_parent, co
 			name = BLI_sprintfN("Collection %d", BLI_listbase_count(&sc_master->scene_collections) + 1);
 		}
 		else {
-			name = BLI_sprintfN("%s %d", sc_parent->name, BLI_listbase_count(&sc_parent->scene_collections) + 1);
+			const int number = BLI_listbase_count(&sc_parent->scene_collections) + 1;
+			const int digits = integer_digits_i(number);
+			const int max_len = sizeof(sc_parent->name)
+			                    - 1 /* NULL terminator */
+			                    - (1 + digits) /* " %d" */;
+			name = BLI_sprintfN("%.*s %d", max_len, sc_parent->name, number);
 		}
 	}
 
@@ -309,6 +315,15 @@ void BKE_collection_rename(const Scene *scene, SceneCollection *sc, const char *
 }
 
 /**
+ * Make sure the collection name is still unique within its siblings.
+ */
+static void collection_name_check(const ID *owner_id, SceneCollection *sc)
+{
+	/* It's a bit of a hack, we simply try to make sure the collection name is valid. */
+	collection_rename(owner_id, sc, sc->name);
+}
+
+/**
  * Free (or release) any data used by the master collection (does not free the master collection itself).
  * Used only to clear the entire scene or group data since it's not doing re-syncing of the LayerCollection tree
  */
@@ -412,8 +427,9 @@ bool BKE_collection_object_remove(Main *bmain, ID *owner_id, SceneCollection *sc
  */
 void BKE_collection_object_move(ID *owner_id, SceneCollection *sc_dst, SceneCollection *sc_src, Object *ob)
 {
-	BKE_collection_object_add(owner_id, sc_dst, ob);
-	BKE_collection_object_remove(NULL, owner_id, sc_src, ob, false);
+	if (BKE_collection_object_add(owner_id, sc_dst, ob)) {
+		BKE_collection_object_remove(NULL, owner_id, sc_src, ob, false);
+	}
 }
 
 /**
@@ -582,6 +598,9 @@ bool BKE_collection_move_above(const ID *owner_id, SceneCollection *sc_dst, Scen
 	BKE_layer_collection_resync(owner_id, sc_src_parent);
 	BKE_layer_collection_resync(owner_id, sc_dst_parent);
 
+	/* Keep names unique. */
+	collection_name_check(owner_id, sc_src);
+
 	return true;
 }
 
@@ -621,6 +640,9 @@ bool BKE_collection_move_below(const ID *owner_id, SceneCollection *sc_dst, Scen
 	BKE_layer_collection_resync(owner_id, sc_src_parent);
 	BKE_layer_collection_resync(owner_id, sc_dst_parent);
 
+	/* Keep names unique. */
+	collection_name_check(owner_id, sc_src);
+
 	return true;
 }
 
@@ -655,6 +677,9 @@ bool BKE_collection_move_into(const ID *owner_id, SceneCollection *sc_dst, Scene
 	/* Update the tree */
 	BKE_layer_collection_resync(owner_id, sc_src_parent);
 	BKE_layer_collection_resync(owner_id, sc_dst);
+
+	/* Keep names unique. */
+	collection_name_check(owner_id, sc_src);
 
 	return true;
 }
@@ -725,6 +750,7 @@ void BKE_scene_collections_iterator_begin(BLI_Iterator *iter, void *data_in)
 
 	data->owner_id = owner_id;
 	iter->data = data;
+	iter->valid = true;
 
 	scene_collections_array(owner_id, (SceneCollection ***)&data->array, &data->tot);
 	BLI_assert(data->tot != 0);

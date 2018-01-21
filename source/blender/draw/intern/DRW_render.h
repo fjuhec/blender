@@ -157,7 +157,9 @@ typedef struct DefaultTextureList {
 #endif
 
 /* Textures */
-
+/* NOTE naming in this struct is broken.
+ * There should either be suffixes for Normalized int formats or float formats.
+ * Right now every 8bit texture is Normalized int and others are Floating point. */
 typedef enum {
 	DRW_TEX_RGBA_8,
 	DRW_TEX_RGBA_16,
@@ -168,6 +170,7 @@ typedef enum {
 	DRW_TEX_RGB_32,
 	DRW_TEX_RG_8,
 	DRW_TEX_RG_16,
+	DRW_TEX_RG_16I,
 	DRW_TEX_RG_32,
 	DRW_TEX_R_8,
 	DRW_TEX_R_16,
@@ -226,6 +229,7 @@ typedef struct DRWFboTexture {
 	DRWTextureFlag flag;
 } DRWFboTexture;
 
+struct GPUFrameBuffer *DRW_framebuffer_create(void);
 void DRW_framebuffer_init(
         struct GPUFrameBuffer **fb, void *engine_type, int width, int height,
         DRWFboTexture textures[MAX_FBO_TEX], int textures_len);
@@ -290,6 +294,7 @@ typedef enum {
 	DRW_STATE_MULTIPLY      = (1 << 16),
 	DRW_STATE_TRANSMISSION  = (1 << 17),
 	DRW_STATE_CLIP_PLANES   = (1 << 18),
+	DRW_STATE_ADDITIVE_FULL = (1 << 19), /* Same as DRW_STATE_ADDITIVE but let alpha accumulate without premult. */
 
 	DRW_STATE_WRITE_STENCIL    = (1 << 27),
 	DRW_STATE_STENCIL_EQUAL    = (1 << 28),
@@ -326,10 +331,6 @@ void DRW_shgroup_call_dynamic_add_array(DRWShadingGroup *shgroup, const void *at
 	const void *array[] = {__VA_ARGS__}; \
 	DRW_shgroup_call_dynamic_add_array(shgroup, array, (sizeof(array) / sizeof(*array))); \
 } while (0)
-/* Use this only to make your instances selectable. */
-#define DRW_shgroup_call_dynamic_add_empty(shgroup) do { \
-	DRW_shgroup_call_dynamic_add_array(shgroup, NULL, 0); \
-} while (0)
 /* Use this to set a high number of instances. */
 void DRW_shgroup_set_instance_count(DRWShadingGroup *shgroup, int count);
 
@@ -341,13 +342,14 @@ void DRW_shgroup_attrib_float(DRWShadingGroup *shgroup, const char *name, int si
 void DRW_shgroup_uniform_texture(DRWShadingGroup *shgroup, const char *name, const struct GPUTexture *tex);
 void DRW_shgroup_uniform_block(DRWShadingGroup *shgroup, const char *name, const struct GPUUniformBuffer *ubo);
 void DRW_shgroup_uniform_buffer(DRWShadingGroup *shgroup, const char *name, struct GPUTexture **tex);
-void DRW_shgroup_uniform_bool(DRWShadingGroup *shgroup, const char *name, const bool *value, int arraysize);
 void DRW_shgroup_uniform_float(DRWShadingGroup *shgroup, const char *name, const float *value, int arraysize);
 void DRW_shgroup_uniform_vec2(DRWShadingGroup *shgroup, const char *name, const float *value, int arraysize);
 void DRW_shgroup_uniform_vec3(DRWShadingGroup *shgroup, const char *name, const float *value, int arraysize);
 void DRW_shgroup_uniform_vec4(DRWShadingGroup *shgroup, const char *name, const float *value, int arraysize);
 void DRW_shgroup_uniform_short_to_int(DRWShadingGroup *shgroup, const char *name, const short *value, int arraysize);
 void DRW_shgroup_uniform_short_to_float(DRWShadingGroup *shgroup, const char *name, const short *value, int arraysize);
+/* Boolean are expected to be 4bytes longs for opengl! */
+void DRW_shgroup_uniform_bool(DRWShadingGroup *shgroup, const char *name, const int *value, int arraysize);
 void DRW_shgroup_uniform_int(DRWShadingGroup *shgroup, const char *name, const int *value, int arraysize);
 void DRW_shgroup_uniform_ivec2(DRWShadingGroup *shgroup, const char *name, const int *value, int arraysize);
 void DRW_shgroup_uniform_ivec3(DRWShadingGroup *shgroup, const char *name, const int *value, int arraysize);
@@ -451,6 +453,8 @@ typedef struct DRWContextState {
 	struct Object *obact;   /* 'OBACT' */
 
 	struct RenderEngineType *engine_type;
+
+	struct Depsgraph *depsgraph;
 
 	/* Last resort (some functions take this as an arg so we can't easily avoid).
 	 * May be NULL when used for selection or depth buffer. */

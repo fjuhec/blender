@@ -27,6 +27,8 @@
 #define __EEVEE_PRIVATE_H__
 
 struct Object;
+struct EEVEE_BoundSphere;
+struct EEVEE_ShadowCasterBuffer;
 
 extern struct DrawEngineType draw_engine_eevee_type;
 
@@ -128,6 +130,14 @@ enum {
 	SHADOW_METHOD_MAX = 3,
 };
 
+typedef struct EEVEE_BoundSphere {
+	float center[3], radius;
+} EEVEE_BoundSphere;
+
+typedef struct EEVEE_BoundBox {
+	float center[3], halfdim[3];
+} EEVEE_BoundBox;
+
 typedef struct EEVEE_PassList {
 	/* Shadows */
 	struct DRWPass *shadow_pass;
@@ -149,6 +159,7 @@ typedef struct EEVEE_PassList {
 
 	/* Effects */
 	struct DRWPass *ao_horizon_search;
+	struct DRWPass *ao_horizon_search_layer;
 	struct DRWPass *ao_horizon_debug;
 	struct DRWPass *motion_blur;
 	struct DRWPass *bloom_blit;
@@ -196,6 +207,7 @@ typedef struct EEVEE_PassList {
 	struct DRWPass *refract_pass;
 	struct DRWPass *transparent_pass;
 	struct DRWPass *background_pass;
+	struct DRWPass *update_noise_pass;
 } EEVEE_PassList;
 
 typedef struct EEVEE_FramebufferList {
@@ -218,6 +230,8 @@ typedef struct EEVEE_FramebufferList {
 	struct GPUFrameBuffer *screen_tracing_fb;
 	struct GPUFrameBuffer *refract_fb;
 
+	struct GPUFrameBuffer *update_noise_fb;
+
 	struct GPUFrameBuffer *planarref_fb;
 
 	struct GPUFrameBuffer *main;
@@ -238,6 +252,7 @@ typedef struct EEVEE_TextureList {
 	struct GPUTexture *bloom_upsample[MAX_BLOOM_STEP - 1]; /* R16_G16_B16 */
 	struct GPUTexture *ssr_normal_input;
 	struct GPUTexture *ssr_specrough_input;
+	struct GPUTexture *ssr_hit_output;
 	struct GPUTexture *refract_color;
 
 	struct GPUTexture *volume_prop_scattering;
@@ -311,6 +326,24 @@ typedef struct EEVEE_ShadowRender {
 	float shadow_inv_samples_ct;
 } EEVEE_ShadowRender;
 
+/* This is just a really long bitflag with special function to access it. */
+#define MAX_LIGHTBITS_FIELDS (MAX_LIGHT / 8)
+typedef struct EEVEE_LightBits {
+	unsigned char fields[MAX_LIGHTBITS_FIELDS];
+} EEVEE_LightBits;
+
+typedef struct EEVEE_ShadowCaster {
+	struct EEVEE_LightBits bits;
+	struct EEVEE_BoundBox bbox;
+} EEVEE_ShadowCaster;
+
+typedef struct EEVEE_ShadowCasterBuffer {
+	struct EEVEE_ShadowCaster *shadow_casters;
+	char *flags;
+	unsigned int alloc_count;
+	unsigned int count;
+} EEVEE_ShadowCasterBuffer;
+
 /* ************ VOLUME DATA ************ */
 typedef struct EEVEE_VolumetricsInfo {
 	float integration_step_count, shadow_step_count, sample_distribution, light_clamp;
@@ -347,7 +380,19 @@ typedef struct EEVEE_LampsInfo {
 	struct EEVEE_Shadow        shadow_data[MAX_SHADOW];
 	struct EEVEE_ShadowCube    shadow_cube_data[MAX_SHADOW_CUBE];
 	struct EEVEE_ShadowCascade shadow_cascade_data[MAX_SHADOW_CASCADE];
+	/* Lights tracking */
+	int new_shadow_id[MAX_LIGHT]; /* To be able to convert old bitfield to new bitfield */
+	struct EEVEE_BoundSphere shadow_bounds[MAX_LIGHT]; /* Tighly packed light bounds  */
+	/* Pointers only. */
+	struct EEVEE_ShadowCasterBuffer *shcaster_frontbuffer;
+	struct EEVEE_ShadowCasterBuffer *shcaster_backbuffer;
 } EEVEE_LampsInfo;
+
+/* EEVEE_LampsInfo->shadow_casters_flag */
+enum {
+	SHADOW_CASTER_PRUNED = (1 << 0),
+	SHADOW_CASTER_UPDATED = (1 << 1),
+};
 
 /* EEVEE_LampsInfo->update_flag */
 enum {
@@ -398,6 +443,7 @@ typedef struct EEVEE_LightProbesInfo {
 	int target_size;
 	int irradiance_vis_size;
 	int grid_initialized;
+	struct World *prev_world;
 	/* Actual number of probes that have datas. */
 	int num_render_cube;
 	int num_render_grid;
@@ -417,9 +463,9 @@ typedef struct EEVEE_LightProbesInfo {
 	float visibility_blur;
 	int shres;
 	int shnbr;
-	bool specular_toggle;
-	bool ssr_toggle;
-	bool sss_toggle;
+	int specular_toggle;
+	int ssr_toggle;
+	int sss_toggle;
 	/* List of probes in the scene. */
 	/* XXX This is fragile, can get out of sync quickly. */
 	struct Object *probes_cube_ref[MAX_PROBE];
@@ -456,7 +502,9 @@ typedef struct EEVEE_EffectsInfo {
 	bool use_ssr;
 	bool reflection_trace_full;
 	bool ssr_use_normalization;
-	int ssr_ray_count;
+	int ssr_neighbor_ofs;
+	int ssr_halfres_ofs[2];
+	float ssr_brdf_bias;
 	float ssr_firefly_fac;
 	float ssr_border_fac;
 	float ssr_max_roughness;
@@ -466,6 +514,7 @@ typedef struct EEVEE_EffectsInfo {
 
 	/* Temporal Anti Aliasing */
 	int taa_current_sample;
+	int taa_render_sample;
 	int taa_total_sample;
 	float taa_alpha;
 	bool prev_drw_support;
@@ -477,10 +526,12 @@ typedef struct EEVEE_EffectsInfo {
 
 	/* Ambient Occlusion */
 	bool use_ao, use_bent_normals;
-	float ao_dist, ao_samples, ao_factor, ao_samples_inv;
+	float ao_dist, pad1, ao_factor, pad2;
 	float ao_offset, ao_bounce_fac, ao_quality, ao_settings;
 	float ao_sample_nbr;
 	int ao_texsize[2], hori_tex_layers;
+	int ao_depth_layer;
+	struct GPUTexture *ao_src_depth; /* pointer copy */
 
 	/* Motion Blur */
 	float current_ndc_to_world[4][4];
@@ -547,7 +598,7 @@ typedef struct EEVEE_ViewLayerData {
 	struct GPUTexture *shadow_cascade_blur;
 	struct GPUTexture *shadow_pool;
 
-	struct ListBase shadow_casters; /* Shadow casters gathered during cache iteration */
+	struct EEVEE_ShadowCasterBuffer shcasters_buffers[2];
 
 	/* Probes */
 	struct EEVEE_LightProbesInfo *probes;
@@ -572,10 +623,32 @@ typedef struct EEVEE_ViewLayerData {
 } EEVEE_ViewLayerData;
 
 /* ************ OBJECT DATA ************ */
+typedef struct EEVEE_LightData {
+	short light_id, shadow_id;
+} EEVEE_LightData;
+
+typedef struct EEVEE_ShadowCubeData {
+	short light_id, shadow_id, cube_id, layer_id;
+} EEVEE_ShadowCubeData;
+
+typedef struct EEVEE_ShadowCascadeData {
+	short light_id, shadow_id, cascade_id, layer_id;
+	float viewprojmat[MAX_CASCADE_NUM][4][4]; /* World->Lamp->NDC : used for rendering the shadow map. */
+	float radius[MAX_CASCADE_NUM];
+} EEVEE_ShadowCascadeData;
+
+/* Theses are the structs stored inside Objects.
+ * It works with even if the object is in multiple layers
+ * because we don't get the same "Object *" for each layer. */
 typedef struct EEVEE_LampEngineData {
 	bool need_update;
-	struct ListBase shadow_caster_list;
-	void *storage; /* either EEVEE_LightData, EEVEE_ShadowCubeData, EEVEE_ShadowCascadeData */
+	/* This needs to be out of the union to avoid undefined behaviour. */
+	short prev_cube_shadow_id;
+	union {
+		struct EEVEE_LightData ld;
+		struct EEVEE_ShadowCubeData scd;
+		struct EEVEE_ShadowCascadeData scad;
+	} data;
 } EEVEE_LampEngineData;
 
 typedef struct EEVEE_LightProbeEngineData {
@@ -608,6 +681,7 @@ typedef struct EEVEE_LightProbeEngineData {
 
 typedef struct EEVEE_ObjectEngineData {
 	bool need_update;
+	unsigned int shadow_caster_id;
 } EEVEE_ObjectEngineData;
 
 /* *********************************** */
@@ -640,7 +714,7 @@ typedef struct EEVEE_PrivateData {
 	struct GHash *material_hash;
 	struct GHash *hair_material_hash;
 	struct GPUTexture *minzbuffer;
-	struct GPUTexture *ssr_hit_output[4];
+	struct GPUTexture *ssr_pdf_output;
 	struct GPUTexture *gtao_horizons_debug;
 	float background_alpha; /* TODO find a better place for this. */
 	float viewvecs[2][4];
@@ -666,7 +740,7 @@ EEVEE_LampEngineData *EEVEE_lamp_data_ensure(Object *ob);
 
 /* eevee_materials.c */
 struct GPUTexture *EEVEE_materials_get_util_tex(void); /* XXX */
-void EEVEE_materials_init(EEVEE_StorageList *stl);
+void EEVEE_materials_init(EEVEE_StorageList *stl, EEVEE_FramebufferList *fbl);
 void EEVEE_materials_cache_init(EEVEE_Data *vedata);
 void EEVEE_materials_cache_populate(EEVEE_Data *vedata, EEVEE_ViewLayerData *sldata, Object *ob);
 void EEVEE_materials_cache_finish(EEVEE_Data *vedata);
@@ -681,7 +755,7 @@ struct GPUMaterial *EEVEE_material_mesh_depth_get(struct Scene *scene, Material 
 struct GPUMaterial *EEVEE_material_hair_get(struct Scene *scene, Material *ma, int shadow_method, bool use_fibers);
 void EEVEE_materials_free(void);
 void EEVEE_draw_default_passes(EEVEE_PassList *psl);
-void EEVEE_update_util_texture(float offset);
+void EEVEE_update_noise(EEVEE_PassList *psl, EEVEE_FramebufferList *fbl, double offsets[3]);
 
 /* eevee_lights.c */
 void EEVEE_lights_init(EEVEE_ViewLayerData *sldata);
@@ -693,6 +767,7 @@ void EEVEE_lights_cache_shcaster_material_add(
         EEVEE_ViewLayerData *sldata, EEVEE_PassList *psl,
         struct GPUMaterial *gpumat, struct Gwn_Batch *geom, struct Object *ob,
         float (*obmat)[4], float *alpha_threshold);
+void EEVEE_lights_cache_shcaster_object_add(EEVEE_ViewLayerData *sldata, struct Object *ob);
 void EEVEE_lights_cache_finish(EEVEE_ViewLayerData *sldata);
 void EEVEE_lights_update(EEVEE_ViewLayerData *sldata);
 void EEVEE_draw_shadows(EEVEE_ViewLayerData *sldata, EEVEE_PassList *psl);
@@ -721,7 +796,7 @@ void EEVEE_bloom_free(void);
 /* eevee_occlusion.c */
 int EEVEE_occlusion_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
 void EEVEE_occlusion_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
-void EEVEE_occlusion_compute(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
+void EEVEE_occlusion_compute(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata, struct GPUTexture *depth_src, int layer);
 void EEVEE_occlusion_draw_debug(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
 void EEVEE_occlusion_free(void);
 

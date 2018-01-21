@@ -69,11 +69,11 @@ static void eevee_engine_init(void *ved)
 	/* EEVEE_effects_init needs to go first for TAA */
 	EEVEE_effects_init(sldata, vedata);
 
-	EEVEE_materials_init(stl);
+	EEVEE_materials_init(stl, fbl);
 	EEVEE_lights_init(sldata);
 	EEVEE_lightprobes_init(sldata, vedata);
 
-	if (stl->effects->taa_current_sample > 1) {
+	if ((stl->effects->taa_current_sample > 1) && !DRW_state_is_image_render()) {
 		/* XXX otherwise it would break the other engines. */
 		DRW_viewport_matrix_override_unset(DRW_MAT_PERS);
 		DRW_viewport_matrix_override_unset(DRW_MAT_PERSINV);
@@ -123,12 +123,7 @@ static void eevee_cache_populate(void *vedata, Object *ob)
 		const bool cast_shadow = true;
 
 		if (cast_shadow) {
-			if ((ob->base_flag & BASE_FROMDUPLI) != 0) {
-				/* TODO: Special case for dupli objects because we cannot save the object pointer. */
-			}
-			else {
-				BLI_addtail(&sldata->shadow_casters, BLI_genericNodeN(ob));
-			}
+			EEVEE_lights_cache_shcaster_object_add(sldata, ob);
 		}
 	}
 	else if (ob->type == OB_LIGHTPROBE) {
@@ -140,12 +135,7 @@ static void eevee_cache_populate(void *vedata, Object *ob)
 		}
 	}
 	else if (ob->type == OB_LAMP) {
-		if ((ob->base_flag & BASE_FROMDUPLI) != 0) {
-			/* TODO: Special case for dupli objects because we cannot save the object pointer. */
-		}
-		else {
-			EEVEE_lights_cache_add(sldata, ob);
-		}
+		EEVEE_lights_cache_add(sldata, ob);
 	}
 }
 
@@ -158,7 +148,12 @@ static void eevee_cache_finish(void *vedata)
 	EEVEE_lightprobes_cache_finish(sldata, vedata);
 }
 
-static void eevee_draw_scene(void *vedata)
+/* As renders in an HDR offscreen buffer, we need draw everything once
+ * during the background pass. This way the other drawing callback between
+ * the background and the scene pass are visible.
+ * Note: we could break it up in two passes using some depth test
+ * to reduce the fillrate */
+static void eevee_draw_background(void *vedata)
 {
 	EEVEE_PassList *psl = ((EEVEE_Data *)vedata)->psl;
 	EEVEE_StorageList *stl = ((EEVEE_Data *)vedata)->stl;
@@ -172,26 +167,21 @@ static void eevee_draw_scene(void *vedata)
 	 * when using opengl render. */
 	int loop_ct = DRW_state_is_image_render() ? 4 : 1;
 
-	static float rand = 0.0f;
-
-	/* XXX temp for denoising render. TODO plug number of samples here */
-	if (DRW_state_is_image_render()) {
-		rand += 1.0f / 16.0f;
-		rand = rand - floorf(rand);
-
-		/* Set jitter offset */
-		EEVEE_update_util_texture(rand);
-	}
-	else if (((stl->effects->enabled_effects & EFFECT_TAA) != 0) && (stl->effects->taa_current_sample > 1)) {
-		double r;
-		BLI_halton_1D(2, 0.0, stl->effects->taa_current_sample - 1, &r);
-
-		/* Set jitter offset */
-		/* PERF This is killing perf ! */
-		EEVEE_update_util_texture((float)r);
-	}
-
 	while (loop_ct--) {
+		unsigned int primes[3] = {2, 3, 7};
+		double offset[3] = {0.0, 0.0, 0.0};
+		double r[3];
+
+		if (DRW_state_is_image_render()) {
+			BLI_halton_3D(primes, offset, stl->effects->taa_current_sample, r);
+			/* Set jitter offset */
+			EEVEE_update_noise(psl, fbl, r);
+		}
+		else if ((stl->effects->enabled_effects & EFFECT_TAA) != 0) {
+			BLI_halton_3D(primes, offset, stl->effects->taa_current_sample, r);
+			/* Set jitter offset */
+			EEVEE_update_noise(psl, fbl, r);
+		}
 
 		/* Refresh Probes */
 		DRW_stats_group_start("Probes Refresh");
@@ -207,9 +197,19 @@ static void eevee_draw_scene(void *vedata)
 		DRW_framebuffer_texture_detach(dtxl->depth);
 		DRW_framebuffer_texture_attach(fbl->main, dtxl->depth, 0, 0);
 		DRW_framebuffer_bind(fbl->main);
-		DRW_framebuffer_clear(false, true, true, NULL, 1.0f);
+		if (DRW_state_draw_background()) {
+			DRW_framebuffer_clear(false, true, true, NULL, 1.0f);
+		}
+		else {
+			/* We need to clear the alpha chanel in this case. */
+			float clear_col[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+			DRW_framebuffer_clear(true, true, true, clear_col, 1.0f);
+		}
 
-		if (((stl->effects->enabled_effects & EFFECT_TAA) != 0) && stl->effects->taa_current_sample > 1) {
+		if (((stl->effects->enabled_effects & EFFECT_TAA) != 0) &&
+			 (stl->effects->taa_current_sample > 1) &&
+			 !DRW_state_is_image_render())
+		{
 			DRW_viewport_matrix_override_set(stl->effects->overide_persmat, DRW_MAT_PERS);
 			DRW_viewport_matrix_override_set(stl->effects->overide_persinv, DRW_MAT_PERSINV);
 			DRW_viewport_matrix_override_set(stl->effects->overide_winmat, DRW_MAT_WIN);
@@ -227,12 +227,14 @@ static void eevee_draw_scene(void *vedata)
 		EEVEE_create_minmax_buffer(vedata, dtxl->depth, -1);
 		DRW_stats_group_end();
 
-		EEVEE_occlusion_compute(sldata, vedata);
+		EEVEE_occlusion_compute(sldata, vedata, dtxl->depth, -1);
 		EEVEE_volumes_compute(sldata, vedata);
 
 		/* Shading pass */
 		DRW_stats_group_start("Shading");
-		DRW_draw_pass(psl->background_pass);
+		if (DRW_state_draw_background()) {
+			DRW_draw_pass(psl->background_pass);
+		}
 		EEVEE_draw_default_passes(psl);
 		DRW_draw_pass(psl->material_pass);
 		EEVEE_subsurface_data_render(sldata, vedata);
@@ -264,7 +266,7 @@ static void eevee_draw_scene(void *vedata)
 		EEVEE_draw_effects(vedata);
 		DRW_stats_group_end();
 
-		if (stl->effects->taa_current_sample > 1) {
+		if ((stl->effects->taa_current_sample > 1) && !DRW_state_is_image_render()) {
 			DRW_viewport_matrix_override_unset(DRW_MAT_PERS);
 			DRW_viewport_matrix_override_unset(DRW_MAT_PERSINV);
 			DRW_viewport_matrix_override_unset(DRW_MAT_WIN);
@@ -357,7 +359,6 @@ static void eevee_view_layer_settings_create(RenderEngine *UNUSED(engine), IDPro
 	BKE_collection_engine_property_add_bool(props, "ssr_enable", false);
 	BKE_collection_engine_property_add_bool(props, "ssr_refraction", false);
 	BKE_collection_engine_property_add_bool(props, "ssr_halfres", true);
-	BKE_collection_engine_property_add_int(props, "ssr_ray_count", 1);
 	BKE_collection_engine_property_add_float(props, "ssr_quality", 0.25f);
 	BKE_collection_engine_property_add_float(props, "ssr_max_roughness", 0.5f);
 	BKE_collection_engine_property_add_float(props, "ssr_thickness", 0.2f);
@@ -378,12 +379,10 @@ static void eevee_view_layer_settings_create(RenderEngine *UNUSED(engine), IDPro
 
 	BKE_collection_engine_property_add_bool(props, "gtao_enable", false);
 	BKE_collection_engine_property_add_bool(props, "gtao_use_bent_normals", true);
-	BKE_collection_engine_property_add_bool(props, "gtao_denoise", true);
 	BKE_collection_engine_property_add_bool(props, "gtao_bounce", true);
 	BKE_collection_engine_property_add_float(props, "gtao_distance", 0.2f);
 	BKE_collection_engine_property_add_float(props, "gtao_factor", 1.0f);
 	BKE_collection_engine_property_add_float(props, "gtao_quality", 0.25f);
-	BKE_collection_engine_property_add_int(props, "gtao_samples", 2);
 
 	BKE_collection_engine_property_add_bool(props, "dof_enable", false);
 	BKE_collection_engine_property_add_float(props, "bokeh_max_size", 100.0f);
@@ -418,8 +417,8 @@ DrawEngineType draw_engine_eevee_type = {
 	&eevee_cache_init,
 	&eevee_cache_populate,
 	&eevee_cache_finish,
-	NULL,
-	&eevee_draw_scene,
+	&eevee_draw_background,
+	NULL, /* Everything is drawn in the background pass (see comment on function) */
 	&eevee_view_update,
 	&eevee_id_update,
 };

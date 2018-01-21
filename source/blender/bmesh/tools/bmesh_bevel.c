@@ -1692,7 +1692,7 @@ static void build_boundary_vertex_only(BevelParams *bp, BevVert *bv, bool constr
  * Special case of build_boundary when a single edge is beveled.
  * The 'width adjust' part of build_boundary has been done already,
  * and \a efirst is the first beveled edge at vertex \a bv.
-*/
+ */
 static void build_boundary_terminal_edge(BevelParams *bp, BevVert *bv, EdgeHalf *efirst, bool construct)
 {
 	MemArena *mem_arena = bp->mem_arena;
@@ -3198,7 +3198,7 @@ static void bevel_build_rings(BevelParams *bp, BMesh *bm, BevVert *bv)
 
 /* If we make a poly out of verts around bv, snapping to rep frep, will uv poly have zero area?
  * The uv poly is made by snapping all outside-of-frep vertices to the closest edge in frep.
- * Assume that this funciton is called when the only inside-of-frep vertex is vm->boundstart.
+ * Assume that this function is called when the only inside-of-frep vertex is vm->boundstart.
  * The poly will have zero area if the distance of that first vertex to some edge e is zero, and all
  * the other vertices snap to e or snap to an edge at a point that is essentially on e too.  */
 static bool is_bad_uv_poly(BevVert *bv, BMFace *frep)
@@ -4933,7 +4933,7 @@ static void bevel_limit_offset(BevelParams *bp)
 		 * so we can just multiply them all by the reduction factor
 		 * of the offset to have the effect of recalculating the specs
 		 * with the new limited_offset.
-		*/
+		 */
 		offset_factor = limited_offset / bp->offset;
 		GHASH_ITER(giter, bp->vert_hash) {
 			bv = BLI_ghashIterator_getValue(&giter);

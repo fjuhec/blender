@@ -125,6 +125,10 @@ float min_v3(vec3 v) { return min(v.x, min(v.y, v.z)); }
 float max_v2(vec2 v) { return max(v.x, v.y); }
 float max_v3(vec3 v) { return max(v.x, max(v.y, v.z)); }
 
+float sum(vec2 v) { return dot(vec2(1.0), v); }
+float sum(vec3 v) { return dot(vec3(1.0), v); }
+float sum(vec4 v) { return dot(vec4(1.0), v); }
+
 float saturate(float a) { return clamp(a, 0.0, 1.0); }
 vec2 saturate(vec2 a) { return clamp(a, 0.0, 1.0); }
 vec3 saturate(vec3 a) { return clamp(a, 0.0, 1.0); }
@@ -545,7 +549,7 @@ vec3 F_schlick(vec3 f0, float cos_theta)
 /* Fresnel approximation for LTC area lights (not MRP) */
 vec3 F_area(vec3 f0, vec2 lut)
 {
-	vec2 fac = normalize(lut.xy);
+	vec2 fac = normalize(lut.xy); /* XXX FIXME this does not work!!! */
 
 	/* Unreal specular matching : if specular color is below 2% intensity,
 	 * treat as shadowning */
@@ -691,7 +695,6 @@ Closure closure_mix(Closure cl1, Closure cl2, float fac)
 	}
 	else {
 		cl.ssr_data = mix(vec4(vec3(0.0), cl2.ssr_data.w), cl2.ssr_data.xyzw, fac); /* do not blend roughness */
-		cl.ssr_data = mix(vec4(vec3(0.0), cl2.ssr_data.w), cl2.ssr_data.xyzw, fac); /* do not blend roughness */
 		cl.ssr_normal = cl2.ssr_normal;
 		cl.ssr_id = cl2.ssr_id;
 	}
@@ -739,7 +742,7 @@ Closure closure_add(Closure cl1, Closure cl2)
 #endif
 #endif
 	cl.radiance = cl1.radiance + cl2.radiance;
-	cl.opacity = cl1.opacity + cl2.opacity;
+	cl.opacity = saturate(cl1.opacity + cl2.opacity);
 	return cl;
 }
 
@@ -774,6 +777,10 @@ vec4 volumetric_resolve(vec4 scene_color, vec2 frag_uvs, float frag_depth);
 void main()
 {
 	Closure cl = nodetree_exec();
+#ifndef USE_ALPHA_BLEND
+	/* Prevent alpha hash material writing into alpha channel. */
+	cl.opacity = 1.0;
+#endif
 
 #if defined(USE_ALPHA_BLEND_VOLUMETRICS)
 	/* XXX fragile, better use real viewport resolution */

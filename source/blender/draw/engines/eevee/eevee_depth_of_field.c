@@ -45,6 +45,7 @@
 #include "BKE_screen.h"
 
 #include "DEG_depsgraph.h"
+#include "DEG_depsgraph_query.h"
 
 #include "eevee_private.h"
 #include "GPU_extensions.h"
@@ -96,7 +97,8 @@ int EEVEE_depth_of_field_init(EEVEE_ViewLayerData *UNUSED(sldata), EEVEE_Data *v
 
 		if (rv3d->persp == RV3D_CAMOB && v3d->camera) {
 			const float *viewport_size = DRW_viewport_size_get();
-			Camera *cam = (Camera *)v3d->camera->data;
+			Object *camera_object = DEG_get_evaluated_object(draw_ctx->depsgraph, v3d->camera);
+			Camera *cam = (Camera *)camera_object->data;
 
 			/* Retreive Near and Far distance */
 			effects->dof_near_far[0] = -cam->clipsta;
@@ -125,12 +127,15 @@ int EEVEE_depth_of_field_init(EEVEE_ViewLayerData *UNUSED(sldata), EEVEE_Data *v
 			        &fbl->dof_down_fb, &draw_engine_eevee_type,
 			        buffer_size[0], buffer_size[1], tex_down, 3);
 
-			DRWFboTexture tex_scatter_far = {&txl->dof_far_blur, DRW_TEX_RGBA_16, DRW_TEX_FILTER};
+			/* Go full 32bits for rendering and reduce the color artifacts. */
+			DRWTextureFormat fb_format = DRW_state_is_image_render() ? DRW_TEX_RGBA_32 : DRW_TEX_RGBA_16;
+
+			DRWFboTexture tex_scatter_far = {&txl->dof_far_blur, fb_format, DRW_TEX_FILTER};
 			DRW_framebuffer_init(
 			        &fbl->dof_scatter_far_fb, &draw_engine_eevee_type,
 			        buffer_size[0], buffer_size[1], &tex_scatter_far, 1);
 
-			DRWFboTexture tex_scatter_near = {&txl->dof_near_blur, DRW_TEX_RGBA_16, DRW_TEX_FILTER};
+			DRWFboTexture tex_scatter_near = {&txl->dof_near_blur, fb_format, DRW_TEX_FILTER};
 			DRW_framebuffer_init(
 			        &fbl->dof_scatter_near_fb, &draw_engine_eevee_type,
 			        buffer_size[0], buffer_size[1], &tex_scatter_near, 1);
@@ -142,7 +147,7 @@ int EEVEE_depth_of_field_init(EEVEE_ViewLayerData *UNUSED(sldata), EEVEE_Data *v
 			float rotation = cam->gpu_dof.rotation;
 			float ratio = 1.0f / cam->gpu_dof.ratio;
 			float sensor = BKE_camera_sensor_size(cam->sensor_fit, cam->sensor_x, cam->sensor_y);
-			float focus_dist = BKE_camera_object_dof_distance(v3d->camera);
+			float focus_dist = BKE_camera_object_dof_distance(camera_object);
 			float focal_len = cam->lens;
 
 			UNUSED_VARS(rotation, ratio);
@@ -213,7 +218,7 @@ void EEVEE_depth_of_field_cache_init(EEVEE_ViewLayerData *UNUSED(sldata), EEVEE_
 		DRW_shgroup_uniform_vec3(grp, "dofParams", effects->dof_params, 1);
 		DRW_shgroup_call_add(grp, quad, NULL);
 
-		psl->dof_scatter = DRW_pass_create("DoF Scatter", DRW_STATE_WRITE_COLOR | DRW_STATE_ADDITIVE);
+		psl->dof_scatter = DRW_pass_create("DoF Scatter", DRW_STATE_WRITE_COLOR | DRW_STATE_ADDITIVE_FULL);
 
 		/* This create an empty batch of N triangles to be positioned
 		 * by the vertex shader 0.4ms against 6ms with instancing */

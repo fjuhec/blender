@@ -214,7 +214,6 @@ struct wmEventHandler *WM_event_add_dropbox_handler(ListBase *handlers, ListBase
 			/* mouse */
 void		WM_event_add_mousemove(struct bContext *C);
 bool		WM_event_is_modal_tweak_exit(const struct wmEvent *event, int tweak_event);
-bool		WM_event_is_absolute(const struct wmEvent *event);
 bool		WM_event_is_last_mousemove(const struct wmEvent *event);
 
 #ifdef WITH_INPUT_NDOF
@@ -232,11 +231,11 @@ void        WM_report_banner_show(void);
 void        WM_report(ReportType type, const char *message);
 void        WM_reportf(ReportType type, const char *format, ...) ATTR_PRINTF_FORMAT(2, 3);
 
-void wm_event_add_ex(
+struct wmEvent *wm_event_add_ex(
         struct wmWindow *win, const struct wmEvent *event_to_add,
         const struct wmEvent *event_to_add_after)
         ATTR_NONNULL(1, 2);
-void wm_event_add(
+struct wmEvent *wm_event_add(
         struct wmWindow *win, const struct wmEvent *event_to_add)
         ATTR_NONNULL(1, 2);
 
@@ -540,6 +539,11 @@ void		WM_progress_set(struct wmWindow *win, float progress);
 void		WM_progress_clear(struct wmWindow *win);
 
 			/* Draw (for screenshot) */
+void        *WM_draw_cb_activate(
+                    struct wmWindow *win,
+                    void (*draw)(const struct wmWindow *, void *),
+                    void *customdata);
+void        WM_draw_cb_exit(struct wmWindow *win, void *handle);
 void		WM_redraw_windows(struct bContext *C);
 
 void        WM_main_playanim(int argc, const char **argv);

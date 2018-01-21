@@ -532,8 +532,10 @@ void BKE_paint_init(Scene *sce, ePaintMode mode, const char col[3])
 		short ob_mode = BKE_paint_object_mode_from_paint_mode(mode);
 		brush = BKE_brush_first_search(G.main, ob_mode);
 
-		if (!brush)
+		if (!brush) {
 			brush = BKE_brush_add(G.main, "Brush", ob_mode);
+			id_us_min(&brush->id);  /* fake user only */
+		}
 		BKE_paint_brush_set(paint, brush);
 	}
 
@@ -886,6 +888,7 @@ void BKE_sculpt_update_mesh_elements(
 
 	ss->modifiers_active = sculpt_modifiers_active(scene, sd, ob);
 	ss->show_diffuse_color = (sd->flags & SCULPT_SHOW_DIFFUSE) != 0;
+	ss->show_mask = (sd->flags & SCULPT_HIDE_MASK) == 0;
 
 	ss->building_vp_handle = false;
 
@@ -940,6 +943,7 @@ void BKE_sculpt_update_mesh_elements(
 	ss->pmap = (need_pmap && dm->getPolyMap) ? dm->getPolyMap(ob, dm) : NULL;
 
 	pbvh_show_diffuse_color_set(ss->pbvh, ss->show_diffuse_color);
+	pbvh_show_mask_set(ss->pbvh, ss->show_mask);
 
 	if (ss->modifiers_active) {
 		if (!ss->orig_cos) {

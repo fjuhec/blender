@@ -503,7 +503,7 @@ void do_versions_after_linking_280(Main *main)
 					if (view_layer->spacetype == SPACE_OUTLINER) {
 						SpaceOops *soutliner = (SpaceOops *)view_layer;
 
-						soutliner->outlinevis = SO_ACT_LAYER;
+						soutliner->outlinevis = SO_VIEW_LAYER;
 
 						if (BLI_listbase_count_ex(&layer->layer_collections, 2) == 1) {
 							if (soutliner->treestore == NULL) {
@@ -880,6 +880,38 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 		for (Group *group = main->group.first; group; group = group->id.next) {
 			if (group->view_layer != NULL){
 				do_version_view_layer_visibility(group->view_layer);
+			}
+		}
+	}
+
+	{
+		if (DNA_struct_elem_find(fd->filesdna, "SpaceOops", "int", "filter") == false) {
+			bScreen *sc;
+			ScrArea *sa;
+			SpaceLink *sl;
+
+			/* Update files using invalid (outdated) outlinevis Outliner values. */
+			for (sc = main->screen.first; sc; sc = sc->id.next) {
+				for (sa = sc->areabase.first; sa; sa = sa->next) {
+					for (sl = sa->spacedata.first; sl; sl = sl->next) {
+						if (sl->spacetype == SPACE_OUTLINER) {
+							SpaceOops *so = (SpaceOops *)sl;
+
+							if (!ELEM(so->outlinevis,
+									  SO_SCENES,
+									  SO_GROUPS,
+									  SO_LIBRARIES,
+									  SO_SEQUENCE,
+									  SO_DATABLOCKS,
+							          SO_ID_ORPHANS,
+							          SO_VIEW_LAYER,
+							          SO_COLLECTIONS))
+							{
+								so->outlinevis = SO_VIEW_LAYER;
+							}
+						}
+					}
+				}
 			}
 		}
 	}

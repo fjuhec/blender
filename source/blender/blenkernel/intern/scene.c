@@ -756,7 +756,8 @@ void BKE_scene_init(Scene *sce)
 	pset->draw_step = 2;
 	pset->fade_frames = 2;
 	pset->selectmode = SCE_SELECT_PATH;
-	for (a = 0; a < PE_TOT_BRUSH; a++) {
+
+	for (a = 0; a < ARRAY_SIZE(pset->brush); a++) {
 		pset->brush[a].strength = 0.5f;
 		pset->brush[a].size = 50;
 		pset->brush[a].step = 10;
@@ -1171,6 +1172,10 @@ Scene *BKE_scene_find_from_collection(const Main *bmain, const SceneCollection *
 #ifdef DURIAN_CAMERA_SWITCH
 Object *BKE_scene_camera_switch_find(Scene *scene)
 {
+	if (scene->r.mode & R_NO_CAMERA_SWITCH) {
+		return NULL;
+	}
+
 	TimeMarker *m;
 	int cfra = scene->r.cfra;
 	int frame = -(MAXFRAME + 1);
@@ -1435,7 +1440,7 @@ void BKE_scene_graph_update_tagged(EvaluationContext *eval_ctx,
 	/* Update sound system animation (TODO, move to depsgraph). */
 	BKE_sound_update_scene(bmain, scene);
 	/* Inform editors about possible changes. */
-	DEG_ids_check_recalc(bmain, scene, view_layer, false);
+	DEG_ids_check_recalc(bmain, depsgraph, scene, view_layer, false);
 	/* Clear recalc flags. */
 	DEG_ids_clear_recalc(bmain);
 }
@@ -1482,7 +1487,7 @@ void BKE_scene_graph_update_for_newframe(EvaluationContext *eval_ctx,
 	/* Notify editors and python about recalc. */
 	BLI_callback_exec(bmain, &scene->id, BLI_CB_EVT_FRAME_CHANGE_POST);
 	/* Inform editors about possible changes. */
-	DEG_ids_check_recalc(bmain, scene, view_layer, true);
+	DEG_ids_check_recalc(bmain, depsgraph, scene, view_layer, true);
 	/* clear recalc flags */
 	DEG_ids_clear_recalc(bmain);
 }

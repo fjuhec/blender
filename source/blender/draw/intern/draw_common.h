@@ -77,6 +77,20 @@ typedef struct GlobalsUboStorage {
 
 	float colorBackground[4];
 
+	float colorHandleFree[4];
+	float colorHandleAuto[4];
+	float colorHandleVect[4];
+	float colorHandleAlign[4];
+	float colorHandleAutoclamp[4];
+	float colorHandleSelFree[4];
+	float colorHandleSelAuto[4];
+	float colorHandleSelVect[4];
+	float colorHandleSelAlign[4];
+	float colorHandleSelAutoclamp[4];
+	float colorNurbUline[4];
+	float colorNurbSelUline[4];
+	float colorActiveSpline[4];
+
 	float colorGrid[4];
 	float colorGridEmphasise[4];
 	float colorGridAxisX[4];
@@ -97,8 +111,8 @@ struct DRWShadingGroup *shgroup_dynpoints_uniform_color(struct DRWPass *pass, fl
 struct DRWShadingGroup *shgroup_groundlines_uniform_color(struct DRWPass *pass, float color[4]);
 struct DRWShadingGroup *shgroup_groundpoints_uniform_color(struct DRWPass *pass, float color[4]);
 struct DRWShadingGroup *shgroup_instance_screenspace(struct DRWPass *pass, struct Gwn_Batch *geom, float *size);
-struct DRWShadingGroup *shgroup_instance_objspace_solid(struct DRWPass *pass, struct Gwn_Batch *geom, float (*obmat)[4]);
-struct DRWShadingGroup *shgroup_instance_objspace_wire(struct DRWPass *pass, struct Gwn_Batch *geom, float (*obmat)[4]);
+struct DRWShadingGroup *shgroup_instance_solid(struct DRWPass *pass, struct Gwn_Batch *geom);
+struct DRWShadingGroup *shgroup_instance_wire(struct DRWPass *pass, struct Gwn_Batch *geom);
 struct DRWShadingGroup *shgroup_instance_screen_aligned(struct DRWPass *pass, struct Gwn_Batch *geom);
 struct DRWShadingGroup *shgroup_instance_axis_names(struct DRWPass *pass, struct Gwn_Batch *geom);
 struct DRWShadingGroup *shgroup_instance_image_plane(struct DRWPass *pass, struct Gwn_Batch *geom);
@@ -107,8 +121,8 @@ struct DRWShadingGroup *shgroup_instance(struct DRWPass *pass, struct Gwn_Batch 
 struct DRWShadingGroup *shgroup_camera_instance(struct DRWPass *pass, struct Gwn_Batch *geom);
 struct DRWShadingGroup *shgroup_distance_lines_instance(struct DRWPass *pass, struct Gwn_Batch *geom);
 struct DRWShadingGroup *shgroup_spot_instance(struct DRWPass *pass, struct Gwn_Batch *geom);
-struct DRWShadingGroup *shgroup_instance_bone_envelope_wire(struct DRWPass *pass, struct Gwn_Batch *geom, float (*obmat)[4]);
-struct DRWShadingGroup *shgroup_instance_bone_envelope_solid(struct DRWPass *pass, struct Gwn_Batch *geom, float (*obmat)[4]);
+struct DRWShadingGroup *shgroup_instance_bone_envelope_wire(struct DRWPass *pass, struct Gwn_Batch *geom);
+struct DRWShadingGroup *shgroup_instance_bone_envelope_solid(struct DRWPass *pass, struct Gwn_Batch *geom);
 struct DRWShadingGroup *shgroup_instance_mball_helpers(struct DRWPass *pass, struct Gwn_Batch *geom);
 
 int DRW_object_wire_theme_get(struct Object *ob, struct ViewLayer *view_layer, float **r_color);

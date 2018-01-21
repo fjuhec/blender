@@ -26,7 +26,7 @@
 #include "DRW_render.h"
 
 #include "BLI_utildefines.h"
-#include "BLI_dynstr.h"
+#include "BLI_string_utils.h"
 #include "BLI_rand.h"
 
 #include "DNA_world_types.h"
@@ -204,12 +204,10 @@ static void lightprobe_shaders_init(void)
 
 	char *shader_str = NULL;
 
-	DynStr *ds_frag = BLI_dynstr_new();
-	BLI_dynstr_append(ds_frag, datatoc_bsdf_common_lib_glsl);
-	BLI_dynstr_append(ds_frag, datatoc_bsdf_sampling_lib_glsl);
-	BLI_dynstr_append(ds_frag, datatoc_lightprobe_filter_glossy_frag_glsl);
-	shader_str = BLI_dynstr_get_cstring(ds_frag);
-	BLI_dynstr_free(ds_frag);
+	shader_str = BLI_string_joinN(
+	        datatoc_bsdf_common_lib_glsl,
+	        datatoc_bsdf_sampling_lib_glsl,
+	        datatoc_lightprobe_filter_glossy_frag_glsl);
 
 	e_data.probe_filter_glossy_sh = DRW_shader_create(
 	        datatoc_lightprobe_vert_glsl, datatoc_lightprobe_geom_glsl, shader_str, filter_defines);
@@ -219,36 +217,30 @@ static void lightprobe_shaders_init(void)
 
 	MEM_freeN(shader_str);
 
-	ds_frag = BLI_dynstr_new();
-	BLI_dynstr_append(ds_frag, datatoc_bsdf_common_lib_glsl);
-	BLI_dynstr_append(ds_frag, datatoc_bsdf_sampling_lib_glsl);
-	BLI_dynstr_append(ds_frag, datatoc_lightprobe_filter_diffuse_frag_glsl);
-	shader_str = BLI_dynstr_get_cstring(ds_frag);
-	BLI_dynstr_free(ds_frag);
+	shader_str = BLI_string_joinN(
+	        datatoc_bsdf_common_lib_glsl,
+	        datatoc_bsdf_sampling_lib_glsl,
+	        datatoc_lightprobe_filter_diffuse_frag_glsl);
 
 	e_data.probe_filter_diffuse_sh = DRW_shader_create_fullscreen(shader_str, filter_defines);
 
 	MEM_freeN(shader_str);
 
-	ds_frag = BLI_dynstr_new();
-	BLI_dynstr_append(ds_frag, datatoc_bsdf_common_lib_glsl);
-	BLI_dynstr_append(ds_frag, datatoc_bsdf_sampling_lib_glsl);
-	BLI_dynstr_append(ds_frag, datatoc_lightprobe_filter_visibility_frag_glsl);
-	shader_str = BLI_dynstr_get_cstring(ds_frag);
-	BLI_dynstr_free(ds_frag);
+	shader_str = BLI_string_joinN(
+	        datatoc_bsdf_common_lib_glsl,
+	        datatoc_bsdf_sampling_lib_glsl,
+	        datatoc_lightprobe_filter_visibility_frag_glsl);
 
 	e_data.probe_filter_visibility_sh = DRW_shader_create_fullscreen(shader_str, filter_defines);
 
 	MEM_freeN(shader_str);
 
-	ds_frag = BLI_dynstr_new();
-	BLI_dynstr_append(ds_frag, datatoc_octahedron_lib_glsl);
-	BLI_dynstr_append(ds_frag, datatoc_bsdf_common_lib_glsl);
-	BLI_dynstr_append(ds_frag, datatoc_irradiance_lib_glsl);
-	BLI_dynstr_append(ds_frag, datatoc_lightprobe_lib_glsl);
-	BLI_dynstr_append(ds_frag, datatoc_lightprobe_grid_display_frag_glsl);
-	shader_str = BLI_dynstr_get_cstring(ds_frag);
-	BLI_dynstr_free(ds_frag);
+	shader_str = BLI_string_joinN(
+	        datatoc_octahedron_lib_glsl,
+	        datatoc_bsdf_common_lib_glsl,
+	        datatoc_irradiance_lib_glsl,
+	        datatoc_lightprobe_lib_glsl,
+	        datatoc_lightprobe_grid_display_frag_glsl);
 
 	e_data.probe_grid_display_sh = DRW_shader_create(
 	        datatoc_lightprobe_grid_display_vert_glsl, NULL, shader_str, filter_defines);
@@ -258,13 +250,11 @@ static void lightprobe_shaders_init(void)
 	e_data.probe_grid_fill_sh = DRW_shader_create_fullscreen(
 	        datatoc_lightprobe_grid_fill_frag_glsl, filter_defines);
 
-	ds_frag = BLI_dynstr_new();
-	BLI_dynstr_append(ds_frag, datatoc_octahedron_lib_glsl);
-	BLI_dynstr_append(ds_frag, datatoc_bsdf_common_lib_glsl);
-	BLI_dynstr_append(ds_frag, datatoc_lightprobe_lib_glsl);
-	BLI_dynstr_append(ds_frag, datatoc_lightprobe_cube_display_frag_glsl);
-	shader_str = BLI_dynstr_get_cstring(ds_frag);
-	BLI_dynstr_free(ds_frag);
+	shader_str = BLI_string_joinN(
+	        datatoc_octahedron_lib_glsl,
+	        datatoc_bsdf_common_lib_glsl,
+	        datatoc_lightprobe_lib_glsl,
+	        datatoc_lightprobe_cube_display_frag_glsl);
 
 	e_data.probe_cube_display_sh = DRW_shader_create(
 	        datatoc_lightprobe_cube_display_vert_glsl, NULL, shader_str, NULL);
@@ -391,7 +381,7 @@ void EEVEE_lightprobes_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedat
 		float *col = ts.colorBackground;
 		if (wo) {
 			col = &wo->horr;
-			if (wo->update_flag != 0) {
+			if (wo->update_flag != 0 || pinfo->prev_world != wo) {
 				e_data.update_world |= PROBE_UPDATE_ALL;
 				pinfo->updated_bounce = 0;
 				pinfo->grid_initialized = false;
@@ -413,6 +403,14 @@ void EEVEE_lightprobes_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedat
 					col = pink;
 				}
 			}
+
+			pinfo->prev_world = wo;
+		}
+		else if (pinfo->prev_world) {
+			pinfo->prev_world = NULL;
+			e_data.update_world |= PROBE_UPDATE_ALL;
+			pinfo->updated_bounce = 0;
+			pinfo->grid_initialized = false;
 		}
 
 		/* Fallback if shader fails or if not using nodetree. */
@@ -1113,7 +1111,7 @@ static void render_scene_to_probe(
 	EEVEE_StorageList *stl = vedata->stl;
 	EEVEE_LightProbesInfo *pinfo = sldata->probes;
 
-	float winmat[4][4], wininv[4][4], posmat[4][4], tmp_ao_dist, tmp_ao_samples, tmp_ao_settings;
+	float winmat[4][4], wininv[4][4], posmat[4][4], tmp_ao_dist, tmp_ao_settings;
 
 	unit_m4(posmat);
 
@@ -1127,7 +1125,6 @@ static void render_scene_to_probe(
 
 	/* Disable AO until we find a way to hide really bad discontinuities between cubefaces. */
 	tmp_ao_dist = stl->effects->ao_dist;
-	tmp_ao_samples = stl->effects->ao_samples;
 	tmp_ao_settings = stl->effects->ao_settings;
 	stl->effects->ao_settings = 0.0f; /* Disable AO */
 
@@ -1214,7 +1211,6 @@ static void render_scene_to_probe(
 	stl->g_data->minzbuffer = tmp_minz;
 	txl->maxzbuffer = tmp_maxz;
 	stl->effects->ao_dist = tmp_ao_dist;
-	stl->effects->ao_samples = tmp_ao_samples;
 	stl->effects->ao_settings = tmp_ao_settings;
 }
 
@@ -1276,7 +1272,7 @@ static void render_scene_to_planar(
 	EEVEE_create_minmax_buffer(vedata, tmp_planar_depth, layer);
 
 	/* Compute GTAO Horizons */
-	EEVEE_occlusion_compute(sldata, vedata);
+	EEVEE_occlusion_compute(sldata, vedata, tmp_planar_depth, layer);
 
 	/* Rebind Planar FB */
 	DRW_framebuffer_bind(fbl->planarref_fb);
@@ -1485,7 +1481,6 @@ static void lightprobes_refresh_cube(EEVEE_ViewLayerData *sldata, EEVEE_Data *ve
 		stl->effects->taa_current_sample = 1;
 
 		/* Only do one probe per frame */
-		lightprobes_refresh_planar(sldata, vedata);
 		return;
 	}
 }
@@ -1503,7 +1498,6 @@ static void lightprobes_refresh_all_no_world(EEVEE_ViewLayerData *sldata, EEVEE_
 		/* Only compute probes if not navigating or in playback */
 		struct wmWindowManager *wm = CTX_wm_manager(draw_ctx->evil_C);
 		if (((rv3d->rflag & RV3D_NAVIGATING) != 0) || ED_screen_animation_no_scrub(wm) != NULL) {
-			lightprobes_refresh_planar(sldata, vedata);
 			return;
 		}
 	}
@@ -1605,7 +1599,6 @@ static void lightprobes_refresh_all_no_world(EEVEE_ViewLayerData *sldata, EEVEE_
 			DRW_viewport_request_redraw();
 			/* Do not let this frame accumulate. */
 			stl->effects->taa_current_sample = 1;
-			lightprobes_refresh_planar(sldata, vedata);
 			return;
 		}
 
@@ -1645,6 +1638,11 @@ void EEVEE_lightprobes_refresh(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
 	else if (true) { /* TODO if at least one probe needs refresh */
 		lightprobes_refresh_all_no_world(sldata, vedata);
 	}
+
+	lightprobes_refresh_planar(sldata, vedata);
+
+	/* Disable SSR if we cannot read previous frame */
+	sldata->probes->ssr_toggle = vedata->stl->g_data->valid_double_buffer;
 }
 
 void EEVEE_lightprobes_free(void)

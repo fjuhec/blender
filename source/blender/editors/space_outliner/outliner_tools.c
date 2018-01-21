@@ -461,7 +461,7 @@ static void id_static_override_cb(
 {
 	if (ID_IS_LINKED(tselem->id) && (tselem->id->tag & LIB_TAG_EXTERN)) {
 		Main *bmain = CTX_data_main(C);
-		ID *override_id = BKE_override_static_create_from(bmain, tselem->id);
+		ID *override_id = BKE_override_static_create_from_id(bmain, tselem->id);
 		if (override_id != NULL) {
 			BKE_main_id_clear_newpoins(bmain);
 		}
@@ -1871,7 +1871,7 @@ static const EnumPropertyItem *outliner_collection_operation_type_itemf(
 	switch (soops->outlinevis) {
 		case SO_GROUPS:
 			return prop_collection_op_group_internal_types;
-		case SO_ACT_LAYER:
+		case SO_VIEW_LAYER:
 			return prop_collection_op_none_types;
 	}
 	return NULL;
@@ -2095,6 +2095,9 @@ static int do_outliner_operation_event(bContext *C, ARegion *ar, SpaceOops *soop
 				}
 				else if (datalevel == TSE_LAYER_COLLECTION) {
 					WM_operator_name_call(C, "OUTLINER_OT_collection_operation", WM_OP_INVOKE_REGION_WIN, NULL);
+				}
+				else if (datalevel == TSE_SCENE_COLLECTION) {
+					WM_menu_name_call(C, "OUTLINER_MT_context_scene_collection", WM_OP_INVOKE_REGION_WIN);
 				}
 				else {
 					WM_operator_name_call(C, "OUTLINER_OT_data_operation", WM_OP_INVOKE_REGION_WIN, NULL);

@@ -65,6 +65,8 @@
 #include "draw_manager_text.h"
 #include "draw_common.h"
 
+#include "DEG_depsgraph_query.h"
+
 extern struct GPUUniformBuffer *globals_ubo; /* draw_common.c */
 extern struct GPUTexture *globals_ramp; /* draw_common.c */
 extern GlobalsUboStorage ts;
@@ -515,8 +517,14 @@ static void OBJECT_engine_init(void *vedata)
 			e_data.zneg_flag = e_data.zpos_flag = CLIP_ZNEG | CLIP_ZPOS;
 		}
 
-		float dist = (rv3d->persp == RV3D_CAMOB && v3d->camera)
-		             ? ((Camera *)v3d->camera)->clipend : v3d->far;
+		float dist;
+		if (rv3d->persp == RV3D_CAMOB && v3d->camera) {
+			Object *camera_object = DEG_get_evaluated_object(draw_ctx->depsgraph, v3d->camera);
+			dist = ((Camera *)camera_object)->clipend;
+		}
+		else {
+			dist = v3d->far;
+		}
 
 		e_data.grid_settings[0] = dist / 2.0f; /* gridDistance */
 		e_data.grid_settings[1] = grid_res; /* gridResolution */
@@ -758,8 +766,9 @@ static void OBJECT_cache_init(void *vedata)
 		DRWState state = DRW_STATE_WRITE_COLOR;
 		struct Gwn_Batch *quad = DRW_cache_fullscreen_quad_get();
 		static float alphaOcclu = 0.35f;
-		static bool bTrue = true;
-		static bool bFalse = false;
+		/* Reminder : bool uniforms need to be 4 bytes. */
+		static const int bTrue = true;
+		static const int bFalse = false;
 
 		psl->outlines_search = DRW_pass_create("Outlines Detect Pass", state);
 
@@ -1526,9 +1535,6 @@ static void DRW_shgroup_lightprobe(OBJECT_StorageList *stl, OBJECT_PassList *psl
 			sub_v3_v3(prb_data->increment_z, prb_data->corner);
 
 			DRWShadingGroup *grp = DRW_shgroup_instance_create(e_data.lightprobe_grid_sh, psl->lightprobes, DRW_cache_sphere_get());
-			/* Dummy call just to save select ID */
-			DRW_shgroup_call_dynamic_add_empty(grp);
-			/* Then overide the instance count */
 			DRW_shgroup_set_instance_count(grp, prb->grid_resolution_x * prb->grid_resolution_y * prb->grid_resolution_z);
 			DRW_shgroup_uniform_vec4(grp, "color", color, 1);
 			DRW_shgroup_uniform_vec3(grp, "corner", prb_data->corner, 1);

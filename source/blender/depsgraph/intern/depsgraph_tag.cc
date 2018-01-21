@@ -190,7 +190,24 @@ void depsgraph_tag_to_component_opcode(const ID *id,
 		case DEG_TAG_PSYS_TYPE:
 		case DEG_TAG_PSYS_CHILD:
 		case DEG_TAG_PSYS_PHYS:
-			*component_type = DEG_NODE_TYPE_EVAL_PARTICLES;
+			if (id_type == ID_PA) {
+				/* NOTES:
+				 * - For particle settings node we need to use different
+				 *   component. Will be nice to get this unified with object,
+				 *   but we can survive for now with single exception here.
+				 *   Particles needs reconsideration anyway,
+				 * - We do direct injection of particle settings recalc flag
+				 *   here. This is what we need to do for until particles
+				 *   are switched away from own recalc flag and are using
+				 *   ID->recalc flags instead.
+				 */
+				ParticleSettings *particle_settings = (ParticleSettings *)id;
+				particle_settings->recalc |= (tag & DEG_TAG_PSYS_ALL);
+				*component_type = DEG_NODE_TYPE_PARAMETERS;
+			}
+			else {
+				*component_type = DEG_NODE_TYPE_EVAL_PARTICLES;
+			}
 			break;
 		case DEG_TAG_COPY_ON_WRITE:
 			*component_type = DEG_NODE_TYPE_COPY_ON_WRITE;
@@ -240,6 +257,7 @@ void depsgraph_update_editors_tag(Main *bmain, Depsgraph *graph, ID *id)
 	/* TODO(sergey): Make sure this works for CoW-ed datablocks as well. */
 	DEGEditorUpdateContext update_ctx = {NULL};
 	update_ctx.bmain = bmain;
+	update_ctx.depsgraph = (::Depsgraph *)graph;
 	update_ctx.scene = graph->scene;
 	update_ctx.view_layer = graph->view_layer;
 	deg_editors_id_update(&update_ctx, id);
@@ -332,8 +350,8 @@ void deg_graph_id_tag_update(Main *bmain, Depsgraph *graph, ID *id, int flag)
 void deg_id_tag_update(Main *bmain, ID *id, int flag)
 {
 	deg_graph_id_tag_update(bmain, NULL, id, flag);
-	LINKLIST_FOREACH(Scene *, scene, &bmain->scene) {
-		LINKLIST_FOREACH(ViewLayer *, view_layer, &scene->view_layers) {
+	BLI_LISTBASE_FOREACH (Scene *, scene, &bmain->scene) {
+		BLI_LISTBASE_FOREACH (ViewLayer *, view_layer, &scene->view_layers) {
 			Depsgraph *depsgraph =
 			        (Depsgraph *)BKE_scene_get_depsgraph(scene,
 			                                             view_layer,
@@ -438,8 +456,8 @@ void DEG_graph_on_visible_update(Main *bmain, Depsgraph *depsgraph)
 
 void DEG_on_visible_update(Main *bmain, const bool UNUSED(do_time))
 {
-	LINKLIST_FOREACH(Scene *, scene, &bmain->scene) {
-		LINKLIST_FOREACH(ViewLayer *, view_layer, &scene->view_layers) {
+	BLI_LISTBASE_FOREACH (Scene *, scene, &bmain->scene) {
+		BLI_LISTBASE_FOREACH (ViewLayer *, view_layer, &scene->view_layers) {
 			Depsgraph *depsgraph =
 			        (Depsgraph *)BKE_scene_get_depsgraph(scene,
 			                                             view_layer,
@@ -455,6 +473,7 @@ void DEG_on_visible_update(Main *bmain, const bool UNUSED(do_time))
  * editors about this.
  */
 void DEG_ids_check_recalc(Main *bmain,
+                          Depsgraph *depsgraph,
                           Scene *scene,
                           ViewLayer *view_layer,
                           bool time)
@@ -477,6 +496,7 @@ void DEG_ids_check_recalc(Main *bmain,
 
 	DEGEditorUpdateContext update_ctx = {NULL};
 	update_ctx.bmain = bmain;
+	update_ctx.depsgraph = depsgraph;
 	update_ctx.scene = scene;
 	update_ctx.view_layer = view_layer;
 	DEG::deg_editors_scene_update(&update_ctx, (updated || time));
