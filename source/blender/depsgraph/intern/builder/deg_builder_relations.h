@@ -74,6 +74,7 @@ struct World;
 struct EffectorWeights;
 struct ParticleSystem;
 struct ParticleSettings;
+struct Groom;
 
 struct PropertyRNA;
 

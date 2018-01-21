@@ -42,6 +42,7 @@ struct GHash;
 struct ID;
 struct Image;
 struct FCurve;
+struct Groom;
 struct Group;
 struct Key;
 struct LayerCollection;

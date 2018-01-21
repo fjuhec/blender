@@ -460,6 +460,10 @@ static void groom_get_edges(
 				if (use_curve_cache)
 				{
 					const int curvesize = bundle->curvesize;
+					if (curvesize == 0)
+					{
+						continue;
+					}
 					
 					/* a curve for each shape vertex */
 					for (int i = 0; i < numshapeverts; ++i)

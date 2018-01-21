@@ -493,7 +493,7 @@ void BKE_groom_bundle_unbind(GroomBundle *bundle)
 }
 
 
-/* === Depsgraph evaluation === */
+/* === Curve cache === */
 
 /* forward differencing method for cubic polynomial eval */
 static void groom_forward_diff_cubic(float a, float b, float c, float d, float *p, int it, int stride)
@@ -681,10 +681,8 @@ static void groom_eval_section_mats(GroomBundle *bundle, int curve_res)
 	copy_m3_m3(section->mat, mat);
 }
 
-void BKE_groom_eval_curve_cache(const EvaluationContext *UNUSED(eval_ctx), Scene *UNUSED(scene), Object *ob)
+void BKE_groom_curve_cache_update(Groom *groom)
 {
-	BLI_assert(ob->type == OB_GROOM);
-	Groom *groom = (Groom *)ob->data;
 	ListBase *bundles = (groom->editgroom ? &groom->editgroom->bundles : &groom->bundles);
 	
 	for (GroomBundle *bundle = bundles->first; bundle; bundle = bundle->next)
@@ -731,11 +729,8 @@ void BKE_groom_eval_curve_cache(const EvaluationContext *UNUSED(eval_ctx), Scene
 	}
 }
 
-void BKE_groom_eval_curve_cache_clear(Object *ob)
+void BKE_groom_curve_cache_clear(Groom *groom)
 {
-	BLI_assert(ob->type == OB_GROOM);
-	Groom *groom = (Groom *)ob->data;
-	
 	for (GroomBundle *bundle = groom->bundles.first; bundle; bundle = bundle->next)
 	{
 		BKE_groom_bundle_curve_cache_clear(bundle);
@@ -749,11 +744,16 @@ void BKE_groom_eval_curve_cache_clear(Object *ob)
 	}
 }
 
+
+/* === Depsgraph evaluation === */
+
 void BKE_groom_eval_geometry(const EvaluationContext *UNUSED(eval_ctx), Groom *groom)
 {
 	if (G.debug & G_DEBUG_DEPSGRAPH) {
 		printf("%s on %s\n", __func__, groom->id.name);
 	}
+	
+	BKE_groom_curve_cache_update(groom);
 	
 	if (groom->bb == NULL || (groom->bb->flag & BOUNDBOX_DIRTY)) {
 		BKE_groom_boundbox_calc(groom, NULL, NULL);

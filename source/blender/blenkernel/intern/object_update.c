@@ -216,10 +216,6 @@ void BKE_object_handle_data_update(
 			BKE_lattice_modifiers_calc(eval_ctx, scene, ob);
 			break;
 
-		case OB_GROOM:
-			BKE_groom_eval_curve_cache(eval_ctx, scene, ob);
-			break;
-
 		case OB_EMPTY:
 			if (ob->empty_drawtype == OB_EMPTY_IMAGE && ob->data)
 				if (BKE_image_is_animated(ob->data))
