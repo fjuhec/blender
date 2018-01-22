@@ -1075,14 +1075,7 @@ class GPENCIL_MT_gpencil_draw_specials(Menu):
 
         # colors
         layout.separator()
-        palette = context.active_gpencil_palette
-        brush = context.active_gpencil_brush
-        for i, palcolor in enumerate(palette.colors):
-            if brush is None or brush.fill_only is False or brush.fill_allow_stroke_only is True:
-                layout.operator("palette.palettecolor_choose", text=palcolor.name).index=i
-            else:
-                if palcolor.fill_alpha > 0.0:
-                    layout.operator("palette.palettecolor_choose", text=palcolor.name).index = i
+        layout.operator("gpencil.colorpick", text="Colors", icon="GROUP_VCOL")
 
 
 class GPENCIL_MT_gpencil_vertex_group(Menu):
