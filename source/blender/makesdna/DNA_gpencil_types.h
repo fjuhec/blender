@@ -501,7 +501,6 @@ typedef enum eGPdata_Flag {
 	GP_DATA_STROKE_SHOW_EDIT_LINES = (1 << 18),
 } eGPdata_Flag;
 
-
 /* gpd->onion_flag */
 typedef enum eGPD_OnionFlag {
 	/* use custom color for ghosts before current frame */
@@ -514,7 +513,6 @@ typedef enum eGPD_OnionFlag {
 	GP_ONION_FADE = (1 << 3),
 } eGPD_OnionFlag;
 
-
 /* gpd->onion_mode */
 typedef enum eGP_OnionModes {
 	GP_ONION_MODE_ABSOLUTE = 0,
@@ -524,9 +522,9 @@ typedef enum eGP_OnionModes {
 
 /* gpd->fill draw modes */
 typedef enum eGP_FillDrawModes {
-	GP_FILL_DMODE_STROKE = 0,
-	GP_FILL_DMODE_CONTROL = 1,
-	GP_FILL_DMODE_BOTH = 2,
+	GP_FILL_DMODE_BOTH = 0,
+	GP_FILL_DMODE_STROKE = 1,
+	GP_FILL_DMODE_CONTROL = 2,
 } eGP_FillDrawModes;
 
 /* xray modes (Depth Ordering) */
