@@ -73,6 +73,7 @@ struct Gwn_Batch *DRW_cache_gpencil_axes_get(void);
 
 /* Lamps */
 struct Gwn_Batch *DRW_cache_lamp_get(void);
+struct Gwn_Batch *DRW_cache_lamp_shadows_get(void);
 struct Gwn_Batch *DRW_cache_lamp_sunrays_get(void);
 struct Gwn_Batch *DRW_cache_lamp_area_get(void);
 struct Gwn_Batch *DRW_cache_lamp_hemi_get(void);
@@ -81,6 +82,7 @@ struct Gwn_Batch *DRW_cache_lamp_spot_square_get(void);
 
 /* Camera */
 struct Gwn_Batch *DRW_cache_camera_get(void);
+struct Gwn_Batch *DRW_cache_camera_frame_get(void);
 struct Gwn_Batch *DRW_cache_camera_tria_get(void);
 
 /* Speaker */
