@@ -728,32 +728,6 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	copy_v3_v3(brush->curcolor, curcolor);
 	brush->icon = GPBRUSH_MARKER;
 
-	/* Experimental brush */
-	brush = BKE_gpencil_brush_addnew(ts, "Experimental", false);
-	brush->thickness = 80.0f;
-	brush->flag |= (GP_BRUSH_USE_PRESSURE | GP_BRUSH_ENABLE_CURSOR);
-	brush->draw_sensitivity = 1.0f;
-
-	brush->draw_strength = 0.485f;
-	brush->flag |= GP_BRUSH_USE_STENGTH_PRESSURE;
-
-	brush->draw_random_press = 0.0f;
-
-	brush->draw_jitter = 0.10f;
-	brush->flag |= GP_BRUSH_USE_JITTER_PRESSURE;
-
-	brush->draw_angle = 0.0f;
-	brush->draw_angle_factor = 0.0f;
-
-	brush->draw_smoothfac = 1.3f;
-	brush->draw_smoothlvl = 1;
-	brush->thick_smoothfac = 0.0f;
-	brush->thick_smoothlvl = 0;
-	brush->sublevel = 3;
-	brush->draw_random_sub = 0;
-	copy_v3_v3(brush->curcolor, curcolor);
-	brush->icon = GPBRUSH_CUSTOM;
-
 	/* Fill brush */
 	brush = BKE_gpencil_brush_addnew(ts, "Fill", false);
 	brush->thickness = 1.0f;
