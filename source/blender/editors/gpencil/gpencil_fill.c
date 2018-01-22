@@ -680,8 +680,92 @@ static  void gpencil_get_outline_points(tGPDfill *tgpf)
 	}
 }
 
-/* create a grease pencil stroke using points in stack */
-static void gpencil_stroke_from_stack(tGPDfill *tgpf)
+/* get z-depth array to reproject on surface */
+static void gpencil_get_depth_array(tGPDfill *tgpf)
+{
+	tGPspoint *ptc;
+	ToolSettings *ts = tgpf->scene->toolsettings;
+	int totpoints = tgpf->sbuffer_size;
+	int i = 0;
+
+	if (totpoints == 0) {
+		return;
+	}
+
+	/* for surface sketching, need to set the right OpenGL context stuff so that
+	* the conversions will project the values correctly...
+	*/
+	if (ts->gpencil_v3d_align & GP_PROJECT_DEPTH_VIEW) {
+		/* need to restore the original projection settings before packing up */
+		view3d_region_operator_needs_opengl(tgpf->win, tgpf->ar);
+		ED_view3d_autodist_init(tgpf->eval_ctx, tgpf->depsgraph, tgpf->ar, tgpf->v3d, 0);
+
+		/* since strokes are so fine, when using their depth we need a margin otherwise they might get missed */
+		int depth_margin = 0;
+
+		/* get an array of depths, far depths are blended */
+		int mval[2], mval_prev[2] = { 0 };
+		int interp_depth = 0;
+		int found_depth = 0;
+
+		tgpf->depth_arr = MEM_mallocN(sizeof(float) * totpoints, "depth_points");
+
+		for (i = 0, ptc = tgpf->sbuffer; i < totpoints; i++, ptc++) {
+			copy_v2_v2_int(mval, &ptc->x);
+
+			if ((ED_view3d_autodist_depth(tgpf->ar, mval, depth_margin, tgpf->depth_arr + i) == 0) &&
+				(i && (ED_view3d_autodist_depth_seg(tgpf->ar, mval, mval_prev, depth_margin + 1, tgpf->depth_arr + i) == 0)))
+			{
+				interp_depth = true;
+			}
+			else {
+				found_depth = true;
+			}
+
+			copy_v2_v2_int(mval_prev, mval);
+		}
+
+		if (found_depth == false) {
+			/* eeh... not much we can do.. :/, ignore depth in this case */
+			for (i = totpoints - 1; i >= 0; i--)
+				tgpf->depth_arr[i] = 0.9999f;
+		}
+		else {
+			if (interp_depth) {
+				interp_sparse_array(tgpf->depth_arr, totpoints, FLT_MAX);
+			}
+		}
+	}
+}
+
+/* create array of points using stack as source */
+static void gpencil_points_from_stack(tGPDfill *tgpf)
+{
+	tGPspoint *point2D;
+	int totpoints = BLI_stack_count(tgpf->stack);
+	if (totpoints == 0) {
+		return;
+	}
+
+	tgpf->sbuffer_size = totpoints;
+	tgpf->sbuffer = MEM_callocN(sizeof(tGPspoint) * totpoints, __func__);
+
+	point2D = tgpf->sbuffer;
+	while (!BLI_stack_is_empty(tgpf->stack)) {
+		int v[2];
+		BLI_stack_pop(tgpf->stack, &v);
+		point2D->x = v[0];
+		point2D->y = v[1];
+
+		point2D->pressure = 1.0f;
+		point2D->strength = 1.0f;;
+		point2D->time = 0.0f;
+		point2D++;
+	}
+}
+
+/* create a grease pencil stroke using points in buffer */
+static void gpencil_stroke_from_buffer(tGPDfill *tgpf)
 {
 	Scene *scene = tgpf->scene;
 	ToolSettings *ts = tgpf->scene->toolsettings;
@@ -692,10 +776,9 @@ static void gpencil_stroke_from_stack(tGPDfill *tgpf)
 	}
 
 	bGPDspoint *pt;
-	tGPspoint point2D;
+	tGPspoint *point2D;
 	float r_out[3];
-	int totpoints = BLI_stack_count(tgpf->stack);
-	if (totpoints == 0) {
+	if (tgpf->sbuffer_size == 0) {
 		return;
 	}
 
@@ -717,8 +800,8 @@ static void gpencil_stroke_from_stack(tGPDfill *tgpf)
 		BLI_strncpy(gps->colorname, tgpf->palcolor->info, sizeof(gps->colorname));
 
 	/* allocate memory for storage points */
-	gps->totpoints = totpoints;
-	gps->points = MEM_callocN(sizeof(bGPDspoint) * totpoints, "gp_stroke_points");
+	gps->totpoints = tgpf->sbuffer_size;
+	gps->points = MEM_callocN(sizeof(bGPDspoint) * tgpf->sbuffer_size, "gp_stroke_points");
 	
 	/* initialize triangle memory to dummy data */
 	gps->tot_triangles = 0;
@@ -735,15 +818,13 @@ static void gpencil_stroke_from_stack(tGPDfill *tgpf)
 
 	/* add points */
 	pt = gps->points;
-	int i = 0;
-	while (!BLI_stack_is_empty(tgpf->stack)) {
-		int v[2];
-		BLI_stack_pop(tgpf->stack, &v);
-		point2D.x = v[0];
-		point2D.y = v[1];
-
+	point2D = (tGPspoint *)tgpf->sbuffer;
+	for (int i = 0; i < tgpf->sbuffer_size && point2D; i++, point2D++, pt++) {
 		/* convert screen-coordinates to 3D coordinates */
-		gp_stroke_convertcoords_tpoint(tgpf->scene, tgpf->ar, tgpf->v3d, tgpf->ob, tgpf->gpl, &point2D, r_out);
+		gp_stroke_convertcoords_tpoint(tgpf->scene, tgpf->ar, tgpf->v3d, tgpf->ob, 
+									   tgpf->gpl, point2D, 
+									   tgpf->depth_arr ? tgpf->depth_arr + i : NULL,
+									   r_out);
 		copy_v3_v3(&pt->x, r_out);
 
 		pt->pressure = 1.0f;
@@ -751,22 +832,20 @@ static void gpencil_stroke_from_stack(tGPDfill *tgpf)
 		pt->time = 0.0f;
 		pt->totweight = 0;
 		pt->weights = NULL;
-
-		pt++;
 	}
 
 	/* smooth stroke */
 	float reduce = 0.0f;
 	float smoothfac = 1.0f;
 	for (int r = 0; r < 1; ++r) {
-		for (i = 0; i < gps->totpoints; i++) {
+		for (int i = 0; i < gps->totpoints; i++) {
 			BKE_gp_smooth_stroke(gps, i, smoothfac - reduce, false);
 		}
 		reduce += 0.25f;  // reduce the factor
 	}
 
 	/* if axis locked, reproject to plane locked */
-	if (tgpf->lock_axis > GP_LOCKAXIS_NONE) {
+	if ((tgpf->lock_axis > GP_LOCKAXIS_NONE) && ((ts->gpencil_v3d_align & GP_PROJECT_DEPTH_VIEW) == 0)) {
 		float origin[3];
 		bGPDspoint *tpt = gps->points;
 		ED_gp_get_drawing_reference(tgpf->v3d, tgpf->scene, tgpf->ob, tgpf->gpl,
@@ -776,7 +855,7 @@ static void gpencil_stroke_from_stack(tGPDfill *tgpf)
 	}
 
 	/* if parented change position relative to parent object */
-	for (int a = 0; a < totpoints; a++) {
+	for (int a = 0; a < tgpf->sbuffer_size; a++) {
 		pt = &gps->points[a];
 		gp_apply_parent_point(tgpf->ob, tgpf->gpd, tgpf->gpl, pt);
 	}
@@ -869,6 +948,9 @@ static tGPDfill *gp_session_init_fill(bContext *C, wmOperator *op)
 	tgpf->lock_axis = ts->gp_sculpt.lock_axis;
 	
 	tgpf->oldkey = -1;
+	tgpf->sbuffer_size = 0;
+	tgpf->sbuffer = NULL;
+	tgpf->depth_arr = NULL;
 
 	/* save filling parameters */
 	bGPDbrush *brush = BKE_gpencil_brush_getactive(ts);
@@ -904,6 +986,9 @@ static void gpencil_fill_exit(bContext *C, wmOperator *op)
 	if (tgpf) {
 		/* clear status message area */
 		ED_area_headerprint(tgpf->sa, NULL);
+
+		MEM_SAFE_FREE(tgpf->sbuffer);
+		MEM_SAFE_FREE(tgpf->depth_arr);
 
 		/* remove drawing handler */
 		if (tgpf->draw_handle_3d) {
@@ -1052,8 +1137,14 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
 						/* analyze outline */
 						gpencil_get_outline_points(tgpf);
 
+						/* create array of points from stack */
+						gpencil_points_from_stack(tgpf);
+
+						/* create z-depth array for reproject */
+						gpencil_get_depth_array(tgpf);
+
 						/* create stroke and reproject */
-						gpencil_stroke_from_stack(tgpf);
+						gpencil_stroke_from_buffer(tgpf);
 
 						/* free temp stack data */
 						if (tgpf->stack) {

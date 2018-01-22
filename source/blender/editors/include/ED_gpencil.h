@@ -186,6 +186,10 @@ typedef struct tGPDfill {
 	int fill_simplylvl;                 /* number of simplify steps */
 	int fill_draw_mode;                 /* boundary limits drawing mode */
 
+	short sbuffer_size;			        /* number of elements currently in cache */
+	void *sbuffer;				        /* temporary points */
+	float *depth_arr;                   /* depth array for reproject */
+
 	struct Image *ima;					/* temp image */
 	struct BLI_Stack *stack;			/* temp points data */
 	void *draw_handle_3d;				/* handle for drawing strokes while operator is running 3d stuff */

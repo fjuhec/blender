@@ -245,7 +245,7 @@ static void gp_primitive_rectangle(tGPDprimitive *tgpi, bGPDstroke *gps)
 
 		pt = &gps->points[i];
 		/* convert screen-coordinates to 3D coordinates */
-		gp_stroke_convertcoords_tpoint(tgpi->scene, tgpi->ar, tgpi->v3d, tgpi->ob, tgpi->gpl, &point2D, r_out);
+		gp_stroke_convertcoords_tpoint(tgpi->scene, tgpi->ar, tgpi->v3d, tgpi->ob, tgpi->gpl, &point2D, NULL, r_out);
 		copy_v3_v3(&pt->x, r_out);
 
 		pt->pressure = 1.0f;
@@ -302,7 +302,7 @@ static void gp_primitive_circle(tGPDprimitive *tgpi, bGPDstroke *gps)
 
 		pt = &gps->points[i];
 		/* convert screen-coordinates to 3D coordinates */
-		gp_stroke_convertcoords_tpoint(tgpi->scene, tgpi->ar, tgpi->v3d, tgpi->ob, tgpi->gpl, &point2D, r_out);
+		gp_stroke_convertcoords_tpoint(tgpi->scene, tgpi->ar, tgpi->v3d, tgpi->ob, tgpi->gpl, &point2D, NULL, r_out);
 		copy_v3_v3(&pt->x, r_out);
 
 		pt->pressure = 1.0f;
