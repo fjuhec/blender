@@ -129,7 +129,7 @@ class VIEW3D_HT_header(Header):
             row.operator("pose.paste", text="", icon='PASTEDOWN').flipped = False
             row.operator("pose.paste", text="", icon='PASTEFLIPDOWN').flipped = True
 
-        # GPencil
+        # Grease Pencil
         if context.active_object and context.gpencil_data and context.active_object.type == 'GPENCIL':
             ob = context.active_object
             gpd = context.gpencil_data
@@ -1365,7 +1365,7 @@ class INFO_MT_add(Menu):
         layout.menu("INFO_MT_armature_add", icon='OUTLINER_OB_ARMATURE')
         layout.operator("object.add", text="Lattice", icon='OUTLINER_OB_LATTICE').type = 'LATTICE'
         layout.operator_menu_enum("object.empty_add", "type", text="Empty", icon='OUTLINER_OB_EMPTY')
-        layout.operator_menu_enum("object.gpencil_add", "type", text="GPencil", icon='OUTLINER_OB_GREASEPENCIL')
+        layout.operator_menu_enum("object.gpencil_add", "type", text="Grease Pencil", icon='OUTLINER_OB_GREASEPENCIL')
         layout.separator()
 
         layout.operator("object.speaker_add", text="Speaker", icon='OUTLINER_OB_SPEAKER')
@@ -3286,11 +3286,11 @@ class VIEW3D_MT_edit_armature_delete(Menu):
         layout.operator("armature.dissolve", text="Dissolve")
 
 
-# ********** GPencil Stroke Edit menu **********
+# ********** Grease Pencil Stroke Edit menu **********
 
 
 class VIEW3D_MT_edit_gpencil(Menu):
-    bl_label = "GPencil"
+    bl_label = "Grease Pencil"
 
     def draw(self, context):
         toolsettings = context.tool_settings
