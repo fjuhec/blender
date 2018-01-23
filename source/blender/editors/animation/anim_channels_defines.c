@@ -657,7 +657,7 @@ static int acf_object_icon(bAnimListElem *ale)
 		case OB_EMPTY: 
 			return ICON_OUTLINER_OB_EMPTY;
 		case OB_GPENCIL:
-			return ICON_OUTLINER_OB_GPENCIL;
+			return ICON_OUTLINER_OB_GREASEPENCIL;
 		default:
 			return ICON_OBJECT_DATA;
 	}

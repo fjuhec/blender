@@ -1179,7 +1179,7 @@ static void tselem_draw_icon(uiBlock *block, int xmax, float x, float y, TreeSto
 				case OB_EMPTY:
 					tselem_draw_icon_uibut(&arg, ICON_OUTLINER_OB_EMPTY); break;
 				case OB_GPENCIL:
-					tselem_draw_icon_uibut(&arg, ICON_OUTLINER_OB_GPENCIL); break; 
+					tselem_draw_icon_uibut(&arg, ICON_OUTLINER_OB_GREASEPENCIL); break;
 			}
 		}
 		else {
@@ -1255,7 +1255,7 @@ static void tselem_draw_icon(uiBlock *block, int xmax, float x, float y, TreeSto
 				case ID_LS:
 					tselem_draw_icon_uibut(&arg, ICON_LINE_DATA); break;
 				case ID_GD:
-					tselem_draw_icon_uibut(&arg, ICON_OUTLINER_DATA_GPENCIL); break;
+					tselem_draw_icon_uibut(&arg, ICON_OUTLINER_DATA_GREASEPENCIL); break;
 				default:
 					break;
 			}
