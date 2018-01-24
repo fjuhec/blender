@@ -58,6 +58,30 @@ extern "C" {
 
 /* ************************ DEG ITERATORS ********************* */
 
+static void verify_id_proeprties_freed(DEGObjectIterData *data)
+{
+	if (data->dupli_object_current == NULL) {
+		// We didn't enter duplication yet, so we can't have any dangling
+		// pointers.
+		return;
+	}
+	const Object *dupli_object = data->dupli_object_current->ob;
+	Object *temp_dupli_object = &data->temp_dupli_object;
+	if (temp_dupli_object->id.properties == NULL) {
+		// No ID proeprties in temp datablock -- no leak is possible.
+		return;
+	}
+	if (temp_dupli_object->id.properties == dupli_object->id.properties) {
+		// Temp copy of object did not modify ID properties.
+		return;
+	}
+	// Free memory which is owned by temporary storage which is about to
+	// get overwritten.
+	IDP_FreeProperty(temp_dupli_object->id.properties);
+	MEM_freeN(temp_dupli_object->id.properties);
+	temp_dupli_object->id.properties = NULL;
+}
+
 static bool deg_objects_dupli_iterator_next(BLI_Iterator *iter)
 {
 	DEGObjectIterData *data = (DEGObjectIterData *)iter->data;
@@ -78,6 +102,8 @@ static bool deg_objects_dupli_iterator_next(BLI_Iterator *iter)
 			continue;
 		}
 
+		verify_id_proeprties_freed(data);
+
 		data->dupli_object_current = dob;
 
 		/* Temporary object to evaluate. */
@@ -90,10 +116,13 @@ static bool deg_objects_dupli_iterator_next(BLI_Iterator *iter)
 
 		if (dob->collection_properties != NULL) {
 			temp_dupli_object->base_collection_properties = dob->collection_properties;
-			IDP_MergeGroup(temp_dupli_object->base_collection_properties, dupli_parent->base_collection_properties, false);
+			IDP_MergeGroup(temp_dupli_object->base_collection_properties,
+			               dupli_parent->base_collection_properties,
+			               false);
 		}
 		else {
-			temp_dupli_object->base_collection_properties = dupli_parent->base_collection_properties;
+			temp_dupli_object->base_collection_properties =
+			        dupli_parent->base_collection_properties;
 		}
 
 		copy_m4_m4(data->temp_dupli_object.obmat, dob->mat);
@@ -146,15 +175,16 @@ static void DEG_iterator_objects_step(BLI_Iterator *iter, DEG::IDDepsNode *id_no
 		return;
 	}
 
-	if ((data->flag & DEG_ITER_OBJECT_FLAG_DUPLI) && (object->transflag & OB_DUPLI)) {
+	if ((data->flag & DEG_ITER_OBJECT_FLAG_DUPLI) &&
+	    (object->transflag & OB_DUPLI))
+	{
 		data->dupli_parent = object;
 		data->dupli_list = object_duplilist(&data->eval_ctx, data->scene, object);
 		data->dupli_object_next = (DupliObject *)data->dupli_list->first;
-
-		const eObjectVisibilityCheck mode = (data->mode == DEG_ITER_OBJECT_MODE_RENDER) ?
-		                                     OB_VISIBILITY_CHECK_FOR_RENDER :
-		                                     OB_VISIBILITY_CHECK_FOR_VIEWPORT;
-
+		const eObjectVisibilityCheck mode =
+		        (data->mode == DEG_ITER_OBJECT_MODE_RENDER)
+		                ? OB_VISIBILITY_CHECK_FOR_RENDER
+		                : OB_VISIBILITY_CHECK_FOR_VIEWPORT;
 		if (BKE_object_is_visible(object, mode) == false) {
 			return;
 		}
@@ -211,6 +241,7 @@ void DEG_iterator_objects_next(BLI_Iterator *iter)
 				return;
 			}
 			else {
+				verify_id_proeprties_freed(data);
 				free_object_duplilist(data->dupli_list);
 				data->dupli_parent = NULL;
 				data->dupli_list = NULL;
@@ -234,7 +265,9 @@ void DEG_iterator_objects_end(BLI_Iterator *iter)
 {
 #ifndef NDEBUG
 	DEGObjectIterData *data = (DEGObjectIterData *)iter->data;
-	/* Force crash in case the iterator data is referenced and accessed down the line. (T51718) */
+	/* Force crash in case the iterator data is referenced and accessed down
+	 * the line. (T51718)
+	 */
 	memset(&data->temp_dupli_object, 0xff, sizeof(data->temp_dupli_object));
 #else
 	(void) iter;
