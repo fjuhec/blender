@@ -886,6 +886,8 @@ static void gpencil_draw_onionskins(
         GpencilBatchCache *cache, GPENCIL_e_data *e_data, void *vedata,
         Object *ob, bGPdata *gpd, bGPDlayer *gpl, bGPDframe *gpf)
 {
+	#define MIN_ALPHA_VALUE 0.01f
+
 	const float default_color[3] = { UNPACK3(U.gpencil_new_layer_col) };
 	const float alpha = 1.0f;
 	float color[4];
@@ -981,7 +983,7 @@ static void gpencil_draw_onionskins(
 			color[3] += gpd->onion_factor - 0.5f;
 		}
 
-		CLAMP(color[3], 0.3f, 1.0f);
+		CLAMP(color[3], MIN_ALPHA_VALUE, 1.0f);
 		gpencil_draw_onion_strokes(cache, e_data, vedata, ob, gpd, gpl, gf, color[3], color, colflag);
 	}
 	/* -------------------------------
@@ -1061,7 +1063,7 @@ static void gpencil_draw_onionskins(
 			color[3] += gpd->onion_factor - 0.5f;
 		}
 
-		CLAMP(color[3], 0.3f, 1.0f);
+		CLAMP(color[3], MIN_ALPHA_VALUE, 1.0f);
 		gpencil_draw_onion_strokes(cache, e_data, vedata, ob, gpd, gpl, gf, color[3], color, colflag);
 	}
 }
