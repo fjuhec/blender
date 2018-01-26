@@ -881,12 +881,39 @@ void DRW_gpencil_populate_buffer_strokes(GPENCIL_e_data *e_data, void *vedata, T
 	}
 }
 
+/* get alpha factor for onion strokes */
+static void gpencil_get_onion_alpha(float color[4], bGPdata *gpd, bGPDlayer *gpl)
+{
+	#define MIN_ALPHA_VALUE 0.01f
+
+	/* if fade is disabled, opacity is equal in all frames */
+	if (gpl->onion_flag & GP_LAYER_ONION_OVERRIDE) {
+		if ((gpl->onion_flag & GP_ONION_FADE) == 0) {
+			color[3] = gpl->onion_factor;
+		}
+		else {
+			/* add override opacity factor */
+			color[3] += gpl->onion_factor - 0.5f;
+		}
+	}
+	else {
+		if ((gpd->onion_flag & GP_ONION_FADE) == 0) {
+			color[3] = gpd->onion_factor;
+		}
+		else {
+			/* add override opacity factor */
+			color[3] += gpd->onion_factor - 0.5f;
+		}
+	}
+
+	CLAMP(color[3], MIN_ALPHA_VALUE, 1.0f);
+}
+
 /* draw onion-skinning for a layer */
 static void gpencil_draw_onionskins(
         GpencilBatchCache *cache, GPENCIL_e_data *e_data, void *vedata,
         Object *ob, bGPdata *gpd, bGPDlayer *gpl, bGPDframe *gpf)
 {
-	#define MIN_ALPHA_VALUE 0.01f
 
 	const float default_color[3] = { UNPACK3(U.gpencil_new_layer_col) };
 	const float alpha = 1.0f;
@@ -967,23 +994,8 @@ static void gpencil_draw_onionskins(
 			fac = alpha - ((1.1f - (1.0f / (float)idx)) * 0.66f);
 			color[3] = fac;
 		}
-		/* if fade is disabled, opacity is equal in all frames */
-		if (gpl->onion_flag & GP_LAYER_ONION_OVERRIDE) {
-			if ((gpl->onion_flag & GP_LAYER_ONION_FADE) == 0) {
-				color[3] = 0.66f;
-			}
-			/* add override opacity factor */
-			color[3] += gpl->onion_factor - 0.5f;
-		}
-		else {
-			if ((gpd->onion_flag & GP_ONION_FADE) == 0) {
-				color[3] = 0.66f;
-			}
-			/* add override opacity factor */
-			color[3] += gpd->onion_factor - 0.5f;
-		}
 
-		CLAMP(color[3], MIN_ALPHA_VALUE, 1.0f);
+		gpencil_get_onion_alpha(color, gpd, gpl);
 		gpencil_draw_onion_strokes(cache, e_data, vedata, ob, gpd, gpl, gf, color[3], color, colflag);
 	}
 	/* -------------------------------
@@ -1047,23 +1059,8 @@ static void gpencil_draw_onionskins(
 			fac = alpha - ((1.1f - (1.0f / (float)idx)) * 0.66f);
 			color[3] = fac;
 		}
-		/* if fade is disabled, opacity is equal in all frames */
-		if (gpl->onion_flag & GP_LAYER_ONION_OVERRIDE) {
-			if ((gpl->onion_flag & GP_ONION_FADE) == 0) {
-				color[3] = 0.66f;
-			}
-			/* add override opacity factor */
-			color[3] += gpl->onion_factor - 0.5f;
-		}
-		else {
-			if ((gpd->onion_flag & GP_ONION_FADE) == 0) {
-				color[3] = 0.66f;
-			}
-			/* add override opacity factor */
-			color[3] += gpd->onion_factor - 0.5f;
-		}
 
-		CLAMP(color[3], MIN_ALPHA_VALUE, 1.0f);
+		gpencil_get_onion_alpha(color, gpd, gpl);
 		gpencil_draw_onion_strokes(cache, e_data, vedata, ob, gpd, gpl, gf, color[3], color, colflag);
 	}
 }
