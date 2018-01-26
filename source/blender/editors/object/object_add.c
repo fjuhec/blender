@@ -1010,7 +1010,15 @@ static int object_gpencil_add_exec(bContext *C, wmOperator *op)
 	if (!ED_object_add_generic_get_opts(C, op, 'Z', loc, rot, NULL, &layer, NULL))
 		return OPERATOR_CANCELLED;
 
-	ob = ED_object_add_type(C, OB_GPENCIL, NULL, loc, rot, false, layer);
+	switch (type) {
+		case GP_MONKEY:
+			ob = ED_object_add_type(C, OB_GPENCIL, "Suzanne", loc, rot, false, layer);
+			break;
+		default:
+			ob = ED_object_add_type(C, OB_GPENCIL, NULL, loc, rot, false, layer);
+			break;
+	}
+
 	BKE_object_obdata_size_init(ob, GP_OBGPENCIL_DEFAULT_SIZE);
 		
 	/* if type is monkey, create a 2D Suzanne */
