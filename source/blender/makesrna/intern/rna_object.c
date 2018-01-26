@@ -90,8 +90,8 @@ const EnumPropertyItem rna_enum_object_empty_drawtype_items[] = {
 };
 
 const EnumPropertyItem rna_enum_object_gpencil_type_items[] = {
-	{ GP_EMPTY, "EMPTY", ICON_OUTLINER_OB_GREASEPENCIL, "GP Object", "" },
-	{ GP_MONKEY, "MONKEY", ICON_MONKEY, "Monkey", "" },
+	{ GP_EMPTY, "EMPTY", ICON_OUTLINER_OB_GREASEPENCIL, "Blank", "Create an empty grease pencil object" },
+	{ GP_MONKEY, "MONKEY", ICON_MONKEY, "Monkey", "Construct a Suzanne grease pencil object" },
 	{ 0, NULL, 0, NULL, NULL }
 };
 

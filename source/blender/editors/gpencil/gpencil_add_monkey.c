@@ -1354,7 +1354,7 @@ void ED_gpencil_create_monkey(bContext *C, bGPdata *gpd)
 	bGPDstroke *gps;
 	
 	/* create palette and colors */
-	bGPDpaletteref *palslot = BKE_gpencil_paletteslot_addnew(bmain, gpd, "Monkey");
+	bGPDpaletteref *palslot = BKE_gpencil_paletteslot_addnew(bmain, gpd, "Suzanne");
 	Palette *palette = palslot->palette;
 
 	PaletteColor *color_Black = BKE_palette_color_add_name(palette, "Black");
