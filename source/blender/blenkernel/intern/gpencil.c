@@ -1700,7 +1700,7 @@ bGPDpaletteref *BKE_gpencil_paletteslot_validate(Main *bmain, bGPdata *gpd)
 	/* sanity checks */
 	if (ELEM(NULL, bmain, gpd))
 		return NULL;
-	
+
 	/* ensure a palette slot exists */
 	palslot = BKE_gpencil_paletteslot_get_active(gpd);
 	if (palslot == NULL) {
@@ -1724,6 +1724,7 @@ bGPDpaletteref *BKE_gpencil_paletteslot_validate(Main *bmain, bGPdata *gpd)
 	if (BKE_palette_is_empty(palette)) {
 		/* init the default set if none exist */
 		BKE_palette_color_add_default_set(palette);
+		palette->active_color = 0;
 	}
 	else if (BKE_palette_color_get_active(palette) == NULL) {
 		/* sometimes the "active" color is unreachable
