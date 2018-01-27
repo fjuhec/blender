@@ -275,8 +275,56 @@ static void gp_get_3d_reference(tGPsdata *p, float vec[3])
 	ED_gp_get_drawing_reference(v3d, p->scene, ob, p->gpl, *p->align_flag, vec);
 }
 
-/* Stroke Editing ---------------------------- */
+static void copy_v2int_v2float(int r[2], const float a[2])
+{
+	r[0] = (int)roundf(a[0]);
+	r[1] = (int)roundf(a[1]);
+}
 
+static void copy_v2float_v2int(float r[2], const int a[2])
+{
+	r[0] = (float)a[0];
+	r[1] = (float)a[1];
+}
+
+/* helper to determine if the stroke angle is sharp for lazy mouse */
+static bool gp_is_sharp(tGPsdata *p, const int mval[2])
+{
+	bGPdata *gpd = p->gpd;
+	float fpta[2], fptb[2], fpt[2];
+
+	/* first points are always valid */
+	if (p->gpd->sbuffer_size < 2) {
+		return true;
+	}
+	int i = gpd->sbuffer_size - 1;
+
+	/* points used as reference */
+	tGPspoint *pta = (tGPspoint *)gpd->sbuffer + i - 1;
+	tGPspoint *ptb = (tGPspoint *)gpd->sbuffer + i;
+
+	copy_v2float_v2int(fpta, &pta->x);
+	copy_v2float_v2int(fptb, &ptb->x);
+	fpt[0] = mval[0];
+	fpt[1] = mval[1];
+
+	float v1[2];
+	sub_v2_v2v2(v1, fptb, fpta);
+	normalize_v2(v1);
+
+	float v2[2];
+	sub_v2_v2v2(v2, fpt, fptb);
+	normalize_v2(v2);
+
+	float angle = dot_v2v2(v1, v2);
+	if (angle < 0.1f) {
+		return true;
+	}
+
+	return false;
+}
+
+/* Stroke Editing ---------------------------- */
 /* check if the current mouse position is suitable for adding a new point */
 static bool gp_stroke_filtermval(tGPsdata *p, const int mval[2], int pmval[2])
 {
@@ -290,7 +338,10 @@ static bool gp_stroke_filtermval(tGPsdata *p, const int mval[2], int pmval[2])
 	}
 	/* if lazy mouse, check minimum distance */
 	else if (brush->flag & GP_BRUSH_LAZY_MOUSE) {
-		if ((dx * dx + dy * dy) > (brush->lazy_radius * brush->lazy_radius)) {
+		/* the angle is used to allow draw with sharp angles */
+		if ((dx * dx + dy * dy) > (brush->lazy_radius * brush->lazy_radius) || 
+			(gp_is_sharp(p, mval))) 
+		{
 			return true;
 		}
 		else {
@@ -480,18 +531,6 @@ static void gp_brush_angle(bGPdata *gpd, bGPDbrush *brush, tGPspoint *pt, const 
 		CLAMP(pt->pressure, GPENCIL_ALPHA_OPACITY_THRESH, 1.0f);
 	}
 
-}
-
-static void copy_v2int_v2float(int r[2], const float a[2])
-{
-	r[0] = (int)roundf(a[0]);
-	r[1] = (int)roundf(a[1]);
-}
-
-static void copy_v2float_v2int(float r[2], const int a[2])
-{
-	r[0] = (float)a[0];
-	r[1] = (float)a[1];
 }
 
 /**
@@ -2932,6 +2971,12 @@ static int gpencil_draw_modal(bContext *C, wmOperator *op, const wmEvent *event)
 	/* process last operations before exiting */
 	switch (estate) {
 		case OPERATOR_FINISHED:
+			/* if lazy mouse, add the last point always */
+			if (p->brush->flag & GP_BRUSH_LAZY_MOUSE) {
+				p->brush->flag &= ~GP_BRUSH_LAZY_MOUSE;
+				gpencil_draw_apply_event(C, op, event, CTX_data_depsgraph(C));
+				p->brush->flag |= GP_BRUSH_LAZY_MOUSE;
+			}
 			/* one last flush before we're done */
 			gpencil_draw_exit(C, op);
 			WM_event_add_notifier(C, NC_GPENCIL | NA_EDITED, NULL);
