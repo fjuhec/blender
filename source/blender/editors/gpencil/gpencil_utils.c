@@ -1234,6 +1234,18 @@ static void gp_brush_drawcursor(bContext *C, int x, int y, void *customdata)
 	GP_EditBrush_Data *brush = NULL;
 	int *last_mouse_position = customdata;
 
+	/* get current color */
+	bGPDpaletteref *palslot = NULL;
+	Palette *palette = NULL;
+	PaletteColor *palcolor = NULL;
+	palslot = BKE_gpencil_paletteslot_get_active(gpd);
+	if (palslot) {
+		palette = palslot->palette;
+		if (palette) {
+			palcolor = BKE_palette_color_get_active(palette);
+		}
+	}
+
 	if ((gpd) && (gpd->flag & GP_DATA_STROKE_WEIGHTMODE)) {
 		brush = &gset->brush[gset->weighttype];
 	}
@@ -1243,7 +1255,7 @@ static void gp_brush_drawcursor(bContext *C, int x, int y, void *customdata)
 	bGPDbrush *paintbrush;
 
 	/* default radius and color */
-	float radius = 5.0f;
+	float radius = 3.0f;
 	float color[3], darkcolor[3];
 	ARRAY_SET_ITEMS(color, 1.0f, 1.0f, 1.0f);
 
@@ -1273,7 +1285,12 @@ static void gp_brush_drawcursor(bContext *C, int x, int y, void *customdata)
 			 * The decision was to use a fix size, instead of  paintbrush->thickness value. 
 			 */
 			radius = 3.0f;
-			copy_v3_v3(color, paintbrush->curcolor);
+			if (palcolor) {
+				copy_v3_v3(color, palcolor->rgb);
+			}
+			else {
+				copy_v3_v3(color, paintbrush->curcolor);
+			}
 		}
 	}
 
@@ -1304,7 +1321,7 @@ static void gp_brush_drawcursor(bContext *C, int x, int y, void *customdata)
 
 	/* Inner Ring: Color from UI panel */
 	immUniformColor4f(color[0], color[1], color[2], 0.8f);
-	if ((paintbrush) && (paintbrush->flag & GP_BRUSH_LAZY_MOUSE)) {
+	if ((palcolor) || ((paintbrush) && (paintbrush->flag & GP_BRUSH_LAZY_MOUSE))) {
 		imm_draw_circle_fill_2d(pos, x, y, radius, 40);
 	}
 	else {
