@@ -1226,12 +1226,14 @@ static bool gp_check_cursor_region(bContext *C, int mval[2])
 }
 
 /* Helper callback for drawing the cursor itself */
-static void gp_brush_drawcursor(bContext *C, int x, int y, void *UNUSED(customdata))
+static void gp_brush_drawcursor(bContext *C, int x, int y, void *customdata)
 {
 	Scene *scene = CTX_data_scene(C);
 	GP_BrushEdit_Settings *gset = &scene->toolsettings->gp_sculpt;
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
 	GP_EditBrush_Data *brush = NULL;
+	int *last_mouse_position = customdata;
+
 	if ((gpd) && (gpd->flag & GP_DATA_STROKE_WEIGHTMODE)) {
 		brush = &gset->brush[gset->weighttype];
 	}
@@ -1254,12 +1256,14 @@ static void gp_brush_drawcursor(bContext *C, int x, int y, void *UNUSED(customda
 
 	/* for paint use paint brush size and color */
 	if (gpd->flag & GP_DATA_STROKE_PAINTMODE) {
+		paintbrush = BKE_gpencil_brush_getactive(scene->toolsettings);
 		/* while drawing hide */
-		if (gpd->sbuffer_size > 0) {
+		if ((gpd->sbuffer_size > 0) && 
+			(paintbrush) && ((paintbrush->flag & GP_BRUSH_LAZY_MOUSE) == 0)) 
+		{
 			return;
 		}
 
-		paintbrush = BKE_gpencil_brush_getactive(scene->toolsettings);
 		if (paintbrush) {
 			if ((paintbrush->flag & GP_BRUSH_ENABLE_CURSOR) == 0) {
 				return;
@@ -1300,7 +1304,12 @@ static void gp_brush_drawcursor(bContext *C, int x, int y, void *UNUSED(customda
 
 	/* Inner Ring: Color from UI panel */
 	immUniformColor4f(color[0], color[1], color[2], 0.8f);
-	imm_draw_circle_wire_2d(pos, x, y, radius, 40);
+	if ((paintbrush) && (paintbrush->flag & GP_BRUSH_LAZY_MOUSE)) {
+		imm_draw_circle_fill_2d(pos, x, y, radius, 40);
+	}
+	else {
+		imm_draw_circle_wire_2d(pos, x, y, radius, 40);
+	}
 	/* Outer Ring: Dark color for contrast on light backgrounds (e.g. gray on white) */
 	mul_v3_v3fl(darkcolor, color, 0.40f);
 	immUniformColor4f(darkcolor[0], darkcolor[1], darkcolor[2], 0.8f);
@@ -1310,13 +1319,35 @@ static void gp_brush_drawcursor(bContext *C, int x, int y, void *UNUSED(customda
 
 	glDisable(GL_BLEND);
 	glDisable(GL_LINE_SMOOTH);
+
+	/* Draw line for lazy mouse */
+	if (last_mouse_position) {
+		glEnable(GL_LINE_SMOOTH);
+		glEnable(GL_BLEND);
+
+		unsigned int pos = GWN_vertformat_attr_add(immVertexFormat(), "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
+		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+		immUniformColor4f(color[0], color[1], color[2], 0.8f);
+
+		immBegin(GWN_PRIM_LINES, 2);
+		immVertex2f(pos, x, y);
+		immVertex2f(pos, last_mouse_position[0], last_mouse_position[1]);
+		immEnd();
+
+		immUnbindProgram();
+
+		glDisable(GL_BLEND);
+		glDisable(GL_LINE_SMOOTH);
+	}
+
 }
 
 /* Turn brush cursor in on/off */
-void ED_gpencil_toggle_brush_cursor(bContext *C, bool enable)
+void ED_gpencil_toggle_brush_cursor(bContext *C, bool enable, void *customdata)
 {
 	Scene *scene = CTX_data_scene(C);
 	GP_BrushEdit_Settings *gset = &scene->toolsettings->gp_sculpt;
+	int *lastpost = customdata;
 
 	if (gset->paintcursor && !enable) {
 		/* clear cursor */
@@ -1333,7 +1364,7 @@ void ED_gpencil_toggle_brush_cursor(bContext *C, bool enable)
 		/* enable cursor */
 		gset->paintcursor = WM_paint_cursor_activate(CTX_wm_manager(C),
 			NULL,
-			gp_brush_drawcursor, NULL);
+			gp_brush_drawcursor, (lastpost) ? customdata : NULL);
 	}
 }
 

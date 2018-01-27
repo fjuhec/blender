@@ -409,6 +409,16 @@ class GreasePencilBrushPanel:
             row = layout.row(align=False)
             row.prop(context.tool_settings, "use_gpencil_draw_onback", text="Draw on Back")
 
+            if brush.fill_only is False:
+                row = layout.row(align=True)
+                row.prop(brush, "use_lazy_mouse", text="Lazy Mouse")
+                if brush.use_lazy_mouse:
+                    row = layout.row(align=True)
+                    row.prop(brush, "lazy_radius")
+                    row = layout.row(align=True)
+                    row.prop(brush, "lazy_factor", slider=True)
+
+
 class GreasePencilBrushOptionsPanel:
     # subclass must set
     # bl_space_type = 'IMAGE_EDITOR'

@@ -280,13 +280,23 @@ static void gp_get_3d_reference(tGPsdata *p, float vec[3])
 /* check if the current mouse position is suitable for adding a new point */
 static bool gp_stroke_filtermval(tGPsdata *p, const int mval[2], int pmval[2])
 {
+	bGPDbrush *brush = p->brush;
 	int dx = abs(mval[0] - pmval[0]);
 	int dy = abs(mval[1] - pmval[1]);
 
 	/* if buffer is empty, just let this go through (i.e. so that dots will work) */
-	if (p->gpd->sbuffer_size == 0)
+	if (p->gpd->sbuffer_size == 0) {
 		return true;
-
+	}
+	/* if lazy mouse, check minimum distance */
+	else if (brush->flag & GP_BRUSH_LAZY_MOUSE) {
+		if ((dx * dx + dy * dy) > (brush->lazy_radius * brush->lazy_radius)) {
+			return true;
+		}
+		else {
+			return false;
+		}
+	}
 	/* check if mouse moved at least certain distance on both axes (best case)
 	 *	- aims to eliminate some jitter-noise from input when trying to draw straight lines freehand
 	 */
@@ -484,6 +494,59 @@ static void copy_v2float_v2int(float r[2], const int a[2])
 	r[1] = (float)a[1];
 }
 
+/**
+* Apply smooth while drawing
+*
+* This smooth allows the artist to get a feedback of the smooth process and
+* reduces the stroke changes when apply the post stroke smooth.
+*
+* \param gpd              Current gp datablock
+* \param inf              Amount of smoothing to apply
+*/
+static bool gp_smooth_buffer_point(bGPdata *gpd, float inf)
+{
+	tGPspoint *pt, *pta, *ptb;
+	float fpt[2], fpta[2], fptb[2];
+	float estimated_co[2] = { 0.0f };
+	float sco[3] = { 0.0f };
+
+	/* the influence never can be 1. We keep the range between 0 and 1 on the UI for
+	* consistency, but internally never can be 1 because then the estimated position
+	* would be used always and this makes impossible to draw.
+	* We adjust between 0 and 0.8 that gets good results
+	*/
+	inf *= 0.8f;
+
+	/* Do nothing if not enough points to smooth out */
+	if (gpd->sbuffer_size < 3) {
+		return false;
+	}
+
+	int i = gpd->sbuffer_size - 1;
+
+	/* points used as reference */
+	pta = (tGPspoint *)gpd->sbuffer + i - 2;
+	ptb = (tGPspoint *)gpd->sbuffer + i - 1;
+
+	/* current point */
+	pt = (tGPspoint *)gpd->sbuffer + i;
+
+	/* compute estimated position projecting over last two points vector the
+	* vector to new point.
+	*/
+	copy_v2float_v2int(fpta, &pta->x);
+	copy_v2float_v2int(fptb, &ptb->x);
+	copy_v2float_v2int(fpt, &pt->x);
+	float lambda = closest_to_line_v2(estimated_co, fpt, fpta, fptb);
+	if (lambda > 0.0f) {
+		/* blend between original and optimal smoothed coordinate */
+		interp_v2_v2v2(fpt, fpt, estimated_co, 1.0f - inf);
+		copy_v2int_v2float(&pt->x, fpt);
+	}
+
+	return true;
+}
+
 /* add current stroke-point to buffer (returns whether point was successfully added) */
 static short gp_stroke_addpoint(
         tGPsdata *p, const int mval[2], float pressure, double curtime)
@@ -602,6 +665,11 @@ static short gp_stroke_addpoint(
 		
 		/* increment counters */
 		gpd->sbuffer_size++;
+
+		/* apply dynamic smooth to point if lazy mouse */
+		if (brush->flag & GP_BRUSH_LAZY_MOUSE) {
+			gp_smooth_buffer_point(gpd, brush->lazy_factor);
+		}
 
 		/* check if another operation can still occur */
 		if (gpd->sbuffer_size == GP_STROKE_BUFFER_MAX)
@@ -2018,6 +2086,7 @@ static void gpencil_draw_exit(bContext *C, wmOperator *op)
 		/* cleanup */
 		gp_paint_cleanup(p);
 		gp_session_cleanup(p);
+		ED_gpencil_toggle_brush_cursor(C, true, NULL);
 
 		/* finally, free the temp data */
 		MEM_freeN(p);
@@ -2127,7 +2196,7 @@ static void gpencil_draw_status_indicators(tGPsdata *p)
 /* ------------------------------- */
 
 /* create a new stroke point at the point indicated by the painting context */
-static void gpencil_draw_apply(wmOperator *op, tGPsdata *p, const Depsgraph *depsgraph)
+static void gpencil_draw_apply(bContext *C, wmOperator *op, tGPsdata *p, const Depsgraph *depsgraph)
 {
 	/* handle drawing/erasing -> test for erasing first */
 	if (p->paintmode == GP_PAINTMODE_ERASER) {
@@ -2178,11 +2247,15 @@ static void gpencil_draw_apply(wmOperator *op, tGPsdata *p, const Depsgraph *dep
 		p->mvalo[1] = p->mval[1];
 		p->opressure = p->pressure;
 		p->ocurtime = p->curtime;
+		
+		bGPdata *gpd = p->gpd;
+		tGPspoint *pt = (tGPspoint *)gpd->sbuffer + gpd->sbuffer_size - 1;
+		ED_gpencil_toggle_brush_cursor(C, true, &pt->x);
 	}
 }
 
 /* handle draw event */
-static void gpencil_draw_apply_event(wmOperator *op, const wmEvent *event, const Depsgraph *depsgraph)
+static void gpencil_draw_apply_event(bContext *C, wmOperator *op, const wmEvent *event, const Depsgraph *depsgraph)
 {
 	tGPsdata *p = op->customdata;
 	PointerRNA itemptr;
@@ -2303,7 +2376,7 @@ static void gpencil_draw_apply_event(wmOperator *op, const wmEvent *event, const
 	RNA_float_set(&itemptr, "time", p->curtime - p->inittime);
 	
 	/* apply the current latest drawing point */
-	gpencil_draw_apply(op, p, depsgraph);
+	gpencil_draw_apply(C, op, p, depsgraph);
 
 	/* force refresh */
 	ED_region_tag_redraw(p->ar); /* just active area for now, since doing whole screen is too slow */
@@ -2368,7 +2441,7 @@ static int gpencil_draw_exec(bContext *C, wmOperator *op)
 		}
 		
 		/* apply this data as necessary now (as per usual) */
-		gpencil_draw_apply(op, p, depsgraph);
+		gpencil_draw_apply(C, op, p, depsgraph);
 	}
 	RNA_END;
 		
@@ -2424,7 +2497,7 @@ static int gpencil_draw_invoke(bContext *C, wmOperator *op, const wmEvent *event
 	 *       or unintentionally if the user scrolls outside the area)...
 	 */
 	gpencil_draw_cursor_set(p);
-	ED_gpencil_toggle_brush_cursor(C, true);
+	ED_gpencil_toggle_brush_cursor(C, true, NULL);
 
 	/* only start drawing immediately if we're allowed to do so... */
 	if (RNA_boolean_get(op->ptr, "wait_for_input") == false) {
@@ -2433,7 +2506,7 @@ static int gpencil_draw_invoke(bContext *C, wmOperator *op, const wmEvent *event
 		p->status = GP_STATUS_PAINTING;
 
 		/* handle the initial drawing - i.e. for just doing a simple dot */
-		gpencil_draw_apply_event(op, event, CTX_data_depsgraph(C));
+		gpencil_draw_apply_event(C, op, event, CTX_data_depsgraph(C));
 		op->flag |= OP_IS_MODAL_CURSOR_REGION;
 	}
 	else {
@@ -2796,7 +2869,7 @@ static int gpencil_draw_modal(bContext *C, wmOperator *op, const wmEvent *event)
 		if (ELEM(event->type, MOUSEMOVE, INBETWEEN_MOUSEMOVE) || (p->flags & GP_PAINTFLAG_FIRSTRUN)) {
 			/* handle drawing event */
 			/* printf("\t\tGP - add point\n"); */
-			gpencil_draw_apply_event(op, event, CTX_data_depsgraph(C));
+			gpencil_draw_apply_event(C, op, event, CTX_data_depsgraph(C));
 
 			/* finish painting operation if anything went wrong just now */
 			if (p->status == GP_STATUS_ERROR) {

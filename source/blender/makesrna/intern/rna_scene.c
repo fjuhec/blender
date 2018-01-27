@@ -2328,6 +2328,18 @@ static void rna_def_gpencil_brush(BlenderRNA *brna)
 		"Number of simplify steps (large values reduce fill accuracy)");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, NULL);
 
+	prop = RNA_def_property(srna, "lazy_radius", PROP_INT, PROP_NONE);
+	RNA_def_property_int_sdna(prop, NULL, "lazy_radius");
+	RNA_def_property_range(prop, 1, 200);
+	RNA_def_property_ui_text(prop, "Radius", "Minimum distance from last point before stroke continues");
+	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, NULL);
+
+	prop = RNA_def_property(srna, "lazy_factor", PROP_FLOAT, PROP_FACTOR);
+	RNA_def_property_float_sdna(prop, NULL, "lazy_factor");
+	RNA_def_property_range(prop, 0.5, 1.0);
+	RNA_def_property_ui_text(prop, "Factor", "Higher values give a smoother stroke");
+	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, NULL);
+
 	/* Flags */
 	prop = RNA_def_property(srna, "use_pressure", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_BRUSH_USE_PRESSURE);
@@ -2358,6 +2370,11 @@ static void rna_def_gpencil_brush(BlenderRNA *brna)
 	RNA_def_property_ui_icon(prop, ICON_PARTICLES, 0);
 	RNA_def_property_ui_text(prop, "Random Strength", "Use random value for strength");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, NULL);
+
+	prop = RNA_def_property(srna, "use_lazy_mouse", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_BRUSH_LAZY_MOUSE);
+	RNA_def_property_boolean_default(prop, true);
+	RNA_def_property_ui_text(prop, "Lazy Mouse", "Draw lines with a delay to allow smooth strokes");
 
 	/* Cursor Color */
 	static float default_1[3] = { 1.0f, 1.0f, 1.0f };

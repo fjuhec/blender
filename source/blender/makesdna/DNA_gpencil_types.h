@@ -129,6 +129,9 @@ typedef struct bGPDbrush {
 	int   fill_simplylvl;     /* number of simplify steps */
 	int   fill_draw_mode;     /* type of control lines drawing mode */
 	int   icon;               /* icon identifier */
+
+	int   lazy_radius;        /* distance to last point to create new point */
+	float lazy_factor;        /* factor of smooth */
 	char  pad[4];
 } bGPDbrush;
 
@@ -156,6 +159,8 @@ typedef enum eGPDbrush_Flag {
 	GP_BRUSH_FILL_ALLOW_STROKEONLY = (1 << 9),
 	/* show fill help lines */
 	GP_BRUSH_FILL_SHOW_HELPLINES = (1 << 10),
+	/* lazy mouse */
+	GP_BRUSH_LAZY_MOUSE = (1 << 11),
 } eGPDbrush_Flag;
 
 /* ***************************************** */

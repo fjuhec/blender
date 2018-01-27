@@ -1618,17 +1618,17 @@ static bool ed_object_select_pick(
 			if (((oldbasact) && oldbasact->object->type == OB_GPENCIL) || (basact->object->type == OB_GPENCIL)) {
 				/* set cursor */
 				if (basact->object->mode == OB_MODE_GPENCIL_PAINT) {
-					ED_gpencil_toggle_brush_cursor(C, true);
+					ED_gpencil_toggle_brush_cursor(C, true, NULL);
 				}
 				else if (basact->object->mode == OB_MODE_GPENCIL_SCULPT) {
-					ED_gpencil_toggle_brush_cursor(C, true);
+					ED_gpencil_toggle_brush_cursor(C, true, NULL);
 				}
 				else if (basact->object->mode == OB_MODE_GPENCIL_WEIGHT) {
-					ED_gpencil_toggle_brush_cursor(C, true);
+					ED_gpencil_toggle_brush_cursor(C, true, NULL);
 				}
 				else {
 					/* TODO: maybe is better use restore */
-					ED_gpencil_toggle_brush_cursor(C, false);
+					ED_gpencil_toggle_brush_cursor(C, false, NULL);
 				}
 				/* set workspace mode */
 				BKE_workspace_object_mode_set(CTX_wm_workspace(C), scene, basact->object->mode);

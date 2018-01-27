@@ -367,7 +367,7 @@ void ED_gp_project_point_to_plane(struct Object *ob, struct RegionView3D *rv3d, 
 void ED_gp_get_drawing_reference(struct View3D *v3d, struct Scene *scene, struct Object *ob, struct bGPDlayer *gpl, char align_flag, float vec[3]);
 
 /* set sculpt cursor */
-void ED_gpencil_toggle_brush_cursor(struct bContext *C, bool enable);
+void ED_gpencil_toggle_brush_cursor(struct bContext *C, bool enable, void *customdata);
 
 /* vertex groups */
 void ED_gpencil_vgroup_assign(struct bContext *C, struct Object *ob, float weight);

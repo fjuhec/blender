@@ -1239,7 +1239,7 @@ static bool gpsculpt_brush_init(bContext *C, wmOperator *op)
 	/* setup cursor drawing */
 	//WM_cursor_modal_set(CTX_wm_window(C), BC_CROSSCURSOR);
 	if (gso->sa->spacetype != SPACE_VIEW3D) {
-		ED_gpencil_toggle_brush_cursor(C, true);
+		ED_gpencil_toggle_brush_cursor(C, true, NULL);
 	}
 	return true;
 }
@@ -1281,7 +1281,7 @@ static void gpsculpt_brush_exit(bContext *C, wmOperator *op)
 	ED_area_headerprint(CTX_wm_area(C), NULL);
 	WM_cursor_modal_restore(win);
 	if (gso->sa->spacetype != SPACE_VIEW3D) {
-		ED_gpencil_toggle_brush_cursor(C, false);
+		ED_gpencil_toggle_brush_cursor(C, false, NULL);
 	}
 	
 	/* disable temp invert flag */

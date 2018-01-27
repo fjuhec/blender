@@ -144,7 +144,7 @@ static int ed_undo_step(bContext *C, int step, const char *undoname)
 	}
 	if (sa && (sa->spacetype == SPACE_VIEW3D)) {
 		if (obact && (obact->type == OB_GPENCIL)) {
-			ED_gpencil_toggle_brush_cursor(C, false);
+			ED_gpencil_toggle_brush_cursor(C, false, NULL);
 		}
 	}
 
@@ -226,16 +226,16 @@ static int ed_undo_step(bContext *C, int step, const char *undoname)
 		if (obact && (obact->type == OB_GPENCIL)) {
 			/* set cursor */
 			if (obact->mode == OB_MODE_GPENCIL_PAINT) {
-				ED_gpencil_toggle_brush_cursor(C, true);
+				ED_gpencil_toggle_brush_cursor(C, true, NULL);
 			}
 			else if (obact->mode == OB_MODE_GPENCIL_SCULPT) {
-				ED_gpencil_toggle_brush_cursor(C, true);
+				ED_gpencil_toggle_brush_cursor(C, true, NULL);
 			}
 			else if (obact->mode == OB_MODE_GPENCIL_WEIGHT) {
-				ED_gpencil_toggle_brush_cursor(C, true);
+				ED_gpencil_toggle_brush_cursor(C, true, NULL);
 			}
 			else {
-				ED_gpencil_toggle_brush_cursor(C, false);
+				ED_gpencil_toggle_brush_cursor(C, false, NULL);
 			}
 			/* set workspace mode */
 			BKE_workspace_object_mode_set(CTX_wm_workspace(C), scene, obact->mode);

@@ -557,6 +557,9 @@ static void gp_brush_curvemap_reset(CurveMap *cuma, int preset)
 /* create a set of default drawing brushes with predefined presets */
 void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 {
+	#define LAZY_RADIUS 40
+	#define LAZY_FACTOR 0.9f
+
 	bGPDbrush *brush;
 	CurveMapping *custom_curve;
 	float curcolor[3] = { 1.0f, 1.0f, 1.0f };
@@ -588,6 +591,9 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	copy_v3_v3(brush->curcolor, curcolor);
 	brush->icon = GPBRUSH_PENCIL;
 
+	brush->lazy_radius = LAZY_RADIUS;
+	brush->lazy_factor = LAZY_FACTOR;
+
 	/* Pen brush */
 	brush = BKE_gpencil_brush_addnew(ts, "Pen", true);
 	brush->thickness = 30.0f;
@@ -615,6 +621,9 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	copy_v3_v3(brush->curcolor, curcolor);
 	brush->icon = GPBRUSH_PEN;
 
+	brush->lazy_radius = LAZY_RADIUS;
+	brush->lazy_factor = LAZY_FACTOR;
+
 	/* Ink brush */
 	brush = BKE_gpencil_brush_addnew(ts, "Ink", true);
 	brush->thickness = 60.0f;
@@ -639,6 +648,9 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->draw_random_sub = 0.0f;
 	copy_v3_v3(brush->curcolor, curcolor);
 	brush->icon = GPBRUSH_INK;
+
+	brush->lazy_radius = LAZY_RADIUS;
+	brush->lazy_factor = LAZY_FACTOR;
 
 	/* Curve */
 	custom_curve = brush->cur_sensitivity;
@@ -670,6 +682,9 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->draw_random_sub = 0.0f;
 	copy_v3_v3(brush->curcolor, curcolor);
 	brush->icon = GPBRUSH_INKNOISE;
+
+	brush->lazy_radius = LAZY_RADIUS;
+	brush->lazy_factor = LAZY_FACTOR;
 
 	/* Curve */
 	custom_curve = brush->cur_sensitivity;
@@ -703,6 +718,9 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	copy_v3_v3(brush->curcolor, curcolor);
 	brush->icon = GPBRUSH_BLOCK;
 
+	brush->lazy_radius = LAZY_RADIUS;
+	brush->lazy_factor = LAZY_FACTOR;
+
 	/* Marker brush */
 	brush = BKE_gpencil_brush_addnew(ts, "Marker", false);
 	brush->thickness = 80.0f;
@@ -728,6 +746,9 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	copy_v3_v3(brush->curcolor, curcolor);
 	brush->icon = GPBRUSH_MARKER;
 
+	brush->lazy_radius = LAZY_RADIUS;
+	brush->lazy_factor = LAZY_FACTOR;
+
 	/* Fill brush */
 	brush = BKE_gpencil_brush_addnew(ts, "Fill", false);
 	brush->thickness = 1.0f;
@@ -743,6 +764,9 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->thick_smoothfac = 1.0f;
 	brush->thick_smoothlvl = 3;
 	brush->sublevel = 1;
+
+	brush->lazy_radius = LAZY_RADIUS;
+	brush->lazy_factor = LAZY_FACTOR;
 
 	brush->draw_strength = 1.0f;
 	copy_v3_v3(brush->curcolor, curcolor);

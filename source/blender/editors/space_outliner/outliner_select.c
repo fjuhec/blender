@@ -203,19 +203,19 @@ static eOLDrawState tree_element_set_active_object(
 		/* set cursor */
 		if (ob->mode == OB_MODE_GPENCIL_PAINT) {
 			WM_cursor_modal_set(CTX_wm_window(C), BC_PAINTBRUSHCURSOR);
-			ED_gpencil_toggle_brush_cursor(C, false);
+			ED_gpencil_toggle_brush_cursor(C, false, NULL);
 		}
 		else if (ob->mode == OB_MODE_GPENCIL_SCULPT) {
 			WM_cursor_modal_set(CTX_wm_window(C), BC_CROSSCURSOR);
-			ED_gpencil_toggle_brush_cursor(C, true);
+			ED_gpencil_toggle_brush_cursor(C, true, NULL);
 		}
 		else if (ob->mode == OB_MODE_GPENCIL_WEIGHT) {
 			WM_cursor_modal_set(CTX_wm_window(C), BC_CROSSCURSOR);
-			ED_gpencil_toggle_brush_cursor(C, true);
+			ED_gpencil_toggle_brush_cursor(C, true, NULL);
 		}
 		else {
 			WM_cursor_modal_set(CTX_wm_window(C), CURSOR_STD);
-			ED_gpencil_toggle_brush_cursor(C, false);
+			ED_gpencil_toggle_brush_cursor(C, false, NULL);
 		}
 		/* set workspace mode */
 		BKE_workspace_object_mode_set(CTX_wm_workspace(C), scene, ob->mode);
