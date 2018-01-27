@@ -238,7 +238,6 @@ void OUTLINER_OT_collection_link(wmOperatorType *ot)
 	/* api callbacks */
 	ot->exec = collection_link_exec;
 	ot->invoke = collection_link_invoke;
-	ot->poll = view_layer_editor_poll;
 
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
@@ -315,14 +314,12 @@ void OUTLINER_OT_collection_unlink(wmOperatorType *ot)
 
 static int collection_new_exec(bContext *C, wmOperator *UNUSED(op))
 {
-	SpaceOops *soops = CTX_wm_space_outliner(C);
 	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	SceneCollection *scene_collection = BKE_collection_add(&scene->id, NULL, COLLECTION_TYPE_NONE, NULL);
 	BKE_collection_link(view_layer, scene_collection);
 
-	outliner_cleanup_tree(soops);
 	DEG_relations_tag_update(bmain);
 	WM_main_add_notifier(NC_SCENE | ND_LAYER, NULL);
 	return OPERATOR_FINISHED;
