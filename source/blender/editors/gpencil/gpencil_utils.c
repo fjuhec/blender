@@ -1285,7 +1285,7 @@ static void gp_brush_drawcursor(bContext *C, int x, int y, void *customdata)
 			 * The decision was to use a fix size, instead of  paintbrush->thickness value. 
 			 */
 			radius = 3.0f;
-			if (palcolor) {
+			if ((palcolor) && (GPENCIL_PAINT_MODE(gpd))) {
 				copy_v3_v3(color, palcolor->rgb);
 			}
 			else {
@@ -1321,7 +1321,8 @@ static void gp_brush_drawcursor(bContext *C, int x, int y, void *customdata)
 
 	/* Inner Ring: Color from UI panel */
 	immUniformColor4f(color[0], color[1], color[2], 0.8f);
-	if ((palcolor) || ((paintbrush) && (paintbrush->flag & GP_BRUSH_LAZY_MOUSE))) {
+	if ((palcolor) && (GPENCIL_PAINT_MODE(gpd))) 
+	{
 		imm_draw_circle_fill_2d(pos, x, y, radius, 40);
 	}
 	else {

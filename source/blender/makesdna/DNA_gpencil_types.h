@@ -563,6 +563,7 @@ typedef enum eGP_BrushIcons {
 /* Macros to check grease pencil modes */
 #define GPENCIL_ANY_MODE(gpd) ((gpd) && (gpd->flag & (GP_DATA_STROKE_PAINTMODE | GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE))) 
 #define GPENCIL_ANY_EDIT_MODE(gpd) ((gpd) && (gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE))) 
+#define GPENCIL_PAINT_MODE(gpd) ((gpd) && (gpd->flag & (GP_DATA_STROKE_PAINTMODE))) 
 #define GPENCIL_SCULPT_OR_WEIGHT_MODE(gpd) ((gpd) && (gpd->flag & (GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE))) 
 #define GPENCIL_NONE_EDIT_MODE(gpd) ((gpd) && ((gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE)) == 0))
 
