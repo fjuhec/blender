@@ -34,6 +34,7 @@ set(INC_SYS
 )
 
 set(SRC
+	groom_hair.c
 	groom_ops.c
 	editgroom.c
 	editgroom_region.c

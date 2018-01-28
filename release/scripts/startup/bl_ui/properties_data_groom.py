@@ -57,7 +57,6 @@ class DATA_PT_context_groom(DataButtonsPanel, Panel):
 
     def draw(self, context):
         layout = self.layout
-
         ob = context.object
         groom = context.groom
         space = context.space_data
@@ -93,6 +92,16 @@ class DATA_PT_groom(DataButtonsPanel, Panel):
         col.prop(groom, "curve_resolution", "Resolution")
 
 
+class DATA_PT_groom_hair(DataButtonsPanel, Panel):
+    bl_label = "Hair"
+
+    def draw(self, context):
+        layout = self.layout
+        groom = context.groom
+
+        layout.operator("groom.hair_distribute")
+
+
 class DATA_PT_groom_draw_settings(DataButtonsPanel, Panel):
     bl_label = "Draw Settings"
 
@@ -116,6 +125,7 @@ classes = (
     GROOM_UL_bundles,
     DATA_PT_context_groom,
     DATA_PT_groom,
+    DATA_PT_groom_hair,
     DATA_PT_groom_draw_settings,
     DATA_PT_custom_props_groom,
 )

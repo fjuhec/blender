@@ -56,6 +56,8 @@ void ED_operatortypes_groom(void)
 	WM_operatortype_append(GROOM_OT_region_bind);
 
 	WM_operatortype_append(GROOM_OT_select_all);
+	
+	WM_operatortype_append(GROOM_OT_hair_distribute);
 }
 
 void ED_operatormacros_groom(void)

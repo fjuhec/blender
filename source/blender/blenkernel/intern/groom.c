@@ -493,6 +493,17 @@ void BKE_groom_bundle_unbind(GroomBundle *bundle)
 }
 
 
+/* === Hair System === */
+
+void BKE_groom_distribute_follicles(Groom *groom, unsigned int seed, int count)
+{
+	BLI_assert(groom->scalp_object);
+	DerivedMesh *scalp = object_get_derived_final(groom->scalp_object, false);
+	
+	BKE_hair_generate_follicles(groom->hair_system, scalp, seed, count);
+}
+
+
 /* === Curve cache === */
 
 /* forward differencing method for cubic polynomial eval */

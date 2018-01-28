@@ -69,6 +69,11 @@ bool BKE_groom_bundle_bind(struct Groom *groom, struct GroomBundle *bundle, bool
 void BKE_groom_bundle_unbind(struct GroomBundle *bundle);
 
 
+/* === Hair System === */
+
+void BKE_groom_distribute_follicles(struct Groom *groom, unsigned int seed, int count);
+
+
 /* === Depsgraph evaluation === */
 
 void BKE_groom_eval_geometry(const struct EvaluationContext *eval_ctx, struct Groom *groom);
