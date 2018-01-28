@@ -307,9 +307,7 @@ static bool gp_stroke_filtermval(tGPsdata *p, const int mval[2], int pmval[2])
 	}
 	/* if lazy mouse, check minimum distance */
 	else if (brush->flag & GP_BRUSH_LAZY_MOUSE) {
-		if ((dx * dx + dy * dy) > (brush->lazy_radius * brush->lazy_radius) || 
-			(p->gpd->sbuffer_size < 3))
-		{
+		if ((dx * dx + dy * dy) > (brush->lazy_radius * brush->lazy_radius)) {
 			return true;
 		}
 		else {
