@@ -97,6 +97,7 @@ void GROOM_OT_hair_distribute(wmOperatorType *ot)
 	ot->idname = "GROOM_OT_hair_distribute";
 
 	/* api callbacks */
+	ot->invoke = WM_operator_props_popup_confirm;
 	ot->exec = hair_distribute_exec;
 	ot->poll = groom_object_poll;
 

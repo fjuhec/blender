@@ -499,6 +499,10 @@ void BKE_groom_distribute_follicles(Groom *groom, unsigned int seed, int count)
 {
 	BLI_assert(groom->scalp_object);
 	DerivedMesh *scalp = object_get_derived_final(groom->scalp_object, false);
+	if (!scalp)
+	{
+		return;
+	}
 	
 	BKE_hair_generate_follicles(groom->hair_system, scalp, seed, count);
 }
