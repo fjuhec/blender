@@ -111,6 +111,7 @@ void VIEW3D_OT_zoom_border(struct wmOperatorType *ot);
 void VIEW3D_OT_toggle_render(struct wmOperatorType *ot);
 
 void view3d_boxview_copy(ScrArea *sa, ARegion *ar);
+void view3d_boxview_sync(ScrArea *sa, ARegion *ar);
 
 void view3d_orbit_apply_dyn_ofs(
         float r_ofs[3], const float ofs_old[3], const float viewquat_old[4],
@@ -276,8 +277,12 @@ void ED_view3d_smooth_view_force_finish(
         struct bContext *C,
         struct View3D *v3d, struct ARegion *ar);
 
-void view3d_winmatrix_set(const struct Depsgraph *depsgraph, ARegion *ar, const View3D *v3d, const rcti *rect);
-void view3d_viewmatrix_set(const struct EvaluationContext *eval_ctx, Scene *scene, const View3D *v3d, RegionView3D *rv3d);
+void view3d_winmatrix_set(
+        const struct Depsgraph *depsgraph,
+        ARegion *ar, const View3D *v3d, const rcti *rect);
+void view3d_viewmatrix_set(
+        const struct EvaluationContext *eval_ctx, Scene *scene,
+        const View3D *v3d, RegionView3D *rv3d, const float rect_scale[2]);
 
 void fly_modal_keymap(struct wmKeyConfig *keyconf);
 void walk_modal_keymap(struct wmKeyConfig *keyconf);
@@ -292,7 +297,7 @@ void view3d_buttons_register(struct ARegionType *art);
 
 /* view3d_camera_control.c */
 struct View3DCameraControl *ED_view3d_cameracontrol_acquire(
-        const struct bContext *C, Scene *scene, View3D *v3d, RegionView3D *rv3d,
+        const struct EvaluationContext *eval_ctx, Scene *scene, View3D *v3d, RegionView3D *rv3d,
         const bool use_parent_root);
 void ED_view3d_cameracontrol_update(
         struct View3DCameraControl *vctrl,

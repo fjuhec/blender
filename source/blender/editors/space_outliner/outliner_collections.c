@@ -58,9 +58,6 @@ static int collection_delete_exec(struct bContext *C, struct wmOperator *op);
 
 static LayerCollection *outliner_collection_active(bContext *C)
 {
-	TODO_LAYER_OPERATORS;
-	/* consider that we may have overrides or objects active
-	 * leading to no active collections */
 	return CTX_data_layer_collection(C);
 }
 
@@ -78,15 +75,6 @@ SceneCollection *outliner_scene_collection_from_tree_element(TreeElement *te)
 
 	return NULL;
 }
-
-#if 0
-static CollectionOverride *outliner_override_active(bContext *UNUSED(C))
-{
-	TODO_LAYER_OPERATORS;
-	TODO_LAYER_OVERRIDE;
-	return NULL;
-}
-#endif
 
 /* -------------------------------------------------------------------- */
 /* Poll functions. */
@@ -250,7 +238,6 @@ void OUTLINER_OT_collection_link(wmOperatorType *ot)
 	/* api callbacks */
 	ot->exec = collection_link_exec;
 	ot->invoke = collection_link_invoke;
-	ot->poll = view_layer_editor_poll;
 
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
@@ -327,14 +314,12 @@ void OUTLINER_OT_collection_unlink(wmOperatorType *ot)
 
 static int collection_new_exec(bContext *C, wmOperator *UNUSED(op))
 {
-	SpaceOops *soops = CTX_wm_space_outliner(C);
 	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	SceneCollection *scene_collection = BKE_collection_add(&scene->id, NULL, COLLECTION_TYPE_NONE, NULL);
 	BKE_collection_link(view_layer, scene_collection);
 
-	outliner_cleanup_tree(soops);
 	DEG_relations_tag_update(bmain);
 	WM_main_add_notifier(NC_SCENE | ND_LAYER, NULL);
 	return OPERATOR_FINISHED;
@@ -572,46 +557,6 @@ void OUTLINER_OT_collection_objects_remove(wmOperatorType *ot)
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
-/**********************************************************************************/
-
-/**
- * Returns true is selected element is a collection
- */
-static int collection_override_new_poll(bContext *(C))
-{
-#ifdef TODO_LAYER_OVERRIDE
-	/* disable for now, since it's not implemented */
-	(void) C;
-	return 0;
-#else
-	return outliner_collection_active(C) ? 1 : 0;
-#endif
-}
-
-static int collection_override_new_invoke(bContext *UNUSED(C), wmOperator *op, const wmEvent *UNUSED(event))
-{
-	TODO_LAYER_OPERATORS;
-	TODO_LAYER_OVERRIDE;
-	BKE_report(op->reports, RPT_ERROR, "OUTLINER_OT_collections_override_new not implemented yet");
-	return OPERATOR_CANCELLED;
-}
-
-/* in the middle of renames remove s */
-void OUTLINER_OT_collection_override_new(wmOperatorType *ot)
-{
-	/* identifiers */
-	ot->name = "New Override";
-	ot->idname = "OUTLINER_OT_collection_override_new";
-	ot->description = "Add a new override to the active collection";
-
-	/* api callbacks */
-	ot->invoke = collection_override_new_invoke;
-	ot->poll = collection_override_new_poll;
-
-	/* flags */
-	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
-}
-
 struct CollectionDeleteData {
 	Scene *scene;
 	SpaceOops *soops;
@@ -665,8 +610,6 @@ static int collection_delete_exec(bContext *C, wmOperator *UNUSED(op))
 	struct CollectionDeleteData data = {.scene = scene, .soops = soops};
 
 	data.collections_to_delete = BLI_gset_ptr_new(__func__);
-
-	TODO_LAYER_OVERRIDE; /* handle overrides */
 
 	/* We first walk over and find the SceneCollections we actually want to delete (ignoring duplicates). */
 	outliner_tree_traverse(soops, &soops->tree, 0, TSE_SELECTED, collection_find_data_to_delete, &data);
@@ -814,40 +757,3 @@ void OUTLINER_OT_collection_toggle(wmOperatorType *ot)
 #undef ACTION_TOGGLE
 #undef ACTION_ENABLE
 #undef ACTION_DISABLE
-
-/* -------------------------------------------------------------------- */
-
-static int stubs_invoke(bContext *UNUSED(C), wmOperator *op, const wmEvent *UNUSED(event))
-{
-	TODO_LAYER_OPERATORS;
-	BKE_report(op->reports, RPT_ERROR, "Operator not implemented yet");
-	return OPERATOR_CANCELLED;
-}
-
-void OUTLINER_OT_collection_objects_select(wmOperatorType *ot)
-{
-	/* identifiers */
-	ot->name = "Select Objects";
-	ot->idname = "OUTLINER_OT_collection_objects_select";
-	ot->description = "Select collection objects";
-
-	/* api callbacks */
-	ot->invoke = stubs_invoke;
-
-	/* flags */
-	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
-}
-
-void OUTLINER_OT_collection_objects_deselect(wmOperatorType *ot)
-{
-	/* identifiers */
-	ot->name = "Deselect Objects";
-	ot->idname = "OUTLINER_OT_collection_objects_deselect";
-	ot->description = "Deselect collection objects";
-
-	/* api callbacks */
-	ot->invoke = stubs_invoke;
-
-	/* flags */
-	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
-}

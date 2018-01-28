@@ -448,6 +448,7 @@ struct bNodeSocket *nodeInsertStaticSocket(struct bNodeTree *ntree, struct bNode
                                            struct bNodeSocket *next_sock, const char *identifier, const char *name);
 void nodeRemoveSocket(struct bNodeTree *ntree, struct bNode *node, struct bNodeSocket *sock);
 void nodeRemoveAllSockets(struct bNodeTree *ntree, struct bNode *node);
+void nodeModifySocketType(struct bNodeTree *ntree, struct bNode *node, struct bNodeSocket *sock, int type, int subtype);
 
 struct bNode	*nodeAddNode(const struct bContext *C, struct bNodeTree *ntree, const char *idname);
 struct bNode	*nodeAddStaticNode(const struct bContext *C, struct bNodeTree *ntree, int type);
@@ -799,6 +800,7 @@ struct ShadeResult;
 #define SH_NODE_BSDF_PRINCIPLED         193
 #define SH_NODE_EEVEE_SPECULAR			195
 #define SH_NODE_BEVEL                   197
+#define SH_NODE_DISPLACEMENT            198
 
 /* custom defines options for Material node */
 #define SH_NODE_MAT_DIFF   1

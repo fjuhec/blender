@@ -445,6 +445,10 @@ void WM_manipulatormap_draw(
         wmManipulatorMap *mmap, const bContext *C,
         const eWM_ManipulatorMapDrawStep drawstep)
 {
+	if (!WM_manipulator_context_check_drawstep(C, drawstep)) {
+		return;
+	}
+
 	ListBase draw_manipulators = {NULL};
 
 	manipulatormap_prepare_drawing(mmap, C, &draw_manipulators, drawstep);
@@ -550,6 +554,7 @@ static wmManipulator *manipulator_find_intersected_3d(
 	};
 
 	*r_part = 0;
+
 	/* set up view matrices */
 	view3d_operator_needs_opengl(C);
 
@@ -588,6 +593,11 @@ wmManipulator *wm_manipulatormap_highlight_find(
 {
 	wmManipulator *mpr = NULL;
 	ListBase visible_3d_manipulators = {NULL};
+	bool do_step[WM_MANIPULATORMAP_DRAWSTEP_MAX];
+
+	for (int i = 0; i < ARRAY_SIZE(do_step); i++) {
+		do_step[i] = WM_manipulator_context_check_drawstep(C, i);
+	}
 
 	for (wmManipulatorGroup *mgroup = mmap->groups.first; mgroup; mgroup = mgroup->next) {
 
@@ -599,25 +609,28 @@ wmManipulator *wm_manipulatormap_highlight_find(
 		}
 
 		if (wm_manipulatorgroup_is_visible(mgroup, C)) {
+			eWM_ManipulatorMapDrawStep step;
 			if (mgroup->type->flag & WM_MANIPULATORGROUPTYPE_3D) {
-				if ((mmap->update_flag[WM_MANIPULATORMAP_DRAWSTEP_3D] & MANIPULATORMAP_IS_REFRESH_CALLBACK) &&
-				    mgroup->type->refresh)
-				{
-					mgroup->type->refresh(C, mgroup);
-					/* cleared below */
-				}
-				wm_manipulatorgroup_intersectable_manipulators_to_list(mgroup, &visible_3d_manipulators);
+				step = WM_MANIPULATORMAP_DRAWSTEP_3D;
 			}
 			else {
-				if ((mmap->update_flag[WM_MANIPULATORMAP_DRAWSTEP_2D] & MANIPULATORMAP_IS_REFRESH_CALLBACK) &&
-				    mgroup->type->refresh)
+				step = WM_MANIPULATORMAP_DRAWSTEP_2D;
+			}
+
+			if (do_step[step]) {
+				if ((mmap->update_flag[step] & MANIPULATORMAP_IS_REFRESH_CALLBACK) &&
+					(mgroup->type->refresh != NULL))
 				{
 					mgroup->type->refresh(C, mgroup);
 					/* cleared below */
 				}
-
-				if ((mpr = wm_manipulatorgroup_find_intersected_mainpulator(mgroup, C, event, r_part))) {
-					break;
+				if (step == WM_MANIPULATORMAP_DRAWSTEP_3D) {
+					wm_manipulatorgroup_intersectable_manipulators_to_list(mgroup, &visible_3d_manipulators);
+				}
+				else if (step == WM_MANIPULATORMAP_DRAWSTEP_2D) {
+					if ((mpr = wm_manipulatorgroup_find_intersected_manipulator(mgroup, C, event, r_part))) {
+						break;
+					}
 				}
 			}
 		}
@@ -891,7 +904,7 @@ void wm_manipulatormap_modal_set(
 		BLI_assert(mmap->mmap_context.modal == NULL);
 		wmWindow *win = CTX_wm_window(C);
 
-		WM_manipulatormap_tooltip_clear(C, mmap);
+		WM_tooltip_clear(C, win);
 
 		if (mpr->type->invoke &&
 		    (mpr->type->modal || mpr->custom_modal))
@@ -1005,45 +1018,18 @@ void WM_manipulatormap_message_subscribe(
  *
  * \{ */
 
-
-void WM_manipulatormap_tooltip_create(
-        bContext *C, wmManipulatorMap *mmap)
+struct ARegion *WM_manipulatormap_tooltip_init(
+        struct bContext *C, struct ARegion *ar, bool *r_exit_on_event)
 {
-	WM_manipulatormap_tooltip_clear(C, mmap);
-	if (mmap->mmap_context.highlight) {
-		mmap->mmap_context.tooltip = UI_tooltip_create_from_manipulator(C, mmap->mmap_context.highlight);
+	wmManipulatorMap *mmap = ar->manipulator_map;
+	*r_exit_on_event = true;
+	if (mmap) {
+		wmManipulator *mpr = mmap->mmap_context.highlight;
+		if (mpr) {
+			return UI_tooltip_create_from_manipulator(C, mpr);
+		}
 	}
-}
-
-void WM_manipulatormap_tooltip_clear(
-        bContext *C, wmManipulatorMap *mmap)
-{
-	if (mmap->mmap_context.tooltip_timer != NULL) {
-		wmWindowManager *wm = CTX_wm_manager(C);
-		wmWindow *win = CTX_wm_window(C);
-		WM_event_remove_timer(wm, win, mmap->mmap_context.tooltip_timer);
-		mmap->mmap_context.tooltip_timer = NULL;
-	}
-	if (mmap->mmap_context.tooltip != NULL) {
-		UI_tooltip_free(C, mmap->mmap_context.tooltip);
-		mmap->mmap_context.tooltip = NULL;
-	}
-}
-
-void WM_manipulatormap_tooltip_timer_init(
-        bContext *C, wmManipulatorMap *mmap)
-{
-	if (mmap->mmap_context.tooltip_timer == NULL) {
-		wmWindowManager *wm = CTX_wm_manager(C);
-		wmWindow *win = CTX_wm_window(C);
-		/* TODO: BUTTON_TOOLTIP_DELAY */
-		mmap->mmap_context.tooltip_timer = WM_event_add_timer(wm, win, TIMER, UI_TOOLTIP_DELAY);
-	}
-}
-
-const void *WM_manipulatormap_tooltip_timer_get(wmManipulatorMap *mmap)
-{
-	return mmap->mmap_context.tooltip_timer;
+	return NULL;
 }
 
 /** \} */ /* wmManipulatorMapType */

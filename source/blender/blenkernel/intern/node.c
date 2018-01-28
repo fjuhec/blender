@@ -506,6 +506,26 @@ static bNodeSocket *make_socket(bNodeTree *ntree, bNode *UNUSED(node), int in_ou
 	return sock;
 }
 
+void nodeModifySocketType(bNodeTree *ntree, bNode *UNUSED(node), bNodeSocket *sock,
+                          int type, int subtype)
+{
+	const char *idname = nodeStaticSocketType(type, subtype);
+
+	if (!idname) {
+		printf("Error: static node socket type %d undefined\n", type);
+		return;
+	}
+
+	if (sock->default_value) {
+		MEM_freeN(sock->default_value);
+		sock->default_value = NULL;
+	}
+
+	sock->type = type;
+	BLI_strncpy(sock->idname, idname, sizeof(sock->idname));
+	node_socket_set_typeinfo(ntree, sock, nodeSocketTypeFind(idname));
+}
+
 bNodeSocket *nodeAddSocket(bNodeTree *ntree, bNode *node, int in_out, const char *idname,
                            const char *identifier, const char *name)
 {
@@ -3569,6 +3589,7 @@ static void registerShaderNodes(void)
 
 	register_node_type_sh_attribute();
 	register_node_type_sh_bevel();
+	register_node_type_sh_displacement();
 	register_node_type_sh_geometry();
 	register_node_type_sh_light_path();
 	register_node_type_sh_light_falloff();
