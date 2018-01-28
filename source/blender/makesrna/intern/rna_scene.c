@@ -2336,8 +2336,8 @@ static void rna_def_gpencil_brush(BlenderRNA *brna)
 
 	prop = RNA_def_property(srna, "lazy_factor", PROP_FLOAT, PROP_FACTOR);
 	RNA_def_property_float_sdna(prop, NULL, "lazy_factor");
-	RNA_def_property_range(prop, 0.5, 1.0);
-	RNA_def_property_ui_text(prop, "Factor", "Higher values give a more precise stroke");
+	RNA_def_property_range(prop, 0.5, 0.99);
+	RNA_def_property_ui_text(prop, "Factor", "Higher values give a smoother stroke");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, NULL);
 
 	/* Flags */

@@ -275,6 +275,12 @@ static void gp_get_3d_reference(tGPsdata *p, float vec[3])
 	ED_gp_get_drawing_reference(v3d, p->scene, ob, p->gpl, *p->align_flag, vec);
 }
 
+static void copy_v2int_v2int(int r[2], const int a[2])
+{
+	r[0] = (int)roundf(a[0]);
+	r[1] = (int)roundf(a[1]);
+}
+
 static void copy_v2int_v2float(int r[2], const float a[2])
 {
 	r[0] = (int)roundf(a[0]);
@@ -285,43 +291,6 @@ static void copy_v2float_v2int(float r[2], const int a[2])
 {
 	r[0] = (float)a[0];
 	r[1] = (float)a[1];
-}
-
-/* helper to determine if the stroke angle is sharp for lazy mouse */
-static bool gp_is_sharp(tGPsdata *p, const int mval[2])
-{
-	bGPdata *gpd = p->gpd;
-	float fpta[2], fptb[2], fpt[2];
-
-	/* first points are always valid */
-	if (p->gpd->sbuffer_size < 2) {
-		return true;
-	}
-	int i = gpd->sbuffer_size - 1;
-
-	/* points used as reference */
-	tGPspoint *pta = (tGPspoint *)gpd->sbuffer + i - 1;
-	tGPspoint *ptb = (tGPspoint *)gpd->sbuffer + i;
-
-	copy_v2float_v2int(fpta, &pta->x);
-	copy_v2float_v2int(fptb, &ptb->x);
-	fpt[0] = mval[0];
-	fpt[1] = mval[1];
-
-	float v1[2];
-	sub_v2_v2v2(v1, fptb, fpta);
-	normalize_v2(v1);
-
-	float v2[2];
-	sub_v2_v2v2(v2, fpt, fptb);
-	normalize_v2(v2);
-
-	float angle = dot_v2v2(v1, v2);
-	if (angle < 0.1f) {
-		return true;
-	}
-
-	return false;
 }
 
 /* Stroke Editing ---------------------------- */
@@ -338,13 +307,15 @@ static bool gp_stroke_filtermval(tGPsdata *p, const int mval[2], int pmval[2])
 	}
 	/* if lazy mouse, check minimum distance */
 	else if (brush->flag & GP_BRUSH_LAZY_MOUSE) {
-		/* the angle is used to allow draw with sharp angles */
 		if ((dx * dx + dy * dy) > (brush->lazy_radius * brush->lazy_radius) || 
-			(gp_is_sharp(p, mval))) 
+			(p->gpd->sbuffer_size < 3))
 		{
 			return true;
 		}
 		else {
+			/* If the mouse is moving within the radius of the last move,
+			* don't update the mouse position. This allows sharp turns. */
+			copy_v2int_v2int(p->mval, p->mvalo);
 			return false;
 		}
 	}
@@ -533,52 +504,6 @@ static void gp_brush_angle(bGPdata *gpd, bGPDbrush *brush, tGPspoint *pt, const 
 
 }
 
-/**
-* Apply smooth while drawing
-*
-* This smooth allows the artist to get a feedback of the smooth process and
-* reduces the stroke changes when apply the post stroke smooth.
-*
-* \param gpd              Current gp datablock
-* \param inf              Amount of smoothing to apply
-*/
-static bool gp_smooth_buffer_point(bGPdata *gpd, float inf)
-{
-	tGPspoint *pt, *pta, *ptb;
-	float fpt[2], fpta[2], fptb[2];
-	float estimated_co[2] = { 0.0f };
-	float sco[3] = { 0.0f };
-
-	/* Do nothing if not enough points to smooth out */
-	if (gpd->sbuffer_size < 3) {
-		return false;
-	}
-
-	int i = gpd->sbuffer_size - 1;
-
-	/* points used as reference */
-	pta = (tGPspoint *)gpd->sbuffer + i - 2;
-	ptb = (tGPspoint *)gpd->sbuffer + i - 1;
-
-	/* current point */
-	pt = (tGPspoint *)gpd->sbuffer + i;
-
-	/* compute estimated position projecting over last two points vector the
-	* vector to new point.
-	*/
-	copy_v2float_v2int(fpta, &pta->x);
-	copy_v2float_v2int(fptb, &ptb->x);
-	copy_v2float_v2int(fpt, &pt->x);
-	float lambda = closest_to_line_v2(estimated_co, fpt, fpta, fptb);
-	if (lambda > 0.0f) {
-		/* blend between original and optimal smoothed coordinate */
-		interp_v2_v2v2(fpt, fpt, estimated_co, 1.0f - inf);
-		copy_v2int_v2float(&pt->x, fpt);
-	}
-
-	return true;
-}
-
 /* add current stroke-point to buffer (returns whether point was successfully added) */
 static short gp_stroke_addpoint(
         tGPsdata *p, const int mval[2], float pressure, double curtime)
@@ -697,11 +622,6 @@ static short gp_stroke_addpoint(
 		
 		/* increment counters */
 		gpd->sbuffer_size++;
-
-		/* apply dynamic smooth to point if lazy mouse */
-		if (brush->flag & GP_BRUSH_LAZY_MOUSE) {
-			gp_smooth_buffer_point(gpd, brush->lazy_factor);
-		}
 
 		/* check if another operation can still occur */
 		if (gpd->sbuffer_size == GP_STROKE_BUFFER_MAX)
@@ -2242,6 +2162,17 @@ static void gpencil_draw_apply(bContext *C, wmOperator *op, tGPsdata *p, const D
 	}
 	/* only add current point to buffer if mouse moved (even though we got an event, it might be just noise) */
 	else if (gp_stroke_filtermval(p, p->mval, p->mvalo)) {
+
+		/* if lazy mouse, interpolate the last and current mouse positions */
+		if (p->brush->flag & GP_BRUSH_LAZY_MOUSE) {
+			float now_mouse[2];
+			float last_mouse[2];
+			copy_v2float_v2int(now_mouse, p->mval);
+			copy_v2float_v2int(last_mouse, p->mvalo);
+			interp_v2_v2v2(now_mouse, now_mouse, last_mouse, p->brush->lazy_factor);
+			copy_v2int_v2float(p->mval, now_mouse);
+		}
+
 		/* try to add point */
 		short ok = gp_stroke_addpoint(p, p->mval, p->pressure, p->curtime);
 
@@ -2964,12 +2895,6 @@ static int gpencil_draw_modal(bContext *C, wmOperator *op, const wmEvent *event)
 	/* process last operations before exiting */
 	switch (estate) {
 		case OPERATOR_FINISHED:
-			/* if lazy mouse, add the last point always */
-			if (p->brush->flag & GP_BRUSH_LAZY_MOUSE) {
-				p->brush->flag &= ~GP_BRUSH_LAZY_MOUSE;
-				gpencil_draw_apply_event(C, op, event, CTX_data_depsgraph(C));
-				p->brush->flag |= GP_BRUSH_LAZY_MOUSE;
-			}
 			/* one last flush before we're done */
 			gpencil_draw_exit(C, op);
 			WM_event_add_notifier(C, NC_GPENCIL | NA_EDITED, NULL);
