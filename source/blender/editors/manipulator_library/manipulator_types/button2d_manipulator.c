@@ -133,7 +133,6 @@ static void button2d_draw_intern(
 
 	if (select == false) {
 		if (button->shape_batch[0] != NULL) {
-			glEnable(GL_POLYGON_SMOOTH);
 			glEnable(GL_LINE_SMOOTH);
 			glLineWidth(1.0f);
 			for (uint i = 0; i < ARRAY_SIZE(button->shape_batch) && button->shape_batch[i]; i++) {
@@ -146,7 +145,6 @@ static void button2d_draw_intern(
 				GWN_batch_uniform_4f(button->shape_batch[i], "color", UNPACK4(color));
 				GWN_batch_draw(button->shape_batch[i]);
 			}
-			glDisable(GL_POLYGON_SMOOTH);
 			glDisable(GL_LINE_SMOOTH);
 			gpuPopMatrix();
 		}
@@ -206,9 +204,12 @@ static int manipulator_button2d_test_select(
 	return -1;
 }
 
-static int manipulator_button2d_cursor_get(wmManipulator *UNUSED(mpr))
+static int manipulator_button2d_cursor_get(wmManipulator *mpr)
 {
-	return BC_HANDCURSOR;
+	if (RNA_boolean_get(mpr->ptr, "show_drag")) {
+		return BC_NSEW_SCROLLCURSOR;
+	}
+	return CURSOR_STD;
 }
 
 static void manipulator_button2d_free(wmManipulator *mpr)
@@ -248,6 +249,9 @@ static void MANIPULATOR_WT_button_2d(wmManipulatorType *wt)
 
 	/* Passed to 'GPU_batch_from_poly_2d_encoded' */
 	RNA_def_property(wt->srna, "shape", PROP_STRING, PROP_BYTESTRING);
+
+	/* Currently only used for cursor display. */
+	RNA_def_boolean(wt->srna, "show_drag", true, "Show Drag", "");
 }
 
 void ED_manipulatortypes_button_2d(void)

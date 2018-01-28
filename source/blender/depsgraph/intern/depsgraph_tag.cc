@@ -263,6 +263,47 @@ void depsgraph_update_editors_tag(Main *bmain, Depsgraph *graph, ID *id)
 	deg_editors_id_update(&update_ctx, id);
 }
 
+void depsgraph_tag_component(Depsgraph *graph,
+                             IDDepsNode *id_node,
+                             eDepsNode_Type component_type,
+                             eDepsOperation_Code operation_code)
+{
+	ComponentDepsNode *component_node =
+	        id_node->find_component(component_type);
+	if (component_node == NULL) {
+		return;
+	}
+	if (operation_code == DEG_OPCODE_OPERATION) {
+		component_node->tag_update(graph);
+	}
+	else {
+		OperationDepsNode *operation_node =
+		        component_node->find_operation(operation_code);
+		if (operation_node != NULL) {
+			operation_node->tag_update(graph);
+		}
+	}
+}
+
+/* This is a tag compatibility with legacy code.
+ *
+ * Mainly, old code was tagging object with OB_RECALC_DATA tag to inform
+ * that object's data datablock changed. Now API expects that ID is given
+ * explicitly, but not all areas are aware of this yet.
+ */
+void deg_graph_id_tag_legacy_compat(Main *bmain,
+                                    ID *id,
+                                    eDepsgraph_Tag tag)
+{
+	if (tag == DEG_TAG_GEOMETRY && GS(id->name) == ID_OB) {
+		Object *object = (Object *)id;
+		ID *data_id = (ID *)object->data;
+		if (data_id != NULL) {
+			DEG_id_tag_update_ex(bmain, data_id, 0);
+		}
+	}
+}
+
 void deg_graph_id_tag_update_single_flag(Main *bmain,
                                          Depsgraph *graph,
                                          ID *id,
@@ -304,21 +345,13 @@ void deg_graph_id_tag_update_single_flag(Main *bmain,
 		id_node->tag_update(graph);
 	}
 	else {
-		ComponentDepsNode *component_node =
-		        id_node->find_component(component_type);
-		if (component_node != NULL) {
-			if (operation_code == DEG_OPCODE_OPERATION) {
-				component_node->tag_update(graph);
-			}
-			else {
-				OperationDepsNode *operation_node =
-				        component_node->find_operation(operation_code);
-				if (operation_node != NULL) {
-					operation_node->tag_update(graph);
-				}
-			}
-		}
+		depsgraph_tag_component(graph, id_node, component_type, operation_code);
 	}
+	/* TODO(sergey): Get rid of this once all areas are using proper data ID
+	 * for tagging.
+	 */
+	deg_graph_id_tag_legacy_compat(bmain, id, tag);
+
 }
 
 void deg_graph_id_tag_update(Main *bmain, Depsgraph *graph, ID *id, int flag)
@@ -347,6 +380,20 @@ void deg_graph_id_tag_update(Main *bmain, Depsgraph *graph, ID *id, int flag)
 	id_tag_update_ntree_special(bmain, graph, id, flag);
 }
 
+/* TODO(sergey): Consider storing scene and view layer at depsgraph allocation
+ * time.
+ */
+void deg_ensure_scene_view_layer(Depsgraph *graph,
+                                 Scene *scene,
+                                 ViewLayer *view_layer)
+{
+	if (!graph->need_update) {
+		return;
+	}
+	graph->scene = scene;
+	graph->view_layer = view_layer;
+}
+
 void deg_id_tag_update(Main *bmain, ID *id, int flag)
 {
 	deg_graph_id_tag_update(bmain, NULL, id, flag);
@@ -357,6 +404,11 @@ void deg_id_tag_update(Main *bmain, ID *id, int flag)
 			                                             view_layer,
 			                                             false);
 			if (depsgraph != NULL) {
+				/* Make sure depsgraph is pointing to a correct scene and
+				 * view layer. This is mainly required in cases when depsgraph
+				 * was not built yet.
+				 */
+				deg_ensure_scene_view_layer(depsgraph, scene, view_layer);
 				deg_graph_id_tag_update(bmain, depsgraph, id, flag);
 			}
 		}

@@ -710,8 +710,10 @@ static void write_iddata(void *wd, const ID *id)
 
 static void write_previews(WriteData *wd, const PreviewImage *prv_orig)
 {
-	/* Never write previews when doing memsave (i.e. undo/redo)! */
-	if (prv_orig && !wd->current) {
+	/* Note we write previews also for undo steps. It takes up some memory,
+	 * but not doing so would causes all previews to be re-rendered after
+	 * undo which is too expensive. */
+	if (prv_orig) {
 		PreviewImage prv = *prv_orig;
 
 		/* don't write out large previews if not requested */
@@ -2620,7 +2622,6 @@ static void write_scene_collection(WriteData *wd, SceneCollection *sc)
 	writestruct(wd, DATA, SceneCollection, 1, sc);
 
 	writelist(wd, DATA, LinkData, &sc->objects);
-	writelist(wd, DATA, LinkData, &sc->filter_objects);
 
 	for (SceneCollection *nsc = sc->scene_collections.first; nsc; nsc = nsc->next) {
 		write_scene_collection(wd, nsc);
@@ -3919,6 +3920,7 @@ static void write_global(WriteData *wd, int fileflags, Main *mainvar)
 	memset(fg.pad, 0, sizeof(fg.pad));
 	memset(fg.filename, 0, sizeof(fg.filename));
 	memset(fg.build_hash, 0, sizeof(fg.build_hash));
+	fg.pad1 = NULL;
 
 	current_screen_compat(mainvar, is_undo, &screen, &scene, &render_layer);
 
