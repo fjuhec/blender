@@ -1282,13 +1282,16 @@ static void gp_brush_drawcursor(bContext *C, int x, int y, void *customdata)
 			}
 			/* after some testing, display the size of the brush is not practical because 
 			 * is too disruptive and the size of cursor does not change with zoom factor.
-			 * The decision was to use a fix size, instead of  paintbrush->thickness value. 
+			 * The decision was to use a fix size, instead of paintbrush->thickness value. 
 			 */
-			radius = 3.0f;
-			if ((palcolor) && (GPENCIL_PAINT_MODE(gpd))) {
+			if ((palcolor) && (GPENCIL_PAINT_MODE(gpd)) && 
+				((paintbrush->flag & GP_BRUSH_LAZY_MOUSE) == 0)) 
+			{
+				radius = 2.0f;
 				copy_v3_v3(color, palcolor->rgb);
 			}
 			else {
+				radius = 5.0f;
 				copy_v3_v3(color, paintbrush->curcolor);
 			}
 		}
@@ -1321,7 +1324,8 @@ static void gp_brush_drawcursor(bContext *C, int x, int y, void *customdata)
 
 	/* Inner Ring: Color from UI panel */
 	immUniformColor4f(color[0], color[1], color[2], 0.8f);
-	if ((palcolor) && (GPENCIL_PAINT_MODE(gpd))) 
+	if ((palcolor) && (GPENCIL_PAINT_MODE(gpd)) && 
+		((paintbrush->flag & GP_BRUSH_LAZY_MOUSE) == 0))
 	{
 		imm_draw_circle_fill_2d(pos, x, y, radius, 40);
 	}
