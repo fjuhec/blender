@@ -549,13 +549,6 @@ static bool gp_smooth_buffer_point(bGPdata *gpd, float inf)
 	float estimated_co[2] = { 0.0f };
 	float sco[3] = { 0.0f };
 
-	/* the influence never can be 1. We keep the range between 0 and 1 on the UI for
-	* consistency, but internally never can be 1 because then the estimated position
-	* would be used always and this makes impossible to draw.
-	* We adjust between 0 and 0.8 that gets good results
-	*/
-	inf *= 0.8f;
-
 	/* Do nothing if not enough points to smooth out */
 	if (gpd->sbuffer_size < 3) {
 		return false;
