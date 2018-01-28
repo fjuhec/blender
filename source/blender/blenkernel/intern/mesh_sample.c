@@ -836,7 +836,10 @@ static void generator_poissondisk_free(MSurfaceSampleGenerator_PoissonDisk *gen)
 	MEM_freeN(gen);
 }
 
-static void generator_poissondisk_uniform_sample_eval(void *userdata, const int iter)
+static void generator_poissondisk_uniform_sample_eval(
+        void *__restrict userdata,
+        const int iter,
+        const ParallelRangeTLS *__restrict UNUSED(tls))
 {
 	void *(*ptrs)[3] = userdata;
 	MSurfaceSampleGenerator_PoissonDisk *gen = (*ptrs)[0];
@@ -961,7 +964,12 @@ static void generator_poissondisk_bind(MSurfaceSampleGenerator_PoissonDisk *gen)
 		MeshSample *samples = MEM_mallocN(sizeof(MeshSample) * gen->num_uniform_samples, "poisson disk uniform samples");
 		BKE_mesh_sample_generate_batch(gen->uniform_gen, samples, (int)gen->num_uniform_samples);
 		void *ptrs[3] = { gen, samples, dm };
-		BLI_task_parallel_range(0, (int)gen->num_uniform_samples, &ptrs, generator_poissondisk_uniform_sample_eval, true);
+		{
+			ParallelRangeSettings settings;
+			BLI_parallel_range_settings_defaults(&settings);
+			settings.use_threading = true;
+			BLI_task_parallel_range(0, (int)gen->num_uniform_samples, &ptrs, generator_poissondisk_uniform_sample_eval, &settings);
+		}
 		MEM_freeN(samples);
 		
 		BKE_mesh_sample_generator_unbind(gen->uniform_gen);
