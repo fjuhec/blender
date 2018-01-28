@@ -1345,6 +1345,7 @@ static void gp_brush_drawcursor(bContext *C, int x, int y, void *customdata)
 
 		unsigned int pos = GWN_vertformat_attr_add(immVertexFormat(), "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
 		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+		copy_v3_v3(color, paintbrush->curcolor);
 		immUniformColor4f(color[0], color[1], color[2], 0.8f);
 
 		immBegin(GWN_PRIM_LINES, 2);
