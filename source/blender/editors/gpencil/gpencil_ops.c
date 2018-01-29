@@ -512,9 +512,6 @@ static void ed_keymap_gpencil_painting(wmKeyConfig *keyconf)
 	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_paintmode_toggle", TABKEY, KM_PRESS, KM_CTRL, 0);
 	RNA_int_set(kmi->ptr, "back", 1);
 
-	/* Selection */
-	ed_keymap_gpencil_selection(keymap);
-
 	/* Select drawing brush using index */
 	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_brush_select", ONEKEY, KM_PRESS, 0, 0);
 	RNA_int_set(kmi->ptr, "index", 0);
