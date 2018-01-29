@@ -552,5 +552,5 @@ void GPENCIL_OT_colorpick(wmOperatorType *ot)
 	ot->cancel = gpencil_colorpick_cancel;
 
 	/* flags */
-	ot->flag = OPTYPE_BLOCKING;
+	ot->flag = OPTYPE_UNDO | OPTYPE_BLOCKING;
 }
