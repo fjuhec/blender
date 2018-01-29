@@ -123,7 +123,8 @@ typedef enum eGPencil_PaintFlags {
  */
 typedef struct tGPsdata {
 	EvaluationContext eval_ctx;
-	
+	bContext *C;
+
 	Main *bmain;        /* main database pointer */
 	Scene *scene;       /* current scene from context */
 	struct Depsgraph *graph;
@@ -182,7 +183,7 @@ typedef struct tGPsdata {
 	bool no_fill;        /* the stroke is no fill mode */
 
 	short keymodifier;   /* key used for invoking the operator */
-	
+
 	ReportList *reports;
 } tGPsdata;
 
@@ -628,7 +629,7 @@ static short gp_stroke_addpoint(
 			return GP_STROKEADD_NORMAL;
 	}
 	else if (p->paintmode == GP_PAINTMODE_DRAW_POLY) {
-		
+
 		bGPDlayer *gpl = BKE_gpencil_layer_getactive(gpd);
 		/* get pointer to destination point */
 		pt = (tGPspoint *)(gpd->sbuffer);
@@ -812,6 +813,9 @@ static void gp_stroke_newfrombuffer(tGPsdata *p)
 	 * interactive behavior
 	 */
 	if (p->paintmode == GP_PAINTMODE_DRAW_POLY) {
+		/* be sure to hide any lazy cursor */
+		ED_gpencil_toggle_brush_cursor(p->C, true, NULL);
+
 		if (gp_stroke_added_check(p)) {
 			return;
 		}
@@ -1431,6 +1435,7 @@ static bool gp_session_initdata(bContext *C, wmOperator *op, tGPsdata *p)
 	
 	/* pass on current scene and window */
 	CTX_data_eval_ctx(C, &p->eval_ctx);
+	p->C = C;
 	p->bmain = CTX_data_main(C);
 	p->scene = CTX_data_scene(C);
 	p->graph = CTX_data_depsgraph(C);
