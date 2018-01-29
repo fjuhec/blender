@@ -107,34 +107,18 @@ static void gp_draw_color_name(tGPDpick *tgpk, tGPDpickColor *col, const uiFontS
 /* draw a pattern for alpha display */
 static void gp_draw_pattern_box(int xmin, int ymin, int xmax, int ymax)
 {
-	rcti box;
-	box.xmin = xmin;
-	box.ymin = ymin;
-	box.xmax = xmax;
-	box.ymax = ymax;
+	unsigned int position;
 
-	rcti rect;
-	const int lvl = 3;
-	const int size = (box.xmax - box.xmin) / lvl;
-	float gcolor[4] = { 0.6f, 0.6f, 0.6f, 0.5f };
+	Gwn_VertFormat *format = immVertexFormat();
+	position = GWN_vertformat_attr_add(format, "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
+	immBindBuiltinProgram(GPU_SHADER_2D_CHECKER);
 
-	/* draw a pattern of boxes */
-	int i = 1;
-	for (int a = 0; a < lvl; a++) {
-		for (int b = 0; b < lvl; b++) {
-			rect.xmin = box.xmin + (size * a);
-			rect.xmax = rect.xmin + size;
-
-			rect.ymin = box.ymin + (size * b);
-			rect.ymax = rect.ymin + size;
-
-			if (i % 2 == 0) {
-				UI_draw_roundbox_4fv(true, rect.xmin, rect.ymin, rect.xmax, rect.ymax,
-									0.0f, gcolor);
-			}
-			i++;
-		}
-	}
+	/* Drawing the checkerboard. */
+	immUniform4f("color1", UI_ALPHA_CHECKER_DARK / 255.0f, UI_ALPHA_CHECKER_DARK / 255.0f, UI_ALPHA_CHECKER_DARK / 255.0f, 1.0f);
+	immUniform4f("color2", UI_ALPHA_CHECKER_LIGHT / 255.0f, UI_ALPHA_CHECKER_LIGHT / 255.0f, UI_ALPHA_CHECKER_LIGHT / 255.0f, 1.0f);
+	immUniform1i("size", 8);
+	immRectf(position, xmin, ymin, xmax, ymax);
+	immUnbindProgram();
 }
 
 /* draw a toolbar with all colors of the palette */
@@ -192,7 +176,7 @@ static void gpencil_draw_color_table(const bContext *UNUSED(C), tGPDpick *tgpk)
 		}
 		/* fill box */
 		UI_draw_roundbox_4fv(true, fbox.xmin, fbox.ymin, fbox.xmax, fbox.ymax, radius, wcolor);
-		gp_draw_pattern_box(fbox.xmin + 3, fbox.ymin + 3, fbox.xmax - 2, fbox.ymax - 2);
+		gp_draw_pattern_box(fbox.xmin + 2, fbox.ymin + 2, fbox.xmax - 2, fbox.ymax - 2);
 		UI_draw_roundbox_4fv(true, fbox.xmin, fbox.ymin, fbox.xmax, fbox.ymax,
 			radius, col->fill);
 		UI_draw_roundbox_4fv(false, fbox.xmin, fbox.ymin, fbox.xmax, fbox.ymax,
@@ -200,7 +184,7 @@ static void gpencil_draw_color_table(const bContext *UNUSED(C), tGPDpick *tgpk)
 
 		/* stroke box */
 		UI_draw_roundbox_4fv(true, sbox.xmin, sbox.ymin, sbox.xmax, sbox.ymax, radius, wcolor);
-		gp_draw_pattern_box(sbox.xmin + 3, sbox.ymin + 3, sbox.xmax - 2, sbox.ymax - 2);
+		gp_draw_pattern_box(sbox.xmin + 2, sbox.ymin + 2, sbox.xmax - 2, sbox.ymax - 2);
 		UI_draw_roundbox_4fv(true, sbox.xmin, sbox.ymin, sbox.xmax, sbox.ymax,
 			radius, col->rgba);
 		UI_draw_roundbox_4fv(false, sbox.xmin, sbox.ymin, sbox.xmax, sbox.ymax,
