@@ -1194,6 +1194,7 @@ static int gp_stroke_change_color_exec(bContext *C, wmOperator *UNUSED(op))
 		return OPERATOR_CANCELLED;
 	}
 
+	bool is_multiedit = (bool)GPENCIL_MULTIEDIT_SESSIONS_ON(gpd);
 	palette = palslot->palette;
 	color = BKE_palette_color_get_active(palette);
 	if (ELEM(NULL, color)) {
@@ -1201,29 +1202,41 @@ static int gp_stroke_change_color_exec(bContext *C, wmOperator *UNUSED(op))
 	}
 
 	/* loop all strokes */
-	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
-		/* only editable and visible layers are considered */
-		if (gpencil_layer_is_editable(gpl) && (gpl->actframe != NULL)) {
-			for (bGPDstroke *gps = gpl->actframe->strokes.last; gps; gps = gps->prev) {
-				/* only if selected */
-				if (gps->flag & GP_STROKE_SELECT) {
-					/* skip strokes that are invalid for current view */
-					if (ED_gpencil_stroke_can_use(C, gps) == false)
-						continue;
-					/* check if the color is editable */
-					if (ED_gpencil_stroke_color_use(gpl, gps) == false)
-						continue;
+	CTX_DATA_BEGIN(C, bGPDlayer *, gpl, editable_gpencil_layers)
+	{
+		bGPDframe *init_gpf = gpl->actframe;
+		if (is_multiedit) {
+			init_gpf = gpl->frames.first;
+		}
 
-					/* asign new color (only if different) */
-					if ((STREQ(gps->colorname, color->info) == false) || (gps->palcolor != color)) {
-						BLI_strncpy(gps->colorname, color->info, sizeof(gps->colorname));
-						gps->palette = palette;
-						gps->palcolor = color;
+		for (bGPDframe *gpf = init_gpf; gpf; gpf = gpf->next) {
+			if ((gpf == gpl->actframe) || ((gpf->flag & GP_FRAME_SELECT) && (is_multiedit))) {
+				if (gpf == NULL)
+					continue;
+
+				for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
+					/* only if selected */
+					if (gps->flag & GP_STROKE_SELECT) {
+						/* skip strokes that are invalid for current view */
+						if (ED_gpencil_stroke_can_use(C, gps) == false)
+							continue;
+						/* check if the color is editable */
+						if (ED_gpencil_stroke_color_use(gpl, gps) == false)
+							continue;
+
+						/* asign new color (only if different) */
+						if ((STREQ(gps->colorname, color->info) == false) || (gps->palcolor != color)) {
+							BLI_strncpy(gps->colorname, color->info, sizeof(gps->colorname));
+							gps->palette = palette;
+							gps->palcolor = color;
+						}
 					}
 				}
 			}
 		}
 	}
+	CTX_DATA_END;
+
 	/* notifiers */
 	BKE_gpencil_batch_cache_dirty(gpd);
 	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
