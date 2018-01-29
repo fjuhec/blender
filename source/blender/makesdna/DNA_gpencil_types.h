@@ -161,6 +161,8 @@ typedef enum eGPDbrush_Flag {
 	GP_BRUSH_FILL_SHOW_HELPLINES = (1 << 10),
 	/* lazy mouse */
 	GP_BRUSH_LAZY_MOUSE = (1 << 11),
+	/* lazy mouse override (internal only) */
+	GP_BRUSH_LAZY_MOUSE_TEMP = (1 << 12),
 } eGPDbrush_Flag;
 
 /* ***************************************** */
@@ -566,6 +568,6 @@ typedef enum eGP_BrushIcons {
 #define GPENCIL_PAINT_MODE(gpd) ((gpd) && (gpd->flag & (GP_DATA_STROKE_PAINTMODE))) 
 #define GPENCIL_SCULPT_OR_WEIGHT_MODE(gpd) ((gpd) && (gpd->flag & (GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE))) 
 #define GPENCIL_NONE_EDIT_MODE(gpd) ((gpd) && ((gpd->flag & (GP_DATA_STROKE_EDITMODE | GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE)) == 0))
-
+#define GPENCIL_LAZY_MODE(brush, shift) ((brush) && ((brush->flag & GP_BRUSH_LAZY_MOUSE) && (shift == 0)) || (((brush->flag & GP_BRUSH_LAZY_MOUSE) == 0) && (shift == 1))) 
 
 #endif /*  __DNA_GPENCIL_TYPES_H__ */

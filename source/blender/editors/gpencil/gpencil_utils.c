@@ -1271,7 +1271,8 @@ static void gp_brush_drawcursor(bContext *C, int x, int y, void *customdata)
 		paintbrush = BKE_gpencil_brush_getactive(scene->toolsettings);
 		/* while drawing hide */
 		if ((gpd->sbuffer_size > 0) && 
-			(paintbrush) && ((paintbrush->flag & GP_BRUSH_LAZY_MOUSE) == 0)) 
+			(paintbrush) && ((paintbrush->flag & GP_BRUSH_LAZY_MOUSE) == 0) &&
+			((paintbrush->flag & GP_BRUSH_LAZY_MOUSE_TEMP) == 0))
 		{
 			return;
 		}
@@ -1286,6 +1287,7 @@ static void gp_brush_drawcursor(bContext *C, int x, int y, void *customdata)
 			 */
 			if ((palcolor) && (GPENCIL_PAINT_MODE(gpd)) && 
 				((paintbrush->flag & GP_BRUSH_LAZY_MOUSE) == 0) &&
+				((paintbrush->flag & GP_BRUSH_LAZY_MOUSE_TEMP) == 0) &&
 				((paintbrush->flag & GP_BRUSH_FILL_ONLY) == 0))
 			{
 				radius = 2.0f;
@@ -1327,6 +1329,7 @@ static void gp_brush_drawcursor(bContext *C, int x, int y, void *customdata)
 	immUniformColor4f(color[0], color[1], color[2], 0.8f);
 	if ((palcolor) && (GPENCIL_PAINT_MODE(gpd)) && 
 		((paintbrush->flag & GP_BRUSH_LAZY_MOUSE) == 0) &&
+		((paintbrush->flag & GP_BRUSH_LAZY_MOUSE_TEMP) == 0) &&
 		((paintbrush->flag & GP_BRUSH_FILL_ONLY) == 0))
 	{
 		imm_draw_circle_fill_2d(pos, x, y, radius, 40);

@@ -183,6 +183,7 @@ typedef struct tGPsdata {
 	bool no_fill;        /* the stroke is no fill mode */
 
 	short keymodifier;   /* key used for invoking the operator */
+	short shift;         /* shift modifier flag */
 
 	ReportList *reports;
 } tGPsdata;
@@ -301,13 +302,15 @@ static bool gp_stroke_filtermval(tGPsdata *p, const int mval[2], int pmval[2])
 	bGPDbrush *brush = p->brush;
 	int dx = abs(mval[0] - pmval[0]);
 	int dy = abs(mval[1] - pmval[1]);
+	brush->flag &= ~GP_BRUSH_LAZY_MOUSE_TEMP;
 
 	/* if buffer is empty, just let this go through (i.e. so that dots will work) */
 	if (p->gpd->sbuffer_size == 0) {
 		return true;
 	}
 	/* if lazy mouse, check minimum distance */
-	else if (brush->flag & GP_BRUSH_LAZY_MOUSE) {
+	else if (GPENCIL_LAZY_MODE(brush, p->shift)) {
+		brush->flag |= GP_BRUSH_LAZY_MOUSE_TEMP;
 		if ((dx * dx + dy * dy) > (brush->lazy_radius * brush->lazy_radius)) {
 			return true;
 		}
@@ -2153,6 +2156,9 @@ static void gpencil_draw_status_indicators(tGPsdata *p)
 /* create a new stroke point at the point indicated by the painting context */
 static void gpencil_draw_apply(bContext *C, wmOperator *op, tGPsdata *p, const Depsgraph *depsgraph)
 {
+	bGPdata *gpd = p->gpd;
+	tGPspoint *pt = NULL;
+
 	/* handle drawing/erasing -> test for erasing first */
 	if (p->paintmode == GP_PAINTMODE_ERASER) {
 		/* do 'live' erasing now */
@@ -2167,7 +2173,7 @@ static void gpencil_draw_apply(bContext *C, wmOperator *op, tGPsdata *p, const D
 	else if (gp_stroke_filtermval(p, p->mval, p->mvalo)) {
 
 		/* if lazy mouse, interpolate the last and current mouse positions */
-		if (p->brush->flag & GP_BRUSH_LAZY_MOUSE) {
+		if (GPENCIL_LAZY_MODE(p->brush, p->shift)) {
 			float now_mouse[2];
 			float last_mouse[2];
 			copy_v2float_v2int(now_mouse, p->mval);
@@ -2214,8 +2220,11 @@ static void gpencil_draw_apply(bContext *C, wmOperator *op, tGPsdata *p, const D
 		p->opressure = p->pressure;
 		p->ocurtime = p->curtime;
 		
-		bGPdata *gpd = p->gpd;
-		tGPspoint *pt = (tGPspoint *)gpd->sbuffer + gpd->sbuffer_size - 1;
+		pt = (tGPspoint *)gpd->sbuffer + gpd->sbuffer_size - 1;
+		ED_gpencil_toggle_brush_cursor(C, true, &pt->x);
+	}
+	else if ((p->brush->flag & GP_BRUSH_LAZY_MOUSE_TEMP) && (gpd->sbuffer_size > 0)){
+		pt = (tGPspoint *)gpd->sbuffer + gpd->sbuffer_size - 1;
 		ED_gpencil_toggle_brush_cursor(C, true, &pt->x);
 	}
 }
@@ -2233,7 +2242,8 @@ static void gpencil_draw_apply_event(bContext *C, wmOperator *op, const wmEvent 
 	 */
 	p->mval[0] = event->mval[0] + 1;
 	p->mval[1] = event->mval[1] + 1;
-	
+	p->shift = event->shift;
+
 	/* verify key status for straight lines */
 	if ((event->ctrl > 0) && (RNA_boolean_get(op->ptr, "no_straight") == false)) {
 		if (p->straight[0] == 0) {
