@@ -23,7 +23,6 @@
 #include "render/tables.h"
 
 #include "util/util_algorithm.h"
-#include "util/util_debug.h"
 #include "util/util_foreach.h"
 #include "util/util_math.h"
 #include "util/util_math_cdf.h"
@@ -311,6 +310,7 @@ void Film::device_update(Device *device, DeviceScene *dscene, Scene *scene)
 	/* update __data */
 	kfilm->exposure = exposure;
 	kfilm->pass_flag = 0;
+	kfilm->light_pass_flag = 0;
 	kfilm->pass_stride = 0;
 	kfilm->use_light_pass = use_light_visibility || use_sample_clamp;
 

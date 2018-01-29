@@ -67,6 +67,7 @@ typedef enum GPUTextureFormat {
 	GPU_RGBA8,
 	GPU_RG32F,
 	GPU_RG16F,
+	GPU_RG16I,
 	GPU_R32F,
 	GPU_R16F,
 	GPU_RG8,
@@ -82,7 +83,6 @@ typedef enum GPUTextureFormat {
 	GPU_RG32I,
 	GPU_RG32UI,
 	GPU_RG16,
-	GPU_RG16I,
 	GPU_RG16UI,
 	GPU_RG8I,
 	GPU_RG8UI,
@@ -152,6 +152,8 @@ GPUTexture *GPU_texture_create_2D(int w, int h, const float *pixels, char err_ou
 GPUTexture *GPU_texture_create_2D_custom(
         int w, int h, int channels, GPUTextureFormat data_type, const float *pixels, char err_out[256]);
 GPUTexture *GPU_texture_create_2D_multisample(int w, int h, const float *pixels, int samples, char err_out[256]);
+GPUTexture *GPU_texture_create_2D_custom_multisample(
+        int w, int h, int channels, GPUTextureFormat data_type, const float *pixels, int samples, char err_out[256]);
 GPUTexture *GPU_texture_create_2D_array_custom(
         int w, int h, int d, int channels, GPUTextureFormat data_type, const float *pixels, char err_out[256]);
 GPUTexture *GPU_texture_create_3D(int w, int h, int d, const float *pixels, char err_out[256]);

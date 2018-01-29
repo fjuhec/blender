@@ -48,11 +48,9 @@ extern "C" {
 
 #include "intern/nodes/deg_node.h"
 #include "intern/nodes/deg_node_operation.h"
+#include "intern/nodes/deg_node_time.h"
 
 #include "intern/depsgraph.h"
-
-/* Unfinished and unused, and takes quite some pre-processing time. */
-#undef USE_EVAL_PRIORITY
 
 /* ****************** */
 /* Evaluation Context */
@@ -85,11 +83,10 @@ void DEG_evaluation_context_init_from_scene(EvaluationContext *eval_ctx,
                                             eEvaluationMode mode)
 {
 	DEG_evaluation_context_init(eval_ctx, mode);
-	eval_ctx->depsgraph = BKE_scene_get_depsgraph(scene, view_layer, false);
+	eval_ctx->depsgraph = BKE_scene_get_depsgraph(scene, view_layer, true);
 	eval_ctx->view_layer = view_layer;
 	eval_ctx->engine_type = engine_type;
 	eval_ctx->ctime = BKE_scene_frame_get(scene);
-	BLI_assert(eval_ctx->depsgraph != NULL);
 }
 
 /* Free evaluation context. */

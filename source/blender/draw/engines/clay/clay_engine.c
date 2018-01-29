@@ -183,6 +183,7 @@ typedef struct CLAY_PrivateData {
 	DRWShadingGroup *depth_shgrp_cull;
 	DRWShadingGroup *depth_shgrp_cull_select;
 	DRWShadingGroup *depth_shgrp_cull_active;
+	bool enable_ao;
 } CLAY_PrivateData; /* Transient data */
 
 /* Functions */
@@ -317,7 +318,7 @@ static struct GPUTexture *create_jitter_texture(int num_samples)
 		jitter[i][2] = bn * num_samples_inv;
 	}
 
-	UNUSED_VARS(bsdf_split_sum_ggx, btdf_split_sum_ggx, ltc_mag_ggx, ltc_mat_ggx);
+	UNUSED_VARS(bsdf_split_sum_ggx, btdf_split_sum_ggx, ltc_mag_ggx, ltc_mat_ggx, ltc_disk_integral);
 
 	return DRW_texture_create_2D(64, 64, DRW_TEX_RGB_16, DRW_TEX_FILTER | DRW_TEX_WRAP, &jitter[0][0]);
 }
@@ -607,7 +608,7 @@ static int hair_mat_in_ubo(CLAY_Storage *storage, const CLAY_HAIR_UBO_Material *
 	return id;
 }
 
-static void ubo_mat_from_object(Object *ob,  CLAY_UBO_Material *r_ubo)
+static void ubo_mat_from_object(Object *ob, CLAY_UBO_Material *r_ubo, bool *r_needs_ao)
 {
 	IDProperty *props = BKE_layer_collection_engine_evaluated_get(ob, COLLECTION_MODE_NONE, RE_engine_id_BLENDER_CLAY);
 
@@ -621,6 +622,12 @@ static void ubo_mat_from_object(Object *ob,  CLAY_UBO_Material *r_ubo)
 	float ssao_factor_edge = BKE_collection_engine_property_value_get_float(props, "ssao_factor_edge");
 	float ssao_attenuation = BKE_collection_engine_property_value_get_float(props, "ssao_attenuation");
 	int matcap_icon = BKE_collection_engine_property_value_get_int(props, "matcap_icon");
+
+	if (((ssao_factor_cavity > 0.0) || (ssao_factor_edge > 0.0)) &&
+	    (ssao_distance > 0.0))
+	{
+		*r_needs_ao = true;
+	}
 
 	memset(r_ubo, 0x0, sizeof(*r_ubo));
 
@@ -667,7 +674,7 @@ static DRWShadingGroup *CLAY_object_shgrp_get(
 	DRWShadingGroup **shgrps = use_flat ? stl->storage->shgrps_flat : stl->storage->shgrps;
 	CLAY_UBO_Material mat_ubo_test;
 
-	ubo_mat_from_object(ob, &mat_ubo_test);
+	ubo_mat_from_object(ob, &mat_ubo_test, &stl->g_data->enable_ao);
 
 	int id = mat_in_ubo(stl->storage, &mat_ubo_test);
 
@@ -712,6 +719,9 @@ static void clay_cache_init(void *vedata)
 		stl->g_data = MEM_mallocN(sizeof(*stl->g_data), __func__);
 	}
 
+	/* Disable AO unless a material needs it. */
+	stl->g_data->enable_ao = false;
+
 	/* Depth Pass */
 	{
 		psl->depth_pass = DRW_pass_create("Depth Pass", DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
@@ -746,12 +756,45 @@ static void clay_cache_init(void *vedata)
 	}
 }
 
+static void clay_cache_populate_particles(void *vedata, Object *ob)
+{
+	CLAY_PassList *psl = ((CLAY_Data *)vedata)->psl;
+	CLAY_StorageList *stl = ((CLAY_Data *)vedata)->stl;
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+
+
+	Scene *scene = draw_ctx->scene;
+	Object *obedit = scene->obedit;
+
+	if (ob != obedit) {
+		for (ParticleSystem *psys = ob->particlesystem.first; psys; psys = psys->next) {
+			if (psys_check_enabled(ob, psys, false)) {
+				ParticleSettings *part = psys->part;
+				int draw_as = (part->draw_as == PART_DRAW_REND) ? part->ren_as : part->draw_as;
+
+				if (draw_as == PART_DRAW_PATH && !psys->pathcache && !psys->childcache) {
+					draw_as = PART_DRAW_DOT;
+				}
+
+				static float mat[4][4];
+				unit_m4(mat);
+
+				if (draw_as == PART_DRAW_PATH) {
+					struct Gwn_Batch *geom = DRW_cache_particles_get_hair(psys, NULL);
+					DRWShadingGroup *hair_shgrp = CLAY_hair_shgrp_get(vedata, ob, stl, psl);
+					DRW_shgroup_call_add(hair_shgrp, geom, mat);
+				}
+			}
+		}
+	}
+}
+
 static void clay_cache_populate(void *vedata, Object *ob)
 {
 	CLAY_PassList *psl = ((CLAY_Data *)vedata)->psl;
 	CLAY_StorageList *stl = ((CLAY_Data *)vedata)->stl;
 
-	DRWShadingGroup *clay_shgrp, *hair_shgrp;
+	DRWShadingGroup *clay_shgrp;
 
 	if (!DRW_object_is_renderable(ob))
 		return;
@@ -762,6 +805,15 @@ static void clay_cache_populate(void *vedata, Object *ob)
 		if (DRW_object_is_mode_shade(ob) == true) {
 			return;
 		}
+	}
+
+	/* Handle particles first in case the emitter itself shouldn't be rendered. */
+	if (ob->type == OB_MESH) {
+		clay_cache_populate_particles(vedata, ob);
+	}
+
+	if (DRW_check_object_visible_within_active_context(ob) == false) {
+		return;
 	}
 
 	struct Gwn_Batch *geom = DRW_cache_object_surface_get(ob);
@@ -797,33 +849,6 @@ static void clay_cache_populate(void *vedata, Object *ob)
 			DRW_shgroup_call_add(clay_shgrp, geom, ob->obmat);
 		}
 	}
-
-	if (ob->type == OB_MESH) {
-		Scene *scene = draw_ctx->scene;
-		Object *obedit = scene->obedit;
-
-		if (ob != obedit) {
-			for (ParticleSystem *psys = ob->particlesystem.first; psys; psys = psys->next) {
-				if (psys_check_enabled(ob, psys, false)) {
-					ParticleSettings *part = psys->part;
-					int draw_as = (part->draw_as == PART_DRAW_REND) ? part->ren_as : part->draw_as;
-
-					if (draw_as == PART_DRAW_PATH && !psys->pathcache && !psys->childcache) {
-						draw_as = PART_DRAW_DOT;
-					}
-
-					static float mat[4][4];
-					unit_m4(mat);
-
-					if (draw_as == PART_DRAW_PATH) {
-						geom = DRW_cache_particles_get_hair(psys, NULL);
-						hair_shgrp = CLAY_hair_shgrp_get(vedata, ob, stl, psl);
-						DRW_shgroup_call_add(hair_shgrp, geom, mat);
-					}
-				}
-			}
-		}
-	}
 }
 
 static void clay_cache_finish(void *vedata)
@@ -836,18 +861,25 @@ static void clay_cache_finish(void *vedata)
 
 static void clay_draw_scene(void *vedata)
 {
-
+	CLAY_StorageList *stl = ((CLAY_Data *)vedata)->stl;
 	CLAY_PassList *psl = ((CLAY_Data *)vedata)->psl;
 	CLAY_FramebufferList *fbl = ((CLAY_Data *)vedata)->fbl;
 	DefaultFramebufferList *dfbl = DRW_viewport_framebuffer_list_get();
 
 	/* Pass 1 : Depth pre-pass */
-	DRW_draw_pass(psl->depth_pass);
-	DRW_draw_pass(psl->depth_pass_cull);
+	if (stl->g_data->enable_ao) {
+		DRW_draw_pass(psl->depth_pass);
+		DRW_draw_pass(psl->depth_pass_cull);
+	}
+	else {
+		DRWState state = DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS;
+		DRW_pass_state_set(psl->clay_pass, state);
+		DRW_pass_state_set(psl->clay_pass_flat, state);
+	}
 
 	/* Pass 2 : Duplicate depth */
 	/* Unless we go for deferred shading we need this to avoid manual depth test and artifacts */
-	if (DRW_state_is_fbo()) {
+	if (DRW_state_is_fbo() && stl->g_data->enable_ao) {
 		/* attach temp textures */
 		DRW_framebuffer_texture_attach(fbl->dupli_depth, e_data.depth_dup, 0, 0);
 
@@ -915,6 +947,7 @@ DrawEngineType draw_engine_clay_type = {
 	&clay_cache_finish,
 	NULL,
 	&clay_draw_scene,
+	NULL,
 	NULL,
 	NULL,
 };

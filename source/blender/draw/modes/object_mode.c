@@ -61,6 +61,8 @@
 #include "draw_manager_text.h"
 #include "draw_common.h"
 
+#include "DEG_depsgraph_query.h"
+
 extern struct GPUUniformBuffer *globals_ubo; /* draw_common.c */
 extern struct GPUTexture *globals_ramp; /* draw_common.c */
 extern GlobalsUboStorage ts;
@@ -74,11 +76,11 @@ extern char datatoc_object_empty_image_frag_glsl[];
 extern char datatoc_object_empty_image_vert_glsl[];
 extern char datatoc_object_lightprobe_grid_vert_glsl[];
 extern char datatoc_object_particle_prim_vert_glsl[];
-extern char datatoc_object_particle_prim_frag_glsl[];
 extern char datatoc_object_particle_dot_vert_glsl[];
 extern char datatoc_object_particle_dot_frag_glsl[];
 extern char datatoc_common_globals_lib_glsl[];
 extern char datatoc_common_fxaa_lib_glsl[];
+extern char datatoc_gpu_shader_flat_color_frag_glsl[];
 extern char datatoc_gpu_shader_fullscreen_vert_glsl[];
 extern char datatoc_gpu_shader_uniform_color_frag_glsl[];
 
@@ -184,6 +186,7 @@ typedef struct OBJECT_PrivateData {
 
 	/* Camera */
 	DRWShadingGroup *camera;
+	DRWShadingGroup *camera_frame;
 	DRWShadingGroup *camera_tria;
 	DRWShadingGroup *camera_focus;
 	DRWShadingGroup *camera_clip;
@@ -328,12 +331,12 @@ static void OBJECT_engine_init(void *vedata)
 
 	if (!e_data.part_prim_sh) {
 		e_data.part_prim_sh = DRW_shader_create(
-		        datatoc_object_particle_prim_vert_glsl, NULL, datatoc_object_particle_prim_frag_glsl, NULL);
+		        datatoc_object_particle_prim_vert_glsl, NULL, datatoc_gpu_shader_flat_color_frag_glsl, NULL);
 	}
 
 	if (!e_data.part_axis_sh) {
 		e_data.part_axis_sh = DRW_shader_create(
-		        datatoc_object_particle_prim_vert_glsl, NULL, datatoc_object_particle_prim_frag_glsl,
+		        datatoc_object_particle_prim_vert_glsl, NULL, datatoc_gpu_shader_flat_color_frag_glsl,
 		        "#define USE_AXIS\n");
 	}
 
@@ -506,8 +509,14 @@ static void OBJECT_engine_init(void *vedata)
 			e_data.zneg_flag = e_data.zpos_flag = CLIP_ZNEG | CLIP_ZPOS;
 		}
 
-		float dist = (rv3d->persp == RV3D_CAMOB && v3d->camera)
-		             ? ((Camera *)v3d->camera)->clipend : v3d->far;
+		float dist;
+		if (rv3d->persp == RV3D_CAMOB && v3d->camera) {
+			Object *camera_object = DEG_get_evaluated_object(draw_ctx->depsgraph, v3d->camera);
+			dist = ((Camera *)camera_object)->clipend;
+		}
+		else {
+			dist = v3d->far;
+		}
 
 		e_data.grid_settings[0] = dist / 2.0f; /* gridDistance */
 		e_data.grid_settings[1] = grid_res; /* gridResolution */
@@ -749,8 +758,9 @@ static void OBJECT_cache_init(void *vedata)
 		DRWState state = DRW_STATE_WRITE_COLOR;
 		struct Gwn_Batch *quad = DRW_cache_fullscreen_quad_get();
 		static float alphaOcclu = 0.35f;
-		static bool bTrue = true;
-		static bool bFalse = false;
+		/* Reminder : bool uniforms need to be 4 bytes. */
+		static const int bTrue = true;
+		static const int bFalse = false;
 
 		psl->outlines_search = DRW_pass_create("Outlines Detect Pass", state);
 
@@ -920,6 +930,9 @@ static void OBJECT_cache_init(void *vedata)
 		geom = DRW_cache_camera_get();
 		stl->g_data->camera = shgroup_camera_instance(psl->non_meshes, geom);
 
+		geom = DRW_cache_camera_frame_get();
+		stl->g_data->camera_frame = shgroup_camera_instance(psl->non_meshes, geom);
+
 		geom = DRW_cache_camera_tria_get();
 		stl->g_data->camera_tria = shgroup_camera_instance(psl->non_meshes, geom);
 
@@ -977,6 +990,7 @@ static void OBJECT_cache_init(void *vedata)
 
 		geom = DRW_cache_lamp_get();
 		stl->g_data->lamp_circle = shgroup_instance_screenspace(psl->non_meshes, geom, &ts.sizeLampCircle);
+		geom = DRW_cache_lamp_shadows_get();
 		stl->g_data->lamp_circle_shadow = shgroup_instance_screenspace(psl->non_meshes, geom, &ts.sizeLampCircleShadow);
 
 		geom = DRW_cache_lamp_sunrays_get();
@@ -1110,15 +1124,22 @@ static void DRW_shgroup_lamp(OBJECT_StorageList *stl, Object *ob, ViewLayer *vie
 	int theme_id = DRW_object_wire_theme_get(ob, view_layer, &color);
 	static float zero = 0.0f;
 
-	float **la_mats = (float **)DRW_object_engine_data_ensure(ob, &draw_engine_object_type, NULL);
-	if (*la_mats == NULL) {
-		/* we need 2 matrices */
-		*la_mats = MEM_mallocN(sizeof(float) * 16 * 2, "Lamp Object Mode Matrices");
-	}
+	typedef struct LampEngineData {
+		ObjectEngineData engine_data;
+		float shape_mat[4][4];
+		float spot_blend_mat[4][4];
+	} LampEngineData;
 
-	float (*shapemat)[4], (*spotblendmat)[4];
-	shapemat = (float (*)[4])(*la_mats);
-	spotblendmat = (float (*)[4])(*la_mats + 16);
+	LampEngineData *lamp_engine_data =
+	        (LampEngineData *)DRW_object_engine_data_ensure(
+	                ob,
+	                &draw_engine_object_type,
+	                sizeof(LampEngineData),
+	                NULL,
+	                NULL);
+
+	float (*shapemat)[4] = lamp_engine_data->shape_mat;
+	float (*spotblendmat)[4] = lamp_engine_data->spot_blend_mat;
 
 	/* Don't draw the center if it's selected or active */
 	if (theme_id == TH_GROUP)
@@ -1213,9 +1234,11 @@ static void DRW_shgroup_camera(OBJECT_StorageList *stl, Object *ob, ViewLayer *v
 	const DRWContextState *draw_ctx = DRW_context_state_get();
 	View3D *v3d = draw_ctx->v3d;
 	Scene *scene = draw_ctx->scene;
+	RegionView3D *rv3d = draw_ctx->rv3d;
 
 	Camera *cam = ob->data;
 	const bool is_active = (ob == v3d->camera);
+	const bool look_through = (is_active && (rv3d->persp == RV3D_CAMOB));
 	float *color;
 	DRW_object_wire_theme_get(ob, view_layer, &color);
 
@@ -1228,7 +1251,7 @@ static void DRW_shgroup_camera(OBJECT_StorageList *stl, Object *ob, ViewLayer *v
 	BKE_camera_view_frame_ex(scene, cam, cam->drawsize, false, scale,
 	                         asp, shift, &drawsize, vec);
 
-	// /* Frame coords */
+	/* Frame coords */
 	copy_v2_v2(cam->drwcorners[0], vec[0]);
 	copy_v2_v2(cam->drwcorners[1], vec[1]);
 	copy_v2_v2(cam->drwcorners[2], vec[2]);
@@ -1243,13 +1266,23 @@ static void DRW_shgroup_camera(OBJECT_StorageList *stl, Object *ob, ViewLayer *v
 	cam->drwtria[1][0] = shift[0];
 	cam->drwtria[1][1] = shift[1] + ((1.1f * drawsize * (asp[1] + 0.7f)) * scale[1]);
 
-	DRW_shgroup_call_dynamic_add(stl->g_data->camera, color, cam->drwcorners, &cam->drwdepth, cam->drwtria, ob->obmat);
-
-	/* Active cam */
-	if (is_active) {
+	if (look_through) {
+		/* Only draw the frame. */
 		DRW_shgroup_call_dynamic_add(
-		        stl->g_data->camera_tria, color,
-		        cam->drwcorners, &cam->drwdepth, cam->drwtria, ob->obmat);
+		        stl->g_data->camera_frame, color, cam->drwcorners,
+		        &cam->drwdepth, cam->drwtria, ob->obmat);
+	}
+	else {
+		DRW_shgroup_call_dynamic_add(
+		        stl->g_data->camera, color, cam->drwcorners,
+		        &cam->drwdepth, cam->drwtria, ob->obmat);
+
+		/* Active cam */
+		if (is_active) {
+			DRW_shgroup_call_dynamic_add(
+			        stl->g_data->camera_tria, color,
+			        cam->drwcorners, &cam->drwdepth, cam->drwtria, ob->obmat);
+		}
 	}
 
 	/* draw the rest in normalize object space */
@@ -1455,13 +1488,13 @@ static void DRW_shgroup_lightprobe(OBJECT_StorageList *stl, OBJECT_PassList *psl
 	bool do_outlines = ((ob->base_flag & BASE_SELECTED) != 0);
 	DRW_object_wire_theme_get(ob, view_layer, &color);
 
-	OBJECT_LightProbeEngineData *prb_data;
-	OBJECT_LightProbeEngineData **prb_data_pt = (OBJECT_LightProbeEngineData **)DRW_object_engine_data_ensure(ob, &draw_engine_object_type, NULL);
-	if (*prb_data_pt == NULL) {
-		*prb_data_pt = MEM_mallocN(sizeof(OBJECT_LightProbeEngineData), "Probe Clip distances Matrices");
-	}
-
-	prb_data = *prb_data_pt;
+	OBJECT_LightProbeEngineData *prb_data =
+	        (OBJECT_LightProbeEngineData *)DRW_object_engine_data_ensure(
+	                ob,
+	                &draw_engine_object_type,
+	                sizeof(OBJECT_LightProbeEngineData),
+	                NULL,
+	                NULL);
 
 	if ((DRW_state_is_select() || do_outlines) && ((prb->flag & LIGHTPROBE_FLAG_SHOW_DATA) != 0)) {
 
@@ -1499,9 +1532,6 @@ static void DRW_shgroup_lightprobe(OBJECT_StorageList *stl, OBJECT_PassList *psl
 			sub_v3_v3(prb_data->increment_z, prb_data->corner);
 
 			DRWShadingGroup *grp = DRW_shgroup_instance_create(e_data.lightprobe_grid_sh, psl->lightprobes, DRW_cache_sphere_get());
-			/* Dummy call just to save select ID */
-			DRW_shgroup_call_dynamic_add_empty(grp);
-			/* Then overide the instance count */
 			DRW_shgroup_set_instance_count(grp, prb->grid_resolution_x * prb->grid_resolution_y * prb->grid_resolution_z);
 			DRW_shgroup_uniform_vec4(grp, "color", color, 1);
 			DRW_shgroup_uniform_vec3(grp, "corner", prb_data->corner, 1);
@@ -1648,7 +1678,7 @@ static void DRW_shgroup_lightprobe(OBJECT_StorageList *stl, OBJECT_PassList *psl
 
 static void DRW_shgroup_relationship_lines(OBJECT_StorageList *stl, Object *ob)
 {
-	if (ob->parent && BKE_object_is_visible(ob->parent)) {
+	if (ob->parent && DRW_check_object_visible_within_active_context(ob->parent)) {
 		DRW_shgroup_call_dynamic_add(stl->g_data->relationship_lines, ob->obmat[3]);
 		DRW_shgroup_call_dynamic_add(stl->g_data->relationship_lines, ob->parent->obmat[3]);
 	}
@@ -1763,7 +1793,12 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 	View3D *v3d = draw_ctx->v3d;
 	int theme_id = TH_UNDEFINED;
 
-	if (!BKE_object_is_visible(ob)) {
+	/* Handle particles first in case the emitter itself shouldn't be rendered. */
+	if (ob->type == OB_MESH) {
+		OBJECT_cache_populate_particles(ob, psl);
+	}
+
+	if (DRW_check_object_visible_within_active_context(ob) == false) {
 		return;
 	}
 
@@ -1804,8 +1839,6 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 					}
 				}
 			}
-
-			OBJECT_cache_populate_particles(ob, psl);
 			break;
 		}
 		case OB_SURF:
@@ -2010,5 +2043,6 @@ DrawEngineType draw_engine_object_type = {
 	NULL,
 	NULL,
 	&OBJECT_draw_scene,
+	NULL,
 	NULL,
 };

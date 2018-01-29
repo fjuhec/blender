@@ -37,6 +37,7 @@
 #include <errno.h>
 
 #include "DNA_anim_types.h"
+#include "DNA_group_types.h"
 #include "DNA_image_types.h"
 #include "DNA_node_types.h"
 #include "DNA_object_types.h"
@@ -448,8 +449,6 @@ void RE_AcquireResultImage(Render *re, RenderResult *rr, const int view_id)
 			rr->rectz = rv->rectz;
 			rr->rect32 = rv->rect32;
 
-			rr->have_combined = (rv->rectf != NULL);
-
 			/* active layer */
 			rl = render_get_active_layer(re, re->result);
 
@@ -860,7 +859,7 @@ void RE_InitState(Render *re, Render *source, RenderData *rd,
 		re->result = MEM_callocN(sizeof(RenderResult), "new render result");
 		re->result->rectx = re->rectx;
 		re->result->recty = re->recty;
-		render_result_view_new(re->result, "new temporary view");
+		render_result_view_new(re->result, "");
 	}
 	
 	if (re->r.scemode & R_VIEWPORT_PREVIEW)
@@ -2113,6 +2112,31 @@ static void tag_dependend_objects_for_render(Scene *scene, int UNUSED(renderlay)
 }
 #endif
 
+#define DEPSGRAPH_WORKAROUND_GROUP_HACK
+
+#ifdef DEPSGRAPH_WORKAROUND_GROUP_HACK
+/**
+ * Make sure the COLLECTION_VIEWPORT / COLLECTION_RENDER is considered
+ * for the collections visibility.
+ *
+ * This won't be needed anymore once we have depsgraph per render engine.
+ */
+static void tag_groups_for_render(Render *re)
+{
+	for (Group *group = re->main->group.first; group; group = group->id.next) {
+		DEG_id_tag_update(&group->id, 0);
+	}
+
+#ifdef WITH_FREESTYLE
+	if (re->freestyle_bmain) {
+		for (Group *group = re->freestyle_bmain->group.first; group; group = group->id.next) {
+			DEG_id_tag_update(&group->id, 0);
+		}
+	}
+#endif
+}
+#endif
+
 static void tag_scenes_for_render(Render *re)
 {
 	bNode *node;
@@ -2196,6 +2220,10 @@ static void ntree_render_scenes(Render *re)
 	if (re->scene->nodetree == NULL) return;
 	
 	tag_scenes_for_render(re);
+
+#ifdef DEPSGRAPH_WORKAROUND_GROUP_HACK
+	tag_groups_for_render(re);
+#endif
 	
 	/* now foreach render-result node tagged we do a full render */
 	/* results are stored in a way compisitor will find it */
@@ -2413,6 +2441,10 @@ static void do_merge_fullsample(Render *re, bNodeTree *ntree)
 			}
 		}
 		
+#ifdef DEPSGRAPH_WORKAROUND_GROUP_HACK
+		tag_groups_for_render(re);
+#endif
+
 		/* composite */
 		if (ntree) {
 			ntreeCompositTagRender(re->scene);
@@ -2564,6 +2596,11 @@ void RE_MergeFullSample(Render *re, Main *bmain, Scene *sce, bNodeTree *ntree)
 #ifdef WITH_FREESTYLE
 	free_all_freestyle_renders();
 #endif
+
+#ifdef DEPSGRAPH_WORKAROUND_GROUP_HACK
+	/* Restore their visibility based on the viewport visibility flags. */
+	tag_groups_for_render(re);
+#endif
 }
 
 /* returns fully composited render-result on given time step (in RenderData) */
@@ -2660,6 +2697,11 @@ static void do_render_composite_fields_blur_3d(Render *re)
 
 #ifdef WITH_FREESTYLE
 	free_all_freestyle_renders();
+#endif
+
+#ifdef DEPSGRAPH_WORKAROUND_GROUP_HACK
+	/* Restore their visibility based on the viewport visibility flags. */
+	tag_groups_for_render(re);
 #endif
 
 	/* weak... the display callback wants an active renderlayer pointer... */
@@ -3223,6 +3265,11 @@ static int render_initialize_from_main(Render *re, RenderData *rd, Main *bmain, 
 	/* check all scenes involved */
 	tag_scenes_for_render(re);
 
+#ifdef DEPSGRAPH_WORKAROUND_GROUP_HACK
+	/* Update group collections visibility. */
+	tag_groups_for_render(re);
+#endif
+
 	/*
 	 * Disabled completely for now,
 	 * can be later set as render profile option
@@ -3346,7 +3393,8 @@ bool RE_WriteRenderViewsImage(ReportList *reports, RenderResult *rr, Scene *scen
 		return false;
 
 	bool is_mono = BLI_listbase_count_ex(&rr->views, 2) < 2;
-	bool is_exr_rr = ELEM(rd->im_format.imtype, R_IMF_IMTYPE_OPENEXR, R_IMF_IMTYPE_MULTILAYER);
+	bool is_exr_rr = ELEM(rd->im_format.imtype, R_IMF_IMTYPE_OPENEXR, R_IMF_IMTYPE_MULTILAYER) &&
+	                 RE_HasFloatPixels(rr);
 
 	if (rd->im_format.views_format == R_IMF_VIEWS_MULTIVIEW && is_exr_rr)
 	{

@@ -1004,8 +1004,8 @@ void texco_orco(vec3 attorco, out vec3 orco)
 
 void texco_uv(vec2 attuv, out vec3 uv)
 {
-	/* disabled for now, works together with leaving out mtex_2d_mapping
-	   uv = vec3(attuv * 2.0 - vec2(1.0), 0.0); */
+	/* disabled for now, works together with leaving out mtex_2d_mapping */
+	// uv = vec3(attuv*2.0 - vec2(1.0, 1.0), 0.0); */
 	uv = vec3(attuv, 0.0);
 }
 
@@ -4135,9 +4135,14 @@ void node_bevel(float radius, vec3 N, out vec3 result)
 	result = N;
 }
 
+void node_displacement(float height, float dist, vec3 N, out vec3 result)
+{
+	result = height * dist * N;
+}
+
 /* output */
 
-void node_output_material(Closure surface, Closure volume, float displacement, out Closure result)
+void node_output_material(Closure surface, Closure volume, vec3 displacement, out Closure result)
 {
 #ifdef VOLUMETRICS
 	result = volume;

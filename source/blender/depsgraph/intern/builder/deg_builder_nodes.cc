@@ -92,7 +92,6 @@ extern "C" {
 #include "BKE_particle.h"
 #include "BKE_rigidbody.h"
 #include "BKE_sound.h"
-#include "BKE_texture.h"
 #include "BKE_tracking.h"
 #include "BKE_world.h"
 
@@ -107,9 +106,11 @@ extern "C" {
 #include "intern/eval/deg_eval_copy_on_write.h"
 #include "intern/nodes/deg_node.h"
 #include "intern/nodes/deg_node_component.h"
+#include "intern/nodes/deg_node_id.h"
 #include "intern/nodes/deg_node_operation.h"
 #include "intern/depsgraph_types.h"
 #include "intern/depsgraph_intern.h"
+
 #include "util/deg_util_foreach.h"
 
 namespace DEG {
@@ -427,12 +428,24 @@ void DepsgraphNodeBuilder::build_group(Group *group)
 		return;
 	}
 	group_id->tag |= LIB_TAG_DOIT;
-
-	LINKLIST_FOREACH(Base *, base, &group->view_layer->object_bases) {
+	/* Build group objects. */
+	BLI_LISTBASE_FOREACH (Base *, base, &group->view_layer->object_bases) {
 		build_object(NULL, base->object, DEG_ID_LINKED_INDIRECTLY);
 	}
-
-	build_view_layer_collections(&group->id, group->view_layer);
+	/* Operation to evaluate the whole view layer.
+	 *
+	 * NOTE: We re-use DONE opcode even though the function does everything.
+	 * This way we wouldn't need to worry about possible relations from DONE,
+	 * regardless whether it's a group or scene or something else.
+	 */
+	add_id_node(group_id);
+	Group *group_cow = get_cow_datablock(group);
+	add_operation_node(group_id,
+	                   DEG_NODE_TYPE_LAYER_COLLECTIONS,
+	                   function_bind(BKE_group_eval_view_layers,
+	                                 _1,
+	                                 group_cow),
+	                   DEG_OPCODE_VIEW_LAYER_DONE);
 }
 
 void DepsgraphNodeBuilder::build_object(Base *base,
@@ -686,7 +699,7 @@ void DepsgraphNodeBuilder::build_animdata(ID *id)
 		}
 
 		/* drivers */
-		LINKLIST_FOREACH (FCurve *, fcu, &adt->drivers) {
+		BLI_LISTBASE_FOREACH (FCurve *, fcu, &adt->drivers) {
 			/* create driver */
 			build_driver(id, fcu);
 		}
@@ -804,7 +817,7 @@ void DepsgraphNodeBuilder::build_rigidbody(Scene *scene)
 
 	/* objects - simulation participants */
 	if (rbw->group) {
-		LINKLIST_FOREACH (Base *, base, &rbw->group->view_layer->object_bases) {
+		BLI_LISTBASE_FOREACH (Base *, base, &rbw->group->view_layer->object_bases) {
 			Object *object = base->object;
 
 			if (!object || (object->type != OB_MESH))
@@ -857,7 +870,7 @@ void DepsgraphNodeBuilder::build_particles(Object *object)
 	                   DEG_OPCODE_PARTICLE_SYSTEM_EVAL_INIT);
 
 	/* particle systems */
-	LINKLIST_FOREACH (ParticleSystem *, psys, &object->particlesystem) {
+	BLI_LISTBASE_FOREACH (ParticleSystem *, psys, &object->particlesystem) {
 		ParticleSettings *part = psys->part;
 
 		/* Build particle settings operations.
@@ -972,8 +985,8 @@ void DepsgraphNodeBuilder::build_obdata_geom(Object *object)
 
 	// TODO: "Done" operation
 
-	/* Cloyth modifier. */
-	LINKLIST_FOREACH (ModifierData *, md, &object->modifiers) {
+	/* Cloth modifier. */
+	BLI_LISTBASE_FOREACH (ModifierData *, md, &object->modifiers) {
 		if (md->type == eModifierType_Cloth) {
 			build_cloth(object);
 		}
@@ -1218,7 +1231,7 @@ void DepsgraphNodeBuilder::build_nodetree(bNodeTree *ntree)
 	                                 ntree),
 	                   DEG_OPCODE_MATERIAL_UPDATE);
 	/* nodetree's nodes... */
-	LINKLIST_FOREACH (bNode *, bnode, &ntree->nodes) {
+	BLI_LISTBASE_FOREACH (bNode *, bnode, &ntree->nodes) {
 		ID *id = bnode->id;
 		if (id == NULL) {
 			continue;

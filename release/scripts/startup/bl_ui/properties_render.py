@@ -78,7 +78,7 @@ class RENDER_PT_context(Panel):
 
 class RENDER_PT_render(RenderButtonsPanel, Panel):
     bl_label = "Render"
-    COMPAT_ENGINES = {'BLENDER_RENDER'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE'}
 
     def draw(self, context):
         layout = self.layout
@@ -633,9 +633,7 @@ class RENDER_PT_eevee_ambient_occlusion(RenderButtonsPanel, Panel):
         layout.active = props.gtao_enable
         col = layout.column()
         col.prop(props, "gtao_use_bent_normals")
-        col.prop(props, "gtao_denoise")
         col.prop(props, "gtao_bounce")
-        col.prop(props, "gtao_samples")
         col.prop(props, "gtao_distance")
         col.prop(props, "gtao_factor")
         col.prop(props, "gtao_quality")
@@ -807,7 +805,6 @@ class RENDER_PT_eevee_screen_space_reflections(RenderButtonsPanel, Panel):
         col.active = props.ssr_enable
         col.prop(props, "ssr_refraction")
         col.prop(props, "ssr_halfres")
-        col.prop(props, "ssr_ray_count")
         col.prop(props, "ssr_quality")
         col.prop(props, "ssr_max_roughness")
         col.prop(props, "ssr_thickness")
@@ -853,6 +850,7 @@ class RENDER_PT_eevee_sampling(RenderButtonsPanel, Panel):
 
         col = layout.column()
         col.prop(props, "taa_samples")
+        col.prop(props, "taa_render_samples")
 
 
 class RENDER_PT_eevee_indirect_lighting(RenderButtonsPanel, Panel):

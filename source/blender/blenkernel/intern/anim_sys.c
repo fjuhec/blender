@@ -75,6 +75,8 @@
 
 #include "nla_private.h"
 
+#include "atomic_ops.h"
+
 /* ***************************************** */
 /* AnimData API */
 
@@ -527,7 +529,7 @@ void BKE_animdata_separate_by_basepath(ID *srcID, ID *dstID, ListBase *basepaths
 	if (srcAdt->action) {
 		/* set up an action if necessary, and name it in a similar way so that it can be easily found again */
 		if (dstAdt->action == NULL) {
-			dstAdt->action = add_empty_action(G.main, srcAdt->action->id.name + 2);
+			dstAdt->action = BKE_action_add(G.main, srcAdt->action->id.name + 2);
 		}
 		else if (dstAdt->action == srcAdt->action) {
 			printf("Argh! Source and Destination share animation! ('%s' and '%s' both use '%s') Making new empty action\n",
@@ -535,7 +537,7 @@ void BKE_animdata_separate_by_basepath(ID *srcID, ID *dstID, ListBase *basepaths
 			
 			/* TODO: review this... */
 			id_us_min(&dstAdt->action->id);
-			dstAdt->action = add_empty_action(G.main, dstAdt->action->id.name + 2);
+			dstAdt->action = BKE_action_add(G.main, dstAdt->action->id.name + 2);
 		}
 			
 		/* loop over base paths, trying to fix for each one... */
@@ -818,7 +820,7 @@ char *BKE_animsys_fix_rna_path_rename(ID *owner_id, char *old_path, const char *
 	
 	/* if no action, no need to proceed */
 	if (ELEM(NULL, owner_id, old_path)) {
-		printf("early abort\n");
+		if (G.debug & G_DEBUG) printf("%s: early abort\n", __func__);
 		return old_path;
 	}
 	
@@ -841,9 +843,9 @@ char *BKE_animsys_fix_rna_path_rename(ID *owner_id, char *old_path, const char *
 	}
 	
 	/* fix given path */
-	printf("%s | %s  | oldpath = %p ", oldN, newN, old_path);
+	if (G.debug & G_DEBUG) printf("%s | %s  | oldpath = %p ", oldN, newN, old_path);
 	result = rna_path_rename_fix(owner_id, prefix, oldN, newN, old_path, verify_paths);
-	printf("result = %p\n", result);
+	if (G.debug & G_DEBUG) printf("path rename result = %p\n", result);
 	
 	/* free the temp names */
 	MEM_freeN(oldN);
@@ -1563,12 +1565,6 @@ static bool animsys_write_rna_setting(PathResolvedRNA *anim_rna, const float val
 	/* caller must ensure this is animatable */
 	BLI_assert(RNA_property_animateable(ptr, prop) || ptr->id.data == NULL);
 
-	/* set value for animatable numerical values only
-	 * HACK: some local F-Curves (e.g. those on NLA Strips) are evaluated
-	 *       without an ID provided, which causes the animateable test to fail!
-	 */
-	bool written = false;
-
 	switch (RNA_property_type(prop)) {
 		case PROP_BOOLEAN:
 		{
@@ -1576,13 +1572,11 @@ static bool animsys_write_rna_setting(PathResolvedRNA *anim_rna, const float val
 			if (array_index != -1) {
 				if (RNA_property_boolean_get_index(ptr, prop, array_index) != value_coerce) {
 					RNA_property_boolean_set_index(ptr, prop, array_index, value_coerce);
-					written = true;
 				}
 			}
 			else {
 				if (RNA_property_boolean_get(ptr, prop) != value_coerce) {
 					RNA_property_boolean_set(ptr, prop, value_coerce);
-					written = true;
 				}
 			}
 			break;
@@ -1594,13 +1588,11 @@ static bool animsys_write_rna_setting(PathResolvedRNA *anim_rna, const float val
 			if (array_index != -1) {
 				if (RNA_property_int_get_index(ptr, prop, array_index) != value_coerce) {
 					RNA_property_int_set_index(ptr, prop, array_index, value_coerce);
-					written = true;
 				}
 			}
 			else {
 				if (RNA_property_int_get(ptr, prop) != value_coerce) {
 					RNA_property_int_set(ptr, prop, value_coerce);
-					written = true;
 				}
 			}
 			break;
@@ -1612,13 +1604,11 @@ static bool animsys_write_rna_setting(PathResolvedRNA *anim_rna, const float val
 			if (array_index != -1) {
 				if (RNA_property_float_get_index(ptr, prop, array_index) != value_coerce) {
 					RNA_property_float_set_index(ptr, prop, array_index, value_coerce);
-					written = true;
 				}
 			}
 			else {
 				if (RNA_property_float_get(ptr, prop) != value_coerce) {
 					RNA_property_float_set(ptr, prop, value_coerce);
-					written = true;
 				}
 			}
 			break;
@@ -1628,7 +1618,6 @@ static bool animsys_write_rna_setting(PathResolvedRNA *anim_rna, const float val
 			const int value_coerce = (int)value;
 			if (RNA_property_enum_get(ptr, prop) != value_coerce) {
 				RNA_property_enum_set(ptr, prop, value_coerce);
-				written = true;
 			}
 			break;
 		}
@@ -1656,20 +1645,6 @@ static bool animsys_write_rna_setting(PathResolvedRNA *anim_rna, const float val
 			RNA_property_update_cache_add(ptr, prop);
 	}
 #endif
-
-	/* as long as we don't do property update, we still tag datablock
-	 * as having been updated. this flag does not cause any updates to
-	 * be run, it's for e.g. render engines to synchronize data */
-	if (written && ptr->id.data) {
-		ID *id = ptr->id.data;
-
-		/* for cases like duplifarmes it's only a temporary so don't
-		 * notify anyone of updates */
-		if (!(id->tag & LIB_TAG_ANIM_NO_RECALC)) {
-			BKE_id_tag_set_atomic(id, LIB_TAG_ID_RECALC);
-			DEG_id_type_tag(G.main, GS(id->name));
-		}
-	}
 
 	/* successful */
 	return true;
@@ -2614,17 +2589,6 @@ static void animsys_evaluate_nla(ListBase *echannels, PointerRNA *ptr, AnimData 
 		
 	/* 3. free temporary evaluation data that's not used elsewhere */
 	BLI_freelistN(&estrips);
-
-	/* Tag ID as updated so render engines will recognize changes in data
-	 * which is animated but doesn't have actions.
-	 */
-	if (ptr->id.data != NULL) {
-		ID *id = ptr->id.data;
-		if (!(id->tag & LIB_TAG_ANIM_NO_RECALC)) {
-			id->tag |= LIB_TAG_ID_RECALC;
-			DEG_id_type_tag(G.main, GS(id->name));
-		}
-	}
 }
 
 /* NLA Evaluation function (mostly for use through do_animdata) 
@@ -2921,7 +2885,7 @@ void BKE_animsys_eval_animdata(const EvaluationContext *eval_ctx, ID *id)
 {
 	AnimData *adt = BKE_animdata_from_id(id);
 	Scene *scene = NULL; /* XXX: this is only needed for flushing RNA updates,
-	                      * which should get handled as part of the graph instead...
+	                      * which should get handled as part of the dependency graph instead...
 	                      */
 	DEBUG_PRINT("%s on %s, time=%f\n\n", __func__, id->name, (double)eval_ctx->ctime);
 	BKE_animsys_evaluate_animdata(scene, id, adt, eval_ctx->ctime, ADT_RECALC_ANIM);

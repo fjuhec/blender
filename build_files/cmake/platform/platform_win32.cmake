@@ -52,6 +52,11 @@ macro(find_package_wrapper)
 endmacro()
 
 add_definitions(-DWIN32)
+
+# Needed, otherwise system encoding causes utf-8 encoding to fail in some cases (C4819)
+add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
+add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
+
 # Minimum MSVC Version
 if(CMAKE_CXX_COMPILER_ID MATCHES MSVC)
 	if(MSVC_VERSION EQUAL 1800)
@@ -143,7 +148,7 @@ if(NOT DEFINED LIBDIR)
 		set(LIBDIR_BASE "windows")
 	endif()
 	# Can be 1910..1912
-	if(MSVC_VERSION GREATER_EQUAL 1910)
+	if(MSVC_VERSION GREATER 1909)
 		message(STATUS "Visual Studio 2017 detected.")
 		set(LIBDIR ${CMAKE_SOURCE_DIR}/../lib/${LIBDIR_BASE}_vc14)
 	elseif(MSVC_VERSION EQUAL 1900)

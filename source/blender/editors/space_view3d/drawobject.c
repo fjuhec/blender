@@ -980,14 +980,12 @@ void view3d_cached_text_draw_end(View3D *v3d, ARegion *ar, bool depth_write)
 					col_pack_prev = vos->col.pack;
 				}
 
-				((vos->flag & V3D_CACHE_TEXT_ASCII) ?
-				 BLF_draw_default_ascii :
-				 BLF_draw_default
-				 )((float)(vos->sco[0] + vos->xoffs),
-				   (float)(vos->sco[1]),
-				   (depth_write) ? 0.0f : 2.0f,
-				   vos->str,
-				   vos->str_len);
+				((vos->flag & V3D_CACHE_TEXT_ASCII) ? BLF_draw_default_ascii : BLF_draw_default)(
+				        (float)(vos->sco[0] + vos->xoffs),
+				        (float)(vos->sco[1]),
+				        (depth_write) ? 0.0f : 2.0f,
+				        vos->str,
+				        vos->str_len);
 			}
 		}
 
@@ -1036,7 +1034,7 @@ static void drawcube_size(float size, unsigned pos)
 		{ size,  size,  size}
 	};
 
-	const GLubyte indices[24] = {0,1,1,3,3,2,2,0,0,4,4,5,5,7,7,6,6,4,1,5,3,7,2,6};
+	const GLubyte indices[24] = {0, 1, 1, 3, 3, 2, 2, 0, 0, 4, 4, 5, 5, 7, 7, 6, 6, 4, 1, 5, 3, 7, 2, 6};
 
 #if 0
 	glEnableClientState(GL_VERTEX_ARRAY);
@@ -6098,46 +6096,46 @@ static void draw_new_particle_system(
 
 /* 4. */
 	if (draw_as && ELEM(draw_as, PART_DRAW_PATH, PART_DRAW_CIRC) == 0) {
-		int tot_vec_size = (totpart + totchild) * 3 * sizeof(float);
+		int partsize = 3 * sizeof(float);
 		int create_ndata = 0;
 
 		if (!pdd)
 			pdd = psys->pdd = MEM_callocN(sizeof(ParticleDrawData), "ParticleDrawData");
 
 		if (part->draw_as == PART_DRAW_REND && part->trail_count > 1) {
-			tot_vec_size *= part->trail_count;
+			partsize *= part->trail_count;
 			psys_make_temp_pointcache(ob, psys);
 		}
 
 		switch (draw_as) {
 			case PART_DRAW_AXIS:
 			case PART_DRAW_CROSS:
-				tot_vec_size *= 6;
+				partsize *= 6;
 				if (draw_as != PART_DRAW_CROSS)
 					create_cdata = 1;
 				break;
 			case PART_DRAW_LINE:
-				tot_vec_size *= 2;
+				partsize *= 2;
 				break;
 			case PART_DRAW_BB:
-				tot_vec_size *= 6;  /* New OGL only understands tris, no choice here. */
+				partsize *= 6;  /* New OGL only understands tris, no choice here. */
 				create_ndata = 1;
 				break;
 		}
 
-		if (pdd->tot_vec_size != tot_vec_size)
+		if (pdd->totpart != totpart + totchild || pdd->partsize != partsize)
 			psys_free_pdd(psys);
 
 		if (!pdd->vdata)
-			pdd->vdata = MEM_callocN(tot_vec_size, "particle_vdata");
+			pdd->vdata = MEM_calloc_arrayN(totpart + totchild, partsize, "particle_vdata");
 		if (create_cdata && !pdd->cdata)
-			pdd->cdata = MEM_callocN(tot_vec_size, "particle_cdata");
+			pdd->cdata = MEM_calloc_arrayN(totpart + totchild, partsize, "particle_cdata");
 		if (create_ndata && !pdd->ndata)
-			pdd->ndata = MEM_callocN(tot_vec_size, "particle_ndata");
+			pdd->ndata = MEM_calloc_arrayN(totpart + totchild, partsize, "particle_ndata");
 
 		if (part->draw & PART_DRAW_VEL && draw_as != PART_DRAW_LINE) {
 			if (!pdd->vedata)
-				pdd->vedata = MEM_callocN(2 * (totpart + totchild) * 3 * sizeof(float), "particle_vedata");
+				pdd->vedata = MEM_calloc_arrayN(totpart + totchild, 2 * 3 * sizeof(float), "particle_vedata");
 
 			need_v = 1;
 		}
@@ -6151,7 +6149,8 @@ static void draw_new_particle_system(
 		pdd->ved = pdd->vedata;
 		pdd->cd = pdd->cdata;
 		pdd->nd = pdd->ndata;
-		pdd->tot_vec_size = tot_vec_size;
+		pdd->totpart = totpart + totchild;
+		pdd->partsize = partsize;
 	}
 	else if (psys->pdd) {
 		psys_free_pdd(psys);
@@ -6630,7 +6629,7 @@ static void draw_ptcache_edit(Scene *scene, View3D *v3d, PTCacheEdit *edit)
 	const int totkeys = (*edit->pathcache)->segments + 1;
 
 	glEnable(GL_BLEND);
-	float *pathcol = MEM_callocN(totkeys * 4 * sizeof(float), "particle path color data");
+	float *pathcol = MEM_calloc_arrayN(totkeys, 4 * sizeof(float), "particle path color data");
 
 	if (pset->brushtype == PE_BRUSH_WEIGHT)
 		glLineWidth(2.0f);
@@ -6707,8 +6706,8 @@ static void draw_ptcache_edit(Scene *scene, View3D *v3d, PTCacheEdit *edit)
 
 			if (totkeys_visible) {
 				if (edit->points && !(edit->points->keys->flag & PEK_USE_WCO))
-					pd = pdata = MEM_callocN(totkeys_visible * 3 * sizeof(float), "particle edit point data");
-				cd = cdata = MEM_callocN(totkeys_visible * (timed ? 4 : 3) * sizeof(float), "particle edit color data");
+					pd = pdata = MEM_calloc_arrayN(totkeys_visible, 3 * sizeof(float), "particle edit point data");
+				cd = cdata = MEM_calloc_arrayN(totkeys_visible, (timed ? 4 : 3) * sizeof(float), "particle edit color data");
 			}
 
 			for (i = 0, point = edit->points; i < totpoint; i++, point++) {
@@ -7405,7 +7404,7 @@ static void draw_editnurb(
 			}
 #else
 			/* Same as loop above */
-			count += 4 * max_ii((nr + max_ii(skip - 1, 0)) / (skip + 1), 0);
+			count += 4 * ((nr / (skip + 1)) + ((nr % (skip + 1)) != 0));
 #endif
 		}
 
@@ -8066,7 +8065,7 @@ static void imm_draw_box(const float vec[8][3], bool solid, unsigned pos)
 	if (solid) {
 		/* Adpated from "Optimizing Triangle Strips for Fast Rendering" by F. Evans, S. Skiena and A. Varshney
 		 *              (http://www.cs.umd.edu/gvil/papers/av_ts.pdf). */
-		static const GLubyte tris_strip_indices[14] = {0,1,3,2,6,1,5,0,4,3,7,6,4,5};
+		static const GLubyte tris_strip_indices[14] = {0, 1, 3, 2, 6, 1, 5, 0, 4, 3, 7, 6, 4, 5};
 		immBegin(GWN_PRIM_TRI_STRIP, 14);
 		for (int i = 0; i < 14; ++i) {
 			immVertex3fv(pos, vec[tris_strip_indices[i]]);
@@ -8074,7 +8073,8 @@ static void imm_draw_box(const float vec[8][3], bool solid, unsigned pos)
 		immEnd();
 	}
 	else {
-		static const GLubyte line_indices[24] = {0,1,1,2,2,3,3,0,0,4,4,5,5,6,6,7,7,4,1,5,2,6,3,7};
+		static const GLubyte line_indices[24] =
+		       {0, 1, 1, 2, 2, 3, 3, 0, 0, 4, 4, 5, 5, 6, 6, 7, 7, 4, 1, 5, 2, 6, 3, 7};
 		immBegin(GWN_PRIM_LINES, 24);
 		for (int i = 0; i < 24; ++i) {
 			immVertex3fv(pos, vec[line_indices[i]]);
@@ -9217,7 +9217,10 @@ afterdraw:
 
 		/* help lines and so */
 		if (ob != scene->obedit && ob->parent) {
-			if (BKE_object_is_visible(ob->parent)) {
+			const eObjectVisibilityCheck mode = eval_ctx->mode != DAG_EVAL_VIEWPORT ?
+			                                                 OB_VISIBILITY_CHECK_FOR_RENDER :
+			                                                 OB_VISIBILITY_CHECK_FOR_VIEWPORT;
+			if (BKE_object_is_visible(ob->parent, mode)) {
 				setlinestyle(3);
 				immBegin(GWN_PRIM_LINES, 2);
 				immVertex3fv(pos, ob->obmat[3]);
@@ -9769,8 +9772,9 @@ void draw_object_backbufsel(
 				bbs_mesh_solid_EM(em, scene, v3d, ob, dm, (ts->selectmode & SCE_SELECT_FACE) != 0);
 				if (ts->selectmode & SCE_SELECT_FACE)
 					bm_solidoffs = 1 + em->bm->totface;
-				else
+				else {
 					bm_solidoffs = 1;
+				}
 
 				ED_view3d_polygon_offset(rv3d, 1.0);
 
@@ -9778,6 +9782,10 @@ void draw_object_backbufsel(
 				if (ts->selectmode & SCE_SELECT_EDGE) {
 					bbs_mesh_wire(em, dm, bm_solidoffs);
 					bm_wireoffs = bm_solidoffs + em->bm->totedge;
+				}
+				else {
+					/* `bm_vertoffs` is calculated from `bm_wireoffs`. (otherwise see T53512) */
+					bm_wireoffs = bm_solidoffs;
 				}
 
 				/* we draw verts if vert select mode. */

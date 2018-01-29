@@ -50,6 +50,8 @@
 
 #include "BKE_context.h"
 #include "BKE_image.h"
+#include "BKE_scene.h"
+#include "BKE_workspace.h"
 
 #include "GHOST_C-api.h"
 
@@ -133,7 +135,8 @@ static bool wm_area_test_invalid_backbuf(ScrArea *sa)
 		return true;
 }
 
-static void wm_region_test_render_do_draw(const Scene *scene, ScrArea *sa, ARegion *ar)
+static void wm_region_test_render_do_draw(const Scene *scene, const struct Depsgraph *depsgraph,
+                                          ScrArea *sa, ARegion *ar)
 {
 	/* tag region for redraw from render engine preview running inside of it */
 	if (sa->spacetype == SPACE_VIEW3D) {
@@ -146,7 +149,7 @@ static void wm_region_test_render_do_draw(const Scene *scene, ScrArea *sa, ARegi
 			rcti border_rect;
 
 			/* do partial redraw when possible */
-			if (ED_view3d_calc_render_border(scene, v3d, ar, &border_rect))
+			if (ED_view3d_calc_render_border(scene, depsgraph, v3d, ar, &border_rect))
 				ED_region_tag_redraw_partial(ar, &border_rect);
 			else
 				ED_region_tag_redraw(ar);
@@ -169,6 +172,46 @@ static void wm_draw_region(bContext *C, ARegion *ar)
 
 /********************** draw all **************************/
 /* - reference method, draw all each time                 */
+
+typedef struct WindowDrawCB {
+	struct WindowDrawCB *next, *prev;
+
+	void(*draw)(const struct wmWindow *, void *);
+	void *customdata;
+
+} WindowDrawCB;
+
+void *WM_draw_cb_activate(
+        wmWindow *win,
+        void(*draw)(const struct wmWindow *, void *),
+        void *customdata)
+{
+	WindowDrawCB *wdc = MEM_callocN(sizeof(*wdc), "WindowDrawCB");
+
+	BLI_addtail(&win->drawcalls, wdc);
+	wdc->draw = draw;
+	wdc->customdata = customdata;
+
+	return wdc;
+}
+
+void WM_draw_cb_exit(wmWindow *win, void *handle)
+{
+	for (WindowDrawCB *wdc = win->drawcalls.first; wdc; wdc = wdc->next) {
+		if (wdc == (WindowDrawCB *)handle) {
+			BLI_remlink(&win->drawcalls, wdc);
+			MEM_freeN(wdc);
+			return;
+		}
+	}
+}
+
+static void wm_draw_callbacks(wmWindow *win)
+{
+	for (WindowDrawCB *wdc = win->drawcalls.first; wdc; wdc = wdc->next) {
+		wdc->draw(win, wdc->customdata);
+	}
+}
 
 static void wm_method_draw_full(bContext *C, wmWindow *win)
 {
@@ -193,8 +236,9 @@ static void wm_method_draw_full(bContext *C, wmWindow *win)
 		CTX_wm_area_set(C, NULL);
 	}
 
-	ED_screen_draw(win);
+	ED_screen_draw_edges(win);
 	screen->do_draw = false;
+	wm_draw_callbacks(win);
 
 	/* draw overlapping regions */
 	for (ar = screen->regionbase.first; ar; ar = ar->next) {
@@ -330,17 +374,19 @@ static void wm_method_draw_overlap_all(bContext *C, wmWindow *win, int exchange)
 
 	/* after area regions so we can do area 'overlay' drawing */
 	if (screen->do_draw) {
-		ED_screen_draw(win);
+		ED_screen_draw_edges(win);
 		screen->do_draw = false;
+		wm_draw_callbacks(win);
 
 		if (exchange)
 			screen->swap = WIN_FRONT_OK;
 	}
 	else if (exchange) {
 		if (screen->swap == WIN_FRONT_OK) {
-			ED_screen_draw(win);
+			ED_screen_draw_edges(win);
 			screen->do_draw = false;
 			screen->swap = WIN_BOTH_OK;
+			wm_draw_callbacks(win);
 		}
 		else if (screen->swap == WIN_BACK_OK)
 			screen->swap = WIN_FRONT_OK;
@@ -626,8 +672,9 @@ static void wm_method_draw_triple(bContext *C, wmWindow *win)
 	}
 
 	/* after area regions so we can do area 'overlay' drawing */
-	ED_screen_draw(win);
+	ED_screen_draw_edges(win);
 	WM_window_get_active_screen(win)->do_draw = false;
+	wm_draw_callbacks(win);
 
 	/* draw floating regions (menus) */
 	for (ar = screen->regionbase.first; ar; ar = ar->next) {
@@ -800,9 +847,11 @@ static void wm_method_draw_triple_multiview(bContext *C, wmWindow *win, eStereoV
 	}
 
 	/* after area regions so we can do area 'overlay' drawing */
-	ED_screen_draw(win);
+	ED_screen_draw_edges(win);
 	if (sview == STEREO_RIGHT_ID)
 		screen->do_draw = false;
+
+	wm_draw_callbacks(win);
 
 	/* draw floating regions (menus) */
 	for (ar = screen->regionbase.first; ar; ar = ar->next) {
@@ -834,7 +883,10 @@ static void wm_method_draw_triple_multiview(bContext *C, wmWindow *win, eStereoV
 /* quick test to prevent changing window drawable */
 static bool wm_draw_update_test_window(wmWindow *win)
 {
-	const Scene *scene = WM_window_get_active_scene(win);
+	/*const*/ struct WorkSpace *workspace = WM_window_get_active_workspace(win);
+	/*const*/ Scene *scene = WM_window_get_active_scene(win);
+	/*const*/ ViewLayer *view_layer = BKE_workspace_view_layer_get(workspace, scene);
+	struct Depsgraph *depsgraph = BKE_scene_get_depsgraph(scene, view_layer, true);
 	const bScreen *screen = WM_window_get_active_screen(win);
 	ARegion *ar;
 	bool do_draw = false;
@@ -850,7 +902,7 @@ static bool wm_draw_update_test_window(wmWindow *win)
 
 	ED_screen_areas_iter(win, screen, sa) {
 		for (ar = sa->regionbase.first; ar; ar = ar->next) {
-			wm_region_test_render_do_draw(scene, sa, ar);
+			wm_region_test_render_do_draw(scene, depsgraph, sa, ar);
 
 			if (ar->swinid && ar->do_draw)
 				do_draw = true;

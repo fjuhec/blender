@@ -65,6 +65,7 @@ static struct DRWShapeCache {
 	Gwn_Batch *drw_field_tube_limit;
 	Gwn_Batch *drw_field_cone_limit;
 	Gwn_Batch *drw_lamp;
+	Gwn_Batch *drw_lamp_shadows;
 	Gwn_Batch *drw_lamp_sunrays;
 	Gwn_Batch *drw_lamp_area;
 	Gwn_Batch *drw_lamp_hemi;
@@ -87,6 +88,7 @@ static struct DRWShapeCache {
 	Gwn_Batch *drw_bone_point_wire;
 	Gwn_Batch *drw_bone_arrows;
 	Gwn_Batch *drw_camera;
+	Gwn_Batch *drw_camera_frame;
 	Gwn_Batch *drw_camera_tria;
 	Gwn_Batch *drw_camera_focus;
 	Gwn_Batch *drw_particle_cross;
@@ -520,6 +522,12 @@ Gwn_Batch **DRW_cache_object_surface_material_get(
 	switch (ob->type) {
 		case OB_MESH:
 			return DRW_cache_mesh_surface_shaded_get(ob, gpumat_array, gpumat_array_len);
+		case OB_CURVE:
+			return DRW_cache_curve_surface_shaded_get(ob, gpumat_array, gpumat_array_len);
+		case OB_SURF:
+			return DRW_cache_surf_surface_shaded_get(ob, gpumat_array, gpumat_array_len);
+		case OB_FONT:
+			return DRW_cache_text_surface_shaded_get(ob, gpumat_array, gpumat_array_len);
 		default:
 			return NULL;
 	}
@@ -1007,14 +1015,14 @@ Gwn_Batch *DRW_cache_lamp_get(void)
 		Gwn_VertBuf *vbo = GWN_vertbuf_create_with_format(&format);
 		GWN_vertbuf_data_alloc(vbo, NSEGMENTS * 2);
 
-		for (int a = 0; a < NSEGMENTS; a++) {
-			v[0] = sinf((2.0f * M_PI * a) / ((float)NSEGMENTS));
-			v[1] = cosf((2.0f * M_PI * a) / ((float)NSEGMENTS));
-			GWN_vertbuf_attr_set(vbo, attr_id.pos, a * 2, v);
+		for (int a = 0; a < NSEGMENTS * 2; a += 2) {
+			v[0] = sinf((2.0f * M_PI * a) / ((float)NSEGMENTS * 2));
+			v[1] = cosf((2.0f * M_PI * a) / ((float)NSEGMENTS * 2));
+			GWN_vertbuf_attr_set(vbo, attr_id.pos, a, v);
 
-			v[0] = sinf((2.0f * M_PI * (a + 1)) / ((float)NSEGMENTS));
-			v[1] = cosf((2.0f * M_PI * (a + 1)) / ((float)NSEGMENTS));
-			GWN_vertbuf_attr_set(vbo, attr_id.pos, a * 2 + 1, v);
+			v[0] = sinf((2.0f * M_PI * (a + 1)) / ((float)NSEGMENTS * 2));
+			v[1] = cosf((2.0f * M_PI * (a + 1)) / ((float)NSEGMENTS * 2));
+			GWN_vertbuf_attr_set(vbo, attr_id.pos, a + 1, v);
 		}
 
 		SHC.drw_lamp = GWN_batch_create_ex(GWN_PRIM_LINES, vbo, NULL, GWN_BATCH_OWNS_VBO);
@@ -1023,10 +1031,11 @@ Gwn_Batch *DRW_cache_lamp_get(void)
 #undef NSEGMENTS
 }
 
-Gwn_Batch *DRW_cache_lamp_sunrays_get(void)
+Gwn_Batch *DRW_cache_lamp_shadows_get(void)
 {
-	if (!SHC.drw_lamp_sunrays) {
-		float v[2], v1[2], v2[2];
+#define NSEGMENTS 10
+	if (!SHC.drw_lamp_shadows) {
+		float v[2];
 
 		/* Position Only 3D format */
 		static Gwn_VertFormat format = { 0 };
@@ -1036,17 +1045,52 @@ Gwn_Batch *DRW_cache_lamp_sunrays_get(void)
 		}
 
 		Gwn_VertBuf *vbo = GWN_vertbuf_create_with_format(&format);
-		GWN_vertbuf_data_alloc(vbo, 16);
+		GWN_vertbuf_data_alloc(vbo, NSEGMENTS * 2);
+
+		for (int a = 0; a < NSEGMENTS * 2; a += 2) {
+			v[0] = sinf((2.0f * M_PI * a) / ((float)NSEGMENTS * 2));
+			v[1] = cosf((2.0f * M_PI * a) / ((float)NSEGMENTS * 2));
+			GWN_vertbuf_attr_set(vbo, attr_id.pos, a, v);
+
+			v[0] = sinf((2.0f * M_PI * (a + 1)) / ((float)NSEGMENTS * 2));
+			v[1] = cosf((2.0f * M_PI * (a + 1)) / ((float)NSEGMENTS * 2));
+			GWN_vertbuf_attr_set(vbo, attr_id.pos, a + 1, v);
+		}
+
+		SHC.drw_lamp_shadows = GWN_batch_create_ex(GWN_PRIM_LINES, vbo, NULL, GWN_BATCH_OWNS_VBO);
+	}
+	return SHC.drw_lamp_shadows;
+#undef NSEGMENTS
+}
+
+Gwn_Batch *DRW_cache_lamp_sunrays_get(void)
+{
+	if (!SHC.drw_lamp_sunrays) {
+		float v[2], v1[2], v2[2];
+
+		/* Position Only 2D format */
+		static Gwn_VertFormat format = { 0 };
+		static struct { uint pos; } attr_id;
+		if (format.attrib_ct == 0) {
+			attr_id.pos = GWN_vertformat_attr_add(&format, "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
+		}
+
+		Gwn_VertBuf *vbo = GWN_vertbuf_create_with_format(&format);
+		GWN_vertbuf_data_alloc(vbo, 32);
 
 		for (int a = 0; a < 8; a++) {
 			v[0] = sinf((2.0f * M_PI * a) / 8.0f);
 			v[1] = cosf((2.0f * M_PI * a) / 8.0f);
 
-			mul_v2_v2fl(v1, v, 1.2f);
-			mul_v2_v2fl(v2, v, 2.5f);
+			mul_v2_v2fl(v1, v, 1.6f);
+			mul_v2_v2fl(v2, v, 1.9f);
+			GWN_vertbuf_attr_set(vbo, attr_id.pos, a * 4, v1);
+			GWN_vertbuf_attr_set(vbo, attr_id.pos, a * 4 + 1, v2);
 
-			GWN_vertbuf_attr_set(vbo, attr_id.pos, a * 2, v1);
-			GWN_vertbuf_attr_set(vbo, attr_id.pos, a * 2 + 1, v2);
+			mul_v2_v2fl(v1, v, 2.2f);
+			mul_v2_v2fl(v2, v, 2.5f);
+			GWN_vertbuf_attr_set(vbo, attr_id.pos, a * 4 + 2, v1);
+			GWN_vertbuf_attr_set(vbo, attr_id.pos, a * 4 + 3, v2);
 		}
 
 		SHC.drw_lamp_sunrays = GWN_batch_create_ex(GWN_PRIM_LINES, vbo, NULL, GWN_BATCH_OWNS_VBO);
@@ -1846,7 +1890,7 @@ Gwn_Batch *DRW_cache_bone_envelope_distance_outline_get(void)
 			const float x = cosf(alpha);
 			const float y = -sinf(alpha);
 
-			/*                                                           { X, Y, head/tail, inner/outer border } */
+			/*                                                        { X, Y, head/tail, inner/outer border } */
 			GWN_vertbuf_attr_set(vbo, pos_id, v_idx++, (const float[4]){x, y, head_tail, 0.0f});
 			GWN_vertbuf_attr_set(vbo, pos_id, v_idx++, (const float[4]){x, y, head_tail, 1.0f});
 			if (is_headtail_transition) {
@@ -1880,7 +1924,7 @@ Gwn_Batch *DRW_cache_bone_envelope_wire_outline_get(void)
 
 		/* Two lines between head and tail circles. */
 		/* Encoded lines, vertex shader gives them final correct value. */
-		/*                                                           {     X,    Y, head/tail, inner/outer border } */
+		/*                                                         { X,    Y, head/tail, inner/outer border } */
 		GWN_vertbuf_attr_set(vbo, pos_id, v_idx++, (const float[4]){ 1.0f, 0.0f,       0.0f, 0.0f});
 		GWN_vertbuf_attr_set(vbo, pos_id, v_idx++, (const float[4]){ 1.0f, 0.0f,       1.0f, 0.0f});
 		GWN_vertbuf_attr_set(vbo, pos_id, v_idx++, (const float[4]){-1.0f, 0.0f,       0.0f, 0.0f});
@@ -1916,7 +1960,7 @@ Gwn_Batch *DRW_cache_bone_envelope_head_wire_outline_get(void)
 			const float x = cosf(alpha);
 			const float y = -sinf(alpha);
 
-			/*                                                           {      X,      Y, head/tail, inner/outer border } */
+			/*                                                         {     X,      Y, head/tail, inner/outer border } */
 			GWN_vertbuf_attr_set(vbo, pos_id, v_idx++, (const float[4]){     x,      y,      0.0f, 0.0f});
 		}
 
@@ -1996,97 +2040,139 @@ Gwn_Batch *DRW_cache_bone_arrows_get(void)
 /** \name Camera
  * \{ */
 
+/**
+ * We could make these more generic functions.
+ * although filling 1d lines is not common.
+ *
+ * \note Use x coordinate to identify the vertex the vertex shader take care to place it appropriately.
+ */
+
+static const float camera_coords_frame_bounds[5] = {
+	0.0f, /* center point */
+	1.0f, /* + X + Y */
+	2.0f, /* + X - Y */
+	3.0f, /* - X - Y */
+	4.0f, /* - X + Y */
+};
+
+static const float camera_coords_frame_tri[3] = {
+	5.0f, /* tria + X */
+	6.0f, /* tria - X */
+	7.0f, /* tria + Y */
+};
+
+/** Draw a loop of lines. */
+static void camera_fill_lines_loop_fl_v1(
+        Gwn_VertBufRaw *pos_step,
+        const float *coords, const uint coords_len)
+{
+	for (uint i = 0, i_prev = coords_len - 1; i < coords_len; i_prev = i++) {
+		*((float *)GWN_vertbuf_raw_step(pos_step)) = coords[i_prev];
+		*((float *)GWN_vertbuf_raw_step(pos_step)) = coords[i];
+	}
+}
+
+/** Fan lines out from the first vertex. */
+static void camera_fill_lines_fan_fl_v1(
+        Gwn_VertBufRaw *pos_step,
+        const float *coords, const uint coords_len)
+{
+	for (uint i = 1; i < coords_len; i++) {
+		*((float *)GWN_vertbuf_raw_step(pos_step)) = coords[0];
+		*((float *)GWN_vertbuf_raw_step(pos_step)) = coords[i];
+	}
+}
+
+/** Simply fill the array. */
+static void camera_fill_array_fl_v1(
+        Gwn_VertBufRaw *pos_step,
+        const float *coords, const uint coords_len)
+{
+	for (uint i = 0; i < coords_len; i++) {
+		*((float *)GWN_vertbuf_raw_step(pos_step)) = coords[i];
+	}
+}
+
+
 Gwn_Batch *DRW_cache_camera_get(void)
 {
 	if (!SHC.drw_camera) {
-		float v0 = 0.0f; /* Center point */
-		float v1 = 1.0f; /* + X + Y */
-		float v2 = 2.0f; /* + X - Y */
-		float v3 = 3.0f; /* - X - Y */
-		float v4 = 4.0f; /* - X + Y */
-		float v5 = 5.0f; /* tria + X */
-		float v6 = 6.0f; /* tria - X */
-		float v7 = 7.0f; /* tria + Y */
-		int v_idx = 0;
-
 		static Gwn_VertFormat format = { 0 };
 		static struct { uint pos; } attr_id;
 		if (format.attrib_ct == 0) {
-			/* use x coordinate to identify the vertex
-			 * the vertex shader take care to place it
-			 * appropriatelly */
 			attr_id.pos = GWN_vertformat_attr_add(&format, "pos", GWN_COMP_F32, 1, GWN_FETCH_FLOAT);
 		}
 
 		/* Vertices */
 		Gwn_VertBuf *vbo = GWN_vertbuf_create_with_format(&format);
-		GWN_vertbuf_data_alloc(vbo, 22);
+		const int vbo_len_capacity = 22;
+		GWN_vertbuf_data_alloc(vbo, vbo_len_capacity);
+		Gwn_VertBufRaw pos_step;
+		GWN_vertbuf_attr_get_raw_data(vbo, attr_id.pos, &pos_step);
 
-		GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, &v0);
-		GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, &v1);
+		/* camera cone (from center to frame) */
+		camera_fill_lines_fan_fl_v1(&pos_step, camera_coords_frame_bounds, ARRAY_SIZE(camera_coords_frame_bounds));
 
-		GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, &v0);
-		GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, &v2);
+		/* camera frame (skip center) */
+		camera_fill_lines_loop_fl_v1(&pos_step, &camera_coords_frame_bounds[1], ARRAY_SIZE(camera_coords_frame_bounds) - 1);
 
-		GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, &v0);
-		GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, &v3);
+		/* camera triangle (above the frame) */
+		camera_fill_lines_loop_fl_v1(&pos_step, camera_coords_frame_tri, ARRAY_SIZE(camera_coords_frame_tri));
 
-		GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, &v0);
-		GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, &v4);
-
-		/* camera frame */
-		GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, &v1);
-		GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, &v2);
-
-		GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, &v2);
-		GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, &v3);
-
-		GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, &v3);
-		GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, &v4);
-
-		GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, &v4);
-		GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, &v1);
-
-		/* tria */
-		GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, &v5);
-		GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, &v6);
-
-		GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, &v6);
-		GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, &v7);
-
-		GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, &v7);
-		GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, &v5);
+		BLI_assert(vbo_len_capacity == GWN_vertbuf_raw_used(&pos_step));
 
 		SHC.drw_camera = GWN_batch_create_ex(GWN_PRIM_LINES, vbo, NULL, GWN_BATCH_OWNS_VBO);
 	}
 	return SHC.drw_camera;
 }
 
-Gwn_Batch *DRW_cache_camera_tria_get(void)
+Gwn_Batch *DRW_cache_camera_frame_get(void)
 {
-	if (!SHC.drw_camera_tria) {
-		float v5 = 5.0f; /* tria + X */
-		float v6 = 6.0f; /* tria - X */
-		float v7 = 7.0f; /* tria + Y */
-		int v_idx = 0;
+	if (!SHC.drw_camera_frame) {
 
 		static Gwn_VertFormat format = { 0 };
 		static struct { uint pos; } attr_id;
 		if (format.attrib_ct == 0) {
-			/* use x coordinate to identify the vertex
-			 * the vertex shader take care to place it
-			 * appropriatelly */
 			attr_id.pos = GWN_vertformat_attr_add(&format, "pos", GWN_COMP_F32, 1, GWN_FETCH_FLOAT);
 		}
 
 		/* Vertices */
 		Gwn_VertBuf *vbo = GWN_vertbuf_create_with_format(&format);
-		GWN_vertbuf_data_alloc(vbo, 6);
+		const int vbo_len_capacity = 8;
+		GWN_vertbuf_data_alloc(vbo, vbo_len_capacity);
+		Gwn_VertBufRaw pos_step;
+		GWN_vertbuf_attr_get_raw_data(vbo, attr_id.pos, &pos_step);
 
-		/* tria */
-		GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, &v5);
-		GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, &v6);
-		GWN_vertbuf_attr_set(vbo, attr_id.pos, v_idx++, &v7);
+		/* camera frame (skip center) */
+		camera_fill_lines_loop_fl_v1(&pos_step, &camera_coords_frame_bounds[1], ARRAY_SIZE(camera_coords_frame_bounds) - 1);
+
+		BLI_assert(vbo_len_capacity == GWN_vertbuf_raw_used(&pos_step));
+
+		SHC.drw_camera_frame = GWN_batch_create_ex(GWN_PRIM_LINES, vbo, NULL, GWN_BATCH_OWNS_VBO);
+	}
+	return SHC.drw_camera_frame;
+}
+
+Gwn_Batch *DRW_cache_camera_tria_get(void)
+{
+	if (!SHC.drw_camera_tria) {
+		static Gwn_VertFormat format = { 0 };
+		static struct { uint pos; } attr_id;
+		if (format.attrib_ct == 0) {
+			attr_id.pos = GWN_vertformat_attr_add(&format, "pos", GWN_COMP_F32, 1, GWN_FETCH_FLOAT);
+		}
+
+		/* Vertices */
+		Gwn_VertBuf *vbo = GWN_vertbuf_create_with_format(&format);
+		const int vbo_len_capacity = 3;
+		GWN_vertbuf_data_alloc(vbo, vbo_len_capacity);
+		Gwn_VertBufRaw pos_step;
+		GWN_vertbuf_attr_get_raw_data(vbo, attr_id.pos, &pos_step);
+
+		/* camera triangle (above the frame) */
+		camera_fill_array_fl_v1(&pos_step, camera_coords_frame_tri, ARRAY_SIZE(camera_coords_frame_tri));
+
+		BLI_assert(vbo_len_capacity == GWN_vertbuf_raw_used(&pos_step));
 
 		SHC.drw_camera_tria = GWN_batch_create_ex(GWN_PRIM_TRIS, vbo, NULL, GWN_BATCH_OWNS_VBO);
 	}
@@ -2334,6 +2420,16 @@ Gwn_Batch *DRW_cache_curve_surface_get(Object *ob)
 	return DRW_curve_batch_cache_get_triangles_with_normals(cu, ob->curve_cache);
 }
 
+/* Return list of batches */
+Gwn_Batch **DRW_cache_curve_surface_shaded_get(
+        Object *ob, struct GPUMaterial **gpumat_array, uint gpumat_array_len)
+{
+	BLI_assert(ob->type == OB_CURVE);
+
+	struct Curve *cu = ob->data;
+	return DRW_curve_batch_cache_get_surface_shaded(cu, ob->curve_cache, gpumat_array, gpumat_array_len);
+}
+
 /** \} */
 
 /* -------------------------------------------------------------------- */
@@ -2372,6 +2468,17 @@ Gwn_Batch *DRW_cache_text_surface_get(Object *ob)
 	return DRW_curve_batch_cache_get_triangles_with_normals(cu, ob->curve_cache);
 }
 
+Gwn_Batch **DRW_cache_text_surface_shaded_get(
+        Object *ob, struct GPUMaterial **gpumat_array, uint gpumat_array_len)
+{
+	BLI_assert(ob->type == OB_FONT);
+	struct Curve *cu = ob->data;
+	if (cu->editfont && (cu->flag & CU_FAST)) {
+		return NULL;
+	}
+	return DRW_curve_batch_cache_get_surface_shaded(cu, ob->curve_cache, gpumat_array, gpumat_array_len);
+}
+
 Gwn_Batch *DRW_cache_text_cursor_overlay_get(Object *ob)
 {
 	BLI_assert(ob->type == OB_FONT);
@@ -2399,6 +2506,16 @@ Gwn_Batch *DRW_cache_surf_surface_get(Object *ob)
 
 	struct Curve *cu = ob->data;
 	return DRW_curve_batch_cache_get_triangles_with_normals(cu, ob->curve_cache);
+}
+
+/* Return list of batches */
+Gwn_Batch **DRW_cache_surf_surface_shaded_get(
+        Object *ob, struct GPUMaterial **gpumat_array, uint gpumat_array_len)
+{
+	BLI_assert(ob->type == OB_SURF);
+
+	struct Curve *cu = ob->data;
+	return DRW_curve_batch_cache_get_surface_shaded(cu, ob->curve_cache, gpumat_array, gpumat_array_len);
 }
 
 /** \} */

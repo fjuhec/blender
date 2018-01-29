@@ -31,7 +31,7 @@
 #include "UI_resources.h"
 
 #include "BKE_global.h"
-#include "BKE_texture.h"
+#include "BKE_colorband.h"
 
 #include "draw_common.h"
 
@@ -80,6 +80,21 @@ void DRW_globals_update(void)
 	UI_GetThemeColor4fv(TH_LNORMAL, ts.colorLNormal);
 	UI_GetThemeColor4fv(TH_FACE_DOT, ts.colorFaceDot);
 	UI_GetThemeColor4fv(TH_BACK, ts.colorBackground);
+
+	/* Curve */
+	UI_GetThemeColor4fv(TH_HANDLE_FREE, ts.colorHandleFree);
+	UI_GetThemeColor4fv(TH_HANDLE_AUTO, ts.colorHandleAuto);
+	UI_GetThemeColor4fv(TH_HANDLE_VECT, ts.colorHandleVect);
+	UI_GetThemeColor4fv(TH_HANDLE_ALIGN, ts.colorHandleAlign);
+	UI_GetThemeColor4fv(TH_HANDLE_AUTOCLAMP, ts.colorHandleAutoclamp);
+	UI_GetThemeColor4fv(TH_HANDLE_SEL_FREE, ts.colorHandleSelFree);
+	UI_GetThemeColor4fv(TH_HANDLE_SEL_AUTO, ts.colorHandleSelAuto);
+	UI_GetThemeColor4fv(TH_HANDLE_SEL_VECT, ts.colorHandleSelVect);
+	UI_GetThemeColor4fv(TH_HANDLE_SEL_ALIGN, ts.colorHandleSelAlign);
+	UI_GetThemeColor4fv(TH_HANDLE_SEL_AUTOCLAMP, ts.colorHandleSelAutoclamp);
+	UI_GetThemeColor4fv(TH_NURB_ULINE, ts.colorNurbUline);
+	UI_GetThemeColor4fv(TH_NURB_SEL_ULINE, ts.colorNurbSelUline);
+	UI_GetThemeColor4fv(TH_ACTIVE_SPLINE, ts.colorActiveSpline);
 
 	/* Grid */
 	UI_GetThemeColorShade4fv(TH_GRID, 10, ts.colorGrid);
@@ -130,7 +145,7 @@ void DRW_globals_update(void)
 	ramp.data[2].r = 1.0f;
 	ramp.data[2].pos = 1.0f;
 
-	colorband_table_RGBA(&ramp, &colors, &col_size);
+	BKE_colorband_evaluate_table_rgba(&ramp, &colors, &col_size);
 
 	if (globals_ramp) {
 		GPU_texture_free(globals_ramp);
@@ -200,7 +215,7 @@ DRWShadingGroup *shgroup_instance_screenspace(DRWPass *pass, struct Gwn_Batch *g
 	return grp;
 }
 
-DRWShadingGroup *shgroup_instance_objspace_solid(DRWPass *pass, struct Gwn_Batch *geom, float (*obmat)[4])
+DRWShadingGroup *shgroup_instance_solid(DRWPass *pass, struct Gwn_Batch *geom)
 {
 	static float light[3] = {0.0f, 0.0f, 1.0f};
 	GPUShader *sh = GPU_shader_get_builtin_shader(GPU_SHADER_3D_OBJECTSPACE_SIMPLE_LIGHTING_VARIYING_COLOR);
@@ -208,20 +223,18 @@ DRWShadingGroup *shgroup_instance_objspace_solid(DRWPass *pass, struct Gwn_Batch
 	DRWShadingGroup *grp = DRW_shgroup_instance_create(sh, pass, geom);
 	DRW_shgroup_attrib_float(grp, "InstanceModelMatrix", 16);
 	DRW_shgroup_attrib_float(grp, "color", 4);
-	DRW_shgroup_uniform_mat4(grp, "ObjectModelMatrix", (float *)obmat);
 	DRW_shgroup_uniform_vec3(grp, "light", light, 1);
 
 	return grp;
 }
 
-DRWShadingGroup *shgroup_instance_objspace_wire(DRWPass *pass, struct Gwn_Batch *geom, float (*obmat)[4])
+DRWShadingGroup *shgroup_instance_wire(DRWPass *pass, struct Gwn_Batch *geom)
 {
 	GPUShader *sh = GPU_shader_get_builtin_shader(GPU_SHADER_3D_OBJECTSPACE_VARIYING_COLOR);
 
 	DRWShadingGroup *grp = DRW_shgroup_instance_create(sh, pass, geom);
 	DRW_shgroup_attrib_float(grp, "InstanceModelMatrix", 16);
 	DRW_shgroup_attrib_float(grp, "color", 4);
-	DRW_shgroup_uniform_mat4(grp, "ObjectModelMatrix", (float *)obmat);
 
 	return grp;
 }
@@ -308,8 +321,8 @@ DRWShadingGroup *shgroup_distance_lines_instance(DRWPass *pass, struct Gwn_Batch
 DRWShadingGroup *shgroup_spot_instance(DRWPass *pass, struct Gwn_Batch *geom)
 {
 	GPUShader *sh_inst = GPU_shader_get_builtin_shader(GPU_SHADER_INSTANCE_EDGES_VARIYING_COLOR);
-	static bool True = true;
-	static bool False = false;
+	static const int True = true;
+	static const int False = false;
 
 	DRWShadingGroup *grp = DRW_shgroup_instance_create(sh_inst, pass, geom);
 	DRW_shgroup_attrib_float(grp, "color", 3);
@@ -321,7 +334,7 @@ DRWShadingGroup *shgroup_spot_instance(DRWPass *pass, struct Gwn_Batch *geom)
 	return grp;
 }
 
-DRWShadingGroup *shgroup_instance_bone_envelope_wire(DRWPass *pass, struct Gwn_Batch *geom, float (*obmat)[4])
+DRWShadingGroup *shgroup_instance_bone_envelope_wire(DRWPass *pass, struct Gwn_Batch *geom)
 {
 	GPUShader *sh = GPU_shader_get_builtin_shader(GPU_SHADER_3D_INSTANCE_BONE_ENVELOPE_WIRE);
 
@@ -331,12 +344,11 @@ DRWShadingGroup *shgroup_instance_bone_envelope_wire(DRWPass *pass, struct Gwn_B
 	DRW_shgroup_attrib_float(grp, "radius_head", 1);
 	DRW_shgroup_attrib_float(grp, "radius_tail", 1);
 	DRW_shgroup_attrib_float(grp, "distance", 1);
-	DRW_shgroup_uniform_mat4(grp, "ObjectModelMatrix", (float *)obmat);
 
 	return grp;
 }
 
-DRWShadingGroup *shgroup_instance_bone_envelope_solid(DRWPass *pass, struct Gwn_Batch *geom, float (*obmat)[4])
+DRWShadingGroup *shgroup_instance_bone_envelope_solid(DRWPass *pass, struct Gwn_Batch *geom)
 {
 	static float light[3] = {0.0f, 0.0f, 1.0f};
 	GPUShader *sh = GPU_shader_get_builtin_shader(GPU_SHADER_3D_INSTANCE_BONE_ENVELOPE_SOLID);
@@ -346,7 +358,6 @@ DRWShadingGroup *shgroup_instance_bone_envelope_solid(DRWPass *pass, struct Gwn_
 	DRW_shgroup_attrib_float(grp, "color", 4);
 	DRW_shgroup_attrib_float(grp, "radius_head", 1);
 	DRW_shgroup_attrib_float(grp, "radius_tail", 1);
-	DRW_shgroup_uniform_mat4(grp, "ObjectModelMatrix", (float *)obmat);
 	DRW_shgroup_uniform_vec3(grp, "light", light, 1);
 
 	return grp;

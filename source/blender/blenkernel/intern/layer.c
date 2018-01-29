@@ -42,6 +42,8 @@
 #include "BKE_node.h"
 #include "BKE_workspace.h"
 
+#include "DEG_depsgraph.h"
+
 #include "DNA_group_types.h"
 #include "DNA_ID.h"
 #include "DNA_layer_types.h"
@@ -97,7 +99,7 @@ ViewLayer *BKE_view_layer_from_workspace_get(const struct Scene *scene, const st
 
 /**
  * This is a placeholder to know which areas of the code need to be addressed for the Workspace changes.
- * Never use this, you should either use BKE_view_layer_workspace_active or get ViewLayer explicitly.
+ * Never use this, you should either use BKE_view_layer_from_workspace_get or get ViewLayer explicitly.
  */
 ViewLayer *BKE_view_layer_context_active_PLACEHOLDER(const Scene *scene)
 {
@@ -161,10 +163,15 @@ ViewLayer *BKE_view_layer_group_add(Group *group)
 	return view_layer;
 }
 
+void BKE_view_layer_free(ViewLayer *view_layer)
+{
+	BKE_view_layer_free_ex(view_layer, true);
+}
+
 /**
  * Free (or release) any data used by this ViewLayer.
  */
-void BKE_view_layer_free(ViewLayer *view_layer)
+void BKE_view_layer_free_ex(ViewLayer *view_layer, const bool do_id_user)
 {
 	view_layer->basact = NULL;
 
@@ -203,7 +210,7 @@ void BKE_view_layer_free(ViewLayer *view_layer)
 
 	MEM_SAFE_FREE(view_layer->stats);
 
-	BKE_freestyle_config_free(&view_layer->freestyle_config);
+	BKE_freestyle_config_free(&view_layer->freestyle_config, do_id_user);
 
 	if (view_layer->id_properties) {
 		IDP_FreeProperty(view_layer->id_properties);
@@ -1018,7 +1025,8 @@ static void layer_collection_enable(ViewLayer *view_layer, LayerCollection *lc)
 /**
  * Enable collection
  * Add its objects bases to ViewLayer
- * Depsgraph needs to be rebuilt afterwards
+ *
+ * Only around for doversion.
  */
 void BKE_collection_enable(ViewLayer *view_layer, LayerCollection *lc)
 {
@@ -1030,45 +1038,16 @@ void BKE_collection_enable(ViewLayer *view_layer, LayerCollection *lc)
 	layer_collection_enable(view_layer, lc);
 }
 
-/**
- * Recursively disable nested collections
- */
-static void layer_collection_disable(ViewLayer *view_layer, LayerCollection *lc)
-{
-	layer_collection_objects_unpopulate(view_layer, lc);
-
-	for (LayerCollection *nlc = lc->layer_collections.first; nlc; nlc = nlc->next) {
-		layer_collection_disable(view_layer, nlc);
-	}
-}
-
-/**
- * Disable collection
- * Remove all its object bases from ViewLayer
- * Depsgraph needs to be rebuilt afterwards
- */
-void BKE_collection_disable(ViewLayer *view_layer, LayerCollection *lc)
-{
-	if ((lc->flag & COLLECTION_DISABLED) != 0) {
-		return;
-	}
-
-	lc->flag |= COLLECTION_DISABLED;
-	layer_collection_disable(view_layer, lc);
-}
-
 static void layer_collection_object_add(ViewLayer *view_layer, LayerCollection *lc, Object *ob)
 {
 	Base *base = object_base_add(view_layer, ob);
 
-	/* Only add an object once - prevent SceneCollection->objects and
-	 * SceneCollection->filter_objects to add the same object. */
-
+	/* Only add an object once. */
 	if (BLI_findptr(&lc->object_bases, base, offsetof(LinkData, data))) {
 		return;
 	}
 
-	bool is_visible = (lc->flag & COLLECTION_VISIBLE) != 0;
+	bool is_visible = ((lc->flag & COLLECTION_VIEWPORT) != 0) && ((lc->flag & COLLECTION_DISABLED) == 0);
 	bool is_selectable = is_visible && ((lc->flag & COLLECTION_SELECTABLE) != 0);
 
 	if (is_visible) {
@@ -1104,7 +1083,6 @@ static void layer_collection_objects_populate(ViewLayer *view_layer, LayerCollec
 static void layer_collection_populate(ViewLayer *view_layer, LayerCollection *lc, SceneCollection *sc)
 {
 	layer_collection_objects_populate(view_layer, lc, &sc->objects);
-	layer_collection_objects_populate(view_layer, lc, &sc->filter_objects);
 
 	for (SceneCollection *nsc = sc->scene_collections.first; nsc; nsc = nsc->next) {
 		layer_collection_add(view_layer, lc, nsc);
@@ -1117,7 +1095,7 @@ static LayerCollection *layer_collection_add(ViewLayer *view_layer, LayerCollect
 	LayerCollection *lc = MEM_callocN(sizeof(LayerCollection), "Collection Base");
 
 	lc->scene_collection = sc;
-	lc->flag = COLLECTION_VISIBLE | COLLECTION_SELECTABLE;
+	lc->flag = COLLECTION_SELECTABLE | COLLECTION_VIEWPORT | COLLECTION_RENDER;
 
 	lc->properties = IDP_New(IDP_GROUP, &val, ROOT_PROP);
 	collection_engine_settings_init(lc->properties, false);
@@ -1214,7 +1192,6 @@ void BKE_layer_sync_object_link(const ID *owner_id, SceneCollection *sc, Object 
 
 /**
  * Remove the equivalent object base to all layers that have this collection
- * also remove all reference to ob in the filter_objects
  */
 void BKE_layer_sync_object_unlink(const ID *owner_id, SceneCollection *sc, Object *ob)
 {
@@ -2118,7 +2095,25 @@ static const char *collection_type_lookup[] =
     "Group Internal", /* COLLECTION_TYPE_GROUP_INTERNAL */
 };
 
-void BKE_layer_eval_layer_collection(const struct EvaluationContext *UNUSED(eval_ctx),
+/**
+ * \note We can't use layer_collection->flag because of 3 level nesting (where parent is visible, but not grand-parent)
+ * So layer_collection->flag_evaluated is expected to be up to date with layer_collection->flag.
+ */
+static bool layer_collection_visible_get(const EvaluationContext *eval_ctx, LayerCollection *layer_collection)
+{
+	if (layer_collection->flag_evaluated & COLLECTION_DISABLED) {
+		return false;
+	}
+
+	if (eval_ctx->mode == DAG_EVAL_VIEWPORT) {
+		return (layer_collection->flag_evaluated & COLLECTION_VIEWPORT) != 0;
+	}
+	else {
+		return (layer_collection->flag_evaluated & COLLECTION_RENDER) != 0;
+	}
+}
+
+void BKE_layer_eval_layer_collection(const EvaluationContext *eval_ctx,
                                      LayerCollection *layer_collection,
                                      LayerCollection *parent_layer_collection)
 {
@@ -2134,14 +2129,21 @@ void BKE_layer_eval_layer_collection(const struct EvaluationContext *UNUSED(eval
 
 	/* visibility */
 	layer_collection->flag_evaluated = layer_collection->flag;
-	bool is_visible = (layer_collection->flag & COLLECTION_VISIBLE) != 0;
-	bool is_selectable = is_visible && ((layer_collection->flag & COLLECTION_SELECTABLE) != 0);
 
 	if (parent_layer_collection != NULL) {
-		is_visible &= (parent_layer_collection->flag_evaluated & COLLECTION_VISIBLE) != 0;
-		is_selectable &= (parent_layer_collection->flag_evaluated & COLLECTION_SELECTABLE) != 0;
-		layer_collection->flag_evaluated &= parent_layer_collection->flag_evaluated;
+		if (layer_collection_visible_get(eval_ctx, parent_layer_collection) == false) {
+			layer_collection->flag_evaluated |= COLLECTION_DISABLED;
+		}
+
+		if ((parent_layer_collection->flag_evaluated & COLLECTION_DISABLED) ||
+		    (parent_layer_collection->flag_evaluated & COLLECTION_SELECTABLE) == 0)
+		{
+			layer_collection->flag_evaluated &= ~COLLECTION_SELECTABLE;
+		}
 	}
+
+	const bool is_visible = layer_collection_visible_get(eval_ctx, layer_collection);
+	const bool is_selectable = is_visible && ((layer_collection->flag_evaluated & COLLECTION_SELECTABLE) != 0);
 
 	/* overrides */
 	if (is_visible) {

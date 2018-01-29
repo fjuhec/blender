@@ -70,6 +70,7 @@ struct Gwn_Batch *DRW_cache_field_cone_limit_get(void);
 
 /* Lamps */
 struct Gwn_Batch *DRW_cache_lamp_get(void);
+struct Gwn_Batch *DRW_cache_lamp_shadows_get(void);
 struct Gwn_Batch *DRW_cache_lamp_sunrays_get(void);
 struct Gwn_Batch *DRW_cache_lamp_area_get(void);
 struct Gwn_Batch *DRW_cache_lamp_hemi_get(void);
@@ -78,6 +79,7 @@ struct Gwn_Batch *DRW_cache_lamp_spot_square_get(void);
 
 /* Camera */
 struct Gwn_Batch *DRW_cache_camera_get(void);
+struct Gwn_Batch *DRW_cache_camera_frame_get(void);
 struct Gwn_Batch *DRW_cache_camera_tria_get(void);
 
 /* Speaker */
@@ -130,6 +132,8 @@ void DRW_cache_mesh_sculpt_coords_ensure(struct Object *ob);
 
 /* Curve */
 struct Gwn_Batch *DRW_cache_curve_surface_get(struct Object *ob);
+struct Gwn_Batch **DRW_cache_curve_surface_shaded_get(
+        struct Object *ob, struct GPUMaterial **gpumat_array, uint gpumat_array_len);
 struct Gwn_Batch *DRW_cache_curve_surface_verts_get(struct Object *ob);
 struct Gwn_Batch *DRW_cache_curve_edge_wire_get(struct Object *ob);
 /* edit-mode */
@@ -140,12 +144,16 @@ struct Gwn_Batch *DRW_cache_curve_vert_overlay_get(struct Object *ob);
 /* Font */
 struct Gwn_Batch *DRW_cache_text_edge_wire_get(struct Object *ob);
 struct Gwn_Batch *DRW_cache_text_surface_get(struct Object *ob);
+struct Gwn_Batch **DRW_cache_text_surface_shaded_get(
+        struct Object *ob, struct GPUMaterial **gpumat_array, uint gpumat_array_len);
 /* edit-mode */
 struct Gwn_Batch *DRW_cache_text_cursor_overlay_get(struct Object *ob);
 struct Gwn_Batch *DRW_cache_text_select_overlay_get(struct Object *ob);
 
 /* Surface */
 struct Gwn_Batch *DRW_cache_surf_surface_get(struct Object *ob);
+struct Gwn_Batch **DRW_cache_surf_surface_shaded_get(
+        struct Object *ob, struct GPUMaterial **gpumat_array, uint gpumat_array_len);
 
 /* Lattice */
 struct Gwn_Batch *DRW_cache_lattice_verts_get(struct Object *ob);

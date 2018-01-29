@@ -115,6 +115,13 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         sub.active = md.use_object_offset
         sub.prop(md, "offset_object", text="")
 
+        row = layout.row()
+        split = row.split()
+        col = split.column()
+        col.label(text="UVs:")
+        sub = col.column(align=True)
+        sub.prop(md, "offset_u")
+        sub.prop(md, "offset_v")
         layout.separator()
 
         layout.prop(md, "start_cap")
@@ -841,10 +848,18 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         col.label(text="Axis, Origin:")
         col.prop(md, "origin", text="")
 
+        col.prop(md, "deform_axis")
+
         if md.deform_method in {'TAPER', 'STRETCH', 'TWIST'}:
-            col.label(text="Lock:")
-            col.prop(md, "lock_x")
-            col.prop(md, "lock_y")
+            row = col.row(align=True)
+            row.label(text="Lock:")
+            deform_axis = md.deform_axis
+            if deform_axis != 'X':
+                row.prop(md, "lock_x")
+            if deform_axis != 'Y':
+                row.prop(md, "lock_y")
+            if deform_axis != 'Z':
+                row.prop(md, "lock_z")
 
         col = split.column()
         col.label(text="Deform:")

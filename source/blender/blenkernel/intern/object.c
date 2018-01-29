@@ -356,7 +356,7 @@ void BKE_object_free_derived_caches(Object *ob)
 
 	if (ob->mesh_evaluated != NULL) {
 		/* Restore initial pointer. */
-		ob->data = ob->mesh_evaluated->id.newid;
+		ob->data = ob->mesh_evaluated->id.orig_id;
 		/* Evaluated mesh points to edit mesh, but does not own it. */
 		ob->mesh_evaluated->edit_btmesh = NULL;
 		BKE_mesh_free(ob->mesh_evaluated);
@@ -458,11 +458,8 @@ void BKE_object_free(Object *ob)
 	GPU_lamp_free(ob);
 
 	for (ObjectEngineData *oed = ob->drawdata.first; oed; oed = oed->next) {
-		if (oed->storage) {
-			if (oed->free) {
-				oed->free(oed->storage);
-			}
-			MEM_freeN(oed->storage);
+		if (oed->free != NULL) {
+			oed->free(oed);
 		}
 	}
 	BLI_freelistN(&ob->drawdata);
@@ -552,11 +549,32 @@ bool BKE_object_is_in_wpaint_select_vert(Object *ob)
 
 /**
  * Return if the object is visible, as evaluated by depsgraph
- * Keep in sync with rna_object.c (object.is_visible).
  */
-bool BKE_object_is_visible(Object *ob)
+bool BKE_object_is_visible(Object *ob, const eObjectVisibilityCheck mode)
 {
-	return (ob->base_flag & BASE_VISIBLED) != 0;
+	if ((ob->base_flag & BASE_VISIBLED) == 0) {
+		return false;
+	}
+
+	if (mode == OB_VISIBILITY_CHECK_UNKNOWN_RENDER_MODE) {
+		return true;
+	}
+
+	if (((ob->transflag & OB_DUPLI) == 0) &&
+	    (ob->particlesystem.first == NULL))
+	{
+		return true;
+	}
+
+	switch (mode) {
+		case OB_VISIBILITY_CHECK_FOR_VIEWPORT:
+			return ((ob->duplicator_visibility_flag & OB_DUPLI_FLAG_VIEWPORT) != 0);
+		case OB_VISIBILITY_CHECK_FOR_RENDER:
+			return ((ob->duplicator_visibility_flag & OB_DUPLI_FLAG_RENDER) != 0);
+		default:
+			BLI_assert(!"Object visible test mode not supported.");
+			return false;
+	}
 }
 
 bool BKE_object_exists_check(Object *obtest)
@@ -684,6 +702,7 @@ void BKE_object_init(Object *ob)
 	ob->col_group = 0x01;
 	ob->col_mask = 0xffff;
 	ob->preview = NULL;
+	ob->duplicator_visibility_flag = OB_DUPLI_FLAG_VIEWPORT | OB_DUPLI_FLAG_RENDER;
 
 	/* NT fluid sim defaults */
 	ob->fluidsimSettings = NULL;
@@ -2699,8 +2718,11 @@ void BKE_object_handle_update_ex(const EvaluationContext *eval_ctx,
                                  RigidBodyWorld *rbw,
                                  const bool do_proxy_update)
 {
-	const bool recalc_object = (ob->id.tag & LIB_TAG_ID_RECALC) != 0;
-	const bool recalc_data = (ob->id.tag & LIB_TAG_ID_RECALC_DATA) != 0;
+	const ID *object_data = ob->data;
+	const bool recalc_object = (ob->id.recalc & ID_RECALC) != 0;
+	const bool recalc_data =
+	        (object_data != NULL) ? ((object_data->recalc & ID_RECALC_ALL) != 0)
+	                              : 0;
 	if (!recalc_object && ! recalc_data) {
 		object_handle_update_proxy(eval_ctx, scene, ob, do_proxy_update);
 		return;
@@ -2739,7 +2761,7 @@ void BKE_object_handle_update_ex(const EvaluationContext *eval_ctx,
 		BKE_object_handle_data_update(eval_ctx, scene, ob);
 	}
 
-	ob->id.tag &= ~LIB_TAG_ID_RECALC_ALL;
+	ob->id.recalc &= ID_RECALC_ALL;
 
 	object_handle_update_proxy(eval_ctx, scene, ob, do_proxy_update);
 }
@@ -3722,7 +3744,7 @@ bool BKE_object_modifier_update_subframe(
 
 	/* was originally OB_RECALC_ALL - TODO - which flags are really needed??? */
 	/* TODO(sergey): What about animation? */
-	ob->id.tag |= LIB_TAG_ID_RECALC_ALL;
+	ob->id.recalc |= ID_RECALC_ALL;
 	BKE_animsys_evaluate_animdata(scene, &ob->id, ob->adt, frame, ADT_RECALC_ANIM);
 	if (update_mesh) {
 		/* ignore cache clear during subframe updates

@@ -318,7 +318,7 @@ static ID *rna_ID_override_create(ID *id, Main *bmain)
 		return NULL;
 	}
 
-	return BKE_override_static_create_from(bmain, id);
+	return BKE_override_static_create_from_id(bmain, id);
 }
 
 static void rna_ID_update_tag(ID *id, ReportList *reports, int flag)
@@ -772,6 +772,27 @@ static PointerRNA rna_IDPreview_get(PointerRNA *ptr)
 	return rna_pointer_inherit_refine(ptr, &RNA_ImagePreview, prv_img);
 }
 
+static int rna_ID_is_updated_get(PointerRNA *ptr)
+{
+	ID *id = (ID *)ptr->data;
+	/* TODO(sergey): Do we need to limit some of flags here? */
+	return ((id->recalc & ID_RECALC_ALL) != 0);
+}
+
+static int rna_ID_is_updated_data_get(PointerRNA *ptr)
+{
+	ID *id = (ID *)ptr->data;
+	if (GS(id->name) != ID_OB) {
+		return 0;
+	}
+	Object *object = (Object *)id;
+	ID *data = object->data;
+	if (data == NULL) {
+		return 0;
+	}
+	return ((data->recalc & ID_RECALC_ALL) != 0);
+}
+
 static PointerRNA rna_ID_override_reference_get(PointerRNA *ptr)
 {
 	ID *id = (ID *)ptr->data;
@@ -1023,13 +1044,13 @@ static void rna_def_ID(BlenderRNA *brna)
 	                         "(initial state is undefined)");
 
 	prop = RNA_def_property(srna, "is_updated", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "tag", LIB_TAG_ID_RECALC);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+	RNA_def_property_boolean_funcs(prop, "rna_ID_is_updated_get", NULL);
 	RNA_def_property_ui_text(prop, "Is Updated", "Data-block is tagged for recalculation");
 
 	prop = RNA_def_property(srna, "is_updated_data", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "tag", LIB_TAG_ID_RECALC_DATA);
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+	RNA_def_property_boolean_funcs(prop, "rna_ID_is_updated_data_get", NULL);
 	RNA_def_property_ui_text(prop, "Is Updated Data", "Data-block data is tagged for recalculation");
 
 	prop = RNA_def_property(srna, "is_library_indirect", PROP_BOOLEAN, PROP_NONE);

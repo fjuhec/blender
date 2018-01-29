@@ -287,6 +287,7 @@ class USERPREF_PT_interface(Panel):
         #col.prop(view, "open_left_mouse_delay", text="Hold LMB")
         #col.prop(view, "open_right_mouse_delay", text="Hold RMB")
         col.prop(view, "show_manipulator")
+        col.prop(view, "show_manipulator_navigate")
         ## Currently not working
         # col.prop(view, "show_manipulator_shaded")
         sub = col.column()
@@ -314,10 +315,15 @@ class USERPREF_PT_interface(Panel):
         sub.prop(view, "pie_menu_threshold")
         sub.prop(view, "pie_menu_confirm")
         col.separator()
-        col.separator()
-        col.separator()
 
         col.prop(view, "show_splash")
+        col.separator()
+
+        col.label(text="App Template:")
+        col.label(text="Options intended for use with app-templates only.")
+        col.prop(view, "show_layout_ui")
+        col.prop(view, "show_view3d_cursor")
+
 
 
 class USERPREF_PT_edit(Panel):

@@ -8,16 +8,19 @@ layout(std140) uniform sssProfile {
 	int sss_samples;
 };
 
-uniform float jitterThreshold;
 uniform sampler2D depthBuffer;
 uniform sampler2D sssData;
 uniform sampler2D sssAlbedo;
+
+#ifndef UTIL_TEX
+#define UTIL_TEX
 uniform sampler2DArray utilTex;
+#define texelfetch_noise_tex(coord) texelFetch(utilTex, ivec3(ivec2(coord) % LUT_SIZE, 2.0), 0)
+#endif /* UTIL_TEX */
 
 out vec4 FragColor;
 
 uniform mat4 ProjectionMatrix;
-uniform vec4 viewvecs[2];
 
 float get_view_z_from_depth(float depth)
 {
@@ -26,7 +29,7 @@ float get_view_z_from_depth(float depth)
 		return -ProjectionMatrix[3][2] / (d + ProjectionMatrix[2][2]);
 	}
 	else {
-		return viewvecs[0].z + depth * viewvecs[1].z;
+		return viewVecs[0].z + depth * viewVecs[1].z;
 	}
 }
 
@@ -41,7 +44,7 @@ void main(void)
 	vec4 sss_data = texture(sssData, uvs).rgba;
 	float depth_view = get_view_z_from_depth(texture(depthBuffer, uvs).r);
 
-	float rand = texelFetch(utilTex, ivec3(ivec2(gl_FragCoord.xy) % LUT_SIZE, 2), 0).r;
+	float rand = texelfetch_noise_tex(gl_FragCoord.xy).r;
 #ifdef FIRST_PASS
 	float angle = M_2PI * rand + M_PI_2;
 	vec2 dir = vec2(1.0, 0.0);
@@ -61,7 +64,7 @@ void main(void)
 	vec3 accum = sss_data.rgb * kernel[0].rgb;
 
 	for (int i = 1; i < sss_samples && i < MAX_SSS_SAMPLES; i++) {
-		vec2 sample_uv = uvs + kernel[i].a * finalStep * ((abs(kernel[i].a) > jitterThreshold) ? dir : dir_rand);
+		vec2 sample_uv = uvs + kernel[i].a * finalStep * ((abs(kernel[i].a) > sssJitterThreshold) ? dir : dir_rand);
 		vec3 color = texture(sssData, sample_uv).rgb;
 		float sample_depth = texture(depthBuffer, sample_uv).r;
 		sample_depth = get_view_z_from_depth(sample_depth);

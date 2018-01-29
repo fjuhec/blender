@@ -80,6 +80,8 @@ static void render_result_views_free(RenderResult *res)
 
 		MEM_freeN(rv);
 	}
+
+	res->have_combined = false;
 }
 
 void render_result_free(RenderResult *res)
@@ -1081,7 +1083,7 @@ static void save_render_result_tile(RenderResult *rr, RenderResult *rrpart, cons
 			continue;
 		}
 
-		IMB_exrtile_write_channels(rl->exrhandle, partx, party, 0, viewname);
+		IMB_exrtile_write_channels(rl->exrhandle, partx, party, 0, viewname, false);
 	}
 
 	BLI_unlock_thread(LOCK_IMAGE);
@@ -1095,13 +1097,11 @@ void render_result_save_empty_result_tiles(Render *re)
 	
 	for (rr = re->result; rr; rr = rr->next) {
 		for (rl = rr->layers.first; rl; rl = rl->next) {
-			IMB_exr_clear_channels(rl->exrhandle);
-		
 			for (pa = re->parts.first; pa; pa = pa->next) {
 				if (pa->status != PART_STATUS_MERGED) {
 					int party = pa->disprect.ymin - re->disprect.ymin + pa->crop;
 					int partx = pa->disprect.xmin - re->disprect.xmin + pa->crop;
-					IMB_exrtile_write_channels(rl->exrhandle, partx, party, 0, re->viewname);
+					IMB_exrtile_write_channels(rl->exrhandle, partx, party, 0, re->viewname, true);
 				}
 			}
 		}
@@ -1354,6 +1354,8 @@ void RE_render_result_rect_from_ibuf(RenderResult *rr, RenderData *UNUSED(rd), I
 	RenderView *rv = RE_RenderViewGetById(rr, view_id);
 
 	if (ibuf->rect_float) {
+		rr->have_combined = true;
+
 		if (!rv->rectf)
 			rv->rectf = MEM_mallocN(4 * sizeof(float) * rr->rectx * rr->recty, "render_seq rectf");
 		
@@ -1364,6 +1366,8 @@ void RE_render_result_rect_from_ibuf(RenderResult *rr, RenderData *UNUSED(rd), I
 		MEM_SAFE_FREE(rv->rect32);
 	}
 	else if (ibuf->rect) {
+		rr->have_combined = true;
+
 		if (!rv->rect32)
 			rv->rect32 = MEM_mallocN(sizeof(int) * rr->rectx * rr->recty, "render_seq rect");
 
@@ -1417,6 +1421,19 @@ bool RE_HasCombinedLayer(RenderResult *res)
 		return false;
 
 	return (rv->rect32 || rv->rectf);
+}
+
+bool RE_HasFloatPixels(RenderResult *res)
+{
+	RenderView *rview;
+
+	for (rview = res->views.first; rview; rview = rview->next) {
+		if (rview->rect32 && !rview->rectf) {
+			return false;
+		}
+	}
+
+	return true;
 }
 
 bool RE_RenderResult_is_stereo(RenderResult *res)
@@ -1482,9 +1499,6 @@ static RenderView *duplicate_render_view(RenderView *rview)
 {
 	RenderView *new_rview = MEM_mallocN(sizeof(RenderView), "new render view");
 	*new_rview = *rview;
-	if (new_rview->rectf != NULL) {
-		new_rview->rectf = MEM_dupallocN(new_rview->rectf);
-	}
 	if (new_rview->rectf != NULL) {
 		new_rview->rectf = MEM_dupallocN(new_rview->rectf);
 	}

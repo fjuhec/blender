@@ -3798,12 +3798,13 @@ static GroupObject *add_render_lamp(Render *re, Object *ob)
 			copy_v3_v3(vec, ob->obmat[2]);
 			normalize_v3(vec);
 
-			InitSunSky(lar->sunsky, la->atm_turbidity, vec, la->horizon_brightness, 
-					la->spread, la->sun_brightness, la->sun_size, la->backscattered_light,
-					   la->skyblendfac, la->skyblendtype, la->sky_exposure, la->sky_colorspace);
-			
-			InitAtmosphere(lar->sunsky, la->sun_intensity, 1.0, 1.0, la->atm_inscattering_factor, la->atm_extinction_factor,
-					la->atm_distance_factor);
+			InitSunSky(
+			        lar->sunsky, la->atm_turbidity, vec, la->horizon_brightness,
+			        la->spread, la->sun_brightness, la->sun_size, la->backscattered_light,
+			        la->skyblendfac, la->skyblendtype, la->sky_exposure, la->sky_colorspace);
+			InitAtmosphere(
+			        lar->sunsky, la->sun_intensity, 1.0, 1.0, la->atm_inscattering_factor, la->atm_extinction_factor,
+			        la->atm_distance_factor);
 		}
 	}
 	else lar->ray_totsamp= 0;
@@ -4668,9 +4669,8 @@ static void add_render_object(Render *re, Object *ob, Object *par, DupliObject *
 	/* the emitter has to be processed first (render levels of modifiers) */
 	/* so here we only check if the emitter should be rendered */
 	if (ob->particlesystem.first) {
-		show_emitter= 0;
+		show_emitter = (ob->duplicator_visibility_flag & OB_DUPLI_FLAG_RENDER) != 0;
 		for (psys=ob->particlesystem.first; psys; psys=psys->next) {
-			show_emitter += psys->part->draw & PART_DRAW_EMITTER;
 			if (!(re->r.scemode & R_VIEWPORT_PREVIEW)) {
 				psys_has_renderdata |= (psys->renderdata != NULL);
 				psys_render_set(ob, psys, re->viewmat, re->winmat, re->winx, re->winy, timeoffset);

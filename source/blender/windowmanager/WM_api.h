@@ -216,7 +216,6 @@ struct wmEventHandler *WM_event_add_dropbox_handler(ListBase *handlers, ListBase
 			/* mouse */
 void		WM_event_add_mousemove(struct bContext *C);
 bool		WM_event_is_modal_tweak_exit(const struct wmEvent *event, int tweak_event);
-bool		WM_event_is_absolute(const struct wmEvent *event);
 bool		WM_event_is_last_mousemove(const struct wmEvent *event);
 
 #ifdef WITH_INPUT_NDOF
@@ -234,11 +233,11 @@ void        WM_report_banner_show(void);
 void        WM_report(ReportType type, const char *message);
 void        WM_reportf(ReportType type, const char *format, ...) ATTR_PRINTF_FORMAT(2, 3);
 
-void wm_event_add_ex(
+struct wmEvent *wm_event_add_ex(
         struct wmWindow *win, const struct wmEvent *event_to_add,
         const struct wmEvent *event_to_add_after)
         ATTR_NONNULL(1, 2);
-void wm_event_add(
+struct wmEvent *wm_event_add(
         struct wmWindow *win, const struct wmEvent *event_to_add)
         ATTR_NONNULL(1, 2);
 
@@ -258,6 +257,7 @@ void		WM_operator_view3d_unit_defaults(struct bContext *C, struct wmOperator *op
 int			WM_operator_smooth_viewtx_get(const struct wmOperator *op);
 int			WM_menu_invoke_ex(struct bContext *C, struct wmOperator *op, int opcontext);
 int			WM_menu_invoke			(struct bContext *C, struct wmOperator *op, const struct wmEvent *event);
+void		WM_menu_name_call(struct bContext *C, const char *menu_name, short context);
 int         WM_enum_search_invoke_previews(struct bContext *C, struct wmOperator *op, short prv_cols, short prv_rows);
 int			WM_enum_search_invoke(struct bContext *C, struct wmOperator *op, const struct wmEvent *event);
 			/* invoke callback, confirm menu + exec */
@@ -541,6 +541,11 @@ void		WM_progress_set(struct wmWindow *win, float progress);
 void		WM_progress_clear(struct wmWindow *win);
 
 			/* Draw (for screenshot) */
+void        *WM_draw_cb_activate(
+                    struct wmWindow *win,
+                    void (*draw)(const struct wmWindow *, void *),
+                    void *customdata);
+void        WM_draw_cb_exit(struct wmWindow *win, void *handle);
 void		WM_redraw_windows(struct bContext *C);
 
 void        WM_main_playanim(int argc, const char **argv);
@@ -572,6 +577,17 @@ void WM_toolsystem_link(struct bContext *C, struct WorkSpace *workspace);
 
 void WM_toolsystem_set(struct bContext *C, const struct bToolDef *tool);
 void WM_toolsystem_init(struct bContext *C);
+
+/* wm_tooltip.c */
+typedef struct ARegion *(*wmTooltipInitFn)(struct bContext *, struct ARegion *, bool *);
+
+void WM_tooltip_timer_init(
+        struct bContext *C, struct wmWindow *win, struct ARegion *ar,
+        wmTooltipInitFn init);
+void WM_tooltip_timer_clear(struct bContext *C, struct wmWindow *win);
+void WM_tooltip_clear(struct bContext *C, struct wmWindow *win);
+void WM_tooltip_init(struct bContext *C, struct wmWindow *win);
+void WM_tooltip_refresh(struct bContext *C, struct wmWindow *win);
 
 #ifdef __cplusplus
 }

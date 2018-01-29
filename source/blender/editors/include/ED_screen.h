@@ -141,7 +141,9 @@ int     ED_region_global_size_y(void);
 
 /* screens */
 void    ED_screens_initialize(struct wmWindowManager *wm);
-void    ED_screen_draw(struct wmWindow *win);
+void    ED_screen_draw_edges(struct wmWindow *win);
+void    ED_screen_draw_join_shape(struct ScrArea *sa1, struct ScrArea *sa2);
+void    ED_screen_draw_split_preview(struct ScrArea *sa, const int dir, const float fac);
 void    ED_screen_refresh(struct wmWindowManager *wm, struct wmWindow *win);
 void    ED_screen_ensure_updated(struct wmWindowManager *wm, struct wmWindow *win, struct bScreen *screen);
 void    ED_screen_do_listen(struct bContext *C, struct wmNotifier *note);

@@ -89,7 +89,6 @@ extern "C" {
 #include "BKE_particle.h"
 #include "BKE_rigidbody.h"
 #include "BKE_sound.h"
-#include "BKE_texture.h"
 #include "BKE_tracking.h"
 #include "BKE_world.h"
 
@@ -105,7 +104,9 @@ extern "C" {
 
 #include "intern/nodes/deg_node.h"
 #include "intern/nodes/deg_node_component.h"
+#include "intern/nodes/deg_node_id.h"
 #include "intern/nodes/deg_node_operation.h"
+#include "intern/nodes/deg_node_time.h"
 
 #include "intern/depsgraph_intern.h"
 #include "intern/depsgraph_types.h"
@@ -193,7 +194,7 @@ static bool particle_system_depends_on_time(ParticleSystem *psys)
 
 static bool object_particles_depends_on_time(Object *object)
 {
-	LINKLIST_FOREACH (ParticleSystem *, psys, &object->particlesystem) {
+	BLI_LISTBASE_FOREACH (ParticleSystem *, psys, &object->particlesystem) {
 		if (particle_system_depends_on_time(psys)) {
 			return true;
 		}
@@ -346,7 +347,7 @@ void DepsgraphRelationBuilder::add_forcefield_relations(
 {
 	ListBase *effectors = pdInitEffectors(NULL, scene, object, psys, eff, false);
 	if (effectors != NULL) {
-		LINKLIST_FOREACH(EffectorCache *, eff, effectors) {
+		BLI_LISTBASE_FOREACH (EffectorCache *, eff, effectors) {
 			if (eff->ob != object) {
 				ComponentKey eff_key(&eff->ob->id, DEG_NODE_TYPE_TRANSFORM);
 				add_relation(eff_key, key, name);
@@ -427,15 +428,13 @@ void DepsgraphRelationBuilder::build_group(Object *object, Group *group)
 	                                        DEG_OPCODE_TRANSFORM_LOCAL);
 
 	if (!group_done) {
-		LINKLIST_FOREACH(Base *, base, &group->view_layer->object_bases) {
+		BLI_LISTBASE_FOREACH (Base *, base, &group->view_layer->object_bases) {
 			build_object(NULL, base->object);
 		}
-
-		build_view_layer_collections(&group->id, group->view_layer);
 		group_id->tag |= LIB_TAG_DOIT;
 	}
 
-	LINKLIST_FOREACH (Base *, base, &group->view_layer->object_bases) {
+	BLI_LISTBASE_FOREACH (Base *, base, &group->view_layer->object_bases) {
 		ComponentKey dupli_transform_key(&base->object->id, DEG_NODE_TYPE_TRANSFORM);
 		add_relation(dupli_transform_key, object_local_transform_key, "Dupligroup");
 	}
@@ -777,7 +776,7 @@ void DepsgraphRelationBuilder::build_constraints(ID *id,
 		else if (cti->get_constraint_targets) {
 			ListBase targets = {NULL, NULL};
 			cti->get_constraint_targets(con, &targets);
-			LINKLIST_FOREACH (bConstraintTarget *, ct, &targets) {
+			BLI_LISTBASE_FOREACH (bConstraintTarget *, ct, &targets) {
 				if (ct->tar == NULL) {
 					continue;
 				}
@@ -924,7 +923,7 @@ void DepsgraphRelationBuilder::build_animdata(ID *id)
 	/* Animation curves and NLA. */
 	build_animdata_curves(id);
 	/* Drivers. */
-	build_animdata_drievrs(id);
+	build_animdata_drivers(id);
 }
 
 void DepsgraphRelationBuilder::build_animdata_curves(ID *id)
@@ -962,7 +961,7 @@ void DepsgraphRelationBuilder::build_animdata_curves_targets(ID *id)
 	/* Iterate over all curves and build relations. */
 	PointerRNA id_ptr;
 	RNA_id_pointer_create(id, &id_ptr);
-	LINKLIST_FOREACH(FCurve *, fcu, &adt->action->curves) {
+	BLI_LISTBASE_FOREACH (FCurve *, fcu, &adt->action->curves) {
 		PointerRNA ptr;
 		PropertyRNA *prop;
 		int index;
@@ -990,17 +989,29 @@ void DepsgraphRelationBuilder::build_animdata_curves_targets(ID *id)
 		graph_->add_new_relation(operation_from, operation_to,
 		                         "Animation -> Prop",
 		                         true);
+		/* It is possible that animation is writing to a nested ID datablock,
+		 * need to make sure animation is evaluated after target ID is copied.
+		 */
+		if (DEG_depsgraph_use_copy_on_write()) {
+			const IDDepsNode *id_node_from = operation_from->owner->owner;
+			const IDDepsNode *id_node_to = operation_to->owner->owner;
+			if (id_node_from != id_node_to) {
+				ComponentKey cow_key(id_node_to->id_orig,
+				                     DEG_NODE_TYPE_COPY_ON_WRITE);
+				add_relation(cow_key, adt_key, "Target CoW -> Animation", true);
+			}
+		}
 	}
 }
 
-void DepsgraphRelationBuilder::build_animdata_drievrs(ID *id)
+void DepsgraphRelationBuilder::build_animdata_drivers(ID *id)
 {
 	AnimData *adt = BKE_animdata_from_id(id);
 	if (adt == NULL) {
 		return;
 	}
 	ComponentKey adt_key(id, DEG_NODE_TYPE_ANIMATION);
-	LINKLIST_FOREACH (FCurve *, fcu, &adt->drivers) {
+	BLI_LISTBASE_FOREACH (FCurve *, fcu, &adt->drivers) {
 		OperationKey driver_key(id,
 		                        DEG_NODE_TYPE_PARAMETERS,
 		                        DEG_OPCODE_DRIVER,
@@ -1009,7 +1020,6 @@ void DepsgraphRelationBuilder::build_animdata_drievrs(ID *id)
 
 		/* create the driver's relations to targets */
 		build_driver(id, fcu);
-
 		/* Special case for array drivers: we can not multithread them because
 		 * of the way how they work internally: animation system will write the
 		 * whole array back to RNA even when changing individual array value.
@@ -1024,7 +1034,7 @@ void DepsgraphRelationBuilder::build_animdata_drievrs(ID *id)
 		 */
 		if (fcu->array_index > 0) {
 			FCurve *fcu_prev = NULL;
-			LINKLIST_FOREACH (FCurve *, fcu_candidate, &adt->drivers) {
+			BLI_LISTBASE_FOREACH (FCurve *, fcu_candidate, &adt->drivers) {
 				/* Writing to different RNA paths is  */
 				const char *rna_path = fcu->rna_path ? fcu->rna_path : "";
 				if (!STREQ(fcu_candidate->rna_path, rna_path)) {
@@ -1140,6 +1150,25 @@ void DepsgraphRelationBuilder::build_driver_data(ID *id, FCurve *fcu)
 	else {
 		RNAPathKey target_key(id, rna_path);
 		add_relation(driver_key, target_key, "Driver -> Target");
+		/* Similar to the case with f-curves, driver might drive a nested
+		 * datablock, which means driver execution should wait for that
+		 * datablock to be copied.
+		 */
+		if (DEG_depsgraph_use_copy_on_write()) {
+			PointerRNA id_ptr;
+			PointerRNA ptr;
+			RNA_id_pointer_create(id, &id_ptr);
+			if (RNA_path_resolve_full(&id_ptr, fcu->rna_path, &ptr, NULL, NULL)) {
+				if (id_ptr.id.data != ptr.id.data) {
+					ComponentKey cow_key((ID *)ptr.id.data,
+					                     DEG_NODE_TYPE_COPY_ON_WRITE);
+					add_relation(cow_key,
+					             driver_key,
+					             "Target CoW -> Driver",
+					             true);
+				}
+			}
+		}
 	}
 }
 
@@ -1154,7 +1183,7 @@ void DepsgraphRelationBuilder::build_driver_variables(ID *id, FCurve *fcu)
 	const char *rna_path = fcu->rna_path ? fcu->rna_path : "";
 	const RNAPathKey self_key(id, rna_path);
 
-	LINKLIST_FOREACH (DriverVar *, dvar, &driver->variables) {
+	BLI_LISTBASE_FOREACH (DriverVar *, dvar, &driver->variables) {
 		/* Only used targets. */
 		DRIVER_TARGETS_USED_LOOPER(dvar)
 		{
@@ -1174,9 +1203,9 @@ void DepsgraphRelationBuilder::build_driver_variables(ID *id, FCurve *fcu)
 					continue;
 				}
 				OperationKey variable_key(dtar->id,
-				                        DEG_NODE_TYPE_BONE,
-				                        target_pchan->name,
-				                        DEG_OPCODE_BONE_DONE);
+				                          DEG_NODE_TYPE_BONE,
+				                          target_pchan->name,
+				                          DEG_OPCODE_BONE_DONE);
 				if (is_same_bone_dependency(variable_key, self_key)) {
 					continue;
 				}
@@ -1201,10 +1230,13 @@ void DepsgraphRelationBuilder::build_driver_variables(ID *id, FCurve *fcu)
 				if (RNA_pointer_is_null(&variable_key.ptr)) {
 					continue;
 				}
-				if (is_same_bone_dependency(variable_key, self_key)) {
+				if (is_same_bone_dependency(variable_key, self_key) ||
+				    is_same_nodetree_node_dependency(variable_key, self_key) ||
+				    is_same_shapekey_dependency(variable_key, self_key))
+				{
 					continue;
 				}
-				add_relation(variable_key, driver_key, "RNA Bone -> Driver");
+				add_relation(variable_key, driver_key, "RNA Target -> Driver");
 			}
 			else {
 				if (dtar->id == id) {
@@ -1266,7 +1298,7 @@ void DepsgraphRelationBuilder::build_rigidbody(Scene *scene)
 
 	/* objects - simulation participants */
 	if (rbw->group) {
-		LINKLIST_FOREACH (Base *, base, &rbw->group->view_layer->object_bases) {
+		BLI_LISTBASE_FOREACH (Base *, base, &rbw->group->view_layer->object_bases) {
 			Object *object = base->object;
 			if (object == NULL || object->type != OB_MESH) {
 				continue;
@@ -1320,7 +1352,7 @@ void DepsgraphRelationBuilder::build_rigidbody(Scene *scene)
 
 	/* constraints */
 	if (rbw->constraints) {
-		LINKLIST_FOREACH (Base *, base, &rbw->constraints->view_layer->object_bases) {
+		BLI_LISTBASE_FOREACH (Base *, base, &rbw->constraints->view_layer->object_bases) {
 			Object *object = base->object;
 			if (object == NULL || !object->rigidbody_constraint) {
 				continue;
@@ -1354,12 +1386,9 @@ void DepsgraphRelationBuilder::build_particles(Object *object)
 	OperationKey eval_init_key(&object->id,
 	                           DEG_NODE_TYPE_EVAL_PARTICLES,
 	                           DEG_OPCODE_PARTICLE_SYSTEM_EVAL_INIT);
-	if (object_particles_depends_on_time(object)) {
-		add_relation(time_src_key, eval_init_key, "TimeSrc -> PSys");
-	}
 
 	/* particle systems */
-	LINKLIST_FOREACH (ParticleSystem *, psys, &object->particlesystem) {
+	BLI_LISTBASE_FOREACH (ParticleSystem *, psys, &object->particlesystem) {
 		ParticleSettings *part = psys->part;
 
 		/* Build particle settings relations.
@@ -1436,8 +1465,8 @@ void DepsgraphRelationBuilder::build_particles(Object *object)
 
 		/* boids */
 		if (part->boids) {
-			LINKLIST_FOREACH (BoidState *, state, &part->boids->states) {
-				LINKLIST_FOREACH (BoidRule *, rule, &state->rules) {
+			BLI_LISTBASE_FOREACH (BoidState *, state, &part->boids->states) {
+				BLI_LISTBASE_FOREACH (BoidRule *, rule, &state->rules) {
 					Object *ruleob = NULL;
 					if (rule->type == eBoidRuleType_Avoid)
 						ruleob = ((BoidRuleGoalAvoid *)rule)->ob;
@@ -1455,6 +1484,13 @@ void DepsgraphRelationBuilder::build_particles(Object *object)
 		if (part->ren_as == PART_DRAW_OB && part->dup_ob) {
 			ComponentKey dup_ob_key(&part->dup_ob->id, DEG_NODE_TYPE_TRANSFORM);
 			add_relation(dup_ob_key, psys_key, "Particle Object Visualization");
+			if (part->dup_ob->type == OB_MBALL) {
+				ComponentKey dup_geometry_key(&part->dup_ob->id,
+				                              DEG_NODE_TYPE_GEOMETRY);
+				add_relation(obdata_ubereval_key,
+				             dup_geometry_key,
+				             "Particle MBall Visualization");
+			}
 		}
 	}
 
@@ -1577,7 +1613,7 @@ void DepsgraphRelationBuilder::build_obdata_geom(Object *object)
 
 	/* Modifiers */
 	if (object->modifiers.first != NULL) {
-		LINKLIST_FOREACH (ModifierData *, md, &object->modifiers) {
+		BLI_LISTBASE_FOREACH (ModifierData *, md, &object->modifiers) {
 			const ModifierTypeInfo *mti = modifierType_getInfo((ModifierType)md->type);
 			if (mti->updateDepsgraph) {
 				DepsNodeHandle handle = create_node_handle(obdata_ubereval_key);
@@ -1798,7 +1834,7 @@ void DepsgraphRelationBuilder::build_nodetree(bNodeTree *ntree)
 	build_animdata(ntree_id);
 	ComponentKey shading_key(ntree_id, DEG_NODE_TYPE_SHADING);
 	/* nodetree's nodes... */
-	LINKLIST_FOREACH (bNode *, bnode, &ntree->nodes) {
+	BLI_LISTBASE_FOREACH (bNode *, bnode, &ntree->nodes) {
 		ID *id = bnode->id;
 		if (id == NULL) {
 			continue;
@@ -1919,7 +1955,8 @@ void DepsgraphRelationBuilder::build_gpencil(bGPdata *gpd)
 	// TODO: parent object (when that feature is implemented)
 }
 
-void DepsgraphRelationBuilder::build_cachefile(CacheFile *cache_file) {
+void DepsgraphRelationBuilder::build_cachefile(CacheFile *cache_file)
+{
 	/* Animation. */
 	build_animdata(&cache_file->id);
 }

@@ -711,6 +711,9 @@ static void view3d_widgets(void)
 
 	WM_manipulatorgrouptype_append(VIEW3D_WGT_ruler);
 	WM_manipulatortype_append(VIEW3D_WT_ruler_item);
+
+	WM_manipulatorgrouptype_append_and_link(mmap_type, VIEW3D_WGT_navigate);
+	WM_manipulatortype_append(VIEW3D_WT_navigate_rotate);
 }
 
 
@@ -1055,6 +1058,8 @@ static void view3d_main_region_message_subscribe(
 
 	/* Only subscribe to types. */
 	StructRNA *type_array[] = {
+		&RNA_Window,
+
 		/* These object have properties that impact drawing. */
 		&RNA_AreaLamp,
 		&RNA_Camera,
@@ -1102,10 +1107,12 @@ static void view3d_main_region_message_subscribe(
 		extern StructRNA RNA_ViewLayerEngineSettingsEevee;
 		WM_msg_subscribe_rna_anon_type(mbus, ViewLayerEngineSettingsEevee, &msg_sub_value_region_tag_redraw);
 	}
+#ifdef WITH_CLAY_ENGINE
 	else if (STREQ(view_render->engine_id, RE_engine_id_BLENDER_CLAY)) {
 		extern StructRNA RNA_ViewLayerEngineSettingsClay;
 		WM_msg_subscribe_rna_anon_type(mbus, ViewLayerEngineSettingsClay, &msg_sub_value_region_tag_redraw);
 	}
+#endif
 }
 
 /* concept is to retrieve cursor type context-less */

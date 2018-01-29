@@ -11,7 +11,6 @@
 uniform mat4 ProjectionMatrix;
 uniform mat4 ViewProjectionMatrix;
 uniform mat4 ViewMatrixInverse;
-uniform vec4 viewvecs[2];
 #ifndef SHADOW_SHADER
 uniform mat4 ViewMatrix;
 #else
@@ -30,8 +29,6 @@ layout(std140) uniform shadow_render_block {
 flat in int shFace; /* Shadow layer we are rendering to. */
 #define ViewMatrix      FaceViewMatrix[shFace]
 #endif
-
-uniform vec2 mipRatio[10];
 
 /* Buffers */
 uniform sampler2D colorBuffer;
@@ -124,6 +121,10 @@ float min_v2(vec2 v) { return min(v.x, v.y); }
 float min_v3(vec3 v) { return min(v.x, min(v.y, v.z)); }
 float max_v2(vec2 v) { return max(v.x, v.y); }
 float max_v3(vec3 v) { return max(v.x, max(v.y, v.z)); }
+
+float sum(vec2 v) { return dot(vec2(1.0), v); }
+float sum(vec3 v) { return dot(vec3(1.0), v); }
+float sum(vec4 v) { return dot(vec4(1.0), v); }
 
 float saturate(float a) { return clamp(a, 0.0, 1.0); }
 vec2 saturate(vec2 a) { return clamp(a, 0.0, 1.0); }
@@ -300,7 +301,7 @@ float get_view_z_from_depth(float depth)
 		return -ProjectionMatrix[3][2] / (d + ProjectionMatrix[2][2]);
 	}
 	else {
-		return viewvecs[0].z + depth * viewvecs[1].z;
+		return viewVecs[0].z + depth * viewVecs[1].z;
 	}
 }
 
@@ -311,7 +312,7 @@ float get_depth_from_view_z(float z)
 		return d * 0.5 + 0.5;
 	}
 	else {
-		return (z - viewvecs[0].z) / viewvecs[1].z;
+		return (z - viewVecs[0].z) / viewVecs[1].z;
 	}
 }
 
@@ -324,10 +325,10 @@ vec2 get_uvs_from_view(vec3 view)
 vec3 get_view_space_from_depth(vec2 uvcoords, float depth)
 {
 	if (ProjectionMatrix[3][3] == 0.0) {
-		return (viewvecs[0].xyz + vec3(uvcoords, 0.0) * viewvecs[1].xyz) * get_view_z_from_depth(depth);
+		return (viewVecs[0].xyz + vec3(uvcoords, 0.0) * viewVecs[1].xyz) * get_view_z_from_depth(depth);
 	}
 	else {
-		return viewvecs[0].xyz + vec3(uvcoords, depth) * viewvecs[1].xyz;
+		return viewVecs[0].xyz + vec3(uvcoords, depth) * viewVecs[1].xyz;
 	}
 }
 
@@ -545,7 +546,7 @@ vec3 F_schlick(vec3 f0, float cos_theta)
 /* Fresnel approximation for LTC area lights (not MRP) */
 vec3 F_area(vec3 f0, vec2 lut)
 {
-	vec2 fac = normalize(lut.xy);
+	vec2 fac = normalize(lut.xy); /* XXX FIXME this does not work!!! */
 
 	/* Unreal specular matching : if specular color is below 2% intensity,
 	 * treat as shadowning */
@@ -691,7 +692,6 @@ Closure closure_mix(Closure cl1, Closure cl2, float fac)
 	}
 	else {
 		cl.ssr_data = mix(vec4(vec3(0.0), cl2.ssr_data.w), cl2.ssr_data.xyzw, fac); /* do not blend roughness */
-		cl.ssr_data = mix(vec4(vec3(0.0), cl2.ssr_data.w), cl2.ssr_data.xyzw, fac); /* do not blend roughness */
 		cl.ssr_normal = cl2.ssr_normal;
 		cl.ssr_id = cl2.ssr_id;
 	}
@@ -739,11 +739,9 @@ Closure closure_add(Closure cl1, Closure cl2)
 #endif
 #endif
 	cl.radiance = cl1.radiance + cl2.radiance;
-	cl.opacity = cl1.opacity + cl2.opacity;
+	cl.opacity = saturate(cl1.opacity + cl2.opacity);
 	return cl;
 }
-
-uniform bool sssToggle;
 
 #if defined(MESH_SHADER) && !defined(USE_ALPHA_HASH) && !defined(USE_ALPHA_CLIP) && !defined(SHADOW_SHADER) && !defined(USE_MULTIPLY)
 layout(location = 0) out vec4 fragColor;
@@ -774,6 +772,10 @@ vec4 volumetric_resolve(vec4 scene_color, vec2 frag_uvs, float frag_depth);
 void main()
 {
 	Closure cl = nodetree_exec();
+#ifndef USE_ALPHA_BLEND
+	/* Prevent alpha hash material writing into alpha channel. */
+	cl.opacity = 1.0;
+#endif
 
 #if defined(USE_ALPHA_BLEND_VOLUMETRICS)
 	/* XXX fragile, better use real viewport resolution */

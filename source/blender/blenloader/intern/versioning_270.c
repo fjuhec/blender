@@ -1243,7 +1243,7 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 	if (!MAIN_VERSION_ATLEAST(main, 277, 1)) {
 		for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
 			ParticleEditSettings *pset = &scene->toolsettings->particle;
-			for (int a = 0; a < PE_TOT_BRUSH; a++) {
+			for (int a = 0; a < ARRAY_SIZE(pset->brush); a++) {
 				if (pset->brush[a].strength > 1.0f) {
 					pset->brush[a].strength *= 0.01f;
 				}
@@ -1593,7 +1593,7 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 			if (scene->toolsettings != NULL) {
 				ToolSettings *ts = scene->toolsettings;
 				ParticleEditSettings *pset = &ts->particle;
-				for (int a = 0; a < PE_TOT_BRUSH; a++) {
+				for (int a = 0; a < ARRAY_SIZE(pset->brush); a++) {
 					if (pset->brush[a].count == 0) {
 						pset->brush[a].count = 10;
 					}
@@ -1782,6 +1782,19 @@ void blo_do_versions_270(FileData *fd, Library *UNUSED(lib), Main *main)
 					if (vp != NULL) {
 						/* remove all other flags */
 						vp->flag &= (VP_FLAG_VGROUP_RESTRICT);
+					}
+				}
+			}
+		}
+
+		/* Simple deform modifier no longer assumes Z axis (X for bend type).
+		 * Must set previous defaults. */
+		if (!DNA_struct_elem_find(fd->filesdna, "SimpleDeformModifierData", "char", "deform_axis")) {
+			for (Object *ob = main->object.first; ob; ob = ob->id.next) {
+				for (ModifierData *md = ob->modifiers.first; md; md = md->next) {
+					if (md->type == eModifierType_SimpleDeform) {
+						SimpleDeformModifierData *smd = (SimpleDeformModifierData *)md;
+						smd->deform_axis = 2;
 					}
 				}
 			}

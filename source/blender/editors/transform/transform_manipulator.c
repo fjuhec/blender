@@ -1155,6 +1155,8 @@ static void manipulator_xform_message_subscribe(
 	else {
 		BLI_assert(0);
 	}
+
+	WM_msg_subscribe_rna_anon_prop(mbus, Window, view_layer, &msg_sub_value_mpr_tag_refresh);
 }
 
 /** \} */
@@ -1177,14 +1179,17 @@ static ManipulatorGroup *manipulatorgroup_init(wmManipulatorGroup *mgroup)
 #define MANIPULATOR_NEW_ARROW(v, draw_style) { \
 	man->manipulators[v] = WM_manipulator_new_ptr(wt_arrow, mgroup, NULL); \
 	RNA_enum_set(man->manipulators[v]->ptr, "draw_style", draw_style); \
+	WM_manipulator_set_flag(man->manipulators[v], WM_MANIPULATOR_GRAB_CURSOR, true); \
 } ((void)0)
 #define MANIPULATOR_NEW_DIAL(v, draw_options) { \
 	man->manipulators[v] = WM_manipulator_new_ptr(wt_dial, mgroup, NULL); \
 	RNA_enum_set(man->manipulators[v]->ptr, "draw_options", draw_options); \
+	WM_manipulator_set_flag(man->manipulators[v], WM_MANIPULATOR_GRAB_CURSOR, true); \
 } ((void)0)
 #define MANIPULATOR_NEW_PRIM(v, draw_style) { \
 	man->manipulators[v] = WM_manipulator_new_ptr(wt_prim, mgroup, NULL); \
 	RNA_enum_set(man->manipulators[v]->ptr, "draw_style", draw_style); \
+	WM_manipulator_set_flag(man->manipulators[v], WM_MANIPULATOR_GRAB_CURSOR, true); \
 } ((void)0)
 
 	/* add/init widgets - order matters! */
@@ -1604,6 +1609,7 @@ static void WIDGETGROUP_xform_cage_refresh(const bContext *C, wmManipulatorGroup
 		manipulator_prepare_mat(C, v3d, rv3d, &tbounds);
 
 		WM_manipulator_set_flag(mpr, WM_MANIPULATOR_HIDDEN, false);
+		WM_manipulator_set_flag(mpr, WM_MANIPULATOR_GRAB_CURSOR, true);
 
 		float dims[3];
 		sub_v3_v3v3(dims, rv3d->tw_axis_max, rv3d->tw_axis_min);

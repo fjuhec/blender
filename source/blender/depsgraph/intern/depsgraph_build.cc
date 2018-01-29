@@ -68,6 +68,7 @@ extern "C" {
 
 #include "intern/nodes/deg_node.h"
 #include "intern/nodes/deg_node_component.h"
+#include "intern/nodes/deg_node_id.h"
 #include "intern/nodes/deg_node_operation.h"
 
 #include "intern/depsgraph_types.h"
@@ -293,8 +294,8 @@ void DEG_graph_relations_update(Depsgraph *graph,
 void DEG_relations_tag_update(Main *bmain)
 {
 	DEG_DEBUG_PRINTF("%s: Tagging relations for update.\n", __func__);
-	LINKLIST_FOREACH(Scene *, scene, &bmain->scene) {
-		LINKLIST_FOREACH(ViewLayer *, view_layer, &scene->view_layers) {
+	BLI_LISTBASE_FOREACH (Scene *, scene, &bmain->scene) {
+		BLI_LISTBASE_FOREACH (ViewLayer *, view_layer, &scene->view_layers) {
 			Depsgraph *depsgraph =
 			        (Depsgraph *)BKE_scene_get_depsgraph(scene,
 			                                             view_layer,

@@ -97,16 +97,6 @@ static void rna_SceneCollection_name_set(PointerRNA *ptr, const char *value)
 	BKE_collection_rename(scene, sc, value);
 }
 
-static void rna_SceneCollection_filter_set(PointerRNA *ptr, const char *value)
-{
-	Scene *scene = (Scene *)ptr->id.data;
-	SceneCollection *sc = (SceneCollection *)ptr->data;
-	BLI_strncpy_utf8(sc->filter, value, sizeof(sc->filter));
-
-	TODO_LAYER_SYNC_FILTER;
-	(void)scene;
-}
-
 static PointerRNA rna_SceneCollection_objects_get(CollectionPropertyIterator *iter)
 {
 	ListBaseIterator *internal = &iter->internal.listbase;
@@ -350,12 +340,10 @@ RNA_LAYER_ENGINE_CLAY_GET_SET_FLOAT(hair_brightness_randomness)
 /* ViewLayer settings. */
 RNA_LAYER_ENGINE_EEVEE_GET_SET_BOOL(gtao_enable)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_BOOL(gtao_use_bent_normals)
-RNA_LAYER_ENGINE_EEVEE_GET_SET_BOOL(gtao_denoise)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_BOOL(gtao_bounce)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_FLOAT(gtao_factor)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_FLOAT(gtao_quality)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_FLOAT(gtao_distance)
-RNA_LAYER_ENGINE_EEVEE_GET_SET_INT(gtao_samples)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_BOOL(dof_enable)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_FLOAT(bokeh_max_size)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_FLOAT(bokeh_threshold)
@@ -387,7 +375,6 @@ RNA_LAYER_ENGINE_EEVEE_GET_SET_BOOL(sss_separate_albedo)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_BOOL(ssr_refraction)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_BOOL(ssr_enable)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_BOOL(ssr_halfres)
-RNA_LAYER_ENGINE_EEVEE_GET_SET_INT(ssr_ray_count)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_FLOAT(ssr_quality)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_FLOAT(ssr_max_roughness)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_FLOAT(ssr_thickness)
@@ -397,6 +384,7 @@ RNA_LAYER_ENGINE_EEVEE_GET_SET_INT(shadow_method)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_INT(shadow_size)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_BOOL(shadow_high_bitdepth)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_INT(taa_samples)
+RNA_LAYER_ENGINE_EEVEE_GET_SET_INT(taa_render_samples)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_INT(gi_diffuse_bounces)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_INT(gi_cubemap_resolution)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_INT(gi_visibility_resolution)
@@ -703,48 +691,6 @@ static void rna_LayerCollection_flag_update(bContext *C, PointerRNA *ptr)
 	WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, CTX_data_scene(C));
 }
 
-static void rna_LayerCollection_enable_set(
-        ID *id, LayerCollection *layer_collection, Main *bmain, bContext *C, ReportList *reports, int value)
-{
-	ViewLayer *view_layer;
-	if (GS(id->name) == ID_SCE) {
-		Scene *scene = (Scene *)id;
-		view_layer = BKE_view_layer_find_from_collection(&scene->id, layer_collection);
-	}
-	else {
-		BLI_assert(GS(id->name) == ID_GR);
-		Group *group = (Group *)id;
-		view_layer = group->view_layer;
-	}
-
-	if (layer_collection->flag & COLLECTION_DISABLED) {
-		if (value == 1) {
-			BKE_collection_enable(view_layer, layer_collection);
-		}
-		else {
-			BKE_reportf(reports, RPT_ERROR, "Layer collection '%s' is already disabled",
-			            layer_collection->scene_collection->name);
-			return;
-		}
-	}
-	else {
-		if (value == 0) {
-			BKE_collection_disable(view_layer, layer_collection);
-		}
-		else {
-			BKE_reportf(reports, RPT_ERROR, "Layer collection '%s' is already enabled",
-			            layer_collection->scene_collection->name);
-		}
-	}
-
-	Scene *scene = CTX_data_scene(C);
-	DEG_relations_tag_update(bmain);
-	/* TODO(sergey): Use proper flag for tagging here. */
-	DEG_id_tag_update(&scene->id, 0);
-	WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, scene);
-	WM_event_add_notifier(C, NC_SCENE | ND_LAYER_CONTENT, scene);
-}
-
 static Group *rna_LayerCollection_create_group(
         ID *id, LayerCollection *layer_collection, Main *bmain, bContext *C, ReportList *reports)
 {
@@ -912,7 +858,12 @@ static void rna_LayerObjects_selected_begin(CollectionPropertyIterator *iter, Po
 static void rna_ViewLayer_update_tagged(ViewLayer *UNUSED(view_layer), bContext *C)
 {
 	Depsgraph *graph = CTX_data_depsgraph(C);
-	DEG_OBJECT_ITER(graph, ob, DEG_ITER_OBJECT_FLAG_ALL)
+	DEG_OBJECT_ITER(graph, ob, DEG_ITER_OBJECT_MODE_VIEWPORT,
+	                DEG_ITER_OBJECT_FLAG_LINKED_DIRECTLY |
+	                DEG_ITER_OBJECT_FLAG_LINKED_VIA_SET |
+	                DEG_ITER_OBJECT_FLAG_LINKED_INDIRECTLY |
+	                DEG_ITER_OBJECT_FLAG_VISIBLE |
+	                DEG_ITER_OBJECT_FLAG_DUPLI)
 	{
 		/* Don't do anything, we just need to run the iterator to flush
 		 * the base info to the objects. */
@@ -1028,15 +979,14 @@ static void rna_def_scene_collections(BlenderRNA *brna, PropertyRNA *cprop)
 	func = RNA_def_function(srna, "new", "rna_SceneCollection_new");
 	RNA_def_function_ui_description(func, "Add a collection to scene");
 	RNA_def_function_flag(func, FUNC_USE_SELF_ID | FUNC_USE_MAIN);
-	parm = RNA_def_string(func, "name", "SceneCollection", 0, "", "New name for the collection (not unique)");
-	RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
+	parm = RNA_def_string(func, "name", NULL, 0, "", "New name for the collection (not unique)");
 	parm = RNA_def_pointer(func, "result", "SceneCollection", "", "Newly created collection");
 	RNA_def_function_return(func, parm);
 
 	func = RNA_def_function(srna, "remove", "rna_SceneCollection_remove");
-	RNA_def_function_ui_description(func, "Remove a collection layer");
+	RNA_def_function_ui_description(func, "Remove a collection and move its objects to the master collection");
 	RNA_def_function_flag(func, FUNC_USE_SELF_ID | FUNC_USE_MAIN | FUNC_USE_REPORTS);
-	parm = RNA_def_pointer(func, "layer", "SceneCollection", "", "Collection to remove");
+	parm = RNA_def_pointer(func, "collection", "SceneCollection", "", "Collection to remove");
 	RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
 	RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
 }
@@ -1096,11 +1046,6 @@ static void rna_def_scene_collection(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Type", "Type of collection");
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 
-	prop = RNA_def_property(srna, "filter", PROP_STRING, PROP_NONE);
-	RNA_def_property_string_funcs(prop, NULL, NULL, "rna_SceneCollection_filter_set");
-	RNA_def_property_ui_text(prop, "Filter", "Filter to dynamically include objects based on their names (e.g., CHAR_*)");
-	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, NULL);
-
 	prop = RNA_def_property(srna, "collections", PROP_COLLECTION, PROP_NONE);
 	RNA_def_property_collection_sdna(prop, NULL, "scene_collections", NULL);
 	RNA_def_property_struct_type(prop, "SceneCollection");
@@ -1113,12 +1058,6 @@ static void rna_def_scene_collection(BlenderRNA *brna)
 	RNA_def_property_collection_funcs(prop, NULL, NULL, NULL, "rna_SceneCollection_objects_get", NULL, NULL, NULL, NULL);
 	RNA_def_property_ui_text(prop, "Objects", "All the objects directly added to this collection (not including sub-collection objects)");
 	rna_def_collection_objects(brna, prop);
-
-	prop = RNA_def_property(srna, "filters_objects", PROP_COLLECTION, PROP_NONE);
-	RNA_def_property_collection_sdna(prop, NULL, "filter_objects", NULL);
-	RNA_def_property_struct_type(prop, "Object");
-	RNA_def_property_collection_funcs(prop, NULL, NULL, NULL, "rna_SceneCollection_objects_get", NULL, NULL, NULL, NULL);
-	RNA_def_property_ui_text(prop, "Filter Objects", "All the objects dynamically added to this collection via the filter");
 
 	/* Functions */
 	func = RNA_def_function(srna, "move_above", "rna_SceneCollection_move_above");
@@ -1261,9 +1200,16 @@ static void rna_def_view_layer_engine_settings_eevee(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "taa_samples", PROP_INT, PROP_NONE);
 	RNA_def_property_int_funcs(prop, "rna_LayerEngineSettings_Eevee_taa_samples_get",
 	                               "rna_LayerEngineSettings_Eevee_taa_samples_set", NULL);
-	RNA_def_property_ui_text(prop, "Viewport Samples", "Number of temporal samples, unlimited if 0, "
-	                                                   "disabled if 1");
+	RNA_def_property_ui_text(prop, "Viewport Samples", "Number of samples, unlimited if 0");
 	RNA_def_property_range(prop, 0, INT_MAX);
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
+	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_ViewLayerEngineSettings_update");
+
+	prop = RNA_def_property(srna, "taa_render_samples", PROP_INT, PROP_NONE);
+	RNA_def_property_int_funcs(prop, "rna_LayerEngineSettings_Eevee_taa_render_samples_get",
+	                               "rna_LayerEngineSettings_Eevee_taa_render_samples_set", NULL);
+	RNA_def_property_ui_text(prop, "Render Samples", "Number of samples per pixels for rendering");
+	RNA_def_property_range(prop, 1, INT_MAX);
 	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
 	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_ViewLayerEngineSettings_update");
 
@@ -1334,14 +1280,6 @@ static void rna_def_view_layer_engine_settings_eevee(BlenderRNA *brna)
 	                               "rna_LayerEngineSettings_Eevee_ssr_max_roughness_set", NULL);
 	RNA_def_property_ui_text(prop, "Max Roughness", "Do not raytrace reflections for roughness above this value");
 	RNA_def_property_range(prop, 0.0f, 1.0f);
-	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
-	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_ViewLayerEngineSettings_update");
-
-	prop = RNA_def_property(srna, "ssr_ray_count", PROP_INT, PROP_NONE);
-	RNA_def_property_int_funcs(prop, "rna_LayerEngineSettings_Eevee_ssr_ray_count_get",
-	                               "rna_LayerEngineSettings_Eevee_ssr_ray_count_set", NULL);
-	RNA_def_property_ui_text(prop, "Samples", "Number of rays to trace per pixels");
-	RNA_def_property_range(prop, 1, 4);
 	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
 	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_ViewLayerEngineSettings_update");
 
@@ -1472,13 +1410,6 @@ static void rna_def_view_layer_engine_settings_eevee(BlenderRNA *brna)
 	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
 	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_ViewLayerEngineSettings_update");
 
-	prop = RNA_def_property(srna, "gtao_denoise", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_funcs(prop, "rna_LayerEngineSettings_Eevee_gtao_denoise_get",
-	                               "rna_LayerEngineSettings_Eevee_gtao_denoise_set");
-	RNA_def_property_ui_text(prop, "Denoise", "Use denoising to filter the resulting occlusion and bent normal but exhibit 2x2 pixel blocks");
-	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
-	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_ViewLayerEngineSettings_update");
-
 	prop = RNA_def_property(srna, "gtao_bounce", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_funcs(prop, "rna_LayerEngineSettings_Eevee_gtao_bounce_get",
 	                               "rna_LayerEngineSettings_Eevee_gtao_bounce_set");
@@ -1509,14 +1440,6 @@ static void rna_def_view_layer_engine_settings_eevee(BlenderRNA *brna)
 	RNA_def_property_ui_range(prop, 0.0f, 100.0f, 1, 3);
 	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
 	RNA_def_property_update(prop, 0, "rna_LayerCollectionEngineSettings_update");
-
-	prop = RNA_def_property(srna, "gtao_samples", PROP_INT, PROP_UNSIGNED);
-	RNA_def_property_int_funcs(prop, "rna_LayerEngineSettings_Eevee_gtao_samples_get",
-	                           "rna_LayerEngineSettings_Eevee_gtao_samples_set", NULL);
-	RNA_def_property_ui_text(prop, "Samples", "Number of samples to take to compute occlusion");
-	RNA_def_property_range(prop, 2, 32);
-	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
-	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_ViewLayerEngineSettings_update");
 
 	/* Depth of Field */
 	prop = RNA_def_property(srna, "dof_enable", PROP_BOOLEAN, PROP_NONE);
@@ -2065,11 +1988,6 @@ static void rna_def_layer_collection(BlenderRNA *brna)
 	parm = RNA_def_boolean(func, "result", false, "Result", "Whether the operation succeded");
 	RNA_def_function_return(func, parm);
 
-	func = RNA_def_function(srna, "enable_set", "rna_LayerCollection_enable_set");
-	RNA_def_function_ui_description(func, "Enable or disable a collection");
-	parm = RNA_def_boolean(func, "value", 1, "Enable", "");
-	RNA_def_function_flag(func, FUNC_USE_SELF_ID | FUNC_USE_MAIN | FUNC_USE_CONTEXT | FUNC_USE_REPORTS);
-
 	func = RNA_def_function(srna, "create_group", "rna_LayerCollection_create_group");
 	RNA_def_function_ui_description(func, "Enable or disable a collection");
 	RNA_def_function_flag(func, FUNC_USE_SELF_ID | FUNC_USE_MAIN | FUNC_USE_CONTEXT | FUNC_USE_REPORTS);
@@ -2077,26 +1995,32 @@ static void rna_def_layer_collection(BlenderRNA *brna)
 	RNA_def_function_return(func, parm);
 
 	/* Flags */
-	prop = RNA_def_property(srna, "is_enabled", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_negative_sdna(prop, NULL, "flag", COLLECTION_DISABLED);
-	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
-	RNA_def_property_ui_text(prop, "Enabled", "Enable or disable collection from depsgraph");
-
-	prop = RNA_def_property(srna, "hide", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_negative_sdna(prop, NULL, "flag", COLLECTION_VISIBLE);
-	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
-	RNA_def_property_ui_icon(prop, ICON_RESTRICT_VIEW_OFF, 1);
-	RNA_def_property_ui_text(prop, "Hide", "Restrict visiblity");
-	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_LayerCollection_flag_update");
-
-	prop = RNA_def_property(srna, "hide_select", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_negative_sdna(prop, NULL, "flag", COLLECTION_SELECTABLE);
+	prop = RNA_def_property(srna, "selectable", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", COLLECTION_SELECTABLE);
 	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
 	RNA_def_property_ui_icon(prop, ICON_RESTRICT_SELECT_OFF, 1);
-	RNA_def_property_ui_text(prop, "Hide Selectable", "Restrict selection");
+	RNA_def_property_ui_text(prop, "Selectable", "Restrict selection");
 	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_LayerCollection_flag_update");
 
-	/* TODO_LAYER_OVERRIDE */
+	prop = RNA_def_property(srna, "visible_viewport", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", COLLECTION_VIEWPORT);
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
+	RNA_def_property_ui_icon(prop, ICON_RESTRICT_VIEW_OFF, 1);
+	RNA_def_property_ui_text(prop, "Viewport Visibility", "");
+	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_LayerCollection_flag_update");
+
+	prop = RNA_def_property(srna, "visible_render", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", COLLECTION_RENDER);
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
+	RNA_def_property_ui_icon(prop, ICON_RESTRICT_RENDER_OFF, 1);
+	RNA_def_property_ui_text(prop, "Render Visibility", "Control");
+	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_LayerCollection_flag_update");
+
+	prop = RNA_def_property(srna, "enabled", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_negative_sdna(prop, NULL, "flag", COLLECTION_DISABLED);
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
+	RNA_def_property_ui_text(prop, "Enabled", "Enable or disable collection");
+	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_LayerCollection_flag_update");
 }
 
 static void rna_def_layer_collections(BlenderRNA *brna, PropertyRNA *cprop)

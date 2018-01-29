@@ -48,7 +48,7 @@
 #include "BKE_editmesh_tangent.h"
 #include "BKE_mesh.h"
 #include "BKE_mesh_tangent.h"
-#include "BKE_texture.h"
+#include "BKE_colorband.h"
 
 #include "bmesh.h"
 
@@ -1097,7 +1097,7 @@ static void mesh_render_data_ensure_vert_weight_color(MeshRenderData *rdata, con
 				const MDeformVert *dvert = BM_ELEM_CD_GET_VOID_P(eve, cd_dvert_offset);
 				float weight = defvert_find_weight(dvert, defgroup);
 				if (U.flag & USER_CUSTOM_RANGE) {
-					do_colorband(&U.coba_weight, weight, vweight[i]);
+					BKE_colorband_evaluate(&U.coba_weight, weight, vweight[i]);
 				}
 				else {
 					rgb_from_weight(vweight[i], weight);
@@ -1113,7 +1113,7 @@ static void mesh_render_data_ensure_vert_weight_color(MeshRenderData *rdata, con
 			for (int i = 0; i < rdata->vert_len; i++) {
 				float weight = defvert_find_weight(&rdata->dvert[i], defgroup);
 				if (U.flag & USER_CUSTOM_RANGE) {
-					do_colorband(&U.coba_weight, weight, vweight[i]);
+					BKE_colorband_evaluate(&U.coba_weight, weight, vweight[i]);
 				}
 				else {
 					rgb_from_weight(vweight[i], weight);
@@ -2167,11 +2167,10 @@ static Gwn_VertBuf *mesh_batch_cache_get_facedot_pos_with_normals_and_flag(
 			}
 		}
 		const int vbo_len_used = vidx;
+		BLI_assert(vbo_len_used <= vbo_len_capacity);
 		if (vbo_len_used != vbo_len_capacity) {
 			GWN_vertbuf_data_resize(vbo, vbo_len_used);
 		}
-		BLI_assert(vbo_len_capacity == vbo_len_used);
-		UNUSED_VARS_NDEBUG(vbo_len_used);
 	}
 
 	return cache->ed_fcenter_pos_with_nor_and_sel;

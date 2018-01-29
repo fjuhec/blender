@@ -73,6 +73,7 @@ struct bNodeSocket;
 struct wmDropBox;
 struct wmDrag;
 struct wmEvent;
+struct wmManipulator;
 struct wmMsgBus;
 
 typedef struct uiBut uiBut;
@@ -667,7 +668,17 @@ void UI_but_string_info_get(struct bContext *C, uiBut *but, ...) ATTR_SENTINEL(0
 #define UI_ID_FAKE_USER     (1 << 8)
 #define UI_ID_PIN           (1 << 9)
 #define UI_ID_PREVIEWS      (1 << 10)
+#define UI_ID_OVERRIDE      (1 << 11)
 #define UI_ID_FULL          (UI_ID_RENAME | UI_ID_BROWSE | UI_ID_ADD_NEW | UI_ID_OPEN | UI_ID_ALONE | UI_ID_DELETE | UI_ID_LOCAL)
+
+/**
+ * Ways to limit what is displayed in ID-search popup.
+ * \note We may want to add LOCAL, LIBRARY ... as needed.
+ */
+enum {
+	UI_TEMPLATE_ID_FILTER_ALL = 0,
+	UI_TEMPLATE_ID_FILTER_AVAILABLE = 1,
+};
 
 int UI_icon_from_id(struct ID *id);
 int UI_icon_from_report_type(int type);
@@ -952,16 +963,20 @@ uiLayout *uiLayoutRadial(uiLayout *layout);
 
 /* templates */
 void uiTemplateHeader(uiLayout *layout, struct bContext *C);
-void uiTemplateID(uiLayout *layout, struct bContext *C, struct PointerRNA *ptr, const char *propname,
-                  const char *newop, const char *openop, const char *unlinkop);
-void uiTemplateIDBrowse(uiLayout *layout, struct bContext *C, struct PointerRNA *ptr, const char *propname,
-                        const char *newop, const char *openop, const char *unlinkop);
-void uiTemplateIDPreview(uiLayout *layout, struct bContext *C, struct PointerRNA *ptr, const char *propname,
-                         const char *newop, const char *openop, const char *unlinkop, int rows, int cols);
+void uiTemplateID(
+        uiLayout *layout, struct bContext *C, struct PointerRNA *ptr, const char *propname,
+        const char *newop, const char *openop, const char *unlinkop, int filter);
+void uiTemplateIDBrowse(
+        uiLayout *layout, struct bContext *C, struct PointerRNA *ptr, const char *propname,
+        const char *newop, const char *openop, const char *unlinkop, int filter);
+void uiTemplateIDPreview(
+        uiLayout *layout, struct bContext *C, struct PointerRNA *ptr, const char *propname,
+        const char *newop, const char *openop, const char *unlinkop, int rows, int cols, int filter);
 void uiTemplateIDTabs(
         uiLayout *layout, struct bContext *C,
         PointerRNA *ptr, const char *propname,
-        const char *newop, const char *openop, const char *unlinkop);
+        const char *newop, const char *openop, const char *unlinkop,
+        int filter);
 void uiTemplateAnyID(uiLayout *layout, struct PointerRNA *ptr, const char *propname, 
                      const char *proptypename, const char *text);
 void uiTemplateSearch(
@@ -1125,6 +1140,8 @@ void UI_context_active_but_prop_get_templateID(
         struct bContext *C,
         struct PointerRNA *r_ptr, struct PropertyRNA **r_prop);
 
+uiBut *UI_region_active_but_get(struct ARegion *ar);
+
 /* Styled text draw */
 void UI_fontstyle_set(const struct uiFontStyle *fs);
 void UI_fontstyle_draw_ex(const struct uiFontStyle *fs, const struct rcti *rect, const char *str,
@@ -1168,6 +1185,13 @@ void UI_butstore_register(uiButStore *bs_handle, uiBut **but_p);
 bool UI_butstore_register_update(uiBlock *block, uiBut *but_dst, const uiBut *but_src);
 void UI_butstore_unregister(uiButStore *bs_handle, uiBut **but_p);
 
+/* ui_interface_region_tooltip.c */
+struct ARegion *UI_tooltip_create_from_button(struct bContext *C, struct ARegion *butregion, uiBut *but);
+struct ARegion *UI_tooltip_create_from_manipulator(struct bContext *C, struct wmManipulator *mpr);
+void UI_tooltip_free(struct bContext *C, struct bScreen *sc, struct ARegion *ar);
+
+/* How long before a tool-tip shows. */
+#define UI_TOOLTIP_DELAY 0.5
 
 /* Float precision helpers */
 #define UI_PRECISION_FLOAT_MAX 6
