@@ -1337,6 +1337,7 @@ static void gp_stroke_doeraser(tGPsdata *p)
 static void gp_session_validatebuffer(tGPsdata *p)
 {
 	bGPdata *gpd = p->gpd;
+	bGPDbrush *brush = p->brush;
 	
 	/* clear memory of buffer (or allocate it if starting a new session) */
 	if (gpd->sbuffer) {
@@ -1356,6 +1357,11 @@ static void gp_session_validatebuffer(tGPsdata *p)
 	
 	/* reset inittime */
 	p->inittime = 0.0;
+
+	/* reset lazy */
+	if (brush) {
+		brush->flag &= ~GP_BRUSH_LAZY_MOUSE_TEMP;
+	}
 }
 
 /* initialize a drawing brush */
