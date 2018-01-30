@@ -452,6 +452,11 @@ static int gpencil_primitive_invoke(bContext *C, wmOperator *op, const wmEvent *
 	gpencil_primitive_init(C, op);
 	tgpi = op->customdata;
 	
+	/* if in tools region, wait till we get to the main (3d-space)
+	 * region before allowing drawing to take place.
+	 */
+	op->flag |= OP_IS_MODAL_CURSOR_REGION;
+	
 	/* Enable custom drawing handlers */
 	tgpi->draw_handle_3d = ED_region_draw_cb_activate(tgpi->ar->type, gpencil_primitive_draw_3d, tgpi, REGION_DRAW_POST_VIEW);
 	
@@ -506,20 +511,28 @@ static int gpencil_primitive_modal(bContext *C, wmOperator *op, const wmEvent *e
 	
 	switch (event->type) {
 		case LEFTMOUSE:
-			tgpi->bottom[0] = event->mval[0];
-			tgpi->bottom[1] = event->mval[1];
-			
-			if (tgpi->flag == IDLE) {
+			if ((event->val == KM_PRESS) && (tgpi->flag == IDLE)) {
+				/* start drawing primitive */
+				/* TODO: Ignore if not in main region yet */
 				tgpi->flag = IN_PROGRESS;
 				
 				tgpi->top[0] = event->mval[0];
 				tgpi->top[1] = event->mval[1];
+				
+				tgpi->bottom[0] = event->mval[0];
+				tgpi->bottom[1] = event->mval[1];
 			}
-			else {
+			else if ((event->val == KM_RELEASE) && (tgpi->flag == IN_PROGRESS)) {
+				/* stop drawing primitive */
 				tgpi->flag = IDLE;
 				gpencil_primitive_done(C, op, win, tgpi);
 				/* done! */
 				return OPERATOR_FINISHED;
+			}
+			else {
+				if (G.debug & G_DEBUG) {
+					printf("GP Add Primitive Modal: LEFTMOUSE %d, Status = %d\n", event->val, tgpi->flag);
+				}
 			}
 			break;
 		case RETKEY:  /* confirm */
