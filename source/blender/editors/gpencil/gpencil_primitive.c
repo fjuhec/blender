@@ -88,9 +88,6 @@
 /* Poll callback for primitive operators */
 static int gpencil_view3d_poll(bContext *C)
 {
-	bGPdata *gpd = CTX_data_gpencil_data(C);
-	bGPDlayer *gpl = CTX_data_active_gpencil_layer(C);
-	
 	/* only 3D view */
 	ScrArea *sa = CTX_wm_area(C);
 	if (sa && sa->spacetype != SPACE_VIEW3D) {
@@ -98,7 +95,8 @@ static int gpencil_view3d_poll(bContext *C)
 	}
 	
 	/* need data to create primitive */
-	if (ELEM(NULL, gpd, gpl)) {
+	bGPdata *gpd = CTX_data_gpencil_data(C);
+	if (gpd == NULL) {
 		return 0;
 	}
 
@@ -121,7 +119,7 @@ static void gp_primitive_set_initdata(bContext *C, tGPDprimitive *tgpi)
 	bGPDlayer *gpl = CTX_data_active_gpencil_layer(C);
 	bGPDbrush *brush;
 
-	/* if not exist, create a new one */
+	/* if brush doesn't exist, create a new one */
 	if (BLI_listbase_is_empty(&ts->gp_brushes)) {
 		/* create new brushes */
 		BKE_gpencil_brush_init_presets(ts);
@@ -133,12 +131,15 @@ static void gp_primitive_set_initdata(bContext *C, tGPDprimitive *tgpi)
 	}
 	tgpi->brush = brush;
 
-	tgpi->cframe = CFRA;
+	/* if layer doesn't exist, create a new one */
+	if (gpl == NULL) {
+		gpl = BKE_gpencil_layer_addnew(tgpi->gpd, DATA_("Primitives"), true);
+	}
 	tgpi->gpl = gpl;
 
 	/* create a new temporary frame */
 	tgpi->gpf = MEM_callocN(sizeof(bGPDframe), "Temp bGPDframe");
-	tgpi->gpf->framenum = tgpi->cframe;
+	tgpi->gpf->framenum = tgpi->cframe = CFRA;
 
 	/* create new temp stroke */
 	bGPDstroke *gps = MEM_callocN(sizeof(bGPDstroke), "Temp bGPDstroke");
@@ -463,14 +464,7 @@ static int gpencil_primitive_invoke(bContext *C, wmOperator *op, const wmEvent *
 {
 	wmWindow *win = CTX_wm_window(C);
 	bGPdata *gpd = CTX_data_gpencil_data(C);
-	bGPDlayer *gpl = CTX_data_active_gpencil_layer(C);
 	tGPDprimitive *tgpi = NULL;
-
-	/* cannot primitive if not active frame */
-	if (ELEM(NULL, gpd, gpl)) {
-		BKE_report(op->reports, RPT_ERROR, "Cannot add primitive. Need an active layer");
-		return OPERATOR_CANCELLED;
-	}
 	
 	/* initialize operator runtime data */
 	gpencil_primitive_init(C, op);
