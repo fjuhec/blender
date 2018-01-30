@@ -247,15 +247,15 @@ static void gp_primitive_rectangle(tGPDprimitive *tgpi, tGPspoint *points2D)
 }
 
 /* create a circle */
-// TODO: vectorise, use M_PI, ...
 static void gp_primitive_circle(tGPDprimitive *tgpi, tGPspoint *points2D)
 {
 	const int totpoints = tgpi->tot_edges;
-	const float step = DEG2RADF(360.0f / (float)(totpoints));
+	const float step = (2.0f * M_PI) / (float)(totpoints);
 	float center[2];
 	float radius[2];
 	float a = 0.0f;
 	
+	/* TODO: Use math-lib functions for these? */
 	center[0] = tgpi->top[0] + ((tgpi->bottom[0] - tgpi->top[0]) / 2.0f);
 	center[1] = tgpi->top[1] + ((tgpi->bottom[1] - tgpi->top[1]) / 2.0f);
 	radius[0] = fabsf(((tgpi->bottom[0] - tgpi->top[0]) / 2.0f));
@@ -264,8 +264,8 @@ static void gp_primitive_circle(tGPDprimitive *tgpi, tGPspoint *points2D)
 	for (int i = 0; i < totpoints; i++) {
 		tGPspoint *p2d = &points2D[i];
 		
-		p2d->x = (int)(center[0] + cos(a) * radius[0]);
-		p2d->y = (int)(center[1] + sin(a) * radius[1]);
+		p2d->x = (int)(center[0] + cosf(a) * radius[0]);
+		p2d->y = (int)(center[1] + sinf(a) * radius[1]);
 		a += step;
 	}
 }
