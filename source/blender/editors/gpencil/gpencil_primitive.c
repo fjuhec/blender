@@ -432,7 +432,6 @@ static void gpencil_primitive_init(bContext *C, wmOperator *op)
 
 	tgpi->tot_edges = RNA_int_get(op->ptr, "edges");
 	tgpi->flag = IDLE;
-	tgpi->oldevent = EVENT_NONE;
 
 	tgpi->lock_axis = ts->gp_sculpt.lock_axis;
 
@@ -506,14 +505,7 @@ static int gpencil_primitive_modal(bContext *C, wmOperator *op, const wmEvent *e
 	const bool has_numinput = hasNumInput(&tgpi->num);
 	
 	switch (event->type) {
-		case LEFTMOUSE: 
-			/* avoid fast double clicks done accidentally by user */
-			if (tgpi->oldevent == event->type) {
-				tgpi->oldevent = EVENT_NONE;
-				break;
-			}
-			tgpi->oldevent = event->type;
-
+		case LEFTMOUSE:
 			if (tgpi->flag == IDLE) {
 				tgpi->top[0] = event->mval[0];
 				tgpi->top[1] = event->mval[1];

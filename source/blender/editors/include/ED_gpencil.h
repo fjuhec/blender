@@ -147,7 +147,6 @@ typedef struct tGPDprimitive {
 	int top[2];                       /* first box corner */
 	int bottom[2];                    /* last box corner */
 	int flag;                         /* flag to determine operations in progress */
-	short oldevent;                   /* save old event to avoid accidental mouse clicks */
 	
 	int lock_axis;                    /* lock to viewport axis */
 
