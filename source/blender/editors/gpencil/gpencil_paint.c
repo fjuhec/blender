@@ -302,7 +302,7 @@ static bool gp_stroke_filtermval(tGPsdata *p, const int mval[2], int pmval[2])
 	bGPDbrush *brush = p->brush;
 	int dx = abs(mval[0] - pmval[0]);
 	int dy = abs(mval[1] - pmval[1]);
-	brush->flag &= ~GP_BRUSH_LAZY_MOUSE_TEMP;
+	brush->flag &= ~GP_BRUSH_STABILIZE_MOUSE_TEMP;
 
 	/* if buffer is empty, just let this go through (i.e. so that dots will work) */
 	if (p->gpd->sbuffer_size == 0) {
@@ -310,7 +310,7 @@ static bool gp_stroke_filtermval(tGPsdata *p, const int mval[2], int pmval[2])
 	}
 	/* if lazy mouse, check minimum distance */
 	else if (GPENCIL_LAZY_MODE(brush, p->shift)) {
-		brush->flag |= GP_BRUSH_LAZY_MOUSE_TEMP;
+		brush->flag |= GP_BRUSH_STABILIZE_MOUSE_TEMP;
 		if ((dx * dx + dy * dy) > (brush->lazy_radius * brush->lazy_radius)) {
 			return true;
 		}
@@ -1360,7 +1360,7 @@ static void gp_session_validatebuffer(tGPsdata *p)
 
 	/* reset lazy */
 	if (brush) {
-		brush->flag &= ~GP_BRUSH_LAZY_MOUSE_TEMP;
+		brush->flag &= ~GP_BRUSH_STABILIZE_MOUSE_TEMP;
 	}
 }
 
@@ -2229,7 +2229,7 @@ static void gpencil_draw_apply(bContext *C, wmOperator *op, tGPsdata *p, const D
 		pt = (tGPspoint *)gpd->sbuffer + gpd->sbuffer_size - 1;
 		ED_gpencil_toggle_brush_cursor(C, true, &pt->x);
 	}
-	else if ((p->brush->flag & GP_BRUSH_LAZY_MOUSE_TEMP) && (gpd->sbuffer_size > 0)){
+	else if ((p->brush->flag & GP_BRUSH_STABILIZE_MOUSE_TEMP) && (gpd->sbuffer_size > 0)){
 		pt = (tGPspoint *)gpd->sbuffer + gpd->sbuffer_size - 1;
 		ED_gpencil_toggle_brush_cursor(C, true, &pt->x);
 	}

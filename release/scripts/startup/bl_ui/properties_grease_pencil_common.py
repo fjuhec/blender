@@ -466,10 +466,10 @@ class GreasePencilBrushOptionsPanel:
             if brush.fill_only is False:
                 row.separator()
                 row = layout.row(align=True)
-                row.prop(brush, "use_lazy_mouse", text="Lazy Mouse")
-                if brush.use_lazy_mouse:
+                row.prop(brush, "use_stabilizer", text="Stabilizer")
+                if brush.use_stabilizer:
                     row = layout.row(align=True)
-                    row.prop(brush, "lazy_radius")
+                    row.prop(brush, "lazy_radius", text="Distance")
                     row = layout.row(align=True)
                     row.prop(brush, "lazy_factor", slider=True)
 
