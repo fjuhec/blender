@@ -506,17 +506,14 @@ static int gpencil_primitive_modal(bContext *C, wmOperator *op, const wmEvent *e
 	
 	switch (event->type) {
 		case LEFTMOUSE:
-			if (tgpi->flag == IDLE) {
-				tgpi->top[0] = event->mval[0];
-				tgpi->top[1] = event->mval[1];
-			}
-
 			tgpi->bottom[0] = event->mval[0];
 			tgpi->bottom[1] = event->mval[1];
-
+			
 			if (tgpi->flag == IDLE) {
 				tgpi->flag = IN_PROGRESS;
-				break;
+				
+				tgpi->top[0] = event->mval[0];
+				tgpi->top[1] = event->mval[1];
 			}
 			else {
 				tgpi->flag = IDLE;
