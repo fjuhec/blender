@@ -478,26 +478,26 @@ static int gpencil_primitive_invoke(bContext *C, wmOperator *op, const wmEvent *
 static void gpencil_primitive_done(bContext *C, wmOperator *op, wmWindow *win, tGPDprimitive *tgpi)
 {
 	bGPDframe *gpf;
-	bGPDstroke *gps_src, *gps_dst;
-
+	bGPDstroke *gps;
+	
 	/* return to normal cursor and header status */
 	ED_area_headerprint(tgpi->sa, NULL);
 	WM_cursor_modal_restore(win);
-
+	
 	/* insert keyframes as required... */
 	gpf = BKE_gpencil_layer_getframe(tgpi->gpl, tgpi->cframe, GP_GETFRAME_ADD_NEW);
+	
+	/* prepare stroke to get transfered */
+	gps = tgpi->gpf->strokes.first;
+	if (gps) {
+		gps->thickness = tgpi->brush->thickness;
+		gps->flag |= GP_STROKE_RECALC_CACHES;
+	}
 
-	/* make copy of source stroke, then adjust pointer to points too */
-	gps_src = tgpi->gpf->strokes.first;
-	gps_dst = MEM_dupallocN(gps_src);
-	/* set thickness */
-	gps_dst->thickness = tgpi->brush->thickness;
-	gps_dst->points = MEM_dupallocN(gps_src->points);
-	BKE_gpencil_stroke_weights_duplicate(gps_src, gps_dst);
-	gps_dst->triangles = MEM_dupallocN(gps_src->triangles);
-	gps_dst->flag |= GP_STROKE_RECALC_CACHES;
-	BLI_addtail(&gpf->strokes, gps_dst);
-
+	/* transfer stroke from temporary buffer to the actual frame */
+	BLI_movelisttolist(&gpf->strokes, &tgpi->gpf->strokes);
+	BLI_assert(BLI_listbase_is_empty(&tgpi->gpf->strokes));
+	
 	/* clean up temp data */
 	gpencil_primitive_exit(C, op);
 }
