@@ -100,8 +100,12 @@ static int gpencil_view3d_poll(bContext *C)
 		return 0;
 	}
 
-	/* only in paint mode */
-	if ((gpd->flag & GP_DATA_STROKE_PAINTMODE) == 0) {
+	/* only in edit and paint modes
+	 * - paint as it's the "drawing/creation mode"
+	 * - edit as this is more of an atomic editing operation
+	 *   (similar to copy/paste), and also for consistency
+	 */
+	if ((gpd->flag & (GP_DATA_STROKE_PAINTMODE | GP_DATA_STROKE_EDITMODE)) == 0) {
 		return 0;
 	}
 
