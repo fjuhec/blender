@@ -224,87 +224,84 @@ static void gpencil_primitive_status_indicators(tGPDprimitive *tgpi)
 		}
 	}
 	ED_area_headerprint(tgpi->sa, status_str);
-
 }
 
+/* ----------------------- */
+
 /* create a rectangle */
-static void gp_primitive_rectangle(tGPDprimitive *tgpi, bGPDstroke *gps)
+static void gp_primitive_rectangle(tGPDprimitive *tgpi, tGPspoint *points2D)
 {
-	ToolSettings *ts = tgpi->scene->toolsettings;
-	tGPspoint point2D;
-	bGPDspoint *pt;
-	float r_out[3];
-	int x[4], y[4];
-	int totpoints = 4;
-
-	ARRAY_SET_ITEMS(x, tgpi->top[0], tgpi->bottom[0], tgpi->bottom[0], tgpi->top[0]);
-	ARRAY_SET_ITEMS(y, tgpi->top[1], tgpi->top[1], tgpi->bottom[1], tgpi->bottom[1]);
-
-	for (int i = 0; i < totpoints; i++) {
-		point2D.x = x[i];
-		point2D.y = y[i];
-
-		pt = &gps->points[i];
-		/* convert screen-coordinates to 3D coordinates */
-		gp_stroke_convertcoords_tpoint(tgpi->scene, tgpi->ar, tgpi->v3d, tgpi->ob, tgpi->gpl, &point2D, NULL, r_out);
-		copy_v3_v3(&pt->x, r_out);
-
-		pt->pressure = 1.0f;
-		pt->strength = tgpi->brush->draw_strength;
-		pt->time = 0.0f;
-		pt->totweight = 0;
-		pt->weights = NULL;
-	}
-
-	gps->totpoints = totpoints;
+	BLI_assert(tgpi->tot_edges == 4);
 	
-	/* if axis locked, reproject to plane locked */
-	if (tgpi->lock_axis > GP_LOCKAXIS_NONE) {
-		float origin[3];
-		bGPDspoint *tpt = gps->points;
-		ED_gp_get_drawing_reference(tgpi->v3d, tgpi->scene, tgpi->ob, tgpi->gpl, 
-			                        ts->gpencil_v3d_align, origin);
-
-		ED_gp_project_stroke_to_plane(tgpi->ob, tgpi->rv3d, gps, origin,
-			tgpi->lock_axis - 1, ts->gpencil_src);
-	}
-
-	/* if parented change position relative to parent object */
-	for (int i = 0; i < totpoints; i++) {
-		pt = &gps->points[i];
-		gp_apply_parent_point(tgpi->ob, tgpi->gpd, tgpi->gpl, pt);
-	}
-
-	/* force fill recalc */
-	gps->flag |= GP_STROKE_RECALC_CACHES;
+	points2D[0].x = tgpi->top[0];
+	points2D[0].y = tgpi->top[1];
+	
+	points2D[1].x = tgpi->bottom[0];
+	points2D[1].y = tgpi->top[1];
+	
+	points2D[2].x = tgpi->bottom[0];
+	points2D[2].y = tgpi->bottom[1];
+	
+	points2D[3].x = tgpi->top[0];
+	points2D[3].y = tgpi->bottom[1];
 }
 
 /* create a circle */
-static void gp_primitive_circle(tGPDprimitive *tgpi, bGPDstroke *gps)
+// TODO: vectorise, use M_PI, ...
+static void gp_primitive_circle(tGPDprimitive *tgpi, tGPspoint *points2D)
 {
-	ToolSettings *ts = tgpi->scene->toolsettings;
-	tGPspoint point2D;
-	bGPDspoint *pt;
-	float r_out[3];
-	float center[2];
 	const int totpoints = tgpi->tot_edges;
 	const float step = DEG2RADF(360.0f / (float)(totpoints));
+	float center[2];
+	float radius[2];
 	float a = 0.0f;
-
-	center[0] = tgpi->top[0] + ((tgpi->bottom[0] - tgpi->top[0]) / 2.0);
-	center[1] = tgpi->top[1] + ((tgpi->bottom[1] - tgpi->top[1]) / 2.0);
-	float r_x = fabs(((tgpi->bottom[0] - tgpi->top[0]) / 2.0));
-	float r_y = fabs(((tgpi->bottom[1] - tgpi->top[1]) / 2.0));
-
+	
+	center[0] = tgpi->top[0] + ((tgpi->bottom[0] - tgpi->top[0]) / 2.0f);
+	center[1] = tgpi->top[1] + ((tgpi->bottom[1] - tgpi->top[1]) / 2.0f);
+	radius[0] = fabsf(((tgpi->bottom[0] - tgpi->top[0]) / 2.0f));
+	radius[1] = fabsf(((tgpi->bottom[1] - tgpi->top[1]) / 2.0f));
+	
 	for (int i = 0; i < totpoints; i++) {
-		point2D.x = (int)(center[0] + cos(a) * r_x);
-		point2D.y = (int)(center[1] + sin(a) * r_y);
+		tGPspoint *p2d = &points2D[i];
+		
+		p2d->x = (int)(center[0] + cos(a) * radius[0]);
+		p2d->y = (int)(center[1] + sin(a) * radius[1]);
 		a += step;
+	}
+}
 
-		pt = &gps->points[i];
+/* Helper: Update shape of the stroke */
+static void gp_primitive_update_strokes(bContext *C, tGPDprimitive *tgpi)
+{
+	ToolSettings *ts = tgpi->scene->toolsettings;
+	bGPdata *gpd = tgpi->gpd;
+	bGPDstroke *gps = tgpi->gpf->strokes.first;
+	
+	/* realloc points to new size */
+	/* TODO: only do this if the size has changed? */
+	gps->points = MEM_reallocN(gps->points, sizeof(bGPDspoint) * tgpi->tot_edges);
+	gps->totpoints = tgpi->tot_edges;
+	
+	/* compute screen-space coordinates for points */
+	tGPspoint *points2D = MEM_callocN(sizeof(tGPspoint) * tgpi->tot_edges, "gp primitive points2D");
+	switch (tgpi->type) {
+		case GP_STROKE_BOX:
+			gp_primitive_rectangle(tgpi, points2D);
+			break;
+		case GP_STROKE_CIRCLE:
+			gp_primitive_circle(tgpi, points2D);
+			break;
+		default:
+			break;
+	}
+	
+	/* convert screen-coordinates to 3D coordinates */
+	for (int i = 0; i < gps->totpoints; i++) {
+		bGPDspoint *pt = &gps->points[i];
+		tGPspoint *p2d = &points2D[i];
+		
 		/* convert screen-coordinates to 3D coordinates */
-		gp_stroke_convertcoords_tpoint(tgpi->scene, tgpi->ar, tgpi->v3d, tgpi->ob, tgpi->gpl, &point2D, NULL, r_out);
-		copy_v3_v3(&pt->x, r_out);
+		gp_stroke_convertcoords_tpoint(tgpi->scene, tgpi->ar, tgpi->v3d, tgpi->ob, tgpi->gpl, p2d, NULL, &pt->x);
 
 		pt->pressure = 1.0f;
 		pt->strength = tgpi->brush->draw_strength;
@@ -312,13 +309,11 @@ static void gp_primitive_circle(tGPDprimitive *tgpi, bGPDstroke *gps)
 		pt->totweight = 0;
 		pt->weights = NULL;
 	}
-
-	gps->totpoints = totpoints;
-
+	
 	/* if axis locked, reproject to plane locked */
 	if (tgpi->lock_axis > GP_LOCKAXIS_NONE) {
-		float origin[3];
 		bGPDspoint *tpt = gps->points;
+		float origin[3];
 		ED_gp_get_drawing_reference(tgpi->v3d, tgpi->scene, tgpi->ob, tgpi->gpl,
 		                            ts->gpencil_v3d_align, origin);
 
@@ -328,39 +323,19 @@ static void gp_primitive_circle(tGPDprimitive *tgpi, bGPDstroke *gps)
 			                             ts->gpencil_src, tpt);
 		}
 	}
-
+	
 	/* if parented change position relative to parent object */
-	for (int i = 0; i < totpoints; i++) {
-		pt = &gps->points[i];
+	for (int i = 0; i < gps->totpoints; i++) {
+		bGPDspoint *pt = &gps->points[i];
 		gp_apply_parent_point(tgpi->ob, tgpi->gpd, tgpi->gpl, pt);
 	}
-
+	
 	/* force fill recalc */
 	gps->flag |= GP_STROKE_RECALC_CACHES;
-}
-
-/* Helper: Update shape of the stroke */
-static void gp_primitive_update_strokes(bContext *C, tGPDprimitive *tgpi)
-{
-	bGPdata *gpd = tgpi->gpd;
-	bGPDstroke *gps = tgpi->gpf->strokes.first;
-
-	/* realloc points to new size */
-	gps->points = MEM_reallocN(gps->points, sizeof(bGPDspoint) * tgpi->tot_edges);
-	gps->totpoints = tgpi->tot_edges;
-
-	/* update points position creating figure */
-	switch (tgpi->type) {
-		case GP_STROKE_BOX:
-			gp_primitive_rectangle(tgpi, gps);
-			break;
-		case GP_STROKE_CIRCLE:
-			gp_primitive_circle(tgpi, gps);
-			break;
-		default:
-			break;
-	}
-
+	
+	/* free temp data */
+	MEM_SAFE_FREE(points2D);
+	
 	BKE_gpencil_batch_cache_dirty(gpd);
 	WM_event_add_notifier(C, NC_GPENCIL | NA_EDITED, NULL);
 }
@@ -442,9 +417,13 @@ static void gpencil_primitive_init(bContext *C, wmOperator *op)
 
 	/* set parameters */
 	tgpi->type = RNA_enum_get(op->ptr, "type");
+	
 	/* if circle set default to 32 */
 	if (tgpi->type == GP_STROKE_CIRCLE) {
 		RNA_int_set(op->ptr, "edges", 32);
+	}
+	else /* if (tgpi->type == GP_STROKE_RECTANGLE) */ {
+		RNA_int_set(op->ptr, "edges", 4);
 	}
 
 	tgpi->tot_edges = RNA_int_get(op->ptr, "edges");
@@ -513,7 +492,6 @@ static void gpencil_primitive_done(bContext *C, wmOperator *op, wmWindow *win, t
 
 	/* clean up temp data */
 	gpencil_primitive_exit(C, op);
-
 }
 
 /* Modal handler: Events handling during interactive part */
