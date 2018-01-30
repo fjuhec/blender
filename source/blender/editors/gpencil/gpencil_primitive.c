@@ -407,14 +407,19 @@ static void gpencil_primitive_exit(bContext *C, wmOperator *op)
 }
 
 /* Init new temporary primitive data */
-static bool gp_primitive_set_init_values(bContext *C, wmOperator *op, tGPDprimitive *tgpi)
+static void gpencil_primitive_init(bContext *C, wmOperator *op)
 {
 	ToolSettings *ts = CTX_data_tool_settings(C);
 	bGPdata *gpd = CTX_data_gpencil_data(C);
 	Main *bmain = CTX_data_main(C);
+	Scene *scene = CTX_data_scene(C);
+
+	/* create temporary operator data */
+	tGPDprimitive *tgpi = MEM_callocN(sizeof(tGPDprimitive), "GPencil Primitive Data");
+	op->customdata = tgpi;
 	
 	/* set current scene and window info */
-	tgpi->scene = CTX_data_scene(C);
+	tgpi->scene = scene;
 	tgpi->ob = CTX_data_active_object(C);
 	tgpi->sa = CTX_wm_area(C);
 	tgpi->ar = CTX_wm_region(C);
@@ -424,7 +429,7 @@ static bool gp_primitive_set_init_values(bContext *C, wmOperator *op, tGPDprimit
 	tgpi->win = CTX_wm_window(C);
 
 	/* set current frame number */
-	tgpi->cframe = tgpi->scene->r.cfra;
+	tgpi->cframe = CFRA;
 	
 	/* set GP datablock */
 	tgpi->gpd = gpd;
@@ -449,37 +454,6 @@ static bool gp_primitive_set_init_values(bContext *C, wmOperator *op, tGPDprimit
 
 	/* set temp layer, frame and stroke */
 	gp_primitive_set_initdata(C, tgpi);
-	
-	return 1;
-}
-
-/* Allocate memory and initialize values */
-static tGPDprimitive *gp_session_init_primitives(bContext *C, wmOperator *op)
-{
-	tGPDprimitive *tgpi = MEM_callocN(sizeof(tGPDprimitive), "GPencil Primitive Data");
-	
-	/* define initial values */
-	gp_primitive_set_init_values(C, op, tgpi);
-	
-	/* return context data for running operator */
-	return tgpi;
-}
-
-/* Init interpolation: Allocate memory and set init values */
-static int gpencil_primitive_init(bContext *C, wmOperator *op)
-{
-	tGPDprimitive *tgpi;
-	
-	/* check context */
-	tgpi = op->customdata = gp_session_init_primitives(C, op);
-	if (tgpi == NULL) {
-		/* something wasn't set correctly in context */
-		gpencil_primitive_exit(C, op);
-		return 0;
-	}
-	
-	/* everything is now setup ok */
-	return 1;
 }
 
 /* ----------------------- */
@@ -498,15 +472,9 @@ static int gpencil_primitive_invoke(bContext *C, wmOperator *op, const wmEvent *
 		return OPERATOR_CANCELLED;
 	}
 	
-	/* try to initialize context data needed */
-	if (!gpencil_primitive_init(C, op)) {
-		if (op->customdata)
-			MEM_freeN(op->customdata);
-		return OPERATOR_CANCELLED;
-	}
-	else {
-		tgpi = op->customdata;
-	}
+	/* initialize operator runtime data */
+	gpencil_primitive_init(C, op);
+	tgpi = op->customdata;
 	
 	/* Enable custom drawing handlers */
 	tgpi->draw_handle_3d = ED_region_draw_cb_activate(tgpi->ar->type, gpencil_primitive_draw_3d, tgpi, REGION_DRAW_POST_VIEW);
