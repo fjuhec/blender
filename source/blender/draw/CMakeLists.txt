@@ -94,6 +94,7 @@ set(SRC
 	engines/eevee/eevee_materials.c
 	engines/eevee/eevee_motion_blur.c
 	engines/eevee/eevee_occlusion.c
+	engines/eevee/eevee_render.c
 	engines/eevee/eevee_screen_raytrace.c
 	engines/eevee/eevee_subsurface.c
 	engines/eevee/eevee_temporal_sampling.c
@@ -226,7 +227,6 @@ data_to_c_simple(modes/shaders/object_grid_frag.glsl SRC)
 data_to_c_simple(modes/shaders/object_grid_vert.glsl SRC)
 data_to_c_simple(modes/shaders/object_lightprobe_grid_vert.glsl SRC)
 data_to_c_simple(modes/shaders/object_particle_prim_vert.glsl SRC)
-data_to_c_simple(modes/shaders/object_particle_prim_frag.glsl SRC)
 data_to_c_simple(modes/shaders/object_particle_dot_vert.glsl SRC)
 data_to_c_simple(modes/shaders/object_particle_dot_frag.glsl SRC)
 data_to_c_simple(modes/shaders/paint_texture_frag.glsl SRC)

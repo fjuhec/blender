@@ -78,7 +78,7 @@ class RENDER_PT_context(Panel):
 
 class RENDER_PT_render(RenderButtonsPanel, Panel):
     bl_label = "Render"
-    COMPAT_ENGINES = {'BLENDER_RENDER'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE'}
 
     def draw(self, context):
         layout = self.layout
@@ -850,6 +850,7 @@ class RENDER_PT_eevee_sampling(RenderButtonsPanel, Panel):
 
         col = layout.column()
         col.prop(props, "taa_samples")
+        col.prop(props, "taa_render_samples")
 
 
 class RENDER_PT_eevee_indirect_lighting(RenderButtonsPanel, Panel):

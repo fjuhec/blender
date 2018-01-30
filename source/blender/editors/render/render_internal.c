@@ -295,6 +295,7 @@ static void screen_render_view_layer_set(wmOperator *op, Main *mainp, Scene **sc
 static int screen_render_exec(bContext *C, wmOperator *op)
 {
 	Scene *scene = CTX_data_scene(C);
+	RenderEngineType *re_type = RE_engines_find(scene->view_render.engine_id);
 	ViewLayer *view_layer = NULL;
 	Depsgraph *depsgraph = CTX_data_depsgraph(C);
 	Render *re;
@@ -305,6 +306,11 @@ static int screen_render_exec(bContext *C, wmOperator *op)
 	const bool is_animation = RNA_boolean_get(op->ptr, "animation");
 	const bool is_write_still = RNA_boolean_get(op->ptr, "write_still");
 	struct Object *camera_override = v3d ? V3D_CAMERA_LOCAL(v3d) : NULL;
+
+	/* Cannot do render if there is not this function. */
+	if (re_type->render_to_image == NULL) {
+		return OPERATOR_CANCELLED;
+	}
 
 	/* custom scene and single layer re-render */
 	screen_render_view_layer_set(op, mainp, &scene, &view_layer);
@@ -844,6 +850,7 @@ static int screen_render_invoke(bContext *C, wmOperator *op, const wmEvent *even
 	Main *mainp;
 	ViewLayer *view_layer = NULL;
 	Scene *scene = CTX_data_scene(C);
+	RenderEngineType *re_type = RE_engines_find(scene->view_render.engine_id);
 	Render *re;
 	wmJob *wm_job;
 	RenderJob *rj;
@@ -856,6 +863,20 @@ static int screen_render_invoke(bContext *C, wmOperator *op, const wmEvent *even
 	struct Object *camera_override = v3d ? V3D_CAMERA_LOCAL(v3d) : NULL;
 	const char *name;
 	ScrArea *sa;
+
+	/* Cannot do render if there is not this function. */
+	if (re_type->render_to_image == NULL) {
+		return OPERATOR_CANCELLED;
+	}
+
+	/* XXX FIXME If engine is an OpenGL engine do not run modal.
+	 * This is a problem for animation rendering since you cannot abort them.
+	 * This also does not open an image editor space. */
+	if (RE_engine_is_opengl(re_type)) {
+		/* ensure at least 1 area shows result */
+		render_view_open(C, event->x, event->y, op->reports);
+		return screen_render_exec(C, op);
+	}
 	
 	/* only one render job at a time */
 	if (WM_jobs_test(CTX_wm_manager(C), scene, WM_JOB_TYPE_RENDER))

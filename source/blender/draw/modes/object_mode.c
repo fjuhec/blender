@@ -76,11 +76,11 @@ extern char datatoc_object_empty_image_frag_glsl[];
 extern char datatoc_object_empty_image_vert_glsl[];
 extern char datatoc_object_lightprobe_grid_vert_glsl[];
 extern char datatoc_object_particle_prim_vert_glsl[];
-extern char datatoc_object_particle_prim_frag_glsl[];
 extern char datatoc_object_particle_dot_vert_glsl[];
 extern char datatoc_object_particle_dot_frag_glsl[];
 extern char datatoc_common_globals_lib_glsl[];
 extern char datatoc_common_fxaa_lib_glsl[];
+extern char datatoc_gpu_shader_flat_color_frag_glsl[];
 extern char datatoc_gpu_shader_fullscreen_vert_glsl[];
 extern char datatoc_gpu_shader_uniform_color_frag_glsl[];
 
@@ -334,12 +334,12 @@ static void OBJECT_engine_init(void *vedata)
 
 	if (!e_data.part_prim_sh) {
 		e_data.part_prim_sh = DRW_shader_create(
-		        datatoc_object_particle_prim_vert_glsl, NULL, datatoc_object_particle_prim_frag_glsl, NULL);
+		        datatoc_object_particle_prim_vert_glsl, NULL, datatoc_gpu_shader_flat_color_frag_glsl, NULL);
 	}
 
 	if (!e_data.part_axis_sh) {
 		e_data.part_axis_sh = DRW_shader_create(
-		        datatoc_object_particle_prim_vert_glsl, NULL, datatoc_object_particle_prim_frag_glsl,
+		        datatoc_object_particle_prim_vert_glsl, NULL, datatoc_gpu_shader_flat_color_frag_glsl,
 		        "#define USE_AXIS\n");
 	}
 
@@ -1486,6 +1486,8 @@ static void DRW_shgroup_speaker(OBJECT_StorageList *stl, Object *ob, ViewLayer *
 }
 
 typedef struct OBJECT_LightProbeEngineData {
+	ObjectEngineData engine_data;
+
 	float prb_mats[6][4][4];
 	float probe_cube_mat[4][4];
 	float draw_size;
@@ -2061,5 +2063,6 @@ DrawEngineType draw_engine_object_type = {
 	NULL,
 	NULL,
 	&OBJECT_draw_scene,
+	NULL,
 	NULL,
 };
