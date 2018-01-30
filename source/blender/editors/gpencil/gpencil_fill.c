@@ -186,7 +186,7 @@ static void gp_draw_datablock(tGPDfill *tgpf, float ink[4])
 			tgpw.t_gpf = gpf;
 
 			/* reduce thickness to avoid gaps */
-			tgpw.lthick = gpl->thickness * 0.8f;
+			tgpw.lthick = gpl->thickness - 4;
 			tgpw.opacity = 1.0;
 			copy_v4_v4(tgpw.tintcolor, ink);
 			tgpw.onion = true;
