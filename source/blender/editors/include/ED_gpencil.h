@@ -222,6 +222,6 @@ void ED_gpencil_vgroup_deselect(struct bContext *C, struct Object *ob);
 int ED_gpencil_join_objects_exec(struct bContext *C, struct wmOperator *op);
 
 /* helper to get brush icon */
-int gpencil_get_brush_icon(int type);
+int ED_gpencil_get_brush_icon(int type);
 
 #endif /*  __ED_GPENCIL_H__ */
