@@ -79,7 +79,7 @@
 #define GP_BOX_GAP (18 * U.ui_scale)
 
 /* draw color name using default font */
-static void gp_draw_color_name(tGPDpick *tgpk, tGPDpickColor *col, uiFontStyle *fstyle, bool focus)
+static void gp_draw_color_name(tGPDpick *tgpk, tGPDpickColor *col, const uiFontStyle *fstyle, bool focus)
 {
 	bTheme *btheme = UI_GetTheme();
 	uiWidgetColors menuBack = btheme->tui.wcol_menu_back;
@@ -99,7 +99,7 @@ static void gp_draw_color_name(tGPDpick *tgpk, tGPDpickColor *col, uiFontStyle *
 
 	/* color name */
 	BLI_strncpy(drawstr, col->name, sizeof(drawstr));
-	UI_text_clip_middle_ex(fstyle, drawstr, okwidth, minwidth, max_len, '\0');
+	UI_text_clip_middle_ex((uiFontStyle *)fstyle, drawstr, okwidth, minwidth, max_len, '\0');
 	UI_fontstyle_draw_simple(fstyle, col->rect.xmin, col->rect.ymin - (GP_BOX_GAP / 2) - 3, 
 							 drawstr, text_col);
 }
@@ -127,7 +127,7 @@ static void gpencil_draw_color_table(const bContext *UNUSED(C), tGPDpick *tgpk)
 	if (!tgpk->palette) {
 		return;
 	}
-	uiFontStyle *fstyle = (uiFontStyle *)UI_FSTYLE_WIDGET; /* XXX: was const, but drawfuncs expect modifable */
+	const uiFontStyle *fstyle = UI_FSTYLE_WIDGET;
 	float ink[4];
 	float line[4];
 	float radius = (0.4f * U.widget_unit);
