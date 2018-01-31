@@ -1201,25 +1201,6 @@ void ED_gpencil_reset_layers_parent(Object *obact, bGPdata *gpd)
 /* ******************************************************** */
 /* GP Object Stuff */
 
-// XXX: Should this be added to blenkernel? Doesn't something like this exist there already?
-bool ED_gpencil_stroke_minmax(
-        const bGPDstroke *gps, const bool use_select,
-        float r_min[3], float r_max[3])
-{
-	const bGPDspoint *pt;
-	int i;
-	bool changed = false;
-
-	for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
-		if ((use_select == false) || (pt->flag & GP_SPOINT_SELECT)) {;
-			minmax_v3v3_v3(r_min, r_max, &pt->x);
-			changed = true;
-		}
-	}
-	return changed;
-}
-
-
 /* Helper function to create new OB_GPENCIL Object */
 Object *ED_add_gpencil_object(bContext *C, Scene *scene, const float loc[3])
 {

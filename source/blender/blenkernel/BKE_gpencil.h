@@ -179,6 +179,10 @@ void BKE_gpencil_palettecolor_changename(struct PaletteColor *palcolor, struct b
 void BKE_gpencil_palettecolor_delete_allstrokes(struct Main *bmain, struct PaletteColor *palcolor);
 
 /* object boundbox */
+bool BKE_gpencil_stroke_minmax(
+        const struct bGPDstroke *gps, const bool use_select,
+        float r_min[3], float r_max[3]);
+
 struct BoundBox *BKE_gpencil_boundbox_get(struct Object *ob);
 void BKE_gpencil_centroid_3D(struct bGPdata *gpd, float r_centroid[3]);
 

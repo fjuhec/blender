@@ -2206,22 +2206,44 @@ void BKE_gpencil_move_animdata_to_palettes(bContext *C, bGPdata *gpd)
 /* ************************************************** */
 /* GP Object - Boundbox Support */
 
-/* get stroke min max values */
-static void gpencil_minmax(bGPdata *gpd, float min[3], float max[3])
+/**
+ * Get min/max coordinate bounds for single stroke
+ * \return Returns whether we found any selected points
+ */
+bool BKE_gpencil_stroke_minmax(
+        const bGPDstroke *gps, const bool use_select,
+        float r_min[3], float r_max[3])
 {
+	const bGPDspoint *pt;
 	int i;
-	bGPDspoint *pt;
-	bGPDframe *gpf;
-	INIT_MINMAX(min, max);
-
-	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
-		gpf = gpl->actframe;
-		if (!gpf) {
-			continue;
+	bool changed = false;
+	
+	if (ELEM(NULL, gps, r_min, r_max))
+		return false;
+	
+	for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
+		if ((use_select == false) || (pt->flag & GP_SPOINT_SELECT)) {
+			minmax_v3v3_v3(r_min, r_max, &pt->x);
+			changed = true;
 		}
-		for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
-			for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
-				minmax_v3v3_v3(min, max, &pt->x);
+	}
+	return changed;
+}
+
+/* get min/max bounds of all strokes in GP datablock */
+static void gpencil_minmax(bGPdata *gpd, float r_min[3], float r_max[3])
+{
+	INIT_MINMAX(r_min, r_max);
+	
+	if (gpd == NULL)
+		return;
+	
+	for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+		bGPDframe *gpf = gpl->actframe;
+		
+		if (gpf != NULL) {
+			for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
+				BKE_gpencil_stroke_minmax(gps, false, r_min, r_max);
 			}
 		}
 	}
