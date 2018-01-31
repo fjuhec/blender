@@ -477,7 +477,7 @@ void GPENCIL_OT_interpolate(struct wmOperatorType *ot);
 void GPENCIL_OT_interpolate_sequence(struct wmOperatorType *ot);
 void GPENCIL_OT_interpolate_reverse(struct wmOperatorType *ot);
 
-/* primitves ---------- */
+/* primitives ---------- */
 
 void GPENCIL_OT_primitive(struct wmOperatorType *ot);
 
