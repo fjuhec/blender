@@ -277,18 +277,14 @@ static void gp_get_3d_reference(tGPsdata *p, float vec[3])
 	ED_gp_get_drawing_reference(v3d, p->scene, ob, p->gpl, *p->align_flag, vec);
 }
 
-static void copy_v2int_v2int(int r[2], const int a[2])
-{
-	r[0] = (int)roundf(a[0]);
-	r[1] = (int)roundf(a[1]);
-}
-
+// XXX: Rename and move to BLI_math_vector.h
 static void copy_v2int_v2float(int r[2], const float a[2])
 {
 	r[0] = (int)roundf(a[0]);
 	r[1] = (int)roundf(a[1]);
 }
 
+// XXX: Rename and move to BLI_math_vector.h
 static void copy_v2float_v2int(float r[2], const int a[2])
 {
 	r[0] = (float)a[0];
@@ -317,7 +313,7 @@ static bool gp_stroke_filtermval(tGPsdata *p, const int mval[2], int pmval[2])
 		else {
 			/* If the mouse is moving within the radius of the last move,
 			* don't update the mouse position. This allows sharp turns. */
-			copy_v2int_v2int(p->mval, p->mvalo);
+			copy_v2_v2_int(p->mval, p->mvalo);
 			return false;
 		}
 	}

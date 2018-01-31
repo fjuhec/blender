@@ -32,38 +32,37 @@
 
 struct ID;
 struct ListBase;
-struct bContext;
-struct Depsgraph;
-struct ScrArea;
-struct ARegion;
-struct bAnimContext;
-struct wmOperator;
+struct PointerRNA;
+struct rcti;
+
 struct bGPdata;
 struct bGPDlayer;
 struct bGPDframe;
 struct bGPDstroke;
-struct bGPDpalette;
-struct bGPDpalettecolor;
 struct bGPDspoint;
-struct tGPDdraw;
-struct Image;
-struct BLI_Stack;
-struct KeyframeEditData;
+
+struct bContext;
+struct EvaluationContext;
+struct Depsgraph;
+struct ScrArea;
+struct ARegion;
+struct RegionView3D;
+struct Scene;
+struct ToolSettings;
+struct ViewLayer;
+struct View3D;
+
 struct Object;
 struct Palette;
 struct PaletteColor;
-struct PointerRNA;
-struct RegionView3D;
-struct ToolSettings;
-struct View3D;
-struct Scene;
-struct ViewLayer;
-struct wmWindowManager;
+
+struct bAnimContext;
+struct KeyframeEditData;
+
 struct wmKeyConfig;
-struct wmWindowManager;
-struct EvaluationContext;
+struct wmOperator;
 struct wmWindow;
-struct rcti;
+struct wmWindowManager;
 
 struct tGPDdraw;
 struct tGPDinterpolate;

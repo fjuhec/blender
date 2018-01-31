@@ -43,6 +43,7 @@ struct bGPDstroke;
 struct bGPDspoint;
 struct tGPspoint;
 
+struct BLI_Stack;
 struct GHash;
 
 struct Scene;
@@ -50,6 +51,7 @@ struct ARegion;
 struct View3D;
 struct View2D;
 struct wmOperatorType;
+struct Image;
 
 struct PointerRNA;
 struct PropertyRNA;

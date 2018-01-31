@@ -564,13 +564,6 @@ static void gpencil_clean_borders(tGPDfill *tgpf)
 	tgpf->ima->id.tag |= LIB_TAG_DOIT;
 }
 
-/* helper to copy points 2D */
-static void copyint_v2_v2(int r[2], const int a[2])
-{
-	r[0] = a[0];
-	r[1] = a[1];
-}
-
 /* Get the outline points of a shape using Moore Neighborhood algorithm 
  *
  * This is a Blender customized version of the general algorithm described 
@@ -614,12 +607,12 @@ static  void gpencil_get_outline_points(tGPDfill *tgpf)
 		if (rgba[1] == 1.0f) {
 			boundary_co[0] = idx % ibuf->x;
 			boundary_co[1] = idx / ibuf->x;
-			copyint_v2_v2(start_co, boundary_co);
+			copy_v2_v2_int(start_co, boundary_co);
 			backtracked_co[0] = (idx - 1) % ibuf->x;
 			backtracked_co[1] = (idx - 1) / ibuf->x;
 			backtracked_offset[0][0] = backtracked_co[0] - boundary_co[0];
 			backtracked_offset[0][1] = backtracked_co[1] - boundary_co[1];
-			copyint_v2_v2(prev_check_co, start_co);
+			copy_v2_v2_int(prev_check_co, start_co);
 
 			BLI_stack_push(tgpf->stack, &boundary_co);
 			start_found = true;
@@ -651,8 +644,8 @@ static  void gpencil_get_outline_points(tGPDfill *tgpf)
 
 			/* find next boundary pixel */
 			if (rgba[1] == 1.0f) {
-				copyint_v2_v2(boundary_co, current_check_co);
-				copyint_v2_v2(backtracked_co, prev_check_co);
+				copy_v2_v2_int(boundary_co, current_check_co);
+				copy_v2_v2_int(backtracked_co, prev_check_co);
 				backtracked_offset[0][0] = backtracked_co[0] - boundary_co[0];
 				backtracked_offset[0][1] = backtracked_co[1] - boundary_co[1];
 
@@ -660,7 +653,7 @@ static  void gpencil_get_outline_points(tGPDfill *tgpf)
 
 				break;
 			}
-			copyint_v2_v2(prev_check_co, current_check_co);
+			copy_v2_v2_int(prev_check_co, current_check_co);
 			cur_back_offset++;
 			loop++;
 		}
@@ -777,7 +770,7 @@ static void gpencil_stroke_from_buffer(tGPDfill *tgpf)
 
 	bGPDspoint *pt;
 	tGPspoint *point2D;
-	float r_out[3];
+
 	if (tgpf->sbuffer_size == 0) {
 		return;
 	}
@@ -824,8 +817,7 @@ static void gpencil_stroke_from_buffer(tGPDfill *tgpf)
 		gp_stroke_convertcoords_tpoint(tgpf->scene, tgpf->ar, tgpf->v3d, tgpf->ob, 
 									   tgpf->gpl, point2D, 
 									   tgpf->depth_arr ? tgpf->depth_arr + i : NULL,
-									   r_out);
-		copy_v3_v3(&pt->x, r_out);
+									   &pt->x);
 
 		pt->pressure = 1.0f;
 		pt->strength = 1.0f;;

@@ -210,12 +210,15 @@ bGPdata *ED_gpencil_data_get_active_v3d(Scene *scene, ViewLayer *view_layer)
 {
 	Base *base = view_layer->basact;
 	bGPdata *gpd = NULL;
+	
 	/* We have to make sure active object is actually visible and selected, else we must use default scene gpd,
 	 * to be consistent with ED_gpencil_data_get_active's behavior.
 	 */
-	
 	if (base && TESTBASE(base)) {
-		gpd = base->object->gpd;
+		if (base->object->type == OB_GPENCIL)
+			gpd = base->object->data;
+		else
+			gpd = base->object->gpd;
 	}
 	return gpd ? gpd : scene->gpd;
 }
@@ -805,6 +808,7 @@ bool gp_point_xy_to_3d(GP_SpaceConversion *gsc, Scene *scene, const float screen
  * to 3D coordinates.
  *
  * \param point2D: The screenspace 2D point data to convert
+ * \param depth: Depth array (via ED_view3d_autodist_depth())
  * \param[out] r_out: The resulting 2D point data
  */
 void gp_stroke_convertcoords_tpoint(

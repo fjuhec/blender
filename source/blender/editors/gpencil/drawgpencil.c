@@ -1913,6 +1913,7 @@ void ED_gpencil_draw_view3d(wmWindowManager *wm,
 	int offsx,  offsy,  winx,  winy;
 
 	/* check that we have grease-pencil stuff to draw */
+	// XXX: This is the only place that still uses this function
 	bGPdata *gpd = ED_gpencil_data_get_active_v3d(scene, view_layer);
 	if (gpd == NULL) return;
 
@@ -1960,7 +1961,8 @@ void ED_gpencil_draw_view3d(wmWindowManager *wm,
 }
 
 /* draw grease-pencil sketches to specified 3d-view for gp object
-* assuming that matrices are already set correctly */
+ * assuming that matrices are already set correctly 
+ */
 void ED_gpencil_draw_view3d_object(wmWindowManager *wm, Scene *scene, const struct Depsgraph *depsgraph, Object *ob, View3D *v3d, ARegion *ar, bool only3d)
 {
 	int dflag = 0;
