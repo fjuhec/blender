@@ -133,8 +133,8 @@ static void gp_draw_datablock(tGPDfill *tgpf, float ink[4])
 {
 	/* duplicated */
 	typedef enum etempFlags {
-		GP_DRAWDATA_NOSTATUS = (1 << 0),   /* don't draw status info */
-		GP_DRAWDATA_ONLY3D = (1 << 1),   /* only draw 3d-strokes */
+		GP_DRAWFILLS_NOSTATUS = (1 << 0),   /* don't draw status info */
+		GP_DRAWFILLS_ONLY3D = (1 << 1),   /* only draw 3d-strokes */
 	} etempFlags;
 
 	Scene *scene = tgpf->scene;
@@ -151,7 +151,7 @@ static void gp_draw_datablock(tGPDfill *tgpf, float ink[4])
 	tgpw.winy = tgpf->ar->winy;
 	tgpw.dflag = 0;
 	tgpw.disable_fill = 1;
-	tgpw.dflag |= (GP_DRAWDATA_ONLY3D | GP_DRAWDATA_NOSTATUS);
+	tgpw.dflag |= (GP_DRAWFILLS_ONLY3D | GP_DRAWFILLS_NOSTATUS);
 	
 	glEnable(GL_BLEND);
 
@@ -304,10 +304,7 @@ static void get_pixel(ImBuf *ibuf, int idx, float r_col[4])
 {
 	if (ibuf->rect_float) {
 		float *frgba = &ibuf->rect_float[idx * 4];
-		r_col[0] = *frgba++;
-		r_col[1] = *frgba++;
-		r_col[2] = *frgba++;
-		r_col[3] = *frgba;
+		copy_v4_v4(r_col, frgba);
 	}
 }
 
@@ -318,21 +315,13 @@ static void set_pixel(ImBuf *ibuf, int idx, const float col[4])
 		unsigned int *rrect = &ibuf->rect[idx];
 		char ccol[4];
 
-		ccol[0] = (int)(col[0] * 255);
-		ccol[1] = (int)(col[1] * 255);
-		ccol[2] = (int)(col[2] * 255);
-		ccol[3] = (int)(col[3] * 255);
-
+		rgba_float_to_uchar(ccol, col);
 		*rrect = *((unsigned int *)ccol);
 	}
 
 	if (ibuf->rect_float) {
 		float *rrectf = &ibuf->rect_float[idx * 4];
-
-		*rrectf++ = col[0];
-		*rrectf++ = col[1];
-		*rrectf++ = col[2];
-		*rrectf = col[3];
+		copy_v4_v4(rrectf, col);
 	}
 }
 
