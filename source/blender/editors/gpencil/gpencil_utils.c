@@ -807,17 +807,14 @@ bool gp_point_xy_to_3d(GP_SpaceConversion *gsc, Scene *scene, const float screen
  * \param point2D: The screenspace 2D point data to convert
  * \param[out] r_out: The resulting 2D point data
  */
-void gp_stroke_convertcoords_tpoint(Scene *scene, ARegion *ar, View3D *v3d, 
-								struct Object *ob, bGPDlayer *gpl, 
-								const tGPspoint *point2D, float *depth, float r_out[3])
+void gp_stroke_convertcoords_tpoint(
+        Scene *scene, ARegion *ar, View3D *v3d,
+        Object *ob, bGPDlayer *gpl,
+        const tGPspoint *point2D, float *depth,
+        float r_out[3])
 {
 	ToolSettings *ts = scene->toolsettings;
-	const int mval[2] = { point2D->x, point2D->y };
-	float mval_f[2];
-	ARRAY_SET_ITEMS(mval_f, point2D->x, point2D->y);
-	float mval_prj[2];
-	float rvec[3], dvec[3];
-	float zfac;
+	const int mval[2] = {point2D->x, point2D->y};
 
 	if ((depth != NULL) && (ED_view3d_autodist_simple(ar, mval, r_out, 0, depth))) {
 		/* projecting onto 3D-Geometry
@@ -825,12 +822,17 @@ void gp_stroke_convertcoords_tpoint(Scene *scene, ARegion *ar, View3D *v3d,
 		*/
 	}
 	else {
+		float mval_f[2] = {(float)point2D->x, (float)point2D->y};
+		float mval_prj[2];
+		float rvec[3], dvec[3];
+		float zfac;
+		
 		/* Current method just converts each point in screen-coordinates to
-		* 3D-coordinates using the 3D-cursor as reference.
-		*/
+		 * 3D-coordinates using the 3D-cursor as reference.
+		 */
 		ED_gp_get_drawing_reference(v3d, scene, ob, gpl, ts->gpencil_v3d_align, rvec);
 		zfac = ED_view3d_calc_zfac(ar->regiondata, rvec, NULL);
-
+		
 		if (ED_view3d_project_float_global(ar, rvec, mval_prj, V3D_PROJ_TEST_NOP) == V3D_PROJ_RET_OK) {
 			sub_v2_v2v2(mval_f, mval_prj, mval_f);
 			ED_view3d_win_to_delta(ar, mval_f, dvec, zfac);
@@ -839,6 +841,48 @@ void gp_stroke_convertcoords_tpoint(Scene *scene, ARegion *ar, View3D *v3d,
 		else {
 			zero_v3(r_out);
 		}
+	}
+}
+
+/**
+ * Get drawing reference point for conversion or projection of the stroke
+ * \param[out] r_vec : Reference point found
+ */
+void ED_gp_get_drawing_reference(View3D *v3d, Scene *scene, Object *ob, bGPDlayer *gpl, char align_flag, float r_vec[3])
+{
+	const float *fp = ED_view3d_cursor3d_get(scene, v3d);
+
+	/* if using a gpencil object at cursor mode, can use the location of the object */
+	if (align_flag & GP_PROJECT_VIEWSPACE) {
+		if (ob && (ob->type == OB_GPENCIL)) {
+			/* use last stroke position for layer */
+			if (gpl && gpl->flag & GP_LAYER_USE_LOCATION) {
+				if (gpl->actframe) {
+					bGPDframe *gpf = gpl->actframe;
+					if (gpf->strokes.last) {
+						bGPDstroke *gps = gpf->strokes.last;
+						if (gps->totpoints > 0) {
+							copy_v3_v3(r_vec, &gps->points[gps->totpoints - 1].x);
+							mul_m4_v3(ob->obmat, r_vec);
+							return;
+						}
+					}
+				}
+			}
+			/* fallback (no strokes) - use cursor or object location */
+			if (align_flag & GP_PROJECT_CURSOR) {
+				/* use 3D-cursor */
+				copy_v3_v3(r_vec, fp);
+			}
+			else {
+				/* use object location */
+				copy_v3_v3(r_vec, ob->obmat[3]);
+			}
+		}
+	}
+	else {
+		/* use 3D-cursor */
+		copy_v3_v3(r_vec, fp);
 	}
 }
 
@@ -928,48 +972,6 @@ void ED_gp_project_point_to_plane(Object *ob, RegionView3D *rv3d, const float or
 	/* if the line never intersect, the point is not changed */
 	if (isect_line_plane_v3(rpoint, &pt->x, ray, origin, plane_normal)) {
 		copy_v3_v3(&pt->x, rpoint);
-	}
-}
-
-/**
- * Get drawing reference point for conversion or projection of the stroke
- * \param[out] r_vec : Reference point found
- */
-void ED_gp_get_drawing_reference(View3D *v3d, Scene *scene, Object *ob, bGPDlayer *gpl, char align_flag, float r_vec[3])
-{
-	const float *fp = ED_view3d_cursor3d_get(scene, v3d);
-
-	/* if using a gpencil object at cursor mode, can use the location of the object */
-	if (align_flag & GP_PROJECT_VIEWSPACE) {
-		if (ob && (ob->type == OB_GPENCIL)) {
-			/* use last stroke position for layer */
-			if (gpl && gpl->flag & GP_LAYER_USE_LOCATION) {
-				if (gpl->actframe) {
-					bGPDframe *gpf = gpl->actframe;
-					if (gpf->strokes.last) {
-						bGPDstroke *gps = gpf->strokes.last;
-						if (gps->totpoints > 0) {
-							copy_v3_v3(vec, &gps->points[gps->totpoints - 1].x);
-							mul_m4_v3(ob->obmat, r_vec);
-							return;
-						}
-					}
-				}
-			}
-			/* fallback (no strokes) - use cursor or object location */
-			if (align_flag & GP_PROJECT_CURSOR) {
-				/* use 3D-cursor */
-				copy_v3_v3(r_vec, fp);
-			}
-			else {
-				/* use object location */
-				copy_v3_v3(r_vec, ob->obmat[3]);
-			}
-		}
-	}
-	else {
-		/* use 3D-cursor */
-		copy_v3_v3(r_vec, fp);
 	}
 }
 
