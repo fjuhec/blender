@@ -69,10 +69,10 @@ struct EnumPropertyItem;
 
 /* Temporary draw data (no draw manager mode) */
 typedef struct tGPDdraw {
-	struct RegionView3D *rv3d;			/* region to draw */
-	struct Object *ob;                  /* object */
-	struct bGPdata *gpd;				/* current GP datablock */
-	struct bGPDlayer *gpl;				/* layer */
+	struct RegionView3D *rv3d;          /* region to draw */
+	struct Object *ob;                  /* GP object */
+	struct bGPdata *gpd;                /* current GP datablock */
+	struct bGPDlayer *gpl;              /* layer */
 	struct bGPDframe *gpf;              /* frame */
 	struct bGPDframe *t_gpf;            /* temporal frame */
 	struct bGPDstroke *gps;             /* stroke */
@@ -90,6 +90,8 @@ typedef struct tGPDdraw {
 	float diff_mat[4][4];               /* matrix */
 } tGPDdraw;
 
+
+/* Temporary interpolate operation data */
 typedef struct tGPDinterpolate_layer {
 	struct tGPDinterpolate_layer *next, *prev;
 
@@ -101,7 +103,6 @@ typedef struct tGPDinterpolate_layer {
 
 } tGPDinterpolate_layer;
 
-/* Temporary interpolate operation data */
 typedef struct tGPDinterpolate {
 	struct Scene *scene;       /* current scene from context */
 	struct ScrArea *sa;        /* area where painting originated */
@@ -110,17 +111,18 @@ typedef struct tGPDinterpolate {
 	struct Palette *palette;   /* current palette */
 
 	int cframe;                /* current frame number */
-	ListBase ilayers;   /* (tGPDinterpolate_layer) layers to be interpolated */
-	float shift;        /* value for determining the displacement influence */
-	float init_factor;  /* initial interpolation factor for active layer */
-	float low_limit;    /* shift low limit (-100%) */
-	float high_limit;   /* shift upper limit (200%) */
-	int flag;           /* flag from toolsettings */
+	ListBase ilayers;          /* (tGPDinterpolate_layer) layers to be interpolated */
+	float shift;               /* value for determining the displacement influence */
+	float init_factor;         /* initial interpolation factor for active layer */
+	float low_limit;           /* shift low limit (-100%) */
+	float high_limit;          /* shift upper limit (200%) */
+	int flag;                  /* flag from toolsettings */
 
-	NumInput num;       /* numeric input */
-	void *draw_handle_3d; /* handle for drawing strokes while operator is running 3d stuff */
-	void *draw_handle_screen; /* handle for drawing strokes while operator is running screen stuff */
+	NumInput num;              /* numeric input */
+	void *draw_handle_3d;      /* handle for drawing strokes while operator is running 3d stuff */
+	void *draw_handle_screen;  /* handle for drawing strokes while operator is running screen stuff */
 } tGPDinterpolate;
+
 
 /* Temporary primitive operation data */
 typedef struct tGPDprimitive {
@@ -130,7 +132,7 @@ typedef struct tGPDprimitive {
 	struct Object *ob;                /* current active gp object */
 	struct ScrArea *sa;               /* area where painting originated */
 	struct RegionView3D *rv3d;        /* region where painting originated */
-	struct View3D *v3d;               /* view3 where painting originated */
+	struct View3D *v3d;               /* view3d where painting originated */
 	struct ARegion *ar;               /* region where painting originated */
 	struct bGPdata *gpd;              /* current GP datablock */
 	struct Palette *palette;          /* current palette */
@@ -152,64 +154,66 @@ typedef struct tGPDprimitive {
 	void *draw_handle_3d;             /* handle for drawing strokes while operator is running 3d stuff */
 } tGPDprimitive;
 
+
 /* Temporary fill operation data */
 typedef struct tGPDfill {
 	struct Depsgraph *depsgraph;
 	struct wmWindow *win;               /* window where painting originated */
-	struct Scene *scene;				/* current scene from context */
-	struct Object *ob;					/* current active gp object */
+	struct Scene *scene;                /* current scene from context */
+	struct Object *ob;                  /* current active gp object */
 	struct EvaluationContext *eval_ctx; /* eval context */
-	struct ScrArea *sa;					/* area where painting originated */
-	struct RegionView3D *rv3d;			/* region where painting originated */
-	struct View3D *v3d;					/* view3 where painting originated */
-	struct ARegion *ar;					/* region where painting originated */
-	struct bGPdata *gpd;				/* current GP datablock */
-	struct Palette *palette;			/* current palette */
-	struct PaletteColor *palcolor;		/* current palette color */
-	struct bGPDlayer *gpl;				/* layer */
-	struct bGPDframe *gpf;				/* frame */
+	struct ScrArea *sa;                 /* area where painting originated */
+	struct RegionView3D *rv3d;          /* region where painting originated */
+	struct View3D *v3d;                 /* view3 where painting originated */
+	struct ARegion *ar;                 /* region where painting originated */
+	struct bGPdata *gpd;                /* current GP datablock */
+	struct Palette *palette;            /* current palette */
+	struct PaletteColor *palcolor;      /* current palette color */
+	struct bGPDlayer *gpl;              /* layer */
+	struct bGPDframe *gpf;              /* frame */
 	
 	short flag;                         /* flags */
 	short oldkey;                       /* avoid too fast events */
 	bool on_back;                       /* send to back stroke */
 
-	int center[2];						/* mouse fill center position */
-	int sizex;							/* windows width */
-	int sizey;							/* window height */
-	int lock_axis;						/* lock to viewport axis */
+	int center[2];                      /* mouse fill center position */
+	int sizex;                          /* windows width */
+	int sizey;                          /* window height */
+	int lock_axis;                      /* lock to viewport axis */
 
 	short fill_leak;                    /* number of pixel to consider the leak is too small (x 2) */
 	float fill_threshold;               /* factor for transparency */
 	int fill_simplylvl;                 /* number of simplify steps */
 	int fill_draw_mode;                 /* boundary limits drawing mode */
 
-	short sbuffer_size;			        /* number of elements currently in cache */
-	void *sbuffer;				        /* temporary points */
+	short sbuffer_size;                 /* number of elements currently in cache */
+	void *sbuffer;                      /* temporary points */
 	float *depth_arr;                   /* depth array for reproject */
 
-	struct Image *ima;					/* temp image */
-	struct BLI_Stack *stack;			/* temp points data */
-	void *draw_handle_3d;				/* handle for drawing strokes while operator is running 3d stuff */
+	struct Image *ima;                  /* temp image */
+	struct BLI_Stack *stack;            /* temp points data */
+	void *draw_handle_3d;               /* handle for drawing strokes while operator is running 3d stuff */
 } tGPDfill;
+
 
 /* Temporary color picker operation data */
 typedef struct tGPDpickColor {
-	char name[64];  /* color name. Must be unique. */
-	rcti rect;		/* box position */
-	int index;      /* index of color in palette */
-	float rgba[4];	/* color */
-	float fill[4];  /*fill color */
+	char name[64];   /* color name. Must be unique. */
+	rcti rect;       /* box position */
+	int index;       /* index of color in palette */
+	float rgba[4];   /* color */
+	float fill[4];   /* fill color */
 	bool fillmode;   /* flag fill is not enabled */
 } tGPDpickColor;
 
 typedef struct tGPDpick {
 	struct wmWindow *win;               /* window */
-	struct Scene *scene;				/* current scene from context */
-	struct ToolSettings *ts;			/* current toolsettings from context */
-	struct Object *ob;					/* current active gp object */
-	struct ScrArea *sa;					/* area where painting originated */
-	struct ARegion *ar;					/* region where painting originated */
-	struct Palette *palette;			/* current palette */
+	struct Scene *scene;                /* current scene from context */
+	struct ToolSettings *ts;            /* current toolsettings from context */
+	struct Object *ob;                  /* current active gp object */
+	struct ScrArea *sa;                 /* area where painting originated */
+	struct ARegion *ar;                 /* region where painting originated */
+	struct Palette *palette;            /* current palette */
 	struct bGPDbrush *brush;            /* current brush */
 	short bflag;                        /* previous brush flag */
 
@@ -219,10 +223,10 @@ typedef struct tGPDpick {
 	int row, col;                       /* number of rows and columns */ 
 	int boxsize[2];                     /* size of each box color */
 
-	int totcolor;						/* number of colors */
-	tGPDpickColor *colors;				/* colors of palette */
+	int totcolor;                       /* number of colors */
+	tGPDpickColor *colors;              /* colors of palette */
 
-	void *draw_handle_3d;				/* handle for drawing strokes while operator is running */
+	void *draw_handle_3d;               /* handle for drawing strokes while operator is running */
 } tGPDpick;
 
 /* ***************************************************** */
