@@ -76,6 +76,8 @@
 
 #include "IMB_imbuf_types.h"
 
+#include "gpencil_intern.h"
+
 /* ************************************************** */
 /* GREASE PENCIL DRAWING */
 

@@ -30,8 +30,6 @@
 #ifndef __ED_GPENCIL_H__
 #define __ED_GPENCIL_H__
 
-#include "ED_numinput.h"
-
 struct ID;
 struct ListBase;
 struct bContext;
@@ -67,167 +65,15 @@ struct EvaluationContext;
 struct wmWindow;
 struct rcti;
 
-/* ------------- Grease-Pencil Helpers ---------------- */
+struct tGPDdraw;
+struct tGPDinterpolate;
+struct tGPDprimitive;
+struct tGPDfill;
+struct tGPDpick;
 
-/* Temporary draw data (no draw manager mode)  */
-typedef struct tGPDdraw {
-	struct RegionView3D *rv3d;			/* region to draw */
-	struct Object *ob;                  /* object */
-	struct bGPdata *gpd;				/* current GP datablock */
-	struct bGPDlayer *gpl;				/* layer */
-	struct bGPDframe *gpf;              /* frame */
-	struct bGPDframe *t_gpf;            /* temporal frame */
-	struct bGPDstroke *gps;             /* stroke */
-	int disable_fill;                   /* disable fill */
-	int offsx;                          /* windows offset x */
-	int offsy;                          /* windows offset y */
-	int winx;                           /* windows width */
-	int winy;                           /* windows height */
-	int dflag;                          /* flags datablock */
-	short lthick;                       /* layer thickness */
-	float opacity;                      /* opacity */
-	float tintcolor[4];                 /* tint color */
-	bool onion;                         /* onion flag */
-	bool custonion;                     /* use custom onion colors */
-	float diff_mat[4][4];               /* matrix */
-} tGPDdraw;
+/* ------------- Grease-Pencil Runtime Data ---------------- */
 
-typedef struct tGPDinterpolate_layer {
-	struct tGPDinterpolate_layer *next, *prev;
-
-	struct bGPDlayer *gpl;            /* layer */
-	struct bGPDframe *prevFrame;      /* frame before current frame (interpolate-from) */
-	struct bGPDframe *nextFrame;      /* frame after current frame (interpolate-to) */
-	struct bGPDframe *interFrame;     /* interpolated frame */
-	float factor;                     /* interpolate factor */
-
-} tGPDinterpolate_layer;
-
-/* Temporary interpolate operation data */
-typedef struct tGPDinterpolate {
-	struct Scene *scene;       /* current scene from context */
-	struct ScrArea *sa;        /* area where painting originated */
-	struct ARegion *ar;        /* region where painting originated */
-	struct bGPdata *gpd;       /* current GP datablock */
-	struct Palette *palette;   /* current palette */
-
-	int cframe;                /* current frame number */
-	ListBase ilayers;   /* (tGPDinterpolate_layer) layers to be interpolated */
-	float shift;        /* value for determining the displacement influence */
-	float init_factor;  /* initial interpolation factor for active layer */
-	float low_limit;    /* shift low limit (-100%) */
-	float high_limit;   /* shift upper limit (200%) */
-	int flag;           /* flag from toolsettings */
-
-	NumInput num;       /* numeric input */
-	void *draw_handle_3d; /* handle for drawing strokes while operator is running 3d stuff */
-	void *draw_handle_screen; /* handle for drawing strokes while operator is running screen stuff */
-} tGPDinterpolate;
-
-/* Temporary primitive operation data */
-typedef struct tGPDprimitive {
-	struct Depsgraph *graph;
-	struct wmWindow *win;             /* window where painting originated */
-	struct Scene *scene;              /* current scene from context */
-	struct Object *ob;                /* current active gp object */
-	struct ScrArea *sa;               /* area where painting originated */
-	struct RegionView3D *rv3d;        /* region where painting originated */
-	struct View3D *v3d;               /* view3 where painting originated */
-	struct ARegion *ar;               /* region where painting originated */
-	struct bGPdata *gpd;              /* current GP datablock */
-	struct Palette *palette;          /* current palette */
-	struct PaletteColor *palcolor;    /* current palette color */
-	struct bGPDbrush *brush;          /* current brush */ 
-
-	int cframe;                       /* current frame number */
-	struct bGPDlayer *gpl;            /* layer */
-	struct bGPDframe *gpf;            /* frame */
-	int type;                         /* type of primitive */
-	int tot_edges;                    /* number of polygon edges */
-	int top[2];                       /* first box corner */
-	int bottom[2];                    /* last box corner */
-	int flag;                         /* flag to determine operations in progress */
-	
-	int lock_axis;                    /* lock to viewport axis */
-
-	NumInput num;                     /* numeric input */
-	void *draw_handle_3d;             /* handle for drawing strokes while operator is running 3d stuff */
-} tGPDprimitive;
-
-/* Temporary fill operation data */
-typedef struct tGPDfill {
-	struct Depsgraph *depsgraph;
-	struct wmWindow *win;               /* window where painting originated */
-	struct Scene *scene;				/* current scene from context */
-	struct Object *ob;					/* current active gp object */
-	struct EvaluationContext *eval_ctx; /* eval context */
-	struct ScrArea *sa;					/* area where painting originated */
-	struct RegionView3D *rv3d;			/* region where painting originated */
-	struct View3D *v3d;					/* view3 where painting originated */
-	struct ARegion *ar;					/* region where painting originated */
-	struct bGPdata *gpd;				/* current GP datablock */
-	struct Palette *palette;			/* current palette */
-	struct PaletteColor *palcolor;		/* current palette color */
-	struct bGPDlayer *gpl;				/* layer */
-	struct bGPDframe *gpf;				/* frame */
-	
-	short flag;                         /* flags */
-	short oldkey;                       /* avoid too fast events */
-	bool on_back;                       /* send to back stroke */
-
-	int center[2];						/* mouse fill center position */
-	int sizex;							/* windows width */
-	int sizey;							/* window height */
-	int lock_axis;						/* lock to viewport axis */
-
-	short fill_leak;                    /* number of pixel to consider the leak is too small (x 2) */
-	float fill_threshold;               /* factor for transparency */
-	int fill_simplylvl;                 /* number of simplify steps */
-	int fill_draw_mode;                 /* boundary limits drawing mode */
-
-	short sbuffer_size;			        /* number of elements currently in cache */
-	void *sbuffer;				        /* temporary points */
-	float *depth_arr;                   /* depth array for reproject */
-
-	struct Image *ima;					/* temp image */
-	struct BLI_Stack *stack;			/* temp points data */
-	void *draw_handle_3d;				/* handle for drawing strokes while operator is running 3d stuff */
-} tGPDfill;
-
-/* Temporary color picker operation data */
-typedef struct tGPDpickColor {
-	char name[64];  /* color name. Must be unique. */
-	rcti rect;		/* box position */
-	int index;      /* index of color in palette */
-	float rgba[4];	/* color */
-	float fill[4];  /*fill color */
-	bool fillmode;   /* flag fill is not enabled */
-} tGPDpickColor;
-
-typedef struct tGPDpick {
-	struct wmWindow *win;               /* window */
-	struct Scene *scene;				/* current scene from context */
-	struct ToolSettings *ts;			/* current toolsettings from context */
-	struct Object *ob;					/* current active gp object */
-	struct ScrArea *sa;					/* area where painting originated */
-	struct ARegion *ar;					/* region where painting originated */
-	struct Palette *palette;			/* current palette */
-	struct bGPDbrush *brush;            /* current brush */
-	short bflag;                        /* previous brush flag */
-
-	int center[2];                      /* mouse center position */
-	rcti rect;                          /* visible area */
-	rcti panel;                         /* panel area */
-	int row, col;                       /* number of rows and columns */ 
-	int boxsize[2];                     /* size of each box color */
-
-	int totcolor;						/* number of colors */
-	tGPDpickColor *colors;				/* colors of palette */
-
-	void *draw_handle_3d;				/* handle for drawing strokes while operator is running */
-} tGPDpick;
-
-/* Temporary 'Stroke Point' data
+/* Temporary 'Stroke Point' data (2D / screen-space)
  *
  * Used as part of the 'stroke cache' used during drawing of new strokes
  */
@@ -245,8 +91,6 @@ typedef struct tGPencilSort {
 	struct Base *base;
 	float zdepth;
 } tGPencilSort;
-
-
 
 /* ----------- Grease Pencil Tools/Context ------------- */
 
