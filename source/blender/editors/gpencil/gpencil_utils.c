@@ -357,6 +357,117 @@ const EnumPropertyItem *ED_gpencil_layers_with_new_enum_itemf(
 	return item;
 }
 
+/* Dynamic Enums of GP Brushes */
+// XXX: Duplicates rna_GPencilBrush_enum_itemf()
+const EnumPropertyItem *ED_gpencil_brushes_enum_itemf(
+        bContext *C, PointerRNA *UNUSED(ptr), PropertyRNA *UNUSED(prop),
+        bool *r_free)
+{
+	ToolSettings *ts = CTX_data_tool_settings(C);
+	bGPDbrush *brush;
+	EnumPropertyItem *item = NULL, item_tmp = { 0 };
+	int totitem = 0;
+	int i = 0;
+
+	if (ELEM(NULL, C, ts)) {
+		return DummyRNA_DEFAULT_items;
+	}
+
+	/* Existing brushes */
+	for (brush = ts->gp_brushes.first; brush; brush = brush->next, i++) {
+		item_tmp.identifier = brush->info;
+		item_tmp.name = brush->info;
+		item_tmp.value = i;
+
+		if (brush->flag & GP_BRUSH_ACTIVE)
+			if (brush->flag & GP_BRUSH_FILL_ONLY) {
+				item_tmp.icon = ICON_GPBRUSH_FILL;
+			}
+			else {
+				item_tmp.icon = ED_gpencil_get_brush_icon(brush->icon);
+			}
+		else
+			item_tmp.icon = ICON_NONE;
+
+		RNA_enum_item_add(&item, &totitem, &item_tmp);
+	}
+
+	RNA_enum_item_end(&item, &totitem);
+	*r_free = true;
+
+	return item;
+}
+
+/* Dynamic Enums of GP Palettes */
+// XXX: Deprecated
+const EnumPropertyItem *ED_gpencil_palettes_enum_itemf(
+        bContext *C, PointerRNA *UNUSED(ptr), PropertyRNA *UNUSED(prop),
+        bool *r_free)
+{
+	bGPdata *gpd = CTX_data_gpencil_data(C);
+	bGPDpalette *palette;
+	EnumPropertyItem *item = NULL, item_tmp = { 0 };
+	int totitem = 0;
+	int i = 0;
+
+	if (ELEM(NULL, C, gpd)) {
+		return DummyRNA_DEFAULT_items;
+	}
+
+	/* Existing palettes */
+	for (palette = gpd->palettes.first; palette; palette = palette->next, i++) {
+		item_tmp.identifier = palette->info;
+		item_tmp.name = palette->info;
+		item_tmp.value = i;
+
+		if (palette->flag & PL_PALETTE_ACTIVE)
+			item_tmp.icon = ICON_COLOR;
+		else
+			item_tmp.icon = ICON_NONE;
+
+		RNA_enum_item_add(&item, &totitem, &item_tmp);
+	}
+
+	RNA_enum_item_end(&item, &totitem);
+	*r_free = true;
+
+	return item;
+}
+
+/* helper to get brush icon */
+// XXX: Remove redundant breaks
+int ED_gpencil_get_brush_icon(int type)
+{
+	switch (type) {
+		case GPBRUSH_CUSTOM:
+			return ICON_GPBRUSH_CUSTOM;
+			break;
+		case GPBRUSH_PENCIL:
+			return ICON_GPBRUSH_PENCIL;
+			break;
+		case GPBRUSH_PEN:
+			return ICON_GPBRUSH_PEN;
+			break;
+		case GPBRUSH_INK:
+			return ICON_GPBRUSH_INK;
+			break;
+		case GPBRUSH_INKNOISE:
+			return ICON_GPBRUSH_INKNOISE;
+			break;
+		case GPBRUSH_BLOCK:
+			return ICON_GPBRUSH_BLOCK;
+			break;
+		case GPBRUSH_MARKER:
+			return ICON_GPBRUSH_MARKER;
+			break;
+		case GPBRUSH_FILL:
+			return ICON_GPBRUSH_FILL;
+			break;
+		default:
+			return ICON_GPBRUSH_CUSTOM;
+			break;
+	}
+}
 
 
 /* ******************************************************** */
@@ -700,6 +811,181 @@ bool gp_point_xy_to_3d(GP_SpaceConversion *gsc, Scene *scene, const float screen
 }
 
 /**
+ * Convert tGPspoint (temporary 2D/screenspace point data used by GP modal operators)
+ * to 3D coordinates.
+ *
+ * \param point2D: The screenspace 2D point data to convert
+ * \param[out] r_out: The resulting 2D point data
+ */
+void gp_stroke_convertcoords_tpoint(Scene *scene, ARegion *ar, View3D *v3d, 
+								struct Object *ob, bGPDlayer *gpl, 
+								const tGPspoint *point2D, float *depth, float r_out[3])
+{
+	ToolSettings *ts = scene->toolsettings;
+	const int mval[2] = { point2D->x, point2D->y };
+	float mval_f[2];
+	ARRAY_SET_ITEMS(mval_f, point2D->x, point2D->y);
+	float mval_prj[2];
+	float rvec[3], dvec[3];
+	float zfac;
+
+	if ((depth != NULL) && (ED_view3d_autodist_simple(ar, mval, r_out, 0, depth))) {
+		/* projecting onto 3D-Geometry
+		*	- nothing more needs to be done here, since view_autodist_simple() has already done it
+		*/
+	}
+	else {
+		/* Current method just converts each point in screen-coordinates to
+		* 3D-coordinates using the 3D-cursor as reference.
+		*/
+		ED_gp_get_drawing_reference(v3d, scene, ob, gpl, ts->gpencil_v3d_align, rvec);
+		zfac = ED_view3d_calc_zfac(ar->regiondata, rvec, NULL);
+
+		if (ED_view3d_project_float_global(ar, rvec, mval_prj, V3D_PROJ_TEST_NOP) == V3D_PROJ_RET_OK) {
+			sub_v2_v2v2(mval_f, mval_prj, mval_f);
+			ED_view3d_win_to_delta(ar, mval_f, dvec, zfac);
+			sub_v3_v3v3(r_out, rvec, dvec);
+		}
+		else {
+			zero_v3(r_out);
+		}
+	}
+}
+
+
+/**
+ * Reproject the points of the stroke to a plane locked to axis to avoid stroke offset
+ */
+void ED_gp_project_stroke_to_plane(Object *ob, RegionView3D *rv3d, bGPDstroke *gps, const float origin[3], const int axis, char UNUSED(type))
+{
+	float plane_normal[3];
+	float vn[3];
+
+	float ray[3];
+	float rpoint[3];
+
+	/* normal vector for a plane locked to axis */
+	zero_v3(plane_normal);
+	if (axis < 0) {
+		/* if the axis is not locked, need a vector to the view direction
+		* in order to get the right size of the stroke.
+		*/
+		ED_view3d_global_to_vector(rv3d, origin, plane_normal);
+	}
+	else {
+		plane_normal[axis] = 1.0f;
+		/* if object, apply object rotation */
+		if (ob && (ob->type == OB_GPENCIL)) {
+			mul_mat3_m4_v3(ob->obmat, plane_normal);
+		}
+	}
+
+	/* Reproject the points in the plane */
+	for (int i = 0; i < gps->totpoints; i++) {
+		bGPDspoint *pt = &gps->points[i];
+
+		/* get a vector from the point with the current view direction of the viewport */
+		ED_view3d_global_to_vector(rv3d, &pt->x, vn);
+
+		/* calculate line extrem point to create a ray that cross the plane */
+		mul_v3_fl(vn, -50.0f);
+		add_v3_v3v3(ray, &pt->x, vn);
+
+		/* if the line never intersect, the point is not changed */
+		if (isect_line_plane_v3(rpoint, &pt->x, ray, origin, plane_normal)) {
+			copy_v3_v3(&pt->x, rpoint);
+		}
+	}
+}
+
+/**
+ * Reproject one points to a plane locked to axis to avoid stroke offset
+ */
+void ED_gp_project_point_to_plane(Object *ob, RegionView3D *rv3d, const float origin[3], const int axis, char UNUSED(type), bGPDspoint *pt)
+{
+	float plane_normal[3];
+	float vn[3];
+
+	float ray[3];
+	float rpoint[3];
+
+	/* normal vector for a plane locked to axis */
+	zero_v3(plane_normal);
+	if (axis < 0) {
+		/* if the axis is not locked, need a vector to the view direction 
+		 * in order to get the right size of the stroke.
+		 */
+		ED_view3d_global_to_vector(rv3d, origin, plane_normal);
+	}
+	else {
+		plane_normal[axis] = 1.0f;
+		/* if object, apply object rotation */
+		if (ob && (ob->type == OB_GPENCIL)) {
+			mul_mat3_m4_v3(ob->obmat, plane_normal);
+		}
+	}
+
+
+	/* Reproject the points in the plane */
+	/* get a vector from the point with the current view direction of the viewport */
+	ED_view3d_global_to_vector(rv3d, &pt->x, vn);
+
+	/* calculate line extrem point to create a ray that cross the plane */
+	mul_v3_fl(vn, -50.0f);
+	add_v3_v3v3(ray, &pt->x, vn);
+
+	/* if the line never intersect, the point is not changed */
+	if (isect_line_plane_v3(rpoint, &pt->x, ray, origin, plane_normal)) {
+		copy_v3_v3(&pt->x, rpoint);
+	}
+}
+
+/**
+ * Get drawing reference point for conversion or projection of the stroke
+ */
+void ED_gp_get_drawing_reference(View3D *v3d, Scene *scene, Object *ob, bGPDlayer *gpl, char align_flag, float vec[3])
+{
+	const float *fp = ED_view3d_cursor3d_get(scene, v3d);
+
+	/* if using a gpencil object at cursor mode, can use the location of the object */
+	if (align_flag & GP_PROJECT_VIEWSPACE) {
+		if (ob && (ob->type == OB_GPENCIL)) {
+			/* use last stroke position for layer */
+			if (gpl && gpl->flag & GP_LAYER_USE_LOCATION) {
+				if (gpl->actframe) {
+					bGPDframe *gpf = gpl->actframe;
+					if (gpf->strokes.last) {
+						bGPDstroke *gps = gpf->strokes.last;
+						if (gps->totpoints > 0) {
+							copy_v3_v3(vec, &gps->points[gps->totpoints - 1].x);
+							mul_m4_v3(ob->obmat, vec);
+							return;
+						}
+					}
+				}
+			}
+			/* use cursor */
+			if (align_flag & GP_PROJECT_CURSOR) {
+				/* use 3D-cursor */
+				copy_v3_v3(vec, fp);
+			}
+			else {
+				/* use object location */
+				copy_v3_v3(vec, ob->obmat[3]);
+			}
+		}
+	}
+	else {
+		/* use 3D-cursor */
+		copy_v3_v3(vec, fp);
+	}
+}
+
+/* ******************************************************** */
+/* Stroke Operations */
+// XXX: Check if these functions duplicate stuff in blenkernel, and/or whether we should just deduplicate
+
+/**
  * Subdivide a stroke once, by adding a point half way between each pair of existing points
  * \param gps           Stroke data
  * \param sublevel      Number of times to subdivide
@@ -826,8 +1112,11 @@ void gp_randomize_stroke(bGPDstroke *gps, bGPDbrush *brush)
 		/* apply shift */
 		add_v3_v3(&pt->x, svec);
 	}
-
 }
+
+/* ******************************************************** */
+/* Layer Parenting  - Compute Parent Transforms */
+
 /* calculate difference matrix */
 void ED_gpencil_parent_location(Object *obact, bGPdata *gpd, bGPDlayer *gpl, float diff_mat[4][4])
 {
@@ -910,6 +1199,9 @@ void ED_gpencil_reset_layers_parent(Object *obact, bGPdata *gpd)
 	}
 }
 /* ******************************************************** */
+/* GP Object Stuff */
+
+// XXX: Should this be added to blenkernel? Doesn't something like this exist there already?
 bool ED_gpencil_stroke_minmax(
         const bGPDstroke *gps, const bool use_select,
         float r_min[3], float r_max[3])
@@ -927,80 +1219,7 @@ bool ED_gpencil_stroke_minmax(
 	return changed;
 }
 
-/* Dynamic Enums of GP Brushes */
-const EnumPropertyItem *ED_gpencil_brushes_enum_itemf(
-        bContext *C, PointerRNA *UNUSED(ptr), PropertyRNA *UNUSED(prop),
-        bool *r_free)
-{
-	ToolSettings *ts = CTX_data_tool_settings(C);
-	bGPDbrush *brush;
-	EnumPropertyItem *item = NULL, item_tmp = { 0 };
-	int totitem = 0;
-	int i = 0;
 
-	if (ELEM(NULL, C, ts)) {
-		return DummyRNA_DEFAULT_items;
-	}
-
-	/* Existing brushes */
-	for (brush = ts->gp_brushes.first; brush; brush = brush->next, i++) {
-		item_tmp.identifier = brush->info;
-		item_tmp.name = brush->info;
-		item_tmp.value = i;
-
-		if (brush->flag & GP_BRUSH_ACTIVE)
-			if (brush->flag & GP_BRUSH_FILL_ONLY) {
-				item_tmp.icon = ICON_GPBRUSH_FILL;
-			}
-			else {
-				item_tmp.icon = ED_gpencil_get_brush_icon(brush->icon);
-			}
-		else
-			item_tmp.icon = ICON_NONE;
-
-		RNA_enum_item_add(&item, &totitem, &item_tmp);
-	}
-
-	RNA_enum_item_end(&item, &totitem);
-	*r_free = true;
-
-	return item;
-}
-
-/* Dynamic Enums of GP Palettes */
-const EnumPropertyItem *ED_gpencil_palettes_enum_itemf(
-        bContext *C, PointerRNA *UNUSED(ptr), PropertyRNA *UNUSED(prop),
-        bool *r_free)
-{
-	bGPdata *gpd = CTX_data_gpencil_data(C);
-	bGPDpalette *palette;
-	EnumPropertyItem *item = NULL, item_tmp = { 0 };
-	int totitem = 0;
-	int i = 0;
-
-	if (ELEM(NULL, C, gpd)) {
-		return DummyRNA_DEFAULT_items;
-	}
-
-	/* Existing palettes */
-	for (palette = gpd->palettes.first; palette; palette = palette->next, i++) {
-		item_tmp.identifier = palette->info;
-		item_tmp.name = palette->info;
-		item_tmp.value = i;
-
-		if (palette->flag & PL_PALETTE_ACTIVE)
-			item_tmp.icon = ICON_COLOR;
-		else
-			item_tmp.icon = ICON_NONE;
-
-		RNA_enum_item_add(&item, &totitem, &item_tmp);
-	}
-
-	RNA_enum_item_end(&item, &totitem);
-	*r_free = true;
-
-	return item;
-}
 /* Helper function to create new OB_GPENCIL Object */
 Object *ED_add_gpencil_object(bContext *C, Scene *scene, const float loc[3])
 {
@@ -1075,127 +1294,94 @@ void ED_gpencil_add_to_cache(tGPencilSort *cache, RegionView3D *rv3d, Base *base
 	(*gp_cache_used)++;
 }
 
-/* reproject the points of the stroke to a plane locked to axis to avoid stroke offset */
-void ED_gp_project_stroke_to_plane(Object *ob, RegionView3D *rv3d, bGPDstroke *gps, const float origin[3], const int axis, char UNUSED(type))
+
+/* ******************************************************** */
+/* Vertex Groups */
+
+/* assign points to vertex group */
+void ED_gpencil_vgroup_assign(bContext *C, Object *ob, float weight)
 {
-	float plane_normal[3];
-	float vn[3];
+	bGPDspoint *pt;
+	const int def_nr = ob->actdef - 1;
+	if (!BLI_findlink(&ob->defbase, def_nr))
+		return;
 
-	float ray[3];
-	float rpoint[3];
-
-	/* normal vector for a plane locked to axis */
-	zero_v3(plane_normal);
-	if (axis < 0) {
-		/* if the axis is not locked, need a vector to the view direction
-		* in order to get the right size of the stroke.
-		*/
-		ED_view3d_global_to_vector(rv3d, origin, plane_normal);
-	}
-	else {
-		plane_normal[axis] = 1.0f;
-		/* if object, apply object rotation */
-		if (ob && (ob->type == OB_GPENCIL)) {
-			mul_mat3_m4_v3(ob->obmat, plane_normal);
-		}
-	}
-
-	/* Reproject the points in the plane */
-	for (int i = 0; i < gps->totpoints; i++) {
-		bGPDspoint *pt = &gps->points[i];
-
-		/* get a vector from the point with the current view direction of the viewport */
-		ED_view3d_global_to_vector(rv3d, &pt->x, vn);
-
-		/* calculate line extrem point to create a ray that cross the plane */
-		mul_v3_fl(vn, -50.0f);
-		add_v3_v3v3(ray, &pt->x, vn);
-
-		/* if the line never intersect, the point is not changed */
-		if (isect_line_plane_v3(rpoint, &pt->x, ray, origin, plane_normal)) {
-			copy_v3_v3(&pt->x, rpoint);
-		}
-	}
-}
-
-/* reproject one points to a plane locked to axis to avoid stroke offset */
-void ED_gp_project_point_to_plane(Object *ob, RegionView3D *rv3d, const float origin[3], const int axis, char UNUSED(type), bGPDspoint *pt)
-{
-	float plane_normal[3];
-	float vn[3];
-
-	float ray[3];
-	float rpoint[3];
-
-	/* normal vector for a plane locked to axis */
-	zero_v3(plane_normal);
-	if (axis < 0) {
-		/* if the axis is not locked, need a vector to the view direction 
-		 * in order to get the right size of the stroke.
-		 */
-		ED_view3d_global_to_vector(rv3d, origin, plane_normal);
-	}
-	else {
-		plane_normal[axis] = 1.0f;
-		/* if object, apply object rotation */
-		if (ob && (ob->type == OB_GPENCIL)) {
-			mul_mat3_m4_v3(ob->obmat, plane_normal);
-		}
-	}
-
-
-	/* Reproject the points in the plane */
-	/* get a vector from the point with the current view direction of the viewport */
-	ED_view3d_global_to_vector(rv3d, &pt->x, vn);
-
-	/* calculate line extrem point to create a ray that cross the plane */
-	mul_v3_fl(vn, -50.0f);
-	add_v3_v3v3(ray, &pt->x, vn);
-
-	/* if the line never intersect, the point is not changed */
-	if (isect_line_plane_v3(rpoint, &pt->x, ray, origin, plane_normal)) {
-		copy_v3_v3(&pt->x, rpoint);
-	}
-}
-
-/* get drawing reference for conversion or projection of the stroke */
-void ED_gp_get_drawing_reference(View3D *v3d, Scene *scene, Object *ob, bGPDlayer *gpl, char align_flag, float vec[3])
-{
-	const float *fp = ED_view3d_cursor3d_get(scene, v3d);
-
-	/* if using a gpencil object at cursor mode, can use the location of the object */
-	if (align_flag & GP_PROJECT_VIEWSPACE) {
-		if (ob && (ob->type == OB_GPENCIL)) {
-			/* use last stroke position for layer */
-			if (gpl && gpl->flag & GP_LAYER_USE_LOCATION) {
-				if (gpl->actframe) {
-					bGPDframe *gpf = gpl->actframe;
-					if (gpf->strokes.last) {
-						bGPDstroke *gps = gpf->strokes.last;
-						if (gps->totpoints > 0) {
-							copy_v3_v3(vec, &gps->points[gps->totpoints - 1].x);
-							mul_m4_v3(ob->obmat, vec);
-							return;
-						}
-					}
+	CTX_DATA_BEGIN(C, bGPDstroke *, gps, editable_gpencil_strokes)
+	{
+		if (gps->flag & GP_STROKE_SELECT) {
+			for (int i = 0; i < gps->totpoints; ++i) {
+				pt = &gps->points[i];
+				if (pt->flag & GP_SPOINT_SELECT) {
+					BKE_gpencil_vgroup_add_point_weight(pt, def_nr, weight);
 				}
 			}
-			/* use cursor */
-			if (align_flag & GP_PROJECT_CURSOR) {
-				/* use 3D-cursor */
-				copy_v3_v3(vec, fp);
-			}
-			else {
-				/* use object location */
-				copy_v3_v3(vec, ob->obmat[3]);
+		}
+	}
+	CTX_DATA_END;
+}
+
+/* remove points from vertex group */
+void ED_gpencil_vgroup_remove(bContext *C, Object *ob)
+{
+	bGPDspoint *pt;
+	const int def_nr = ob->actdef - 1;
+	if (!BLI_findlink(&ob->defbase, def_nr))
+		return;
+
+	CTX_DATA_BEGIN(C, bGPDstroke *, gps, editable_gpencil_strokes)
+	{
+		for (int i = 0; i < gps->totpoints; ++i) {
+			pt = &gps->points[i];
+			if ((pt->flag & GP_SPOINT_SELECT) && (pt->totweight > 0)) {
+				BKE_gpencil_vgroup_remove_point_weight(pt, def_nr);
 			}
 		}
 	}
-	else {
-		/* use 3D-cursor */
-		copy_v3_v3(vec, fp);
-	}
+	CTX_DATA_END;
 }
+
+/* select points of vertex group */
+void ED_gpencil_vgroup_select(bContext *C, Object *ob)
+{
+	bGPDspoint *pt;
+	const int def_nr = ob->actdef - 1;
+	if (!BLI_findlink(&ob->defbase, def_nr))
+		return;
+
+	CTX_DATA_BEGIN(C, bGPDstroke *, gps, editable_gpencil_strokes)
+	{
+		for (int i = 0; i < gps->totpoints; ++i) {
+			pt = &gps->points[i];
+			if (BKE_gpencil_vgroup_use_index(pt, def_nr) > -1.0f) {
+				pt->flag |= GP_SPOINT_SELECT;
+				gps->flag |= GP_STROKE_SELECT;
+			}
+		}
+	}
+	CTX_DATA_END;
+}
+
+/* unselect points of vertex group */
+void ED_gpencil_vgroup_deselect(bContext *C, Object *ob)
+{
+	bGPDspoint *pt;
+	const int def_nr = ob->actdef - 1;
+	if (!BLI_findlink(&ob->defbase, def_nr))
+		return;
+
+	CTX_DATA_BEGIN(C, bGPDstroke *, gps, editable_gpencil_strokes)
+	{
+		for (int i = 0; i < gps->totpoints; ++i) {
+			pt = &gps->points[i];
+			if (BKE_gpencil_vgroup_use_index(pt, def_nr) > -1.0f) {
+				pt->flag &= ~GP_SPOINT_SELECT;
+				gps->flag |= GP_STROKE_SELECT;
+			}
+		}
+	}
+	CTX_DATA_END;
+}
+
 /* ******************************************************** */
 /* Cursor drawing */
 
@@ -1396,155 +1582,5 @@ void ED_gpencil_toggle_brush_cursor(bContext *C, bool enable, void *customdata)
 	}
 }
 
-/* assign points to vertex group */
-void ED_gpencil_vgroup_assign(bContext *C, Object *ob, float weight)
-{
-	bGPDspoint *pt;
-	const int def_nr = ob->actdef - 1;
-	if (!BLI_findlink(&ob->defbase, def_nr))
-		return;
+/* ******************************************************** */
 
-	CTX_DATA_BEGIN(C, bGPDstroke *, gps, editable_gpencil_strokes)
-	{
-		if (gps->flag & GP_STROKE_SELECT) {
-			for (int i = 0; i < gps->totpoints; ++i) {
-				pt = &gps->points[i];
-				if (pt->flag & GP_SPOINT_SELECT) {
-					BKE_gpencil_vgroup_add_point_weight(pt, def_nr, weight);
-				}
-			}
-		}
-	}
-	CTX_DATA_END;
-}
-
-/* remove points from vertex group */
-void ED_gpencil_vgroup_remove(bContext *C, Object *ob)
-{
-	bGPDspoint *pt;
-	const int def_nr = ob->actdef - 1;
-	if (!BLI_findlink(&ob->defbase, def_nr))
-		return;
-
-	CTX_DATA_BEGIN(C, bGPDstroke *, gps, editable_gpencil_strokes)
-	{
-		for (int i = 0; i < gps->totpoints; ++i) {
-			pt = &gps->points[i];
-			if ((pt->flag & GP_SPOINT_SELECT) && (pt->totweight > 0)) {
-				BKE_gpencil_vgroup_remove_point_weight(pt, def_nr);
-			}
-		}
-	}
-	CTX_DATA_END;
-}
-
-/* select points of vertex group */
-void ED_gpencil_vgroup_select(bContext *C, Object *ob)
-{
-	bGPDspoint *pt;
-	const int def_nr = ob->actdef - 1;
-	if (!BLI_findlink(&ob->defbase, def_nr))
-		return;
-
-	CTX_DATA_BEGIN(C, bGPDstroke *, gps, editable_gpencil_strokes)
-	{
-		for (int i = 0; i < gps->totpoints; ++i) {
-			pt = &gps->points[i];
-			if (BKE_gpencil_vgroup_use_index(pt, def_nr) > -1.0f) {
-				pt->flag |= GP_SPOINT_SELECT;
-				gps->flag |= GP_STROKE_SELECT;
-			}
-		}
-	}
-	CTX_DATA_END;
-}
-/* unselect points of vertex group */
-void ED_gpencil_vgroup_deselect(bContext *C, Object *ob)
-{
-	bGPDspoint *pt;
-	const int def_nr = ob->actdef - 1;
-	if (!BLI_findlink(&ob->defbase, def_nr))
-		return;
-
-	CTX_DATA_BEGIN(C, bGPDstroke *, gps, editable_gpencil_strokes)
-	{
-		for (int i = 0; i < gps->totpoints; ++i) {
-			pt = &gps->points[i];
-			if (BKE_gpencil_vgroup_use_index(pt, def_nr) > -1.0f) {
-				pt->flag &= ~GP_SPOINT_SELECT;
-				gps->flag |= GP_STROKE_SELECT;
-			}
-		}
-	}
-	CTX_DATA_END;
-}
-
-/* helper to convert tGPspoint (2d) to 3d */
-void gp_stroke_convertcoords_tpoint(Scene *scene, ARegion *ar, View3D *v3d, 
-								struct Object *ob, bGPDlayer *gpl, 
-								const tGPspoint *point2D, float *depth, float out[3])
-{
-	ToolSettings *ts = scene->toolsettings;
-	const int mval[2] = { point2D->x, point2D->y };
-	float mval_f[2];
-	ARRAY_SET_ITEMS(mval_f, point2D->x, point2D->y);
-	float mval_prj[2];
-	float rvec[3], dvec[3];
-	float zfac;
-
-	if ((depth != NULL) && (ED_view3d_autodist_simple(ar, mval, out, 0, depth))) {
-		/* projecting onto 3D-Geometry
-		*	- nothing more needs to be done here, since view_autodist_simple() has already done it
-		*/
-	}
-	else {
-		/* Current method just converts each point in screen-coordinates to
-		* 3D-coordinates using the 3D-cursor as reference.
-		*/
-		ED_gp_get_drawing_reference(v3d, scene, ob, gpl, ts->gpencil_v3d_align, rvec);
-		zfac = ED_view3d_calc_zfac(ar->regiondata, rvec, NULL);
-
-		if (ED_view3d_project_float_global(ar, rvec, mval_prj, V3D_PROJ_TEST_NOP) == V3D_PROJ_RET_OK) {
-			sub_v2_v2v2(mval_f, mval_prj, mval_f);
-			ED_view3d_win_to_delta(ar, mval_f, dvec, zfac);
-			sub_v3_v3v3(out, rvec, dvec);
-		}
-		else {
-			zero_v3(out);
-		}
-	}
-}
-
-/* helper to get brush icon */
-int ED_gpencil_get_brush_icon(int type)
-{
-	switch (type) {
-		case GPBRUSH_CUSTOM:
-			return ICON_GPBRUSH_CUSTOM;
-			break;
-		case GPBRUSH_PENCIL:
-			return ICON_GPBRUSH_PENCIL;
-			break;
-		case GPBRUSH_PEN:
-			return ICON_GPBRUSH_PEN;
-			break;
-		case GPBRUSH_INK:
-			return ICON_GPBRUSH_INK;
-			break;
-		case GPBRUSH_INKNOISE:
-			return ICON_GPBRUSH_INKNOISE;
-			break;
-		case GPBRUSH_BLOCK:
-			return ICON_GPBRUSH_BLOCK;
-			break;
-		case GPBRUSH_MARKER:
-			return ICON_GPBRUSH_MARKER;
-			break;
-		case GPBRUSH_FILL:
-			return ICON_GPBRUSH_FILL;
-			break;
-		default:
-			return ICON_GPBRUSH_CUSTOM;
-			break;
-	}
-}
