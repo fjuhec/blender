@@ -3072,8 +3072,10 @@ void GPENCIL_OT_stroke_simplify_fixed(wmOperatorType *ot)
 
 /* ***************** Separate Strokes ********************** */
 typedef enum eGP_SeparateModes {
+	/* Points */
+	GP_SEPARATE_POINT = 0,
 	/* Selected Strokes */
-	GP_SEPARATE_SELECT = 0,
+	GP_SEPARATE_STROKE,
 	/* Current Layer */
 	GP_SEPARATE_LAYER,
 } eGP_SeparateModes;
@@ -3085,35 +3087,36 @@ static int gp_stroke_separate_exec(bContext *C, wmOperator *op)
 	Scene *scene = CTX_data_scene(C);
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	Base *base_old = CTX_data_active_base(C);
-	bGPdata *src_gpd = ED_gpencil_data_get_active(C);
-	Object *src_ob = CTX_data_active_object(C);
-	Object *dst_ob = NULL;
-	bGPdata *dst_gpd = NULL;
+	bGPdata *gpd_src = ED_gpencil_data_get_active(C);
+	Object *ob_dst = NULL;
+	bGPdata *gpd_dst = NULL;
+	bGPDlayer *gpl_dst = NULL;
+	bGPDframe *gpf_dst = NULL;
+	bGPDspoint *pt;
+	int i;
 
 	eGP_SeparateModes mode = RNA_enum_get(op->ptr, "mode");
 
 	/* sanity checks */
-	if (ELEM(NULL, src_ob, src_gpd)) {
+	if (ELEM(NULL, gpd_src)) {
 		return OPERATOR_CANCELLED;
 	}
-	bool is_multiedit = (bool)GPENCIL_MULTIEDIT_SESSIONS_ON(src_gpd);
+	bool is_multiedit = (bool)GPENCIL_MULTIEDIT_SESSIONS_ON(gpd_src);
 
 	/* create a new object */
 	base_new = ED_object_add_duplicate(bmain, scene, view_layer, base_old, 0);
-	dst_ob = base_new->object;
+	ob_dst = base_new->object;
 
 	/* create new grease pencil datablock and copy paletteslots */
-	dst_gpd = BKE_gpencil_data_addnew(bmain, "GPencil");
-	dst_ob->data = (bGPdata *)dst_gpd;
-	BKE_gpencil_copy_palette_data(dst_gpd, src_gpd);
+	gpd_dst = BKE_gpencil_data_addnew(bmain, "GPencil");
+	ob_dst->data = (bGPdata *)gpd_dst;
+	BKE_gpencil_copy_palette_data(gpd_dst, gpd_src);
 
 	/* loop old datablock and separate parts */
-	bGPDlayer *dst_gpl = NULL;
-	bGPDframe *dst_gpf = NULL;
-	if (mode == GP_SEPARATE_SELECT) {
+	if ((mode == GP_SEPARATE_POINT) || (mode == GP_SEPARATE_STROKE)) {
 		CTX_DATA_BEGIN(C, bGPDlayer *, gpl, editable_gpencil_layers)
 		{
-			dst_gpl = NULL;
+			gpl_dst = NULL;
 			bGPDframe *init_gpf = gpl->actframe;
 			if (is_multiedit) {
 				init_gpf = gpl->frames.first;
@@ -3127,7 +3130,7 @@ static int gp_stroke_separate_exec(bContext *C, wmOperator *op)
 						continue;
 					}
 
-					dst_gpf = NULL;
+					gpf_dst = NULL;
 
 					for (gps = gpf->strokes.first; gps; gps = gpsn) {
 						gpsn = gps->next;
@@ -3143,21 +3146,49 @@ static int gp_stroke_separate_exec(bContext *C, wmOperator *op)
 						/*  separate selected strokes */
 						if (gps->flag & GP_STROKE_SELECT) {
 							/* add layer if not created before */
-							if (dst_gpl == NULL) {
-								dst_gpl = BKE_gpencil_layer_addnew(dst_gpd, gpl->info, false);
+							if (gpl_dst == NULL) {
+								gpl_dst = BKE_gpencil_layer_addnew(gpd_dst, gpl->info, false);
 							}
 
 							/* add frame if not created before */
-							if (dst_gpf == NULL) {
-								dst_gpf = BKE_gpencil_layer_getframe(dst_gpl, gpf->framenum, GP_GETFRAME_ADD_NEW);
+							if (gpf_dst == NULL) {
+								gpf_dst = BKE_gpencil_layer_getframe(gpl_dst, gpf->framenum, GP_GETFRAME_ADD_NEW);
 							}
-							/* deselect old stroke */
-							gps->flag &= ~GP_STROKE_SELECT;
-							/* unlink from source frame */
-							BLI_remlink(&gpf->strokes, gps);
-							gps->prev = gps->next = NULL;
-							/* relink to destination frame */
-							BLI_addtail(&dst_gpf->strokes, gps);
+
+							/* selected points mode */
+							if (mode == GP_SEPARATE_POINT) {
+								/* make copy of source stroke */
+								bGPDstroke *gps_dst = MEM_dupallocN(gps);
+								gps_dst->points = MEM_dupallocN(gps->points);
+								BKE_gpencil_stroke_weights_duplicate(gps, gps_dst);
+								gps_dst->triangles = MEM_dupallocN(gps->triangles);
+								gps_dst->flag |= GP_STROKE_RECALC_CACHES;
+								
+								/* link to destination frame */
+								BLI_addtail(&gpf_dst->strokes, gps_dst);
+								
+								/* Invert selection status of all points in destination stroke */
+								for (i = 0, pt = gps_dst->points; i < gps_dst->totpoints; i++, pt++) {
+									pt->flag ^= GP_SPOINT_SELECT;
+								}
+
+								/* delete selected points from destination stroke */
+								bGPDstroke *new_gps = NULL;
+								gp_stroke_delete_tagged_points(gpf_dst, gps_dst, new_gps, GP_SPOINT_SELECT);
+
+								/* delete selected points from origin stroke */
+								gp_stroke_delete_tagged_points(gpf, gps, gpsn, GP_SPOINT_SELECT);
+							}
+							/* selected strokes mode */
+							else if (mode == GP_SEPARATE_STROKE) {
+								/* deselect old stroke */
+								gps->flag &= ~GP_STROKE_SELECT;
+								/* unlink from source frame */
+								BLI_remlink(&gpf->strokes, gps);
+								gps->prev = gps->next = NULL;
+								/* relink to destination frame */
+								BLI_addtail(&gpf_dst->strokes, gps);
+							}
 						}
 					}
 				}
@@ -3175,21 +3206,21 @@ static int gp_stroke_separate_exec(bContext *C, wmOperator *op)
 		if (gpl) {
 			/* try to set a new active layer in source datablock */
 			if (gpl->prev) {
-				BKE_gpencil_layer_setactive(src_gpd, gpl->prev);
+				BKE_gpencil_layer_setactive(gpd_src, gpl->prev);
 			}
 			else if (gpl->next) {
-				BKE_gpencil_layer_setactive(src_gpd, gpl->next);
+				BKE_gpencil_layer_setactive(gpd_src, gpl->next);
 			}
 			/* unlink from source datablock */
-			BLI_remlink(&src_gpd->layers, gpl);
+			BLI_remlink(&gpd_src->layers, gpl);
 			gpl->prev = gpl->next = NULL;
 			/* relink to destination datablock */
-			BLI_addtail(&dst_gpd->layers, gpl);
+			BLI_addtail(&gpd_dst->layers, gpl);
 		}
 	}
 
-	BKE_gpencil_batch_cache_dirty(src_gpd);
-	BKE_gpencil_batch_cache_dirty(dst_gpd);
+	BKE_gpencil_batch_cache_dirty(gpd_src);
+	BKE_gpencil_batch_cache_dirty(gpd_dst);
 
 	DEG_relations_tag_update(bmain);
 	WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, NULL);
@@ -3201,8 +3232,9 @@ static int gp_stroke_separate_exec(bContext *C, wmOperator *op)
 void GPENCIL_OT_stroke_separate(wmOperatorType *ot)
 {
 	static const EnumPropertyItem separate_type[] = {
-	{GP_SEPARATE_SELECT, "SELECT", 0, "Selected Strokes", "Separate the selected strokes"},
-	{ GP_SEPARATE_LAYER, "LAYER", 0, "Active Layer", "Separate the strokes of the current layer" },
+	{GP_SEPARATE_POINT, "POINT", 0, "Selected Points", "Separate the selected points" },
+	{GP_SEPARATE_STROKE, "STROKE", 0, "Selected Strokes", "Separate the selected strokes"},
+	{GP_SEPARATE_LAYER, "LAYER", 0, "Active Layer", "Separate the strokes of the current layer" },
 	{ 0, NULL, 0, NULL, NULL }
 	};
 
@@ -3220,5 +3252,5 @@ void GPENCIL_OT_stroke_separate(wmOperatorType *ot)
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
 	/* properties */
-	ot->prop = RNA_def_enum(ot->srna, "mode", separate_type, GP_SEPARATE_SELECT, "Mode", "");
+	ot->prop = RNA_def_enum(ot->srna, "mode", separate_type, GP_SEPARATE_POINT, "Mode", "");
 }

@@ -234,7 +234,8 @@ class GreasePencilStrokeEditPanel:
         col.operator("gpencil.stroke_join", text="Join & Copy").type = 'JOINCOPY'
 
         col.separator()
-        col.operator("gpencil.stroke_separate", text="Separate").mode = 'SELECT'
+        col.operator("gpencil.stroke_separate", text="Separate Point").mode = 'POINT'
+        col.operator("gpencil.stroke_separate", text="Separate Stroke").mode = 'STROKE'
         col.operator("gpencil.stroke_separate", text="Separate Layer").mode = 'LAYER'
 
         col.separator()
@@ -1017,7 +1018,8 @@ class GPENCIL_MT_separate(Menu):
 
     def draw(self, context):
         layout = self.layout
-        layout.operator("gpencil.stroke_separate", text="Selected Strokes").mode = 'SELECT'
+        layout.operator("gpencil.stroke_separate", text="Selected Points").mode = 'POINT'
+        layout.operator("gpencil.stroke_separate", text="Selected Strokes").mode = 'STROKE'
         layout.operator("gpencil.stroke_separate", text="Active Layer").mode = 'LAYER'
 
 
