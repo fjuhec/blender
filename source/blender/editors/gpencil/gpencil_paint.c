@@ -277,20 +277,6 @@ static void gp_get_3d_reference(tGPsdata *p, float vec[3])
 	ED_gp_get_drawing_reference(v3d, p->scene, ob, p->gpl, *p->align_flag, vec);
 }
 
-// XXX: Rename and move to BLI_math_vector.h
-static void copy_v2int_v2float(int r[2], const float a[2])
-{
-	r[0] = (int)roundf(a[0]);
-	r[1] = (int)roundf(a[1]);
-}
-
-// XXX: Rename and move to BLI_math_vector.h
-static void copy_v2float_v2int(float r[2], const int a[2])
-{
-	r[0] = (float)a[0];
-	r[1] = (float)a[1];
-}
-
 /* Stroke Editing ---------------------------- */
 /* check if the current mouse position is suitable for adding a new point */
 static bool gp_stroke_filtermval(tGPsdata *p, const int mval[2], int pmval[2])
@@ -2178,10 +2164,10 @@ static void gpencil_draw_apply(bContext *C, wmOperator *op, tGPsdata *p, const D
 		if (GPENCIL_LAZY_MODE(p->brush, p->shift)) {
 			float now_mouse[2];
 			float last_mouse[2];
-			copy_v2float_v2int(now_mouse, p->mval);
-			copy_v2float_v2int(last_mouse, p->mvalo);
+			copy_v2fl_v2i(now_mouse, p->mval);
+			copy_v2fl_v2i(last_mouse, p->mvalo);
 			interp_v2_v2v2(now_mouse, now_mouse, last_mouse, p->brush->lazy_factor);
-			copy_v2int_v2float(p->mval, now_mouse);
+			round_v2i_v2fl(p->mval, now_mouse);
 		}
 
 		/* try to add point */
