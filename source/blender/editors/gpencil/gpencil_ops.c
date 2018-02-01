@@ -339,6 +339,9 @@ static void ed_keymap_gpencil_editing(wmKeyConfig *keyconf)
 	/* menu edit specials */
 	WM_keymap_add_menu(keymap, "GPENCIL_MT_gpencil_edit_specials", WKEY, KM_PRESS, 0, 0);
 
+	/* menu separate */
+	WM_keymap_add_menu(keymap, "GPENCIL_MT_separate", PKEY, KM_PRESS, 0, 0);
+
 	/* join strokes */
 	WM_keymap_add_item(keymap, "GPENCIL_OT_stroke_join", JKEY, KM_PRESS, KM_CTRL, 0);
 	
