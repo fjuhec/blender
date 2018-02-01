@@ -384,6 +384,7 @@ RNA_LAYER_ENGINE_EEVEE_GET_SET_INT(shadow_method)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_INT(shadow_size)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_BOOL(shadow_high_bitdepth)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_INT(taa_samples)
+RNA_LAYER_ENGINE_EEVEE_GET_SET_INT(taa_render_samples)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_INT(gi_diffuse_bounces)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_INT(gi_cubemap_resolution)
 RNA_LAYER_ENGINE_EEVEE_GET_SET_INT(gi_visibility_resolution)
@@ -842,10 +843,14 @@ static int rna_ViewLayer_objects_selected_skip(CollectionPropertyIterator *iter,
 
 static PointerRNA rna_ViewLayer_depsgraph_get(PointerRNA *ptr)
 {
-	Scene *scene = (Scene *)ptr->id.data;
-	ViewLayer *view_layer = (ViewLayer *)ptr->data;
-	Depsgraph *depsgraph = BKE_scene_get_depsgraph(scene, view_layer, false);
-	return rna_pointer_inherit_refine(ptr, &RNA_Depsgraph, depsgraph);
+	ID *id = ptr->id.data;
+	if (GS(id->name) == ID_SCE) {
+		Scene *scene = (Scene *)id;
+		ViewLayer *view_layer = (ViewLayer *)ptr->data;
+		Depsgraph *depsgraph = BKE_scene_get_depsgraph(scene, view_layer, false);
+		return rna_pointer_inherit_refine(ptr, &RNA_Depsgraph, depsgraph);
+	}
+	return PointerRNA_NULL;
 }
 
 static void rna_LayerObjects_selected_begin(CollectionPropertyIterator *iter, PointerRNA *ptr)
@@ -1199,9 +1204,16 @@ static void rna_def_view_layer_engine_settings_eevee(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "taa_samples", PROP_INT, PROP_NONE);
 	RNA_def_property_int_funcs(prop, "rna_LayerEngineSettings_Eevee_taa_samples_get",
 	                               "rna_LayerEngineSettings_Eevee_taa_samples_set", NULL);
-	RNA_def_property_ui_text(prop, "Viewport Samples", "Number of temporal samples, unlimited if 0, "
-	                                                   "disabled if 1");
+	RNA_def_property_ui_text(prop, "Viewport Samples", "Number of samples, unlimited if 0");
 	RNA_def_property_range(prop, 0, INT_MAX);
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
+	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_ViewLayerEngineSettings_update");
+
+	prop = RNA_def_property(srna, "taa_render_samples", PROP_INT, PROP_NONE);
+	RNA_def_property_int_funcs(prop, "rna_LayerEngineSettings_Eevee_taa_render_samples_get",
+	                               "rna_LayerEngineSettings_Eevee_taa_render_samples_set", NULL);
+	RNA_def_property_ui_text(prop, "Render Samples", "Number of samples per pixels for rendering");
+	RNA_def_property_range(prop, 1, INT_MAX);
 	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
 	RNA_def_property_update(prop, NC_SCENE | ND_LAYER_CONTENT, "rna_ViewLayerEngineSettings_update");
 

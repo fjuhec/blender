@@ -76,11 +76,11 @@ extern char datatoc_object_empty_image_frag_glsl[];
 extern char datatoc_object_empty_image_vert_glsl[];
 extern char datatoc_object_lightprobe_grid_vert_glsl[];
 extern char datatoc_object_particle_prim_vert_glsl[];
-extern char datatoc_object_particle_prim_frag_glsl[];
 extern char datatoc_object_particle_dot_vert_glsl[];
 extern char datatoc_object_particle_dot_frag_glsl[];
 extern char datatoc_common_globals_lib_glsl[];
 extern char datatoc_common_fxaa_lib_glsl[];
+extern char datatoc_gpu_shader_flat_color_frag_glsl[];
 extern char datatoc_gpu_shader_fullscreen_vert_glsl[];
 extern char datatoc_gpu_shader_uniform_color_frag_glsl[];
 
@@ -331,12 +331,12 @@ static void OBJECT_engine_init(void *vedata)
 
 	if (!e_data.part_prim_sh) {
 		e_data.part_prim_sh = DRW_shader_create(
-		        datatoc_object_particle_prim_vert_glsl, NULL, datatoc_object_particle_prim_frag_glsl, NULL);
+		        datatoc_object_particle_prim_vert_glsl, NULL, datatoc_gpu_shader_flat_color_frag_glsl, NULL);
 	}
 
 	if (!e_data.part_axis_sh) {
 		e_data.part_axis_sh = DRW_shader_create(
-		        datatoc_object_particle_prim_vert_glsl, NULL, datatoc_object_particle_prim_frag_glsl,
+		        datatoc_object_particle_prim_vert_glsl, NULL, datatoc_gpu_shader_flat_color_frag_glsl,
 		        "#define USE_AXIS\n");
 	}
 
@@ -1124,15 +1124,22 @@ static void DRW_shgroup_lamp(OBJECT_StorageList *stl, Object *ob, ViewLayer *vie
 	int theme_id = DRW_object_wire_theme_get(ob, view_layer, &color);
 	static float zero = 0.0f;
 
-	float **la_mats = (float **)DRW_object_engine_data_ensure(ob, &draw_engine_object_type, NULL);
-	if (*la_mats == NULL) {
-		/* we need 2 matrices */
-		*la_mats = MEM_mallocN(sizeof(float) * 16 * 2, "Lamp Object Mode Matrices");
-	}
+	typedef struct LampEngineData {
+		ObjectEngineData engine_data;
+		float shape_mat[4][4];
+		float spot_blend_mat[4][4];
+	} LampEngineData;
 
-	float (*shapemat)[4], (*spotblendmat)[4];
-	shapemat = (float (*)[4])(*la_mats);
-	spotblendmat = (float (*)[4])(*la_mats + 16);
+	LampEngineData *lamp_engine_data =
+	        (LampEngineData *)DRW_object_engine_data_ensure(
+	                ob,
+	                &draw_engine_object_type,
+	                sizeof(LampEngineData),
+	                NULL,
+	                NULL);
+
+	float (*shapemat)[4] = lamp_engine_data->shape_mat;
+	float (*spotblendmat)[4] = lamp_engine_data->spot_blend_mat;
 
 	/* Don't draw the center if it's selected or active */
 	if (theme_id == TH_GROUP)
@@ -1464,6 +1471,8 @@ static void DRW_shgroup_speaker(OBJECT_StorageList *stl, Object *ob, ViewLayer *
 }
 
 typedef struct OBJECT_LightProbeEngineData {
+	ObjectEngineData engine_data;
+
 	float prb_mats[6][4][4];
 	float probe_cube_mat[4][4];
 	float draw_size;
@@ -1481,13 +1490,13 @@ static void DRW_shgroup_lightprobe(OBJECT_StorageList *stl, OBJECT_PassList *psl
 	bool do_outlines = ((ob->base_flag & BASE_SELECTED) != 0);
 	DRW_object_wire_theme_get(ob, view_layer, &color);
 
-	OBJECT_LightProbeEngineData *prb_data;
-	OBJECT_LightProbeEngineData **prb_data_pt = (OBJECT_LightProbeEngineData **)DRW_object_engine_data_ensure(ob, &draw_engine_object_type, NULL);
-	if (*prb_data_pt == NULL) {
-		*prb_data_pt = MEM_mallocN(sizeof(OBJECT_LightProbeEngineData), "Probe Clip distances Matrices");
-	}
-
-	prb_data = *prb_data_pt;
+	OBJECT_LightProbeEngineData *prb_data =
+	        (OBJECT_LightProbeEngineData *)DRW_object_engine_data_ensure(
+	                ob,
+	                &draw_engine_object_type,
+	                sizeof(OBJECT_LightProbeEngineData),
+	                NULL,
+	                NULL);
 
 	if ((DRW_state_is_select() || do_outlines) && ((prb->flag & LIGHTPROBE_FLAG_SHOW_DATA) != 0)) {
 
@@ -2036,5 +2045,6 @@ DrawEngineType draw_engine_object_type = {
 	NULL,
 	NULL,
 	&OBJECT_draw_scene,
+	NULL,
 	NULL,
 };

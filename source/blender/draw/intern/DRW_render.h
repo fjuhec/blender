@@ -139,6 +139,8 @@ typedef struct DrawEngineType {
 
 	void (*view_update)(void *vedata);
 	void (*id_update)(void *vedata, struct ID *id);
+
+	void (*render_to_image)(void *vedata, struct RenderEngine *engine, struct Depsgraph *graph);
 } DrawEngineType;
 
 #ifndef __DRW_ENGINE_H__
@@ -236,6 +238,7 @@ void DRW_framebuffer_init(
 void DRW_framebuffer_bind(struct GPUFrameBuffer *fb);
 void DRW_framebuffer_clear(bool color, bool depth, bool stencil, float clear_col[4], float clear_depth);
 void DRW_framebuffer_read_data(int x, int y, int w, int h, int channels, int slot, float *data);
+void DRW_framebuffer_read_depth(int x, int y, int w, int h, float *data);
 void DRW_framebuffer_texture_attach(struct GPUFrameBuffer *fb, struct GPUTexture *tex, int slot, int mip);
 void DRW_framebuffer_texture_layer_attach(struct GPUFrameBuffer *fb, struct GPUTexture *tex, int slot, int layer, int mip);
 void DRW_framebuffer_cubeface_attach(struct GPUFrameBuffer *fb, struct GPUTexture *tex, int slot, int face, int mip);
@@ -386,14 +389,23 @@ struct DefaultTextureList     *DRW_viewport_texture_list_get(void);
 
 void DRW_viewport_request_redraw(void);
 
+void DRW_render_to_image(struct RenderEngine *re, struct Depsgraph *depsgraph);
+void DRW_render_object_iter(
+	void *vedata, struct RenderEngine *engine, struct Depsgraph *graph,
+	void (*callback)(void *vedata, struct Object *ob, struct RenderEngine *engine, struct Depsgraph *graph));
+
 /* ViewLayers */
 void *DRW_view_layer_engine_data_get(DrawEngineType *engine_type);
 void **DRW_view_layer_engine_data_ensure(DrawEngineType *engine_type, void (*callback)(void *storage));
 
 /* Objects */
-void *DRW_object_engine_data_get(Object *ob, DrawEngineType *engine_type);
-void **DRW_object_engine_data_ensure(
-        Object *ob, DrawEngineType *engine_type, void (*callback)(void *storage));
+ObjectEngineData *DRW_object_engine_data_get(Object *ob, DrawEngineType *engine_type);
+ObjectEngineData *DRW_object_engine_data_ensure(
+        Object *ob,
+        DrawEngineType *engine_type,
+        size_t size,
+        ObjectEngineDataInitCb init_cb,
+        ObjectEngineDataFreeCb free_cb);
 struct LampEngineData *DRW_lamp_engine_data_ensure(Object *ob, struct RenderEngineType *engine_type);
 void DRW_lamp_engine_data_free(struct LampEngineData *led);
 
