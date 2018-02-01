@@ -75,8 +75,8 @@
 
 #include "gpencil_intern.h"
 
-#define GP_BOX_SIZE (40 * U.ui_scale)
-#define GP_BOX_GAP (18 * U.ui_scale)
+#define GP_BOX_SIZE (32 * U.ui_scale)
+#define GP_BOX_GAP (24 * U.ui_scale)
 
 /* draw color name using default font */
 static void gp_draw_color_name(tGPDpick *tgpk, tGPDpickColor *col, const uiFontStyle *fstyle, bool focus)
@@ -130,7 +130,7 @@ static void gpencil_draw_color_table(const bContext *UNUSED(C), tGPDpick *tgpk)
 	const uiFontStyle *fstyle = UI_FSTYLE_WIDGET;
 	float ink[4];
 	float line[4];
-	float radius = (0.4f * U.widget_unit);
+	float radius = (0.2f * U.widget_unit);
 	float wcolor[4] = { 0.9f, 0.9f, 0.9f, 0.8f };
 
 	/* boxes for stroke and fill color */
@@ -389,9 +389,6 @@ static void gpencil_colorpick_exit(bContext *C, wmOperator *op)
 	Main *bmain = CTX_data_main(C);
 	Object *ob = CTX_data_active_object(C);
 
-	/* restore cursor to indicate end */
-	WM_cursor_modal_restore(CTX_wm_window(C));
-
 	tGPDpick *tgpk = op->customdata;
 
 	/* don't assume that operator data exists at all */
@@ -503,16 +500,6 @@ static int gpencil_colorpick_modal(bContext *C, wmOperator *op, const wmEvent *e
 		case ESCKEY:
 		case RIGHTMOUSE:
 			estate = OPERATOR_CANCELLED;
-			break;
-		case MOUSEMOVE:
-			if ((event->mval[0] >= tgpk->panel.xmin) && (event->mval[0] <= tgpk->panel.xmax) &&
-				(event->mval[1] >= tgpk->panel.ymin) && (event->mval[1] <= tgpk->panel.ymax)) 
-			{
-				WM_cursor_modal_set(tgpk->win, BC_EYEDROPPER_CURSOR);
-			}
-			else {
-				WM_cursor_modal_set(tgpk->win, CURSOR_STD);
-			}
 			break;
 		case LEFTMOUSE:
 			if (set_color(event, tgpk) == true) {
