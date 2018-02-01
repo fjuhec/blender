@@ -1539,6 +1539,7 @@ typedef struct KernelObject
 	uint attribute_map_offset;
 	float pad2, pad3;
 } KernelObject;
+static_assert_align(KernelObject, 16);
 
 typedef struct KernelSpotLight
 {
@@ -1583,7 +1584,7 @@ typedef struct KernelLight
 		KernelDistantLight distant;
 	};
 } KernelLight;
-
+static_assert_align(KernelLight, 16);
 
 typedef struct KernelLightDistribution
 {
@@ -1600,6 +1601,7 @@ typedef struct KernelLightDistribution
 		} lamp;
 	};
 } KernelLightDistribution;
+static_assert_align(KernelLightDistribution, 16);
 
 typedef struct KernelParticle
 {
@@ -1614,13 +1616,17 @@ typedef struct KernelParticle
 	float4 velocity;
 	float4 angular_velocity;
 } KernelParticle;
+static_assert_align(KernelParticle, 16);
 
 typedef struct KernelShaderFlags
 {
+	float constant_emission[3];
+	float pad1;
 	int flags;
 	int pass_id;
-	float constant_emission[3];
+	int pad2, pad3;
 } KernelShaderFlags;
+static_assert_align(KernelShaderFlags, 16);
 
 CCL_NAMESPACE_END
 
