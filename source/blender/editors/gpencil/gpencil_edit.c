@@ -496,6 +496,16 @@ static int gp_stroke_edit_poll(bContext *C)
 	return CTX_DATA_COUNT(C, editable_gpencil_strokes) != 0;
 }
 
+/* poll callback to verify edit mode in 3D view only */
+static int gp_strokes_edit3d_poll(bContext *C)
+{
+	/* 2 Requirements:
+	*  - 1) Editable GP data
+	*  - 2) 3D View only
+	*/
+	return (gp_stroke_edit_poll(C) && ED_operator_view3d_active(C));
+}
+
 /* ************ Stroke Hide selection Toggle ************** */
 
 static int gpencil_hideselect_toggle_exec(bContext *C, wmOperator *UNUSED(op))
@@ -2684,15 +2694,6 @@ typedef enum eGP_ReprojectModes {
 	GP_REPROJECT_SURFACE,
 } eGP_ReprojectModes;
 
-static int gp_strokes_reproject_poll(bContext *C)
-{
-	/* 2 Requirements:
-	 *  - 1) Editable GP data
-	 *  - 2) 3D View only (2D editors don't have projection issues)
-	 */
-	return (gp_stroke_edit_poll(C) && ED_operator_view3d_active(C));
-}
-
 static int gp_strokes_reproject_exec(bContext *C, wmOperator *op)
 {
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
@@ -2832,7 +2833,7 @@ void GPENCIL_OT_reproject(wmOperatorType *ot)
 	/* callbacks */
 	ot->invoke = WM_menu_invoke;
 	ot->exec = gp_strokes_reproject_exec;
-	ot->poll = gp_strokes_reproject_poll;
+	ot->poll = gp_strokes_edit3d_poll;
 	
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
@@ -3077,16 +3078,6 @@ typedef enum eGP_SeparateModes {
 	GP_SEPARATE_LAYER,
 } eGP_SeparateModes;
 
-/* XXX: Reuse reproject poll */
-static int gp_stroke_separate_poll(bContext *C)
-{
-	/* 2 Requirements:
-	*  - 1) Editable GP data
-	*  - 2) 3D View only
-	*/
-	return (gp_stroke_edit_poll(C) && ED_operator_view3d_active(C));
-}
-
 static int gp_stroke_separate_exec(bContext *C, wmOperator *op)
 {
 	Base *base_new;
@@ -3223,7 +3214,7 @@ void GPENCIL_OT_stroke_separate(wmOperatorType *ot)
 	/* callbacks */
 	ot->invoke = WM_menu_invoke;
 	ot->exec = gp_stroke_separate_exec;
-	ot->poll = gp_stroke_separate_poll;
+	ot->poll = gp_strokes_edit3d_poll;
 
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
