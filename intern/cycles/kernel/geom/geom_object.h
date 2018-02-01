@@ -28,11 +28,12 @@ CCL_NAMESPACE_BEGIN
 
 enum ObjectTransform {
 	OBJECT_TRANSFORM = 0,
-	OBJECT_TRANSFORM_MOTION_PRE = 0,
 	OBJECT_INVERSE_TRANSFORM = 4,
-	OBJECT_TRANSFORM_MOTION_POST = 4,
-	OBJECT_PROPERTIES = 8,
-	OBJECT_DUPLI = 9
+	OBJECT_TRANSFORM_MOTION_PRE = 0,
+	OBJECT_TRANSFORM_MOTION_MID = 4,
+	OBJECT_TRANSFORM_MOTION_POST = 8,
+	OBJECT_PROPERTIES = 12,
+	OBJECT_DUPLI = 13
 };
 
 enum ObjectVectorTransform {
@@ -44,20 +45,12 @@ enum ObjectVectorTransform {
 
 ccl_device_inline Transform object_fetch_transform(KernelGlobals *kg, int object, enum ObjectTransform type)
 {
-	Transform tfm;
 	if(type == OBJECT_INVERSE_TRANSFORM) {
-		tfm.x = kernel_tex_fetch(__objects, object).itfm[0];
-		tfm.y = kernel_tex_fetch(__objects, object).itfm[1];
-		tfm.z = kernel_tex_fetch(__objects, object).itfm[2];
+		return kernel_tex_fetch(__objects, object).itfm;
 	}
 	else {
-		tfm.x = kernel_tex_fetch(__objects, object).tfm[0];
-		tfm.y = kernel_tex_fetch(__objects, object).tfm[1];
-		tfm.z = kernel_tex_fetch(__objects, object).tfm[2];
+		return kernel_tex_fetch(__objects, object).tfm;
 	}
-	tfm.w = make_float4(0.0f, 0.0f, 0.0f, 1.0f);
-
-	return tfm;
 }
 
 /* Lamp to world space transformation */
@@ -101,20 +94,8 @@ ccl_device_inline Transform object_fetch_vector_transform(KernelGlobals *kg, int
 #ifdef __OBJECT_MOTION__
 ccl_device_inline Transform object_fetch_transform_motion(KernelGlobals *kg, int object, float time)
 {
-	DecompMotionTransform motion;
-
-	motion.mid.x = kernel_tex_fetch(__objects, object).tfm[0];
-	motion.mid.y = kernel_tex_fetch(__objects, object).tfm[1];
-	motion.mid.z = kernel_tex_fetch(__objects, object).tfm[2];
-	motion.mid.w = kernel_tex_fetch(__objects, object).tfm[3];
-
-	motion.pre_x = kernel_tex_fetch(__objects, object).itfm[0];
-	motion.pre_y = kernel_tex_fetch(__objects, object).itfm[1];
-	motion.post_x = kernel_tex_fetch(__objects, object).itfm[2];
-	motion.post_y = kernel_tex_fetch(__objects, object).itfm[3];
-
 	Transform tfm;
-	transform_motion_interpolate(&tfm, &motion, time);
+	transform_motion_interpolate(&tfm, &kernel_tex_fetch(__objects, object).motion_tfm, time);
 
 	return tfm;
 }
@@ -176,6 +157,10 @@ ccl_device_inline void object_inverse_normal_transform(KernelGlobals *kg, const 
 #else
 	if(sd->object != OBJECT_NONE) {
 		Transform tfm = object_fetch_transform(kg, sd->object, OBJECT_TRANSFORM);
+		*N = normalize(transform_direction_transposed(&tfm, *N));
+	}
+	else if(sd->type == PRIMITIVE_LAMP) {
+		Transform tfm = lamp_fetch_transform(kg, sd->lamp, false);
 		*N = normalize(transform_direction_transposed(&tfm, *N));
 	}
 #endif

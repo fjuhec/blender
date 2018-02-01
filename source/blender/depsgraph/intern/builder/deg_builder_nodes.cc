@@ -92,7 +92,6 @@ extern "C" {
 #include "BKE_particle.h"
 #include "BKE_rigidbody.h"
 #include "BKE_sound.h"
-#include "BKE_texture.h"
 #include "BKE_tracking.h"
 #include "BKE_world.h"
 
@@ -106,9 +105,11 @@ extern "C" {
 #include "intern/builder/deg_builder.h"
 #include "intern/nodes/deg_node.h"
 #include "intern/nodes/deg_node_component.h"
+#include "intern/nodes/deg_node_id.h"
 #include "intern/nodes/deg_node_operation.h"
 #include "intern/depsgraph_types.h"
 #include "intern/depsgraph_intern.h"
+
 #include "util/deg_util_foreach.h"
 
 namespace DEG {
@@ -304,7 +305,7 @@ void DepsgraphNodeBuilder::build_group(Base *base, Group *group)
 	}
 	group_id->tag |= LIB_TAG_DOIT;
 
-	LINKLIST_FOREACH (GroupObject *, go, &group->gobject) {
+	BLI_LISTBASE_FOREACH (GroupObject *, go, &group->gobject) {
 		build_object(base, go->ob);
 	}
 }
@@ -523,7 +524,7 @@ void DepsgraphNodeBuilder::build_animdata(ID *id)
 		}
 
 		/* drivers */
-		LINKLIST_FOREACH (FCurve *, fcu, &adt->drivers) {
+		BLI_LISTBASE_FOREACH (FCurve *, fcu, &adt->drivers) {
 			/* create driver */
 			build_driver(id, fcu);
 		}
@@ -629,7 +630,7 @@ void DepsgraphNodeBuilder::build_rigidbody(Scene *scene)
 
 	/* objects - simulation participants */
 	if (rbw->group) {
-		LINKLIST_FOREACH (GroupObject *, go, &rbw->group->gobject) {
+		BLI_LISTBASE_FOREACH (GroupObject *, go, &rbw->group->gobject) {
 			Object *object = go->ob;
 
 			if (!object || (object->type != OB_MESH))
@@ -673,7 +674,7 @@ void DepsgraphNodeBuilder::build_particles(Object *object)
 	                   DEG_OPCODE_PARTICLE_SYSTEM_EVAL_INIT);
 
 	/* particle systems */
-	LINKLIST_FOREACH (ParticleSystem *, psys, &object->particlesystem) {
+	BLI_LISTBASE_FOREACH (ParticleSystem *, psys, &object->particlesystem) {
 		ParticleSettings *part = psys->part;
 
 		/* particle settings */
@@ -756,8 +757,8 @@ void DepsgraphNodeBuilder::build_obdata_geom(Object *object)
 
 	// TODO: "Done" operation
 
-	/* Cloyth modifier. */
-	LINKLIST_FOREACH (ModifierData *, md, &object->modifiers) {
+	/* Cloth modifier. */
+	BLI_LISTBASE_FOREACH (ModifierData *, md, &object->modifiers) {
 		if (md->type == eModifierType_Cloth) {
 			build_cloth(object);
 		}
@@ -961,7 +962,7 @@ void DepsgraphNodeBuilder::build_nodetree(bNodeTree *ntree)
 	op_node->set_as_exit();
 
 	/* nodetree's nodes... */
-	LINKLIST_FOREACH (bNode *, bnode, &ntree->nodes) {
+	BLI_LISTBASE_FOREACH (bNode *, bnode, &ntree->nodes) {
 		ID *id = bnode->id;
 		if (id == NULL) {
 			continue;
@@ -983,6 +984,9 @@ void DepsgraphNodeBuilder::build_nodetree(bNodeTree *ntree)
 			/* Scenes are used by compositor trees, and handled by render
 			 * pipeline. No need to build dependencies for them here.
 			 */
+		}
+		else if (id_type == ID_TXT) {
+			/* Ignore script nodes. */
 		}
 		else if (bnode->type == NODE_GROUP) {
 			bNodeTree *group_ntree = (bNodeTree *)id;

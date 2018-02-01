@@ -2122,6 +2122,20 @@ static void rna_def_modifier_array(BlenderRNA *brna)
 	RNA_def_property_pointer_funcs(prop, NULL, "rna_ArrayModifier_end_cap_set", NULL, "rna_Mesh_object_poll");
 	RNA_def_property_flag(prop, PROP_EDITABLE | PROP_ID_SELF_CHECK);
 	RNA_def_property_update(prop, 0, "rna_Modifier_dependency_update");
+	
+	prop = RNA_def_property(srna, "offset_u", PROP_FLOAT, PROP_FACTOR);
+	RNA_def_property_float_sdna(prop, NULL, "uv_offset[0]");
+	RNA_def_property_range(prop, -1, 1);
+	RNA_def_property_ui_range(prop, -1, 1, 2, 4);
+	RNA_def_property_ui_text(prop, "U Offset", "Amount to offset array UVs on the U axis");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "offset_v", PROP_FLOAT, PROP_FACTOR);
+	RNA_def_property_float_sdna(prop, NULL, "uv_offset[1]");
+	RNA_def_property_range(prop, -1, 1);
+	RNA_def_property_ui_range(prop, -1, 1, 2, 4);
+	RNA_def_property_ui_text(prop, "V Offset", "Amount to offset array UVs on the V axis");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 }
 
 static void rna_def_modifier_edgesplit(BlenderRNA *brna)
@@ -3000,7 +3014,7 @@ static void rna_def_modifier_bevel(BlenderRNA *brna)
 
 	prop = RNA_def_property(srna, "profile", PROP_FLOAT, PROP_FACTOR);
 	RNA_def_property_range(prop, 0.0f, 1.0f);
-	RNA_def_property_ui_range(prop, 0.15f, 1.0f, 0.05, 2);
+	RNA_def_property_ui_range(prop, 0.0f, 1.0f, 0.05, 2);
 	RNA_def_property_ui_text(prop, "Profile", "The profile shape (0.5 = round)");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
@@ -3225,6 +3239,11 @@ static void rna_def_modifier_simpledeform(BlenderRNA *brna)
 	RNA_def_property_string_funcs(prop, NULL, NULL, "rna_SimpleDeformModifier_vgroup_name_set");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
+	prop = RNA_def_property(srna, "deform_axis", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_items(prop, rna_enum_axis_xyz_items);
+	RNA_def_property_ui_text(prop, "Axis", "Deform around local axis");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
 	prop = RNA_def_property(srna, "origin", PROP_POINTER, PROP_NONE);
 	RNA_def_property_ui_text(prop, "Origin", "Offset the origin and orientation of the deformation");
 	RNA_def_property_flag(prop, PROP_EDITABLE | PROP_ID_SELF_CHECK);
@@ -3254,12 +3273,17 @@ static void rna_def_modifier_simpledeform(BlenderRNA *brna)
 
 	prop = RNA_def_property(srna, "lock_x", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "axis", MOD_SIMPLEDEFORM_LOCK_AXIS_X);
-	RNA_def_property_ui_text(prop, "Lock X Axis", "Do not allow deformation along the X axis");
+	RNA_def_property_ui_text(prop, "X", "Do not allow deformation along the X axis");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
 	prop = RNA_def_property(srna, "lock_y", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "axis", MOD_SIMPLEDEFORM_LOCK_AXIS_Y);
-	RNA_def_property_ui_text(prop, "Lock Y Axis", "Do not allow deformation along the Y axis");
+	RNA_def_property_ui_text(prop, "Y", "Do not allow deformation along the Y axis");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
+	prop = RNA_def_property(srna, "lock_z", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "axis", MOD_SIMPLEDEFORM_LOCK_AXIS_Z);
+	RNA_def_property_ui_text(prop, "Z", "Do not allow deformation along the Z axis");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
 	prop = RNA_def_property(srna, "invert_vertex_group", PROP_BOOLEAN, PROP_NONE);

@@ -342,11 +342,12 @@ enum PathRayFlag {
 
 	PATH_RAY_ALL_VISIBILITY = ((1 << 14)-1),
 
-	PATH_RAY_MIS_SKIP            = (1 << 15),
-	PATH_RAY_DIFFUSE_ANCESTOR    = (1 << 16),
-	PATH_RAY_SINGLE_PASS_DONE    = (1 << 17),
-	PATH_RAY_SHADOW_CATCHER      = (1 << 18),
-	PATH_RAY_STORE_SHADOW_INFO   = (1 << 19),
+	PATH_RAY_MIS_SKIP               = (1 << 15),
+	PATH_RAY_DIFFUSE_ANCESTOR       = (1 << 16),
+	PATH_RAY_SINGLE_PASS_DONE       = (1 << 17),
+	PATH_RAY_SHADOW_CATCHER         = (1 << 18),
+	PATH_RAY_STORE_SHADOW_INFO      = (1 << 19),
+	PATH_RAY_TRANSPARENT_BACKGROUND = (1 << 20),
 };
 
 /* Closure Label */
@@ -360,6 +361,7 @@ typedef enum ClosureLabel {
 	LABEL_SINGULAR = 16,
 	LABEL_TRANSPARENT = 32,
 	LABEL_VOLUME_SCATTER = 64,
+	LABEL_TRANSMIT_TRANSPARENT = 128,
 } ClosureLabel;
 
 /* Render Passes */
@@ -1255,7 +1257,7 @@ typedef struct KernelBackground {
 	int surface_shader;
 	int volume_shader;
 	int transparent;
-	int pad;
+	float transparent_roughness_squared_threshold;
 
 	/* ambient occlusion */
 	float ao_factor;
@@ -1338,13 +1340,23 @@ typedef struct KernelIntegrator {
 } KernelIntegrator;
 static_assert_align(KernelIntegrator, 16);
 
+typedef enum KernelBVHLayout {
+	BVH_LAYOUT_NONE = 0,
+
+	BVH_LAYOUT_BVH2 = (1 << 0),
+	BVH_LAYOUT_BVH4 = (1 << 1),
+
+	BVH_LAYOUT_DEFAULT = BVH_LAYOUT_BVH4,
+	BVH_LAYOUT_ALL = (unsigned int)(-1),
+} KernelBVHLayout;
+
 typedef struct KernelBVH {
 	/* root node */
 	int root;
 	int have_motion;
 	int have_curves;
 	int have_instancing;
-	int use_qbvh;
+	int bvh_layout;
 	int use_bvh_steps;
 	int pad1, pad2;
 } KernelBVH;
@@ -1510,8 +1522,10 @@ typedef struct WorkTile {
 
 typedef struct KernelObject
 {
-	float4 tfm[4];
-	float4 itfm[4];
+	union {
+		Transform tfm, itfm;
+		MotionTransform motion_tfm;
+	};
 	float surface_area;
 	float pass_id;
 	float random_number;

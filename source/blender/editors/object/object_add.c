@@ -90,7 +90,6 @@
 #include "BKE_scene.h"
 #include "BKE_screen.h"
 #include "BKE_speaker.h"
-#include "BKE_texture.h"
 
 #include "RNA_access.h"
 #include "RNA_define.h"
@@ -2399,7 +2398,8 @@ static int add_named_exec(bContext *C, wmOperator *op)
 
 	MEM_freeN(base);
 
-	WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT | ND_OB_ACTIVE, scene);
+	WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, scene);
+	WM_event_add_notifier(C, NC_SCENE | ND_OB_ACTIVE, scene);
 
 	return OPERATOR_FINISHED;
 }

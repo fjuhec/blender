@@ -315,6 +315,15 @@ MINLINE int max_iiii(int a, int b, int c, int d)
 	return max_ii(max_iii(a, b, c), d);
 }
 
+MINLINE size_t min_zz(size_t a, size_t b)
+{
+	return (a < b) ? a : b;
+}
+MINLINE size_t max_zz(size_t a, size_t b)
+{
+	return (b < a) ? a : b;
+}
+
 /**
  * Almost-equal for IEEE floats, using absolute difference method.
  *
@@ -388,6 +397,10 @@ MINLINE int integer_digits_d(const double d)
 	return (d == 0.0) ? 0 : (int)floor(log10(fabs(d))) + 1;
 }
 
+MINLINE int integer_digits_i(const int i)
+{
+	return (int)log10((double)i) + 1;
+}
 
 /* Internal helpers for SSE2 implementation.
  *

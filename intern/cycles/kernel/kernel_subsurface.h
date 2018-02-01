@@ -23,11 +23,6 @@ CCL_NAMESPACE_BEGIN
  *
  */
 
-/* TODO:
- * - test using power heuristic for combing bssrdfs
- * - try to reduce one sample model variance
- */
-
 ccl_device_inline float3 subsurface_scatter_eval(ShaderData *sd,
                                                  const ShaderClosure *sc,
                                                  float disk_r,
@@ -63,12 +58,11 @@ ccl_device_inline float3 subsurface_scatter_eval(ShaderData *sd,
 			float sample_weight = (all)? 1.0f: sc->sample_weight * sample_weight_inv;
 
 			/* compute pdf */
-			float pdf = bssrdf_pdf(sc, r);
-			float disk_pdf = bssrdf_pdf(sc, disk_r);
+			float3 eval = bssrdf_eval(sc, r);
+			float pdf = bssrdf_pdf(sc, disk_r);
 
-			/* TODO power heuristic is not working correct here */
-			eval_sum += sc->weight*pdf; //*sample_weight*disk_pdf;
-			pdf_sum += sample_weight*disk_pdf; //*sample_weight*disk_pdf;
+			eval_sum += sc->weight * eval;
+			pdf_sum += sample_weight * pdf;
 		}
 	}
 
@@ -190,20 +184,20 @@ ccl_device_inline int subsurface_scatter_multi_intersect(
 	disk_N = sd->Ng;
 	make_orthonormals(disk_N, &disk_T, &disk_B);
 
-	if(disk_u < 0.5f) {
+	if(disk_v < 0.5f) {
 		pick_pdf_N = 0.5f;
 		pick_pdf_T = 0.25f;
 		pick_pdf_B = 0.25f;
-		disk_u *= 2.0f;
+		disk_v *= 2.0f;
 	}
-	else if(disk_u < 0.75f) {
+	else if(disk_v < 0.75f) {
 		float3 tmp = disk_N;
 		disk_N = disk_T;
 		disk_T = tmp;
 		pick_pdf_N = 0.25f;
 		pick_pdf_T = 0.5f;
 		pick_pdf_B = 0.25f;
-		disk_u = (disk_u - 0.5f)*4.0f;
+		disk_v = (disk_v - 0.5f)*4.0f;
 	}
 	else {
 		float3 tmp = disk_N;
@@ -212,15 +206,14 @@ ccl_device_inline int subsurface_scatter_multi_intersect(
 		pick_pdf_N = 0.25f;
 		pick_pdf_T = 0.25f;
 		pick_pdf_B = 0.5f;
-		disk_u = (disk_u - 0.75f)*4.0f;
+		disk_v = (disk_v - 0.75f)*4.0f;
 	}
 
 	/* sample point on disk */
-	float phi = M_2PI_F * disk_u;
-	float disk_r = disk_v;
-	float disk_height;
+	float phi = M_2PI_F * disk_v;
+	float disk_height, disk_r;
 
-	bssrdf_sample(sc, disk_r, &disk_r, &disk_height);
+	bssrdf_sample(sc, disk_u, &disk_r, &disk_height);
 
 	float3 disk_P = (disk_r*cosf(phi)) * disk_T + (disk_r*sinf(phi)) * disk_B;
 
@@ -283,22 +276,23 @@ ccl_device_inline int subsurface_scatter_multi_intersect(
 			object_normal_transform(kg, sd, &hit_Ng);
 		}
 
-		/* probability densities for local frame axes */
+		/* Probability densities for local frame axes. */
 		float pdf_N = pick_pdf_N * fabsf(dot(disk_N, hit_Ng));
 		float pdf_T = pick_pdf_T * fabsf(dot(disk_T, hit_Ng));
 		float pdf_B = pick_pdf_B * fabsf(dot(disk_B, hit_Ng));
 
-		/* multiple importance sample between 3 axes, power heuristic
-		 * found to be slightly better than balance heuristic */
-		float mis_weight = power_heuristic_3(pdf_N, pdf_T, pdf_B);
+		/* Multiple importance sample between 3 axes, power heuristic
+		 * found to be slightly better than balance heuristic. pdf_N
+		 * in the MIS weight and denominator cancelled out. */
+		float w = pdf_N / (sqr(pdf_N) + sqr(pdf_T) + sqr(pdf_B));
+		if(ss_isect->num_hits > BSSRDF_MAX_HITS) {
+			w *= ss_isect->num_hits/(float)BSSRDF_MAX_HITS;
+		}
 
-		/* real distance to sampled point */
+		/* Real distance to sampled point. */
 		float r = len(hit_P - sd->P);
 
-		/* evaluate */
-		float w = mis_weight / pdf_N;
-		if(ss_isect->num_hits > BSSRDF_MAX_HITS)
-			w *= ss_isect->num_hits/(float)BSSRDF_MAX_HITS;
+		/* Evaluate profiles. */
 		float3 eval = subsurface_scatter_eval(sd, sc, disk_r, r, all) * w;
 
 		ss_isect->weight[hit] = eval;
@@ -358,20 +352,20 @@ ccl_device void subsurface_scatter_step(KernelGlobals *kg, ShaderData *sd, ccl_a
 	disk_N = sd->Ng;
 	make_orthonormals(disk_N, &disk_T, &disk_B);
 
-	if(disk_u < 0.5f) {
+	if(disk_v < 0.5f) {
 		pick_pdf_N = 0.5f;
 		pick_pdf_T = 0.25f;
 		pick_pdf_B = 0.25f;
-		disk_u *= 2.0f;
+		disk_v *= 2.0f;
 	}
-	else if(disk_u < 0.75f) {
+	else if(disk_v < 0.75f) {
 		float3 tmp = disk_N;
 		disk_N = disk_T;
 		disk_T = tmp;
 		pick_pdf_N = 0.25f;
 		pick_pdf_T = 0.5f;
 		pick_pdf_B = 0.25f;
-		disk_u = (disk_u - 0.5f)*4.0f;
+		disk_v = (disk_v - 0.5f)*4.0f;
 	}
 	else {
 		float3 tmp = disk_N;
@@ -380,15 +374,14 @@ ccl_device void subsurface_scatter_step(KernelGlobals *kg, ShaderData *sd, ccl_a
 		pick_pdf_N = 0.25f;
 		pick_pdf_T = 0.25f;
 		pick_pdf_B = 0.5f;
-		disk_u = (disk_u - 0.75f)*4.0f;
+		disk_v = (disk_v - 0.75f)*4.0f;
 	}
 
 	/* sample point on disk */
-	float phi = M_2PI_F * disk_u;
-	float disk_r = disk_v;
-	float disk_height;
+	float phi = M_2PI_F * disk_v;
+	float disk_height, disk_r;
 
-	bssrdf_sample(sc, disk_r, &disk_r, &disk_height);
+	bssrdf_sample(sc, disk_u, &disk_r, &disk_height);
 
 	float3 disk_P = (disk_r*cosf(phi)) * disk_T + (disk_r*sinf(phi)) * disk_B;
 
@@ -417,20 +410,21 @@ ccl_device void subsurface_scatter_step(KernelGlobals *kg, ShaderData *sd, ccl_a
 		/* setup new shading point */
 		shader_setup_from_subsurface(kg, sd, &ss_isect.hits[0], &ray);
 
-		/* probability densities for local frame axes */
+		/* Probability densities for local frame axes. */
 		float pdf_N = pick_pdf_N * fabsf(dot(disk_N, sd->Ng));
 		float pdf_T = pick_pdf_T * fabsf(dot(disk_T, sd->Ng));
 		float pdf_B = pick_pdf_B * fabsf(dot(disk_B, sd->Ng));
 
-		/* multiple importance sample between 3 axes, power heuristic
-		 * found to be slightly better than balance heuristic */
-		float mis_weight = power_heuristic_3(pdf_N, pdf_T, pdf_B);
+		/* Multiple importance sample between 3 axes, power heuristic
+		 * found to be slightly better than balance heuristic. pdf_N
+		 * in the MIS weight and denominator cancelled out. */
+		float w = pdf_N / (sqr(pdf_N) + sqr(pdf_T) + sqr(pdf_B));
+		w *= ss_isect.num_hits;
 
-		/* real distance to sampled point */
+		/* Real distance to sampled point. */
 		float r = len(sd->P - origP);
 
-		/* evaluate */
-		float w = (mis_weight * ss_isect.num_hits) / pdf_N;
+		/* Evaluate profiles. */
 		eval = subsurface_scatter_eval(sd, sc, disk_r, r, all) * w;
 	}
 
