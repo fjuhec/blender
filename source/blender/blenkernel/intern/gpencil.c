@@ -1067,7 +1067,6 @@ bGPDbrush *BKE_gpencil_brush_duplicate(const bGPDbrush *brush_src)
 	return brush_dst;
 }
 
-
 /* make a copy of a given gpencil layer */
 bGPDlayer *BKE_gpencil_layer_duplicate(const bGPDlayer *gpl_src)
 {
@@ -1102,6 +1101,39 @@ bGPDlayer *BKE_gpencil_layer_duplicate(const bGPDlayer *gpl_src)
 }
 
 /**
+* Only copy internal data of palettes to already allocated/initialized destination.
+*
+* WARNING! This function will not handle ID user count!
+*
+*/
+void BKE_gpencil_copy_palette_data(bGPdata *gpd_dst, const bGPdata *gpd_src)
+{
+	/* copy palette slots */
+	BLI_listbase_clear(&gpd_dst->palette_slots);
+	for (const bGPDpaletteref *palslot_src = gpd_src->palette_slots.first; palslot_src; palslot_src = palslot_src->next) {
+		bGPDpaletteref *palslot_dst = MEM_dupallocN(palslot_src);
+
+		/* TODO: Separate out into separate function, and make use of LIB_ID_COPY flags? */
+		if (palslot_dst->palette) {
+			/* XXX: Better safe than sorry... at worst, usercount won't go down,
+			* and the user has to reload?
+			*/
+			id_us_plus(&palslot_dst->palette->id);
+		}
+		palslot_dst->next = palslot_dst->prev = NULL;
+
+		BLI_addtail(&gpd_dst->palette_slots, palslot_dst);
+	}
+
+	/* copy palettes */
+	BLI_listbase_clear(&gpd_dst->palettes);
+	for (const bGPDpalette *palette_src = gpd_src->palettes.first; palette_src; palette_src = palette_src->next) {
+		bGPDpalette *palette_dst = BKE_gpencil_palette_duplicate(palette_src);  /* TODO here too could add unused flags... */
+		BLI_addtail(&gpd_dst->palettes, palette_dst);
+	}
+}
+
+/**
  * Only copy internal data of GreasePencil ID from source to already allocated/initialized destination.
  * You probably never want to use that directly, use id_copy or BKE_id_copy_ex for typical needs.
  *
@@ -1120,28 +1152,7 @@ void BKE_gpencil_copy_data(Main *UNUSED(bmain), bGPdata *gpd_dst, const bGPdata 
 	}
 	
 	/* copy palette slots */
-	BLI_listbase_clear(&gpd_dst->palette_slots);
-	for (const bGPDpaletteref *palslot_src = gpd_src->palette_slots.first; palslot_src; palslot_src = palslot_src->next) {
-		bGPDpaletteref *palslot_dst = MEM_dupallocN(palslot_src);
-		
-		/* TODO: Separate out into separate function, and make use of LIB_ID_COPY flags? */
-		if (palslot_dst->palette) {
-			/* XXX: Better safe than sorry... at worst, usercount won't go down,
-			 * and the user has to reload?
-			 */
-			id_us_plus(&palslot_dst->palette->id);
-		}
-		palslot_dst->next = palslot_dst->prev = NULL;
-		
-		BLI_addtail(&gpd_dst->palette_slots, palslot_dst);
-	}
-
-	/* copy palettes */
-	BLI_listbase_clear(&gpd_dst->palettes);
-	for (const bGPDpalette *palette_src = gpd_src->palettes.first; palette_src; palette_src = palette_src->next) {
-		bGPDpalette *palette_dst = BKE_gpencil_palette_duplicate(palette_src);  /* TODO here too could add unused flags... */
-		BLI_addtail(&gpd_dst->palettes, palette_dst);
-	}
+	BKE_gpencil_copy_palette_data(gpd_dst, gpd_src);
 }
 
 /* Standard API to make a copy of GP datablock, separate from copying its data */

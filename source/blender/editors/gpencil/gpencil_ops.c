@@ -713,7 +713,7 @@ void ED_operatortypes_gpencil(void)
 	WM_operatortype_append(GPENCIL_OT_dissolve);
 	WM_operatortype_append(GPENCIL_OT_copy);
 	WM_operatortype_append(GPENCIL_OT_paste);
-	
+
 	WM_operatortype_append(GPENCIL_OT_move_to_layer);
 	WM_operatortype_append(GPENCIL_OT_layer_change);
 	
@@ -763,6 +763,7 @@ void ED_operatortypes_gpencil(void)
 	WM_operatortype_append(GPENCIL_OT_stroke_subdivide);
 	WM_operatortype_append(GPENCIL_OT_stroke_simplify);
 	WM_operatortype_append(GPENCIL_OT_stroke_simplify_fixed);
+	WM_operatortype_append(GPENCIL_OT_stroke_separate);
 
 	WM_operatortype_append(GPENCIL_OT_brush_add);
 	WM_operatortype_append(GPENCIL_OT_brush_remove);

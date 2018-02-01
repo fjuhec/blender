@@ -85,6 +85,7 @@ void BKE_gpencil_frame_copy_strokes(struct bGPDframe *gpf_src, struct bGPDframe 
 void BKE_gpencil_copy_data(struct Main *bmain, struct bGPdata *gpd_dst, const struct bGPdata *gpd_src, const int flag);
 struct bGPdata   *BKE_gpencil_copy(struct Main *bmain, const struct bGPdata *gpd);
 struct bGPdata   *BKE_gpencil_data_duplicate(struct Main *bmain, const struct bGPdata *gpd, bool internal_copy);
+void BKE_gpencil_copy_palette_data(struct bGPdata *gpd_dst, const struct bGPdata *gpd_src);
 
 void BKE_gpencil_make_local(struct Main *bmain, struct bGPdata *gpd, const bool lib_local);
 

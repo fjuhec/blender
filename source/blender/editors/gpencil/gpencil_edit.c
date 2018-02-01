@@ -55,11 +55,13 @@
 #include "DNA_gpencil_types.h"
 #include "DNA_workspace_types.h"
 
+#include "BKE_main.h"
 #include "BKE_context.h"
 #include "BKE_global.h"
 #include "BKE_gpencil.h"
 #include "BKE_paint.h"
 #include "BKE_library.h"
+#include "BKE_object.h"
 #include "BKE_report.h"
 #include "BKE_screen.h"
 #include "BKE_workspace.h"
@@ -83,6 +85,7 @@
 #include "ED_space_api.h"
 
 #include "DEG_depsgraph.h"
+#include "DEG_depsgraph_build.h"
 
 #include "gpencil_intern.h"
 
@@ -3064,4 +3067,167 @@ void GPENCIL_OT_stroke_simplify_fixed(wmOperatorType *ot)
 	/* avoid re-using last var */
 	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 
+}
+
+/* ***************** Separate Strokes ********************** */
+typedef enum eGP_SeparateModes {
+	/* Selected Strokes */
+	GP_SEPARATE_SELECT = 0,
+	/* Current Layer */
+	GP_SEPARATE_LAYER,
+} eGP_SeparateModes;
+
+/* XXX: Reuse reproject poll */
+static int gp_stroke_separate_poll(bContext *C)
+{
+	/* 2 Requirements:
+	*  - 1) Editable GP data
+	*  - 2) 3D View only
+	*/
+	return (gp_stroke_edit_poll(C) && ED_operator_view3d_active(C));
+}
+
+static int gp_stroke_separate_exec(bContext *C, wmOperator *op)
+{
+	Base *base_new;
+	Main *bmain = CTX_data_main(C);
+	Scene *scene = CTX_data_scene(C);
+	ViewLayer *view_layer = CTX_data_view_layer(C);
+	Base *base_old = CTX_data_active_base(C);
+	bGPdata *src_gpd = ED_gpencil_data_get_active(C);
+	Object *src_ob = CTX_data_active_object(C);
+	Object *dst_ob = NULL;
+	bGPdata *dst_gpd = NULL;
+
+	eGP_SeparateModes mode = RNA_enum_get(op->ptr, "mode");
+
+	/* sanity checks */
+	if (ELEM(NULL, src_ob, src_gpd)) {
+		return OPERATOR_CANCELLED;
+	}
+	bool is_multiedit = (bool)GPENCIL_MULTIEDIT_SESSIONS_ON(src_gpd);
+
+	/* create a new object */
+	base_new = ED_object_add_duplicate(bmain, scene, view_layer, base_old, 0);
+	dst_ob = base_new->object;
+
+	/* create new grease pencil datablock and copy paletteslots */
+	dst_gpd = BKE_gpencil_data_addnew(bmain, "GPencil");
+	dst_ob->data = (bGPdata *)dst_gpd;
+	BKE_gpencil_copy_palette_data(dst_gpd, src_gpd);
+
+	/* loop old datablock and separate parts */
+	bGPDlayer *dst_gpl = NULL;
+	bGPDframe *dst_gpf = NULL;
+	if (mode == GP_SEPARATE_SELECT) {
+		CTX_DATA_BEGIN(C, bGPDlayer *, gpl, editable_gpencil_layers)
+		{
+			dst_gpl = NULL;
+			bGPDframe *init_gpf = gpl->actframe;
+			if (is_multiedit) {
+				init_gpf = gpl->frames.first;
+			}
+
+			for (bGPDframe *gpf = init_gpf; gpf; gpf = gpf->next) {
+				if ((gpf == gpl->actframe) || ((gpf->flag & GP_FRAME_SELECT) && (is_multiedit))) {
+					bGPDstroke *gps, *gpsn;
+
+					if (gpf == NULL) {
+						continue;
+					}
+
+					dst_gpf = NULL;
+
+					for (gps = gpf->strokes.first; gps; gps = gpsn) {
+						gpsn = gps->next;
+
+						/* skip strokes that are invalid for current view */
+						if (ED_gpencil_stroke_can_use(C, gps) == false) {
+							continue;
+						}
+						/* check if the color is editable */
+						if (ED_gpencil_stroke_color_use(gpl, gps) == false) {
+							continue;
+						}
+						/*  separate selected strokes */
+						if (gps->flag & GP_STROKE_SELECT) {
+							/* add layer if not created before */
+							if (dst_gpl == NULL) {
+								dst_gpl = BKE_gpencil_layer_addnew(dst_gpd, gpl->info, false);
+							}
+
+							/* add frame if not created before */
+							if (dst_gpf == NULL) {
+								dst_gpf = BKE_gpencil_layer_getframe(dst_gpl, gpf->framenum, GP_GETFRAME_ADD_NEW);
+							}
+							/* deselect old stroke */
+							gps->flag &= ~GP_STROKE_SELECT;
+							/* unlink from source frame */
+							BLI_remlink(&gpf->strokes, gps);
+							gps->prev = gps->next = NULL;
+							/* relink to destination frame */
+							BLI_addtail(&dst_gpf->strokes, gps);
+						}
+					}
+				}
+
+				/* if not multiedit, exit loop*/
+				if (!is_multiedit) {
+					break;
+				}
+			}
+		}
+		CTX_DATA_END;
+	}
+	else if (mode == GP_SEPARATE_LAYER) {
+		bGPDlayer *gpl = CTX_data_active_gpencil_layer(C);
+		if (gpl) {
+			/* try to set a new active layer in source datablock */
+			if (gpl->prev) {
+				BKE_gpencil_layer_setactive(src_gpd, gpl->prev);
+			}
+			else if (gpl->next) {
+				BKE_gpencil_layer_setactive(src_gpd, gpl->next);
+			}
+			/* unlink from source datablock */
+			BLI_remlink(&src_gpd->layers, gpl);
+			gpl->prev = gpl->next = NULL;
+			/* relink to destination datablock */
+			BLI_addtail(&dst_gpd->layers, gpl);
+		}
+	}
+
+	BKE_gpencil_batch_cache_dirty(src_gpd);
+	BKE_gpencil_batch_cache_dirty(dst_gpd);
+
+	DEG_relations_tag_update(bmain);
+	WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, NULL);
+	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
+
+	return OPERATOR_FINISHED;
+}
+
+void GPENCIL_OT_stroke_separate(wmOperatorType *ot)
+{
+	static const EnumPropertyItem separate_type[] = {
+	{GP_SEPARATE_SELECT, "SELECT", 0, "Selected Strokes", "Separate the selected strokes"},
+	{ GP_SEPARATE_LAYER, "LAYER", 0, "Active Layer", "Separate the strokes of the current layer" },
+	{ 0, NULL, 0, NULL, NULL }
+	};
+
+	/* identifiers */
+	ot->name = "Separate Strokes";
+	ot->idname = "GPENCIL_OT_stroke_separate";
+	ot->description = "Separate the selected strokes or layer in a new grease pencil object";
+
+	/* callbacks */
+	ot->invoke = WM_menu_invoke;
+	ot->exec = gp_stroke_separate_exec;
+	ot->poll = gp_stroke_separate_poll;
+
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+	/* properties */
+	ot->prop = RNA_def_enum(ot->srna, "mode", separate_type, GP_SEPARATE_SELECT, "Mode", "");
 }

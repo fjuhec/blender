@@ -232,6 +232,12 @@ class GreasePencilStrokeEditPanel:
         col.operator("gpencil.stroke_simplify", text="Simplify Adaptative")
         col.operator("gpencil.stroke_join", text="Join").type = 'JOIN'
         col.operator("gpencil.stroke_join", text="Join & Copy").type = 'JOINCOPY'
+
+        col.separator()
+        col.operator("gpencil.stroke_separate", text="Separate").mode = 'SELECT'
+        col.operator("gpencil.stroke_separate", text="Separate Layer").mode = 'LAYER'
+
+        col.separator()
         col.operator("gpencil.stroke_flip", text="Flip Direction")
 
         col.separator()
@@ -1006,6 +1012,15 @@ class GPENCIL_MT_snap(Menu):
         layout.operator("view3d.snap_cursor_to_grid", text="Cursor to Grid")
 
 
+class GPENCIL_MT_separate(Menu):
+    bl_label = "Separate"
+
+    def draw(self, context):
+        layout = self.layout
+        layout.operator("gpencil.stroke_separate", text="Selected Strokes").mode = 'SELECT'
+        layout.operator("gpencil.stroke_separate", text="Active Layer").mode = 'LAYER'
+
+
 class GPENCIL_MT_gpencil_edit_specials(Menu):
     bl_label = "GPencil Specials"
 
@@ -1018,6 +1033,9 @@ class GPENCIL_MT_gpencil_edit_specials(Menu):
         layout.operator("gpencil.stroke_subdivide", text="Subdivide")
         layout.operator("gpencil.stroke_simplify_fixed", text="Simplify")
         layout.operator("gpencil.stroke_simplify", text="Simplify Adaptative")
+
+        layout.separator()
+        layout.menu("GPENCIL_MT_separate", text="Separate")
 
         layout.separator()
 
@@ -1345,15 +1363,16 @@ class GreasePencilDataPanel:
 
         # Full-Row - Frame Locking (and Delete Frame)
         row = layout.row(align=True)
-        row.active = not gpl.lock
+        if gpl:
+            row.active = not gpl.lock
 
-        if gpl.active_frame:
-            lock_status = iface_("Locked") if gpl.lock_frame else iface_("Unlocked")
-            lock_label = iface_("Frame: %d (%s)") % (gpl.active_frame.frame_number, lock_status)
-        else:
-            lock_label = iface_("Lock Frame")
-        row.prop(gpl, "lock_frame", text=lock_label, icon='UNLOCKED')
-        row.operator("gpencil.active_frame_delete", text="", icon='X')
+            if gpl.active_frame:
+                lock_status = iface_("Locked") if gpl.lock_frame else iface_("Unlocked")
+                lock_label = iface_("Frame: %d (%s)") % (gpl.active_frame.frame_number, lock_status)
+            else:
+                lock_label = iface_("Lock Frame")
+            row.prop(gpl, "lock_frame", text=lock_label, icon='UNLOCKED')
+            row.operator("gpencil.active_frame_delete", text="", icon='X')
 
 
 class GreasePencilLayerOptionPanel:
@@ -1734,6 +1753,7 @@ classes = (
     GPENCIL_MT_pie_tools_more,
     GPENCIL_MT_pie_sculpt,
     GPENCIL_MT_snap,
+    GPENCIL_MT_separate,
     GPENCIL_MT_gpencil_edit_specials,
     GPENCIL_MT_gpencil_sculpt_specials,
     GPENCIL_MT_gpencil_draw_specials,
