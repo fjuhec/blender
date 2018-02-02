@@ -149,6 +149,9 @@ void ED_gpencil_draw_view3d_object(struct wmWindowManager *wm,
                                    bool only3d);
 void ED_gpencil_draw_ex(struct RegionView3D *rv3d, struct Scene *scene, struct bGPdata *gpd, int winx, int winy,
                         const int cfra, const char spacetype);
+
+/* Modal Operator Geometry Preview */
+// XXX: Are these called from the draw engine at all? Can we hide these?
 void ED_gp_draw_interpolation(const struct bContext *C, struct tGPDinterpolate *tgpi, const int type);
 void ED_gp_draw_primitives(const struct bContext *C, struct tGPDprimitive *tgpi, const int type);
 void ED_gp_draw_fill(struct tGPDdraw *tgpw);
@@ -215,8 +218,5 @@ void ED_gpencil_vgroup_deselect(struct bContext *C, struct Object *ob);
 
 /* join objects */
 int ED_gpencil_join_objects_exec(struct bContext *C, struct wmOperator *op);
-
-/* helper to get brush icon */
-int ED_gpencil_get_brush_icon(int type);
 
 #endif /*  __ED_GPENCIL_H__ */

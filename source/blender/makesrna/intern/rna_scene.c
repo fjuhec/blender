@@ -632,18 +632,57 @@ static void rna_GPencilBrush_name_set(PointerRNA *ptr, const char *value)
 	BLI_uniquename(&ts->gp_brushes, brush, DATA_("GP_Brush"), '.', offsetof(bGPDbrush, info), sizeof(brush->info));
 }
 
-/* Dynamic Enums of GP Brushes */
-static const EnumPropertyItem *rna_GPencilBrush_enum_itemf(
-        bContext *UNUSED(C), PointerRNA *ptr, PropertyRNA *UNUSED(prop),
-	bool *r_free)
+/* GPencilBrush icon */
+static int gpencil_get_brush_icon(int type)
 {
-	ToolSettings *ts = ((Scene *)ptr->id.data)->toolsettings;
+	switch (type) {
+		case GPBRUSH_CUSTOM:
+			return ICON_GPBRUSH_CUSTOM;
+		case GPBRUSH_PENCIL:
+			return ICON_GPBRUSH_PENCIL;
+		case GPBRUSH_PEN:
+			return ICON_GPBRUSH_PEN;
+		case GPBRUSH_INK:
+			return ICON_GPBRUSH_INK;
+		case GPBRUSH_INKNOISE:
+			return ICON_GPBRUSH_INKNOISE;
+		case GPBRUSH_BLOCK:
+			return ICON_GPBRUSH_BLOCK;
+		case GPBRUSH_MARKER:
+			return ICON_GPBRUSH_MARKER;
+		case GPBRUSH_FILL:
+			return ICON_GPBRUSH_FILL;
+		default:
+			return ICON_GPBRUSH_CUSTOM;
+	}
+}
+
+/* Dynamic Enums of GP Brushes */
+ const EnumPropertyItem *rna_GPencilBrush_enum_itemf(
+        bContext *C, PointerRNA *ptr, PropertyRNA *UNUSED(prop),
+        bool *r_free)
+{
+	ToolSettings *ts = NULL;
 	bGPDbrush *brush;
-	EnumPropertyItem *item = NULL, item_tmp = { 0 };
+	EnumPropertyItem item_tmp = {0};
+	EnumPropertyItem *item = NULL;
 	int totitem = 0;
 	int i = 0;
-
-	if (ELEM(NULL, ts)) {
+	
+	/* Try to get toolsettings pointer */
+	if (ptr->id.data != NULL) {
+		Scene *scene = ptr->id.data;
+		
+		if (GS(scene->id.name) == ID_SCE) {
+			ts = scene->toolsettings;
+		}
+	}
+	else if (C != NULL) {
+		ts = CTX_data_tool_settings(C);
+	}
+	
+	/* Fallback - For generating Py/RNA docs */
+	if (ts == NULL) {
 		return rna_enum_gpencil_drawing_brushes_items;
 	}
 
@@ -656,7 +695,7 @@ static const EnumPropertyItem *rna_GPencilBrush_enum_itemf(
 			item_tmp.icon = ICON_GPBRUSH_FILL;
 		}
 		else {
-			item_tmp.icon = ED_gpencil_get_brush_icon(brush->icon);
+			item_tmp.icon = gpencil_get_brush_icon(brush->icon);
 		}
 
 		RNA_enum_item_add(&item, &totitem, &item_tmp);

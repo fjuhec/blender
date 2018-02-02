@@ -1554,7 +1554,7 @@ void GPENCIL_OT_brush_change(wmOperatorType *ot)
 
 	/* gp brush to use (dynamic enum) */
 	ot->prop = RNA_def_enum(ot->srna, "brush", DummyRNA_DEFAULT_items, 0, "Grease Pencil Brush", "");
-	RNA_def_enum_funcs(ot->prop, ED_gpencil_brushes_enum_itemf);
+	RNA_def_enum_funcs(ot->prop, rna_GPencilBrush_enum_itemf);
 }
 
 /* ******************* Move Brush Up/Down ************************** */

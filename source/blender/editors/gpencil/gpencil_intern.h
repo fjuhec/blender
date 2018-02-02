@@ -316,11 +316,6 @@ const struct EnumPropertyItem *ED_gpencil_layers_with_new_enum_itemf(
         struct bContext *C, struct PointerRNA *ptr, struct PropertyRNA *prop,
         bool *r_free);
 
-/* Enums of GP Brushes */
-const EnumPropertyItem *ED_gpencil_brushes_enum_itemf(
-        bContext *C, PointerRNA *UNUSED(ptr), PropertyRNA *UNUSED(prop),
-        bool *r_free);
-
 /* ***************************************************** */
 /* Operator Defines */
 
