@@ -342,6 +342,9 @@ static void ed_keymap_gpencil_editing(wmKeyConfig *keyconf)
 	/* menu separate */
 	WM_keymap_add_menu(keymap, "GPENCIL_MT_separate", PKEY, KM_PRESS, 0, 0);
 
+	/* split strokes */
+	WM_keymap_add_item(keymap, "GPENCIL_OT_stroke_split", VKEY, KM_PRESS, 0, 0);
+
 	/* join strokes */
 	WM_keymap_add_item(keymap, "GPENCIL_OT_stroke_join", JKEY, KM_PRESS, KM_CTRL, 0);
 	
@@ -767,6 +770,7 @@ void ED_operatortypes_gpencil(void)
 	WM_operatortype_append(GPENCIL_OT_stroke_simplify);
 	WM_operatortype_append(GPENCIL_OT_stroke_simplify_fixed);
 	WM_operatortype_append(GPENCIL_OT_stroke_separate);
+	WM_operatortype_append(GPENCIL_OT_stroke_split);
 
 	WM_operatortype_append(GPENCIL_OT_brush_add);
 	WM_operatortype_append(GPENCIL_OT_brush_remove);

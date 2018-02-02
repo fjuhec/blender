@@ -3327,6 +3327,7 @@ class VIEW3D_MT_edit_gpencil(Menu):
         layout.separator()
 
         layout.operator_menu_enum("gpencil.stroke_separate", "mode", text="Separate...")
+        layout.operator("gpencil.stroke_split", text="Split")
         layout.operator_menu_enum("gpencil.stroke_join", "type", text="Join...")
         layout.operator("gpencil.stroke_flip", text="Flip Direction")
 

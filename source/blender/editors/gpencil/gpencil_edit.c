@@ -3250,3 +3250,97 @@ void GPENCIL_OT_stroke_separate(wmOperatorType *ot)
 	/* properties */
 	ot->prop = RNA_def_enum(ot->srna, "mode", separate_type, GP_SEPARATE_POINT, "Mode", "");
 }
+
+/* ***************** Split Strokes ********************** */
+static int gp_stroke_split_exec(bContext *C, wmOperator *op)
+{
+	Scene *scene = CTX_data_scene(C);
+	bGPdata *gpd = ED_gpencil_data_get_active(C);
+	bGPDspoint *pt;
+	int i;
+
+	/* sanity checks */
+	if (ELEM(NULL, gpd)) {
+		return OPERATOR_CANCELLED;
+	}
+	bool is_multiedit = (bool)GPENCIL_MULTIEDIT_SESSIONS_ON(gpd);
+
+	/* loop strokes and split parts */
+	CTX_DATA_BEGIN(C, bGPDlayer *, gpl, editable_gpencil_layers)
+	{
+		bGPDframe *init_gpf = gpl->actframe;
+		if (is_multiedit) {
+			init_gpf = gpl->frames.first;
+		}
+
+		for (bGPDframe *gpf = init_gpf; gpf; gpf = gpf->next) {
+			if ((gpf == gpl->actframe) || ((gpf->flag & GP_FRAME_SELECT) && (is_multiedit))) {
+				bGPDstroke *gps, *gpsn;
+
+				if (gpf == NULL) {
+					continue;
+				}
+
+				for (gps = gpf->strokes.first; gps; gps = gpsn) {
+					gpsn = gps->next;
+
+					/* skip strokes that are invalid for current view */
+					if (ED_gpencil_stroke_can_use(C, gps) == false) {
+						continue;
+					}
+					/* check if the color is editable */
+					if (ED_gpencil_stroke_color_use(gpl, gps) == false) {
+						continue;
+					}
+					/*  split selected strokes */
+					if (gps->flag & GP_STROKE_SELECT) {
+						/* make copy of source stroke */
+						bGPDstroke *gps_dst = BKE_gpencil_stroke_duplicate(gps);
+
+						/* link to destination frame */
+						BLI_addtail(&gpf->strokes, gps_dst);
+
+						/* Invert selection status of all points in destination stroke */
+						for (i = 0, pt = gps_dst->points; i < gps_dst->totpoints; i++, pt++) {
+							pt->flag ^= GP_SPOINT_SELECT;
+						}
+
+						/* delete selected points from destination stroke */
+						bGPDstroke *new_gps = NULL;
+						gp_stroke_delete_tagged_points(gpf, gps_dst, new_gps, GP_SPOINT_SELECT);
+
+						/* delete selected points from origin stroke */
+						gp_stroke_delete_tagged_points(gpf, gps, gpsn, GP_SPOINT_SELECT);
+					}
+				}
+			}
+
+			/* if not multiedit, exit loop*/
+			if (!is_multiedit) {
+				break;
+			}
+		}
+	}
+	CTX_DATA_END;
+
+	BKE_gpencil_batch_cache_dirty(gpd);
+
+	WM_event_add_notifier(C, NC_GPENCIL | ND_DATA | NA_EDITED, NULL);
+
+	return OPERATOR_FINISHED;
+}
+
+void GPENCIL_OT_stroke_split(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Split Strokes";
+	ot->idname = "GPENCIL_OT_stroke_split";
+	ot->description = "Split selected points as new stroke on same frame";
+
+	/* callbacks */
+	ot->exec = gp_stroke_split_exec;
+	ot->poll = gp_strokes_edit3d_poll;
+
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+}

@@ -239,6 +239,9 @@ class GreasePencilStrokeEditPanel:
         col.operator("gpencil.stroke_separate", text="Separate Layer").mode = 'LAYER'
 
         col.separator()
+        col.operator("gpencil.stroke_split", text="Split")
+
+        col.separator()
         col.operator("gpencil.stroke_flip", text="Flip Direction")
 
         col.separator()
@@ -1038,6 +1041,9 @@ class GPENCIL_MT_gpencil_edit_specials(Menu):
 
         layout.separator()
         layout.menu("GPENCIL_MT_separate", text="Separate")
+
+        layout.separator()
+        layout.operator("gpencil.stroke_split", text="Split")
 
         layout.separator()
 
