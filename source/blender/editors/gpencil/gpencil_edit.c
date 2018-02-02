@@ -3297,10 +3297,10 @@ static int gp_stroke_split_exec(bContext *C, wmOperator *op)
 						/* make copy of source stroke */
 						bGPDstroke *gps_dst = BKE_gpencil_stroke_duplicate(gps);
 
-						/* link to destination frame */
+						/* link to same frame */
 						BLI_addtail(&gpf->strokes, gps_dst);
 
-						/* Invert selection status of all points in destination stroke */
+						/* invert selection status of all points in destination stroke */
 						for (i = 0, pt = gps_dst->points; i < gps_dst->totpoints; i++, pt++) {
 							pt->flag ^= GP_SPOINT_SELECT;
 						}
