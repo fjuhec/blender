@@ -872,6 +872,9 @@ static ShaderNode *add_node(Scene *scene,
 		bevel->samples = b_bevel_node.samples();
 		node = bevel;
 	}
+	else if(b_node.is_a(&RNA_ShaderNodeDisplacement)) {
+		node = new DisplacementNode();
+	}
 
 	if(node) {
 		node->name = b_node.name();
@@ -1332,6 +1335,15 @@ void BlenderSync::sync_world(bool update_all)
 		background->transparent = get_boolean(cscene, "film_transparent");
 	else
 		background->transparent = b_scene.render().alpha_mode() == BL::RenderSettings::alpha_mode_TRANSPARENT;
+
+	if(background->transparent) {
+		background->transparent_glass = get_boolean(cscene, "film_transparent_glass");
+		background->transparent_roughness_threshold = get_float(cscene, "film_transparent_roughness");
+	}
+	else {
+		background->transparent_glass = false;
+		background->transparent_roughness_threshold = 0.0f;
+	}
 
 	background->use_shader = render_layer.use_background_shader;
 	background->use_ao = background->use_ao && render_layer.use_background_ao;

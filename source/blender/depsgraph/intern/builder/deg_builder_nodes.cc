@@ -305,7 +305,7 @@ void DepsgraphNodeBuilder::build_group(Base *base, Group *group)
 	}
 	group_id->tag |= LIB_TAG_DOIT;
 
-	LINKLIST_FOREACH (GroupObject *, go, &group->gobject) {
+	BLI_LISTBASE_FOREACH (GroupObject *, go, &group->gobject) {
 		build_object(base, go->ob);
 	}
 }
@@ -524,7 +524,7 @@ void DepsgraphNodeBuilder::build_animdata(ID *id)
 		}
 
 		/* drivers */
-		LINKLIST_FOREACH (FCurve *, fcu, &adt->drivers) {
+		BLI_LISTBASE_FOREACH (FCurve *, fcu, &adt->drivers) {
 			/* create driver */
 			build_driver(id, fcu);
 		}
@@ -630,7 +630,7 @@ void DepsgraphNodeBuilder::build_rigidbody(Scene *scene)
 
 	/* objects - simulation participants */
 	if (rbw->group) {
-		LINKLIST_FOREACH (GroupObject *, go, &rbw->group->gobject) {
+		BLI_LISTBASE_FOREACH (GroupObject *, go, &rbw->group->gobject) {
 			Object *object = go->ob;
 
 			if (!object || (object->type != OB_MESH))
@@ -661,32 +661,40 @@ void DepsgraphNodeBuilder::build_particles(Object *object)
 	 *     blackbox evaluation step for one particle system referenced by
 	 *     the particle systems stack. All dependencies link to this operation.
 	 */
-
-	/* component for all particle systems */
+	/* Component for all particle systems. */
 	ComponentDepsNode *psys_comp =
 	        add_component_node(&object->id, DEG_NODE_TYPE_EVAL_PARTICLES);
-
 	add_operation_node(psys_comp,
 	                   function_bind(BKE_particle_system_eval_init,
 	                                 _1,
 	                                 scene_,
 	                                 object),
 	                   DEG_OPCODE_PARTICLE_SYSTEM_EVAL_INIT);
-
-	/* particle systems */
-	LINKLIST_FOREACH (ParticleSystem *, psys, &object->particlesystem) {
+	/* Build all particle systems. */
+	BLI_LISTBASE_FOREACH (ParticleSystem *, psys, &object->particlesystem) {
 		ParticleSettings *part = psys->part;
-
-		/* particle settings */
+		/* Particle settings. */
 		// XXX: what if this is used more than once!
 		build_animdata(&part->id);
-
-		/* this particle system */
+		/* This particle system evaluation. */
 		// TODO: for now, this will just be a placeholder "ubereval" node
 		add_operation_node(psys_comp,
 		                   NULL,
 		                   DEG_OPCODE_PARTICLE_SYSTEM_EVAL,
 		                   psys->name);
+		/* Visualization of particle system. */
+		switch (part->ren_as) {
+			case PART_DRAW_OB:
+				if (part->dup_ob != NULL) {
+					build_object(NULL, part->dup_ob);
+				}
+				break;
+			case PART_DRAW_GR:
+				if (part->dup_group != NULL) {
+					build_group(NULL, part->dup_group);
+				}
+				break;
+		}
 	}
 
 	/* pointcache */
@@ -757,8 +765,8 @@ void DepsgraphNodeBuilder::build_obdata_geom(Object *object)
 
 	// TODO: "Done" operation
 
-	/* Cloyth modifier. */
-	LINKLIST_FOREACH (ModifierData *, md, &object->modifiers) {
+	/* Cloth modifier. */
+	BLI_LISTBASE_FOREACH (ModifierData *, md, &object->modifiers) {
 		if (md->type == eModifierType_Cloth) {
 			build_cloth(object);
 		}
@@ -962,7 +970,7 @@ void DepsgraphNodeBuilder::build_nodetree(bNodeTree *ntree)
 	op_node->set_as_exit();
 
 	/* nodetree's nodes... */
-	LINKLIST_FOREACH (bNode *, bnode, &ntree->nodes) {
+	BLI_LISTBASE_FOREACH (bNode *, bnode, &ntree->nodes) {
 		ID *id = bnode->id;
 		if (id == NULL) {
 			continue;

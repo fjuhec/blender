@@ -527,7 +527,7 @@ void BKE_animdata_separate_by_basepath(ID *srcID, ID *dstID, ListBase *basepaths
 	if (srcAdt->action) {
 		/* set up an action if necessary, and name it in a similar way so that it can be easily found again */
 		if (dstAdt->action == NULL) {
-			dstAdt->action = add_empty_action(G.main, srcAdt->action->id.name + 2);
+			dstAdt->action = BKE_action_add(G.main, srcAdt->action->id.name + 2);
 		}
 		else if (dstAdt->action == srcAdt->action) {
 			printf("Argh! Source and Destination share animation! ('%s' and '%s' both use '%s') Making new empty action\n",
@@ -535,7 +535,7 @@ void BKE_animdata_separate_by_basepath(ID *srcID, ID *dstID, ListBase *basepaths
 			
 			/* TODO: review this... */
 			id_us_min(&dstAdt->action->id);
-			dstAdt->action = add_empty_action(G.main, dstAdt->action->id.name + 2);
+			dstAdt->action = BKE_action_add(G.main, dstAdt->action->id.name + 2);
 		}
 			
 		/* loop over base paths, trying to fix for each one... */
@@ -818,7 +818,7 @@ char *BKE_animsys_fix_rna_path_rename(ID *owner_id, char *old_path, const char *
 	
 	/* if no action, no need to proceed */
 	if (ELEM(NULL, owner_id, old_path)) {
-		printf("early abort\n");
+		if (G.debug & G_DEBUG) printf("%s: early abort\n", __func__);
 		return old_path;
 	}
 	
@@ -841,9 +841,9 @@ char *BKE_animsys_fix_rna_path_rename(ID *owner_id, char *old_path, const char *
 	}
 	
 	/* fix given path */
-	printf("%s | %s  | oldpath = %p ", oldN, newN, old_path);
+	if (G.debug & G_DEBUG) printf("%s | %s  | oldpath = %p ", oldN, newN, old_path);
 	result = rna_path_rename_fix(owner_id, prefix, oldN, newN, old_path, verify_paths);
-	printf("result = %p\n", result);
+	if (G.debug & G_DEBUG) printf("path rename result = %p\n", result);
 	
 	/* free the temp names */
 	MEM_freeN(oldN);
@@ -2924,7 +2924,7 @@ void BKE_animsys_eval_animdata(EvaluationContext *eval_ctx, ID *id)
 {
 	AnimData *adt = BKE_animdata_from_id(id);
 	Scene *scene = NULL; /* XXX: this is only needed for flushing RNA updates,
-	                      * which should get handled as part of the graph instead...
+	                      * which should get handled as part of the dependency graph instead...
 	                      */
 	DEBUG_PRINT("%s on %s, time=%f\n\n", __func__, id->name, (double)eval_ctx->ctime);
 	BKE_animsys_evaluate_animdata(scene, id, adt, eval_ctx->ctime, ADT_RECALC_ANIM);

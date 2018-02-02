@@ -194,6 +194,7 @@ typedef struct SculptSession {
 	/* PBVH acceleration structure */
 	struct PBVH *pbvh;
 	bool show_diffuse_color;
+	bool show_mask;
 
 	/* Painting on deformed mesh */
 	bool modifiers_active; /* object is deformed with some modifiers */
@@ -252,6 +253,7 @@ void BKE_sculpt_update_mesh_elements(struct Scene *scene, struct Sculpt *sd, str
 struct MultiresModifierData *BKE_sculpt_multires_active(struct Scene *scene, struct Object *ob);
 int BKE_sculpt_mask_layers_ensure(struct Object *ob,
                                   struct MultiresModifierData *mmd);
+void BKE_sculpt_toolsettings_data_ensure(struct Scene *scene);
 
 enum {
 	SCULPT_MASK_LAYER_CALC_VERT = (1 << 0),
