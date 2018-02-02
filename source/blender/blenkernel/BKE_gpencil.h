@@ -81,6 +81,7 @@ struct bGPDframe *BKE_gpencil_frame_duplicate(const struct bGPDframe *gpf_src);
 struct bGPDframe *BKE_gpencil_frame_color_duplicate(const struct bContext *C, const struct bGPDframe *gpf_src);
 struct bGPDlayer *BKE_gpencil_layer_duplicate(const struct bGPDlayer *gpl_src);
 void BKE_gpencil_frame_copy_strokes(struct bGPDframe *gpf_src, struct bGPDframe *gpf_dst);
+struct bGPDstroke *BKE_gpencil_stroke_duplicate(struct bGPDstroke *gps_src);
 
 void BKE_gpencil_copy_data(struct Main *bmain, struct bGPdata *gpd_dst, const struct bGPdata *gpd_src, const int flag);
 struct bGPdata   *BKE_gpencil_copy(struct Main *bmain, const struct bGPdata *gpd);

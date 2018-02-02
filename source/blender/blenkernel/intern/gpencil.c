@@ -926,11 +926,28 @@ void BKE_gpencil_stroke_weights_duplicate(bGPDstroke *gps_src, bGPDstroke *gps_d
 	}
 }
 
+/* make a copy of a given gpencil stroke */
+bGPDstroke *BKE_gpencil_stroke_duplicate(bGPDstroke *gps_src)
+{
+	bGPDstroke *gps_dst = NULL;
+
+	gps_dst = MEM_dupallocN(gps_src);
+	gps_dst->prev = gps_dst->next = NULL;
+
+	gps_dst->points = MEM_dupallocN(gps_src->points);
+	BKE_gpencil_stroke_weights_duplicate(gps_src, gps_dst);
+	gps_dst->triangles = NULL;
+	gps_dst->tot_triangles = 0;
+	gps_dst->flag |= GP_STROKE_RECALC_CACHES;
+
+	/* return new stroke */
+	return gps_dst;
+}
 
 /* make a copy of a given gpencil frame */
 bGPDframe *BKE_gpencil_frame_duplicate(const bGPDframe *gpf_src)
 {
-	bGPDstroke *gps_dst;
+	bGPDstroke *gps_dst = NULL;
 	bGPDframe *gpf_dst;
 	
 	/* error checking */
@@ -945,13 +962,8 @@ bGPDframe *BKE_gpencil_frame_duplicate(const bGPDframe *gpf_src)
 	/* copy strokes */
 	BLI_listbase_clear(&gpf_dst->strokes);
 	for (bGPDstroke *gps_src = gpf_src->strokes.first; gps_src; gps_src = gps_src->next) {
-		/* make copy of source stroke, then adjust pointer to points too */
-		gps_dst = MEM_dupallocN(gps_src);
-		gps_dst->points = MEM_dupallocN(gps_src->points);
-		BKE_gpencil_stroke_weights_duplicate(gps_src, gps_dst);
-
-		gps_dst->triangles = MEM_dupallocN(gps_src->triangles);
-		gps_dst->flag |= GP_STROKE_RECALC_CACHES;
+		/* make copy of source stroke */
+		gps_dst = BKE_gpencil_stroke_duplicate(gps_src);
 		BLI_addtail(&gpf_dst->strokes, gps_dst);
 	}
 	
@@ -962,7 +974,7 @@ bGPDframe *BKE_gpencil_frame_duplicate(const bGPDframe *gpf_src)
 /* make a copy of strokes between gpencil frames */
 void BKE_gpencil_frame_copy_strokes(bGPDframe *gpf_src, struct bGPDframe *gpf_dst)
 {
-	bGPDstroke *gps_dst;
+	bGPDstroke *gps_dst = NULL;
 	/* error checking */
 	if ((gpf_src == NULL) || (gpf_dst == NULL)) {
 		return;
@@ -971,13 +983,8 @@ void BKE_gpencil_frame_copy_strokes(bGPDframe *gpf_src, struct bGPDframe *gpf_ds
 	/* copy strokes */
 	BLI_listbase_clear(&gpf_dst->strokes);
 	for (bGPDstroke *gps_src = gpf_src->strokes.first; gps_src; gps_src = gps_src->next) {
-		/* make copy of source stroke, then adjust pointer to points too */
-		gps_dst = MEM_dupallocN(gps_src);
-		gps_dst->points = MEM_dupallocN(gps_src->points);
-		BKE_gpencil_stroke_weights_duplicate(gps_src, gps_dst);
-
-		gps_dst->triangles = MEM_dupallocN(gps_src->triangles);
-		gps_dst->flag |= GP_STROKE_RECALC_CACHES;
+		/* make copy of source stroke */
+		gps_dst = BKE_gpencil_stroke_duplicate(gps_src);
 		BLI_addtail(&gpf_dst->strokes, gps_dst);
 	}
 }

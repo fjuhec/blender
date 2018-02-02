@@ -259,7 +259,7 @@ static void gp_interpolate_set_points(bContext *C, tGPDinterpolate *tgpi)
 			bGPDstroke *gps_to;
 			int fFrame;
 			
-			bGPDstroke *new_stroke;
+			bGPDstroke *new_stroke = NULL;
 			bool valid = true;
 			
 			
@@ -285,12 +285,7 @@ static void gp_interpolate_set_points(bContext *C, tGPDinterpolate *tgpi)
 			}
 			
 			/* create new stroke */
-			new_stroke = MEM_dupallocN(gps_from);
-			new_stroke->points = MEM_dupallocN(gps_from->points);
-			BKE_gpencil_stroke_weights_duplicate(gps_from, new_stroke);
-			new_stroke->triangles = MEM_dupallocN(gps_from->triangles);
-			new_stroke->tot_triangles = 0;
-			new_stroke->flag |= GP_STROKE_RECALC_CACHES;
+			new_stroke = BKE_gpencil_stroke_duplicate(gps_from);
 
 			if (valid) {
 				/* if destination stroke is smaller, resize new_stroke to size of gps_to stroke */
@@ -966,7 +961,7 @@ static int gpencil_interpolate_seq_exec(bContext *C, wmOperator *op)
 			
 			/* create new strokes data with interpolated points reading original stroke */
 			for (gps_from = prevFrame->strokes.first; gps_from; gps_from = gps_from->next) {
-				bGPDstroke *new_stroke;
+				bGPDstroke *new_stroke = NULL;
 				
 				/* only selected */
 				if ((flag & GP_TOOLFLAG_INTERPOLATE_ONLY_SELECTED) && ((gps_from->flag & GP_STROKE_SELECT) == 0)) {
@@ -995,12 +990,7 @@ static int gpencil_interpolate_seq_exec(bContext *C, wmOperator *op)
 				}
 				
 				/* create new stroke */
-				new_stroke = MEM_dupallocN(gps_from);
-				new_stroke->points = MEM_dupallocN(gps_from->points);
-				BKE_gpencil_stroke_weights_duplicate(gps_from, new_stroke);
-				new_stroke->triangles = MEM_dupallocN(gps_from->triangles);
-				new_stroke->tot_triangles = 0;
-				new_stroke->flag |= GP_STROKE_RECALC_CACHES;
+				new_stroke = BKE_gpencil_stroke_duplicate(gps_from);
 
 				/* if destination stroke is smaller, resize new_stroke to size of gps_to stroke */
 				if (gps_from->totpoints > gps_to->totpoints) {

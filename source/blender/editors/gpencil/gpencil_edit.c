@@ -3158,11 +3158,7 @@ static int gp_stroke_separate_exec(bContext *C, wmOperator *op)
 							/* selected points mode */
 							if (mode == GP_SEPARATE_POINT) {
 								/* make copy of source stroke */
-								bGPDstroke *gps_dst = MEM_dupallocN(gps);
-								gps_dst->points = MEM_dupallocN(gps->points);
-								BKE_gpencil_stroke_weights_duplicate(gps, gps_dst);
-								gps_dst->triangles = MEM_dupallocN(gps->triangles);
-								gps_dst->flag |= GP_STROKE_RECALC_CACHES;
+								bGPDstroke *gps_dst = BKE_gpencil_stroke_duplicate(gps);
 								
 								/* link to destination frame */
 								BLI_addtail(&gpf_dst->strokes, gps_dst);
