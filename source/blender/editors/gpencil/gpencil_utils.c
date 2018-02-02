@@ -401,42 +401,6 @@ const EnumPropertyItem *ED_gpencil_brushes_enum_itemf(
 	return item;
 }
 
-/* Dynamic Enums of GP Palettes */
-// XXX: Deprecated
-const EnumPropertyItem *ED_gpencil_palettes_enum_itemf(
-        bContext *C, PointerRNA *UNUSED(ptr), PropertyRNA *UNUSED(prop),
-        bool *r_free)
-{
-	bGPdata *gpd = CTX_data_gpencil_data(C);
-	bGPDpalette *palette;
-	EnumPropertyItem *item = NULL, item_tmp = { 0 };
-	int totitem = 0;
-	int i = 0;
-
-	if (ELEM(NULL, C, gpd)) {
-		return DummyRNA_DEFAULT_items;
-	}
-
-	/* Existing palettes */
-	for (palette = gpd->palettes.first; palette; palette = palette->next, i++) {
-		item_tmp.identifier = palette->info;
-		item_tmp.name = palette->info;
-		item_tmp.value = i;
-
-		if (palette->flag & PL_PALETTE_ACTIVE)
-			item_tmp.icon = ICON_COLOR;
-		else
-			item_tmp.icon = ICON_NONE;
-
-		RNA_enum_item_add(&item, &totitem, &item_tmp);
-	}
-
-	RNA_enum_item_end(&item, &totitem);
-	*r_free = true;
-
-	return item;
-}
-
 /* helper to get brush icon */
 int ED_gpencil_get_brush_icon(int type)
 {

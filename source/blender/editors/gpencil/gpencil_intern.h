@@ -321,11 +321,6 @@ const EnumPropertyItem *ED_gpencil_brushes_enum_itemf(
         bContext *C, PointerRNA *UNUSED(ptr), PropertyRNA *UNUSED(prop),
         bool *r_free);
 
-/* Enums of GP palettes */
-const EnumPropertyItem *ED_gpencil_palettes_enum_itemf(
-        bContext *C, PointerRNA *UNUSED(ptr), PropertyRNA *UNUSED(prop),
-        bool *r_free);
-
 /* ***************************************************** */
 /* Operator Defines */
 
