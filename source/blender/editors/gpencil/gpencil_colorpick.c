@@ -308,7 +308,7 @@ static tGPDpick *gp_session_init_colorpick(bContext *C, wmOperator *op, const wm
 	CLAMP_MIN(tgpk->col, 1);
 
 	/* define panel size */
-	int width = (GP_BOX_SIZE * tgpk->col) + (GP_BOX_GAP * (tgpk->col + 1)) - GP_BOX_GAP;
+	int width = (GP_BOX_SIZE * tgpk->col) + (GP_BOX_GAP * tgpk->col);
 	int height = (GP_BOX_SIZE * tgpk->row) + (GP_BOX_GAP * (tgpk->row + 1)) - (GP_BOX_GAP / 2);
 	tgpk->panel.xmin = tgpk->center[0] - (width / 2) + tgpk->rect.xmin;
 	tgpk->panel.ymin = tgpk->center[1] - (height / 2) + tgpk->rect.ymin;
