@@ -1253,7 +1253,7 @@ static void gp_stroke_eraser_dostroke(tGPsdata *p,
 		
 		/* Second Pass: Remove any points that are tagged */
 		if (do_cull) {
-			gp_stroke_delete_tagged_points(gpf, gps, gps->next, GP_SPOINT_TAG);
+			gp_stroke_delete_tagged_points(gpf, gps, gps->next, GP_SPOINT_TAG, false);
 		}
 		BKE_gpencil_batch_cache_dirty(p->gpd);
 	}

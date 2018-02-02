@@ -1718,7 +1718,8 @@ typedef struct tGPDeleteIsland {
  *      becomes much less
  * 2) Each island gets converted to a new stroke
  */
-void gp_stroke_delete_tagged_points(bGPDframe *gpf, bGPDstroke *gps, bGPDstroke *next_stroke, int tag_flags)
+void gp_stroke_delete_tagged_points(bGPDframe *gpf, bGPDstroke *gps, bGPDstroke *next_stroke, 
+	int tag_flags, bool select)
 {
 	tGPDeleteIsland *islands = MEM_callocN(sizeof(tGPDeleteIsland) * (gps->totpoints + 1) / 2, "gp_point_islands");
 	bool in_island  = false;
@@ -1800,6 +1801,11 @@ void gp_stroke_delete_tagged_points(bGPDframe *gpf, bGPDstroke *gps, bGPDstroke 
 				pts = new_stroke->points;
 				for (j = 0; j < new_stroke->totpoints; j++, pts++) {
 					pts->time -= delta;
+					/* set flag for select again later */
+					if (select == true) {
+						pts->flag &= ~GP_SPOINT_SELECT;
+						pts->flag |= GP_SPOINT_TAG;
+					}
 				}
 			}
 			
@@ -1865,7 +1871,7 @@ static int gp_delete_selected_points(bContext *C)
 						gps->flag &= ~GP_STROKE_SELECT;
 
 						/* delete unwanted points by splitting stroke into several smaller ones */
-						gp_stroke_delete_tagged_points(gpf, gps, gpsn, GP_SPOINT_SELECT);
+						gp_stroke_delete_tagged_points(gpf, gps, gpsn, GP_SPOINT_SELECT, false);
 
 						changed = true;
 					}
@@ -3169,10 +3175,10 @@ static int gp_stroke_separate_exec(bContext *C, wmOperator *op)
 								}
 
 								/* delete selected points from destination stroke */
-								gp_stroke_delete_tagged_points(gpf_dst, gps_dst, NULL, GP_SPOINT_SELECT);
+								gp_stroke_delete_tagged_points(gpf_dst, gps_dst, NULL, GP_SPOINT_SELECT, false);
 
 								/* delete selected points from origin stroke */
-								gp_stroke_delete_tagged_points(gpf, gps, gpsn, GP_SPOINT_SELECT);
+								gp_stroke_delete_tagged_points(gpf, gps, gpsn, GP_SPOINT_SELECT, false);
 							}
 							/* selected strokes mode */
 							else if (mode == GP_SEPARATE_STROKE) {
@@ -3305,10 +3311,20 @@ static int gp_stroke_split_exec(bContext *C, wmOperator *op)
 						}
 
 						/* delete selected points from destination stroke */
-						gp_stroke_delete_tagged_points(gpf, gps_dst, NULL, GP_SPOINT_SELECT);
+						gp_stroke_delete_tagged_points(gpf, gps_dst, NULL, GP_SPOINT_SELECT, true);
 
 						/* delete selected points from origin stroke */
-						gp_stroke_delete_tagged_points(gpf, gps, gpsn, GP_SPOINT_SELECT);
+						gp_stroke_delete_tagged_points(gpf, gps, gpsn, GP_SPOINT_SELECT, false);
+					}
+				}
+				/* select again tagged points */
+				for (gps = gpf->strokes.first; gps; gps = gps->next) {
+					bGPDspoint *pt = gps->points;
+					for (int i = 0; i < gps->totpoints; i++, pt++) {
+						if (pt->flag & GP_SPOINT_TAG) {
+							pt->flag |= GP_SPOINT_SELECT;
+							pt->flag &= ~GP_SPOINT_TAG;
+						}
 					}
 				}
 			}
