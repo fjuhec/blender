@@ -75,6 +75,7 @@
 #include "IMB_colormanagement.h"
 
 #include "RE_engine.h"
+#include "RE_pipeline.h"
 
 #include "UI_interface.h"
 #include "UI_resources.h"
@@ -1105,6 +1106,7 @@ void DRW_shgroup_state_disable(DRWShadingGroup *shgroup, DRWState state)
 
 void DRW_shgroup_stencil_mask(DRWShadingGroup *shgroup, unsigned int mask)
 {
+	BLI_assert(mask <= 255);
 	shgroup->stencil_mask = mask;
 }
 
@@ -3602,10 +3604,12 @@ void DRW_render_to_image(RenderEngine *re, struct Depsgraph *depsgraph)
 	RenderEngineType *engine_type = re->type;
 	DrawEngineType *draw_engine_type = engine_type->draw_engine;
 	RenderData *r = &scene->r;
+	Render *render = re->re;
 
 	/* Reset before using it. */
 	memset(&DST, 0x0, sizeof(DST));
 	DST.options.is_image_render = true;
+	DST.options.draw_background = scene->r.alphamode == R_ADDSKY;
 
 	DST.draw_ctx = (DRWContextState){
 	    NULL, NULL, NULL, scene, view_layer, OBACT(view_layer), engine_type, depsgraph, NULL
@@ -3624,7 +3628,19 @@ void DRW_render_to_image(RenderEngine *re, struct Depsgraph *depsgraph)
 	glDisable(GL_SCISSOR_TEST);
 	glViewport(0, 0, size[0], size[1]);
 
-	engine_type->draw_engine->render_to_image(data, re, depsgraph);
+	if ((r->scemode & R_MULTIVIEW) != 0) {
+		for (SceneRenderView *srv = r->views.first; srv; srv = srv->next) {
+			if (BKE_scene_multiview_is_render_view_active(r, srv) == false)
+				continue;
+
+			RE_SetActiveRenderView(render, srv->name);
+
+			engine_type->draw_engine->render_to_image(data, re, depsgraph);
+		}
+	}
+	else {
+		engine_type->draw_engine->render_to_image(data, re, depsgraph);
+	}
 
 	/* TODO grease pencil */
 

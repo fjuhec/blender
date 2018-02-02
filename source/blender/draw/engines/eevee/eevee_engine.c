@@ -191,6 +191,8 @@ static void eevee_draw_background(void *vedata)
 		{
 			BLI_halton_3D(primes, offset, stl->effects->taa_current_sample, r);
 			EEVEE_update_noise(psl, fbl, r);
+
+			EEVEE_volumes_set_jitter(sldata, stl->effects->taa_current_sample - 1);
 		}
 
 		/* Refresh Probes */
@@ -390,6 +392,7 @@ static void eevee_engine_free(void)
 	EEVEE_lightprobes_free();
 	EEVEE_lights_free();
 	EEVEE_materials_free();
+	EEVEE_mist_free();
 	EEVEE_motion_blur_free();
 	EEVEE_occlusion_free();
 	EEVEE_screen_raytrace_free();
@@ -496,7 +499,8 @@ DrawEngineType draw_engine_eevee_type = {
 RenderEngineType DRW_engine_viewport_eevee_type = {
 	NULL, NULL,
 	EEVEE_ENGINE, N_("Eevee"), RE_INTERNAL | RE_USE_SHADING_NODES,
-	NULL, &DRW_render_to_image, NULL, NULL, NULL, NULL, NULL,
+	NULL, &DRW_render_to_image, NULL, NULL, NULL, NULL,
+	&EEVEE_render_update_passes,
 	&eevee_layer_collection_settings_create,
 	&eevee_view_layer_settings_create,
 	&draw_engine_eevee_type,
