@@ -292,7 +292,10 @@ static tGPDpick *gp_session_init_colorpick(bContext *C, wmOperator *op, const wm
 		tgpk->row = tgpk->totcolor;
 	}
 	/* if there are too many colors, use more rows */
-	if (tgpk->totcolor < 72) {
+	if (tgpk->totcolor < 25) {
+		CLAMP(tgpk->row, 1, 3);
+	}
+	else if (tgpk->totcolor < 72) {
 		CLAMP(tgpk->row, 1, 6);
 	}
 	else {
@@ -305,8 +308,8 @@ static tGPDpick *gp_session_init_colorpick(bContext *C, wmOperator *op, const wm
 	CLAMP_MIN(tgpk->col, 1);
 
 	/* define panel size */
-	int width = (GP_BOX_SIZE * tgpk->col) + (GP_BOX_GAP * (tgpk->col + 1));
-	int height = (GP_BOX_SIZE * tgpk->row) + (GP_BOX_GAP * (tgpk->row + 1));
+	int width = (GP_BOX_SIZE * tgpk->col) + (GP_BOX_GAP * (tgpk->col + 1)) - GP_BOX_GAP;
+	int height = (GP_BOX_SIZE * tgpk->row) + (GP_BOX_GAP * (tgpk->row + 1)) - (GP_BOX_GAP / 2);
 	tgpk->panel.xmin = tgpk->center[0] - (width / 2) + tgpk->rect.xmin;
 	tgpk->panel.ymin = tgpk->center[1] - (height / 2) + tgpk->rect.ymin;
 
@@ -360,7 +363,7 @@ static tGPDpick *gp_session_init_colorpick(bContext *C, wmOperator *op, const wm
 		}
 
 		/* box position */
-		tcolor->rect.xmin = tgpk->panel.xmin + (tgpk->boxsize[0] * col) + (GP_BOX_GAP * (col + 1));
+		tcolor->rect.xmin = tgpk->panel.xmin + (tgpk->boxsize[0] * col) + (GP_BOX_GAP * (col + 1)) - (GP_BOX_GAP / 2);
 		tcolor->rect.xmax = tcolor->rect.xmin + tgpk->boxsize[0];
 
 		tcolor->rect.ymax = tgpk->panel.ymax - (tgpk->boxsize[1] * row) - (GP_BOX_GAP * row) - (GP_BOX_GAP / 2);
