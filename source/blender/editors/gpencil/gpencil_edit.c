@@ -3169,8 +3169,7 @@ static int gp_stroke_separate_exec(bContext *C, wmOperator *op)
 								}
 
 								/* delete selected points from destination stroke */
-								bGPDstroke *new_gps = NULL;
-								gp_stroke_delete_tagged_points(gpf_dst, gps_dst, new_gps, GP_SPOINT_SELECT);
+								gp_stroke_delete_tagged_points(gpf_dst, gps_dst, NULL, GP_SPOINT_SELECT);
 
 								/* delete selected points from origin stroke */
 								gp_stroke_delete_tagged_points(gpf, gps, gpsn, GP_SPOINT_SELECT);
@@ -3306,8 +3305,7 @@ static int gp_stroke_split_exec(bContext *C, wmOperator *op)
 						}
 
 						/* delete selected points from destination stroke */
-						bGPDstroke *new_gps = NULL;
-						gp_stroke_delete_tagged_points(gpf, gps_dst, new_gps, GP_SPOINT_SELECT);
+						gp_stroke_delete_tagged_points(gpf, gps_dst, NULL, GP_SPOINT_SELECT);
 
 						/* delete selected points from origin stroke */
 						gp_stroke_delete_tagged_points(gpf, gps, gpsn, GP_SPOINT_SELECT);
