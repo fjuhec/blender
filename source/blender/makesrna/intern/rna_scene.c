@@ -2413,7 +2413,8 @@ static void rna_def_gpencil_brush(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "use_stabilizer", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_BRUSH_STABILIZE_MOUSE);
 	RNA_def_property_boolean_default(prop, true);
-	RNA_def_property_ui_text(prop, "Stabilizer", "Draw lines with a delay to allow smooth strokes");
+	RNA_def_property_ui_text(prop, "Stabilizer", 
+		"Draw lines with a delay to allow smooth strokes. Press Shift key to override while drawing");
 
 	/* Cursor Color */
 	static float default_1[3] = { 1.0f, 1.0f, 1.0f };
