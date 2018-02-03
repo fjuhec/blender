@@ -99,7 +99,7 @@ static bool isDisabled(ModifierData *md, int useRenderParams)
 }
 
 static DerivedMesh *applyModifier(ModifierData *md, const EvaluationContext *eval_ctx,
-                                  Object *ob, DerivedMesh *derivedData,
+                                  Object *UNUSED(ob), DerivedMesh *derivedData,
                                   ModifierApplyFlag flag)
 {
 	SubsurfModifierData *smd = (SubsurfModifierData *) md;
@@ -117,7 +117,7 @@ static DerivedMesh *applyModifier(ModifierData *md, const EvaluationContext *eva
 		subsurf_flags |= SUBSURF_USE_RENDER_PARAMS;
 	if (isFinalCalc)
 		subsurf_flags |= SUBSURF_IS_FINAL_CALC;
-	if (ob->mode & OB_MODE_EDIT)
+	if (eval_ctx->object_mode & OB_MODE_EDIT)
 		subsurf_flags |= SUBSURF_IN_EDIT_MODE;
 
 #ifdef WITH_OPENSUBDIV

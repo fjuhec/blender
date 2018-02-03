@@ -43,6 +43,8 @@
 
 #include "WM_types.h"
 
+#include "DEG_depsgraph.h"
+
 static const EnumPropertyItem prop_direction_items[] = {
 	{0, "ADD", 0, "Add", "Add effect of brush"},
 	{BRUSH_DIR_IN, "SUBTRACT", 0, "Subtract", "Subtract effect of brush"},
@@ -373,21 +375,25 @@ static void rna_Brush_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerR
 
 static void rna_Brush_main_tex_update(bContext *C, PointerRNA *ptr)
 {
+	EvaluationContext eval_ctx;
+	CTX_data_eval_ctx(C, &eval_ctx);
 	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	Brush *br = (Brush *)ptr->data;
-	BKE_paint_invalidate_overlay_tex(scene, view_layer, br->mtex.tex);
+	BKE_paint_invalidate_overlay_tex(&eval_ctx, scene, view_layer, br->mtex.tex);
 	rna_Brush_update(bmain, scene, ptr);
 }
 
 static void rna_Brush_secondary_tex_update(bContext *C, PointerRNA *ptr)
 {
+	EvaluationContext eval_ctx;
+	CTX_data_eval_ctx(C, &eval_ctx);
 	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	Brush *br = (Brush *)ptr->data;
-	BKE_paint_invalidate_overlay_tex(scene, view_layer, br->mask_mtex.tex);
+	BKE_paint_invalidate_overlay_tex(&eval_ctx, scene, view_layer, br->mask_mtex.tex);
 	rna_Brush_update(bmain, scene, ptr);
 }
 
@@ -449,8 +455,10 @@ static void rna_TextureSlot_brush_angle_update(bContext *C, PointerRNA *ptr)
 	MTex *mtex = ptr->data;
 	/* skip invalidation of overlay for stencil mode */
 	if (mtex->mapping != MTEX_MAP_MODE_STENCIL) {
+		EvaluationContext eval_ctx;
+		CTX_data_eval_ctx(C, &eval_ctx);
 		ViewLayer *view_layer = CTX_data_view_layer(C);
-		BKE_paint_invalidate_overlay_tex(scene, view_layer, mtex->tex);
+		BKE_paint_invalidate_overlay_tex(&eval_ctx, scene, view_layer, mtex->tex);
 	}
 
 	rna_TextureSlot_update(C, ptr);

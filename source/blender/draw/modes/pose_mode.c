@@ -136,13 +136,16 @@ static void POSE_cache_populate(void *vedata, Object *ob)
  */
 bool DRW_pose_mode_armature(Object *ob, Object *active_ob)
 {
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	const EvaluationContext *eval_ctx = &draw_ctx->eval_ctx;
+
 	/* Pode armature is handled by pose mode engine. */
-	if ((ob == active_ob) && ((ob->mode & OB_MODE_POSE) != 0)) {
+	if ((ob == active_ob) && ((eval_ctx->object_mode & OB_MODE_POSE) != 0)) {
 		return true;
 	}
 
 	/* Armature parent is also handled by pose mode engine. */
-	if ((active_ob != NULL) && ((active_ob->mode & OB_MODE_WEIGHT_PAINT) != 0)) {
+	if ((active_ob != NULL) && ((eval_ctx->object_mode & OB_MODE_WEIGHT_PAINT) != 0)) {
 		if (active_ob->parent == ob) {
 			return true;
 		}

@@ -413,21 +413,6 @@ void BKE_workspace_active_screen_set(WorkSpaceInstanceHook *hook, WorkSpace *wor
 	BKE_workspace_hook_layout_for_workspace_set(hook, workspace, layout);
 }
 
-#ifdef USE_WORKSPACE_MODE
-eObjectMode BKE_workspace_object_mode_get(const WorkSpace *workspace, const Scene *scene)
-{
-	Base *active_base = BKE_workspace_active_base_get(workspace, scene);
-	return active_base ? active_base->object->mode : OB_MODE_OBJECT;
-}
-void BKE_workspace_object_mode_set(WorkSpace *workspace, Scene *scene, const eObjectMode mode)
-{
-	Base *active_base = BKE_workspace_active_base_get(workspace, scene);
-	if (active_base) {
-		active_base->object->mode = mode;
-	}
-}
-#endif
-
 Base *BKE_workspace_active_base_get(const WorkSpace *workspace, const Scene *scene)
 {
 	ViewLayer *view_layer = BKE_workspace_view_layer_get(workspace, scene);

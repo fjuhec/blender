@@ -623,8 +623,9 @@ static size_t initialize_internal_images(BakeImages *bake_images, ReportList *re
 /* create new mesh with edit mode changes and modifiers applied */
 static Mesh *bake_mesh_new_from_object(EvaluationContext *eval_ctx, Main *bmain, Scene *scene, Object *ob)
 {
-	if (ob->mode & OB_MODE_EDIT)
+	if (eval_ctx->object_mode & OB_MODE_EDIT) {
 		ED_object_editmode_load(ob);
+	}
 
 	Mesh *me = BKE_mesh_new_from_object(eval_ctx, bmain, scene, ob, 1, 2, 0, 0);
 	if (me->flag & ME_AUTOSMOOTH) {
@@ -852,7 +853,7 @@ static int bake(
 
 			/* triangulating so BVH returns the primitive_id that will be used for rendering */
 			highpoly[i].tri_mod = ED_object_modifier_add(
-			        reports, bmain, scene, highpoly[i].ob,
+			        reports, bmain, RE_GetEvalCtx(re), scene, highpoly[i].ob,
 			        "TmpTriangulate", eModifierType_Triangulate);
 			tmd = (TriangulateModifierData *)highpoly[i].tri_mod;
 			tmd->quad_method = MOD_TRIANGULATE_QUAD_FIXED;

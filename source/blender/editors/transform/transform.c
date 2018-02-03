@@ -2098,6 +2098,8 @@ bool initTransform(bContext *C, TransInfo *t, wmOperator *op, const wmEvent *eve
 
 	t->context = C;
 
+	CTX_data_eval_ctx(C, &t->eval_ctx);
+
 	/* added initialize, for external calls to set stuff in TransInfo, like undo string */
 
 	t->state = TRANS_STARTING;

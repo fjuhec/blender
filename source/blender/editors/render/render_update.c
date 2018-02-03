@@ -387,7 +387,7 @@ static int material_uses_texture(Material *ma, Tex *tex)
 	return false;
 }
 
-static void texture_changed(Main *bmain, Tex *tex)
+static void texture_changed(const EvaluationContext *eval_ctx, Main *bmain, Tex *tex)
 {
 	Material *ma;
 	Lamp *la;
@@ -404,7 +404,7 @@ static void texture_changed(Main *bmain, Tex *tex)
 	/* paint overlays */
 	for (scene = bmain->scene.first; scene; scene = scene->id.next) {
 		for (view_layer = scene->view_layers.first; view_layer; view_layer = view_layer->next) {
-			BKE_paint_invalidate_overlay_tex(scene, view_layer, tex);
+			BKE_paint_invalidate_overlay_tex(eval_ctx, scene, view_layer, tex);
 		}
 	}
 
@@ -506,7 +506,7 @@ static void world_changed(Main *UNUSED(bmain), World *wo)
 	}
 }
 
-static void image_changed(Main *bmain, Image *ima)
+static void image_changed(const EvaluationContext *eval_ctx, Main *bmain, Image *ima)
 {
 	Tex *tex;
 
@@ -516,7 +516,7 @@ static void image_changed(Main *bmain, Image *ima)
 	/* textures */
 	for (tex = bmain->tex.first; tex; tex = tex->id.next)
 		if (tex->ima == ima)
-			texture_changed(bmain, tex);
+			texture_changed(eval_ctx, bmain, tex);
 }
 
 static void scene_changed(Main *bmain, Scene *scene)
@@ -524,8 +524,18 @@ static void scene_changed(Main *bmain, Scene *scene)
 	Object *ob;
 
 	/* glsl */
-	for (ob = bmain->object.first; ob; ob = ob->id.next) {
-		if (ob->mode & OB_MODE_TEXTURE_PAINT) {
+	bool has_texture_mode = false;
+	wmWindowManager *wm = bmain->wm.first;
+	for (wmWindow *win = wm->windows.first; win; win = win->next) {
+		WorkSpace *workspace = WM_window_get_active_workspace(win);
+		if (workspace->object_mode & OB_MODE_TEXTURE_PAINT) {
+			has_texture_mode = true;
+			break;
+		}
+	}
+
+	if (has_texture_mode) {
+		for (ob = bmain->object.first; ob; ob = ob->id.next) {
 			BKE_texpaint_slots_refresh_object(scene, ob);
 			BKE_paint_proj_mesh_data_check(scene, ob, NULL, NULL, NULL, NULL);
 			GPU_drawobject_free(ob->derivedFinal);
@@ -542,6 +552,7 @@ void ED_render_id_flush_update(const DEGEditorUpdateContext *update_ctx, ID *id)
 		return;
 	}
 	Main *bmain = update_ctx->bmain;
+	const EvaluationContext *eval_ctx = bmain->eval_ctx;  /* OBMODE/TODO (all visible workspace modes) */
 	/* Internal ID update handlers. */
 	switch (GS(id->name)) {
 		case ID_MA:
@@ -549,7 +560,7 @@ void ED_render_id_flush_update(const DEGEditorUpdateContext *update_ctx, ID *id)
 			render_engine_flag_changed(bmain, RE_ENGINE_UPDATE_MA);
 			break;
 		case ID_TE:
-			texture_changed(bmain, (Tex *)id);
+			texture_changed(eval_ctx, bmain, (Tex *)id);
 			break;
 		case ID_WO:
 			world_changed(bmain, (World *)id);
@@ -558,8 +569,10 @@ void ED_render_id_flush_update(const DEGEditorUpdateContext *update_ctx, ID *id)
 			lamp_changed(bmain, (Lamp *)id);
 			break;
 		case ID_IM:
-			image_changed(bmain, (Image *)id);
+		{
+			image_changed(eval_ctx, bmain, (Image *)id);
 			break;
+		}
 		case ID_SCE:
 			scene_changed(bmain, (Scene *)id);
 			render_engine_flag_changed(bmain, RE_ENGINE_UPDATE_OTHER);

@@ -247,10 +247,12 @@ void rna_TextureSlot_update(bContext *C, PointerRNA *ptr)
 			break;
 		case ID_BR:
 		{
+			EvaluationContext eval_ctx;
+			CTX_data_eval_ctx(C, &eval_ctx);
 			Scene *scene = CTX_data_scene(C);
 			MTex *mtex = ptr->data;
 			ViewLayer *view_layer = CTX_data_view_layer(C);
-			BKE_paint_invalidate_overlay_tex(scene, view_layer, mtex->tex);
+			BKE_paint_invalidate_overlay_tex(&eval_ctx, scene, view_layer, mtex->tex);
 			WM_main_add_notifier(NC_BRUSH, id);
 			break;
 		}

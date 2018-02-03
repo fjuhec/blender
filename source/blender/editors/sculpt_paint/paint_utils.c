@@ -566,10 +566,12 @@ static int brush_curve_preset_exec(bContext *C, wmOperator *op)
 	Brush *br = BKE_paint_brush(BKE_paint_get_active_from_context(C));
 
 	if (br) {
+		EvaluationContext eval_ctx;
+		CTX_data_eval_ctx(C, &eval_ctx);
 		Scene *scene = CTX_data_scene(C);
 		ViewLayer *view_layer = CTX_data_view_layer(C);
 		BKE_brush_curve_preset(br, RNA_enum_get(op->ptr, "shape"));
-		BKE_paint_invalidate_cursor_overlay(scene, view_layer, br->curve);
+		BKE_paint_invalidate_cursor_overlay(&eval_ctx, scene, view_layer, br->curve);
 	}
 
 	return OPERATOR_FINISHED;

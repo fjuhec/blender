@@ -791,6 +791,9 @@ void IMAGE_OT_view_all(wmOperatorType *ot)
 
 static int image_view_selected_exec(bContext *C, wmOperator *UNUSED(op))
 {
+	WorkSpace *workspace = CTX_wm_workspace(C);
+	EvaluationContext eval_ctx;
+	CTX_data_eval_ctx(C, &eval_ctx);
 	SpaceImage *sima;
 	ARegion *ar;
 	Scene *scene;
@@ -814,7 +817,7 @@ static int image_view_selected_exec(bContext *C, wmOperator *UNUSED(op))
 			return OPERATOR_CANCELLED;
 		}
 	}
-	else if (ED_space_image_check_show_maskedit(view_layer, sima)) {
+	else if (ED_space_image_check_show_maskedit(sima, workspace, view_layer)) {
 		if (!ED_mask_selected_minmax(C, min, max)) {
 			return OPERATOR_CANCELLED;
 		}

@@ -55,6 +55,8 @@
 
 #include "RE_engine.h"
 
+#include "DEG_depsgraph.h"
+
 struct bContext;
 struct GPUFrameBuffer;
 struct GPUShader;
@@ -455,6 +457,7 @@ struct DRWTextStore *DRW_state_text_cache_get(void);
 
 /* Avoid too many lookups while drawing */
 typedef struct DRWContextState {
+
 	struct ARegion *ar;         /* 'CTX_wm_region(C)' */
 	struct RegionView3D *rv3d;  /* 'CTX_wm_region_view3d(C)' */
 	struct View3D *v3d;     /* 'CTX_wm_view3d(C)' */
@@ -472,6 +475,8 @@ typedef struct DRWContextState {
 	/* Last resort (some functions take this as an arg so we can't easily avoid).
 	 * May be NULL when used for selection or depth buffer. */
 	const struct bContext *evil_C;
+
+	EvaluationContext eval_ctx;
 } DRWContextState;
 
 const DRWContextState *DRW_context_state_get(void);

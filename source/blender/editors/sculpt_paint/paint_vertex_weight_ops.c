@@ -118,9 +118,11 @@ static void wpaint_prev_destroy(struct WPaintPrev *wpp)
 
 static int weight_from_bones_poll(bContext *C)
 {
+	EvaluationContext eval_ctx;
+	CTX_data_eval_ctx(C, &eval_ctx);
 	Object *ob = CTX_data_active_object(C);
 
-	return (ob && (ob->mode & OB_MODE_WEIGHT_PAINT) && modifiers_isDeformedByArmature(ob));
+	return (ob && (eval_ctx.object_mode & OB_MODE_WEIGHT_PAINT) && modifiers_isDeformedByArmature(ob));
 }
 
 static int weight_from_bones_exec(bContext *C, wmOperator *op)
@@ -408,7 +410,7 @@ void PAINT_OT_weight_sample_group(wmOperatorType *ot)
  * \{ */
 
 /* fills in the selected faces with the current weight and vertex group */
-static bool weight_paint_set(Object *ob, float paintweight)
+static bool weight_paint_set(const EvaluationContext *eval_ctx, Object *ob, float paintweight)
 {
 	Mesh *me = ob->data;
 	const MPoly *mp;
@@ -456,7 +458,7 @@ static bool weight_paint_set(Object *ob, float paintweight)
 					dw->weight = paintweight;
 
 					if (me->editflag & ME_EDIT_MIRROR_X) {  /* x mirror painting */
-						int j = mesh_get_x_mirror_vert(ob, NULL, vidx, topology);
+						int j = mesh_get_x_mirror_vert(eval_ctx, ob, NULL, vidx, topology);
 						if (j >= 0) {
 							/* copy, not paint again */
 							if (vgroup_mirror != -1) {
@@ -495,6 +497,9 @@ static bool weight_paint_set(Object *ob, float paintweight)
 
 static int weight_paint_set_exec(bContext *C, wmOperator *op)
 {
+	EvaluationContext eval_ctx;
+	CTX_data_eval_ctx(C, &eval_ctx);
+
 	struct Scene *scene = CTX_data_scene(C);
 	Object *obact = CTX_data_active_object(C);
 	ToolSettings *ts = CTX_data_tool_settings(C);
@@ -505,7 +510,7 @@ static int weight_paint_set_exec(bContext *C, wmOperator *op)
 		return OPERATOR_CANCELLED;
 	}
 
-	if (weight_paint_set(obact, vgroup_weight)) {
+	if (weight_paint_set(&eval_ctx, obact, vgroup_weight)) {
 		ED_region_tag_redraw(CTX_wm_region(C)); /* XXX - should redraw all 3D views */
 		return OPERATOR_FINISHED;
 	}

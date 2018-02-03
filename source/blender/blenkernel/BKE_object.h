@@ -72,7 +72,9 @@ void BKE_object_modifier_hook_reset(struct Object *ob, struct HookModifierData *
 
 bool BKE_object_support_modifier_type_check(struct Object *ob, int modifier_type);
 
-void BKE_object_link_modifiers(struct Object *ob_dst, const struct Object *ob_src);
+void BKE_object_link_modifiers(
+        const struct EvaluationContext *eval_ctx,
+        struct Object *ob_dst, const struct Object *ob_src);
 void BKE_object_free_modifiers(struct Object *ob);
 
 void BKE_object_make_proxy(struct Object *ob, struct Object *target, struct Object *gob);
@@ -81,7 +83,9 @@ void BKE_object_copy_proxy_drivers(struct Object *ob, struct Object *target);
 bool BKE_object_exists_check(struct Object *obtest);
 bool BKE_object_is_in_editmode(struct Object *ob);
 bool BKE_object_is_in_editmode_vgroup(struct Object *ob);
-bool BKE_object_is_in_wpaint_select_vert(struct Object *ob);
+bool BKE_object_is_in_wpaint_select_vert(
+        const struct EvaluationContext *eval_ctx,
+        struct Object *ob);
 
 typedef enum eObjectVisibilityCheck {
 	OB_VISIBILITY_CHECK_FOR_VIEWPORT,

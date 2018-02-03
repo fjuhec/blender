@@ -59,6 +59,8 @@
 
 #include "UI_resources.h"
 
+#include "DEG_depsgraph.h"
+
 #include "draw_common.h"
 #include "draw_manager_text.h"
 
@@ -1308,7 +1310,10 @@ static void draw_armature_pose(Object *ob, const float const_color[4])
 
 	// if (!(base->flag & OB_FROMDUPLI)) // TODO
 	{
-		if (ob->mode & OB_MODE_POSE) {
+		const DRWContextState *draw_ctx = DRW_context_state_get();
+		const EvaluationContext *eval_ctx = &draw_ctx->eval_ctx;
+
+		if (eval_ctx->object_mode & OB_MODE_POSE) {
 			arm->flag |= ARM_POSEMODE;
 		}
 

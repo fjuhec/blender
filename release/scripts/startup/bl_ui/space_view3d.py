@@ -48,7 +48,7 @@ class VIEW3D_HT_header(Header):
         layout.template_header_3D()
 
         if obj:
-            mode = obj.mode
+            mode = context.workspace.object_mode
             # Particle edit
             if mode == 'PARTICLE_EDIT':
                 row.prop(toolsettings.particle_edit, "select_mode", text="", expand=True)

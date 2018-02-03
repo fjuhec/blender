@@ -2081,7 +2081,9 @@ void OBJECT_OT_convert(wmOperatorType *ot)
 /* used below, assumes id.new is correct */
 /* leaves selection of base/object unaltered */
 /* Does set ID->newid pointers. */
-static Base *object_add_duplicate_internal(Main *bmain, Scene *scene, ViewLayer *view_layer, Object *ob, int dupflag)
+static Base *object_add_duplicate_internal(
+        Main *bmain, Scene *scene,
+        ViewLayer *view_layer, Object *ob, int dupflag)
 {
 #define ID_NEW_REMAP_US(a)	if (      (a)->id.newid) { (a) = (void *)(a)->id.newid;       (a)->id.us++; }
 #define ID_NEW_REMAP_US2(a)	if (((ID *)a)->newid)    { (a) = ((ID  *)a)->newid;     ((ID *)a)->us++;    }
@@ -2092,10 +2094,14 @@ static Base *object_add_duplicate_internal(Main *bmain, Scene *scene, ViewLayer 
 	ID *id;
 	int a, didit;
 
-	if (ob->mode & OB_MODE_POSE) {
+	/* ignore pose mode now, Caller can inspect mode. */
+#if 0
+	if (eval_ctx->object_mode & OB_MODE_POSE) {
 		; /* nothing? */
 	}
-	else {
+	else
+#endif
+	{
 		obn = ID_NEW_SET(ob, BKE_object_copy(bmain, ob));
 		DEG_id_tag_update(&obn->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
 
@@ -2330,7 +2336,9 @@ static Base *object_add_duplicate_internal(Main *bmain, Scene *scene, ViewLayer 
  * note: don't call this within a loop since clear_* funcs loop over the entire database.
  * note: caller must do DAG_relations_tag_update(bmain);
  *       this is not done automatic since we may duplicate many objects in a batch */
-Base *ED_object_add_duplicate(Main *bmain, Scene *scene, ViewLayer *view_layer, Base *base, int dupflag)
+Base *ED_object_add_duplicate(
+        Main *bmain, Scene *scene,
+        ViewLayer *view_layer, Base *base, int dupflag)
 {
 	Base *basen;
 	Object *ob;
@@ -2362,6 +2370,8 @@ Base *ED_object_add_duplicate(Main *bmain, Scene *scene, ViewLayer *view_layer, 
 /* contextual operator dupli */
 static int duplicate_exec(bContext *C, wmOperator *op)
 {
+	EvaluationContext eval_ctx;
+	CTX_data_eval_ctx(C, &eval_ctx);
 	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
 	ViewLayer *view_layer = CTX_data_view_layer(C);

@@ -2257,8 +2257,8 @@ bool DRW_object_is_flat_normal(const Object *ob)
 int DRW_object_is_mode_shade(const Object *ob)
 {
 	BLI_assert(ob == DST.draw_ctx.obact);
-	if ((ob->mode & OB_MODE_EDIT) == 0) {
-		if (ob->mode & (OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT | OB_MODE_TEXTURE_PAINT)) {
+	if ((DST.draw_ctx.eval_ctx.object_mode & OB_MODE_EDIT) == 0) {
+		if (DST.draw_ctx.eval_ctx.object_mode & (OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT | OB_MODE_TEXTURE_PAINT)) {
 			if ((DST.draw_ctx.v3d->flag2 & V3D_SHOW_MODE_SHADE_OVERRIDE) == 0) {
 				return true;
 			}
@@ -3155,7 +3155,7 @@ static void drw_engines_enable_external(void)
 static void drw_engines_enable(const Scene *scene, ViewLayer *view_layer, RenderEngineType *engine_type)
 {
 	Object *obact = OBACT(view_layer);
-	const int mode = CTX_data_mode_enum_ex(scene->obedit, obact);
+	const int mode = CTX_data_mode_enum_ex(&DST.draw_ctx.eval_ctx, scene->obedit, obact);
 
 	drw_engines_enable_from_engine(engine_type);
 

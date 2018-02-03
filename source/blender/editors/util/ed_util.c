@@ -70,6 +70,8 @@
 #include "ED_space_api.h"
 #include "ED_util.h"
 
+#include "DEG_depsgraph.h"
+
 #include "GPU_immediate.h"
 
 #include "UI_interface.h"
@@ -90,7 +92,6 @@ void ED_editors_init(bContext *C)
 	Scene *sce = CTX_data_scene(C);
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	Object *ob, *obact = (view_layer && view_layer->basact) ? view_layer->basact->object : NULL;
-	ID *data;
 
 	/* This is called during initialization, so we don't want to store any reports */
 	ReportList *reports = CTX_wm_reports(C);
@@ -98,6 +99,7 @@ void ED_editors_init(bContext *C)
 
 	SWAP(int, reports->flag, reports_flag_prev);
 
+#if 0 // XXX TODO
 	/* toggle on modes for objects that were saved with these enabled. for
 	 * e.g. linked objects we have to ensure that they are actually the
 	 * active object in this scene. */
@@ -108,13 +110,16 @@ void ED_editors_init(bContext *C)
 			/* pass */
 		}
 		else {
-			data = ob->data;
+			ID *data = ob->data;
 			ob->mode = OB_MODE_OBJECT;
 			if ((ob == obact) && !ID_IS_LINKED(ob) && !(data && ID_IS_LINKED(data))) {
 				ED_object_toggle_modes(C, mode);
 			}
 		}
 	}
+#else
+	UNUSED_VARS(bmain, ob, obact);
+#endif
 
 	/* image editor paint mode */
 	if (sce) {
@@ -159,13 +164,15 @@ void ED_editors_exit(bContext *C)
 
 	/* global in meshtools... */
 	ED_mesh_mirror_spatial_table(NULL, NULL, NULL, NULL, 'e');
-	ED_mesh_mirror_topo_table(NULL, NULL, 'e');
+	ED_mesh_mirror_topo_table(NULL, NULL, NULL, 'e');
 }
 
 /* flush any temp data from object editing to DNA before writing files,
  * rendering, copying, etc. */
 bool ED_editors_flush_edits(const bContext *C, bool for_render)
 {
+	EvaluationContext eval_ctx;
+	CTX_data_eval_ctx(C, &eval_ctx);
 	bool has_edited = false;
 	Object *ob;
 	Main *bmain = CTX_data_main(C);
@@ -174,7 +181,7 @@ bool ED_editors_flush_edits(const bContext *C, bool for_render)
 	 * exiting we might not have a context for edit object and multiple sculpt
 	 * objects can exist at the same time */
 	for (ob = bmain->object.first; ob; ob = ob->id.next) {
-		if (ob->mode & OB_MODE_SCULPT) {
+		if (eval_ctx.object_mode & OB_MODE_SCULPT) {
 			/* flush multires changes (for sculpt) */
 			multires_force_update(ob);
 			has_edited = true;
@@ -189,7 +196,7 @@ bool ED_editors_flush_edits(const bContext *C, bool for_render)
 				BKE_sculptsession_bm_to_me(ob, false);
 			}
 		}
-		else if (ob->mode & OB_MODE_EDIT) {
+		else if (eval_ctx.object_mode & OB_MODE_EDIT) {
 			/* get editmode results */
 			has_edited = true;
 			ED_object_editmode_load(ob);

@@ -381,7 +381,7 @@ struct DerivedMesh {
 
 	/** Get the BVH used for paint modes
 	 */
-	struct PBVH *(*getPBVH)(struct Object *ob, DerivedMesh *dm);
+	struct PBVH *(*getPBVH)(const struct EvaluationContext *eval_ctx, struct Object *ob, DerivedMesh *dm);
 
 	/* Drawing Operations */
 

@@ -334,6 +334,9 @@ static void sculpt_undo_bmesh_restore_generic(bContext *C,
                                               Object *ob,
                                               SculptSession *ss)
 {
+	EvaluationContext eval_ctx;
+	CTX_data_eval_ctx(C, &eval_ctx);
+ 
 	if (unode->applied) {
 		BM_log_undo(ss->bm, ss->bm_log);
 		unode->applied = false;
@@ -363,18 +366,19 @@ static void sculpt_undo_bmesh_restore_generic(bContext *C,
 			MEM_freeN(nodes);
 	}
 	else {
-		sculpt_pbvh_clear(ob);
+		sculpt_pbvh_clear(&eval_ctx, ob);
 	}
 }
 
 /* Create empty sculpt BMesh and enable logging */
-static void sculpt_undo_bmesh_enable(Object *ob,
-                                     SculptUndoNode *unode)
+static void sculpt_undo_bmesh_enable(
+        const EvaluationContext *eval_ctx,
+        Object *ob, SculptUndoNode *unode)
 {
 	SculptSession *ss = ob->sculpt;
 	Mesh *me = ob->data;
 
-	sculpt_pbvh_clear(ob);
+	sculpt_pbvh_clear(eval_ctx, ob);
 
 	/* Create empty BMesh and enable logging */
 	ss->bm = BM_mesh_create(
@@ -394,12 +398,14 @@ static void sculpt_undo_bmesh_restore_begin(bContext *C,
                                             Object *ob,
                                             SculptSession *ss)
 {
+	EvaluationContext eval_ctx;
+	CTX_data_eval_ctx(C, &eval_ctx);
 	if (unode->applied) {
 		sculpt_dynamic_topology_disable(C, unode);
 		unode->applied = false;
 	}
 	else {
-		sculpt_undo_bmesh_enable(ob, unode);
+		sculpt_undo_bmesh_enable(&eval_ctx, ob, unode);
 
 		/* Restore the mesh from the first log entry */
 		BM_log_redo(ss->bm, ss->bm_log);
@@ -413,8 +419,10 @@ static void sculpt_undo_bmesh_restore_end(bContext *C,
                                           Object *ob,
                                           SculptSession *ss)
 {
+	EvaluationContext eval_ctx;
+	CTX_data_eval_ctx(C, &eval_ctx);
 	if (unode->applied) {
-		sculpt_undo_bmesh_enable(ob, unode);
+		sculpt_undo_bmesh_enable(&eval_ctx, ob, unode);
 
 		/* Restore the mesh from the last log entry */
 		BM_log_undo(ss->bm, ss->bm_log);

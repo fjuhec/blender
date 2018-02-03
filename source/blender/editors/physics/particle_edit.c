@@ -43,6 +43,7 @@
 #include "DNA_view3d_types.h"
 #include "DNA_screen_types.h"
 #include "DNA_space_types.h"
+#include "DNA_workspace_types.h"
 
 #include "BLI_math.h"
 #include "BLI_lasso.h"
@@ -113,26 +114,30 @@ void update_world_cos(Object *ob, PTCacheEdit *edit);
 
 int PE_poll(bContext *C)
 {
+	EvaluationContext eval_ctx;
+	CTX_data_eval_ctx(C, &eval_ctx);
 	Scene *scene= CTX_data_scene(C);
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	Object *ob= CTX_data_active_object(C);
 
-	if (!scene || !view_layer || !ob || !(ob->mode & OB_MODE_PARTICLE_EDIT))
+	if (!scene || !view_layer || !ob || !(eval_ctx.object_mode & OB_MODE_PARTICLE_EDIT)) {
 		return 0;
-	
+	}
 	return (PE_get_current(scene, view_layer, ob) != NULL);
 }
 
 int PE_hair_poll(bContext *C)
 {
+	EvaluationContext eval_ctx;
+	CTX_data_eval_ctx(C, &eval_ctx);
 	Scene *scene= CTX_data_scene(C);
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	Object *ob= CTX_data_active_object(C);
 	PTCacheEdit *edit;
 
-	if (!scene || !ob || !(ob->mode & OB_MODE_PARTICLE_EDIT))
+	if (!scene || !ob || !(eval_ctx.object_mode & OB_MODE_PARTICLE_EDIT)) {
 		return 0;
-	
+	}
 	edit= PE_get_current(scene, view_layer, ob);
 
 	return (edit && edit->psys);
@@ -317,7 +322,7 @@ PTCacheEdit *PE_create_current(const EvaluationContext *eval_ctx, Scene *scene, 
 
 void PE_current_changed(const EvaluationContext *eval_ctx, Scene *scene, Object *ob)
 {
-	if (ob->mode == OB_MODE_PARTICLE_EDIT) {
+	if (eval_ctx->object_mode == OB_MODE_PARTICLE_EDIT) {
 		PE_create_current(eval_ctx, scene, ob);
 	}
 }
@@ -2840,7 +2845,8 @@ void PARTICLE_OT_delete(wmOperatorType *ot)
 
 /*************************** mirror operator **************************/
 
-static void PE_mirror_x(Scene *scene, ViewLayer *view_layer, Object *ob, int tagged)
+static void PE_mirror_x(
+        const EvaluationContext *eval_ctx, Scene *scene, ViewLayer *view_layer, Object *ob, int tagged)
 {
 	Mesh *me= (Mesh *)(ob->data);
 	ParticleSystemModifierData *psmd;
@@ -2867,7 +2873,7 @@ static void PE_mirror_x(Scene *scene, ViewLayer *view_layer, Object *ob, int tag
 
 	/* Note: In case psys uses DM tessface indices, we mirror final DM itself, not orig mesh. Avoids an (impossible)
 	 *       dm -> orig -> dm tessface indices conversion... */
-	mirrorfaces = mesh_get_x_mirror_faces(ob, NULL, use_dm_final_indices ? psmd->dm_final : NULL);
+	mirrorfaces = mesh_get_x_mirror_faces(eval_ctx, ob, NULL, use_dm_final_indices ? psmd->dm_final : NULL);
 
 	if (!edit->mirror_cache)
 		PE_update_mirror_cache(ob, psys);
@@ -2990,12 +2996,14 @@ static void PE_mirror_x(Scene *scene, ViewLayer *view_layer, Object *ob, int tag
 
 static int mirror_exec(bContext *C, wmOperator *UNUSED(op))
 {
+	EvaluationContext eval_ctx;
+	CTX_data_eval_ctx(C, &eval_ctx);
 	Scene *scene= CTX_data_scene(C);
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	Object *ob= CTX_data_active_object(C);
 	PTCacheEdit *edit= PE_get_current(scene, view_layer, ob);
-	
-	PE_mirror_x(scene, view_layer, ob, 0);
+
+	PE_mirror_x(&eval_ctx, scene, view_layer, ob, 0);
 
 	update_world_cos(ob, edit);
 	WM_event_add_notifier(C, NC_OBJECT|ND_PARTICLE|NA_EDITED, ob);
@@ -4015,7 +4023,7 @@ static void brush_edit_apply(bContext *C, wmOperator *op, PointerRNA *itemptr)
 
 			if (ELEM(pset->brushtype, PE_BRUSH_ADD, PE_BRUSH_CUT) && (added || removed)) {
 				if (pset->brushtype == PE_BRUSH_ADD && pe_x_mirror(ob))
-					PE_mirror_x(scene, view_layer, ob, 1);
+					PE_mirror_x(&eval_ctx, scene, view_layer, ob, 1);
 
 				update_world_cos(ob, edit);
 				psys_free_path_cache(NULL, edit);
@@ -4779,26 +4787,27 @@ static int particle_edit_toggle_poll(bContext *C)
 
 static int particle_edit_toggle_exec(bContext *C, wmOperator *op)
 {
+	struct WorkSpace *workspace = CTX_wm_workspace(C);
+	EvaluationContext eval_ctx;
+	CTX_data_eval_ctx(C, &eval_ctx);
 	Scene *scene = CTX_data_scene(C);
 	Object *ob = CTX_data_active_object(C);
 	const int mode_flag = OB_MODE_PARTICLE_EDIT;
-	const bool is_mode_set = (ob->mode & mode_flag) != 0;
+	const bool is_mode_set = (eval_ctx.object_mode & mode_flag) != 0;
 
 	BKE_report(op->reports, RPT_INFO, "Particles are changing, editing is not possible");
 	return OPERATOR_CANCELLED;
 
 	if (!is_mode_set) {
-		if (!ED_object_mode_compat_set(C, ob, mode_flag, op->reports)) {
+		if (!ED_object_mode_compat_set(C, workspace, mode_flag, op->reports)) {
 			return OPERATOR_CANCELLED;
 		}
 	}
 
 	if (!is_mode_set) {
 		PTCacheEdit *edit;
-		EvaluationContext eval_ctx;
-		CTX_data_eval_ctx(C, &eval_ctx);
 
-		ob->mode |= mode_flag;
+		workspace->object_mode |= mode_flag;
 		edit= PE_create_current(&eval_ctx, scene, ob);
 	
 		/* mesh may have changed since last entering editmode.
@@ -4810,7 +4819,7 @@ static int particle_edit_toggle_exec(bContext *C, wmOperator *op)
 		WM_event_add_notifier(C, NC_SCENE|ND_MODE|NS_MODE_PARTICLE, NULL);
 	}
 	else {
-		ob->mode &= ~mode_flag;
+		workspace->object_mode &= ~mode_flag;
 		toggle_particle_cursor(C, 0);
 		WM_event_add_notifier(C, NC_SCENE|ND_MODE|NS_MODE_OBJECT, NULL);
 	}

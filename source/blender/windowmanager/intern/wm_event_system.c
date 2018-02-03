@@ -383,7 +383,7 @@ void wm_event_do_notifiers(bContext *C)
 
 						UI_popup_handlers_remove_all(C, &win->modalhandlers);
 
-						ED_workspace_change(ref_ws, C, wm, win);
+						ED_workspace_change(ref_ws, C, win);
 						if (G.debug & G_DEBUG_EVENTS)
 							printf("%s: Workspace set %p\n", __func__, note->reference);
 					}

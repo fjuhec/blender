@@ -73,6 +73,8 @@
 #include "BKE_unit.h"
 #include "BKE_paint.h"
 
+#include "DEG_depsgraph.h"
+
 #include "ED_screen.h"
 #include "ED_util.h"
 #include "ED_keyframing.h"
@@ -5230,10 +5232,12 @@ static int ui_do_but_COLOR(
 		if (event->type == LEFTMOUSE && event->val == KM_RELEASE) {
 			if ((int)(but->a1) == UI_PALETTE_COLOR) {
 				if (!event->ctrl) {
+					EvaluationContext eval_ctx;
+					CTX_data_eval_ctx(C, &eval_ctx);
 					float color[3];
 					Scene *scene = CTX_data_scene(C);
 					ViewLayer *view_layer = CTX_data_view_layer(C);
-					Paint *paint = BKE_paint_get_active(scene, view_layer);
+					Paint *paint = BKE_paint_get_active(&eval_ctx, scene, view_layer);
 					Brush *brush = BKE_paint_brush(paint);
 
 					if (brush->flag & BRUSH_USE_GRADIENT) {
@@ -6149,6 +6153,10 @@ static int ui_do_but_CURVE(
 {
 	int mx, my, a;
 	bool changed = false;
+
+	EvaluationContext eval_ctx;
+	CTX_data_eval_ctx(C, &eval_ctx);
+
 	Scene *scene = CTX_data_scene(C);
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 
@@ -6279,7 +6287,7 @@ static int ui_do_but_CURVE(
 				}
 				else {
 					curvemapping_changed(cumap, true);  /* remove doubles */
-					BKE_paint_invalidate_cursor_overlay(scene, view_layer, cumap);
+					BKE_paint_invalidate_cursor_overlay(&eval_ctx, scene, view_layer, cumap);
 				}
 			}
 

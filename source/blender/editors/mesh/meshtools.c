@@ -222,9 +222,10 @@ static void join_mesh_single(
 			multiresModifier_prepare_join(&eval_ctx, scene, ob_src, ob_dst);
 
 			if ((mmd = get_multires_modifier(scene, ob_src, true))) {
-				ED_object_iter_other(bmain, ob_src, true,
-				                     ED_object_multires_update_totlevels_cb,
-				                     &mmd->totlvl);
+				ED_object_iter_other(
+				        &eval_ctx, bmain, ob_src, true,
+				        ED_object_multires_update_totlevels_cb,
+				        &mmd->totlvl);
 			}
 		}
 
@@ -777,15 +778,16 @@ static MirrTopoStore_t mesh_topo_store = {NULL, -1. - 1, -1};
 /* mode is 's' start, or 'e' end, or 'u' use */
 /* if end, ob can be NULL */
 /* note, is supposed return -1 on error, which callers are currently checking for, but is not used so far */
-int ED_mesh_mirror_topo_table(Object *ob, DerivedMesh *dm, char mode)
+int ED_mesh_mirror_topo_table(
+        const EvaluationContext *eval_ctx, Object *ob, DerivedMesh *dm, char mode)
 {
 	if (mode == 'u') {        /* use table */
-		if (ED_mesh_mirrtopo_recalc_check(ob->data, dm, ob->mode, &mesh_topo_store)) {
-			ED_mesh_mirror_topo_table(ob, dm, 's');
+		if (ED_mesh_mirrtopo_recalc_check(ob->data, dm, eval_ctx->object_mode, &mesh_topo_store)) {
+			ED_mesh_mirror_topo_table(eval_ctx, ob, dm, 's');
 		}
 	}
 	else if (mode == 's') { /* start table */
-		ED_mesh_mirrtopo_init(ob->data, dm, ob->mode, &mesh_topo_store, false);
+		ED_mesh_mirrtopo_init(ob->data, dm, eval_ctx->object_mode, &mesh_topo_store, false);
 	}
 	else if (mode == 'e') { /* end table */
 		ED_mesh_mirrtopo_free(&mesh_topo_store);
@@ -814,18 +816,20 @@ static int mesh_get_x_mirror_vert_spatial(Object *ob, DerivedMesh *dm, int index
 	return ED_mesh_mirror_spatial_table(ob, NULL, dm, vec, 'u');
 }
 
-static int mesh_get_x_mirror_vert_topo(Object *ob, DerivedMesh *dm, int index)
+static int mesh_get_x_mirror_vert_topo(
+        const EvaluationContext *eval_ctx, Object *ob, DerivedMesh *dm, int index)
 {
-	if (ED_mesh_mirror_topo_table(ob, dm, 'u') == -1)
+	if (ED_mesh_mirror_topo_table(eval_ctx, ob, dm, 'u') == -1)
 		return -1;
 
 	return mesh_topo_store.index_lookup[index];
 }
 
-int mesh_get_x_mirror_vert(Object *ob, DerivedMesh *dm, int index, const bool use_topology)
+int mesh_get_x_mirror_vert(
+        const EvaluationContext *eval_ctx, Object *ob, DerivedMesh *dm, int index, const bool use_topology)
 {
 	if (use_topology) {
-		return mesh_get_x_mirror_vert_topo(ob, dm, index);
+		return mesh_get_x_mirror_vert_topo(eval_ctx, ob, dm, index);
 	}
 	else {
 		return mesh_get_x_mirror_vert_spatial(ob, dm, index);
@@ -856,10 +860,11 @@ static BMVert *editbmesh_get_x_mirror_vert_spatial(Object *ob, BMEditMesh *em, c
 	return NULL;
 }
 
-static BMVert *editbmesh_get_x_mirror_vert_topo(Object *ob, struct BMEditMesh *em, BMVert *eve, int index)
+static BMVert *editbmesh_get_x_mirror_vert_topo(
+        const EvaluationContext *eval_ctx, Object *ob, struct BMEditMesh *em, BMVert *eve, int index)
 {
 	intptr_t poinval;
-	if (ED_mesh_mirror_topo_table(ob, NULL, 'u') == -1)
+	if (ED_mesh_mirror_topo_table(eval_ctx, ob, NULL, 'u') == -1)
 		return NULL;
 
 	if (index == -1) {
@@ -885,10 +890,12 @@ static BMVert *editbmesh_get_x_mirror_vert_topo(Object *ob, struct BMEditMesh *e
 	return NULL;
 }	
 
-BMVert *editbmesh_get_x_mirror_vert(Object *ob, struct BMEditMesh *em, BMVert *eve, const float co[3], int index, const bool use_topology)
+BMVert *editbmesh_get_x_mirror_vert(
+        const EvaluationContext *eval_ctx,
+        Object *ob, struct BMEditMesh *em, BMVert *eve, const float co[3], int index, const bool use_topology)
 {
 	if (use_topology) {
-		return editbmesh_get_x_mirror_vert_topo(ob, em, eve, index);
+		return editbmesh_get_x_mirror_vert_topo(eval_ctx, ob, em, eve, index);
 	}
 	else {
 		return editbmesh_get_x_mirror_vert_spatial(ob, em, co);
@@ -900,7 +907,8 @@ BMVert *editbmesh_get_x_mirror_vert(Object *ob, struct BMEditMesh *em, BMVert *e
  *
  * call #BM_mesh_elem_table_ensure first for editmesh.
  */
-int ED_mesh_mirror_get_vert(Object *ob, int index)
+int ED_mesh_mirror_get_vert(
+        const EvaluationContext *eval_ctx, Object *ob, int index)
 {
 	Mesh *me = ob->data;
 	BMEditMesh *em = me->edit_btmesh;
@@ -910,11 +918,11 @@ int ED_mesh_mirror_get_vert(Object *ob, int index)
 	if (em) {
 		BMVert *eve, *eve_mirr;
 		eve = BM_vert_at_index(em->bm, index);
-		eve_mirr = editbmesh_get_x_mirror_vert(ob, em, eve, eve->co, index, use_topology);
+		eve_mirr = editbmesh_get_x_mirror_vert(eval_ctx, ob, em, eve, eve->co, index, use_topology);
 		index_mirr = eve_mirr ? BM_elem_index_get(eve_mirr) : -1;
 	}
 	else {
-		index_mirr = mesh_get_x_mirror_vert(ob, NULL, index, use_topology);
+		index_mirr = mesh_get_x_mirror_vert(eval_ctx, ob, NULL, index, use_topology);
 	}
 
 	return index_mirr;
@@ -1026,7 +1034,7 @@ static bool mirror_facecmp(const void *a, const void *b)
 }
 
 /* BMESH_TODO, convert to MPoly (functions above also) */
-int *mesh_get_x_mirror_faces(Object *ob, BMEditMesh *em, DerivedMesh *dm)
+int *mesh_get_x_mirror_faces(const EvaluationContext *eval_ctx, Object *ob, BMEditMesh *em, DerivedMesh *dm)
 {
 	Mesh *me = ob->data;
 	MVert *mv, *mvert;
@@ -1050,7 +1058,7 @@ int *mesh_get_x_mirror_faces(Object *ob, BMEditMesh *em, DerivedMesh *dm)
 	ED_mesh_mirror_spatial_table(ob, em, dm, NULL, 's');
 
 	for (a = 0, mv = mvert; a < totvert; a++, mv++)
-		mirrorverts[a] = mesh_get_x_mirror_vert(ob, dm, a, use_topology);
+		mirrorverts[a] = mesh_get_x_mirror_vert(eval_ctx, ob, dm, a, use_topology);
 
 	ED_mesh_mirror_spatial_table(ob, em, dm, NULL, 'e');
 
@@ -1337,9 +1345,9 @@ bool ED_mesh_pick_vert(bContext *C, Object *ob, const int mval[2], unsigned int 
 }
 
 
-MDeformVert *ED_mesh_active_dvert_get_em(Object *ob, BMVert **r_eve)
+MDeformVert *ED_mesh_active_dvert_get_em(const EvaluationContext *eval_ctx, Object *ob, BMVert **r_eve)
 {
-	if (ob->mode & OB_MODE_EDIT && ob->type == OB_MESH && ob->defbase.first) {
+	if (eval_ctx->object_mode & OB_MODE_EDIT && ob->type == OB_MESH && ob->defbase.first) {
 		Mesh *me = ob->data;
 		BMesh *bm = me->edit_btmesh->bm;
 		const int cd_dvert_offset = CustomData_get_offset(&bm->vdata, CD_MDEFORMVERT);
@@ -1371,11 +1379,11 @@ MDeformVert *ED_mesh_active_dvert_get_ob(Object *ob, int *r_index)
 	}
 }
 
-MDeformVert *ED_mesh_active_dvert_get_only(Object *ob)
+MDeformVert *ED_mesh_active_dvert_get_only(const EvaluationContext *eval_ctx, Object *ob)
 {
 	if (ob->type == OB_MESH) {
-		if (ob->mode & OB_MODE_EDIT) {
-			return ED_mesh_active_dvert_get_em(ob, NULL);
+		if (eval_ctx->object_mode & OB_MODE_EDIT) {
+			return ED_mesh_active_dvert_get_em(eval_ctx, ob, NULL);
 		}
 		else {
 			return ED_mesh_active_dvert_get_ob(ob, NULL);

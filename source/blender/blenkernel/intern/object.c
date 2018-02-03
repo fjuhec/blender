@@ -262,7 +262,9 @@ bool BKE_object_support_modifier_type_check(Object *ob, int modifier_type)
 	return true;
 }
 
-void BKE_object_link_modifiers(struct Object *ob_dst, const struct Object *ob_src)
+void BKE_object_link_modifiers(
+        const EvaluationContext *eval_ctx,
+        struct Object *ob_dst, const struct Object *ob_src)
 {
 	ModifierData *md;
 	BKE_object_free_modifiers(ob_dst);
@@ -301,7 +303,8 @@ void BKE_object_link_modifiers(struct Object *ob_dst, const struct Object *ob_sr
 
 		if (md->type == eModifierType_Multires) {
 			/* Has to be done after mod creation, but *before* we actually copy its settings! */
-			multiresModifier_sync_levels_ex(ob_dst, (MultiresModifierData *)md, (MultiresModifierData *)nmd);
+			multiresModifier_sync_levels_ex(
+			        eval_ctx, ob_dst, (MultiresModifierData *)md, (MultiresModifierData *)nmd);
 		}
 
 		modifier_copyData(md, nmd);
@@ -464,7 +467,8 @@ void BKE_object_free(Object *ob)
 	}
 	BLI_freelistN(&ob->drawdata);
 
-	BKE_sculptsession_free(ob);
+	/* XXX, use real eval_ctx? - it only for the mode */
+	BKE_sculptsession_free(G.main->eval_ctx, ob);
 
 	BLI_freelistN(&ob->pc_ids);
 
@@ -535,11 +539,11 @@ bool BKE_object_is_in_editmode_vgroup(Object *ob)
 	        BKE_object_is_in_editmode(ob));
 }
 
-bool BKE_object_is_in_wpaint_select_vert(Object *ob)
+bool BKE_object_is_in_wpaint_select_vert(const EvaluationContext *eval_ctx, Object *ob)
 {
 	if (ob->type == OB_MESH) {
 		Mesh *me = ob->data;
-		return ((ob->mode & OB_MODE_WEIGHT_PAINT) &&
+		return ((eval_ctx->object_mode & OB_MODE_WEIGHT_PAINT) &&
 		        (me->edit_btmesh == NULL) &&
 		        (ME_EDIT_PAINT_SEL_MODE(me) == SCE_SELECT_VERTEX));
 	}
@@ -1155,7 +1159,9 @@ bool BKE_object_pose_context_check(Object *ob)
 	if ((ob) &&
 	    (ob->type == OB_ARMATURE) &&
 	    (ob->pose) &&
-	    (ob->mode & OB_MODE_POSE))
+	    // (ob->mode & OB_MODE_POSE)
+	    (((bArmature *)ob->data)->flag & ARM_POSEMODE)
+	    )
 	{
 		return true;
 	}
@@ -1241,7 +1247,6 @@ void BKE_object_copy_data(Main *UNUSED(bmain), Object *ob_dst, const Object *ob_
 	BKE_object_facemap_copy_list(&ob_dst->fmaps, &ob_src->fmaps);
 	BKE_constraints_copy_ex(&ob_dst->constraints, &ob_src->constraints, flag_subdata, true);
 
-	ob_dst->mode = OB_MODE_OBJECT;
 	ob_dst->sculpt = NULL;
 
 	if (ob_src->pd) {

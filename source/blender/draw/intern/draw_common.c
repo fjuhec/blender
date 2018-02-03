@@ -33,8 +33,9 @@
 #include "BKE_global.h"
 #include "BKE_colorband.h"
 
-#include "draw_common.h"
+#include "DEG_depsgraph.h"
 
+#include "draw_common.h"
 
 #if 0
 #define UI_COLOR_RGB_FROM_U8(r, g, b, v4) \
@@ -384,9 +385,12 @@ DRWShadingGroup *shgroup_instance_mball_helpers(DRWPass *pass, struct Gwn_Batch 
  * Get the wire color theme_id of an object based on it's state
  * \a r_color is a way to get a pointer to the static color var associated
  */
-int DRW_object_wire_theme_get(Object *ob, ViewLayer *view_layer, float **r_color)
+int DRW_object_wire_theme_get(
+        Object *ob, ViewLayer *view_layer, float **r_color)
 {
-	const bool is_edit = (ob->mode & OB_MODE_EDIT) != 0;
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	const EvaluationContext *eval_ctx = &draw_ctx->eval_ctx;
+	const bool is_edit = (eval_ctx->object_mode & OB_MODE_EDIT) != 0;
 	const bool active = (view_layer->basact && view_layer->basact->object == ob);
 	/* confusing logic here, there are 2 methods of setting the color
 	 * 'colortab[colindex]' and 'theme_id', colindex overrides theme_id.

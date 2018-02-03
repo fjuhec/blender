@@ -1790,6 +1790,7 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 	OBJECT_PassList *psl = ((OBJECT_Data *)vedata)->psl;
 	OBJECT_StorageList *stl = ((OBJECT_Data *)vedata)->stl;
 	const DRWContextState *draw_ctx = DRW_context_state_get();
+	const EvaluationContext *eval_ctx = &draw_ctx->eval_ctx;
 	Scene *scene = draw_ctx->scene;
 	ViewLayer *view_layer = draw_ctx->view_layer;
 	View3D *v3d = draw_ctx->v3d;
@@ -1811,7 +1812,7 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 
 	if (do_outlines) {
 		Object *obedit = scene->obedit;
-		if (ob != obedit && !((ob == draw_ctx->obact) && (ob->mode & OB_MODE_ALL_PAINT))) {
+		if (ob != obedit && !((ob == draw_ctx->obact) && (eval_ctx->object_mode & OB_MODE_ALL_PAINT))) {
 			struct Gwn_Batch *geom = DRW_cache_object_surface_get(ob);
 			if (geom) {
 				theme_id = DRW_object_wire_theme_get(ob, view_layer, NULL);

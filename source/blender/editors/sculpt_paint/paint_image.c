@@ -588,13 +588,15 @@ static Brush *image_paint_brush(bContext *C)
 
 static int image_paint_poll(bContext *C)
 {
+	EvaluationContext eval_ctx;
+	CTX_data_eval_ctx(C, &eval_ctx);
 	Object *obact;
 
-	if (!image_paint_brush(C))
+	if (!image_paint_brush(C)) {
 		return 0;
-
+	}
 	obact = CTX_data_active_object(C);
-	if ((obact && obact->mode & OB_MODE_TEXTURE_PAINT) && CTX_wm_region_view3d(C)) {
+	if ((obact && eval_ctx.object_mode & OB_MODE_TEXTURE_PAINT) && CTX_wm_region_view3d(C)) {
 		return 1;
 	}
 	else {
@@ -1374,19 +1376,20 @@ static int texture_paint_toggle_poll(bContext *C)
 
 static int texture_paint_toggle_exec(bContext *C, wmOperator *op)
 {
+	WorkSpace *workspace = CTX_wm_workspace(C);
 	Scene *scene = CTX_data_scene(C);
 	Object *ob = CTX_data_active_object(C);
 	const int mode_flag = OB_MODE_TEXTURE_PAINT;
-	const bool is_mode_set = (ob->mode & mode_flag) != 0;
+	const bool is_mode_set = (workspace->object_mode & mode_flag) != 0;
 
 	if (!is_mode_set) {
-		if (!ED_object_mode_compat_set(C, ob, mode_flag, op->reports)) {
+		if (!ED_object_mode_compat_set(C, workspace, mode_flag, op->reports)) {
 			return OPERATOR_CANCELLED;
 		}
 	}
 
-	if (ob->mode & mode_flag) {
-		ob->mode &= ~mode_flag;
+	if (workspace->object_mode & mode_flag) {
+		workspace->object_mode &= ~mode_flag;
 
 		if (U.glreslimit != 0)
 			GPU_free_images();
@@ -1434,7 +1437,7 @@ static int texture_paint_toggle_exec(bContext *C, wmOperator *op)
 			}
 		}
 		
-		ob->mode |= mode_flag;
+		workspace->object_mode |= mode_flag;
 
 		BKE_paint_init(scene, ePaintTextureProjective, PAINT_CURSOR_TEXTURE_PAINT);
 
@@ -1469,11 +1472,13 @@ void PAINT_OT_texture_paint_toggle(wmOperatorType *ot)
 
 static int brush_colors_flip_exec(bContext *C, wmOperator *UNUSED(op))
 {
+	EvaluationContext eval_ctx;
+	CTX_data_eval_ctx(C, &eval_ctx);
 	UnifiedPaintSettings *ups = &CTX_data_tool_settings(C)->unified_paint_settings;
 
 	Brush *br;
 	Object *ob = CTX_data_active_object(C);
-	if (!(ob && (ob->mode & OB_MODE_VERTEX_PAINT))) {
+	if (!(ob && (eval_ctx.object_mode & OB_MODE_VERTEX_PAINT))) {
 		br = image_paint_brush(C);
 	}
 	else {
@@ -1504,8 +1509,12 @@ static int brush_colors_flip_poll(bContext *C)
 	}
 	else {
 		Object *ob = CTX_data_active_object(C);
-		if (ob && (ob->mode & OB_MODE_VERTEX_PAINT)) {
-			return 1;
+		if (ob) {
+			EvaluationContext eval_ctx;
+			CTX_data_eval_ctx(C, &eval_ctx);
+			if (eval_ctx.object_mode & OB_MODE_VERTEX_PAINT) {
+				return 1;
+			}
 		}
 	}
 	return 0;
@@ -1545,10 +1554,13 @@ void ED_imapaint_bucket_fill(struct bContext *C, float color[3], wmOperator *op)
 
 static int texture_paint_poll(bContext *C)
 {
-	if (texture_paint_toggle_poll(C))
-		if (CTX_data_active_object(C)->mode & OB_MODE_TEXTURE_PAINT)
+	if (texture_paint_toggle_poll(C)) {
+		EvaluationContext eval_ctx;
+		CTX_data_eval_ctx(C, &eval_ctx);
+		if (eval_ctx.object_mode & OB_MODE_TEXTURE_PAINT) {
 			return 1;
-	
+		}
+	}
 	return 0;
 }
 
@@ -1559,16 +1571,22 @@ int image_texture_paint_poll(bContext *C)
 
 int facemask_paint_poll(bContext *C)
 {
-	return BKE_paint_select_face_test(CTX_data_active_object(C));
+	EvaluationContext eval_ctx;
+	CTX_data_eval_ctx(C, &eval_ctx);
+	return BKE_paint_select_face_test(&eval_ctx, CTX_data_active_object(C));
 }
 
 int vert_paint_poll(bContext *C)
 {
-	return BKE_paint_select_vert_test(CTX_data_active_object(C));
+	EvaluationContext eval_ctx;
+	CTX_data_eval_ctx(C, &eval_ctx);
+	return BKE_paint_select_vert_test(&eval_ctx, CTX_data_active_object(C));
 }
 
 int mask_paint_poll(bContext *C)
 {
-	return BKE_paint_select_elem_test(CTX_data_active_object(C));
+	EvaluationContext eval_ctx;
+	CTX_data_eval_ctx(C, &eval_ctx);
+	return BKE_paint_select_elem_test(&eval_ctx, CTX_data_active_object(C));
 }
 
