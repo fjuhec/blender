@@ -177,6 +177,9 @@ static void eevee_draw_background(void *vedata)
 	DefaultTextureList *dtxl = DRW_viewport_texture_list_get();
 	DefaultFramebufferList *dfbl = DRW_viewport_framebuffer_list_get();
 
+	/* Sort transparents before the loop. */
+	DRW_pass_sort_shgroup_z(psl->transparent_pass);
+
 	/* Number of iteration: needed for all temporal effect (SSR, TAA)
 	 * when using opengl render. */
 	int loop_ct = DRW_state_is_image_render() ? 4 : 1;
@@ -191,13 +194,14 @@ static void eevee_draw_background(void *vedata)
 		{
 			BLI_halton_3D(primes, offset, stl->effects->taa_current_sample, r);
 			EEVEE_update_noise(psl, fbl, r);
-
 			EEVEE_volumes_set_jitter(sldata, stl->effects->taa_current_sample - 1);
+			EEVEE_materials_init(sldata, stl, fbl);
 		}
 
 		/* Refresh Probes */
 		DRW_stats_group_start("Probes Refresh");
 		EEVEE_lightprobes_refresh(sldata, vedata);
+		EEVEE_lightprobes_refresh_planar(sldata, vedata);
 		DRW_stats_group_end();
 
 		/* Update common buffer after probe rendering. */
@@ -273,7 +277,6 @@ static void eevee_draw_background(void *vedata)
 		EEVEE_volumes_resolve(sldata, vedata);
 
 		/* Transparent */
-		DRW_pass_sort_shgroup_z(psl->transparent_pass);
 		DRW_draw_pass(psl->transparent_pass);
 
 		/* Post Process */
