@@ -50,6 +50,22 @@
 
 #include "gpencil_engine.h"
 
+/* helper to convert color space to linear */
+static void gpencil_linear_colorspace(const float color[4], float r_color[4])
+{
+	const char *display_device;
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	Scene *scene = draw_ctx->scene;
+
+	display_device = scene->display_settings.display_device;
+	if ((DRW_state_is_image_render()) && (strcmp(display_device, "sRGB") == 0)) {
+		srgb_to_linearrgb_v4(r_color, color);
+	}
+	else {
+		copy_v4_v4(r_color, color);
+	}
+}
+
 /* set stroke point to vbo */
 static void gpencil_set_stroke_point(
         Gwn_VertBuf *vbo, float matrix[4][4], const bGPDspoint *pt, int idx,
@@ -58,12 +74,15 @@ static void gpencil_set_stroke_point(
         const float ink[4])
 {
 	float viewfpt[3];
-	
+	float space_color[4];
+
 	float alpha = ink[3] * pt->strength;
 	CLAMP(alpha, GPENCIL_STRENGTH_MIN, 1.0f);
 	float col[4];
 	ARRAY_SET_ITEMS(col, ink[0], ink[1], ink[2], alpha);
-	GWN_vertbuf_attr_set(vbo, color_id, idx, col);
+
+	gpencil_linear_colorspace(col, space_color);
+	GWN_vertbuf_attr_set(vbo, color_id, idx, space_color);
 
 	/* the thickness of the stroke must be affected by zoom, so a pixel scale is calculated */
 	mul_v3_m4v3(viewfpt, matrix, &pt->x);
@@ -92,6 +111,7 @@ Gwn_Batch *DRW_gpencil_get_point_geom(bGPDstroke *gps, short thickness, const fl
 	int idx = 0;
 	float alpha;
 	float col[4];
+	float space_color[4];
 
 	for (int i = 0; i < gps->totpoints; i++, pt++) {
 		/* set point */
@@ -101,7 +121,8 @@ Gwn_Batch *DRW_gpencil_get_point_geom(bGPDstroke *gps, short thickness, const fl
 
 		float thick = max_ff(pt->pressure * thickness, 1.0f);
 
-		GWN_vertbuf_attr_set(vbo, color_id, idx, col);
+		gpencil_linear_colorspace(col, space_color);
+		GWN_vertbuf_attr_set(vbo, color_id, idx, space_color);
 		GWN_vertbuf_attr_set(vbo, size_id, idx, &thick);
 		GWN_vertbuf_attr_set(vbo, pos_id, idx, &pt->x);
 		++idx;
@@ -586,6 +607,9 @@ static void gpencil_set_fill_point(
 Gwn_Batch *DRW_gpencil_get_fill_geom(bGPDstroke *gps, const float color[4])
 {
 	BLI_assert(gps->totpoints >= 3);
+	
+	float space_color[4];
+	gpencil_linear_colorspace(color, space_color);
 
 	/* Calculate triangles cache for filling area (must be done only after changes) */
 	if ((gps->flag & GP_STROKE_RECALC_CACHES) || (gps->tot_triangles == 0) || (gps->triangles == NULL)) {
@@ -610,7 +634,7 @@ Gwn_Batch *DRW_gpencil_get_fill_geom(bGPDstroke *gps, const float color[4])
 	for (int i = 0; i < gps->tot_triangles; i++, stroke_triangle++) {
 		for (int j = 0; j < 3; j++) {
 			gpencil_set_fill_point(
-			        vbo, idx, &gps->points[stroke_triangle->verts[j]], color, stroke_triangle->uv[j],
+			        vbo, idx, &gps->points[stroke_triangle->verts[j]], space_color, stroke_triangle->uv[j],
 			        pos_id, color_id, text_id);
 			++idx;
 		}
