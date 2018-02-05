@@ -777,7 +777,7 @@ struct GPUMaterial *EEVEE_material_mesh_depth_get(struct Scene *scene, Material 
 struct GPUMaterial *EEVEE_material_hair_get(struct Scene *scene, Material *ma, int shadow_method);
 void EEVEE_materials_free(void);
 void EEVEE_draw_default_passes(EEVEE_PassList *psl);
-void EEVEE_update_noise(EEVEE_PassList *psl, EEVEE_FramebufferList *fbl, double offsets[3]);
+void EEVEE_update_noise(EEVEE_PassList *psl, EEVEE_FramebufferList *fbl, const double offsets[3]);
 
 /* eevee_lights.c */
 void EEVEE_lights_init(EEVEE_ViewLayerData *sldata);
@@ -858,7 +858,7 @@ void EEVEE_mist_free(void);
 /* eevee_temporal_sampling.c */
 int EEVEE_temporal_sampling_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
 void EEVEE_temporal_sampling_matrices_calc(
-        EEVEE_EffectsInfo *effects, float viewmat[4][4], float persmat[4][4], double ht_point[2]);
+        EEVEE_EffectsInfo *effects, float viewmat[4][4], float persmat[4][4], const double ht_point[2]);
 void EEVEE_temporal_sampling_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
 void EEVEE_temporal_sampling_draw(EEVEE_Data *vedata);
 void EEVEE_temporal_sampling_free(void);
