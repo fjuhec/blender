@@ -474,7 +474,7 @@ bool BKE_asset_uuid_cmp(const void *a, const void *b)
 {
 	const AssetUUID *uuid1 = a;
 	const AssetUUID *uuid2 = b;
-	return !ASSETUUID_COMPARE(uuid1, uuid2);  /* Expects false when compared equal... */
+	return !ASSETUUID_EQUAL(uuid1, uuid2);  /* Expects false when compared equal... */
 }
 
 void BKE_asset_uuid_print(const AssetUUID *uuid)

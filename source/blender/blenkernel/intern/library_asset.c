@@ -101,7 +101,7 @@ AssetRef *BKE_library_asset_repository_asset_find(Library *lib, const void *idv)
 	BLI_assert(id->uuid != NULL);
 
 	for (AssetRef *aref = lib->asset_repository->assets.first; aref; aref = aref->next) {
-		if (ASSETUUID_COMPARE(&aref->uuid, id->uuid)) {
+		if (ASSETUUID_EQUAL(&aref->uuid, id->uuid)) {
 #ifndef NDEBUG
 			LinkData *link = aref->id_list.first;
 			BLI_assert(link && (link->data == idv));
@@ -233,10 +233,10 @@ AssetRef *BKE_libraries_asset_repository_uuid_find(Main *bmain, const AssetUUID 
 	ListBase *lb = which_libbase(bmain, ID_LI);
 	for (Library *lib = lb->first; lib; lib = lib->id.next) {
 		for (AssetRef *aref = lib->asset_repository->assets.first; aref; aref = aref->next) {
-			if (ASSETUUID_COMPARE(&aref->uuid, uuid)) {
+			if (ASSETUUID_EQUAL(&aref->uuid, uuid)) {
 #ifndef NDEBUG
 				LinkData *link = aref->id_list.first;
-				BLI_assert(link && ((ID *)link->data)->uuid && ASSETUUID_COMPARE(((ID *)link->data)->uuid, uuid));
+				BLI_assert(link && ((ID *)link->data)->uuid && ASSETUUID_EQUAL(((ID *)link->data)->uuid, uuid));
 #endif
 				return aref;
 			}

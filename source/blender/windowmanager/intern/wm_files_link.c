@@ -278,7 +278,7 @@ static void wm_link_virtual_lib(
 			case ID_IM:
 				new_id = (ID *)BKE_image_load_exists_ex(item->name, &id_exists);
 				if (id_exists) {
-					if (!new_id->uuid || !ASSETUUID_COMPARE(new_id->uuid, item->uuid)) {
+					if (!new_id->uuid || !ASSETUUID_EQUAL(new_id->uuid, item->uuid)) {
 						/* Fake 'same ID' (same path, but different uuid or whatever), force loading into new ID. */
 						BLI_assert(new_id->lib != virtlib);
 						new_id = (ID *)BKE_image_load(bmain, item->name);
@@ -1285,7 +1285,7 @@ static void asset_update_engines_uuids_fetch(
 					int i = uuids->nbr_uuids;
 					bool skip = true;
 					for (AssetUUID *uuid = uuids->uuids; i--; uuid++) {
-						if (ASSETUUID_COMPARE(id->uuid, uuid)) {
+						if (ASSETUUID_EQUAL(id->uuid, uuid)) {
 							skip = false;
 							break;
 						}
@@ -1414,7 +1414,7 @@ static void asset_updatecheck_update(void *aucjv)
 						for (AssetRef *aref = lib->asset_repository->assets.first; aref; aref = aref->next) {
 							ID *id = ((LinkData *)aref->id_list.first)->data;
 							BLI_assert(id->uuid);
-							if (ASSETUUID_COMPARE(id->uuid, uuid)) {
+							if (ASSETUUID_EQUAL(id->uuid, uuid)) {
 								*id->uuid = *uuid;
 
 								if (id->uuid->tag & UUID_TAG_ENGINE_MISSING) {
@@ -1619,7 +1619,7 @@ static int wm_assets_reload_exec(bContext *C, wmOperator *op)
 
 				AssetRef *aref = BKE_libraries_asset_repository_uuid_find(bmain, uuid);
 				ID *old_id = aref ? ((LinkData *)aref->id_list.first)->data : NULL;
-				BLI_assert(!old_id || (old_id->uuid && ASSETUUID_COMPARE(old_id->uuid, uuid)));
+				BLI_assert(!old_id || (old_id->uuid && ASSETUUID_EQUAL(old_id->uuid, uuid)));
 
 				lib_idx = GET_INT_FROM_POINTER(BLI_ghash_lookup(libraries, libname_def));
 

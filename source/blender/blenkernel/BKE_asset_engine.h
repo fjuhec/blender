@@ -116,7 +116,7 @@ typedef int (*ae_previews_get)(struct AssetEngine *engine, const int job_id, str
  * uuids tagged as needing reload will then be reloaded as new ones
  * (ae_load_pre, then actual lib loading, then ae_load_post).
  * \warning This callback is expected to handle **real** UUIDS (not 'users' filebrowser ones),
- *          i.e. calling ae_load_pre with those shall **not** alters them in returned direntries
+ *          i.e. calling ae_load_pre with those shall **not** alter them in returned direntries
  *          (else 'link' between old IDs and reloaded ones would be broken). */
 typedef int (*ae_update_check)(struct AssetEngine *engine, const int job_id, struct AssetUUIDList *uuids);
 
@@ -262,15 +262,15 @@ struct FileDirEntry *BKE_filedir_entry_copy(struct FileDirEntry *entry);
 
 void BKE_filedir_entryarr_clear(struct FileDirEntryArr *array);
 
-#define ASSETUUID_SUB_COMPARE(_uuida, _uuidb, _member) \
+#define ASSETUUID_SUB_EQUAL(_uuida, _uuidb, _member) \
 	(memcmp((_uuida)->_member, (_uuidb)->_member, sizeof((_uuida)->_member)) == 0)
 
-#define ASSETUUID_COMPARE(_uuida, _uuidb) \
-	(ASSETUUID_SUB_COMPARE(_uuida, _uuidb, uuid_repository) && \
-	 ASSETUUID_SUB_COMPARE(_uuida, _uuidb, uuid_asset) && \
-	 ASSETUUID_SUB_COMPARE(_uuida, _uuidb, uuid_variant) && \
-	 ASSETUUID_SUB_COMPARE(_uuida, _uuidb, uuid_revision) && \
-	 ASSETUUID_SUB_COMPARE(_uuida, _uuidb, uuid_view))
+#define ASSETUUID_EQUAL(_uuida, _uuidb) \
+	(ASSETUUID_SUB_EQUAL(_uuida, _uuidb, uuid_repository) && \
+	 ASSETUUID_SUB_EQUAL(_uuida, _uuidb, uuid_asset) && \
+	 ASSETUUID_SUB_EQUAL(_uuida, _uuidb, uuid_variant) && \
+	 ASSETUUID_SUB_EQUAL(_uuida, _uuidb, uuid_revision) && \
+	 ASSETUUID_SUB_EQUAL(_uuida, _uuidb, uuid_view))
 
 /* Various helpers */
 unsigned int BKE_asset_uuid_hash(const void *key);
