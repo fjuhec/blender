@@ -221,7 +221,6 @@ typedef struct SculptSession {
 	/* Layer brush persistence between strokes */
 	float (*layer_co)[3]; /* Copy of the mesh vertices' locations */
 
-	struct SculptStroke *stroke;
 	struct StrokeCache *cache;
 
 	union {
