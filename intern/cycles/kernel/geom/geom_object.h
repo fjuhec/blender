@@ -283,7 +283,7 @@ ccl_device_inline float3 object_dupli_uv(KernelGlobals *kg, int object)
 	if(object == OBJECT_NONE)
 		return make_float3(0.0f, 0.0f, 0.0f);
 
-	return make_float3(kernel_tex_fetch(__objects, object).ob_dupli_uv[0], kernel_tex_fetch(__objects, object).ob_dupli_uv[0], 0.0f);
+	return make_float3(kernel_tex_fetch(__objects, object).ob_dupli_uv[0], kernel_tex_fetch(__objects, object).ob_dupli_uv[1], 0.0f);
 }
 
 /* Information about mesh for motion blurred triangles and curves */
