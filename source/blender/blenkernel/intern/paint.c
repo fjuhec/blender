@@ -78,7 +78,7 @@ static eOverlayControlFlags overlay_flags = 0;
 void BKE_paint_invalidate_overlay_tex(
         const EvaluationContext *eval_ctx, Scene *scene, ViewLayer *view_layer, const Tex *tex)
 {
-	Paint *p = BKE_paint_get_active(eval_ctx, scene, view_layer);
+	Paint *p = BKE_paint_get_active(scene, view_layer, eval_ctx->object_mode);
 	Brush *br = p->brush;
 
 	if (!br)
@@ -93,7 +93,7 @@ void BKE_paint_invalidate_overlay_tex(
 void BKE_paint_invalidate_cursor_overlay(
         const EvaluationContext *eval_ctx, Scene *scene, ViewLayer *view_layer, CurveMapping *curve)
 {
-	Paint *p = BKE_paint_get_active(eval_ctx, scene, view_layer);
+	Paint *p = BKE_paint_get_active(scene, view_layer, eval_ctx->object_mode);
 	Brush *br = p->brush;
 
 	if (br && br->curve == curve)
@@ -159,13 +159,13 @@ Paint *BKE_paint_get_active_from_paintmode(Scene *sce, ePaintMode mode)
 	return NULL;
 }
 
-Paint *BKE_paint_get_active(const EvaluationContext *eval_ctx, Scene *sce, ViewLayer *view_layer)
+Paint *BKE_paint_get_active(Scene *sce, ViewLayer *view_layer, const short object_mode)
 {
 	if (sce && view_layer) {
 		ToolSettings *ts = sce->toolsettings;
 		
 		if (view_layer->basact && view_layer->basact->object) {
-			switch (eval_ctx->object_mode) {
+			switch (object_mode) {
 				case OB_MODE_SCULPT:
 					return &ts->sculpt->paint;
 				case OB_MODE_VERTEX_PAINT:

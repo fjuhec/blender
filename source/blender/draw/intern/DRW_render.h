@@ -472,11 +472,12 @@ typedef struct DRWContextState {
 
 	struct Depsgraph *depsgraph;
 
+	short object_mode;
+
 	/* Last resort (some functions take this as an arg so we can't easily avoid).
 	 * May be NULL when used for selection or depth buffer. */
 	const struct bContext *evil_C;
 
-	EvaluationContext eval_ctx;
 } DRWContextState;
 
 const DRWContextState *DRW_context_state_get(void);

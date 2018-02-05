@@ -997,7 +997,7 @@ SceneCollection *CTX_data_scene_collection(const bContext *C)
 	return BKE_collection_master(&scene->id);
 }
 
-int CTX_data_mode_enum_ex(const EvaluationContext *eval_ctx, const Object *obedit, const Object *ob)
+int CTX_data_mode_enum_ex(const short object_mode, const Object *obedit, const Object *ob)
 {
 	// Object *obedit = CTX_data_edit_object(C);
 	if (obedit) {
@@ -1021,12 +1021,12 @@ int CTX_data_mode_enum_ex(const EvaluationContext *eval_ctx, const Object *obedi
 	else {
 		// Object *ob = CTX_data_active_object(C);
 		if (ob) {
-			if (eval_ctx->object_mode & OB_MODE_POSE) return CTX_MODE_POSE;
-			else if (eval_ctx->object_mode & OB_MODE_SCULPT) return CTX_MODE_SCULPT;
-			else if (eval_ctx->object_mode & OB_MODE_WEIGHT_PAINT) return CTX_MODE_PAINT_WEIGHT;
-			else if (eval_ctx->object_mode & OB_MODE_VERTEX_PAINT) return CTX_MODE_PAINT_VERTEX;
-			else if (eval_ctx->object_mode & OB_MODE_TEXTURE_PAINT) return CTX_MODE_PAINT_TEXTURE;
-			else if (eval_ctx->object_mode & OB_MODE_PARTICLE_EDIT) return CTX_MODE_PARTICLE;
+			if (object_mode & OB_MODE_POSE) return CTX_MODE_POSE;
+			else if (object_mode & OB_MODE_SCULPT) return CTX_MODE_SCULPT;
+			else if (object_mode & OB_MODE_WEIGHT_PAINT) return CTX_MODE_PAINT_WEIGHT;
+			else if (object_mode & OB_MODE_VERTEX_PAINT) return CTX_MODE_PAINT_VERTEX;
+			else if (object_mode & OB_MODE_TEXTURE_PAINT) return CTX_MODE_PAINT_TEXTURE;
+			else if (object_mode & OB_MODE_PARTICLE_EDIT) return CTX_MODE_PARTICLE;
 		}
 	}
 
@@ -1039,7 +1039,7 @@ int CTX_data_mode_enum(const bContext *C)
 	CTX_data_eval_ctx(C, &eval_ctx);
 	Object *obedit = CTX_data_edit_object(C);
 	Object *obact = obedit ? NULL : CTX_data_active_object(C);
-	return CTX_data_mode_enum_ex(&eval_ctx, obedit, obact);
+	return CTX_data_mode_enum_ex(eval_ctx.object_mode, obedit, obact);
 }
 
 /* would prefer if we can use the enum version below over this one - Campbell */

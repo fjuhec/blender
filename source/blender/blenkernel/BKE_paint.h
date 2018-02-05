@@ -130,7 +130,7 @@ void BKE_paint_cavity_curve_preset(struct Paint *p, int preset);
 short BKE_paint_object_mode_from_paint_mode(ePaintMode mode);
 struct Paint *BKE_paint_get_active_from_paintmode(struct Scene *sce, ePaintMode mode);
 struct Paint *BKE_paint_get_active(
-        const struct EvaluationContext *eval_ctx, struct Scene *sce, struct ViewLayer *view_layer);
+        struct Scene *sce, struct ViewLayer *view_layer, const short object_mode);
 struct Paint *BKE_paint_get_active_from_context(const struct bContext *C);
 ePaintMode BKE_paintmode_get_active_from_context(const struct bContext *C);
 struct Brush *BKE_paint_brush(struct Paint *paint);

@@ -428,7 +428,7 @@ static int buttons_context_path_brush(const bContext *C, ButsContextPath *path)
 			EvaluationContext eval_ctx;
 			CTX_data_eval_ctx(C, &eval_ctx);
 			ViewLayer *view_layer = CTX_data_view_layer(C);
-			br = BKE_paint_brush(BKE_paint_get_active(&eval_ctx, scene, view_layer));
+			br = BKE_paint_brush(BKE_paint_get_active(scene, view_layer, eval_ctx.object_mode));
 		}
 
 		if (br) {

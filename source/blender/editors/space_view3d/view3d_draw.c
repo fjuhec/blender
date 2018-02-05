@@ -752,7 +752,7 @@ void ED_view3d_draw_depth(
 	else
 #endif /* WITH_OPENGL_LEGACY */
 	{
-		DRW_draw_depth_loop(graph, ar, v3d);
+		DRW_draw_depth_loop(graph, ar, v3d, eval_ctx->object_mode);
 	}
 
 	if (rv3d->rflag & RV3D_CLIPPING) {
@@ -1344,7 +1344,7 @@ static bool is_cursor_visible(const EvaluationContext *eval_ctx, Scene *scene, V
 		}
 		/* exception: object in texture paint mode, clone brush, use_clone_layer disabled */
 		else if (eval_ctx->object_mode & OB_MODE_TEXTURE_PAINT) {
-			const Paint *p = BKE_paint_get_active(eval_ctx, scene, view_layer);
+			const Paint *p = BKE_paint_get_active(scene, view_layer, eval_ctx->object_mode);
 
 			if (p && p->brush && p->brush->imagepaint_tool == PAINT_TOOL_CLONE) {
 				if ((scene->toolsettings->imapaint.flag & IMAGEPAINT_PROJECT_LAYER_CLONE) == 0) {
@@ -2081,7 +2081,9 @@ void ED_view3d_draw_offscreen(
 		}
 	}
 	else {
-		DRW_draw_render_loop_offscreen(depsgraph, eval_ctx->engine_type, ar, v3d, do_sky, ofs, viewport);
+		DRW_draw_render_loop_offscreen(
+		        eval_ctx->depsgraph, eval_ctx->engine_type, ar, v3d, eval_ctx->object_mode,
+		        do_sky, ofs, viewport);
 	}
 
 	/* restore size */

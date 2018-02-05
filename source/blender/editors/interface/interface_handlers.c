@@ -5237,7 +5237,7 @@ static int ui_do_but_COLOR(
 					float color[3];
 					Scene *scene = CTX_data_scene(C);
 					ViewLayer *view_layer = CTX_data_view_layer(C);
-					Paint *paint = BKE_paint_get_active(&eval_ctx, scene, view_layer);
+					Paint *paint = BKE_paint_get_active(scene, view_layer, eval_ctx.object_mode);
 					Brush *brush = BKE_paint_brush(paint);
 
 					if (brush->flag & BRUSH_USE_GRADIENT) {
