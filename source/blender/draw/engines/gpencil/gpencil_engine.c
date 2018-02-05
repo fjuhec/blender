@@ -465,6 +465,13 @@ static void GPENCIL_cache_populate(void *vedata, Object *ob)
 			if (G.debug_value == 665) {
 				printf("GPENCIL_cache_populate: %s\n", ob->id.name);
 			}
+
+			/* if render set as dirty */
+	        if (stl->storage->is_render == true) {
+				bGPdata *gpd = (bGPdata *)ob->data;
+				gpd->flag |= GP_DATA_CACHE_IS_DIRTY;
+			}
+
 			/* allocate memory for saving gp objects */
 			stl->g_data->gp_object_cache = gpencil_object_cache_allocate(stl->g_data->gp_object_cache, &stl->g_data->gp_cache_size, &stl->g_data->gp_cache_used);
 			
