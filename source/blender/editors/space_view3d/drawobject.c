@@ -4310,7 +4310,9 @@ static void draw_mesh_fancy(
         const char dt, const unsigned char ob_wire_col[4], const short dflag)
 {
 #ifdef WITH_GAMEENGINE
-	Object *ob = (rv3d->rflag & RV3D_IS_GAME_ENGINE) ? BKE_object_lod_meshob_get(base->object, view_layer) : base->object;
+	Object *ob = (
+	        (rv3d->rflag & RV3D_IS_GAME_ENGINE) ?
+	        BKE_object_lod_meshob_get(base->object, view_layer, eval_ctx->object_mode) : base->object);
 #else
 	Object *ob = base->object;
 #endif
@@ -4729,7 +4731,9 @@ static void draw_mesh_fancy_new(EvaluationContext *eval_ctx, Scene *scene, ViewL
 	}
 
 #ifdef WITH_GAMEENGINE
-	Object *ob = (rv3d->rflag & RV3D_IS_GAME_ENGINE) ? BKE_object_lod_meshob_get(base->object, view_layer) : base->object;
+	Object *ob = (
+	        (rv3d->rflag & RV3D_IS_GAME_ENGINE) ?
+	        BKE_object_lod_meshob_get(base->object, view_layer, eval_ctx->object_mode) : base->object);
 #else
 	Object *ob = base->object;
 #endif

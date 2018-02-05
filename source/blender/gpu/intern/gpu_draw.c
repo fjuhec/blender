@@ -1593,7 +1593,7 @@ void GPU_begin_object_materials(
 
 #ifdef WITH_GAMEENGINE
 	if (rv3d->rflag & RV3D_IS_GAME_ENGINE) {
-		ob = BKE_object_lod_matob_get(ob, view_layer);
+		ob = BKE_object_lod_matob_get(ob, view_layer, object_mode);
 	}
 #else
 	UNUSED_VARS(view_layer);
