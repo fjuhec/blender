@@ -984,7 +984,7 @@ static int outliner_show_active_exec(bContext *C, wmOperator *UNUSED(op))
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	ARegion *ar = CTX_wm_region(C);
 	View2D *v2d = &ar->v2d;
-
+	
 	TreeElement *te;
 	int xdelta, ytop;
 

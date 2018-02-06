@@ -541,7 +541,7 @@ bool BKE_object_is_in_editmode_vgroup(Object *ob)
 bool BKE_object_is_in_wpaint_select_vert(const EvaluationContext *eval_ctx, const Object *ob)
 {
 	if (ob->type == OB_MESH) {
-		Mesh *me = ob->data;
+		const Mesh *me = ob->data;
 		return ((eval_ctx->object_mode & OB_MODE_WEIGHT_PAINT) &&
 		        (me->edit_btmesh == NULL) &&
 		        (ME_EDIT_PAINT_SEL_MODE(me) == SCE_SELECT_VERTEX));

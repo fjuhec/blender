@@ -33,7 +33,6 @@
 #include "DNA_scene_types.h"
 #include "DNA_smoke_types.h"
 
-
 #include "RNA_define.h"
 #include "RNA_enum_types.h"
 
