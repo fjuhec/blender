@@ -1002,7 +1002,7 @@ static void UNUSED_FUNCTION(copy_attr_menu) (Main *bmain, Scene *scene, ViewLaye
 
 /* ******************* force field toggle operator ***************** */
 
-void ED_object_check_force_modifiers(Main *bmain, const EvaluationContext *eval_ctx, Scene *scene, Object *object)
+void ED_object_check_force_modifiers(Main *bmain, Scene *scene, Object *object, eObjectMode object_mode)
 {
 	PartDeflect *pd = object->pd;
 	ModifierData *md = modifiers_findByType(object, eModifierType_Surface);
@@ -1011,7 +1011,7 @@ void ED_object_check_force_modifiers(Main *bmain, const EvaluationContext *eval_
 	if (!md) {
 		if (pd && (pd->shape == PFIELD_SHAPE_SURFACE) && !ELEM(pd->forcefield, 0, PFIELD_GUIDE, PFIELD_TEXTURE)) {
 			if (ELEM(object->type, OB_MESH, OB_SURF, OB_FONT, OB_CURVE)) {
-				ED_object_modifier_add(NULL, bmain, eval_ctx, scene, object, NULL, eModifierType_Surface);
+				ED_object_modifier_add(NULL, bmain, scene, object, object_mode, NULL, eModifierType_Surface);
 			}
 		}
 	}
@@ -1035,7 +1035,7 @@ static int forcefield_toggle_exec(bContext *C, wmOperator *UNUSED(op))
 	else
 		ob->pd->forcefield = 0;
 	
-	ED_object_check_force_modifiers(CTX_data_main(C), &eval_ctx, CTX_data_scene(C), ob);
+	ED_object_check_force_modifiers(CTX_data_main(C), CTX_data_scene(C), ob, eval_ctx.object_mode);
 	WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
 	WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, ob);
 

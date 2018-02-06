@@ -97,8 +97,8 @@ static void modifier_skin_customdata_delete(struct Object *ob);
 
 ModifierData *ED_object_modifier_add(
         ReportList *reports,
-        Main *bmain, const EvaluationContext *eval_ctx, Scene *scene,
-        Object *ob, const char *name, int type)
+        Main *bmain, Scene *scene,
+        Object *ob, eObjectMode object_mode, const char *name, int type)
 {
 	ModifierData *md = NULL, *new_md = NULL;
 	const ModifierTypeInfo *mti = modifierType_getInfo(type);
@@ -165,7 +165,7 @@ ModifierData *ED_object_modifier_add(
 			/* set totlvl from existing MDISPS layer if object already had it */
 			multiresModifier_set_levels_from_disps((MultiresModifierData *)new_md, ob);
 
-			if (eval_ctx->object_mode & OB_MODE_SCULPT) {
+			if (object_mode & OB_MODE_SCULPT) {
 				/* ensure that grid paint mask layer is created */
 				BKE_sculpt_mask_layers_ensure(ob, (MultiresModifierData *)new_md);
 			}
@@ -425,8 +425,8 @@ int ED_object_modifier_move_down(ReportList *reports, Object *ob, ModifierData *
 }
 
 int ED_object_modifier_convert(
-        ReportList *UNUSED(reports), Main *bmain, const EvaluationContext *eval_ctx, Scene *scene,
-        ViewLayer *view_layer, Object *UNUSED(ob), ModifierData *md)
+        ReportList *UNUSED(reports), Main *bmain, Scene *scene,
+        ViewLayer *view_layer, Object *UNUSED(ob), eObjectMode object_mode, ModifierData *md)
 {
 	Object *obn;
 	ParticleSystem *psys;
@@ -440,7 +440,7 @@ int ED_object_modifier_convert(
 	int totpart = 0, totchild = 0;
 
 	if (md->type != eModifierType_ParticleSystem) return 0;
-	if (eval_ctx->object_mode & OB_MODE_PARTICLE_EDIT) return 0;
+	if (object_mode & OB_MODE_PARTICLE_EDIT) return 0;
 
 	psys = ((ParticleSystemModifierData *)md)->psys;
 	part = psys->part;
@@ -761,7 +761,7 @@ static int modifier_add_exec(bContext *C, wmOperator *op)
 	Object *ob = ED_object_active_context(C);
 	int type = RNA_enum_get(op->ptr, "type");
 
-	if (!ED_object_modifier_add(op->reports, bmain, &eval_ctx, scene, ob, NULL, type))
+	if (!ED_object_modifier_add(op->reports, bmain, scene, ob, eval_ctx.object_mode, NULL, type))
 		return OPERATOR_CANCELLED;
 
 	WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, ob);
@@ -1085,7 +1085,7 @@ static int modifier_convert_exec(bContext *C, wmOperator *op)
 	Object *ob = ED_object_active_context(C);
 	ModifierData *md = edit_modifier_property_get(op, ob, 0);
 
-	if (!md || !ED_object_modifier_convert(op->reports, bmain, &eval_ctx, scene, view_layer, ob, md)) {
+	if (!md || !ED_object_modifier_convert(op->reports, bmain, scene, view_layer, ob, eval_ctx.object_mode, md)) {
 		return OPERATOR_CANCELLED;
 	}
 

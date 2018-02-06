@@ -1398,7 +1398,9 @@ static ModifierData *rna_Object_modifier_new(Object *object, bContext *C, Report
                                              const char *name, int type)
 {
 	Main *bmain = CTX_data_main(C);
-	return ED_object_modifier_add(reports, bmain, bmain->eval_ctx, CTX_data_scene(C), object, name, type);
+	EvaluationContext eval_ctx;
+	CTX_data_eval_ctx(C, &eval_ctx);
+	return ED_object_modifier_add(reports, bmain, CTX_data_scene(C), object, eval_ctx.object_mode, name, type);
 }
 
 static void rna_Object_modifier_remove(Object *object, bContext *C, ReportList *reports, PointerRNA *md_ptr)
