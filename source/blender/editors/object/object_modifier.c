@@ -208,9 +208,11 @@ static bool object_has_modifier(const Object *ob, const ModifierData *exclude,
  * If the callback ever returns true, iteration will stop and the
  * function value will be true. Otherwise the function returns false.
  */
-bool ED_object_iter_other(Main *bmain, Object *orig_ob, const bool include_orig,
-                          bool (*callback)(Object *ob, void *callback_data),
-                          void *callback_data)
+bool ED_object_iter_other(
+        const EvaluationContext *eval_ctx,
+        Main *bmain, Object *orig_ob, const bool include_orig,
+        bool (*callback)(const EvaluationContext *eval_ctx, Object *ob, void *callback_data),
+        void *callback_data)
 {
 	ID *ob_data_id = orig_ob->data;
 	int users = ob_data_id->us;
@@ -229,7 +231,7 @@ bool ED_object_iter_other(Main *bmain, Object *orig_ob, const bool include_orig,
 			if (((ob != orig_ob) || include_orig) &&
 			    (ob->data == orig_ob->data))
 			{
-				if (callback(ob, callback_data))
+				if (callback(eval_ctx, ob, callback_data))
 					return true;
 
 				totfound++;
@@ -237,13 +239,15 @@ bool ED_object_iter_other(Main *bmain, Object *orig_ob, const bool include_orig,
 		}
 	}
 	else if (include_orig) {
-		return callback(orig_ob, callback_data);
+		return callback(eval_ctx, orig_ob, callback_data);
 	}
 
 	return false;
 }
 
-static bool object_has_modifier_cb(Object *ob, void *data)
+static bool object_has_modifier_cb(
+        const EvaluationContext *UNUSED(eval_ctx),
+        Object *ob, void *data)
 {
 	ModifierType type = *((ModifierType *)data);
 
@@ -253,7 +257,9 @@ static bool object_has_modifier_cb(Object *ob, void *data)
 /* Use with ED_object_iter_other(). Sets the total number of levels
  * for any multires modifiers on the object to the int pointed to by
  * callback_data. */
-bool ED_object_multires_update_totlevels_cb(Object *ob, void *totlevel_v)
+bool ED_object_multires_update_totlevels_cb(
+        const struct EvaluationContext *UNUSED(eval_ctx),
+        Object *ob, void *totlevel_v)
 {
 	ModifierData *md;
 	int totlevel = *((char *)totlevel_v);
@@ -273,7 +279,7 @@ static bool object_modifier_safe_to_delete(Main *bmain, Object *ob,
                                            ModifierType type)
 {
 	return (!object_has_modifier(ob, exclude, type) &&
-	        !ED_object_iter_other(bmain, ob, false,
+	        !ED_object_iter_other(NULL, bmain, ob, false,
 	                              object_has_modifier_cb, &type));
 }
 
@@ -695,6 +701,8 @@ static int modifier_apply_obdata(ReportList *reports, const bContext *C, Scene *
 
 int ED_object_modifier_apply(ReportList *reports, const bContext *C, Scene *scene, Object *ob, ModifierData *md, int mode)
 {
+	EvaluationContext eval_ctx;
+	CTX_data_eval_ctx(C, &eval_ctx);
 	int prev_mode;
 
 	if (scene->obedit) {
@@ -716,7 +724,7 @@ int ED_object_modifier_apply(ReportList *reports, const bContext *C, Scene *scen
 		BKE_report(reports, RPT_ERROR, "Modifiers cannot be applied to multi-user data");
 		return 0;
 	}
-	else if ((ob->mode & OB_MODE_SCULPT) &&
+	else if ((eval_ctx.object_mode & OB_MODE_SCULPT) &&
 	         (find_multires_modifier_before(scene, md)) &&
 	         (modifier_isSameTopology(md) == false))
 	{
@@ -909,11 +917,13 @@ ModifierData *edit_modifier_property_get(wmOperator *op, Object *ob, int type)
 
 static int modifier_remove_exec(bContext *C, wmOperator *op)
 {
+	EvaluationContext eval_ctx;
+	CTX_data_eval_ctx(C, &eval_ctx);
 	Main *bmain = CTX_data_main(C);
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	Object *ob = ED_object_active_context(C);
 	ModifierData *md = edit_modifier_property_get(op, ob, 0);
-	int mode_orig = ob->mode;
+	int mode_orig = eval_ctx.object_mode;
 	
 	if (!md || !ED_object_modifier_remove(op->reports, bmain, ob, md))
 		return OPERATOR_CANCELLED;
@@ -921,11 +931,13 @@ static int modifier_remove_exec(bContext *C, wmOperator *op)
 	WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, ob);
 
 	/* if cloth/softbody was removed, particle mode could be cleared */
-	if (mode_orig & OB_MODE_PARTICLE_EDIT)
-		if ((ob->mode & OB_MODE_PARTICLE_EDIT) == 0)
-			if (view_layer->basact && view_layer->basact->object == ob)
+	if (mode_orig & OB_MODE_PARTICLE_EDIT) {
+		if ((eval_ctx.object_mode & OB_MODE_PARTICLE_EDIT) == 0) {
+			if (view_layer->basact && view_layer->basact->object == ob) {
 				WM_event_add_notifier(C, NC_SCENE | ND_MODE | NS_MODE_OBJECT, NULL);
-
+			}
+		}
+	}
 	return OPERATOR_FINISHED;
 }
 
@@ -1175,10 +1187,13 @@ static int multires_higher_levels_delete_exec(bContext *C, wmOperator *op)
 	
 	if (!mmd)
 		return OPERATOR_CANCELLED;
-	
+
+	EvaluationContext eval_ctx;
+	CTX_data_eval_ctx(C, &eval_ctx);
+
 	multiresModifier_del_levels(mmd, ob, 1);
 
-	ED_object_iter_other(CTX_data_main(C), ob, true,
+	ED_object_iter_other(&eval_ctx, CTX_data_main(C), ob, true,
 	                     ED_object_multires_update_totlevels_cb,
 	                     &mmd->totlvl);
 	
@@ -1219,17 +1234,20 @@ static int multires_subdivide_exec(bContext *C, wmOperator *op)
 	
 	if (!mmd)
 		return OPERATOR_CANCELLED;
-	
+
+	EvaluationContext eval_ctx;
+	CTX_data_eval_ctx(C, &eval_ctx);
 	multiresModifier_subdivide(mmd, ob, 0, mmd->simple);
 
-	ED_object_iter_other(CTX_data_main(C), ob, true,
-	                     ED_object_multires_update_totlevels_cb,
-	                     &mmd->totlvl);
+	ED_object_iter_other(
+	        &eval_ctx, CTX_data_main(C), ob, true,
+	        ED_object_multires_update_totlevels_cb,
+	        &mmd->totlvl);
 
 	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, ob);
 
-	if (ob->mode & OB_MODE_SCULPT) {
+	if (eval_ctx.mode & OB_MODE_SCULPT) {
 		/* ensure that grid paint mask layer is created */
 		BKE_sculpt_mask_layers_ensure(ob, mmd);
 	}

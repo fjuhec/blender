@@ -222,9 +222,10 @@ static void join_mesh_single(
 			multiresModifier_prepare_join(&eval_ctx, scene, ob_src, ob_dst);
 
 			if ((mmd = get_multires_modifier(scene, ob_src, true))) {
-				ED_object_iter_other(bmain, ob_src, true,
-				                     ED_object_multires_update_totlevels_cb,
-				                     &mmd->totlvl);
+				ED_object_iter_other(
+				        &eval_ctx, bmain, ob_src, true,
+				        ED_object_multires_update_totlevels_cb,
+				        &mmd->totlvl);
 			}
 		}
 
@@ -777,15 +778,16 @@ static MirrTopoStore_t mesh_topo_store = {NULL, -1. - 1, -1};
 /* mode is 's' start, or 'e' end, or 'u' use */
 /* if end, ob can be NULL */
 /* note, is supposed return -1 on error, which callers are currently checking for, but is not used so far */
-int ED_mesh_mirror_topo_table(Object *ob, DerivedMesh *dm, char mode)
+int ED_mesh_mirror_topo_table(
+        Object *ob, DerivedMesh *dm, char mode)
 {
 	if (mode == 'u') {        /* use table */
-		if (ED_mesh_mirrtopo_recalc_check(ob->data, dm, ob->mode, &mesh_topo_store)) {
+		if (ED_mesh_mirrtopo_recalc_check(ob->data, dm, &mesh_topo_store)) {
 			ED_mesh_mirror_topo_table(ob, dm, 's');
 		}
 	}
 	else if (mode == 's') { /* start table */
-		ED_mesh_mirrtopo_init(ob->data, dm, ob->mode, &mesh_topo_store, false);
+		ED_mesh_mirrtopo_init(ob->data, dm, &mesh_topo_store, false);
 	}
 	else if (mode == 'e') { /* end table */
 		ED_mesh_mirrtopo_free(&mesh_topo_store);
@@ -1339,17 +1341,17 @@ bool ED_mesh_pick_vert(bContext *C, Object *ob, const int mval[2], unsigned int 
 
 MDeformVert *ED_mesh_active_dvert_get_em(Object *ob, BMVert **r_eve)
 {
-	if (ob->mode & OB_MODE_EDIT && ob->type == OB_MESH && ob->defbase.first) {
+	if (ob->type == OB_MESH && ob->defbase.first) {
 		Mesh *me = ob->data;
-		BMesh *bm = me->edit_btmesh->bm;
-		const int cd_dvert_offset = CustomData_get_offset(&bm->vdata, CD_MDEFORMVERT);
-
-		if (cd_dvert_offset != -1) {
-			BMVert *eve = BM_mesh_active_vert_get(bm);
-
-			if (eve) {
-				if (r_eve) *r_eve = eve;
-				return BM_ELEM_CD_GET_VOID_P(eve, cd_dvert_offset);
+		if (me->edit_btmesh != NULL) {
+			BMesh *bm = me->edit_btmesh->bm;
+			const int cd_dvert_offset = CustomData_get_offset(&bm->vdata, CD_MDEFORMVERT);
+			if (cd_dvert_offset != -1) {
+				BMVert *eve = BM_mesh_active_vert_get(bm);
+				if (eve) {
+					if (r_eve) *r_eve = eve;
+					return BM_ELEM_CD_GET_VOID_P(eve, cd_dvert_offset);
+				}
 			}
 		}
 	}
@@ -1374,7 +1376,8 @@ MDeformVert *ED_mesh_active_dvert_get_ob(Object *ob, int *r_index)
 MDeformVert *ED_mesh_active_dvert_get_only(Object *ob)
 {
 	if (ob->type == OB_MESH) {
-		if (ob->mode & OB_MODE_EDIT) {
+		Mesh *me = ob->data;
+		if (me->edit_btmesh != NULL) {
 			return ED_mesh_active_dvert_get_em(ob, NULL);
 		}
 		else {

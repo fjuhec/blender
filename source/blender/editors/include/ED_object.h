@@ -55,6 +55,9 @@ struct wmOperatorType;
 struct PointerRNA;
 struct PropertyRNA;
 struct EnumPropertyItem;
+struct EvaluationContext;
+
+#include "DNA_object_enums.h"
 
 /* object_edit.c */
 struct Object *ED_object_context(struct bContext *C);               /* context.object */
@@ -113,8 +116,8 @@ struct Base *ED_object_add_duplicate(struct Main *bmain, struct Scene *scene, st
 
 void ED_object_parent(struct Object *ob, struct Object *parent, const int type, const char *substr);
 
-bool ED_object_mode_compat_set(struct bContext *C, struct Object *ob, int mode, struct ReportList *reports);
-void ED_object_toggle_modes(struct bContext *C, int mode);
+bool ED_object_mode_compat_set(struct bContext *C, struct Object *ob, eObjectMode mode, struct ReportList *reports);
+void ED_object_toggle_modes(struct bContext *C, eObjectMode mode);
 
 /* bitflags for enter/exit editmode */
 #define EM_FREEDATA     1
@@ -160,9 +163,9 @@ void ED_objects_clear_paths(struct bContext *C, bool only_selected);
 void ED_objects_recalculate_paths(struct bContext *C, struct Scene *scene);
 
 /* constraints */
-struct ListBase *get_active_constraints(struct Object *ob);
+struct ListBase *get_active_constraints(const struct EvaluationContext *eval_ctx, struct Object *ob);
 struct ListBase *get_constraint_lb(struct Object *ob, struct bConstraint *con, struct bPoseChannel **r_pchan);
-struct bConstraint *get_active_constraint(struct Object *ob);
+struct bConstraint *get_active_constraint(const struct EvaluationContext *eval_ctx, struct Object *ob);
 
 void object_test_constraints(struct Object *ob);
 
@@ -200,11 +203,15 @@ int ED_object_modifier_apply(struct ReportList *reports, const struct bContext *
                              struct Object *ob, struct ModifierData *md, int mode);
 int ED_object_modifier_copy(struct ReportList *reports, struct Object *ob, struct ModifierData *md);
 
-bool ED_object_iter_other(struct Main *bmain, struct Object *orig_ob, const bool include_orig,
-                          bool (*callback)(struct Object *ob, void *callback_data),
-                          void *callback_data);
+bool ED_object_iter_other(
+        const struct EvaluationContext *eval_ctx, struct Main *bmain,
+        struct Object *orig_ob, const bool include_orig,
+        bool (*callback)(const struct EvaluationContext *eval_ctx, struct Object *ob, void *callback_data),
+        void *callback_data);
 
-bool ED_object_multires_update_totlevels_cb(struct Object *ob, void *totlevel_v);
+bool ED_object_multires_update_totlevels_cb(
+        const struct EvaluationContext *eval_ctx,
+        struct Object *ob, void *totlevel_v);
 
 /* object_select.c */
 void ED_object_select_linked_by_id(struct bContext *C, struct ID *id);
