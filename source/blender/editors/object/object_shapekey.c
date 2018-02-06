@@ -123,9 +123,6 @@ static bool object_shape_key_mirror(bContext *C, Object *ob,
 	kb = BLI_findlink(&key->block, ob->shapenr - 1);
 
 	if (kb) {
-		EvaluationContext eval_ctx;
-		CTX_data_eval_ctx(C, &eval_ctx);
-
 		char *tag_elem = MEM_callocN(sizeof(char) * kb->totelem, "shape_key_mirror");
 
 
