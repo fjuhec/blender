@@ -5211,7 +5211,7 @@ static void sculpt_dynamic_topology_triangulate(BMesh *bm)
 	}
 }
 
-void sculpt_pbvh_clear(const EvaluationContext *eval_ctx, Object *ob)
+void sculpt_pbvh_clear(Object *ob)
 {
 	SculptSession *ss = ob->sculpt;
 	DerivedMesh *dm = ob->derivedFinal;
@@ -5221,7 +5221,7 @@ void sculpt_pbvh_clear(const EvaluationContext *eval_ctx, Object *ob)
 		BKE_pbvh_free(ss->pbvh);
 	ss->pbvh = NULL;
 	if (dm)
-		dm->getPBVH(eval_ctx, NULL, dm);
+		dm->getPBVH(NULL, NULL, dm);
 	BKE_object_free_derived_caches(ob);
 }
 
@@ -5273,15 +5273,13 @@ void sculpt_update_after_dynamic_topology_toggle(bContext *C)
 
 void sculpt_dynamic_topology_enable(bContext *C)
 {
-	EvaluationContext eval_ctx;
-	CTX_data_eval_ctx(C, &eval_ctx);
 	Scene *scene = CTX_data_scene(C);
 	Object *ob = CTX_data_active_object(C);
 	SculptSession *ss = ob->sculpt;
 	Mesh *me = ob->data;
 	const BMAllocTemplate allocsize = BMALLOC_TEMPLATE_FROM_ME(me);
 
-	sculpt_pbvh_clear(&eval_ctx, ob);
+	sculpt_pbvh_clear(ob);
 
 	ss->bm_smooth_shading = (scene->toolsettings->sculpt->flags & SCULPT_DYNTOPO_SMOOTH_SHADING) != 0;
 
@@ -5322,13 +5320,11 @@ void sculpt_dynamic_topology_enable(bContext *C)
 void sculpt_dynamic_topology_disable(bContext *C,
                                      SculptUndoNode *unode)
 {
-	EvaluationContext eval_ctx;
-	CTX_data_eval_ctx(C, &eval_ctx);
 	Object *ob = CTX_data_active_object(C);
 	SculptSession *ss = ob->sculpt;
 	Mesh *me = ob->data;
 
-	sculpt_pbvh_clear(&eval_ctx, ob);
+	sculpt_pbvh_clear(ob);
 
 	if (unode) {
 		/* Free all existing custom data */
@@ -5518,11 +5514,9 @@ static void SCULPT_OT_dynamic_topology_toggle(wmOperatorType *ot)
 
 static int sculpt_optimize_exec(bContext *C, wmOperator *UNUSED(op))
 {
-	EvaluationContext eval_ctx;
-	CTX_data_eval_ctx(C, &eval_ctx);
 	Object *ob = CTX_data_active_object(C);
 
-	sculpt_pbvh_clear(&eval_ctx, ob);
+	sculpt_pbvh_clear(ob);
 	WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
 
 	return OPERATOR_FINISHED;
@@ -5557,8 +5551,6 @@ static void SCULPT_OT_optimize(wmOperatorType *ot)
 
 static int sculpt_symmetrize_exec(bContext *C, wmOperator *UNUSED(op))
 {
-	EvaluationContext eval_ctx;
-	CTX_data_eval_ctx(C, &eval_ctx);
 	Object *ob = CTX_data_active_object(C);
 	const Sculpt *sd = CTX_data_tool_settings(C)->sculpt;
 	SculptSession *ss = ob->sculpt;
@@ -5589,7 +5581,7 @@ static int sculpt_symmetrize_exec(bContext *C, wmOperator *UNUSED(op))
 	sculpt_undo_push_end(C);
 
 	/* Redraw */
-	sculpt_pbvh_clear(&eval_ctx, ob);
+	sculpt_pbvh_clear(ob);
 	WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
 
 	return OPERATOR_FINISHED;
@@ -5788,9 +5780,6 @@ static int sculpt_and_dynamic_topology_constant_detail_poll(bContext *C)
 
 static int sculpt_detail_flood_fill_exec(bContext *C, wmOperator *UNUSED(op))
 {
-	EvaluationContext eval_ctx;
-	CTX_data_eval_ctx(C, &eval_ctx);
-
 	Sculpt *sd = CTX_data_tool_settings(C)->sculpt;
 	Object *ob = CTX_data_active_object(C);
 	SculptSession *ss = ob->sculpt;
@@ -5832,7 +5821,7 @@ static int sculpt_detail_flood_fill_exec(bContext *C, wmOperator *UNUSED(op))
 	sculpt_undo_push_end(C);
 
 	/* force rebuild of pbvh for better BB placement */
-	sculpt_pbvh_clear(&eval_ctx, ob);
+	sculpt_pbvh_clear(ob);
 	/* Redraw */
 	WM_event_add_notifier(C, NC_OBJECT | ND_DRAW, ob);
 
