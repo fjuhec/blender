@@ -1481,7 +1481,7 @@ static const EnumPropertyItem *object_mode_set_itemsf(
 	return item;
 }
 
-static const char *object_mode_op_string(int mode)
+static const char *object_mode_op_string(eObjectMode mode)
 {
 	if (mode & OB_MODE_EDIT)
 		return "OBJECT_OT_editmode_toggle";
@@ -1547,7 +1547,7 @@ static bool object_mode_compat_test(Object *ob, eObjectMode mode)
  *
  * This is so each mode's exec function can call
  */
-bool ED_object_mode_compat_set(bContext *C, WorkSpace *workspace, int mode, ReportList *reports)
+bool ED_object_mode_compat_set(bContext *C, WorkSpace *workspace, eObjectMode mode, ReportList *reports)
 {
 	bool ok;
 	if (!ELEM(workspace->object_mode, mode, OB_MODE_OBJECT)) {
@@ -1666,8 +1666,7 @@ void OBJECT_OT_mode_set(wmOperatorType *ot)
 	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 }
 
-
-void ED_object_toggle_modes(bContext *C, int mode)
+void ED_object_toggle_modes(bContext *C, eObjectMode mode)
 {
 	if (mode != OB_MODE_OBJECT) {
 		const char *opstring = object_mode_op_string(mode);
