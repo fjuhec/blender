@@ -663,8 +663,8 @@ class GreasePencilMultiFramePanel:
 
 
 class GreasePencilAppearancePanel:
-    bl_label = "Appearance"
-    bl_category = "Options"
+    bl_label = "Brush Appearance"
+    bl_category = "Tools"
     bl_region_type = 'TOOLS'
     bl_options = {'DEFAULT_CLOSED'}
 
@@ -700,7 +700,7 @@ class GreasePencilAppearancePanel:
 
 class GreasePencilEraserPanel:
     bl_label = "Eraser"
-    bl_category = "Options"
+    bl_category = "Tools"
     bl_region_type = 'TOOLS'
     bl_options = {'DEFAULT_CLOSED'}
 
