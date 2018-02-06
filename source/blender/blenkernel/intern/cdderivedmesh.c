@@ -263,7 +263,7 @@ static bool can_pbvh_draw(Object *ob, DerivedMesh *dm)
 }
 
 static PBVH *cdDM_getPBVH(
-        const EvaluationContext *UNUSED(eval_ctx), Object *ob, DerivedMesh *dm)
+        Object *ob, DerivedMesh *dm, eObjectMode UNUSED(object_mode))
 {
 	CDDerivedMesh *cddm = (CDDerivedMesh *) dm;
 

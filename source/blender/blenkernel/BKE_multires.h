@@ -48,21 +48,21 @@ struct MVert;
 struct MPoly;
 struct MLoopTri;
 
+#include "DNA_object_enums.h"
+
 /* Delete mesh mdisps and grid paint masks */
 void multires_customdata_delete(struct Mesh *me);
 
-void multires_set_tot_level(
-        const struct EvaluationContext *eval_ctx, struct Object *ob,
-        struct MultiresModifierData *mmd, int lvl);
+void multires_set_tot_level(struct MultiresModifierData *mmd, int lvl, eObjectMode object_mode);
 
 void multires_mark_as_modified(struct Object *ob, enum MultiresModifiedFlags flags);
 
 void multires_force_update(struct Object *ob);
-void multires_force_render_update(const struct EvaluationContext *eval_ctx, struct Object *ob);
+void multires_force_render_update(struct Object *ob, eObjectMode object_mode);
 void multires_force_external_reload(struct Object *ob);
 
 /* internal, only called in subsurf_ccg.c */
-void multires_modifier_update_mdisps(const struct EvaluationContext *eval_ctx, struct DerivedMesh *dm);
+void multires_modifier_update_mdisps(struct DerivedMesh *dm, eObjectMode object_mode);
 void multires_modifier_update_hidden(struct DerivedMesh *dm);
 
 void multiresModifier_set_levels_from_disps(struct MultiresModifierData *mmd, struct Object *ob);
@@ -75,11 +75,11 @@ typedef enum {
 } MultiresFlags;
 
 struct DerivedMesh *multires_make_derived_from_derived(
-        const struct EvaluationContext *eval_ctx,
         struct DerivedMesh *dm,
         struct MultiresModifierData *mmd,
         struct Object *ob,
-        MultiresFlags flags);
+        MultiresFlags flags,
+        eObjectMode object_mode);
 
 struct MultiresModifierData *find_multires_modifier_before(struct Scene *scene,
                                                            struct ModifierData *lastmd);
@@ -87,15 +87,14 @@ struct MultiresModifierData *get_multires_modifier(struct Scene *scene, struct O
 struct DerivedMesh *get_multires_dm(const struct EvaluationContext *eval_ctx, struct Scene *scene, struct MultiresModifierData *mmd,
                                     struct Object *ob);
 void multiresModifier_del_levels(
-        const struct EvaluationContext *eval_ctx,
-        struct MultiresModifierData *, struct Object *, int direction);
+        struct MultiresModifierData *, struct Object *, int direction, eObjectMode object_mode);
 void multiresModifier_base_apply(
-        const struct EvaluationContext *eval_ctx, struct MultiresModifierData *mmd, struct Object *ob);
+        struct MultiresModifierData *mmd, struct Object *ob, eObjectMode object_mode);
 void multiresModifier_subdivide(
-        const struct EvaluationContext *eval_ctx, struct MultiresModifierData *mmd, struct Object *ob, int updateblock, int simple);
+        struct MultiresModifierData *mmd, struct Object *ob, int updateblock, int simple, eObjectMode object_mode);
 void multiresModifier_sync_levels_ex(
-        const struct EvaluationContext *eval_ctx,
-        struct Object *ob_dst, struct MultiresModifierData *mmd_src, struct MultiresModifierData *mmd_dst);
+        struct Object *ob_dst, struct MultiresModifierData *mmd_src, struct MultiresModifierData *mmd_dst,
+        eObjectMode object_mode);
 int multiresModifier_reshape(const struct EvaluationContext *eval_ctx, struct Scene *scene, struct MultiresModifierData *mmd,
                              struct Object *dst, struct Object *src);
 int multiresModifier_reshapeFromDM(const struct EvaluationContext *eval_ctx, struct Scene *scene, struct MultiresModifierData *mmd,
@@ -111,7 +110,7 @@ enum {
 	MULTIRES_SPACE_OBJECT,
 	MULTIRES_SPACE_ABSOLUTE
 };
-void multires_set_space(const struct EvaluationContext *eval_ctx, struct DerivedMesh *dm, struct Object *ob, int from, int to);
+void multires_set_space(struct DerivedMesh *dm, struct Object *ob, int from, int to, eObjectMode object_mode);
 
 /* Related to the old multires */
 void multires_free(struct Multires *mr);

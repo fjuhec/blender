@@ -263,7 +263,7 @@ bool ED_object_multires_update_totlevels_cb(
 
 	for (md = ob->modifiers.first; md; md = md->next) {
 		if (md->type == eModifierType_Multires) {
-			multires_set_tot_level(eval_ctx, ob, (MultiresModifierData *)md, totlevel);
+			multires_set_tot_level((MultiresModifierData *)md, totlevel, eval_ctx->object_mode);
 			DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 		}
 	}
@@ -1175,7 +1175,7 @@ static int multires_higher_levels_delete_exec(bContext *C, wmOperator *op)
 	EvaluationContext eval_ctx;
 	CTX_data_eval_ctx(C, &eval_ctx);
 
-	multiresModifier_del_levels(&eval_ctx, mmd, ob, 1);
+	multiresModifier_del_levels(mmd, ob, 1, eval_ctx.object_mode);
 
 	ED_object_iter_other(&eval_ctx, CTX_data_main(C), ob, true,
 	                     ED_object_multires_update_totlevels_cb,
@@ -1221,7 +1221,7 @@ static int multires_subdivide_exec(bContext *C, wmOperator *op)
 
 	EvaluationContext eval_ctx;
 	CTX_data_eval_ctx(C, &eval_ctx);
-	multiresModifier_subdivide(&eval_ctx, mmd, ob, 0, mmd->simple);
+	multiresModifier_subdivide(mmd, ob, 0, mmd->simple, eval_ctx.object_mode);
 
 	ED_object_iter_other(
 	        &eval_ctx, CTX_data_main(C), ob, true,
@@ -1449,7 +1449,7 @@ static int multires_base_apply_exec(bContext *C, wmOperator *op)
 	EvaluationContext eval_ctx;
 	CTX_data_eval_ctx(C, &eval_ctx);
 
-	multiresModifier_base_apply(&eval_ctx, mmd, ob);
+	multiresModifier_base_apply(mmd, ob, eval_ctx.object_mode);
 
 	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 	WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, ob);

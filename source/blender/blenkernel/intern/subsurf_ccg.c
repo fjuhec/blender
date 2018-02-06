@@ -3792,8 +3792,8 @@ static void ccgDM_release(DerivedMesh *dm)
 			}
 			if (ccgdm->multires.mmd) {
 				if (ccgdm->multires.modified_flags & MULTIRES_COORDS_MODIFIED) {
-					const EvaluationContext eval_ctx = {0};
-					multires_modifier_update_mdisps(&eval_ctx, dm);
+					/* TODO/OBMODE, pass real mode? */
+					multires_modifier_update_mdisps(dm, OB_MODE_OBJECT);
 				}
 				if (ccgdm->multires.modified_flags & MULTIRES_HIDDEN_MODIFIED) {
 					multires_modifier_update_hidden(dm);
@@ -4192,7 +4192,7 @@ static int ccgDM_use_grid_pbvh(CCGDerivedMesh *ccgdm)
 }
 
 static struct PBVH *ccgDM_getPBVH(
-        const EvaluationContext *eval_ctx, Object *ob, DerivedMesh *dm)
+        Object *ob, DerivedMesh *dm, eObjectMode object_mode)
 {
 	CCGDerivedMesh *ccgdm = (CCGDerivedMesh *)dm;
 	CCGKey key;
@@ -4209,7 +4209,7 @@ static struct PBVH *ccgDM_getPBVH(
 		return NULL;
 
 	bool grid_pbvh = ccgDM_use_grid_pbvh(ccgdm);
-	if ((eval_ctx->object_mode & OB_MODE_SCULPT) == 0) {
+	if ((object_mode & OB_MODE_SCULPT) == 0) {
 		/* In vwpaint, we may use a grid_pbvh for multires/subsurf, under certain conditions.
 		 * More complex cases break 'history' trail back to original vertices, in that case we fall back to
 		 * deformed cage only (i.e. original deformed mesh). */

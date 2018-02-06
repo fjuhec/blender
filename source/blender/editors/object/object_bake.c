@@ -207,7 +207,7 @@ static bool multiresbake_check(bContext *C, wmOperator *op)
 }
 
 static DerivedMesh *multiresbake_create_loresdm(
-        const EvaluationContext *eval_ctx, Scene *scene, Object *ob, int *lvl)
+        Scene *scene, Object *ob, eObjectMode object_mode, int *lvl)
 {
 	DerivedMesh *dm;
 	MultiresModifierData *mmd = get_multires_modifier(scene, ob, 0);
@@ -227,14 +227,15 @@ static DerivedMesh *multiresbake_create_loresdm(
 
 	tmp_mmd.lvl = *lvl;
 	tmp_mmd.sculptlvl = *lvl;
-	dm = multires_make_derived_from_derived(eval_ctx, cddm, &tmp_mmd, ob, 0);
+	dm = multires_make_derived_from_derived(cddm, &tmp_mmd, ob, object_mode, 0);
 	cddm->release(cddm);
 
 	return dm;
 }
 
 static DerivedMesh *multiresbake_create_hiresdm(
-        const EvaluationContext *eval_ctx, Scene *scene, Object *ob, int *lvl, bool *simple)
+        Scene *scene, Object *ob, eObjectMode object_mode,
+        int *lvl, bool *simple)
 {
 	Mesh *me = (Mesh *)ob->data;
 	MultiresModifierData *mmd = get_multires_modifier(scene, ob, 0);
@@ -255,7 +256,7 @@ static DerivedMesh *multiresbake_create_hiresdm(
 
 	tmp_mmd.lvl = mmd->totlvl;
 	tmp_mmd.sculptlvl = mmd->totlvl;
-	dm = multires_make_derived_from_derived(eval_ctx, cddm, &tmp_mmd, ob, 0);
+	dm = multires_make_derived_from_derived(cddm, &tmp_mmd, ob, object_mode, 0);
 	cddm->release(cddm);
 
 	return dm;
@@ -376,8 +377,8 @@ static int multiresbake_image_exec_locked(bContext *C, wmOperator *op)
 		bkr.ob_image.array = BKE_object_material_edit_image_get_array(ob);
 		bkr.ob_image.len = ob->totcol;
 
-		bkr.hires_dm = multiresbake_create_hiresdm(&eval_ctx, scene, ob, &bkr.tot_lvl, &bkr.simple);
-		bkr.lores_dm = multiresbake_create_loresdm(&eval_ctx, scene, ob, &bkr.lvl);
+		bkr.hires_dm = multiresbake_create_hiresdm(scene, ob, eval_ctx.object_mode, &bkr.tot_lvl, &bkr.simple);
+		bkr.lores_dm = multiresbake_create_loresdm(scene, ob, eval_ctx.object_mode, &bkr.lvl);
 
 		RE_multires_bake_images(&bkr);
 
@@ -435,8 +436,8 @@ static void init_multiresbake_job(bContext *C, MultiresBakeJob *bkj)
 		data->ob_image.len = ob->totcol;
 
 		/* create low-resolution DM (to bake to) and hi-resolution DM (to bake from) */
-		data->hires_dm = multiresbake_create_hiresdm(&eval_ctx, scene, ob, &data->tot_lvl, &data->simple);
-		data->lores_dm = multiresbake_create_loresdm(&eval_ctx, scene, ob, &lvl);
+		data->hires_dm = multiresbake_create_hiresdm(scene, ob, eval_ctx.object_mode, &data->tot_lvl, &data->simple);
+		data->lores_dm = multiresbake_create_loresdm(scene, ob, eval_ctx.object_mode, &lvl);
 		data->lvl = lvl;
 
 		BLI_addtail(&bkj->data, data);

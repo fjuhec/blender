@@ -794,7 +794,7 @@ void BKE_sculptsession_free(Object *ob)
 			BM_log_free(ss->bm_log);
 
 		if (dm && dm->getPBVH)
-			dm->getPBVH(NULL, NULL, dm);  /* signal to clear */
+			dm->getPBVH(NULL, dm, OB_MODE_OBJECT);  /* signal to clear */
 
 		if (ss->texcache)
 			MEM_freeN(ss->texcache);
@@ -949,7 +949,7 @@ void BKE_sculpt_update_mesh_elements(
 		ss->vmask = CustomData_get_layer(&me->vdata, CD_PAINT_MASK);
 	}
 
-	ss->pbvh = dm->getPBVH(eval_ctx, ob, dm);
+	ss->pbvh = dm->getPBVH(ob, dm, eval_ctx->object_mode);
 	ss->pmap = (need_pmap && dm->getPolyMap) ? dm->getPolyMap(ob, dm) : NULL;
 
 	pbvh_show_diffuse_color_set(ss->pbvh, ss->show_diffuse_color);

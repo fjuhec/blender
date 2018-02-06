@@ -5221,7 +5221,7 @@ void sculpt_pbvh_clear(Object *ob)
 		BKE_pbvh_free(ss->pbvh);
 	ss->pbvh = NULL;
 	if (dm)
-		dm->getPBVH(NULL, NULL, dm);
+		dm->getPBVH(NULL, dm, OB_MODE_OBJECT);
 	BKE_object_free_derived_caches(ob);
 }
 

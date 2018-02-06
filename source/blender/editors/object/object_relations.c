@@ -1515,7 +1515,7 @@ static int make_links_data_exec(bContext *C, wmOperator *op)
 						}
 						break;
 					case MAKE_LINKS_MODIFIERS:
-						BKE_object_link_modifiers(&eval_ctx, ob_dst, ob_src);
+						BKE_object_link_modifiers(ob_dst, ob_src, eval_ctx.object_mode);
 						DEG_id_tag_update(&ob_dst->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
 						break;
 					case MAKE_LINKS_FONTS:

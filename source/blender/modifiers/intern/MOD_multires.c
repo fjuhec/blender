@@ -48,6 +48,8 @@
 
 #include "MOD_modifiertypes.h"
 
+#include "DEG_depsgraph.h"
+
 static void initData(ModifierData *md)
 {
 	MultiresModifierData *mmd = (MultiresModifierData *)md;
@@ -94,7 +96,7 @@ static DerivedMesh *applyModifier(ModifierData *md, const struct EvaluationConte
 	if (ignore_simplify)
 		flags |= MULTIRES_IGNORE_SIMPLIFY;
 
-	result = multires_make_derived_from_derived(eval_ctx, dm, mmd, ob, flags);
+	result = multires_make_derived_from_derived(dm, mmd, ob, flags, eval_ctx->object_mode);
 
 	if (result == dm)
 		return dm;

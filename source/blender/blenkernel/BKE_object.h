@@ -75,8 +75,8 @@ void BKE_object_modifier_hook_reset(struct Object *ob, struct HookModifierData *
 bool BKE_object_support_modifier_type_check(struct Object *ob, int modifier_type);
 
 void BKE_object_link_modifiers(
-        const struct EvaluationContext *eval_ctx,
-        struct Object *ob_dst, const struct Object *ob_src);
+        struct Object *ob_dst, const struct Object *ob_src,
+        eObjectMode object_mode);
 void BKE_object_free_modifiers(struct Object *ob);
 
 void BKE_object_make_proxy(struct Object *ob, struct Object *target, struct Object *gob);
