@@ -129,10 +129,11 @@ static void gpencil_draw_color_table(const bContext *UNUSED(C), tGPDpick *tgpk)
 		return;
 	}
 	const uiFontStyle *fstyle = UI_FSTYLE_WIDGET;
-	float ink[4];
+	float background[4];
 	float line[4];
+	float selcolor[4];
+	float wcolor[4] = { 0.9f, 0.9f, 0.9f, 0.8f };  // <--- XXX, why?
 	float radius = (0.2f * U.widget_unit);
-	float wcolor[4] = { 0.9f, 0.9f, 0.9f, 0.8f };
 
 	/* boxes for stroke and fill color */
 	rcti sbox;
@@ -140,16 +141,19 @@ static void gpencil_draw_color_table(const bContext *UNUSED(C), tGPDpick *tgpk)
 
 	bTheme *btheme = UI_GetTheme();
 	uiWidgetColors menuBack = btheme->tui.wcol_menu_back;
+	uiWidgetColors menuItem = btheme->tui.wcol_menu_item;
 
 	rgba_uchar_to_float(line, menuBack.outline);
-	rgba_uchar_to_float(ink, menuBack.inner);
+	rgba_uchar_to_float(background, menuBack.inner);
+	rgba_uchar_to_float(selcolor, menuItem.inner_sel);
 
 	/* draw panel background */
+	/* TODO: Draw soft drop shadow behind this (like standard menus)? */
 	glEnable(GL_BLEND);
 	UI_draw_roundbox_corner_set(UI_CNR_ALL);
 	UI_draw_roundbox_4fv(true, tgpk->panel.xmin, tgpk->panel.ymin,
 						tgpk->panel.xmax, tgpk->panel.ymax,
-						radius, ink);
+						radius, background);
 	glDisable(GL_BLEND);
 
 	/* draw color boxes */
@@ -172,10 +176,16 @@ static void gpencil_draw_color_table(const bContext *UNUSED(C), tGPDpick *tgpk)
 		fbox.xmax = col->rect.xmax;
 		fbox.ymax = col->rect.ymax - scaley;
 
-		/* focus to current color */
-		if (tgpk->palette->active_color == col->index) {
-			focus = true;
+		/* highlight background of item under mouse */
+		if (i == tgpk->curindex) {
+			/* TODO: How to get the menu gradient shading? */
+			rcti *cbox = &col->full_rect;
+			UI_draw_roundbox_4fv(true,
+			                     cbox->xmin, cbox->ymin,
+			                     cbox->xmax, cbox->ymax,
+			                     0, selcolor);
 		}
+
 		/* fill box */
 		UI_draw_roundbox_4fv(true, fbox.xmin, fbox.ymin, fbox.xmax, fbox.ymax, radius, wcolor);
 		gp_draw_pattern_box(fbox.xmin + 2, fbox.ymin + 2, fbox.xmax - 2, fbox.ymax - 2);
@@ -280,6 +290,7 @@ static tGPDpick *gp_session_init_colorpick(bContext *C, wmOperator *op, const wm
 
 	/* allocate color table */
 	tgpk->totcolor = get_tot_colors(tgpk);
+	tgpk->curindex = tgpk->palette->active_color;
 	if (tgpk->totcolor > 0) {
 		tgpk->colors = MEM_callocN(sizeof(tGPDpickColor) * tgpk->totcolor, "gp_colorpicker");
 	}
@@ -370,6 +381,13 @@ static tGPDpick *gp_session_init_colorpick(bContext *C, wmOperator *op, const wm
 
 		tcolor->rect.ymax = tgpk->panel.ymax - (tgpk->boxsize[1] * row) - (GP_BOX_GAP * row) - (GP_BOX_GAP / 2);
 		tcolor->rect.ymin = tcolor->rect.ymax - tgpk->boxsize[0];
+
+		/* "full" hit region  (used for UI highlight and event testing) */
+		// XXX: It would be nice to have these larger, to allow for a less laggy feel (due the hit-region misses)
+		tcolor->full_rect.xmin = tcolor->rect.xmin - (GP_BOX_GAP / 4);
+		tcolor->full_rect.xmax = tcolor->rect.xmax + (GP_BOX_GAP / 4);
+		tcolor->full_rect.ymin = tcolor->rect.ymin - (GP_BOX_GAP / 4);
+		tcolor->full_rect.ymax = tcolor->rect.ymax + (GP_BOX_GAP / 4);
 
 		idx++;
 		row++;
@@ -469,23 +487,19 @@ static int gpencil_colorpick_invoke(bContext *C, wmOperator *op, const wmEvent *
 	return OPERATOR_RUNNING_MODAL;
 }
 
-/* set active color when user select one box of the toolbar */
-static bool set_color(const wmEvent *event, tGPDpick *tgpk)
+/* get active color under the cursor */
+/* FIXME: Can we do this without looping? */
+static int gpencil_colorpick_index_from_mouse(const tGPDpick *tgpk, const wmEvent *event)
 {
 	tGPDpickColor *tcol = tgpk->colors;
-	/* if click out of panel, end */
-	if (!BLI_rcti_isect_pt_v(&tgpk->panel, event->mval)) {
-		return true;
-	}
 
 	for (int i = 0; i < tgpk->totcolor; i++, tcol++) {
-		if (BLI_rcti_isect_pt_v(&tcol->rect, event->mval)) {
-			tgpk->palette->active_color = tcol->index;
-			return true;
+		if (BLI_rcti_isect_pt_v(&tcol->full_rect, event->mval)) {
+			return tcol->index;
 		}
 	}
 
-	return false;
+	return -1;
 }
 
 /* events handling during interactive part of operator */
@@ -502,9 +516,29 @@ static int gpencil_colorpick_modal(bContext *C, wmOperator *op, const wmEvent *e
 		case RIGHTMOUSE:
 			estate = OPERATOR_CANCELLED;
 			break;
+
 		case LEFTMOUSE:
-			if (set_color(event, tgpk) == true) {
-				estate = OPERATOR_FINISHED;
+			if (!BLI_rcti_isect_pt_v(&tgpk->panel, event->mval)) {
+				/* if click out of panel, end */
+				estate = OPERATOR_CANCELLED;
+			}
+			else {
+				int index = gpencil_colorpick_index_from_mouse(tgpk, event);
+				if (index != -1) {
+					tgpk->palette->active_color = index;
+					estate = OPERATOR_FINISHED;
+				}
+			}
+			break;
+
+		case MOUSEMOVE:
+			if (BLI_rcti_isect_pt_v(&tgpk->panel, event->mval)) {
+				int index = gpencil_colorpick_index_from_mouse(tgpk, event);
+				if (index != -1) {
+					/* don't update active color if we move outside the grid */
+					tgpk->curindex = index;
+					ED_region_tag_redraw(CTX_wm_region(C));
+				}
 			}
 			break;
 	}

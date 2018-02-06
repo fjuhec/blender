@@ -201,6 +201,7 @@ typedef struct tGPDfill {
 /* Temporary color picker operation data */
 typedef struct tGPDpickColor {
 	char name[64];   /* color name. Must be unique. */
+	rcti full_rect;  /* full size of region occupied by color box (for event/highlight handling) */
 	rcti rect;       /* box position */
 	int index;       /* index of color in palette */
 	float rgba[4];   /* color */
@@ -226,6 +227,7 @@ typedef struct tGPDpick {
 	int boxsize[2];                     /* size of each box color */
 
 	int totcolor;                       /* number of colors */
+	int curindex;                       /* index of color under cursor */
 	tGPDpickColor *colors;              /* colors of palette */
 
 	void *draw_handle_3d;               /* handle for drawing strokes while operator is running */
