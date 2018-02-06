@@ -458,7 +458,7 @@ static bool weight_paint_set(const EvaluationContext *eval_ctx, Object *ob, floa
 					dw->weight = paintweight;
 
 					if (me->editflag & ME_EDIT_MIRROR_X) {  /* x mirror painting */
-						int j = mesh_get_x_mirror_vert(eval_ctx, ob, NULL, vidx, topology);
+						int j = mesh_get_x_mirror_vert(ob, NULL, vidx, topology);
 						if (j >= 0) {
 							/* copy, not paint again */
 							if (vgroup_mirror != -1) {

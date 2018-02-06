@@ -777,11 +777,9 @@ static void do_view3d_vgroup_buttons(bContext *C, void *UNUSED(arg), int event)
 		return;
 	}
 	else {
-		EvaluationContext eval_ctx;
-		CTX_data_eval_ctx(C, &eval_ctx);
 		ViewLayer *view_layer = CTX_data_view_layer(C);
 		Object *ob = view_layer->basact->object;
-		ED_vgroup_vert_active_mirror(&eval_ctx, ob, event - B_VGRP_PNL_EDIT_SINGLE);
+		ED_vgroup_vert_active_mirror(ob, event - B_VGRP_PNL_EDIT_SINGLE);
 		DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 		WM_event_add_notifier(C, NC_GEOM | ND_DATA, ob->data);
 	}
@@ -794,11 +792,10 @@ static int view3d_panel_vgroup_poll(const bContext *C, PanelType *UNUSED(pt))
 
 	EvaluationContext eval_ctx;
 	CTX_data_eval_ctx(C, &eval_ctx);
-
 	if (ob && (BKE_object_is_in_editmode_vgroup(ob) ||
 	           BKE_object_is_in_wpaint_select_vert(&eval_ctx, ob)))
 	{
-		MDeformVert *dvert_act = ED_mesh_active_dvert_get_only(&eval_ctx, ob);
+		MDeformVert *dvert_act = ED_mesh_active_dvert_get_only(ob);
 		if (dvert_act) {
 			return (dvert_act->totweight != 0);
 		}
@@ -810,8 +807,6 @@ static int view3d_panel_vgroup_poll(const bContext *C, PanelType *UNUSED(pt))
 
 static void view3d_panel_vgroup(const bContext *C, Panel *pa)
 {
-	EvaluationContext eval_ctx;
-	CTX_data_eval_ctx(C, &eval_ctx);
 	uiBlock *block = uiLayoutAbsoluteBlock(pa->layout);
 	Scene *scene = CTX_data_scene(C);
 	ViewLayer *view_layer = CTX_data_view_layer(C);
@@ -819,7 +814,7 @@ static void view3d_panel_vgroup(const bContext *C, Panel *pa)
 
 	MDeformVert *dv;
 
-	dv = ED_mesh_active_dvert_get_only(&eval_ctx, ob);
+	dv = ED_mesh_active_dvert_get_only(ob);
 
 	if (dv && dv->totweight) {
 		ToolSettings *ts = scene->toolsettings;

@@ -251,7 +251,7 @@ typedef struct SculptSession {
 	bool building_vp_handle;
 } SculptSession;
 
-void BKE_sculptsession_free(const struct EvaluationContext *eval_ctx, struct Object *ob);
+void BKE_sculptsession_free(struct Object *ob);
 void BKE_sculptsession_free_deformMats(struct SculptSession *ss);
 void BKE_sculptsession_free_vwpaint_data(struct SculptSession *ss);
 void BKE_sculptsession_bm_to_me(struct Object *ob, bool reorder);

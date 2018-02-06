@@ -653,8 +653,7 @@ void restoreBones(TransInfo *t);
 #define MANIPULATOR_AXIS_LINE_WIDTH 2.0f
 
 /* return 0 when no gimbal for selection */
-bool gimbal_axis(
-        const struct EvaluationContext *eval_ctx, struct Object *ob, float gmat[3][3]);
+bool gimbal_axis(struct Object *ob, float gmat[3][3], const short object_mode);
 
 /*********************** TransData Creation and General Handling *********** */
 void createTransData(struct bContext *C, TransInfo *t);

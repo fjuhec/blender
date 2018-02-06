@@ -5670,9 +5670,7 @@ static int sculpt_mode_toggle_exec(bContext *C, wmOperator *op)
 		/* Leave sculptmode */
 		workspace->object_mode &= ~mode_flag;
 
-		EvaluationContext eval_ctx;
-		CTX_data_eval_ctx(C, &eval_ctx);
-		BKE_sculptsession_free(&eval_ctx, ob);
+		BKE_sculptsession_free(ob);
 
 		paint_cursor_delete_textures();
 	}
@@ -5685,9 +5683,7 @@ static int sculpt_mode_toggle_exec(bContext *C, wmOperator *op)
 
 		/* Create sculpt mode session data */
 		if (ob->sculpt) {
-			EvaluationContext eval_ctx;
-			CTX_data_eval_ctx(C, &eval_ctx);
-			BKE_sculptsession_free(&eval_ctx, ob);
+			BKE_sculptsession_free(ob);
 		}
 
 		sculpt_init_session(C, scene, ob);

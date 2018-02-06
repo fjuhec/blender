@@ -219,7 +219,7 @@ static void envelope_bone_weighting(
 			continue;
 		}
 
-		iflip = (dgroupflip) ? mesh_get_x_mirror_vert(eval_ctx, ob, NULL, i, use_topology) : -1;
+		iflip = (dgroupflip) ? mesh_get_x_mirror_vert(ob, NULL, i, use_topology) : -1;
 		
 		/* for each skinnable bone */
 		for (j = 0; j < numbones; ++j) {

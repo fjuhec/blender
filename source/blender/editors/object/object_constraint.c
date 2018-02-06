@@ -1674,7 +1674,7 @@ static bool get_new_constraint_target(bContext *C, int con_type, Object **tar_ob
 				/* for armatures in pose mode, look inside the armature for the active bone
 				 * so that we set up cross-armature constraints with less effort
 				 */
-				if ((ob->type == OB_ARMATURE) && (eval_ctx.mode & OB_MODE_POSE) && 
+				if ((ob->type == OB_ARMATURE) && (eval_ctx.mode & OB_MODE_POSE) &&
 				    (!only_curve && !only_mesh))
 				{
 					/* just use the active bone, and assume that it is visible + usable */

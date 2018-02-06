@@ -2846,7 +2846,7 @@ void PARTICLE_OT_delete(wmOperatorType *ot)
 /*************************** mirror operator **************************/
 
 static void PE_mirror_x(
-        const EvaluationContext *eval_ctx, Scene *scene, ViewLayer *view_layer, Object *ob, int tagged)
+        Scene *scene, ViewLayer *view_layer, Object *ob, int tagged)
 {
 	Mesh *me= (Mesh *)(ob->data);
 	ParticleSystemModifierData *psmd;
@@ -2873,7 +2873,7 @@ static void PE_mirror_x(
 
 	/* Note: In case psys uses DM tessface indices, we mirror final DM itself, not orig mesh. Avoids an (impossible)
 	 *       dm -> orig -> dm tessface indices conversion... */
-	mirrorfaces = mesh_get_x_mirror_faces(eval_ctx, ob, NULL, use_dm_final_indices ? psmd->dm_final : NULL);
+	mirrorfaces = mesh_get_x_mirror_faces(ob, NULL, use_dm_final_indices ? psmd->dm_final : NULL);
 
 	if (!edit->mirror_cache)
 		PE_update_mirror_cache(ob, psys);
@@ -2996,14 +2996,12 @@ static void PE_mirror_x(
 
 static int mirror_exec(bContext *C, wmOperator *UNUSED(op))
 {
-	EvaluationContext eval_ctx;
-	CTX_data_eval_ctx(C, &eval_ctx);
 	Scene *scene= CTX_data_scene(C);
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	Object *ob= CTX_data_active_object(C);
 	PTCacheEdit *edit= PE_get_current(scene, view_layer, ob);
-
-	PE_mirror_x(&eval_ctx, scene, view_layer, ob, 0);
+	
+	PE_mirror_x(scene, view_layer, ob, 0);
 
 	update_world_cos(ob, edit);
 	WM_event_add_notifier(C, NC_OBJECT|ND_PARTICLE|NA_EDITED, ob);
@@ -4023,7 +4021,7 @@ static void brush_edit_apply(bContext *C, wmOperator *op, PointerRNA *itemptr)
 
 			if (ELEM(pset->brushtype, PE_BRUSH_ADD, PE_BRUSH_CUT) && (added || removed)) {
 				if (pset->brushtype == PE_BRUSH_ADD && pe_x_mirror(ob))
-					PE_mirror_x(&eval_ctx, scene, view_layer, ob, 1);
+					PE_mirror_x(scene, view_layer, ob, 1);
 
 				update_world_cos(ob, edit);
 				psys_free_path_cache(NULL, edit);

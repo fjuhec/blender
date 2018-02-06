@@ -385,8 +385,7 @@ DRWShadingGroup *shgroup_instance_mball_helpers(DRWPass *pass, struct Gwn_Batch 
  * Get the wire color theme_id of an object based on it's state
  * \a r_color is a way to get a pointer to the static color var associated
  */
-int DRW_object_wire_theme_get(
-        Object *ob, ViewLayer *view_layer, float **r_color)
+int DRW_object_wire_theme_get(Object *ob, ViewLayer *view_layer, float **r_color)
 {
 	const DRWContextState *draw_ctx = DRW_context_state_get();
 	const bool is_edit = (draw_ctx->object_mode & OB_MODE_EDIT) != 0;

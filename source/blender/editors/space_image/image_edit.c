@@ -327,7 +327,7 @@ void ED_space_image_scopes_update(const struct bContext *C, struct SpaceImage *s
 	CTX_data_eval_ctx(C, &eval_ctx);
 	Scene *scene = CTX_data_scene(C);
 	Object *ob = CTX_data_active_object(C);
-
+	
 	/* scope update can be expensive, don't update during paint modes */
 	if (sima->mode == SI_MODE_PAINT)
 		return;

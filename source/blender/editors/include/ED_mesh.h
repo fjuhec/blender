@@ -219,12 +219,14 @@ typedef struct MirrTopoStore_t {
 	intptr_t *index_lookup;
 	int prev_vert_tot;
 	int prev_edge_tot;
-	int prev_ob_mode;
+	bool prev_is_editmode;
 } MirrTopoStore_t;
 
-bool ED_mesh_mirrtopo_recalc_check(struct Mesh *me, struct DerivedMesh *dm, const int ob_mode, MirrTopoStore_t *mesh_topo_store);
-void ED_mesh_mirrtopo_init(struct Mesh *me, struct DerivedMesh *dm, const int ob_mode, MirrTopoStore_t *mesh_topo_store,
-                           const bool skip_em_vert_array_init);
+bool ED_mesh_mirrtopo_recalc_check(
+        struct Mesh *me, struct DerivedMesh *dm, MirrTopoStore_t *mesh_topo_store);
+void ED_mesh_mirrtopo_init(
+        struct Mesh *me, struct DerivedMesh *dm, MirrTopoStore_t *mesh_topo_store,
+        const bool skip_em_vert_array_init);
 void ED_mesh_mirrtopo_free(MirrTopoStore_t *mesh_topo_store);
 
 
@@ -233,19 +235,17 @@ void ED_mesh_mirrtopo_free(MirrTopoStore_t *mesh_topo_store);
 #define WEIGHT_ADD 2
 #define WEIGHT_SUBTRACT 3
 
-bool                 ED_vgroup_sync_from_pose(const struct EvaluationContext *eval_ctx, struct Object *ob);
+bool                 ED_vgroup_sync_from_pose(struct Object *ob);
 void                 ED_vgroup_select_by_name(struct Object *ob, const char *name);
 void                 ED_vgroup_data_clamp_range(struct ID *id, const int total);
 bool                 ED_vgroup_array_copy(struct Object *ob, struct Object *ob_from);
 bool                 ED_vgroup_parray_alloc(struct ID *id, struct MDeformVert ***dvert_arr, int *dvert_tot,
                                             const bool use_vert_sel);
 void                 ED_vgroup_parray_mirror_sync(
-        const struct EvaluationContext *eval_ctx,
         struct Object *ob,
         struct MDeformVert **dvert_array, const int dvert_tot,
         const bool *vgroup_validmap, const int vgroup_tot);
 void                 ED_vgroup_parray_mirror_assign(
-        const struct EvaluationContext *eval_ctx,
         struct Object *ob,
         struct MDeformVert **dvert_array, const int dvert_tot);
 void                 ED_vgroup_parray_remove_zero(struct MDeformVert **dvert_array, const int dvert_tot,
@@ -257,7 +257,6 @@ void                 ED_vgroup_parray_from_weight_array(struct MDeformVert **dve
                                                         const float *dvert_weights, const int def_nr,
                                                         const bool remove_zero);
 void ED_vgroup_mirror(
-        const struct EvaluationContext *eval_ctx,
         struct Object *ob,
         const bool mirror_weights, const bool flip_vgroups,
         const bool all_vgroups, const bool use_topology,
@@ -266,9 +265,7 @@ void ED_vgroup_mirror(
 void                 ED_vgroup_vert_add(struct Object *ob, struct bDeformGroup *dg, int vertnum,  float weight, int assignmode);
 void                 ED_vgroup_vert_remove(struct Object *ob, struct bDeformGroup *dg, int vertnum);
 float                ED_vgroup_vert_weight(struct Object *ob, struct bDeformGroup *dg, int vertnum);
-void                 ED_vgroup_vert_active_mirror(
-        const struct EvaluationContext *eval_ctx,
-        struct Object *ob, int def_nr);
+void                 ED_vgroup_vert_active_mirror(struct Object *ob, int def_nr);
 
 /* mesh_data.c */
 // void ED_mesh_geometry_add(struct Mesh *mesh, struct ReportList *reports, int verts, int edges, int faces);
@@ -323,26 +320,21 @@ int         join_mesh_shapes_exec(struct bContext *C, struct wmOperator *op);
 int ED_mesh_mirror_spatial_table(
         struct Object *ob, struct BMEditMesh *em, struct DerivedMesh *dm, const float co[3], char mode);
 int  ED_mesh_mirror_topo_table(
-        const struct EvaluationContext *eval_ctx,
         struct Object *ob, struct DerivedMesh *dm, char mode);
 
 /* retrieves mirrored cache vert, or NULL if there isn't one.
  * note: calling this without ensuring the mirror cache state
  * is bad.*/
 int mesh_get_x_mirror_vert(
-        const struct EvaluationContext *eval_ctx,
         struct Object *ob, struct DerivedMesh *dm, int index, const bool use_topology);
 struct BMVert *editbmesh_get_x_mirror_vert(
-        const struct EvaluationContext *eval_ctx,
         struct Object *ob, struct BMEditMesh *em,
         struct BMVert *eve, const float co[3],
         int index, const bool use_topology);
 int *mesh_get_x_mirror_faces(
-        const struct EvaluationContext *eval_ctx,
         struct Object *ob, struct BMEditMesh *em, struct DerivedMesh *dm);
 
 int ED_mesh_mirror_get_vert(
-        const struct EvaluationContext *eval_ctx,
         struct Object *ob, int index);
 
 bool ED_mesh_pick_vert(struct bContext *C,      struct Object *ob, const int mval[2], unsigned int *index, int size, bool use_zbuf);
@@ -350,14 +342,9 @@ bool ED_mesh_pick_face(struct bContext *C,      struct Object *ob, const int mva
 bool ED_mesh_pick_face_vert(struct bContext *C, struct Object *ob, const int mval[2], unsigned int *index, int size);
 
 
-struct MDeformVert *ED_mesh_active_dvert_get_ob(
-        struct Object *ob, int *r_index);
-struct MDeformVert *ED_mesh_active_dvert_get_em(
-        const struct EvaluationContext *eval_ctx,
-        struct Object *ob, struct BMVert **r_eve);
-struct MDeformVert *ED_mesh_active_dvert_get_only(
-        const struct EvaluationContext *eval_ctx,
-        struct Object *ob);
+struct MDeformVert *ED_mesh_active_dvert_get_ob(struct Object *ob, int *r_index);
+struct MDeformVert *ED_mesh_active_dvert_get_em(struct Object *ob, struct BMVert **r_eve);
+struct MDeformVert *ED_mesh_active_dvert_get_only(struct Object *ob);
 
 #define ED_MESH_PICK_DEFAULT_VERT_SIZE 50
 #define ED_MESH_PICK_DEFAULT_FACE_SIZE 3

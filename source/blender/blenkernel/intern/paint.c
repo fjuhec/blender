@@ -775,7 +775,7 @@ void BKE_sculptsession_bm_to_me_for_render(Object *object)
 	}
 }
 
-void BKE_sculptsession_free(const EvaluationContext *eval_ctx, Object *ob)
+void BKE_sculptsession_free(Object *ob)
 {
 	if (ob && ob->sculpt) {
 		SculptSession *ss = ob->sculpt;
@@ -792,7 +792,7 @@ void BKE_sculptsession_free(const EvaluationContext *eval_ctx, Object *ob)
 			BM_log_free(ss->bm_log);
 
 		if (dm && dm->getPBVH)
-			dm->getPBVH(eval_ctx, NULL, dm);  /* signal to clear */
+			dm->getPBVH(NULL, NULL, dm);  /* signal to clear */
 
 		if (ss->texcache)
 			MEM_freeN(ss->texcache);

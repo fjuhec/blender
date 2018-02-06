@@ -255,7 +255,7 @@ static bool object_has_modifier_cb(
  * for any multires modifiers on the object to the int pointed to by
  * callback_data. */
 bool ED_object_multires_update_totlevels_cb(
-        const EvaluationContext *eval_ctx,
+        const struct EvaluationContext *eval_ctx,
         Object *ob, void *totlevel_v)
 {
 	ModifierData *md;

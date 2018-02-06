@@ -2036,9 +2036,10 @@ static void view3d_main_region_draw_objects(
 	}
 }
 
-static void view3d_main_region_draw_info(const bContext *C, Scene *scene,
-                                       ARegion *ar, View3D *v3d,
-                                       const char *grid_unit, bool render_border)
+static void view3d_main_region_draw_info(
+        const bContext *C, Scene *scene,
+        ARegion *ar, View3D *v3d,
+        const char *grid_unit, bool render_border)
 {
 	EvaluationContext eval_ctx;
 	CTX_data_eval_ctx(C, &eval_ctx);

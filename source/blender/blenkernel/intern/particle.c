@@ -292,7 +292,7 @@ void psys_enable_all(Object *ob)
 bool psys_in_edit_mode(const EvaluationContext *eval_ctx, ViewLayer *view_layer, ParticleSystem *psys)
 {
 	return (view_layer->basact &&
-	        (eval_ctx->object_mode& OB_MODE_PARTICLE_EDIT) &&
+	        (eval_ctx->object_mode & OB_MODE_PARTICLE_EDIT) &&
 	        psys == psys_get_current((view_layer->basact)->object) &&
 	        (psys->edit || psys->pointcache->edit) &&
 	        !psys->renderdata);

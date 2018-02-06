@@ -671,7 +671,6 @@ typedef struct WeightPaintInfo {
 } WeightPaintInfo;
 
 static void do_weight_paint_vertex_single(
-        const EvaluationContext *eval_ctx,
         /* vars which remain the same for every vert */
         const VPaint *wp, Object *ob, const WeightPaintInfo *wpi,
         /* vars which change on each stroke */
@@ -693,7 +692,7 @@ static void do_weight_paint_vertex_single(
 
 	/* from now on we can check if mirrors enabled if this var is -1 and not bother with the flag */
 	if (me->editflag & ME_EDIT_MIRROR_X) {
-		index_mirr = mesh_get_x_mirror_vert(eval_ctx, ob, NULL, index, topology);
+		index_mirr = mesh_get_x_mirror_vert(ob, NULL, index, topology);
 		vgroup_mirr = wpi->mirror.index;
 
 		/* another possible error - mirror group _and_ active group are the same (which is fine),
@@ -829,7 +828,6 @@ static void do_weight_paint_vertex_single(
 }
 
 static void do_weight_paint_vertex_multi(
-        const EvaluationContext *eval_ctx,
         /* vars which remain the same for every vert */
         const VPaint *wp, Object *ob, const WeightPaintInfo *wpi,
         /* vars which change on each stroke */
@@ -848,7 +846,7 @@ static void do_weight_paint_vertex_multi(
 
 	/* from now on we can check if mirrors enabled if this var is -1 and not bother with the flag */
 	if (me->editflag & ME_EDIT_MIRROR_X) {
-		index_mirr = mesh_get_x_mirror_vert(eval_ctx, ob, NULL, index, topology);
+		index_mirr = mesh_get_x_mirror_vert(ob, NULL, index, topology);
 
 		if (index_mirr != -1 && index_mirr != index) {
 			dv_mirr = &me->dvert[index_mirr];
@@ -935,17 +933,16 @@ static void do_weight_paint_vertex_multi(
 }
 
 static void do_weight_paint_vertex(
-        const EvaluationContext *eval_ctx,
         /* vars which remain the same for every vert */
         const VPaint *wp, Object *ob, const WeightPaintInfo *wpi,
         /* vars which change on each stroke */
         const uint index, float alpha, float paintweight)
 {
 	if (wpi->do_multipaint) {
-		do_weight_paint_vertex_multi(eval_ctx, wp, ob, wpi, index, alpha, paintweight);
+		do_weight_paint_vertex_multi(wp, ob, wpi, index, alpha, paintweight);
 	}
 	else {
-		do_weight_paint_vertex_single(eval_ctx, wp, ob, wpi, index, alpha, paintweight);
+		do_weight_paint_vertex_single(wp, ob, wpi, index, alpha, paintweight);
 	}
 }
 
@@ -1076,7 +1073,7 @@ static int wpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 
 		/* weight paint specific */
 		ED_mesh_mirror_spatial_table(NULL, NULL, NULL, NULL, 'e');
-		ED_mesh_mirror_topo_table(NULL, NULL, NULL, 'e');
+		ED_mesh_mirror_topo_table(NULL, NULL, 'e');
 
 		/* If the cache is not released by a cancel or a done, free it now. */
 		if (ob->sculpt->cache) {
@@ -1084,10 +1081,7 @@ static int wpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 			ob->sculpt->cache = NULL;
 		}
 
-		EvaluationContext eval_ctx;
-		CTX_data_eval_ctx(C, &eval_ctx);
-
-		BKE_sculptsession_free(&eval_ctx,ob);
+		BKE_sculptsession_free(ob);
 
 		paint_cursor_delete_textures();
 	}
@@ -1106,11 +1100,11 @@ static int wpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 
 		/* weight paint specific */
 		ED_mesh_mirror_spatial_table(ob, NULL, NULL, NULL, 's');
-		ED_vgroup_sync_from_pose(&eval_ctx, ob);
+		ED_vgroup_sync_from_pose(ob);
 
 		/* Create vertex/weight paint mode session data */
 		if (ob->sculpt) {
-			BKE_sculptsession_free(&eval_ctx, ob);
+			BKE_sculptsession_free(ob);
 		}
 		vertex_paint_init_session(&eval_ctx, scene, ob);
 	}
@@ -1577,7 +1571,7 @@ static void do_wpaint_brush_blur_task_cb_ex(
 						weight_final /= total_hit_loops;
 						/* Only paint visable verts */
 						do_weight_paint_vertex(
-						        data->eval_ctx, data->vp, data->ob, data->wpi,
+						        data->vp, data->ob, data->wpi,
 						        v_index, final_alpha, weight_final);
 					}
 				}
@@ -1685,7 +1679,7 @@ static void do_wpaint_brush_smear_task_cb_ex(
 								continue;
 
 							do_weight_paint_vertex(
-							        data->eval_ctx, data->vp, data->ob, data->wpi,
+							        data->vp, data->ob, data->wpi,
 							        v_index, final_alpha, (float)weight_final);
 						}
 					}
@@ -1759,7 +1753,7 @@ static void do_wpaint_brush_draw_task_cb_ex(
 					}
 
 					do_weight_paint_vertex(
-					        data->eval_ctx, data->vp, data->ob, data->wpi,
+					        data->vp, data->ob, data->wpi,
 					        v_index, final_alpha, paintweight);
 				}
 			}
@@ -2236,11 +2230,9 @@ void PAINT_OT_weight_paint(wmOperatorType *ot)
 static int vpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 {
 	WorkSpace *workspace = CTX_wm_workspace(C);
-	EvaluationContext eval_ctx;
-	CTX_data_eval_ctx(C, &eval_ctx);
 	Object *ob = CTX_data_active_object(C);
 	const int mode_flag = OB_MODE_VERTEX_PAINT;
-	const bool is_mode_set = (eval_ctx.object_mode & mode_flag) != 0;
+	const bool is_mode_set = (workspace->object_mode & mode_flag) != 0;
 	Scene *scene = CTX_data_scene(C);
 	VPaint *vp = scene->toolsettings->vpaint;
 	Mesh *me;
@@ -2255,7 +2247,7 @@ static int vpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 
 	/* toggle: end vpaint */
 	if (is_mode_set) {
-		eval_ctx.object_mode &= ~mode_flag;
+		workspace->object_mode &= ~mode_flag;
 
 		if (me->editflag & ME_EDIT_PAINT_FACE_SEL) {
 			BKE_mesh_flush_select_from_polys(me);
@@ -2270,14 +2262,12 @@ static int vpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 			ob->sculpt->cache = NULL;
 		}
 
-		BKE_sculptsession_free(&eval_ctx, ob);
+		BKE_sculptsession_free(ob);
 
 		paint_cursor_delete_textures();
 	}
 	else {
-		CTX_data_eval_ctx(C, &eval_ctx);
-
-		eval_ctx.object_mode |= mode_flag;
+		workspace->object_mode |= mode_flag;
 
 		ED_mesh_color_ensure(me, NULL);
 
@@ -2288,13 +2278,16 @@ static int vpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 
 		BKE_paint_init(scene, ePaintVertex, PAINT_CURSOR_VERTEX_PAINT);
 
+		EvaluationContext eval_ctx;
+		CTX_data_eval_ctx(C, &eval_ctx);
+
 		/* Create vertex/weight paint mode session data */
 		if (ob->sculpt) {
 			if (ob->sculpt->cache) {
 				sculpt_cache_free(ob->sculpt->cache);
 				ob->sculpt->cache = NULL;
 			}
-			BKE_sculptsession_free(&eval_ctx, ob);
+			BKE_sculptsession_free(ob);
 		}
 		vertex_paint_init_session(&eval_ctx, scene, ob);
 	}

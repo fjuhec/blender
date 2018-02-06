@@ -520,9 +520,9 @@ static bool test_rotmode_euler(short rotmode)
 	return (ELEM(rotmode, ROT_MODE_AXISANGLE, ROT_MODE_QUAT)) ? 0 : 1;
 }
 
-bool gimbal_axis(const EvaluationContext *eval_ctx, Object *ob, float gmat[3][3])
+bool gimbal_axis(Object *ob, float gmat[3][3], const short object_mode)
 {
-	if (eval_ctx->object_mode & OB_MODE_POSE) {
+	if (object_mode & OB_MODE_POSE) {
 		bPoseChannel *pchan = BKE_pose_channel_active(ob);
 
 		if (pchan) {
@@ -630,7 +630,7 @@ static int calc_manipulator_stats(
 			case V3D_MANIP_GIMBAL:
 			{
 				float mat[3][3];
-				if (gimbal_axis(&eval_ctx, ob, mat)) {
+				if (gimbal_axis(ob, mat, eval_ctx.object_mode)) {
 					copy_m4_m3(rv3d->twmat, mat);
 					break;
 				}

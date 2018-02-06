@@ -434,8 +434,6 @@ static int count_bone_select(bArmature *arm, ListBase *lb, const bool do_it)
 
 void initTransformOrientation(bContext *C, TransInfo *t)
 {
-	EvaluationContext eval_ctx;
-	CTX_data_eval_ctx(C, &eval_ctx);
 	Object *ob = CTX_data_active_object(C);
 	Object *obedit = CTX_data_active_object(C);
 
@@ -447,14 +445,13 @@ void initTransformOrientation(bContext *C, TransInfo *t)
 
 		case V3D_MANIP_GIMBAL:
 			unit_m3(t->spacemtx);
-
-			if (ob && gimbal_axis(&eval_ctx, ob, t->spacemtx)) {
+			if (ob && gimbal_axis(ob, t->spacemtx, t->eval_ctx.object_mode)) {
 				BLI_strncpy(t->spacename, IFACE_("gimbal"), sizeof(t->spacename));
 				break;
 			}
 			ATTR_FALLTHROUGH;  /* no gimbal fallthrough to normal */
 		case V3D_MANIP_NORMAL:
-			if (obedit || (ob && eval_ctx.object_mode & OB_MODE_POSE)) {
+			if (obedit || (ob && t->eval_ctx.object_mode & OB_MODE_POSE)) {
 				BLI_strncpy(t->spacename, IFACE_("normal"), sizeof(t->spacename));
 				ED_getTransformOrientationMatrix(C, t->spacemtx, t->around);
 				break;

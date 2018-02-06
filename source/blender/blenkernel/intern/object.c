@@ -467,8 +467,7 @@ void BKE_object_free(Object *ob)
 	}
 	BLI_freelistN(&ob->drawdata);
 
-	/* XXX, use real eval_ctx? - it only for the mode */
-	BKE_sculptsession_free(G.main->eval_ctx, ob);
+	BKE_sculptsession_free(ob);
 
 	BLI_freelistN(&ob->pc_ids);
 
@@ -490,7 +489,7 @@ void BKE_object_free(Object *ob)
 }
 
 /* actual check for internal data, not context or flags */
-bool BKE_object_is_in_editmode(Object *ob)
+bool BKE_object_is_in_editmode(const Object *ob)
 {
 	if (ob->data == NULL)
 		return false;
@@ -539,7 +538,7 @@ bool BKE_object_is_in_editmode_vgroup(Object *ob)
 	        BKE_object_is_in_editmode(ob));
 }
 
-bool BKE_object_is_in_wpaint_select_vert(const EvaluationContext *eval_ctx, Object *ob)
+bool BKE_object_is_in_wpaint_select_vert(const EvaluationContext *eval_ctx, const Object *ob)
 {
 	if (ob->type == OB_MESH) {
 		Mesh *me = ob->data;
@@ -923,7 +922,7 @@ struct Object *BKE_object_lod_meshob_get(Object *ob, ViewLayer *view_layer, cons
 	return lod_ob_get(ob, view_layer, OB_LOD_USE_MESH, object_mode);
 }
 
-struct Object *BKE_object_lod_matob_get(Object *ob, ViewLayer *view_layer, const short object_mode)
+struct Object *BKE_object_lod_matob_get(Object *ob, ViewLayer *view_layer)
 {
 	return lod_ob_get(ob, view_layer, OB_LOD_USE_MAT, object_mode);
 }

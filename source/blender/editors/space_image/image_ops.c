@@ -792,8 +792,6 @@ void IMAGE_OT_view_all(wmOperatorType *ot)
 static int image_view_selected_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	WorkSpace *workspace = CTX_wm_workspace(C);
-	EvaluationContext eval_ctx;
-	CTX_data_eval_ctx(C, &eval_ctx);
 	SpaceImage *sima;
 	ARegion *ar;
 	Scene *scene;
