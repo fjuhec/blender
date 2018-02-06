@@ -1044,15 +1044,6 @@ static int gpencil_fill_invoke(bContext *C, wmOperator *op, const wmEvent *event
 		tgpf = op->customdata;
 	}
 
-	/* Must use a color with fill */
-	if ((tgpf->palcolor->fill[3] < GPENCIL_ALPHA_OPACITY_THRESH) && 
-		((tgpf->flag & GP_BRUSH_FILL_ALLOW_STROKEONLY) == 0)) 
-	{
-		BKE_report(op->reports, RPT_ERROR, "The current color must have fill enabled");
-		gpencil_fill_exit(C, op);
-		return OPERATOR_CANCELLED;
-	}
-
 	/* Enable custom drawing handlers to show help lines */
 	if (tgpf->flag & GP_BRUSH_FILL_SHOW_HELPLINES) {
 		tgpf->draw_handle_3d = ED_region_draw_cb_activate(tgpf->ar->type, gpencil_fill_draw_3d, tgpf, REGION_DRAW_POST_VIEW);

@@ -413,9 +413,6 @@ class GreasePencilBrushPanel:
                 row.enabled = brush.fill_hide
                 row.prop(brush, "fill_threshold", text="Threshold")
 
-                row = layout.row(align=True)
-                row.prop(brush, "fill_allow_stroke_only", text="Allow Colors without fill")
-
             row = layout.row(align=False)
             row.prop(context.tool_settings, "use_gpencil_draw_onback", text="Draw on Back")
 

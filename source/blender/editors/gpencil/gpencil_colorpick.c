@@ -241,25 +241,6 @@ static int gpencil_colorpick_poll(bContext *C)
 	return 0;
 }
 
-/* get total number of available colors for brush */
-static int get_tot_colors(tGPDpick *tgpk)
-{
-	int tot = 0;
-	for (PaletteColor *palcol = tgpk->palette->colors.first; palcol; palcol = palcol->next) {
-
-		/* Must use a color with fill with fill brushes */
-		if (tgpk->brush->flag & GP_BRUSH_FILL_ONLY) {
-			if ((palcol->fill[3] < GPENCIL_ALPHA_OPACITY_THRESH) &&
-				((tgpk->brush->flag & GP_BRUSH_FILL_ALLOW_STROKEONLY) == 0))
-			{
-				continue;
-			}
-		}
-		tot++;
-	}
-	return tot;
-}
-
 /* Allocate memory and initialize values */
 static tGPDpick *gpencil_colorpick_init(bContext *C, wmOperator *op, const wmEvent *event)
 {
@@ -295,7 +276,7 @@ static tGPDpick *gpencil_colorpick_init(bContext *C, wmOperator *op, const wmEve
 	tgpk->palette = palslot->palette;
 
 	/* allocate color table */
-	tgpk->totcolor = get_tot_colors(tgpk);
+	tgpk->totcolor = BLI_listbase_count(&tgpk->palette->colors);
 	tgpk->curindex = tgpk->palette->active_color;
 	if (tgpk->totcolor > 0) {
 		tgpk->colors = MEM_callocN(sizeof(tGPDpickColor) * tgpk->totcolor, "gp_colorpicker");
@@ -360,16 +341,6 @@ static tGPDpick *gpencil_colorpick_init(bContext *C, wmOperator *op, const wmEve
 	int col = 0;
 	int t = 0;
 	for (PaletteColor *palcol = palette->colors.first; palcol; palcol = palcol->next) {
-		/* Must use a color with fill with fill brushes */
-		if (tgpk->brush->flag & GP_BRUSH_FILL_ONLY) {
-			if ((palcol->fill[3] < GPENCIL_ALPHA_OPACITY_THRESH) &&
-				((tgpk->brush->flag & GP_BRUSH_FILL_ALLOW_STROKEONLY) == 0))
-			{
-				/* Still increment the index, so that setting active_color works */
-				idx++;
-				continue;
-			}
-		}
 		tcolor->index = idx;
 
 		BLI_strncpy(tcolor->name, palcol->info, sizeof(tcolor->name));

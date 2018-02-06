@@ -155,8 +155,6 @@ typedef enum eGPDbrush_Flag {
 	GP_BRUSH_FILL_ONLY = (1 << 7),
 	/* fill hide transparent */
 	GP_BRUSH_FILL_HIDE = (1 << 8),
-	/* allow colors without fill factor defined */
-	GP_BRUSH_FILL_ALLOW_STROKEONLY = (1 << 9),
 	/* show fill help lines */
 	GP_BRUSH_FILL_SHOW_HELPLINES = (1 << 10),
 	/* lazy mouse */
