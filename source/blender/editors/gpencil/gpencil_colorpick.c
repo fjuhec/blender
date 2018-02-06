@@ -79,6 +79,43 @@
 #define GP_BOX_SIZE (32 * U.ui_scale)
 #define GP_BOX_GAP (24 * U.ui_scale)
 
+/* Representation of a color displayed in the picker */
+typedef struct tGPDpickColor {
+	char name[64];   /* color name. Must be unique. */
+	rcti full_rect;  /* full size of region occupied by color box (for event/highlight handling) */
+	rcti rect;       /* box position */
+	int index;       /* index of color in palette */
+	float rgba[4];   /* color */
+	float fill[4];   /* fill color */
+	bool fillmode;   /* flag fill is not enabled */
+} tGPDpickColor;
+
+/* Temporary color picker operation data (op->customdata) */
+typedef struct tGPDpick {
+	struct wmWindow *win;               /* window */
+	struct Scene *scene;                /* current scene from context */
+	struct ToolSettings *ts;            /* current toolsettings from context */
+	struct Object *ob;                  /* current active gp object */
+	struct ScrArea *sa;                 /* area where painting originated */
+	struct ARegion *ar;                 /* region where painting originated */
+	struct Palette *palette;            /* current palette */
+	struct bGPDbrush *brush;            /* current brush */
+	short bflag;                        /* previous brush flag */
+
+	int center[2];                      /* mouse center position */
+	rcti rect;                          /* visible area */
+	rcti panel;                         /* panel area */
+	int row, col;                       /* number of rows and columns */ 
+	int boxsize[2];                     /* size of each box color */
+
+	int totcolor;                       /* number of colors */
+	int curindex;                       /* index of color under cursor */
+	tGPDpickColor *colors;              /* colors of palette */
+
+	void *draw_handle_3d;               /* handle for drawing strokes while operator is running */
+} tGPDpick;
+
+
 /* draw color name using default font */
 static void gp_draw_color_name(tGPDpick *tgpk, tGPDpickColor *col, const uiFontStyle *fstyle, bool focus)
 {

@@ -68,7 +68,6 @@ struct tGPDdraw;
 struct tGPDinterpolate;
 struct tGPDprimitive;
 struct tGPDfill;
-struct tGPDpick;
 
 /* ------------- Grease-Pencil Runtime Data ---------------- */
 

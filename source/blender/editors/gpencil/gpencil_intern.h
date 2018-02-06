@@ -198,41 +198,6 @@ typedef struct tGPDfill {
 } tGPDfill;
 
 
-/* Temporary color picker operation data */
-typedef struct tGPDpickColor {
-	char name[64];   /* color name. Must be unique. */
-	rcti full_rect;  /* full size of region occupied by color box (for event/highlight handling) */
-	rcti rect;       /* box position */
-	int index;       /* index of color in palette */
-	float rgba[4];   /* color */
-	float fill[4];   /* fill color */
-	bool fillmode;   /* flag fill is not enabled */
-} tGPDpickColor;
-
-typedef struct tGPDpick {
-	struct wmWindow *win;               /* window */
-	struct Scene *scene;                /* current scene from context */
-	struct ToolSettings *ts;            /* current toolsettings from context */
-	struct Object *ob;                  /* current active gp object */
-	struct ScrArea *sa;                 /* area where painting originated */
-	struct ARegion *ar;                 /* region where painting originated */
-	struct Palette *palette;            /* current palette */
-	struct bGPDbrush *brush;            /* current brush */
-	short bflag;                        /* previous brush flag */
-
-	int center[2];                      /* mouse center position */
-	rcti rect;                          /* visible area */
-	rcti panel;                         /* panel area */
-	int row, col;                       /* number of rows and columns */ 
-	int boxsize[2];                     /* size of each box color */
-
-	int totcolor;                       /* number of colors */
-	int curindex;                       /* index of color under cursor */
-	tGPDpickColor *colors;              /* colors of palette */
-
-	void *draw_handle_3d;               /* handle for drawing strokes while operator is running */
-} tGPDpick;
-
 /* ***************************************************** */
 /* Internal API */
 
