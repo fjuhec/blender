@@ -55,8 +55,6 @@
 
 #include "RE_engine.h"
 
-#include "DEG_depsgraph.h"
-
 struct bContext;
 struct GPUFrameBuffer;
 struct GPUShader;

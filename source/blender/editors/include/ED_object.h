@@ -111,9 +111,7 @@ void ED_object_base_activate(struct bContext *C, struct Base *base);
 void ED_object_base_free_and_unlink(struct Main *bmain, struct Scene *scene, struct Object *ob);
 
 /* single object duplicate, if (dupflag == 0), fully linked, else it uses the flags given */
-struct Base *ED_object_add_duplicate(
-        struct Main *bmain, struct Scene *scene,
-        struct ViewLayer *view_layer, struct Base *base, int dupflag);
+struct Base *ED_object_add_duplicate(struct Main *bmain, struct Scene *scene, struct ViewLayer *view_layer, struct Base *base, int dupflag);
 
 void ED_object_parent(struct Object *ob, struct Object *parent, const int type, const char *substr);
 
@@ -213,7 +211,8 @@ bool ED_object_iter_other(
         void *callback_data);
 
 bool ED_object_multires_update_totlevels_cb(
-        const struct EvaluationContext *eval_ctx, struct Object *ob, void *totlevel_v);
+        const struct EvaluationContext *eval_ctx,
+        struct Object *ob, void *totlevel_v);
 
 /* object_select.c */
 void ED_object_select_linked_by_id(struct bContext *C, struct ID *id);
