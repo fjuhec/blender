@@ -410,7 +410,7 @@ void PAINT_OT_weight_sample_group(wmOperatorType *ot)
  * \{ */
 
 /* fills in the selected faces with the current weight and vertex group */
-static bool weight_paint_set(const EvaluationContext *eval_ctx, Object *ob, float paintweight)
+static bool weight_paint_set(Object *ob, float paintweight)
 {
 	Mesh *me = ob->data;
 	const MPoly *mp;
@@ -497,9 +497,6 @@ static bool weight_paint_set(const EvaluationContext *eval_ctx, Object *ob, floa
 
 static int weight_paint_set_exec(bContext *C, wmOperator *op)
 {
-	EvaluationContext eval_ctx;
-	CTX_data_eval_ctx(C, &eval_ctx);
-
 	struct Scene *scene = CTX_data_scene(C);
 	Object *obact = CTX_data_active_object(C);
 	ToolSettings *ts = CTX_data_tool_settings(C);
@@ -510,7 +507,7 @@ static int weight_paint_set_exec(bContext *C, wmOperator *op)
 		return OPERATOR_CANCELLED;
 	}
 
-	if (weight_paint_set(&eval_ctx, obact, vgroup_weight)) {
+	if (weight_paint_set(obact, vgroup_weight)) {
 		ED_region_tag_redraw(CTX_wm_region(C)); /* XXX - should redraw all 3D views */
 		return OPERATOR_FINISHED;
 	}
