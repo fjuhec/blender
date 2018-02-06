@@ -154,6 +154,7 @@ static void gpencil_draw_color_table(const bContext *UNUSED(C), tGPDpick *tgpk)
 
 	/* draw color boxes */
 	tGPDpickColor *col = tgpk->colors;
+	glLineWidth(1.0);
 	for (int i = 0; i < tgpk->totcolor; i++, col++) {
 		bool focus = false;
 		glEnable(GL_BLEND);
