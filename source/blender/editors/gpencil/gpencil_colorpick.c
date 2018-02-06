@@ -101,7 +101,7 @@ static void gp_draw_color_name(tGPDpick *tgpk, tGPDpickColor *col, const uiFontS
 	/* color name */
 	BLI_strncpy(drawstr, col->name, sizeof(drawstr));
 	UI_text_clip_middle_ex((uiFontStyle *)fstyle, drawstr, okwidth, minwidth, max_len, '\0');
-	UI_fontstyle_draw_simple(fstyle, col->rect.xmin, col->rect.ymin - (GP_BOX_GAP / 2) - 3, 
+	UI_fontstyle_draw_simple(fstyle, col->rect.xmin, col->rect.ymin - (GP_BOX_GAP / 2) - (3 * U.ui_scale), 
 							 drawstr, text_col);
 }
 
