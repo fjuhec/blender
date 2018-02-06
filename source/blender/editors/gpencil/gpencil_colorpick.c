@@ -132,7 +132,7 @@ static void gpencil_draw_color_table(const bContext *UNUSED(C), tGPDpick *tgpk)
 	float background[4];
 	float line[4];
 	float selcolor[4];
-	float wcolor[4] = { 0.9f, 0.9f, 0.9f, 0.8f };  // <--- XXX, why?
+	float wcolor[4] = { 0.9f, 0.9f, 0.9f, 0.8f };
 	float radius = (0.2f * U.widget_unit);
 
 	/* boxes for stroke and fill color */
@@ -160,12 +160,11 @@ static void gpencil_draw_color_table(const bContext *UNUSED(C), tGPDpick *tgpk)
 	tGPDpickColor *col = tgpk->colors;
 	glLineWidth(1.0);
 	for (int i = 0; i < tgpk->totcolor; i++, col++) {
-		bool focus = false;
-		glEnable(GL_BLEND);
-		glEnable(GL_LINE_SMOOTH);
+		const bool focus = (tgpk->curindex == i);
 
-		int scalex = (col->rect.xmax - col->rect.xmin) / 3;
-		int scaley = (col->rect.ymax - col->rect.ymin) / 3;
+		const int scalex = (col->rect.xmax - col->rect.xmin) / 3;
+		const int scaley = (col->rect.ymax - col->rect.ymin) / 3;
+
 		sbox.xmin = col->rect.xmin;
 		sbox.ymin = col->rect.ymin + scaley;
 		sbox.xmax = col->rect.xmax - scalex;
@@ -175,6 +174,10 @@ static void gpencil_draw_color_table(const bContext *UNUSED(C), tGPDpick *tgpk)
 		fbox.ymin = col->rect.ymin;
 		fbox.xmax = col->rect.xmax;
 		fbox.ymax = col->rect.ymax - scaley;
+
+		glEnable(GL_BLEND);
+		glEnable(GL_LINE_SMOOTH);
+
 
 		/* highlight background of item under mouse */
 		if (i == tgpk->curindex) {
@@ -227,7 +230,7 @@ static int gpencil_colorpick_poll(bContext *C)
 			return 1;
 		}
 		else {
-			CTX_wm_operator_poll_msg_set(C, "Active region not valid for operator");
+			CTX_wm_operator_poll_msg_set(C, "Operator only works in the 3D view");
 			return 0;
 		}
 	}
@@ -258,7 +261,7 @@ static int get_tot_colors(tGPDpick *tgpk)
 }
 
 /* Allocate memory and initialize values */
-static tGPDpick *gp_session_init_colorpick(bContext *C, wmOperator *op, const wmEvent *event)
+static tGPDpick *gpencil_colorpick_init(bContext *C, wmOperator *op, const wmEvent *event)
 {
 	tGPDpick *tgpk = MEM_callocN(sizeof(tGPDpick), __func__);
 
@@ -274,9 +277,12 @@ static tGPDpick *gp_session_init_colorpick(bContext *C, wmOperator *op, const wm
 	tgpk->ob = CTX_data_active_object(C);
 	tgpk->sa = CTX_wm_area(C);
 	tgpk->ar = CTX_wm_region(C);
+
+	/* disable brush cursor
+	 * (so it doesn't distract when moving between colors)
+	 */
 	tgpk->brush = BKE_gpencil_brush_getactive(ts);
 	tgpk->bflag = tgpk->brush->flag;
-	/* disable cursor for brush */
 	tgpk->brush->flag &= ~GP_BRUSH_ENABLE_CURSOR;
 
 	tgpk->center[0] = event->mval[0];
@@ -359,21 +365,17 @@ static tGPDpick *gp_session_init_colorpick(bContext *C, wmOperator *op, const wm
 			if ((palcol->fill[3] < GPENCIL_ALPHA_OPACITY_THRESH) &&
 				((tgpk->brush->flag & GP_BRUSH_FILL_ALLOW_STROKEONLY) == 0))
 			{
+				/* Still increment the index, so that setting active_color works */
 				idx++;
 				continue;
 			}
 		}
+		tcolor->index = idx;
 
 		BLI_strncpy(tcolor->name, palcol->info, sizeof(tcolor->name));
-		tcolor->index = idx;
 		copy_v4_v4(tcolor->rgba, palcol->rgb);
 		copy_v4_v4(tcolor->fill, palcol->fill);
-		if (palcol->fill[3] > 0.0f) {
-			tcolor->fillmode = true;
-		}
-		else {
-			tcolor->fillmode = false;
-		}
+		tcolor->fillmode = (palcol->fill[3] > 0.0f);
 
 		/* box position */
 		tcolor->rect.xmin = tgpk->panel.xmin + (tgpk->boxsize[0] * col) + (GP_BOX_GAP * (col + 1)) - (GP_BOX_GAP / 2);
@@ -403,15 +405,13 @@ static tGPDpick *gp_session_init_colorpick(bContext *C, wmOperator *op, const wm
 	tgpk->totcolor = t;
 
 	/* return context data for running operator */
+	op->customdata = tgpk;
 	return tgpk;
 }
 
 /* end operator */
 static void gpencil_colorpick_exit(bContext *C, wmOperator *op)
 {
-	Main *bmain = CTX_data_main(C);
-	Object *ob = CTX_data_active_object(C);
-
 	tGPDpick *tgpk = op->customdata;
 
 	/* don't assume that operator data exists at all */
@@ -423,7 +423,7 @@ static void gpencil_colorpick_exit(bContext *C, wmOperator *op)
 		/* free color table */
 		MEM_SAFE_FREE(tgpk->colors);
 
-		/* rest brush flags */
+		/* reset brush flags */
 		tgpk->brush->flag = tgpk->bflag;
 
 		/* finally, free memory used by temp data */
@@ -443,38 +443,10 @@ static void gpencil_colorpick_cancel(bContext *C, wmOperator *op)
 	gpencil_colorpick_exit(C, op);
 }
 
-/* Init: Allocate memory and set init values */
-static int gpencil_colorpick_init(bContext *C, wmOperator *op, const wmEvent *event)
-{
-	tGPDpick *tgpk;
-
-	/* check context */
-	tgpk = op->customdata = gp_session_init_colorpick(C, op, event);
-	if (tgpk == NULL) {
-		/* something wasn't set correctly in context */
-		gpencil_colorpick_exit(C, op);
-		return 0;
-	}
-
-	/* everything is now setup ok */
-	return 1;
-}
-
 /* start of interactive part of operator */
 static int gpencil_colorpick_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
-	tGPDpick *tgpk = NULL;
-
-	/* try to initialize context data needed */
-	if (!gpencil_colorpick_init(C, op, event)) {
-		gpencil_colorpick_exit(C, op);
-		if (op->customdata)
-			MEM_freeN(op->customdata);
-		return OPERATOR_CANCELLED;
-	}
-	else {
-		tgpk = op->customdata;
-	}
+	tGPDpick *tgpk = gpencil_colorpick_init(C, op, event);
 
 	/* Enable custom drawing handlers */
 	tgpk->draw_handle_3d = ED_region_draw_cb_activate(tgpk->ar->type, gpencil_colorpick_draw_3d, tgpk, REGION_DRAW_POST_PIXEL);
@@ -545,9 +517,6 @@ static int gpencil_colorpick_modal(bContext *C, wmOperator *op, const wmEvent *e
 	/* process last operations before exiting */
 	switch (estate) {
 		case OPERATOR_FINISHED:
-			gpencil_colorpick_exit(C, op);
-			break;
-		
 		case OPERATOR_CANCELLED:
 			gpencil_colorpick_exit(C, op);
 			break;
