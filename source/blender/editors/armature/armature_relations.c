@@ -567,8 +567,6 @@ static void separate_armature_bones(Object *ob, short sel)
 /* separate selected bones into their armature */
 static int separate_armature_exec(bContext *C, wmOperator *op)
 {
-	EvaluationContext eval_ctx;
-	CTX_data_eval_ctx(C, &eval_ctx);
 	Main *bmain = CTX_data_main(C);
 	Scene *scene = CTX_data_scene(C);
 	ViewLayer *view_layer = CTX_data_view_layer(C);
