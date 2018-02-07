@@ -133,26 +133,24 @@ void OBJECT_OT_particle_system_add(wmOperatorType *ot)
 
 static int particle_system_remove_exec(bContext *C, wmOperator *UNUSED(op))
 {
-	EvaluationContext eval_ctx;
-	CTX_data_eval_ctx(C, &eval_ctx);
+	WorkSpace *workspace = CTX_wm_workspace(C);
 	Object *ob = ED_object_context(C);
 	Scene *scene = CTX_data_scene(C);
 	ViewLayer *view_layer = CTX_data_view_layer(C);
-	int mode_orig;
+	eObjectMode mode_orig;
 
 	if (!scene || !ob)
 		return OPERATOR_CANCELLED;
 
-	mode_orig = eval_ctx.mode;
+	mode_orig = workspace->object_mode;
 	object_remove_particle_system(scene, ob);
 
 	/* possible this isn't the active object
 	 * object_remove_particle_system() clears the mode on the last psys
 	 */
 	if (mode_orig & OB_MODE_PARTICLE_EDIT) {
-		if ((eval_ctx.object_mode & OB_MODE_PARTICLE_EDIT) == 0) {
+		if ((workspace->object_mode & OB_MODE_PARTICLE_EDIT) == 0) {
 			if (view_layer->basact && view_layer->basact->object == ob) {
-				WorkSpace *workspace = CTX_wm_workspace(C);
 				workspace->object_mode &= ~OB_MODE_PARTICLE_EDIT;
 				WM_event_add_notifier(C, NC_SCENE|ND_MODE|NS_MODE_OBJECT, NULL);
 			}
