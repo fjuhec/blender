@@ -91,14 +91,30 @@ void gpencil_object_cache_add(tGPencilObjectCache *cache_array, Object *ob, int 
 	
 	/* calculate zdepth from point of view */
 	float zdepth = 0.0;
-	if (rv3d->is_persp) {
-		zdepth = ED_view3d_calc_zfac(rv3d, ob->loc, NULL);
+	if (rv3d) {
+		if (rv3d->is_persp) {
+			zdepth = ED_view3d_calc_zfac(rv3d, ob->loc, NULL);
+		}
+		else {
+			zdepth = -dot_v3v3(rv3d->viewinv[2], ob->loc);
+		}
 	}
 	else {
-		zdepth = -dot_v3v3(rv3d->viewinv[2], ob->loc);
+		/* In render mode, rv3d is not available, so use the distance to camera.
+		 * The real distance is not important, but the relative distance to the camera plane
+		 * in order to sort by z_depth of the objects
+		 */
+		float vn[3] = { 0.0f, 0.0f, -1.0f }; /* always face down */
+		float plane_cam[4];
+		struct Object *camera = draw_ctx->scene->camera;
+		if (camera) {
+			mul_m4_v3(camera->obmat, vn);
+			normalize_v3(vn);
+			plane_from_point_normal_v3(plane_cam, camera->loc, vn);
+			zdepth = dist_squared_to_plane_v3(ob->loc, plane_cam);
+		}
 	}
 	cache->zdepth = zdepth;
-
 	/* increase slots used in cache */
 	(*gp_cache_used)++;
 }
