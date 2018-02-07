@@ -229,7 +229,10 @@ class DATA_PT_vertex_groups(MeshButtonsPanel, Panel):
             col.operator("object.vertex_group_move", icon='TRIA_UP', text="").direction = 'UP'
             col.operator("object.vertex_group_move", icon='TRIA_DOWN', text="").direction = 'DOWN'
 
-        if ob.vertex_groups and (workspace.object_mode == 'EDIT' or (ob.mode == 'WEIGHT_PAINT' and ob.type == 'MESH' and ob.data.use_paint_mask_vertex)):
+        if (ob.vertex_groups and
+            ((workspace.object_mode == 'EDIT') or
+             (workspace.object_mode == 'WEIGHT_PAINT' and ob.type == 'MESH' and ob.data.use_paint_mask_vertex))
+        ):
             row = layout.row()
 
             sub = row.row(align=True)
