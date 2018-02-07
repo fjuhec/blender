@@ -94,10 +94,9 @@ typedef enum eOverlayControlFlags {
 						     PAINT_OVERLAY_OVERRIDE_CURSOR)
 
 void BKE_paint_invalidate_overlay_tex(
-        const struct EvaluationContext *eval_ctx, struct Scene *scene, struct ViewLayer *view_layer, const struct Tex *tex);
+        struct Scene *scene, struct ViewLayer *view_layer, const struct Tex *tex, eObjectMode object_mode);
 void BKE_paint_invalidate_cursor_overlay(
-        const struct EvaluationContext *eval_ctx,
-        struct Scene *scene, struct ViewLayer *view_layer, struct CurveMapping *curve);
+        struct Scene *scene, struct ViewLayer *view_layer, struct CurveMapping *curve, eObjectMode object_mode);
 void BKE_paint_invalidate_overlay_all(void);
 eOverlayControlFlags BKE_paint_get_overlay_flags(void);
 void BKE_paint_reset_overlay_invalid(eOverlayControlFlags flag);

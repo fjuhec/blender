@@ -76,9 +76,10 @@ const char PAINT_CURSOR_TEXTURE_PAINT[3] = {255, 255, 255};
 static eOverlayControlFlags overlay_flags = 0;
 
 void BKE_paint_invalidate_overlay_tex(
-        const EvaluationContext *eval_ctx, Scene *scene, ViewLayer *view_layer, const Tex *tex)
+        Scene *scene, ViewLayer *view_layer, const Tex *tex, eObjectMode object_mode)
 {
-	Paint *p = BKE_paint_get_active(scene, view_layer, eval_ctx->object_mode);
+	/* TODO/OBMODE: enumerate multiple modes */
+	Paint *p = BKE_paint_get_active(scene, view_layer, object_mode);
 	Brush *br = p->brush;
 
 	if (!br)
@@ -91,9 +92,10 @@ void BKE_paint_invalidate_overlay_tex(
 }
 
 void BKE_paint_invalidate_cursor_overlay(
-        const EvaluationContext *eval_ctx, Scene *scene, ViewLayer *view_layer, CurveMapping *curve)
+        Scene *scene, ViewLayer *view_layer, CurveMapping *curve, eObjectMode object_mode)
 {
-	Paint *p = BKE_paint_get_active(scene, view_layer, eval_ctx->object_mode);
+	/* TODO/OBMODE: enumerate multiple modes */
+	Paint *p = BKE_paint_get_active(scene, view_layer, object_mode);
 	Brush *br = p->brush;
 
 	if (br && br->curve == curve)

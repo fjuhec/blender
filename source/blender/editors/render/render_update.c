@@ -387,7 +387,7 @@ static int material_uses_texture(Material *ma, Tex *tex)
 	return false;
 }
 
-static void texture_changed(const EvaluationContext *eval_ctx, Main *bmain, Tex *tex)
+static void texture_changed(Main *bmain, Tex *tex)
 {
 	Material *ma;
 	Lamp *la;
@@ -401,10 +401,12 @@ static void texture_changed(const EvaluationContext *eval_ctx, Main *bmain, Tex 
 	/* icons */
 	BKE_icon_changed(BKE_icon_id_ensure(&tex->id));
 
+	const eObjectMode object_mode = WM_windows_object_mode_get(bmain->wm.first);
+
 	/* paint overlays */
 	for (scene = bmain->scene.first; scene; scene = scene->id.next) {
 		for (view_layer = scene->view_layers.first; view_layer; view_layer = view_layer->next) {
-			BKE_paint_invalidate_overlay_tex(eval_ctx, scene, view_layer, tex);
+			BKE_paint_invalidate_overlay_tex(scene, view_layer, tex, object_mode);
 		}
 	}
 
@@ -506,7 +508,7 @@ static void world_changed(Main *UNUSED(bmain), World *wo)
 	}
 }
 
-static void image_changed(const EvaluationContext *eval_ctx, Main *bmain, Image *ima)
+static void image_changed(Main *bmain, Image *ima)
 {
 	Tex *tex;
 
@@ -516,7 +518,7 @@ static void image_changed(const EvaluationContext *eval_ctx, Main *bmain, Image 
 	/* textures */
 	for (tex = bmain->tex.first; tex; tex = tex->id.next)
 		if (tex->ima == ima)
-			texture_changed(eval_ctx, bmain, tex);
+			texture_changed(bmain, tex);
 }
 
 static void scene_changed(Main *bmain, Scene *scene)
@@ -552,7 +554,6 @@ void ED_render_id_flush_update(const DEGEditorUpdateContext *update_ctx, ID *id)
 		return;
 	}
 	Main *bmain = update_ctx->bmain;
-	const EvaluationContext *eval_ctx = bmain->eval_ctx;  /* OBMODE/TODO (all visible workspace modes) */
 	/* Internal ID update handlers. */
 	switch (GS(id->name)) {
 		case ID_MA:
@@ -560,7 +561,7 @@ void ED_render_id_flush_update(const DEGEditorUpdateContext *update_ctx, ID *id)
 			render_engine_flag_changed(bmain, RE_ENGINE_UPDATE_MA);
 			break;
 		case ID_TE:
-			texture_changed(eval_ctx, bmain, (Tex *)id);
+			texture_changed(bmain, (Tex *)id);
 			break;
 		case ID_WO:
 			world_changed(bmain, (World *)id);
@@ -570,7 +571,7 @@ void ED_render_id_flush_update(const DEGEditorUpdateContext *update_ctx, ID *id)
 			break;
 		case ID_IM:
 		{
-			image_changed(eval_ctx, bmain, (Image *)id);
+			image_changed(bmain, (Image *)id);
 			break;
 		}
 		case ID_SCE:
