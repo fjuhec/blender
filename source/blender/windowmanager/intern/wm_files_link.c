@@ -431,9 +431,6 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
 	char path[FILE_MAX_LIBEXTRA], root[FILE_MAXDIR], libname[FILE_MAX_LIBEXTRA], relname[FILE_MAX];
 	char *group, *name;
 	int totfiles = 0;
-	short flag;
-	bool has_item = false;
-	bool do_append;
 
 	char asset_engine[BKE_ST_MAXNAME];
 	AssetEngineType *aet = NULL;
@@ -479,8 +476,8 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
 		return OPERATOR_CANCELLED;
 	}
 
-	flag = wm_link_append_flag(op);
-	do_append = (flag & FILE_LINK) == 0;
+	short flag = wm_link_append_flag(op);
+	const bool do_append = (flag & FILE_LINK) == 0;
 
 	/* sanity checks for flag */
 	if (scene && scene->id.lib) {
@@ -527,7 +524,6 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
 					BLI_ghash_insert(libraries, BLI_strdup(libname), SET_INT_IN_POINTER(lib_idx));
 					lib_idx++;
 					wm_link_append_data_library_add(lapp_data, libname);
-					has_item = true;
 				}
 			}
 			/* Non-blend paths are only valid in asset engine context (virtual libraries). */
@@ -569,7 +565,6 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
 				lib_idx = GET_INT_FROM_POINTER(BLI_ghash_lookup(libraries, libname));
 				item = wm_link_append_data_item_add(lapp_data, name, BKE_idcode_from_name(group), &uuid, NULL);
 				BLI_BITMAP_ENABLE(item->libraries, lib_idx);
-				has_item = true;
 			}
 			else if (aet) {  /* Non-blend paths are only valid in asset engine context (virtual libraries). */
 				const int idcode = path_to_idcode(path);
@@ -601,7 +596,6 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
 			wm_link_append_data_library_add(lapp_data, libname);
 			item = wm_link_append_data_item_add(lapp_data, name, BKE_idcode_from_name(group), &uuid, NULL);
 			BLI_BITMAP_ENABLE(item->libraries, 0);
-			has_item = true;
 		}
 		else if (aet) {  /* Non-blend paths are only valid in asset engine context (virtual libraries). */
 			const int idcode = path_to_idcode(path);
@@ -610,12 +604,12 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
 				wm_link_append_data_library_add(lapp_data, "");
 				item = wm_link_append_data_item_add(lapp_data, path, idcode, &uuid, NULL);
 				BLI_BITMAP_ENABLE(item->libraries, 0);
-				has_item = true;
 			}
 		}
 	}
 
-	if (!has_item) {
+	if (lapp_data->num_items == 0) {
+		/* Early out in case there is nothing to link. */
 		wm_link_append_data_free(lapp_data);
 		return OPERATOR_CANCELLED;
 	}
@@ -829,7 +823,6 @@ static void lib_relocate_do(
 
 	LinkNode *itemlink;
 	int item_idx;
-	bool has_item = false;
 
 	/* Remove all IDs to be reloaded from Main. */
 	if (library) {
@@ -852,7 +845,6 @@ static void lib_relocate_do(
 					BLI_remlink(lbarray[lba_idx], id);
 					item = wm_link_append_data_item_add(lapp_data, id->name + 2, idcode, NULL, id);
 					BLI_BITMAP_SET_ALL(item->libraries, true, lapp_data->num_libraries);
-					has_item = true;
 
 #ifdef DEBUG_LIBRARY
 					printf("\tdatablock to seek for: %s\n", id->name);
@@ -862,8 +854,8 @@ static void lib_relocate_do(
 		}
 	}
 
-	if (!has_item) {
-		/* nothing to relocate */
+	if (lapp_data->num_items == 0) {
+		/* Early out in case there is nothing to do. */
 		return;
 	}
 
