@@ -221,36 +221,32 @@ class GreasePencilStrokeEditPanel:
         col.operator_menu_enum("gpencil.stroke_arrange", text="Arrange Strokes...", property="direction")
         col.operator("gpencil.stroke_change_color", text="Move to Color")
 
-        if is_3d_view:
-            layout.separator()
-
-
         layout.separator()
         col = layout.column(align=True)
         col.operator("gpencil.stroke_subdivide", text="Subdivide")
-        col.operator("gpencil.stroke_simplify_fixed", text="Simplify")
-        col.operator("gpencil.stroke_simplify", text="Simplify Adaptative")
-        col.operator("gpencil.stroke_join", text="Join").type = 'JOIN'
-        col.operator("gpencil.stroke_join", text="Join & Copy").type = 'JOINCOPY'
+        row = col.row(align=True)
+        row.operator("gpencil.stroke_simplify_fixed", text="Simplify")
+        row.operator("gpencil.stroke_simplify", text="Adaptative")
 
         col.separator()
-        col.operator("gpencil.stroke_separate", text="Separate Point").mode = 'POINT'
-        col.operator("gpencil.stroke_separate", text="Separate Stroke").mode = 'STROKE'
-        col.operator("gpencil.stroke_separate", text="Separate Layer").mode = 'LAYER'
 
-        col.separator()
-        col.operator("gpencil.stroke_split", text="Split")
+        row = col.row(align=True)
+        row.operator("gpencil.stroke_join", text="Join").type = 'JOIN'
+        row.operator("gpencil.stroke_join", text="& Copy").type = 'JOINCOPY'
 
-        col.separator()
         col.operator("gpencil.stroke_flip", text="Flip Direction")
-
-        col.separator()
-        col.operator("gpencil.frame_clean_fill", text="Clean Boundary Strokes").mode = 'ACTIVE'
-        col.operator("gpencil.frame_clean_fill", text="Clean Boundary Strokes all Frames").mode = 'ALL'
 
         if is_3d_view:
             layout.separator()
-            layout.operator_menu_enum("gpencil.reproject", text="Reproject Strokes...", property="type")
+            
+            col = layout.column(align=True)
+            col.operator_menu_enum("gpencil.stroke_separate", text="Separate...", property="mode")
+            col.operator("gpencil.stroke_split", text="Split")
+
+            col = layout.column(align=True)
+            col.label(text="Cleanup:")
+            col.operator_menu_enum("gpencil.reproject", text="Reproject Strokes...", property="type")
+            col.operator_menu_enum("gpencil.frame_clean_fill", text="Clean Boundary Strokes...", property="mode")
 
 
 class GreasePencilAnimationPanel:
