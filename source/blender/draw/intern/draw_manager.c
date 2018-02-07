@@ -3655,6 +3655,13 @@ void DRW_render_to_image(RenderEngine *re, struct Depsgraph *depsgraph)
 	}
 
 	/* TODO grease pencil */
+	/* enabled only in debug mode */
+	if (G.debug_value >= 663) {
+		if (draw_engine_gpencil_type.render_to_image) {
+			ViewportEngineData *gpdata = DRW_viewport_engine_data_ensure(&draw_engine_gpencil_type);
+			draw_engine_gpencil_type.render_to_image(gpdata, re, depsgraph);
+		}
+	}
 
 	GPU_viewport_free(DST.viewport);
 	MEM_freeN(DST.viewport);

@@ -34,9 +34,13 @@
 #include "DNA_gpencil_types.h"
 #include "DNA_view3d_types.h"
 
+#include "DEG_depsgraph_query.h"
+
 #include "draw_mode_engines.h"
 
 #include "UI_resources.h"
+
+#include "RE_pipeline.h"
 
 #include "gpencil_engine.h"
 
@@ -685,6 +689,7 @@ static void GPENCIL_draw_scene(void *vedata)
 	ToolSettings *ts = scene->toolsettings;
 	Object *obact = draw_ctx->obact;
 	bool playing = (bool)stl->storage->playing;
+	bool is_render = stl->storage->is_render;
 
 	/* paper pass to display a confortable area to draw over complex scenes with geometry */
 	if ((obact) && (obact->type == OB_GPENCIL)) {
@@ -694,7 +699,7 @@ static void GPENCIL_draw_scene(void *vedata)
 	}
 
 	/* if we have a painting session, we use fast viewport drawing method */
-	if (stl->g_data->session_flag & GP_DRW_PAINT_PAINTING) {
+	if ((!is_render) && (stl->g_data->session_flag & GP_DRW_PAINT_PAINTING)) {
 		DRW_framebuffer_bind(dfbl->default_fb);
 
 		MULTISAMPLE_SYNC_ENABLE(dfbl);
@@ -800,10 +805,12 @@ static void GPENCIL_draw_scene(void *vedata)
 				DRW_framebuffer_bind(dfbl->default_fb);
 				DRW_draw_pass(psl->mix_pass);
 				/* prepare for fast drawing */
-				gpencil_prepare_fast_drawing(stl, dfbl, fbl, psl->mix_pass_noblend, clearcol);
+				if (!is_render) {
+					gpencil_prepare_fast_drawing(stl, dfbl, fbl, psl->mix_pass_noblend, clearcol);
+				}
 			}
 			/* edit points */
-			if (!playing) {
+			if ((!is_render) && (!playing)) {
 				DRW_draw_pass(psl->edit_pass);
 			}
 		}
@@ -835,6 +842,84 @@ static void GPENCIL_draw_scene(void *vedata)
 	}
 }
 
+/* init render data */
+void GPENCIL_render_init(GPENCIL_Data *ved, RenderEngine *engine, struct Depsgraph *depsgraph)
+{
+	GPENCIL_Data *vedata = (GPENCIL_Data *)ved;
+	GPENCIL_StorageList *stl = vedata->stl;
+	GPENCIL_FramebufferList *fbl = vedata->fbl;
+
+	Scene *scene = DEG_get_evaluated_scene(depsgraph);
+	const float *viewport_size = DRW_viewport_size_get();
+
+	/* In render mode the default framebuffer is not generated
+	* because there is no viewport. So we need to manually create one 
+	* NOTE : use 32 bit format for precision in render mode. 
+	*/
+	DRWFboTexture tex_color[2] = {
+		{ &e_data.render_depth_tx, DRW_TEX_DEPTH_24_STENCIL_8, DRW_TEX_TEMP },
+		{ &e_data.render_color_tx, DRW_TEX_RGBA_32, DRW_TEX_TEMP }
+	};
+	/* init main framebuffer */
+	DRW_framebuffer_init(
+		&fbl->main, &draw_engine_gpencil_type,
+		(int)viewport_size[0], (int)viewport_size[1],
+		tex_color, ARRAY_SIZE(tex_color));
+
+	/* Alloc transient data. */
+	if (!stl->g_data) {
+		stl->g_data = MEM_callocN(sizeof(*stl->g_data), __func__);
+	}
+	stl->storage->background_alpha = DRW_state_draw_background() ? 1.0f : 0.0f;
+
+	/* Set the pers & view matrix. */
+	struct Object *camera = RE_GetCamera(engine->re);
+	float frame = BKE_scene_frame_get(scene);
+	RE_GetCameraWindow(engine->re, camera, frame, stl->storage->winmat);
+	RE_GetCameraModelMatrix(engine->re, camera, stl->storage->viewinv);
+
+	invert_m4_m4(stl->storage->viewmat, stl->storage->viewinv);
+	mul_m4_m4m4(stl->storage->persmat, stl->storage->winmat, stl->storage->viewmat);
+	invert_m4_m4(stl->storage->persinv, stl->storage->persmat);
+	invert_m4_m4(stl->storage->wininv, stl->storage->winmat);
+
+	DRW_viewport_matrix_override_set(stl->storage->persmat, DRW_MAT_PERS);
+	DRW_viewport_matrix_override_set(stl->storage->persinv, DRW_MAT_PERSINV);
+	DRW_viewport_matrix_override_set(stl->storage->winmat, DRW_MAT_WIN);
+	DRW_viewport_matrix_override_set(stl->storage->wininv, DRW_MAT_WININV);
+	DRW_viewport_matrix_override_set(stl->storage->viewmat, DRW_MAT_VIEW);
+	DRW_viewport_matrix_override_set(stl->storage->viewinv, DRW_MAT_VIEWINV);
+
+	/* INIT CACHE */
+	GPENCIL_cache_init(vedata);
+}
+
+/* render all objects and select only grease pencil */
+void GPENCIL_render_cache(
+	void *vedata, struct Object *ob,
+	struct RenderEngine *UNUSED(engine), struct Depsgraph *UNUSED(depsgraph))
+{
+	if ((ob == NULL) || (DRW_check_object_visible_within_active_context(ob) == false)) {
+		return;
+	}
+
+	if (ob->type == OB_GPENCIL) {
+		GPENCIL_cache_populate(vedata, ob);
+	}
+}
+
+/* render grease pencil to image */
+static void GPENCIL_render_to_image(void *vedata, struct RenderEngine *engine, struct Depsgraph *depsgraph)
+{
+	GPENCIL_engine_init(vedata);
+	GPENCIL_render_init(vedata, engine, depsgraph);
+
+	DRW_render_object_iter(vedata, engine, depsgraph, GPENCIL_render_cache);
+
+	GPENCIL_cache_finish(vedata);
+	GPENCIL_draw_scene(vedata);
+}
+
 static const DrawEngineDataSize GPENCIL_data_size = DRW_VIEWPORT_DATA_SIZE(GPENCIL_Data);
 
 DrawEngineType draw_engine_gpencil_type = {
@@ -850,5 +935,5 @@ DrawEngineType draw_engine_gpencil_type = {
 	&GPENCIL_draw_scene,
 	NULL,
 	NULL,
-	NULL,
+	&GPENCIL_render_to_image,
 };

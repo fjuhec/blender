@@ -167,6 +167,12 @@ typedef struct GPENCIL_Storage {
 	int uselines;
 	float gridsize[2];
 	float gridcolor[3];
+
+	/* Render Matrices and data */
+	float background_alpha;
+	float persmat[4][4], persinv[4][4];
+	float viewmat[4][4], viewinv[4][4];
+	float winmat[4][4], wininv[4][4];
 } GPENCIL_Storage;
 
 typedef struct GPENCIL_StorageList {
@@ -198,7 +204,7 @@ typedef struct GPENCIL_PassList {
 } GPENCIL_PassList;
 
 typedef struct GPENCIL_FramebufferList {
-	struct GPUFrameBuffer *fb;
+	struct GPUFrameBuffer *main;
 	struct GPUFrameBuffer *temp_color_fb;
 	struct GPUFrameBuffer *vfx_color_fb_a;
 	struct GPUFrameBuffer *vfx_color_fb_b;
@@ -279,6 +285,11 @@ typedef struct GPENCIL_e_data {
 	struct GPUTexture *painting_color_tx;
 
 	struct GPUTexture *gpencil_blank_texture;
+	
+	/* render textures */
+	struct GPUTexture *render_depth_tx;
+	struct GPUTexture *render_color_tx;
+
 	/* runtime pointers texture */
 	struct GPUTexture *input_depth_tx;
 	struct GPUTexture *input_color_tx;
