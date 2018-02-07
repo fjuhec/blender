@@ -33,8 +33,6 @@
 #include "BKE_global.h"
 #include "BKE_colorband.h"
 
-#include "DEG_depsgraph.h"
-
 #include "draw_common.h"
 
 #if 0

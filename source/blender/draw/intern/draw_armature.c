@@ -59,8 +59,6 @@
 
 #include "UI_resources.h"
 
-#include "DEG_depsgraph.h"
-
 #include "draw_common.h"
 #include "draw_manager_text.h"
 
