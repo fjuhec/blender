@@ -27,6 +27,7 @@
 #include "DRW_render.h"
 
 #include "BKE_global.h"
+#include "BKE_camera.h"
 #include "BKE_object.h"
 #include "BKE_paint.h"
 #include "BKE_gpencil.h"
@@ -293,6 +294,20 @@ static void GPENCIL_cache_init(void *vedata)
 		}
 		/* save render state */
 		stl->storage->is_render = DRW_state_is_image_render();
+
+		/* save pixsize */
+		if (!stl->storage->is_render) {
+			stl->storage->pixsize = DRW_viewport_pixelsize_get();
+		}
+		else {
+			const float *viewport_size = DRW_viewport_size_get();
+			CameraParams params;
+			BKE_camera_params_init(&params);
+			BKE_camera_params_from_object(&params, scene->camera);
+			BKE_camera_params_compute_viewplane(&params, viewport_size[0], viewport_size[1], 1.0f, 1.0f);
+			stl->storage->pixsize = &params.viewdx;
+		}
+
 		/* detect if painting session */
 		bGPdata *obact_gpd = NULL;
 		if ((obact) && (obact->type == OB_GPENCIL) && (obact->data))

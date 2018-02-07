@@ -239,7 +239,7 @@ static void DRW_gpencil_vfx_pixel(
 
 	copy_v3_v3(stl->vfx[ob_idx].vfx_pixel.loc, &ob->loc[0]);
 	DRW_shgroup_uniform_vec3(vfx_shgrp, "loc", stl->vfx[ob_idx].vfx_pixel.loc, 1);
-	DRW_shgroup_uniform_float(vfx_shgrp, "pixsize", DRW_viewport_pixelsize_get(), 1);
+	DRW_shgroup_uniform_float(vfx_shgrp, "pixsize", stl->storage->pixsize, 1);
 	DRW_shgroup_uniform_float(vfx_shgrp, "pixelsize", &U.pixelsize, 1);
 	DRW_shgroup_uniform_int(vfx_shgrp, "pixfactor", &gpd->pixfactor, 1);
 	
@@ -285,7 +285,7 @@ static void DRW_gpencil_vfx_swirl(
 	DRW_shgroup_uniform_float(vfx_shgrp, "angle", &stl->vfx[ob_idx].vfx_swirl.angle, 1);
 	DRW_shgroup_uniform_int(vfx_shgrp, "transparent", &stl->vfx[ob_idx].vfx_swirl.transparent, 1);
 
-	DRW_shgroup_uniform_float(vfx_shgrp, "pixsize", DRW_viewport_pixelsize_get(), 1);
+	DRW_shgroup_uniform_float(vfx_shgrp, "pixsize", stl->storage->pixsize, 1);
 	DRW_shgroup_uniform_float(vfx_shgrp, "pixelsize", &U.pixelsize, 1);
 	DRW_shgroup_uniform_int(vfx_shgrp, "pixfactor", &gpd->pixfactor, 1);
 
@@ -415,7 +415,7 @@ static void DRW_gpencil_vfx_light(
 	stl->vfx[ob_idx].vfx_light.ambient = mmd->ambient;
 	DRW_shgroup_uniform_float(vfx_shgrp, "ambient", &stl->vfx[ob_idx].vfx_light.ambient, 1);
 
-	DRW_shgroup_uniform_float(vfx_shgrp, "pixsize", DRW_viewport_pixelsize_get(), 1);
+	DRW_shgroup_uniform_float(vfx_shgrp, "pixsize", stl->storage->pixsize, 1);
 	DRW_shgroup_uniform_float(vfx_shgrp, "pixelsize", &U.pixelsize, 1);
 	DRW_shgroup_uniform_int(vfx_shgrp, "pixfactor", &gpd->pixfactor, 1);
 

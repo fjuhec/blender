@@ -350,7 +350,7 @@ DRWShadingGroup *DRW_gpencil_shgroup_stroke_create(GPENCIL_e_data *e_data, GPENC
 
 	DRW_shgroup_uniform_vec2(grp, "Viewport", viewport_size, 1);
 
-	DRW_shgroup_uniform_float(grp, "pixsize", DRW_viewport_pixelsize_get(), 1);
+	DRW_shgroup_uniform_float(grp, "pixsize", stl->storage->pixsize, 1);
 	DRW_shgroup_uniform_float(grp, "pixelsize", &U.pixelsize, 1);
 
 	/* avoid wrong values */
@@ -442,7 +442,7 @@ DRWShadingGroup *DRW_gpencil_shgroup_point_create(GPENCIL_e_data *e_data, GPENCI
 	stl->g_data->tot_sh_point++;
 
 	DRW_shgroup_uniform_vec2(grp, "Viewport", viewport_size, 1);
-	DRW_shgroup_uniform_float(grp, "pixsize", DRW_viewport_pixelsize_get(), 1);
+	DRW_shgroup_uniform_float(grp, "pixsize", stl->storage->pixsize, 1);
 	DRW_shgroup_uniform_float(grp, "pixelsize", &U.pixelsize, 1);
 	
 	/* avoid wrong values */

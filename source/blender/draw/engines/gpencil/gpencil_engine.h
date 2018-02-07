@@ -167,6 +167,7 @@ typedef struct GPENCIL_Storage {
 	int uselines;
 	float gridsize[2];
 	float gridcolor[3];
+	const float *pixsize;
 
 	/* Render Matrices and data */
 	float persmat[4][4], persinv[4][4];
