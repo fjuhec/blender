@@ -776,6 +776,9 @@ static void rna_Window_view_layer_set(PointerRNA *ptr, PointerRNA value)
 	WorkSpace *workspace = WM_window_get_active_workspace(win);
 
 	BKE_workspace_view_layer_set(workspace, value.data, scene);
+
+	/* note: we probably remove this, for now clear to avoid confusion. */
+	scene->obedit = NULL;
 }
 
 static PointerRNA rna_KeyMapItem_properties_get(PointerRNA *ptr)
