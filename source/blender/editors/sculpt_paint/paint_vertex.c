@@ -1086,9 +1086,6 @@ static int wpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 		paint_cursor_delete_textures();
 	}
 	else {
-		EvaluationContext eval_ctx;
-		CTX_data_eval_ctx(C, &eval_ctx);
-
 		workspace->object_mode |= mode_flag;
 
 		if (wp == NULL)
@@ -1106,6 +1103,9 @@ static int wpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 		if (ob->sculpt) {
 			BKE_sculptsession_free(ob);
 		}
+
+		EvaluationContext eval_ctx;
+		CTX_data_eval_ctx(C, &eval_ctx);
 		vertex_paint_init_session(&eval_ctx, scene, ob);
 	}
 
@@ -2272,9 +2272,6 @@ static int vpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 
 		BKE_paint_init(scene, ePaintVertex, PAINT_CURSOR_VERTEX_PAINT);
 
-		EvaluationContext eval_ctx;
-		CTX_data_eval_ctx(C, &eval_ctx);
-
 		/* Create vertex/weight paint mode session data */
 		if (ob->sculpt) {
 			if (ob->sculpt->cache) {
@@ -2283,6 +2280,9 @@ static int vpaint_mode_toggle_exec(bContext *C, wmOperator *op)
 			}
 			BKE_sculptsession_free(ob);
 		}
+
+		EvaluationContext eval_ctx;
+		CTX_data_eval_ctx(C, &eval_ctx);
 		vertex_paint_init_session(&eval_ctx, scene, ob);
 	}
 
