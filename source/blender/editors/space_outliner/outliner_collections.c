@@ -37,6 +37,7 @@
 #include "DEG_depsgraph_build.h"
 
 #include "DNA_group_types.h"
+#include "DNA_object_types.h"
 
 #include "ED_screen.h"
 
@@ -95,6 +96,24 @@ static int outliner_either_collection_editor_poll(bContext *C)
 {
 	SpaceOops *so = CTX_wm_space_outliner(C);
 	return (so != NULL) && (ELEM(so->outlinevis, SO_VIEW_LAYER, SO_COLLECTIONS));
+}
+
+static int outliner_objects_collection_poll(bContext *C)
+{
+	SpaceOops *so = CTX_wm_space_outliner(C);
+	if (so == NULL) {
+		return 0;
+	}
+
+	/* Groups don't support filtering. */
+	if ((so->outlinevis != SO_GROUPS) &&
+	    ((so->filter & (SO_FILTER_ENABLE | SO_FILTER_NO_COLLECTION)) ==
+	    (SO_FILTER_ENABLE | SO_FILTER_NO_COLLECTION)))
+	{
+		return 0;
+	}
+
+	return ELEM(so->outlinevis, SO_VIEW_LAYER, SO_COLLECTIONS, SO_GROUPS);
 }
 
 /* -------------------------------------------------------------------- */
@@ -558,6 +577,139 @@ void OUTLINER_OT_collection_objects_remove(wmOperatorType *ot)
 	/* api callbacks */
 	ot->exec = collection_objects_remove_exec;
 	ot->poll = collections_editor_poll;
+
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+}
+
+static TreeElement *outliner_collection_parent_element_get(TreeElement *te)
+{
+	TreeElement *te_parent = te;
+	while ((te_parent = te_parent->parent)) {
+		if (outliner_scene_collection_from_tree_element(te->parent)) {
+			return te_parent;
+		}
+	}
+	return NULL;
+}
+
+static int object_collection_remove_exec(bContext *C, wmOperator *UNUSED(op))
+{
+	SpaceOops *soops = CTX_wm_space_outliner(C);
+	Main *bmain = CTX_data_main(C);
+
+	struct ObjectsSelectedData data = {
+		.objects_selected_array = {NULL, NULL},
+	};
+
+	outliner_tree_traverse(soops, &soops->tree, 0, TSE_SELECTED, outliner_find_selected_objects, &data);
+
+	BLI_LISTBASE_FOREACH (LinkData *, link, &data.objects_selected_array) {
+		TreeElement *te = (TreeElement *)link->data;
+		Object *ob = (Object *)TREESTORE(te)->id;
+		SceneCollection *scene_collection = NULL;
+
+		TreeElement *te_parent = outliner_collection_parent_element_get(te);
+		if (te_parent != NULL) {
+			scene_collection = outliner_scene_collection_from_tree_element(te_parent);
+			ID *owner_id = TREESTORE(te_parent)->id;
+			BKE_collection_object_remove(bmain, owner_id, scene_collection, ob, true);
+			DEG_id_tag_update(owner_id, DEG_TAG_BASE_FLAGS_UPDATE);
+		}
+	}
+
+	BLI_freelistN(&data.objects_selected_array);
+
+	outliner_cleanup_tree(soops);
+	DEG_relations_tag_update(bmain);
+
+	WM_main_add_notifier(NC_SCENE | ND_LAYER, NULL);
+	WM_main_add_notifier(NC_SCENE | ND_OB_ACTIVE, NULL);
+	WM_main_add_notifier(NC_SCENE | ND_OB_SELECT, NULL);
+
+	return OPERATOR_FINISHED;
+}
+
+void OUTLINER_OT_object_remove_from_collection(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Remove Object from Collection";
+	ot->idname = "OUTLINER_OT_object_remove_from_collection";
+	ot->description = "Remove selected objects from their respective collection";
+
+	/* api callbacks */
+	ot->exec = object_collection_remove_exec;
+	ot->poll = outliner_objects_collection_poll;
+
+	/* flags */
+	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+}
+
+static int object_add_to_new_collection_exec(bContext *C, wmOperator *op)
+{
+	int operator_result = OPERATOR_CANCELLED;
+
+	SpaceOops *soops = CTX_wm_space_outliner(C);
+	Main *bmain = CTX_data_main(C);
+
+	SceneCollection *scene_collection_parent, *scene_collection_new;
+	TreeElement *te_active, *te_parent;
+
+	struct ObjectsSelectedData data = {NULL}, active = {NULL};
+
+	outliner_tree_traverse(soops, &soops->tree, 0, TSE_HIGHLIGHTED, outliner_find_selected_objects, &active);
+	if (BLI_listbase_is_empty(&active.objects_selected_array)) {
+		BKE_report(op->reports, RPT_ERROR, "No object is selected");
+		goto cleanup;
+	}
+
+	outliner_tree_traverse(soops, &soops->tree, 0, TSE_SELECTED, outliner_find_selected_objects, &data);
+	if (BLI_listbase_is_empty(&data.objects_selected_array)) {
+		BKE_report(op->reports, RPT_ERROR, "No objects are selected");
+		goto cleanup;
+	}
+
+	/* Heuristic to get the "active" / "last object" */
+	te_active = ((LinkData *)active.objects_selected_array.first)->data;
+	te_parent = outliner_collection_parent_element_get(te_active);
+
+	if (te_parent == NULL) {
+		BKE_reportf(op->reports, RPT_ERROR, "Couldn't find collection of \"%s\" object", te_active->name);
+		goto cleanup;
+	}
+
+	ID *owner_id = TREESTORE(te_parent)->id;
+	scene_collection_parent = outliner_scene_collection_from_tree_element(te_parent);
+	scene_collection_new = BKE_collection_add(owner_id, scene_collection_parent, scene_collection_parent->type, NULL);
+
+	BLI_LISTBASE_FOREACH (LinkData *, link, &data.objects_selected_array) {
+		TreeElement *te = (TreeElement *)link->data;
+		Object *ob = (Object *)TREESTORE(te)->id;
+		BKE_collection_object_add(owner_id, scene_collection_new, ob);
+	}
+
+	outliner_cleanup_tree(soops);
+	DEG_relations_tag_update(bmain);
+
+	WM_main_add_notifier(NC_SCENE | ND_LAYER, NULL);
+
+	operator_result = OPERATOR_FINISHED;
+cleanup:
+	BLI_freelistN(&active.objects_selected_array);
+	BLI_freelistN(&data.objects_selected_array);
+	return operator_result;
+}
+
+void OUTLINER_OT_object_add_to_new_collection(wmOperatorType *ot)
+{
+	/* identifiers */
+	ot->name = "Add Objects to New Collection";
+	ot->idname = "OUTLINER_OT_object_add_to_new_collection";
+	ot->description = "Add objects to a new collection";
+
+	/* api callbacks */
+	ot->exec = object_add_to_new_collection_exec;
+	ot->poll = outliner_objects_collection_poll;
 
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
