@@ -2466,7 +2466,7 @@ class VIEW3D_PT_tools_grease_pencil_appearance(Panel):
 
         if context.active_object:
             ob = context.active_object
-            return ob.mode in {'GPENCIL_EDIT', 'GPENCIL_PAINT', 'GPENCIL_SCULPT'}
+            return ob.mode in {'GPENCIL_PAINT', 'GPENCIL_SCULPT', 'GPENCIL_WEIGHT'}
             
         return False
 
