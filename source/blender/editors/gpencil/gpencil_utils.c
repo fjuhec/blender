@@ -992,7 +992,7 @@ void gp_randomize_stroke(bGPDstroke *gps, bGPDbrush *brush)
 	normalize_v3(ortho);
 	
 	/* Read all points and apply shift vector (first and last point not modified) */
-	for (int i = 1; i < gps->totpoints - 1; ++i) {
+	for (int i = 1; i < gps->totpoints - 1; i++) {
 		bGPDspoint *pt = &gps->points[i];
 		/* get vector with shift (apply a division because random is too sensitive */
 		const float fac = BLI_frand() * (brush->draw_random_sub / 10.0f);

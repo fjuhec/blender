@@ -990,7 +990,7 @@ static void gp_stroke_newfrombuffer(tGPsdata *p)
 		 */
 		if (brush->draw_smoothfac > 0.0f) {
 			float reduce = 0.0f;
-			for (int r = 0; r < brush->draw_smoothlvl; ++r) {
+			for (int r = 0; r < brush->draw_smoothlvl; r++) {
 				for (i = 0; i < gps->totpoints; i++) {
 					BKE_gp_smooth_stroke(gps, i, brush->draw_smoothfac - reduce, false);
 					BKE_gp_smooth_stroke_strength(gps, i, brush->draw_smoothfac);
@@ -1000,7 +1000,7 @@ static void gp_stroke_newfrombuffer(tGPsdata *p)
 		}
 		/* smooth thickness */
 		if (brush->thick_smoothfac > 0.0f) {
-			for (int r = 0; r < brush->thick_smoothlvl * 2; ++r) {
+			for (int r = 0; r < brush->thick_smoothlvl * 2; r++) {
 				for (i = 0; i < gps->totpoints; i++) {
 					BKE_gp_smooth_stroke_thickness(gps, i, brush->thick_smoothfac);
 				}

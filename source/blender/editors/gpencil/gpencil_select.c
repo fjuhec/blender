@@ -295,7 +295,7 @@ static int gpencil_select_alternate_exec(bContext *C, wmOperator *op)
 				else {
 					pt->flag &= ~GP_SPOINT_SELECT;
 				}
-				++row;
+				row++;
 			}
 
 			/* unselect start and end points */

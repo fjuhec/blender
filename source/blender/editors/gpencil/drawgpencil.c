@@ -256,7 +256,7 @@ static void gp_draw_stroke_buffer(const tGPspoint *points, int totpoints, short 
 				if (i != 0) { 
 					gp_set_tpoint_varying_color(pt - 1, ink, color);
 					immVertex2iv(pos, &(pt - 1)->x);
-					++draw_points;
+					draw_points++;
 				}
 
 				oldpressure = pt->pressure; /* reset our threshold */
@@ -265,7 +265,7 @@ static void gp_draw_stroke_buffer(const tGPspoint *points, int totpoints, short 
 			/* now the point we want */
 			gp_set_tpoint_varying_color(pt, ink, color);
 			immVertex2iv(pos, &pt->x);
-			++draw_points;
+			draw_points++;
 		}
 		/* need to have 2 points to avoid immEnd assert error */
 		if (draw_points < 2) {

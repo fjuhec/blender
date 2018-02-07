@@ -643,11 +643,11 @@ static void gp_duplicate_points(const bGPDstroke *gps, ListBase *new_strokes, co
 				gpsd->totpoints = len;
 				/* Copy weights */
 				int e = start_idx;
-				for (int j = 0; j < gpsd->totpoints; ++j) {
+				for (int j = 0; j < gpsd->totpoints; j++) {
 					bGPDspoint *pt_src = &gps->points[e];
 					bGPDspoint *pt_dst = &gpsd->points[j];
 					pt_dst->weights = MEM_dupallocN(pt_src->weights);
-					++e;
+					e++;
 				}
 
 				/* add to temp buffer */
@@ -1776,11 +1776,11 @@ void gp_stroke_delete_tagged_points(bGPDframe *gpf, bGPDstroke *gps, bGPDstroke 
 			memcpy(new_stroke->points, gps->points + island->start_idx, sizeof(bGPDspoint) * new_stroke->totpoints);
 			/* Copy weights */
 			int e = island->start_idx;
-			for (int i = 0; i < new_stroke->totpoints; ++i) {
+			for (int i = 0; i < new_stroke->totpoints; i++) {
 				bGPDspoint *pt_src = &gps->points[e];
 				bGPDspoint *pt_dst = &new_stroke->points[i];
 				pt_dst->weights = MEM_dupallocN(pt_src->weights);
-				++e;
+				e++;
 			}
 			
 			/* Each island corresponds to a new stroke. We must adjust the 
