@@ -40,7 +40,7 @@ def gpencil_stroke_placement_settings(context, layout):
     if context.space_data.type != 'VIEW_3D':
         col.label(text="Stroke Placement:")
         row = col.row(align=True)
-        row.prop_enum(ts, propname, 'VIEW')
+        #row.prop_enum(ts, propname, 'VIEW')  # XXX: Now removed!
         row.prop_enum(ts, propname, 'CURSOR', text="Cursor")
 
 
@@ -73,24 +73,6 @@ def gpencil_active_brush_settings_simple(context, layout):
     row = col.row()
     row.prop(brush, "angle", slider=True)
     row.prop(brush, "angle_factor", text="Factor", slider=True)
-
-
-class GreasePencilCreateShapesPanel:
-    bl_label = "Shapes"
-    bl_category = "Create"
-    bl_region_type = 'TOOLS'
-
-    @classmethod
-    def poll(cls, context):
-        return (context.space_data.type == 'VIEW_3D')
-
-    @staticmethod
-    def draw(self, context):
-        layout = self.layout
-
-        col = layout.column(align=True)
-        col.operator("gpencil.primitive", text="Rectangle", icon='UV_FACESEL').type = 'BOX'
-        col.operator("gpencil.primitive", text="Circle", icon='ANTIALIASED').type = 'CIRCLE'
 
 
 class GreasePencilDrawingToolsPanel:
@@ -154,7 +136,6 @@ class GreasePencilDrawingToolsPanel:
 
             col = layout.column(align=True)
             col.prop(gpd, "use_stroke_edit_mode", text="Enable Editing", icon='EDIT', toggle=True)
-
 
 
 class GreasePencilStrokeEditPanel:
@@ -255,234 +236,6 @@ class GreasePencilStrokeEditPanel:
             col.operator_menu_enum("gpencil.frame_clean_fill", text="Clean Boundary Strokes...", property="mode")
 
 
-class GreasePencilAnimationPanel:
-    bl_space_type = 'VIEW_3D'
-    bl_label = "Animation"
-    bl_category = "Animation"
-    bl_region_type = 'TOOLS'
-
-    @classmethod
-    def poll(cls, context):
-        if context.gpencil_data is None:
-            return False
-        elif context.space_data.type != 'VIEW_3D':
-            return False
-        elif context.object.mode == 'OBJECT':
-            return False
-
-        return True
-
-    @staticmethod
-    def draw(self, context):
-        layout = self.layout
-
-        col = layout.column(align=True)
-        col.operator("gpencil.blank_frame_add", icon='NEW')
-        col.operator("gpencil.active_frames_delete_all", icon='X', text="Delete Frame(s)")
-
-        col.separator()
-        col.operator("gpencil.frame_duplicate", text="Duplicate Active Frame")
-        col.operator("gpencil.frame_duplicate", text="Duplicate All Layers").mode = 'ALL'
-
-        col.separator()
-        col.prop(context.tool_settings, "use_gpencil_additive_drawing", text="Additive Drawing")
-
-
-class GreasePencilInterpolatePanel:
-    bl_space_type = 'VIEW_3D'
-    bl_label = "Interpolate Strokes"
-    bl_category = "Animation"
-    bl_region_type = 'TOOLS'
-
-    @classmethod
-    def poll(cls, context):
-        if context.gpencil_data is None:
-            return False
-        elif context.space_data.type != 'VIEW_3D':
-            return False
-
-        gpd = context.gpencil_data
-
-        return bool(context.editable_gpencil_strokes) and bool(gpd.use_stroke_edit_mode)
-
-    @staticmethod
-    def draw(self, context):
-        layout = self.layout
-        settings = context.tool_settings.gpencil_interpolate
-
-        col = layout.column(align=True)
-        col.label("Interpolate Strokes")
-        col.operator("gpencil.interpolate", text="Interpolate")
-        col.operator("gpencil.interpolate_sequence", text="Sequence")
-        col.operator("gpencil.interpolate_reverse", text="Remove Breakdowns")
-
-        col = layout.column(align=True)
-        col.label(text="Options:")
-        col.prop(settings, "interpolate_all_layers")
-        col.prop(settings, "interpolate_selected_only")
-
-        col = layout.column(align=True)
-        col.label(text="Sequence Options:")
-        col.prop(settings, "type")
-        if settings.type == 'CUSTOM':
-            box = layout.box()
-            # TODO: Options for loading/saving curve presets?
-            box.template_curve_mapping(settings, "interpolation_curve", brush=True)
-        elif settings.type != 'LINEAR':
-            col.prop(settings, "easing")
-
-            if settings.type == 'BACK':
-                layout.prop(settings, "back")
-            elif setting.type == 'ELASTIC':
-                sub = layout.column(align=True)
-                sub.prop(settings, "amplitude")
-                sub.prop(settings, "period")
-
-
-class GreasePencilBrushPanel:
-    # subclass must set
-    # bl_space_type = 'IMAGE_EDITOR'
-    bl_label = "Drawing Brushes"
-    bl_category = "Tools"
-    bl_region_type = 'TOOLS'
-
-    @classmethod
-    def poll(cls, context):
-        is_3d_view = context.space_data.type == 'VIEW_3D'
-        if is_3d_view:
-            if context.gpencil_data is None:
-                return False
-
-            gpd = context.gpencil_data
-            return bool(gpd.is_stroke_paint_mode)
-        else:
-            return True
-
-    @staticmethod
-    def draw(self, context):
-        layout = self.layout
-        row = layout.row()
-        col = row.column()
-
-        ts = context.scene.tool_settings
-        col.template_icon_view(ts, "gpencil_brushes_enum", show_labels=True)
-
-        col = row.column()
-        sub = col.column(align=True)
-        sub.operator("gpencil.brush_add", icon='ZOOMIN', text="")
-        sub.operator("gpencil.brush_remove", icon='ZOOMOUT', text="")
-        sub.menu("GPENCIL_MT_brush_specials", icon='DOWNARROW_HLT', text="")
-        brush = context.active_gpencil_brush
-        if brush:
-            if len(ts.gpencil_brushes) > 1:
-                col.separator()
-                sub = col.column(align=True)
-                sub.operator("gpencil.brush_move", icon='TRIA_UP', text="").type = 'UP'
-                sub.operator("gpencil.brush_move", icon='TRIA_DOWN', text="").type = 'DOWN'
-
-        # Brush details
-        if brush is not None:
-            row = layout.row(align=False)
-            row.prop(brush, "name", text="")
-            row = layout.row(align=False)
-            row.prop(brush, "fill_only", text="Fill Brush")
-            if brush.fill_only is False:
-                row = layout.row(align=True)
-                row.prop(brush, "use_random_pressure", text="", icon='RNDCURVE')
-                row.prop(brush, "line_width", text="Radius")
-                row.prop(brush, "use_pressure", text="", icon='STYLUS_PRESSURE')
-                row = layout.row(align=True)
-                row.prop(brush, "use_random_strength", text="", icon='RNDCURVE')
-                row.prop(brush, "strength", slider=True)
-                row.prop(brush, "use_strength_pressure", text="", icon='STYLUS_PRESSURE')
-
-            if brush.fill_only is True:
-                row = layout.row(align=True)
-                row.prop(brush, "fill_leak", text="Leak Size")
-                row = layout.row(align=True)
-                row.prop(brush, "line_width", text="Thickness")
-                row = layout.row(align=True)
-                row.prop(brush, "fill_simplyfy_lvl", text="Simplify")
-
-                row = layout.row(align=True)
-                row.prop(brush, "fill_draw_mode", text="Mode")
-                row.prop(brush, "fill_show_boundary", text="", icon='GRID')
-
-                row = layout.row(align=True)
-                row.enabled = brush.fill_draw_mode != "STROKE"
-                row.prop(brush, "fill_hide", text="Hide Transparent Lines")
-                row = layout.row(align=True)
-                row.enabled = brush.fill_hide
-                row.prop(brush, "fill_threshold", text="Threshold")
-
-            row = layout.row(align=False)
-            row.prop(context.tool_settings, "use_gpencil_draw_onback", text="Draw on Back")
-
-
-class GreasePencilBrushOptionsPanel:
-    # subclass must set
-    # bl_space_type = 'IMAGE_EDITOR'
-    bl_label = "Strokes"
-    bl_category = "Tools"
-    bl_region_type = 'TOOLS'
-    bl_options = {'DEFAULT_CLOSED'}
-
-    @classmethod
-    def poll(cls, context):
-        is_3d_view = context.space_data.type == 'VIEW_3D'
-        if is_3d_view:
-            if context.gpencil_data is None:
-                return False
-
-            gpd = context.gpencil_data
-            return bool(gpd.is_stroke_paint_mode)
-        else:
-            return True
-
-    @staticmethod
-    def draw(self, context):
-        layout = self.layout
-        brush = context.active_gpencil_brush
-        if brush is not None:
-
-            row = layout.row(align=True)
-            col = row.column(align=True)
-            col.label(text="Stroke Quality:")
-            col.prop(brush, "pen_smooth_factor")
-            col.prop(brush, "pen_smooth_steps")
-
-            row = layout.row(align=True)
-            col = row.column(align=True)
-            col.prop(brush, "pen_thick_smooth_factor")
-            col.prop(brush, "pen_thick_smooth_steps")
-
-            col.separator()
-            row = col.row(align=False)
-            row.prop(brush, "pen_subdivision_steps")
-            row.prop(brush, "random_subdiv", text="Randomness", slider=True)
-
-            col = layout.column(align=True)
-            col.label(text="Settings:")
-            col.prop(brush, "random_press", slider=True)
-
-            row = layout.row(align=True)
-            row.prop(brush, "jitter", slider=True)
-            row.prop(brush, "use_jitter_pressure", text="", icon='STYLUS_PRESSURE')
-            row = layout.row()
-            row.prop(brush, "angle", slider=True)
-            row.prop(brush, "angle_factor", text="Factor", slider=True)
-
-            if brush.fill_only is False:
-                row.separator()
-                row = layout.row(align=True)
-                row.prop(brush, "use_stabilizer", text="Stabilizer")
-                if brush.use_stabilizer:
-                    row = layout.row(align=True)
-                    row.prop(brush, "lazy_radius", text="Distance")
-                    row = layout.row(align=True)
-                    row.prop(brush, "lazy_factor", slider=True)
-
-
 class GreasePencilStrokeSculptPanel:
     # subclass must set
     # bl_space_type = 'IMAGE_EDITOR'
@@ -550,153 +303,6 @@ class GreasePencilStrokeSculptPanel:
             layout.prop(brush, "affect_pressure")
 
 
-class GreasePencilWeightPaintPanel:
-    # subclass must set
-    # bl_space_type = 'IMAGE_EDITOR'
-    bl_label = "Weight Paint"
-    bl_category = "Tools"
-    bl_region_type = 'TOOLS'
-
-    @classmethod
-    def poll(cls, context):
-        if context.gpencil_data is None:
-            return False
-
-        gpd = context.gpencil_data
-        if context.editable_gpencil_strokes:
-            is_3d_view = context.space_data.type == 'VIEW_3D'
-            if not is_3d_view:
-                return bool(gpd.use_stroke_edit_mode)
-            else:
-                return bool(gpd.is_stroke_weight_mode)
-
-        return False
-
-    @staticmethod
-    def draw(self, context):
-        layout = self.layout
-        gpd = context.gpencil_data
-        settings = context.tool_settings.gpencil_sculpt
-        tool = settings.tool
-        brush = settings.brush
-
-        layout.template_icon_view(settings, "weight_tool", show_labels=True)
-
-        col = layout.column()
-        col.prop(brush, "size", slider=True)
-        row = col.row(align=True)
-        row.prop(brush, "strength", slider=True)
-        row.prop(brush, "use_pressure_strength", text="")
-        col.prop(brush, "use_falloff")
-
-
-
-
-class GreasePencilWeightToolsPanel:
-    # subclass must set
-    # bl_space_type = 'IMAGE_EDITOR'
-    bl_label = "Weight Tools"
-    bl_category = "Tools"
-    bl_region_type = 'TOOLS'
-
-    @classmethod
-    def poll(cls, context):
-        if context.gpencil_data is None:
-            return False
-
-        gpd = context.gpencil_data
-        if context.editable_gpencil_strokes:
-            return bool(gpd.is_stroke_weight_mode)
-
-        return False
-
-    @staticmethod
-    def draw(self, context):
-        layout = self.layout
-        col = layout.column()
-        col.operator("gpencil.vertex_group_invert", text="Invert")
-        col.operator("gpencil.vertex_group_smooth", text="Smooth")
-
-
-class GreasePencilMultiFramePanel:
-    bl_label = "Multi Frame"
-    bl_category = "Tools"
-    bl_region_type = 'TOOLS'
-
-    @classmethod
-    def poll(cls, context):
-        if context.gpencil_data is None:
-            return False
-
-        gpd = context.gpencil_data
-        if context.editable_gpencil_strokes:
-            is_3d_view = context.space_data.type == 'VIEW_3D'
-            if is_3d_view:
-                return bool(gpd.use_stroke_edit_mode or gpd.is_stroke_sculpt_mode or gpd.is_stroke_weight_mode)
-
-        return False
-
-    @staticmethod
-    def draw_header(self, context):
-        layout = self.layout
-
-        gpd = context.gpencil_data
-        layout.prop(gpd, "use_multiedit", text="")
-
-    @staticmethod
-    def draw(self, context):
-        gpd = context.gpencil_data
-        settings = context.tool_settings.gpencil_sculpt
-
-        layout = self.layout
-        layout.enabled = gpd.use_multiedit
-
-        col = layout.column(align=True)
-        col.prop(gpd, "show_multiedit_line_only", text="Display only edit lines")
-        col.prop(settings, "use_multiframe_falloff")
-
-        # Falloff curve
-        box = col.box()
-        box.enabled = gpd.use_multiedit and settings.use_multiframe_falloff
-        box.template_curve_mapping(settings, "multiframe_falloff_curve", brush=True)
-
-
-class GreasePencilAppearancePanel:
-    bl_label = "Brush Appearance"
-    bl_category = "Tools"
-    bl_region_type = 'TOOLS'
-    bl_options = {'DEFAULT_CLOSED'}
-
-    @classmethod
-    def poll(cls, context):
-        if context.gpencil_data is None:
-            return False
-
-        is_gpmode = context.active_object and \
-                    context.active_object.mode in {'GPENCIL_EDIT', 'GPENCIL_PAINT', 'GPENCIL_SCULPT'}
-        return is_gpmode
-
-    @staticmethod
-    def draw(self, context):
-        layout = self.layout
-        settings = context.tool_settings.gpencil_sculpt
-        brush = settings.brush
-
-        col = layout.column()
-        if context.active_object.mode == 'GPENCIL_PAINT':
-            drawingbrush = context.active_gpencil_brush
-            col.prop(drawingbrush, "use_cursor", text="Show Brush")
-            row = col.row(align=True)
-            row.prop(drawingbrush, "cursor_color", text="Color")
-
-        if context.active_object.mode in ('GPENCIL_SCULPT', 'GPENCIL_WEIGHT'):
-            col.prop(brush, "use_cursor", text="Show Brush")
-            row = col.row(align=True)
-            row.prop(brush, "cursor_color_add", text="Add")
-            row = col.row(align=True)
-            row.prop(brush, "cursor_color_sub", text="Subtract")
-
-
 class GreasePencilEraserPanel:
     bl_label = "Eraser"
     bl_category = "Tools"
@@ -715,48 +321,6 @@ class GreasePencilEraserPanel:
         layout = self.layout
         col = layout.column(align=True)
         col.prop(context.user_preferences.edit, "grease_pencil_eraser_radius", text="Radius")
-
-
-class GreasePencilBrushCurvesPanel:
-    # subclass must set
-    # bl_space_type = 'IMAGE_EDITOR'
-    bl_label = "Brush Curves"
-    bl_category = "Tools"
-    bl_region_type = 'TOOLS'
-    bl_options = {'DEFAULT_CLOSED'}
-
-    @classmethod
-    def poll(cls, context):
-        if context.active_gpencil_brush is None:
-            return False
-
-        is_3d_view = context.space_data.type == 'VIEW_3D'
-        brush = context.active_gpencil_brush
-        if is_3d_view:
-            if context.gpencil_data is None:
-                return False
-
-            gpd = context.gpencil_data
-            return bool(gpd.is_stroke_paint_mode)
-        else:
-            return bool(brush)
-
-    @staticmethod
-    def draw(self, context):
-        layout = self.layout
-        brush = context.active_gpencil_brush
-        # Brush
-        layout.label("Sensitivity")
-        box = layout.box()
-        box.template_curve_mapping(brush, "curve_sensitivity", brush=True)
-
-        layout.label("Strength")
-        box = layout.box()
-        box.template_curve_mapping(brush, "curve_strength", brush=True)
-
-        layout.label("Jitter")
-        box = layout.box()
-        box.template_curve_mapping(brush, "curve_jitter", brush=True)
 
 
 ###############################
@@ -1701,16 +1265,27 @@ class GreasePencilInfoPanel:
 
 ###############################
 
-# TODO: Placeholder - Annotation views shouldn't use this anymore...
-class GreasePencilPaletteColorPanel:
-    bl_label = "Grease Pencil Colors"
+# FIXME: Placeholder - Annotation views shouldn't use this anymore...
+class GreasePencilDeprecatedUIPanel:
     bl_region_type = 'TOOLS'
     
     @staticmethod
     def draw(self, context):
         layout = self.layout
-        
-        layout.label("Placeholder")
+        layout.label("FIXME: Placeholder for deprecated functionality", icon='ERROR')
+
+   
+class GreasePencilPaletteColorPanel(GreasePencilDeprecatedUIPanel):
+    bl_label = "Grease Pencil Colors"
+
+
+# FIXME: Placeholder - Annotation views shouldn't use this anymore...
+class GreasePencilBrushCurvesPanel(GreasePencilDeprecatedUIPanel):
+    bl_label = "Grease Pencil Brush Curves"
+
+
+class GreasePencilBrushPanel(GreasePencilDeprecatedUIPanel):
+    bl_label = "Grease Pencil Brushes"
 
 ###############################
 
