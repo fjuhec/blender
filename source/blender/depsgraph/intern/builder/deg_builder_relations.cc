@@ -67,7 +67,7 @@ extern "C" {
 #include "DNA_scene_types.h"
 #include "DNA_texture_types.h"
 #include "DNA_world_types.h"
-#include "DNA_object_force.h"
+#include "DNA_object_force_types.h"
 
 #include "BKE_action.h"
 #include "BKE_armature.h"
@@ -194,7 +194,6 @@ static bool particle_system_depends_on_time(ParticleSystem *psys)
 
 static bool object_particles_depends_on_time(Object *object)
 {
-	return true;
 	BLI_LISTBASE_FOREACH (ParticleSystem *, psys, &object->particlesystem) {
 		if (particle_system_depends_on_time(psys)) {
 			return true;
@@ -1531,7 +1530,11 @@ void DepsgraphRelationBuilder::build_particles(Object *object)
 	ComponentKey transform_key(&object->id, DEG_NODE_TYPE_TRANSFORM);
 	add_relation(transform_key, obdata_ubereval_key, "Partcile Eval");
 
-	/* TODO(sergey): Do we need a point cache operations here? */
+	OperationKey point_cache_reset_key(&object->id,
+	                                   DEG_NODE_TYPE_CACHE,
+	                                   DEG_OPCODE_POINT_CACHE_RESET);
+	add_relation(transform_key, point_cache_reset_key, "Object Transform -> Point Cache Reset");
+	add_relation(point_cache_reset_key, obdata_ubereval_key, "Point Cache Reset -> UberEval");
 }
 
 void DepsgraphRelationBuilder::build_particle_settings(ParticleSettings *part)
