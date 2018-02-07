@@ -20,7 +20,7 @@
 import bpy
 from bpy.types import Menu, Panel, UIList
 from .properties_grease_pencil_common import (
-        GreasePencilDrawingToolsPanel,
+        GreasePencilCreateShapesPanel,
         GreasePencilStrokeEditPanel,
         GreasePencilAnimationPanel,
         GreasePencilInterpolatePanel,
@@ -2052,7 +2052,7 @@ class VIEW3D_PT_tools_particlemode(View3DPanel, Panel):
 
 
 # Grease Pencil drawing tools
-class VIEW3D_PT_tools_grease_pencil_draw(GreasePencilDrawingToolsPanel, Panel):
+class VIEW3D_PT_tools_grease_pencil_draw(GreasePencilCreateShapesPanel, Panel):
     bl_space_type = 'VIEW_3D'
 
 

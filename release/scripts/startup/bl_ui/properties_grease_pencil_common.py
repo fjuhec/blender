@@ -75,66 +75,78 @@ def gpencil_active_brush_settings_simple(context, layout):
     row.prop(brush, "angle_factor", text="Factor", slider=True)
 
 
-class GreasePencilDrawingToolsPanel:
-    # subclass must set
-    # bl_space_type = 'IMAGE_EDITOR'
-    bl_label = " "
+class GreasePencilCreateShapesPanel:
+    bl_label = "Shapes"
     bl_category = "Create"
     bl_region_type = 'TOOLS'
 
+    @classmethod
+    def poll(cls, context):
+        return (context.space_data.type == 'VIEW_3D')
+
     @staticmethod
-    def draw_header(self, context):
+    def draw(self, context):
         layout = self.layout
-        if context.space_data.type == 'VIEW_3D':
-            if context.active_object and context.active_object.mode == 'GPENCIL_PAINT':
-                layout.label(text="Shapes")
-            else:
-                layout.label(text="Measurement")
-        else:
-            layout.label(text="Grease Pencil")
+
+        col = layout.column(align=True)
+        col.operator("gpencil.primitive", text="Rectangle", icon='UV_FACESEL').type = 'BOX'
+        col.operator("gpencil.primitive", text="Circle", icon='ANTIALIASED').type = 'CIRCLE'
+
+
+class GreasePencilDrawingToolsPanel:
+    # subclass must set
+    # bl_space_type = 'IMAGE_EDITOR'
+    bl_label = "Grease Pencil"
+    bl_category = "Grease Pencil"
+    bl_region_type = 'TOOLS'
 
     @staticmethod
     def draw(self, context):
         layout = self.layout
 
         is_3d_view = context.space_data.type == 'VIEW_3D'
+        is_clip_editor = context.space_data.type == 'CLIP_EDITOR'
 
         col = layout.column(align=True)
 
-        # TODO: Shapes tools maybe need a panel
-        if is_3d_view:
-            col.operator("gpencil.primitive", text="Rectangle", icon='UV_FACESEL').type = 'BOX'
-            col.operator("gpencil.primitive", text="Circle", icon='ANTIALIASED').type = 'CIRCLE'
+        col.label(text="Draw:")
+        row = col.row(align=True)
+        row.operator("gpencil.draw", icon='GREASEPENCIL', text="Draw").mode = 'DRAW'
+        row.operator("gpencil.draw", icon='FORCE_CURVE', text="Erase").mode = 'ERASER'  # XXX: Needs a dedicated icon
 
-        if not is_3d_view:
-            col.label(text="Draw:")
-            row = col.row(align=True)
-            row.operator("gpencil.draw", icon='GREASEPENCIL', text="Draw").mode = 'DRAW'
-            row.operator("gpencil.draw", icon='FORCE_CURVE', text="Erase").mode = 'ERASER'
+        row = col.row(align=True)
+        row.operator("gpencil.draw", icon='LINE_DATA', text="Line").mode = 'DRAW_STRAIGHT'
+        row.operator("gpencil.draw", icon='MESH_DATA', text="Poly").mode = 'DRAW_POLY'
 
-            row = col.row(align=True)
-            row.operator("gpencil.draw", icon='LINE_DATA', text="Line").mode = 'DRAW_STRAIGHT'
-            row.operator("gpencil.draw", icon='MESH_DATA', text="Poly").mode = 'DRAW_POLY'
+        col.separator()
 
-            col.separator()
+        sub = col.column(align=True)
+        sub.operator("gpencil.blank_frame_add", icon='NEW')
+        sub.operator("gpencil.active_frames_delete_all", icon='X', text="Delete Frame(s)")
 
-            sub = col.column(align=True)
-            sub.prop(context.tool_settings, "use_gpencil_continuous_drawing", text="Continuous Drawing")
+        sub = col.column(align=True)
+        sub.prop(context.tool_settings, "use_gpencil_additive_drawing", text="Additive Drawing")
+        sub.prop(context.tool_settings, "use_gpencil_continuous_drawing", text="Continuous Drawing")
+        sub.prop(context.tool_settings, "use_gpencil_draw_onback", text="Draw on Back")
 
-            col.separator()
+        col.separator()
+        col.separator()
 
-        if context.space_data.type in {'CLIP_EDITOR'}:
+        if context.space_data.type in {'VIEW_3D', 'CLIP_EDITOR'}:
             col.separator()
             col.label("Data Source:")
             row = col.row(align=True)
-            row.prop(context.space_data, "grease_pencil_source", expand=True)
+            if is_3d_view:
+                row.prop(context.tool_settings, "grease_pencil_source", expand=True)
+            elif is_clip_editor:
+                row.prop(context.space_data, "grease_pencil_source", expand=True)
+
+        col.separator()
+        col.separator()
+
+        gpencil_stroke_placement_settings(context, col)
 
         gpd = context.gpencil_data
-        if gpd and not is_3d_view:
-            col.separator()
-            col.separator()
-
-            gpencil_stroke_placement_settings(context, col)
 
         if gpd and not is_3d_view:
             layout.separator()
@@ -143,12 +155,6 @@ class GreasePencilDrawingToolsPanel:
             col = layout.column(align=True)
             col.prop(gpd, "use_stroke_edit_mode", text="Enable Editing", icon='EDIT', toggle=True)
 
-        if is_3d_view:
-            is_gpmode = context.active_object and \
-                        context.active_object.mode in ('GPENCIL_EDIT', 'GPENCIL_PAINT', 'GPENCIL_SCULPT')
-            if context.active_object is None or is_gpmode is False:
-                col.label(text="Tools:")
-                col.operator("view3d.ruler")
 
 
 class GreasePencilStrokeEditPanel:
