@@ -532,7 +532,6 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
 					BLI_ghash_insert(libraries, BLI_strdup(""), SET_INT_IN_POINTER(lib_idx));
 					lib_idx++;
 					wm_link_append_data_library_add(lapp_data, "");
-					has_item = true;
 				}
 			}
 		}
@@ -573,7 +572,6 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
 					lib_idx = GET_INT_FROM_POINTER(BLI_ghash_lookup(libraries, ""));
 					item = wm_link_append_data_item_add(lapp_data, path, idcode, &uuid, NULL);
 					BLI_BITMAP_ENABLE(item->libraries, lib_idx);
-					has_item = true;
 				}
 			}
 		}
