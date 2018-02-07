@@ -368,8 +368,8 @@ static void sculpt_undo_bmesh_restore_generic(bContext *C,
 }
 
 /* Create empty sculpt BMesh and enable logging */
-static void sculpt_undo_bmesh_enable(Object *ob,
-                                     SculptUndoNode *unode)
+static void sculpt_undo_bmesh_enable(
+        Object *ob, SculptUndoNode *unode)
 {
 	SculptSession *ss = ob->sculpt;
 	Mesh *me = ob->data;

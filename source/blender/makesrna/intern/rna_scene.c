@@ -1703,9 +1703,11 @@ static KeyingSet *rna_Scene_keying_set_new(Scene *sce, ReportList *reports, cons
 
 static void rna_UnifiedPaintSettings_update(bContext *C, PointerRNA *UNUSED(ptr))
 {
+	EvaluationContext eval_ctx;
+	CTX_data_eval_ctx(C, &eval_ctx);
 	Scene *scene = CTX_data_scene(C);
 	ViewLayer *view_layer = CTX_data_view_layer(C);
-	Brush *br = BKE_paint_brush(BKE_paint_get_active(scene, view_layer));
+	Brush *br = BKE_paint_brush(BKE_paint_get_active(scene, view_layer, eval_ctx.object_mode));
 	WM_main_add_notifier(NC_BRUSH | NA_EDITED, br);
 }
 
@@ -5720,7 +5722,8 @@ static void rna_def_scene_render_data(BlenderRNA *brna)
 	
 	prop = RNA_def_property(srna, "filter_size", PROP_FLOAT, PROP_PIXEL);
 	RNA_def_property_float_sdna(prop, NULL, "gauss");
-	RNA_def_property_range(prop, 0.5f, 1.5f);
+	RNA_def_property_range(prop, 0.0f, 500.0f);
+	RNA_def_property_ui_range(prop, 0.01f, 10.0f, 1, 2);
 	RNA_def_property_ui_text(prop, "Filter Size", "Width over which the reconstruction filter combines samples");
 	RNA_def_property_update(prop, NC_SCENE | ND_RENDER_OPTIONS, NULL);
 	

@@ -37,6 +37,7 @@
 /* internal exports only */
 
 struct ARegion;
+struct ListBase;
 struct wmOperatorType;
 struct TreeElement;
 struct TreeStoreElem;
@@ -50,7 +51,7 @@ struct bPoseChannel;
 struct EditBone;
 struct wmEvent;
 struct wmKeyConfig;
-
+struct EvaluationContext;
 
 typedef enum TreeElementInsertType {
 	TE_INSERT_BEFORE,
@@ -191,8 +192,16 @@ void outliner_cleanup_tree(struct SpaceOops *soops);
 void outliner_free_tree_element(TreeElement *element, ListBase *parent_subtree);
 void outliner_remove_treestore_element(struct SpaceOops *soops, TreeStoreElem *tselem);
 
-void outliner_build_tree(struct Main *mainvar, struct Scene *scene, struct ViewLayer *view_layer,
-                         struct SpaceOops *soops, struct ARegion *ar);
+void outliner_build_tree(
+        struct Main *mainvar, const struct EvaluationContext *eval_ctx,
+        struct Scene *scene, struct ViewLayer *view_layer,
+        struct SpaceOops *soops, struct ARegion *ar);
+
+typedef struct ObjectsSelectedData {
+	struct ListBase objects_selected_array;
+} ObjectsSelectedData;
+
+TreeTraversalAction outliner_find_selected_objects(struct TreeElement *te, void *customdata);
 
 /* outliner_draw.c ---------------------------------------------- */
 
@@ -344,7 +353,11 @@ void OUTLINER_OT_collection_toggle(struct wmOperatorType *ot);
 void OUTLINER_OT_collection_link(struct wmOperatorType *ot);
 void OUTLINER_OT_collection_unlink(struct wmOperatorType *ot);
 void OUTLINER_OT_collection_new(struct wmOperatorType *ot);
+void OUTLINER_OT_collection_duplicate(struct wmOperatorType *ot);
 void OUTLINER_OT_collection_objects_remove(struct wmOperatorType *ot);
+void OUTLINER_OT_collection_objects_select(struct wmOperatorType *ot);
+void OUTLINER_OT_object_add_to_new_collection(struct wmOperatorType *ot);
+void OUTLINER_OT_object_remove_from_collection(struct wmOperatorType *ot);
 
 void OUTLINER_OT_collection_objects_add(struct wmOperatorType *ot);
 void OUTLINER_OT_collection_nested_new(struct wmOperatorType *ot);

@@ -195,6 +195,7 @@ class OUTLINER_MT_context_scene_collection(Menu):
         layout = self.layout
 
         layout.operator("outliner.collection_nested_new", text="New Collection", icon='NEW')
+        layout.operator("outliner.collection_duplicate", text="Duplicate Collection")
         layout.operator("outliner.collection_delete_selected", text="Delete Collections", icon='X')
         layout.separator()
         layout.operator("outliner.collection_objects_add", text="Add Selected", icon='ZOOMIN')
@@ -222,6 +223,16 @@ class OUTLINER_MT_context_object_delete(Menu):
         layout.operator("outliner.object_operation", text="Delete Hierarchy").type='DELETE_HIERARCHY'
 
 
+class OUTLINER_MT_context_object_collection(Menu):
+    bl_label = "Object Operation Collection"
+
+    def draw(self, context):
+        layout = self.layout
+
+        layout.operator("outliner.object_add_to_new_collection", text="Add to New Collection", icon='ZOOMIN')
+        layout.operator("outliner.object_remove_from_collection", text="Remove from Collection", icon='ZOOMOUT')
+
+
 class OUTLINER_MT_context_object(Menu):
     bl_label = "Object"
 
@@ -230,6 +241,7 @@ class OUTLINER_MT_context_object(Menu):
 
         layout.menu("OUTLINER_MT_context_object_select", text="Select")
         layout.menu("OUTLINER_MT_context_object_delete", text="Delete")
+        layout.menu("OUTLINER_MT_context_object_collection", text="Collection")
         layout.separator()
         layout.operator("outliner.object_operation", text="Remap Users").type='REMAP'
         layout.operator("outliner.object_operation", text="Rename").type='RENAME'
@@ -246,6 +258,7 @@ classes = (
     OUTLINER_MT_context_object,
     OUTLINER_MT_context_object_delete,
     OUTLINER_MT_context_object_select,
+    OUTLINER_MT_context_object_collection,
 )
 
 if __name__ == "__main__":  # only for live edit.

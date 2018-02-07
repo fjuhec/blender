@@ -90,6 +90,7 @@ extern "C" {
 #include "BKE_node.h"
 #include "BKE_object.h"
 #include "BKE_particle.h"
+#include "BKE_pointcache.h"
 #include "BKE_rigidbody.h"
 #include "BKE_sound.h"
 #include "BKE_tracking.h"
@@ -853,8 +854,7 @@ void DepsgraphNodeBuilder::build_particles(Object *object)
 	 *     blackbox evaluation step for one particle system referenced by
 	 *     the particle systems stack. All dependencies link to this operation.
 	 */
-
-	/* component for all particle systems */
+	/* Component for all particle systems. */
 	ComponentDepsNode *psys_comp =
 	        add_component_node(&object->id, DEG_NODE_TYPE_EVAL_PARTICLES);
 
@@ -868,17 +868,14 @@ void DepsgraphNodeBuilder::build_particles(Object *object)
 	                                 scene_cow,
 	                                 ob_cow),
 	                   DEG_OPCODE_PARTICLE_SYSTEM_EVAL_INIT);
-
-	/* particle systems */
+	/* Build all particle systems. */
 	BLI_LISTBASE_FOREACH (ParticleSystem *, psys, &object->particlesystem) {
 		ParticleSettings *part = psys->part;
-
 		/* Build particle settings operations.
 		 *
 		 * NOTE: The call itself ensures settings are only build once.
 		 */
 		build_particle_settings(part);
-
 		/* Update on particle settings change. */
 		add_operation_node(psys_comp,
 		                   function_bind(BKE_particle_system_settings_eval,
@@ -886,15 +883,36 @@ void DepsgraphNodeBuilder::build_particles(Object *object)
 		                                 psys),
 		                   DEG_OPCODE_PARTICLE_SETTINGS_EVAL,
 		                   psys->name);
-
 		/* Particle system evaluation. */
 		add_operation_node(psys_comp,
 		                   NULL,
 		                   DEG_OPCODE_PARTICLE_SYSTEM_EVAL,
 		                   psys->name);
+		/* Visualization of particle system. */
+		switch (part->ren_as) {
+			case PART_DRAW_OB:
+				if (part->dup_ob != NULL) {
+					build_object(NULL,
+					             part->dup_ob,
+					             DEG_ID_LINKED_INDIRECTLY);
+				}
+				break;
+			case PART_DRAW_GR:
+				if (part->dup_group != NULL) {
+					build_group(part->dup_group);
+				}
+				break;
+		}
 	}
 
 	/* TODO(sergey): Do we need a point cache operations here? */
+	add_operation_node(&object->id,
+	                   DEG_NODE_TYPE_CACHE,
+	                   function_bind(BKE_ptcache_object_reset,
+	                                 scene_cow,
+	                                 ob_cow,
+	                                 PTCACHE_RESET_DEPSGRAPH),
+	                   DEG_OPCODE_POINT_CACHE_RESET);
 }
 
 void DepsgraphNodeBuilder::build_particle_settings(ParticleSettings *part) {

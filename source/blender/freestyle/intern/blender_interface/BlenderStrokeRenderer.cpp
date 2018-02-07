@@ -45,6 +45,7 @@ extern "C" {
 
 #include "BKE_collection.h"
 #include "BKE_customdata.h"
+#include "BKE_idprop.h"
 #include "BKE_global.h"
 #include "BKE_library.h" /* free_libblock */
 #include "BKE_material.h"
@@ -117,8 +118,24 @@ BlenderStrokeRenderer::BlenderStrokeRenderer(Render *re, int render_count) : Str
 	freestyle_scene->r.gauss = old_scene->r.gauss;
 	freestyle_scene->r.dither_intensity = old_scene->r.dither_intensity;
 	BKE_viewrender_copy(&freestyle_scene->view_render, &old_scene->view_render);
+	if (G.debug & G_DEBUG_FREESTYLE) {
+		cout << "Stroke rendering engine : " << freestyle_scene->view_render.engine_id << endl;
+	}
 	freestyle_scene->r.im_format.planes = R_IMF_PLANES_RGBA;
 	freestyle_scene->r.im_format.imtype = R_IMF_IMTYPE_PNG;
+
+	// Copy ID properties, including Cycles render properties
+	if (old_scene->id.properties) {
+		freestyle_scene->id.properties = IDP_CopyProperty_ex(old_scene->id.properties, 0);
+	}
+
+	if (STREQ(freestyle_scene->view_render.engine_id, RE_engine_id_CYCLES)) {
+		/* Render with transparent background. */
+		PointerRNA freestyle_scene_ptr;
+		RNA_id_pointer_create(&freestyle_scene->id, &freestyle_scene_ptr);
+		PointerRNA freestyle_cycles_ptr = RNA_pointer_get(&freestyle_scene_ptr, "cycles");
+		RNA_boolean_set(&freestyle_cycles_ptr, "film_transparent", 1);
+	}
 
 	if (G.debug & G_DEBUG_FREESTYLE) {
 		printf("%s: %d thread(s)\n", __func__, BKE_render_num_threads(&freestyle_scene->r));
@@ -478,28 +495,6 @@ void BlenderStrokeRenderer::RenderStrokeRepBasic(StrokeRep *iStrokeRep) const
 			ma = BlenderStrokeRenderer::GetStrokeShader(freestyle_bmain, nt, false);
 			BLI_ghash_insert(_nodetree_hash, nt, ma);
 		}
-
-		if (STREQ(freestyle_scene->view_render.engine_id, RE_engine_id_CYCLES)) {
-			PointerRNA scene_ptr, freestyle_scene_ptr;
-			RNA_pointer_create(NULL, &RNA_Scene, old_scene, &scene_ptr);
-			RNA_pointer_create(NULL, &RNA_Scene, freestyle_scene, &freestyle_scene_ptr);
-
-			PointerRNA cycles_ptr = RNA_pointer_get(&scene_ptr, "cycles");
-			PointerRNA freestyle_cycles_ptr = RNA_pointer_get(&freestyle_scene_ptr, "cycles");
-
-			int flag;
-			RNA_STRUCT_BEGIN(&freestyle_cycles_ptr, prop)
-			{
-				flag = RNA_property_flag(prop);
-				if (flag & PROP_HIDDEN)
-					continue;
-				RNA_property_copy(&freestyle_cycles_ptr, &cycles_ptr, prop, -1);
-			}
-			RNA_STRUCT_END;
-
-			RNA_boolean_set(&freestyle_cycles_ptr, "film_transparent", 1);
-		}
-
 		iStrokeRep->setMaterial(ma);
 	}
 	else {

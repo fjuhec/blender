@@ -3005,7 +3005,7 @@ void node_ambient_occlusion(vec4 color, out Closure result)
 
 /* emission */
 
-void node_emission(vec4 color, float strength, vec3 N, out Closure result)
+void node_emission(vec4 color, float strength, vec3 vN, out Closure result)
 {
 #ifndef VOLUMETRICS
 	color *= strength;
@@ -3013,7 +3013,6 @@ void node_emission(vec4 color, float strength, vec3 N, out Closure result)
 	result = CLOSURE_DEFAULT;
 	result.radiance = color.rgb;
 	result.opacity = color.a;
-	vec3 vN = normalize(mat3(ViewMatrix) * N);
 	result.ssr_normal = normal_encode(vN, viewCameraVec);
 #else
 	result = Closure(color.rgb, color.a);
@@ -4149,9 +4148,38 @@ void node_bevel(float radius, vec3 N, out vec3 result)
 	result = N;
 }
 
-void node_displacement(float height, float dist, vec3 N, out vec3 result)
+void node_displacement_object(float height, float midlevel, float scale, vec3 N, mat4 obmat, out vec3 result)
 {
-	result = height * dist * N;
+	N = (vec4(N, 0.0) * obmat).xyz;
+	result = (height - midlevel) * scale * normalize(N);
+	result = (obmat * vec4(result, 0.0)).xyz;
+}
+
+void node_displacement_world(float height, float midlevel, float scale, vec3 N, out vec3 result)
+{
+	result = (height - midlevel) * scale * normalize(N);
+}
+
+void node_vector_displacement_tangent(vec4 vector, float midlevel, float scale, vec4 tangent, vec3 normal, mat4 obmat, mat4 viewmat, out vec3 result)
+{
+	vec3 N_object = normalize(((vec4(normal, 0.0) * viewmat) * obmat).xyz);
+	vec3 T_object = normalize(((vec4(tangent.xyz, 0.0) * viewmat) * obmat).xyz);
+	vec3 B_object = tangent.w * normalize(cross(N_object, T_object));
+
+	vec3 offset = (vector.xyz - vec3(midlevel)) * scale;
+	result = offset.x * T_object + offset.y * N_object + offset.z * B_object;
+	result = (obmat * vec4(result, 0.0)).xyz;
+}
+
+void node_vector_displacement_object(vec4 vector, float midlevel, float scale, mat4 obmat, out vec3 result)
+{
+	result = (vector.xyz - vec3(midlevel)) * scale;
+	result = (obmat * vec4(result, 0.0)).xyz;
+}
+
+void node_vector_displacement_world(vec4 vector, float midlevel, float scale, out vec3 result)
+{
+	result = (vector.xyz - vec3(midlevel)) * scale;
 }
 
 /* output */

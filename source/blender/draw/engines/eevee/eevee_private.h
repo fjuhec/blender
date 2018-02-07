@@ -160,6 +160,7 @@ typedef struct EEVEE_PassList {
 	struct DRWPass *ao_horizon_search;
 	struct DRWPass *ao_horizon_search_layer;
 	struct DRWPass *ao_horizon_debug;
+	struct DRWPass *ao_accum_ps;
 	struct DRWPass *mist_accum_ps;
 	struct DRWPass *motion_blur;
 	struct DRWPass *bloom_blit;
@@ -232,6 +233,7 @@ typedef struct EEVEE_FramebufferList {
 	struct GPUFrameBuffer *screen_tracing_fb;
 	struct GPUFrameBuffer *refract_fb;
 	struct GPUFrameBuffer *mist_accum_fb;
+	struct GPUFrameBuffer *ao_accum_fb;
 
 	struct GPUFrameBuffer *update_noise_fb;
 
@@ -254,6 +256,7 @@ typedef struct EEVEE_TextureList {
 	struct GPUTexture *bloom_downsample[MAX_BLOOM_STEP]; /* R16_G16_B16 */
 	struct GPUTexture *bloom_upsample[MAX_BLOOM_STEP - 1]; /* R16_G16_B16 */
 	struct GPUTexture *mist_accum;
+	struct GPUTexture *ao_accum;
 	struct GPUTexture *sss_dir_accum;
 	struct GPUTexture *sss_col_accum;
 	struct GPUTexture *ssr_normal_input;
@@ -774,7 +777,7 @@ struct GPUMaterial *EEVEE_material_mesh_depth_get(struct Scene *scene, Material 
 struct GPUMaterial *EEVEE_material_hair_get(struct Scene *scene, Material *ma, int shadow_method);
 void EEVEE_materials_free(void);
 void EEVEE_draw_default_passes(EEVEE_PassList *psl);
-void EEVEE_update_noise(EEVEE_PassList *psl, EEVEE_FramebufferList *fbl, double offsets[3]);
+void EEVEE_update_noise(EEVEE_PassList *psl, EEVEE_FramebufferList *fbl, const double offsets[3]);
 
 /* eevee_lights.c */
 void EEVEE_lights_init(EEVEE_ViewLayerData *sldata);
@@ -793,11 +796,13 @@ void EEVEE_draw_shadows(EEVEE_ViewLayerData *sldata, EEVEE_PassList *psl);
 void EEVEE_lights_free(void);
 
 /* eevee_lightprobes.c */
+bool EEVEE_lightprobes_all_probes_ready(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
 void EEVEE_lightprobes_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
 void EEVEE_lightprobes_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
 void EEVEE_lightprobes_cache_add(EEVEE_ViewLayerData *sldata, Object *ob);
 void EEVEE_lightprobes_cache_finish(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
 void EEVEE_lightprobes_refresh(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
+void EEVEE_lightprobes_refresh_planar(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
 void EEVEE_lightprobes_free(void);
 
 /* eevee_depth_of_field.c */
@@ -814,6 +819,8 @@ void EEVEE_bloom_free(void);
 
 /* eevee_occlusion.c */
 int EEVEE_occlusion_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
+void EEVEE_occlusion_output_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
+void EEVEE_occlusion_output_accumulate(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
 void EEVEE_occlusion_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
 void EEVEE_occlusion_compute(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata, struct GPUTexture *depth_src, int layer);
 void EEVEE_occlusion_draw_debug(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
@@ -851,7 +858,7 @@ void EEVEE_mist_free(void);
 /* eevee_temporal_sampling.c */
 int EEVEE_temporal_sampling_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
 void EEVEE_temporal_sampling_matrices_calc(
-        EEVEE_EffectsInfo *effects, float viewmat[4][4], float persmat[4][4], double ht_point[2]);
+        EEVEE_EffectsInfo *effects, float viewmat[4][4], float persmat[4][4], const double ht_point[2]);
 void EEVEE_temporal_sampling_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
 void EEVEE_temporal_sampling_draw(EEVEE_Data *vedata);
 void EEVEE_temporal_sampling_free(void);
