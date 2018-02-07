@@ -281,7 +281,7 @@ static void GPENCIL_cache_init(void *vedata)
 
 		/* edit pass */
 		psl->edit_pass = DRW_pass_create("GPencil Edit Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND);
-		
+
 		/* detect if playing animation */
 		stl->storage->playing = 0;
 		if (draw_ctx->evil_C) {
@@ -293,10 +293,10 @@ static void GPENCIL_cache_init(void *vedata)
 		bGPdata *obact_gpd = NULL;
 		if ((obact) && (obact->type == OB_GPENCIL) && (obact->data))
 			obact_gpd = obact->data;
-		
+
 		if ((obact_gpd) && (obact_gpd->flag & GP_DATA_STROKE_PAINTMODE) &&
-		    (stl->storage->playing == 0) &&
-		    ((ts->gpencil_simplify & GP_TOOL_FLAG_DISABLE_FAST_DRAWING) == 0))
+			(stl->storage->playing == 0) &&
+			((ts->gpencil_simplify & GP_TOOL_FLAG_DISABLE_FAST_DRAWING) == 0))
 		{
 			if (((obact_gpd->sbuffer_sflag & GP_STROKE_ERASER) == 0) && (obact_gpd->sbuffer_size > 1)) {
 				stl->g_data->session_flag = GP_DRW_PAINT_PAINTING;
@@ -337,8 +337,8 @@ static void GPENCIL_cache_init(void *vedata)
 				}
 			}
 		}
-		else { 
-			stl->storage->stroke_style = STROKE_STYLE_SOLID; 
+		else {
+			stl->storage->stroke_style = STROKE_STYLE_SOLID;
 			stl->storage->color_type = GPENCIL_COLOR_SOLID;
 		}
 
@@ -405,26 +405,30 @@ static void GPENCIL_cache_init(void *vedata)
 		DRW_shgroup_call_add(mix_front_shgrp, frontquad, NULL);
 		DRW_shgroup_uniform_buffer(mix_front_shgrp, "strokeColor", &e_data.temp_fbcolor_color_tx);
 
-		/* pass for drawing paper */
-		struct Gwn_Batch *paperquad = DRW_cache_fullscreen_quad_get();
-		psl->paper_pass = DRW_pass_create("GPencil Paper Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND);
-		DRWShadingGroup *paper_shgrp = DRW_shgroup_create(e_data.gpencil_paper_sh, psl->paper_pass);
-		DRW_shgroup_call_add(paper_shgrp, paperquad, NULL);
-		DRW_shgroup_uniform_vec4(paper_shgrp, "color", v3d->gpencil_paper_color, 1);
+		/* pass for drawing paper (only if viewport)
+		 * In render, the v3d is null
+		 */
+		if (v3d) {
+			struct Gwn_Batch *paperquad = DRW_cache_fullscreen_quad_get();
+			psl->paper_pass = DRW_pass_create("GPencil Paper Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND);
+			DRWShadingGroup *paper_shgrp = DRW_shgroup_create(e_data.gpencil_paper_sh, psl->paper_pass);
+			DRW_shgroup_call_add(paper_shgrp, paperquad, NULL);
+			DRW_shgroup_uniform_vec4(paper_shgrp, "color", v3d->gpencil_paper_color, 1);
 
-		UI_GetThemeColor3fv(TH_GRID, stl->storage->gridcolor);
-		DRW_shgroup_uniform_vec3(paper_shgrp, "gridcolor", &stl->storage->gridcolor[0], 1);
+			UI_GetThemeColor3fv(TH_GRID, stl->storage->gridcolor);
+			DRW_shgroup_uniform_vec3(paper_shgrp, "gridcolor", &stl->storage->gridcolor[0], 1);
 
-		stl->storage->gridsize[0] = (float)v3d->gpencil_grid_size[0];
-		stl->storage->gridsize[1] = (float)v3d->gpencil_grid_size[1];
-		DRW_shgroup_uniform_vec2(paper_shgrp, "size", &stl->storage->gridsize[0], 1);
-		if (v3d->flag3 & V3D_GP_SHOW_GRID) {
-			stl->storage->uselines = 1;
+			stl->storage->gridsize[0] = (float)v3d->gpencil_grid_size[0];
+			stl->storage->gridsize[1] = (float)v3d->gpencil_grid_size[1];
+			DRW_shgroup_uniform_vec2(paper_shgrp, "size", &stl->storage->gridsize[0], 1);
+			if (v3d->flag3 & V3D_GP_SHOW_GRID) {
+				stl->storage->uselines = 1;
+			}
+			else {
+				stl->storage->uselines = 0;
+			}
+			DRW_shgroup_uniform_int(paper_shgrp, "uselines", &stl->storage->uselines, 1);
 		}
-		else {
-			stl->storage->uselines = 0;
-		}
-		DRW_shgroup_uniform_int(paper_shgrp, "uselines", &stl->storage->uselines, 1);
 	}
 }
 
