@@ -38,8 +38,9 @@
 
 #include "BLT_translation.h"
 
-#include "DNA_object_types.h"
 #include "DNA_gpencil_types.h"
+#include "DNA_image_types.h"
+#include "DNA_object_types.h"
 #include "DNA_windowmanager_types.h"
 
 #include "BKE_main.h" 
@@ -75,6 +76,48 @@
 
 #define LEAK_HORZ 0
 #define LEAK_VERT 1
+
+
+/* Temporary fill operation data (op->customdata) */
+typedef struct tGPDfill {
+	struct Depsgraph *depsgraph;
+	struct wmWindow *win;               /* window where painting originated */
+	struct Scene *scene;                /* current scene from context */
+	struct Object *ob;                  /* current active gp object */
+	struct EvaluationContext *eval_ctx; /* eval context */
+	struct ScrArea *sa;                 /* area where painting originated */
+	struct RegionView3D *rv3d;          /* region where painting originated */
+	struct View3D *v3d;                 /* view3 where painting originated */
+	struct ARegion *ar;                 /* region where painting originated */
+	struct bGPdata *gpd;                /* current GP datablock */
+	struct Palette *palette;            /* current palette */
+	struct PaletteColor *palcolor;      /* current palette color */
+	struct bGPDlayer *gpl;              /* layer */
+	struct bGPDframe *gpf;              /* frame */
+	
+	short flag;                         /* flags */
+	short oldkey;                       /* avoid too fast events */
+	bool on_back;                       /* send to back stroke */
+
+	int center[2];                      /* mouse fill center position */
+	int sizex;                          /* windows width */
+	int sizey;                          /* window height */
+	int lock_axis;                      /* lock to viewport axis */
+
+	short fill_leak;                    /* number of pixel to consider the leak is too small (x 2) */
+	float fill_threshold;               /* factor for transparency */
+	int fill_simplylvl;                 /* number of simplify steps */
+	int fill_draw_mode;                 /* boundary limits drawing mode */
+
+	short sbuffer_size;                 /* number of elements currently in cache */
+	void *sbuffer;                      /* temporary points */
+	float *depth_arr;                   /* depth array for reproject */
+
+	Image *ima;                         /* temp image */
+	BLI_Stack *stack;                   /* temp points data */
+	void *draw_handle_3d;               /* handle for drawing strokes while operator is running 3d stuff */
+} tGPDfill;
+
 
  /* draw a given stroke using same thickness and color for all points */
 static void gp_draw_basic_stroke(bGPDstroke *gps, const float diff_mat[4][4], 

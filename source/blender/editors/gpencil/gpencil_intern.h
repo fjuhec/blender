@@ -43,7 +43,6 @@ struct bGPDstroke;
 struct bGPDspoint;
 struct tGPspoint;
 
-struct BLI_Stack;
 struct GHash;
 
 struct Scene;
@@ -51,7 +50,6 @@ struct ARegion;
 struct View3D;
 struct View2D;
 struct wmOperatorType;
-struct Image;
 
 struct PointerRNA;
 struct PropertyRNA;
@@ -59,15 +57,21 @@ struct EnumPropertyItem;
 
 
 /* ***************************************************** */
-/* Internal Data Structures
+/* Modal Operator Geometry Preview
  *
- * These are used to store the state data for modal operators
- * when they are running (i.e. op->customdata). They are exported
- * so that the drawing callbacks in drawgpencil.c can access the
- * necessary preview geometry that is shown when the operators run.
- * Since these are the *private (state) data* for the operators,
- * we shouldn't be exporting these in the public ED_gpencil.h header.
+ * Several modal operators (Fill, Interpolate, Primitive)
+ * need to run some drawing code to display previews, or
+ * to perform screen-space/image-based analysis routines.
+ * The following structs + function prototypes are used
+ * by these operators so that the operator code
+ * (in gpencil_<opname>.c) can communicate with the drawing
+ * code (in drawgpencil.c).
+ *
+ * NOTE: All this is within the gpencil module, so nothing needs
+ * to be exported to other modules. 
  */
+
+/* Internal Operator-State Data ------------------------ */
 
 /* Temporary draw data (no draw manager mode) */
 typedef struct tGPDdraw {
@@ -157,46 +161,11 @@ typedef struct tGPDprimitive {
 } tGPDprimitive;
 
 
-/* Temporary fill operation data */
-typedef struct tGPDfill {
-	struct Depsgraph *depsgraph;
-	struct wmWindow *win;               /* window where painting originated */
-	struct Scene *scene;                /* current scene from context */
-	struct Object *ob;                  /* current active gp object */
-	struct EvaluationContext *eval_ctx; /* eval context */
-	struct ScrArea *sa;                 /* area where painting originated */
-	struct RegionView3D *rv3d;          /* region where painting originated */
-	struct View3D *v3d;                 /* view3 where painting originated */
-	struct ARegion *ar;                 /* region where painting originated */
-	struct bGPdata *gpd;                /* current GP datablock */
-	struct Palette *palette;            /* current palette */
-	struct PaletteColor *palcolor;      /* current palette color */
-	struct bGPDlayer *gpl;              /* layer */
-	struct bGPDframe *gpf;              /* frame */
-	
-	short flag;                         /* flags */
-	short oldkey;                       /* avoid too fast events */
-	bool on_back;                       /* send to back stroke */
+/* Modal Operator Drawing Callbacks ------------------------ */
 
-	int center[2];                      /* mouse fill center position */
-	int sizex;                          /* windows width */
-	int sizey;                          /* window height */
-	int lock_axis;                      /* lock to viewport axis */
-
-	short fill_leak;                    /* number of pixel to consider the leak is too small (x 2) */
-	float fill_threshold;               /* factor for transparency */
-	int fill_simplylvl;                 /* number of simplify steps */
-	int fill_draw_mode;                 /* boundary limits drawing mode */
-
-	short sbuffer_size;                 /* number of elements currently in cache */
-	void *sbuffer;                      /* temporary points */
-	float *depth_arr;                   /* depth array for reproject */
-
-	struct Image *ima;                  /* temp image */
-	struct BLI_Stack *stack;            /* temp points data */
-	void *draw_handle_3d;               /* handle for drawing strokes while operator is running 3d stuff */
-} tGPDfill;
-
+void ED_gp_draw_interpolation(const struct bContext *C, struct tGPDinterpolate *tgpi, const int type);
+void ED_gp_draw_primitives(const struct bContext *C, struct tGPDprimitive *tgpi, const int type);
+void ED_gp_draw_fill(struct tGPDdraw *tgpw);
 
 /* ***************************************************** */
 /* Internal API */
