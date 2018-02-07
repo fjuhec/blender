@@ -121,7 +121,33 @@ void ED_object_base_select(Base *base, eObjectSelect_Mode mode)
 void ED_object_base_activate(bContext *C, Base *base)
 {
 	ViewLayer *view_layer = CTX_data_view_layer(C);
+
+	WorkSpace *workspace = CTX_wm_workspace(C);
+
+	bool reset = true;
+	if (base) {
+		Object *ob_prev = OBACT(view_layer);
+		Object *ob_curr = base->object;
+		if (ob_prev != NULL) {
+			if (ob_prev->type == ob_curr->type) {
+				reset = false;
+			}
+		}
+	}
+
+	eObjectMode object_mode = workspace->object_mode;
+	workspace->object_mode = OB_MODE_OBJECT;
+
 	view_layer->basact = base;
+
+	if (reset == false) {
+		wmOperatorType *ot = WM_operatortype_find("OBJECT_OT_mode_set", false);
+		PointerRNA ptr;
+		WM_operator_properties_create_ptr(&ptr, ot);
+		RNA_enum_set(&ptr, "mode", object_mode);
+		WM_operator_name_call_ptr(C, ot, WM_OP_INVOKE_DEFAULT, &ptr);
+		WM_operator_properties_free(&ptr);
+	}
 
 	if (base) {
 		WM_event_add_notifier(C, NC_SCENE | ND_OB_ACTIVE, view_layer);
