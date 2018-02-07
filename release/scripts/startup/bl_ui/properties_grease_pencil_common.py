@@ -319,8 +319,11 @@ class GreasePencilEraserPanel:
     @staticmethod
     def draw(self, context):
         layout = self.layout
+        layout.operator("gpencil.draw", icon='FORCE_CURVE', text="Erase").mode = 'ERASER'
+        
         col = layout.column(align=True)
         col.prop(context.user_preferences.edit, "grease_pencil_eraser_radius", text="Radius")
+        # TODO: Hard/Soft mode, sensitivity factors, etc.
 
 
 ###############################
