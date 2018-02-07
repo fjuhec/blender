@@ -2860,7 +2860,7 @@ static int gp_count_subdivision_cuts(bGPDstroke *gps)
 		if (pt->flag & GP_SPOINT_SELECT) {
 			if (i + 1 < gps->totpoints) {
 				if (gps->points[i + 1].flag & GP_SPOINT_SELECT) {
-					++totnewpoints;
+					totnewpoints++;
 				}
 			}
 		}
@@ -2868,6 +2868,7 @@ static int gp_count_subdivision_cuts(bGPDstroke *gps)
 
 	return totnewpoints;
 }
+
 static int gp_stroke_subdivide_exec(bContext *C, wmOperator *op)
 {
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
@@ -2894,7 +2895,7 @@ static int gp_stroke_subdivide_exec(bContext *C, wmOperator *op)
 				/* duplicate points in a temp area */
 				temp_points = MEM_dupallocN(gps->points);
 				oldtotpoints = gps->totpoints;
-// TODO
+
 				/* resize the points arrys */
 				gps->totpoints += totnewpoints;
 				gps->points = MEM_recallocN(gps->points, sizeof(*gps->points) * gps->totpoints);
@@ -2914,7 +2915,7 @@ static int gp_stroke_subdivide_exec(bContext *C, wmOperator *op)
 					pt_final->flag = pt->flag;
 					pt_final->totweight = 0;
 					pt_final->weights = NULL;
-					++i2;
+					i2++;
 
 					/* if next point is selected add a half way point */
 					if (pt->flag & GP_SPOINT_SELECT) {
@@ -2932,7 +2933,7 @@ static int gp_stroke_subdivide_exec(bContext *C, wmOperator *op)
 								pt_final->totweight = 0;
 								pt_final->weights = NULL;
 
-								++i2;
+								i2++;
 							}
 						}
 					}
@@ -3021,7 +3022,6 @@ void GPENCIL_OT_stroke_simplify(wmOperatorType *ot)
 	prop = RNA_def_float(ot->srna, "factor", 0.0f, 0.0f, 100.0f, "Factor", "", 0.0f, 100.0f);
 	/* avoid re-using last var */
 	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
-
 }
 
 /* ** simplify stroke using fixed algorith *** */
@@ -3114,6 +3114,7 @@ static int gp_stroke_separate_exec(bContext *C, wmOperator *op)
 	ob_dst = base_new->object;
 
 	/* create new grease pencil datablock and copy paletteslots */
+	// XXX: check usercounts
 	gpd_dst = BKE_gpencil_data_addnew(bmain, "GPencil");
 	ob_dst->data = (bGPdata *)gpd_dst;
 	BKE_gpencil_copy_palette_data(gpd_dst, gpd_src);
