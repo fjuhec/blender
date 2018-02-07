@@ -2134,30 +2134,25 @@ class VIEW3D_PT_tools_grease_pencil_brush_option(Panel):
 
     @classmethod
     def poll(cls, context):
-        is_3d_view = context.space_data.type == 'VIEW_3D'
-        if is_3d_view:
-            if context.gpencil_data is None:
-                return False
+        if context.gpencil_data is None:
+            return False
 
-            gpd = context.gpencil_data
-            return bool(gpd.is_stroke_paint_mode)
-        else:
-            return True
+        gpd = context.gpencil_data
+        return gpd.is_stroke_paint_mode
 
     @staticmethod
     def draw(self, context):
         layout = self.layout
         brush = context.active_gpencil_brush
         if brush is not None:
-
-            row = layout.row(align=True)
-            col = row.column(align=True)
+            # XXX: Is this post-drawing, or while drawing?
+            col = layout.column(align=True)
             col.label(text="Stroke Quality:")
             col.prop(brush, "pen_smooth_factor")
             col.prop(brush, "pen_smooth_steps")
 
-            row = layout.row(align=True)
-            col = row.column(align=True)
+            col = layout.column(align=True)
+            col.label(text="Thickness:")
             col.prop(brush, "pen_thick_smooth_factor")
             col.prop(brush, "pen_thick_smooth_steps")
 
@@ -2173,19 +2168,17 @@ class VIEW3D_PT_tools_grease_pencil_brush_option(Panel):
             row = layout.row(align=True)
             row.prop(brush, "jitter", slider=True)
             row.prop(brush, "use_jitter_pressure", text="", icon='STYLUS_PRESSURE')
-            row = layout.row()
+            row = layout.row(align=True) # FIXME: When not aligned, they're too small, but looks ugly when aligned
             row.prop(brush, "angle", slider=True)
             row.prop(brush, "angle_factor", text="Factor", slider=True)
 
             if brush.fill_only is False:
                 row.separator()
-                row = layout.row(align=True)
-                row.prop(brush, "use_stabilizer", text="Stabilizer")
+                col = layout.column(align=True)
+                col.prop(brush, "use_stabilizer", text="Stabilizer")
                 if brush.use_stabilizer:
-                    row = layout.row(align=True)
-                    row.prop(brush, "lazy_radius", text="Distance")
-                    row = layout.row(align=True)
-                    row.prop(brush, "lazy_factor", slider=True)
+                    col.prop(brush, "lazy_radius", text="Distance")
+                    col.prop(brush, "lazy_factor", slider=True)
 
 
 # Grease Pencil drawingcurves
@@ -2203,14 +2196,11 @@ class VIEW3D_PT_tools_grease_pencil_brushcurves(Panel):
 
         is_3d_view = context.space_data.type == 'VIEW_3D'
         brush = context.active_gpencil_brush
-        if is_3d_view:
-            if context.gpencil_data is None:
-                return False
+        if context.gpencil_data is None:
+            return False
 
-            gpd = context.gpencil_data
-            return bool(gpd.is_stroke_paint_mode)
-        else:
-            return bool(brush)
+        gpd = context.gpencil_data
+        return gpd.is_stroke_paint_mode
 
     @staticmethod
     def draw(self, context):
@@ -2430,7 +2420,9 @@ class VIEW3D_PT_tools_grease_pencil_falloff(Panel):
         if context.editable_gpencil_strokes:
             is_3d_view = context.space_data.type == 'VIEW_3D'
             if is_3d_view:
-                return bool(gpd.use_stroke_edit_mode or gpd.is_stroke_sculpt_mode or gpd.is_stroke_weight_mode)
+                return bool(gpd.use_stroke_edit_mode or 
+                            gpd.is_stroke_sculpt_mode or
+                            gpd.is_stroke_weight_mode)
 
         return False
 
@@ -2472,9 +2464,11 @@ class VIEW3D_PT_tools_grease_pencil_appearance(Panel):
         if context.gpencil_data is None:
             return False
 
-        is_gpmode = context.active_object and \
-                    context.active_object.mode in {'GPENCIL_EDIT', 'GPENCIL_PAINT', 'GPENCIL_SCULPT'}
-        return is_gpmode
+        if context.active_object:
+            ob = context.active_object
+            return ob.mode in {'GPENCIL_EDIT', 'GPENCIL_PAINT', 'GPENCIL_SCULPT'}
+            
+        return False
 
     @staticmethod
     def draw(self, context):
