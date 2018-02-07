@@ -495,15 +495,15 @@ static int gp_frame_clean_fill_exec(bContext *C, wmOperator *op)
 void GPENCIL_OT_frame_clean_fill(wmOperatorType *ot)
 {
 	static const EnumPropertyItem duplicate_mode[] = {
-	{ GP_FRAME_CLEAN_FILL_ACTIVE, "ACTIVE", 0, "Active", "Clean active frame only" },
-	{ GP_FRAME_CLEAN_FILL_ALL, "ALL", 0, "All", "Clean all frames in all layers" },
+	{ GP_FRAME_CLEAN_FILL_ACTIVE, "ACTIVE", 0, "Active Frame Only", "Clean active frame only" },
+	{ GP_FRAME_CLEAN_FILL_ALL, "ALL", 0, "All Frames", "Clean all frames in all layers" },
 	{ 0, NULL, 0, NULL, NULL }
 	};
 
 	/* identifiers */
 	ot->name = "Clean Fill Boundaries";
 	ot->idname = "GPENCIL_OT_frame_clean_fill";
-	ot->description = "Clean boundary fill stroke";
+	ot->description = "Remove 'no fill' boundary strokes";
 
 	/* callbacks */
 	ot->exec = gp_frame_clean_fill_exec;
