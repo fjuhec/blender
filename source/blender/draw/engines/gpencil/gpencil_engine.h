@@ -181,9 +181,7 @@ typedef struct GPENCIL_PassList {
 	struct DRWPass *edit_pass;
 	struct DRWPass *drawing_pass;
 	struct DRWPass *mix_pass;
-	struct DRWPass *mix_vfx_pass;
 	struct DRWPass *mix_pass_noblend;
-	struct DRWPass *mix_vfx_pass_noblend;
 	struct DRWPass *mix_pass_front;
 	struct DRWPass *vfx_copy_pass;
 	struct DRWPass *vfx_wave_pass;
@@ -281,6 +279,9 @@ typedef struct GPENCIL_e_data {
 	struct GPUTexture *painting_color_tx;
 
 	struct GPUTexture *gpencil_blank_texture;
+	/* runtime pointers texture */
+	struct GPUTexture *input_depth_tx;
+	struct GPUTexture *input_color_tx;
 } GPENCIL_e_data; /* Engine data */
 
 /* Gwn_Batch Cache */
