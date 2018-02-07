@@ -692,7 +692,7 @@ static void GPENCIL_draw_scene(void *vedata)
 	bool is_render = stl->storage->is_render;
 
 	/* paper pass to display a confortable area to draw over complex scenes with geometry */
-	if ((obact) && (obact->type == OB_GPENCIL)) {
+	if ((!is_render) && (obact) && (obact->type == OB_GPENCIL)) {
 		if ((v3d->flag3 & V3D_GP_SHOW_PAPER) && (stl->g_data->gp_cache_used > 0)) {
 			DRW_draw_pass(psl->paper_pass);
 		}
@@ -783,7 +783,7 @@ static void GPENCIL_draw_scene(void *vedata)
 					MULTISAMPLE_GP_SYNC_DISABLE(dfbl, fbl);
 				}
 				/* Current buffer drawing */
-				if (gpd->sbuffer_size > 0) {
+				if ((!is_render) && (gpd->sbuffer_size > 0)) {
 					DRW_draw_pass(psl->drawing_pass);
 				}
 
@@ -791,7 +791,7 @@ static void GPENCIL_draw_scene(void *vedata)
 				 * if any vfx modifier exist, the init_vfx_wave_sh will be not NULL.
 				 */
 				if ((cache->vfx_wave_sh) && (!GP_SIMPLIFY_VFX(ts, playing))) {
-					/* add vfx and combine result with default framebuffer */
+					/* add vfx passes */
 					gpencil_vfx_passes(vedata, cache);
 
 					e_data.input_depth_tx = e_data.vfx_fbcolor_depth_tx_a;
@@ -801,8 +801,13 @@ static void GPENCIL_draw_scene(void *vedata)
 					e_data.input_depth_tx = e_data.temp_fbcolor_depth_tx;
 					e_data.input_color_tx = e_data.temp_fbcolor_color_tx;
 				}
-				/* Combine with scene buffer without more passes */
-				DRW_framebuffer_bind(dfbl->default_fb);
+				/* Combine with scene buffer */
+				if ((!is_render) || (fbl->main == NULL)) {
+					DRW_framebuffer_bind(dfbl->default_fb);
+				}
+				else {
+					DRW_framebuffer_bind(fbl->main);
+				}
 				DRW_draw_pass(psl->mix_pass);
 				/* prepare for fast drawing */
 				if (!is_render) {
@@ -833,7 +838,9 @@ static void GPENCIL_draw_scene(void *vedata)
 		DRW_framebuffer_texture_detach(e_data.painting_color_tx);
 
 		/* attach again default framebuffer after detach textures */
-		DRW_framebuffer_bind(dfbl->default_fb);
+		if (!is_render) {
+			DRW_framebuffer_bind(dfbl->default_fb);
+		}
 
 		/* the temp texture is ready. Now we can use fast screen drawing */
 		if (stl->g_data->session_flag & GP_DRW_PAINT_FILLING) {
@@ -870,7 +877,6 @@ void GPENCIL_render_init(GPENCIL_Data *ved, RenderEngine *engine, struct Depsgra
 	if (!stl->g_data) {
 		stl->g_data = MEM_callocN(sizeof(*stl->g_data), __func__);
 	}
-	stl->storage->background_alpha = DRW_state_draw_background() ? 1.0f : 0.0f;
 
 	/* Set the pers & view matrix. */
 	struct Object *camera = RE_GetCamera(engine->re);
@@ -908,16 +914,53 @@ void GPENCIL_render_cache(
 	}
 }
 
+/* read render result */
+static void GPENCIL_render_result_combined(	RenderResult *rr, const char *viewname, GPENCIL_Data *vedata)
+{
+	RenderLayer *rl = rr->layers.first;
+	RenderPass *rp = RE_pass_find_by_name(rl, RE_PASSNAME_COMBINED, viewname);
+	GPENCIL_FramebufferList *fbl = ((GPENCIL_Data *)vedata)->fbl;
+
+	DRW_framebuffer_bind(fbl->main);
+	DRW_framebuffer_read_data(rr->xof, rr->yof, rr->rectx, rr->recty, 4, 0, rp->rect);
+}
+
 /* render grease pencil to image */
 static void GPENCIL_render_to_image(void *vedata, struct RenderEngine *engine, struct Depsgraph *depsgraph)
 {
+	const char *viewname = RE_GetActiveRenderView(engine->re);
+	const float *render_size = DRW_viewport_size_get();
+	RenderResult *rr = RE_engine_begin_result(engine, 0, 0, (int)render_size[0], (int)render_size[1], NULL, viewname);
+
 	GPENCIL_engine_init(vedata);
 	GPENCIL_render_init(vedata, engine, depsgraph);
 
+	GPENCIL_FramebufferList *fbl = ((GPENCIL_Data *)vedata)->fbl;
+	if (fbl->main) {
+		DRW_framebuffer_texture_attach(fbl->main, e_data.render_depth_tx, 0, 0);
+		DRW_framebuffer_texture_attach(fbl->main, e_data.render_color_tx, 0, 0);
+		/* clean first time the buffer */
+		float clearcol[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+		DRW_framebuffer_bind(fbl->main);
+		DRW_framebuffer_clear(true, true, false, clearcol, 1.0f);
+	}
+
+	/* loop all objects and draw */
 	DRW_render_object_iter(vedata, engine, depsgraph, GPENCIL_render_cache);
 
 	GPENCIL_cache_finish(vedata);
 	GPENCIL_draw_scene(vedata);
+	
+	/* read result */
+	GPENCIL_render_result_combined(rr, viewname, vedata);
+	
+	/* detach textures */
+	if (fbl->main) {
+		DRW_framebuffer_texture_detach(e_data.render_depth_tx);
+		DRW_framebuffer_texture_detach(e_data.render_color_tx);
+	}
+
+	RE_engine_end_result(engine, rr, false, false, false);
 }
 
 static const DrawEngineDataSize GPENCIL_data_size = DRW_VIEWPORT_DATA_SIZE(GPENCIL_Data);

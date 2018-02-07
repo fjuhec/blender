@@ -169,7 +169,6 @@ typedef struct GPENCIL_Storage {
 	float gridcolor[3];
 
 	/* Render Matrices and data */
-	float background_alpha;
 	float persmat[4][4], persinv[4][4];
 	float viewmat[4][4], viewinv[4][4];
 	float winmat[4][4], wininv[4][4];
