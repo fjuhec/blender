@@ -208,15 +208,17 @@ static int gpencil_editmode_toggle_exec(bContext *C, wmOperator *op)
 
 	if (is_object) {
 		/* try to back previous mode */
-		if ((ob->restore_mode) && ((gpd->flag & GP_DATA_STROKE_EDITMODE) == 0) && (back == 1)) {
-			mode = ob->restore_mode;
+		if ((workspace->object_mode_restore) && ((gpd->flag & GP_DATA_STROKE_EDITMODE) == 0) && (back == 1)) {
+			mode = workspace->object_mode_restore;
 		}
-		ob->restore_mode = ob->mode;
-		ob->mode = mode;
+		workspace->object_mode_restore = workspace->object_mode;
+		workspace->object_mode = mode;
 	}
 
 	/* set workspace mode */
-	BKE_workspace_object_mode_set(workspace, scene, mode);
+	// XXX: was BKE_workspace_object_mode_set()
+	ViewLayer *view_layer = BKE_workspace_view_layer_get(workspace, scene);
+	ED_object_base_activate(C, view_layer->basact);
 	/* setup other modes */
 	gpencil_setup_modes(C, gpd, mode);
 	/* set cache as dirty */
@@ -289,15 +291,17 @@ static int gpencil_paintmode_toggle_exec(bContext *C, wmOperator *op)
 
 	if (is_object) {
 		/* try to back previous mode */
-		if ((ob->restore_mode) && ((gpd->flag & GP_DATA_STROKE_PAINTMODE) == 0) && (back == 1)) {
-			mode = ob->restore_mode;
+		if ((workspace->object_mode_restore) && ((gpd->flag & GP_DATA_STROKE_PAINTMODE) == 0) && (back == 1)) {
+			mode = workspace->object_mode_restore;
 		}
-		ob->restore_mode = ob->mode;
-		ob->mode = mode;
+		workspace->object_mode_restore = workspace->object_mode;
+		workspace->object_mode = mode;
 	}
 
 	/* set workspace mode */
-	BKE_workspace_object_mode_set(workspace, scene, mode);
+	// XXX: was BKE_workspace_object_mode_set()
+	ViewLayer *view_layer = BKE_workspace_view_layer_get(workspace, scene);
+	ED_object_base_activate(C, view_layer->basact);
 	/* setup other modes */
 	gpencil_setup_modes(C, gpd, mode);
 	/* set cache as dirty */
@@ -369,15 +373,17 @@ static int gpencil_sculptmode_toggle_exec(bContext *C, wmOperator *op)
 
 	if (is_object) {
 		/* try to back previous mode */
-		if ((ob->restore_mode) && ((gpd->flag & GP_DATA_STROKE_SCULPTMODE) == 0) && (back == 1)) {
-			mode = ob->restore_mode;
+		if ((workspace->object_mode_restore) && ((gpd->flag & GP_DATA_STROKE_SCULPTMODE) == 0) && (back == 1)) {
+			mode = workspace->object_mode_restore;
 		}
-		ob->restore_mode = ob->mode;
-		ob->mode = mode;
+		workspace->object_mode_restore = workspace->object_mode;
+		workspace->object_mode = mode;
 	}
 
 	/* set workspace mode */
-	BKE_workspace_object_mode_set(workspace, scene, mode);
+	// XXX: was BKE_workspace_object_mode_set()
+	ViewLayer *view_layer = BKE_workspace_view_layer_get(workspace, scene);
+	ED_object_base_activate(C, view_layer->basact);
 	/* setup other modes */
 	gpencil_setup_modes(C, gpd, mode);
 	/* set cache as dirty */
@@ -449,15 +455,17 @@ static int gpencil_weightmode_toggle_exec(bContext *C, wmOperator *op)
 
 	if (is_object) {
 		/* try to back previous mode */
-		if ((ob->restore_mode) && ((gpd->flag & GP_DATA_STROKE_WEIGHTMODE) == 0) && (back == 1)) {
-			mode = ob->restore_mode;
+		if ((workspace->object_mode_restore) && ((gpd->flag & GP_DATA_STROKE_WEIGHTMODE) == 0) && (back == 1)) {
+			mode = workspace->object_mode_restore;
 		}
-		ob->restore_mode = ob->mode;
-		ob->mode = mode;
+		workspace->object_mode_restore = workspace->object_mode;
+		workspace->object_mode = mode;
 	}
 
 	/* set workspace mode */
-	BKE_workspace_object_mode_set(workspace, scene, mode);
+	// XXX: was BKE_workspace_object_mode_set()
+	ViewLayer *view_layer = BKE_workspace_view_layer_get(workspace, scene);
+	ED_object_base_activate(C, view_layer->basact);
 	/* setup other modes */
 	gpencil_setup_modes(C, gpd, mode);
 	/* set cache as dirty */
