@@ -949,8 +949,97 @@ void GPENCIL_render_cache(
 	}
 }
 
-/* read render result */
-static void GPENCIL_render_result_combined(	RenderResult *rr, const char *viewname, GPENCIL_Data *vedata)
+/* TODO: Reuse Eevee code in shared module instead to duplicate here */
+static void GPENCIL_update_viewvecs(float invproj[4][4], float winmat[4][4], float(*r_viewvecs)[4])
+{
+	/* view vectors for the corners of the view frustum.
+	* Can be used to recreate the world space position easily */
+	float view_vecs[4][4] = {
+		{ -1.0f, -1.0f, -1.0f, 1.0f },
+	{ 1.0f, -1.0f, -1.0f, 1.0f },
+	{ -1.0f,  1.0f, -1.0f, 1.0f },
+	{ -1.0f, -1.0f,  1.0f, 1.0f }
+	};
+
+	/* convert the view vectors to view space */
+	const bool is_persp = (winmat[3][3] == 0.0f);
+	for (int i = 0; i < 4; i++) {
+		mul_project_m4_v3(invproj, view_vecs[i]);
+		/* normalized trick see:
+		* http://www.derschmale.com/2014/01/26/reconstructing-positions-from-the-depth-buffer */
+		if (is_persp) {
+			/* Divide XY by Z. */
+			mul_v2_fl(view_vecs[i], 1.0f / view_vecs[i][2]);
+		}
+	}
+
+	/**
+	* If ortho : view_vecs[0] is the near-bottom-left corner of the frustum and
+	*            view_vecs[1] is the vector going from the near-bottom-left corner to
+	*            the far-top-right corner.
+	* If Persp : view_vecs[0].xy and view_vecs[1].xy are respectively the bottom-left corner
+	*            when Z = 1, and top-left corner if Z = 1.
+	*            view_vecs[0].z the near clip distance and view_vecs[1].z is the (signed)
+	*            distance from the near plane to the far clip plane.
+	**/
+	copy_v4_v4(r_viewvecs[0], view_vecs[0]);
+
+	/* we need to store the differences */
+	r_viewvecs[1][0] = view_vecs[1][0] - view_vecs[0][0];
+	r_viewvecs[1][1] = view_vecs[2][1] - view_vecs[0][1];
+	r_viewvecs[1][2] = view_vecs[3][2] - view_vecs[0][2];
+}
+
+/* Update view_vecs */
+static void GPENCIL_update_vecs(GPENCIL_Data *vedata)
+{
+	GPENCIL_StorageList *stl = vedata->stl;
+
+	float invproj[4][4], winmat[4][4];
+	DRW_viewport_matrix_get(winmat, DRW_MAT_WIN);
+	DRW_viewport_matrix_get(invproj, DRW_MAT_WININV);
+
+	/* this is separated to keep function equal to Eevee for future reuse of same code */
+	GPENCIL_update_viewvecs(invproj, winmat, stl->storage->view_vecs);
+}
+
+/* read z-depth render result */
+static void GPENCIL_render_result_z(RenderResult *rr, const char *viewname,	GPENCIL_Data *vedata)
+{
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	ViewLayer *view_layer = draw_ctx->view_layer;
+	GPENCIL_StorageList *stl = vedata->stl;
+
+	if ((view_layer->passflag & SCE_PASS_Z) != 0) {
+		RenderLayer *rl = rr->layers.first;
+		RenderPass *rp = RE_pass_find_by_name(rl, RE_PASSNAME_Z, viewname);
+
+		DRW_framebuffer_read_depth(rr->xof, rr->yof, rr->rectx, rr->recty, rp->rect);
+
+		bool is_persp = DRW_viewport_is_persp_get();
+
+		GPENCIL_update_vecs(vedata);
+
+		/* Convert ogl depth [0..1] to view Z [near..far] */
+		for (int i = 0; i < rr->rectx * rr->recty; ++i) {
+			if (rp->rect[i] == 1.0f) {
+				rp->rect[i] = 1e10f; /* Background */
+			}
+			else {
+				if (is_persp) {
+					rp->rect[i] = rp->rect[i] * 2.0f - 1.0f;
+					rp->rect[i] = stl->storage->winmat[3][2] / (rp->rect[i] + stl->storage->winmat[2][2]);
+				}
+				else {
+					rp->rect[i] = -stl->storage->view_vecs[0][2] + rp->rect[i] * -stl->storage->view_vecs[1][2];
+				}
+			}
+		}
+	}
+}
+
+/* read combined render result */
+static void GPENCIL_render_result_combined(RenderResult *rr, const char *viewname, GPENCIL_Data *vedata)
 {
 	RenderLayer *rl = rr->layers.first;
 	RenderPass *rp = RE_pass_find_by_name(rl, RE_PASSNAME_COMBINED, viewname);
@@ -986,8 +1075,10 @@ static void GPENCIL_render_to_image(void *vedata, struct RenderEngine *engine, s
 	GPENCIL_cache_finish(vedata);
 	GPENCIL_draw_scene(vedata);
 	
-	/* read result */
+	/* combined data */
 	GPENCIL_render_result_combined(rr, viewname, vedata);
+	/* z-depth data */
+	GPENCIL_render_result_z(rr, viewname, vedata);
 	
 	/* detach textures */
 	if (fbl->main) {
