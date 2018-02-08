@@ -53,8 +53,8 @@ struct GPENCIL_StorageList;
 #define MULTISAMPLE_GP_SYNC_ENABLE(dfbl, fbl) { \
 	if ((U.ogl_multisamples > 0) && (dfbl->multisample_fb != NULL)) { \
 		DRW_stats_query_start("GP Multisample Blit"); \
-		DRW_framebuffer_blit(fbl->temp_color_fb, dfbl->multisample_fb, false, false); \
-		DRW_framebuffer_blit(fbl->temp_color_fb, dfbl->multisample_fb, true, false); \
+		DRW_framebuffer_blit(fbl->temp_fb, dfbl->multisample_fb, false, false); \
+		DRW_framebuffer_blit(fbl->temp_fb, dfbl->multisample_fb, true, false); \
 		DRW_framebuffer_bind(dfbl->multisample_fb); \
 		DRW_stats_query_end(); \
 	} \
@@ -63,9 +63,9 @@ struct GPENCIL_StorageList;
 #define MULTISAMPLE_GP_SYNC_DISABLE(dfbl, fbl) { \
 	if ((U.ogl_multisamples > 0) && (dfbl->multisample_fb != NULL)) { \
 		DRW_stats_query_start("GP Multisample Resolve"); \
-		DRW_framebuffer_blit(dfbl->multisample_fb, fbl->temp_color_fb, false, false); \
-		DRW_framebuffer_blit(dfbl->multisample_fb, fbl->temp_color_fb, true, false); \
-		DRW_framebuffer_bind(fbl->temp_color_fb); \
+		DRW_framebuffer_blit(dfbl->multisample_fb, fbl->temp_fb, false, false); \
+		DRW_framebuffer_blit(dfbl->multisample_fb, fbl->temp_fb, true, false); \
+		DRW_framebuffer_bind(fbl->temp_fb); \
 		DRW_stats_query_end(); \
 	} \
 }
@@ -207,9 +207,9 @@ typedef struct GPENCIL_PassList {
 
 typedef struct GPENCIL_FramebufferList {
 	struct GPUFrameBuffer *main;
-	struct GPUFrameBuffer *temp_color_fb;
-	struct GPUFrameBuffer *vfx_color_fb_a;
-	struct GPUFrameBuffer *vfx_color_fb_b;
+	struct GPUFrameBuffer *temp_fb;
+	struct GPUFrameBuffer *vfx_fb_a;
+	struct GPUFrameBuffer *vfx_fb_b;
 	struct GPUFrameBuffer *painting_fb;
 } GPENCIL_FramebufferList;
 
@@ -275,13 +275,13 @@ typedef struct GPENCIL_e_data {
 	struct GPUShader *gpencil_front_depth_sh;
 	struct GPUShader *gpencil_paper_sh;
 	/* temp depth texture */
-	struct GPUTexture *temp_fbcolor_depth_tx;
-	struct GPUTexture *temp_fbcolor_color_tx;
+	struct GPUTexture *temp_depth_tx;
+	struct GPUTexture *temp_color_tx;
 	
-	struct GPUTexture *vfx_fbcolor_depth_tx_a;
-	struct GPUTexture *vfx_fbcolor_color_tx_a;
-	struct GPUTexture *vfx_fbcolor_depth_tx_b;
-	struct GPUTexture *vfx_fbcolor_color_tx_b;
+	struct GPUTexture *vfx_depth_tx_a;
+	struct GPUTexture *vfx_color_tx_a;
+	struct GPUTexture *vfx_depth_tx_b;
+	struct GPUTexture *vfx_color_tx_b;
 
 	struct GPUTexture *painting_depth_tx;
 	struct GPUTexture *painting_color_tx;
