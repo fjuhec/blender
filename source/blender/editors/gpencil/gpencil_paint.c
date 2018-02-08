@@ -1621,6 +1621,11 @@ static bool gp_session_initdata(bContext *C, wmOperator *op, tGPsdata *p)
 		 */
 		gp_init_palette(p);
 	}
+	else {
+		#if 1 /* XXX: Temporary hack only - Palettes won't be used here in future... */
+			gp_init_palette(p);
+		#endif
+	}
 
 	/* lock axis */
 	p->lock_axis = ts->gp_sculpt.lock_axis;
