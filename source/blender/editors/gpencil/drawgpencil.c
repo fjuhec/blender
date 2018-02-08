@@ -408,10 +408,8 @@ static void gp_draw_stroke_volumetric_3d(
 /* calc bounding box in 2d using flat projection data */
 static void gp_calc_2d_bounding_box(const float(*points2d)[2], int totpoints, float minv[2], float maxv[2], bool expand)
 {
-	minv[0] = points2d[0][0];
-	minv[1] = points2d[0][1];
-	maxv[0] = points2d[0][0];
-	maxv[1] = points2d[0][1];
+	copy_v2_v2(minv, points2d[0]);
+	copy_v2_v2(maxv, points2d[0]);
 
 	for (int i = 1; i < totpoints; i++) {
 		/* min */
