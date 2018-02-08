@@ -1610,6 +1610,8 @@ static void gp_draw_data_layers(RegionView3D *rv3d,
 #undef GP_DRAWFLAG_APPLY
 		
 		tgpw.gpl = gpl;
+		tgpw.gpf = gpf;
+		tgpw.t_gpf = gpf; // XXX?
 		tgpw.lthick = gpl->thickness;
 		tgpw.opacity = gpl->opacity;
 		copy_v4_v4(tgpw.tintcolor, gpl->tintcolor);
