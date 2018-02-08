@@ -2087,11 +2087,11 @@ class VIEW3D_PT_tools_grease_pencil_brush(Panel):
 
         # Brush details
         if brush is not None:
-            row = layout.row(align=False)
-            row.prop(brush, "name", text="")
-            row = layout.row(align=False)
-            row.prop(brush, "fill_only", text="Fill Brush")
-            if brush.fill_only is False:
+            layout.prop(brush, "name", text="")
+            # layout.separator()
+
+            layout.prop(brush, "fill_only", text="Fill Brush")
+            if not brush.fill_only:
                 row = layout.row(align=True)
                 row.prop(brush, "use_random_pressure", text="", icon='RNDCURVE')
                 row.prop(brush, "line_width", text="Radius")
@@ -2100,28 +2100,27 @@ class VIEW3D_PT_tools_grease_pencil_brush(Panel):
                 row.prop(brush, "use_random_strength", text="", icon='RNDCURVE')
                 row.prop(brush, "strength", slider=True)
                 row.prop(brush, "use_strength_pressure", text="", icon='STYLUS_PRESSURE')
+            else:
+                col = layout.column(align=True)
+                col.prop(brush, "fill_leak", text="Leak Size")
+                col.prop(brush, "line_width", text="Thickness")
+                col.prop(brush, "fill_simplyfy_lvl", text="Simplify")
 
-            if brush.fill_only is True:
-                row = layout.row(align=True)
-                row.prop(brush, "fill_leak", text="Leak Size")
-                row = layout.row(align=True)
-                row.prop(brush, "line_width", text="Thickness")
-                row = layout.row(align=True)
-                row.prop(brush, "fill_simplyfy_lvl", text="Simplify")
-
-                row = layout.row(align=True)
-                row.prop(brush, "fill_draw_mode", text="Mode")
+                col = layout.column(align=True)
+                col.label(text="Boundary Draw Mode:")
+                row = col.row(align=True)
+                row.prop(brush, "fill_draw_mode", text="")
                 row.prop(brush, "fill_show_boundary", text="", icon='GRID')
 
-                row = layout.row(align=True)
-                row.enabled = brush.fill_draw_mode != "STROKE"
-                row.prop(brush, "fill_hide", text="Hide Transparent Lines")
-                row = layout.row(align=True)
-                row.enabled = brush.fill_hide
-                row.prop(brush, "fill_threshold", text="Threshold")
+                col = layout.column(align=True)
+                col.enabled = brush.fill_draw_mode != "STROKE"
+                col.prop(brush, "fill_hide", text="Hide Transparent Lines")
+                sub = col.row(align=True)
+                sub.enabled = brush.fill_hide
+                sub.prop(brush, "fill_threshold", text="Threshold")
 
-            row = layout.row(align=False)
-            row.prop(context.tool_settings, "use_gpencil_draw_onback", text="Draw on Back")
+            layout.separator()
+            layout.prop(context.tool_settings, "use_gpencil_draw_onback", text="Draw on Back")
 
 
 # Grease Pencil drawing brushes options
