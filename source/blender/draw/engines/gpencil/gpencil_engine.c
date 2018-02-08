@@ -300,12 +300,7 @@ static void GPENCIL_cache_init(void *vedata)
 			stl->storage->pixsize = DRW_viewport_pixelsize_get();
 		}
 		else {
-			const float *viewport_size = DRW_viewport_size_get();
-			CameraParams params;
-			BKE_camera_params_init(&params);
-			BKE_camera_params_from_object(&params, scene->camera);
-			BKE_camera_params_compute_viewplane(&params, viewport_size[0], viewport_size[1], 1.0f, 1.0f);
-			stl->storage->pixsize = &params.viewdx;
+			stl->storage->pixsize = &stl->storage->render_pixsize;
 		}
 
 		/* detect if painting session */
@@ -864,6 +859,29 @@ static void GPENCIL_draw_scene(void *vedata)
 	}
 }
 
+/* Get pixel size for render 
+ * This function uses the same calculation used for viewport, because if use
+ * camera pixelsize, the result is not correct.
+ */
+static float get_render_pixelsize(float persmat[4][4], int winx, int winy)
+{
+	float v1[3], v2[3];
+	float len_px, len_sc;
+
+	v1[0] = persmat[0][0];
+	v1[1] = persmat[1][0];
+	v1[2] = persmat[2][0];
+
+	v2[0] = persmat[0][1];
+	v2[1] = persmat[1][1];
+	v2[2] = persmat[2][1];
+
+	len_px = 2.0f / sqrtf(min_ff(len_squared_v3(v1), len_squared_v3(v2)));
+	len_sc = (float)MAX2(winx, winy);
+
+	return len_px / len_sc;
+}
+
 /* init render data */
 void GPENCIL_render_init(GPENCIL_Data *ved, RenderEngine *engine, struct Depsgraph *depsgraph)
 {
@@ -911,6 +929,8 @@ void GPENCIL_render_init(GPENCIL_Data *ved, RenderEngine *engine, struct Depsgra
 	DRW_viewport_matrix_override_set(stl->storage->viewmat, DRW_MAT_VIEW);
 	DRW_viewport_matrix_override_set(stl->storage->viewinv, DRW_MAT_VIEWINV);
 
+	/* calculate pixel size for render */
+	stl->storage->render_pixsize = get_render_pixelsize(stl->storage->persmat, viewport_size[0], viewport_size[1]);
 	/* INIT CACHE */
 	GPENCIL_cache_init(vedata);
 }
