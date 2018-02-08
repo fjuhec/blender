@@ -1988,8 +1988,8 @@ void draw_outliner(const bContext *C)
 
 	if (soops->outlinevis, SO_DATABLOCKS) {
 		/* draw rna buttons */
-        outliner_draw_rnacols(ar, sizex_rna);
-        outliner_draw_rnabuts(block, ar, soops, sizex_rna, &soops->tree);
+		outliner_draw_rnacols(ar, sizex_rna);
+		outliner_draw_rnabuts(block, ar, soops, sizex_rna, &soops->tree);
 	}
 	else if ((soops->outlinevis == SO_ID_ORPHANS) && has_restrict_icons) {
 		/* draw user toggle columns */

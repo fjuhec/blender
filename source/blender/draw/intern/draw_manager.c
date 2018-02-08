@@ -177,12 +177,14 @@ typedef enum {
 	DRW_ATTRIB_FLOAT,
 } DRWAttribType;
 
+#define MAX_UNIFORM_DATA_SIZE 16
+
 struct DRWUniform {
 	struct DRWUniform *next;
-	DRWUniformType type;
 	int location;
-	int length;
-	int arraysize;
+	char type; /* DRWUniformType */
+	char length; /* cannot be more than 16 */
+	char arraysize; /* cannot be more than 16 too */
 	const void *value;
 };
 
@@ -313,6 +315,7 @@ static struct DRWGlobalState {
 	DRWCallGenerate *last_callgenerate;
 	DRWShadingGroup *last_shgroup;
 	DRWInstanceDataList *idatalist;
+	DRWInstanceData *common_instance_data[MAX_INSTANCE_DATA_SIZE];
 
 	/* Rendering state */
 	GPUShader *shader;
@@ -692,7 +695,8 @@ static void drw_interface_uniform(DRWShadingGroup *shgroup, const char *name,
 
 	DRWUniform *uni = BLI_mempool_alloc(DST.vmempool->uniforms);
 
-	BLI_assert(arraysize > 0);
+	BLI_assert(arraysize > 0 && arraysize <= 16);
+	BLI_assert(arraysize * length <= MAX_UNIFORM_DATA_SIZE);
 
 	uni->location = location;
 	uni->type = type;
@@ -2673,6 +2677,7 @@ static void drw_viewport_var_init(void)
 	}
 
 	memset(viewport_matrix_override.override, 0x0, sizeof(viewport_matrix_override.override));
+	memset(DST.common_instance_data, 0x0, sizeof(DST.common_instance_data));
 }
 
 void DRW_viewport_matrix_get(float mat[4][4], DRWViewportMatrixType type)
@@ -2819,7 +2824,22 @@ ObjectEngineData *DRW_object_engine_data_ensure(
 		return oed;
 	}
 	/* Allocate new data. */
-	oed = MEM_callocN(size, "ObjectEngineData");
+	if ((ob->base_flag & BASE_FROMDUPLI) != 0) {
+		/* NOTE: data is not persistent in this case. It is reset each redraw. */
+		BLI_assert(free_cb == NULL); /* No callback allowed. */
+		/* Round to sizeof(float) for DRW_instance_data_request(). */
+		const size_t t = sizeof(float) - 1;
+		size = (size + t) & ~t;
+		size_t fsize = size / sizeof(float);
+		if (DST.common_instance_data[fsize] == NULL) {
+			DST.common_instance_data[fsize] = DRW_instance_data_request(DST.idatalist, fsize, 16);
+		}
+		oed = (ObjectEngineData *)DRW_instance_data_next(DST.common_instance_data[fsize]);
+		memset(oed, 0, size);
+	}
+	else {
+		oed = MEM_callocN(size, "ObjectEngineData");
+	}
 	oed->engine_type = engine_type;
 	oed->free = free_cb;
 	/* Perform user-side initialization, if needed. */
