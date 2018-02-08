@@ -55,6 +55,7 @@
 #include "DNA_screen_types.h"
 #include "DNA_space_types.h"
 #include "DNA_view3d_types.h"
+#include "DNA_workspace_types.h"
 
 #include "BKE_main.h"
 #include "BKE_animsys.h"
@@ -1895,14 +1896,19 @@ static int gpencil_vertex_group_poll(bContext *C)
 	Object *ob = CTX_data_active_object(C);
 
 	if ((ob) && (ob->type == OB_GPENCIL)) {
-		return (!ID_IS_LINKED(ob) &&
-			!ID_IS_LINKED(ob->data) &&
-			ob->defbase.first && 
-			((ob->mode == OB_MODE_GPENCIL_EDIT) || (ob->mode == OB_MODE_GPENCIL_SCULPT)));
+		if (!ID_IS_LINKED(ob) && !ID_IS_LINKED(ob->data) && ob->defbase.first) {
+			WorkSpace *workspace = CTX_wm_workspace(C);
+			if (workspace && 
+				ELEM(workspace->object_mode,
+				     OB_MODE_GPENCIL_EDIT,
+				     OB_MODE_GPENCIL_SCULPT))
+			{
+				return true;	
+			}
+		}
 	}
-	else {
-		return false;
-	}
+
+	return false;
 }
 
 static int gpencil_vertex_group_weight_poll(bContext *C)
@@ -1910,13 +1916,17 @@ static int gpencil_vertex_group_weight_poll(bContext *C)
 	Object *ob = CTX_data_active_object(C);
 
 	if ((ob) && (ob->type == OB_GPENCIL)) {
-		return (!ID_IS_LINKED(ob) &&
-			!ID_IS_LINKED(ob->data) &&
-			(ob->defbase.first && (ob->mode == OB_MODE_GPENCIL_WEIGHT)));
+		if (!ID_IS_LINKED(ob) && !ID_IS_LINKED(ob->data) && ob->defbase.first) {
+			WorkSpace *workspace = CTX_wm_workspace(C);
+			if (workspace && 
+				(workspace->object_mode == OB_MODE_GPENCIL_WEIGHT))
+			{
+				return true;	
+			}
+		}
 	}
-	else {
-		return false;
-	}
+
+	return false;
 }
 
 static int gpencil_vertex_group_assign_exec(bContext *C, wmOperator *UNUSED(op))
