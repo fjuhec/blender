@@ -194,10 +194,11 @@ class VIEW3D_MT_editor_menus(Menu):
     @staticmethod
     def draw_menus(layout, context):
         obj = context.active_object
+        workspace = context.workspace
         mode_string = context.mode
         edit_object = context.edit_object
         gp_edit = context.active_object and \
-                  context.active_object.mode in {'GPENCIL_EDIT', 'GPENCIL_PAINT', 'GPENCIL_SCULPT', 'GPENCIL_WEIGHT'}
+                  workspace.object_mode in {'GPENCIL_EDIT', 'GPENCIL_PAINT', 'GPENCIL_SCULPT', 'GPENCIL_WEIGHT'}
 
         layout.menu("VIEW3D_MT_view")
 

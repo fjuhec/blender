@@ -66,8 +66,9 @@ def draw_vpaint_symmetry(layout, vpaint):
 
 # Most of these panels should not be visible in GP edit modes
 def is_not_gpencil_edit_mode(context):
+    workspace = context.workspace
     is_gpmode = context.active_object and \
-                context.active_object.mode in {'GPENCIL_EDIT', 'GPENCIL_PAINT', 'GPENCIL_SCULPT', 'GPENCIL_WEIGHT'}
+                workspace.object_mode in {'GPENCIL_EDIT', 'GPENCIL_PAINT', 'GPENCIL_SCULPT', 'GPENCIL_WEIGHT'}
     return not is_gpmode
 
 
@@ -2255,11 +2256,12 @@ class VIEW3D_PT_tools_grease_pencil_animation(Panel):
 
     @classmethod
     def poll(cls, context):
+        workspace = context.workspace
         if context.gpencil_data is None:
             return False
         elif context.space_data.type != 'VIEW_3D':
             return False
-        elif context.object.mode == 'OBJECT':
+        elif workspace.object_mode == 'OBJECT':
             return False
 
         return True
@@ -2463,9 +2465,10 @@ class VIEW3D_PT_tools_grease_pencil_appearance(Panel):
         if context.gpencil_data is None:
             return False
 
+        workspace = context.workspace
         if context.active_object:
             ob = context.active_object
-            return ob.mode in {'GPENCIL_PAINT', 'GPENCIL_SCULPT', 'GPENCIL_WEIGHT'}
+            return workspace.object_mode in {'GPENCIL_PAINT', 'GPENCIL_SCULPT', 'GPENCIL_WEIGHT'}
             
         return False
 
@@ -2474,15 +2477,16 @@ class VIEW3D_PT_tools_grease_pencil_appearance(Panel):
         layout = self.layout
         settings = context.tool_settings.gpencil_sculpt
         brush = settings.brush
+        workspace = context.workspace
 
         col = layout.column()
-        if context.active_object.mode == 'GPENCIL_PAINT':
+        if workspace.object_mode == 'GPENCIL_PAINT':
             drawingbrush = context.active_gpencil_brush
             col.prop(drawingbrush, "use_cursor", text="Show Brush")
             row = col.row(align=True)
             row.prop(drawingbrush, "cursor_color", text="Color")
 
-        if context.active_object.mode in ('GPENCIL_SCULPT', 'GPENCIL_WEIGHT'):
+        if workspace.object_mode in ('GPENCIL_SCULPT', 'GPENCIL_WEIGHT'):
             col.prop(brush, "use_cursor", text="Show Brush")
             row = col.row(align=True)
             row.prop(brush, "cursor_color_add", text="Add")
