@@ -1021,7 +1021,7 @@ static void GPENCIL_render_result_z(RenderResult *rr, const char *viewname,	GPEN
 		GPENCIL_render_update_vecs(vedata);
 
 		/* Convert ogl depth [0..1] to view Z [near..far] */
-		for (int i = 0; i < rr->rectx * rr->recty; ++i) {
+		for (int i = 0; i < rr->rectx * rr->recty; i++) {
 			if (rp->rect[i] == 1.0f) {
 				rp->rect[i] = 1e10f; /* Background */
 			}
@@ -1053,6 +1053,16 @@ static void GPENCIL_render_result_combined(RenderResult *rr, const char *viewnam
 static void GPENCIL_render_to_image(void *vedata, struct RenderEngine *engine, struct Depsgraph *depsgraph)
 {
 	const char *viewname = RE_GetActiveRenderView(engine->re);
+	
+	/* save previous render data */
+	RenderResult *rr_src = RE_engine_get_result(engine);
+	RenderLayer *rl_src = rr_src->layers.first;
+	RenderPass *rp_color_src = RE_pass_find_by_name(rl_src, RE_PASSNAME_COMBINED, viewname);
+	RenderPass *rp_depth_src = RE_pass_find_by_name(rl_src, RE_PASSNAME_Z, viewname);
+	float *rect_color_src = MEM_dupallocN(rp_color_src->rect);
+	float *rect_depth_src = MEM_dupallocN(rp_depth_src->rect);
+	int imgsize = rr_src->rectx * rr_src->recty;
+
 	const float *render_size = DRW_viewport_size_get();
 	RenderResult *rr = RE_engine_begin_result(engine, 0, 0, (int)render_size[0], (int)render_size[1], NULL, viewname);
 
@@ -1087,6 +1097,37 @@ static void GPENCIL_render_to_image(void *vedata, struct RenderEngine *engine, s
 	}
 
 	RE_engine_end_result(engine, rr, false, false, false);
+
+	/* merge previous render image with new GP image */ 
+	rl_src = rr_src->layers.first;
+	RenderPass *rp_color_gp = RE_pass_find_by_name(rl_src, RE_PASSNAME_COMBINED, viewname);
+	RenderPass *rp_depth_gp = RE_pass_find_by_name(rl_src, RE_PASSNAME_Z, viewname);
+	float *rect_color_gp = rp_color_gp->rect;
+	float *rect_depth_gp = rp_depth_gp->rect;
+
+	for (int i = 0; i < imgsize; i++) {
+		float *frgba = &rect_color_gp[i * 4];
+		float *srgba = &rect_color_src[i * 4];
+		float *gp_depth = &rect_depth_gp[i];
+		float *sdepth = &rect_depth_src[i];
+		/* check transparency */
+		if (frgba[3] > 0.0f) {
+			if (gp_depth[0] > sdepth[0]){
+				/* copy source color */
+				copy_v4_v4(frgba, srgba);
+				/* copy source z-depth */
+				gp_depth[0] = sdepth[0];
+			}
+		}
+		else {
+			/* transparent grease pencil, so copy source render data */
+			copy_v4_v4(frgba, srgba);
+		}
+	}
+
+	/* free memory */
+	MEM_SAFE_FREE(rect_color_src);
+	MEM_SAFE_FREE(rect_depth_src);
 }
 
 static const DrawEngineDataSize GPENCIL_data_size = DRW_VIEWPORT_DATA_SIZE(GPENCIL_Data);
