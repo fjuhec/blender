@@ -950,7 +950,7 @@ void GPENCIL_render_cache(
 }
 
 /* TODO: Reuse Eevee code in shared module instead to duplicate here */
-static void GPENCIL_update_viewvecs(float invproj[4][4], float winmat[4][4], float(*r_viewvecs)[4])
+static void GPENCIL_render_update_viewvecs(float invproj[4][4], float winmat[4][4], float(*r_viewvecs)[4])
 {
 	/* view vectors for the corners of the view frustum.
 	* Can be used to recreate the world space position easily */
@@ -991,7 +991,7 @@ static void GPENCIL_update_viewvecs(float invproj[4][4], float winmat[4][4], flo
 }
 
 /* Update view_vecs */
-static void GPENCIL_update_vecs(GPENCIL_Data *vedata)
+static void GPENCIL_render_update_vecs(GPENCIL_Data *vedata)
 {
 	GPENCIL_StorageList *stl = vedata->stl;
 
@@ -1000,7 +1000,7 @@ static void GPENCIL_update_vecs(GPENCIL_Data *vedata)
 	DRW_viewport_matrix_get(invproj, DRW_MAT_WININV);
 
 	/* this is separated to keep function equal to Eevee for future reuse of same code */
-	GPENCIL_update_viewvecs(invproj, winmat, stl->storage->view_vecs);
+	GPENCIL_render_update_viewvecs(invproj, winmat, stl->storage->view_vecs);
 }
 
 /* read z-depth render result */
@@ -1018,7 +1018,7 @@ static void GPENCIL_render_result_z(RenderResult *rr, const char *viewname,	GPEN
 
 		bool is_persp = DRW_viewport_is_persp_get();
 
-		GPENCIL_update_vecs(vedata);
+		GPENCIL_render_update_vecs(vedata);
 
 		/* Convert ogl depth [0..1] to view Z [near..far] */
 		for (int i = 0; i < rr->rectx * rr->recty; ++i) {
