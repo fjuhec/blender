@@ -1122,6 +1122,7 @@ static void GPENCIL_render_to_image(void *vedata, struct RenderEngine *engine, s
 		else {
 			/* transparent grease pencil, so copy source render data */
 			copy_v4_v4(frgba, srgba);
+			gp_depth[0] = sdepth[0];
 		}
 	}
 
