@@ -194,11 +194,11 @@ static GP_BrushEdit_Settings *gpsculpt_get_settings(Scene *scene)
 }
 
 /* Get the active brush */
-static GP_EditBrush_Data *gpsculpt_get_brush(Scene *scene, Object *ob)
+static GP_EditBrush_Data *gpsculpt_get_brush(Scene *scene, bool is_weight_mode)
 {
 	GP_BrushEdit_Settings *gset = &scene->toolsettings->gp_sculpt;
 	GP_EditBrush_Data *brush = NULL;
-	if ((ob) && (ob->mode == OB_MODE_GPENCIL_WEIGHT)) {
+	if (is_weight_mode) {
 		brush = &gset->brush[gset->weighttype];
 	}
 	else {
@@ -1136,6 +1136,9 @@ static bool gpsculpt_brush_init(bContext *C, wmOperator *op)
 	Scene *scene = CTX_data_scene(C);
 	ToolSettings *ts = CTX_data_tool_settings(C);
 	Object *ob = CTX_data_active_object(C);
+	
+	WorkSpace *workspace = CTX_wm_workspace(C);
+	const bool is_weight_mode = (workspace->object_mode == OB_MODE_GPENCIL_WEIGHT);
 
 	tGP_BrushEditData *gso;
 	
@@ -1145,9 +1148,9 @@ static bool gpsculpt_brush_init(bContext *C, wmOperator *op)
 	
 	/* store state */
 	gso->settings = gpsculpt_get_settings(scene);
-	gso->brush = gpsculpt_get_brush(scene, ob);
+	gso->brush = gpsculpt_get_brush(scene, is_weight_mode);
 	
-	if ((ob) && (ob->mode == OB_MODE_GPENCIL_WEIGHT)) {
+	if (is_weight_mode) {
 		gso->brush_type = gso->settings->weighttype;
 	}
 	else {

@@ -2489,6 +2489,7 @@ static int gpencil_draw_invoke(bContext *C, wmOperator *op, const wmEvent *event
 		Object *ob = CTX_data_active_object(C);
 		Scene *scene = CTX_data_scene(C);
 		WorkSpace *workspace = CTX_wm_workspace(C);
+		ViewLayer *view_layer = BKE_workspace_view_layer_get(workspace, scene);
 		if (ob && (ob->type == OB_GPENCIL) && ((p->gpd->flag & GP_DATA_STROKE_PAINTMODE) == 0)) {
 			/* Just set paintmode flag... */
 			p->gpd->flag |= GP_DATA_STROKE_PAINTMODE;
@@ -2496,9 +2497,10 @@ static int gpencil_draw_invoke(bContext *C, wmOperator *op, const wmEvent *event
 			p->gpd->flag &= ~GP_DATA_STROKE_EDITMODE;
 			p->gpd->flag &= ~GP_DATA_STROKE_SCULPTMODE;
 			p->gpd->flag &= ~GP_DATA_STROKE_WEIGHTMODE;
-			ob->mode = OB_MODE_GPENCIL_PAINT;
 			/* set workspace mode */
-			BKE_workspace_object_mode_set(workspace, scene, ob->mode);
+			workspace->object_mode_restore = workspace->object_mode;
+			workspace->object_mode = OB_MODE_GPENCIL_PAINT;
+			ED_object_base_activate(C, view_layer->basact); // XXX
 			/* redraw mode on screen */
 			WM_event_add_notifier(C, NC_SCENE | ND_MODE, NULL);
 		}

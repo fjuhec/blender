@@ -230,21 +230,23 @@ static int ed_undo_step(bContext *C, int step, const char *undoname)
 	if (sa && (sa->spacetype == SPACE_VIEW3D)) {
 		obact = CTX_data_active_object(C);
 		if (obact && (obact->type == OB_GPENCIL)) {
+			WorkSpace *workspace = CTX_wm_workspace(C);
 			/* set cursor */
-			if (obact->mode == OB_MODE_GPENCIL_PAINT) {
+			if (workspace->object_mode == OB_MODE_GPENCIL_PAINT) {
 				ED_gpencil_toggle_brush_cursor(C, true, NULL);
 			}
-			else if (obact->mode == OB_MODE_GPENCIL_SCULPT) {
+			else if (workspace->object_mode == OB_MODE_GPENCIL_SCULPT) {
 				ED_gpencil_toggle_brush_cursor(C, true, NULL);
 			}
-			else if (obact->mode == OB_MODE_GPENCIL_WEIGHT) {
+			else if (workspace->object_mode == OB_MODE_GPENCIL_WEIGHT) {
 				ED_gpencil_toggle_brush_cursor(C, true, NULL);
 			}
 			else {
 				ED_gpencil_toggle_brush_cursor(C, false, NULL);
 			}
 			/* set workspace mode */
-			BKE_workspace_object_mode_set(CTX_wm_workspace(C), scene, obact->mode);
+			//workspace->object_mode = workspace->object_mode;
+			ED_object_base_activate(C, view_layer->basact); // XXX
 		}
 	}
 

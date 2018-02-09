@@ -1176,20 +1176,22 @@ void GPENCIL_OT_select_lasso(wmOperatorType *ot)
 static int gpencil_select_exec(bContext *C, wmOperator *op)
 {
 	ScrArea *sa = CTX_wm_area(C);
+	bGPdata *gpd = ED_gpencil_data_get_active(C);
+	
+#if 0 // XXX: This is some weird hacked-on stuff... Needs careful review (Aligorith)
 	/* if not edit mode, can select other objects */
 	if ((sa) && (sa->spacetype == SPACE_VIEW3D)) {
-		Object *ob = CTX_data_active_object(C);
-		if ((ob) && (ob->mode != OB_MODE_GPENCIL_EDIT)) {
+		WorkSpace *workspace = CTX_wm_workspace(C);
+		if (workspace->object_mode != OB_MODE_GPENCIL_EDIT) {
 			return OPERATOR_PASS_THROUGH;
 		}
 	}
 
-	bGPdata *gpd = ED_gpencil_data_get_active(C);
 	/* if not edit mode, the event is catched but not processed */
 	if ((!gpd) || (gpd->flag & GP_DATA_STROKE_EDITMODE) == 0) {
 		return OPERATOR_CANCELLED;
 	}
-
+#endif
 	
 	/* "radius" is simply a threshold (screen space) to make it easier to test with a tolerance */
 	const float radius = 0.75f * U.widget_unit;

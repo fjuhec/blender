@@ -200,25 +200,30 @@ static eOLDrawState tree_element_set_active_object(
 	
 	/* set special grease pencil modes */
 	if (ob->type == OB_GPENCIL) {
+		WorkSpace *workspace = CTX_wm_workspace(C);
+		wmWindow *win = CTX_wm_window(C);
+		
 		/* set cursor */
-		if (ob->mode == OB_MODE_GPENCIL_PAINT) {
-			WM_cursor_modal_set(CTX_wm_window(C), BC_PAINTBRUSHCURSOR);
+		if (workspace->object_mode == OB_MODE_GPENCIL_PAINT) {
+			WM_cursor_modal_set(win, BC_PAINTBRUSHCURSOR);
 			ED_gpencil_toggle_brush_cursor(C, false, NULL);
 		}
-		else if (ob->mode == OB_MODE_GPENCIL_SCULPT) {
-			WM_cursor_modal_set(CTX_wm_window(C), BC_CROSSCURSOR);
+		else if (workspace->object_mode == OB_MODE_GPENCIL_SCULPT) {
+			WM_cursor_modal_set(win, BC_CROSSCURSOR);
 			ED_gpencil_toggle_brush_cursor(C, true, NULL);
 		}
-		else if (ob->mode == OB_MODE_GPENCIL_WEIGHT) {
-			WM_cursor_modal_set(CTX_wm_window(C), BC_CROSSCURSOR);
+		else if (workspace->object_mode == OB_MODE_GPENCIL_WEIGHT) {
+			WM_cursor_modal_set(win, BC_CROSSCURSOR);
 			ED_gpencil_toggle_brush_cursor(C, true, NULL);
 		}
 		else {
-			WM_cursor_modal_set(CTX_wm_window(C), CURSOR_STD);
+			WM_cursor_modal_set(win, CURSOR_STD);
 			ED_gpencil_toggle_brush_cursor(C, false, NULL);
 		}
 		/* set workspace mode */
-		BKE_workspace_object_mode_set(CTX_wm_workspace(C), scene, ob->mode);
+		workspace->object_mode_restore = workspace->object_mode;
+		workspace->object_mode = OB_MODE_GPENCIL_PAINT;
+		ED_object_base_activate(C, view_layer->basact); // XXX
 	}
 
 	if (ob != scene->obedit)

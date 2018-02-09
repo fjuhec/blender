@@ -1623,6 +1623,8 @@ static bool ed_object_select_pick(
 			/* Set special modes for grease pencil 
 			   The grease pencil modes are not real modes, but a hack to make the interface
 			   consistent, so need some tricks to keep UI synchronized */
+			// XXX: This stuff neeeds reviewing (Aligorith)
+#if 0
 			if (((oldbasact) && oldbasact->object->type == OB_GPENCIL) || (basact->object->type == OB_GPENCIL)) {
 				/* set cursor */
 				if (basact->object->mode == OB_MODE_GPENCIL_PAINT) {
@@ -1641,6 +1643,7 @@ static bool ed_object_select_pick(
 				/* set workspace mode */
 				BKE_workspace_object_mode_set(CTX_wm_workspace(C), scene, basact->object->mode);
 			}
+#endif
 		}
 
 		WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, scene);

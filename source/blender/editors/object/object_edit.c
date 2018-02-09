@@ -1593,42 +1593,43 @@ static int object_mode_set_exec(bContext *C, wmOperator *op)
 	eObjectMode restore_mode = workspace->object_mode;
 	const bool toggle = RNA_boolean_get(op->ptr, "toggle");
 
-	/* if type is OB_GPENCIL, select mode for grease pencil strokes */	
+	/* if type is OB_GPENCIL, select mode for grease pencil strokes */
+	// XXX: Review this behaviour... something seems sketchy here (Aligorith)	
 	if ((ob) && (ob->type == OB_GPENCIL)) {
 		if ((ob->data) && (ob->data == gpd)) {
 			if (ELEM(mode, OB_MODE_OBJECT, OB_MODE_EDIT, OB_MODE_POSE)) {
-				ob->restore_mode = OB_MODE_OBJECT;
-				if (ELEM(ob->mode, OB_MODE_OBJECT, OB_MODE_EDIT, OB_MODE_GPENCIL_EDIT)) {
+				workspace->object_mode_restore = OB_MODE_OBJECT;
+				if (ELEM(workspace->object_mode, OB_MODE_OBJECT, OB_MODE_EDIT, OB_MODE_GPENCIL_EDIT)) {
 					WM_operator_name_call(C, "GPENCIL_OT_editmode_toggle", WM_OP_EXEC_REGION_WIN, NULL);
 				}
-				if (ob->mode == OB_MODE_GPENCIL_PAINT) {
+				if (workspace->object_mode == OB_MODE_GPENCIL_PAINT) {
 					WM_operator_name_call(C, "GPENCIL_OT_paintmode_toggle", WM_OP_EXEC_REGION_WIN, NULL);
 				}
-				if (ob->mode == OB_MODE_GPENCIL_SCULPT) {
+				if (workspace->object_mode == OB_MODE_GPENCIL_SCULPT) {
 					WM_operator_name_call(C, "GPENCIL_OT_sculptmode_toggle", WM_OP_EXEC_REGION_WIN, NULL);
 				}
-				if (ob->mode == OB_MODE_GPENCIL_WEIGHT) {
+				if (workspace->object_mode == OB_MODE_GPENCIL_WEIGHT) {
 					WM_operator_name_call(C, "GPENCIL_OT_weightmode_toggle", WM_OP_EXEC_REGION_WIN, NULL);
 				}
 				return OPERATOR_FINISHED;
 			}
 			if (mode == OB_MODE_GPENCIL_EDIT) {
-				ob->restore_mode = ob->mode;
+				workspace->object_mode_restore = workspace->object_mode;
 				WM_operator_name_call(C, "GPENCIL_OT_editmode_toggle", WM_OP_EXEC_REGION_WIN, NULL);
 				return OPERATOR_FINISHED;
 			}
 			if (mode == OB_MODE_GPENCIL_PAINT) {
-				ob->restore_mode = ob->mode;
+				workspace->object_mode_restore = workspace->object_mode;
 				WM_operator_name_call(C, "GPENCIL_OT_paintmode_toggle", WM_OP_EXEC_REGION_WIN, NULL);
 				return OPERATOR_FINISHED;
 			}
 			if (mode == OB_MODE_GPENCIL_SCULPT) {
-				ob->restore_mode = ob->mode;
+				workspace->object_mode_restore = workspace->object_mode;
 				WM_operator_name_call(C, "GPENCIL_OT_sculptmode_toggle", WM_OP_EXEC_REGION_WIN, NULL);
 				return OPERATOR_FINISHED;
 			}
 			if (mode == OB_MODE_GPENCIL_WEIGHT) {
-				ob->restore_mode = ob->mode;
+				workspace->object_mode_restore = workspace->object_mode;
 				WM_operator_name_call(C, "GPENCIL_OT_weightmode_toggle", WM_OP_EXEC_REGION_WIN, NULL);
 				return OPERATOR_FINISHED;
 			}
