@@ -716,7 +716,7 @@ int ED_object_modifier_apply(ReportList *reports, const bContext *C, Scene *scen
 		return 0;
 	}
 	else if (ob->type == OB_GPENCIL) {
-		if (eval_ctx.object_mode != OB_MODE_OBJECT) {
+		if (workspace->object_mode != OB_MODE_OBJECT) {
 			BKE_report(reports, RPT_ERROR, "Modifiers cannot be applied in paint, sculpt or edit mode");
 			return 0;
 		}
