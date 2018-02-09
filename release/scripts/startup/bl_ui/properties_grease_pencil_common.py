@@ -314,7 +314,7 @@ class GreasePencilEraserPanel:
         if context.gpencil_data is None:
             return False
         workspace = context.workspace
-        return context.active_object and workspace.object_mode == 'GPENCIL_PAINT'
+        return context.active_object and workspace.active_object_mode == 'GPENCIL_PAINT'
 
     @staticmethod
     def draw(self, context):

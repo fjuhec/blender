@@ -68,7 +68,7 @@ def draw_vpaint_symmetry(layout, vpaint):
 def is_not_gpencil_edit_mode(context):
     workspace = context.workspace
     is_gpmode = context.active_object and \
-                workspace.object_mode in {'GPENCIL_EDIT', 'GPENCIL_PAINT', 'GPENCIL_SCULPT', 'GPENCIL_WEIGHT'}
+                workspace.active_object_mode in {'GPENCIL_EDIT', 'GPENCIL_PAINT', 'GPENCIL_SCULPT', 'GPENCIL_WEIGHT'}
     return not is_gpmode
 
 
