@@ -42,6 +42,7 @@
 #include "DNA_brush_types.h"
 #include "DNA_space_types.h"
 #include "DNA_gpencil_types.h"
+#include "DNA_workspace_types.h"
 
 #include "BLI_bitmap.h"
 #include "BLI_blenlib.h"
@@ -242,9 +243,7 @@ Paint *BKE_paint_get_active_from_context(const bContext *C)
 	SpaceImage *sima;
 
 	if (sce && view_layer) {
-		EvaluationContext eval_ctx;
-		CTX_data_eval_ctx(C, &eval_ctx);
-
+		const WorkSpace *workspace = CTX_wm_workspace(C);
 		ToolSettings *ts = sce->toolsettings;
 		Object *obact = NULL;
 
@@ -252,7 +251,7 @@ Paint *BKE_paint_get_active_from_context(const bContext *C)
 			obact = view_layer->basact->object;
 
 		if ((sima = CTX_wm_space_image(C)) != NULL) {
-			if (obact && eval_ctx.object_mode == OB_MODE_EDIT) {
+			if (obact && workspace->object_mode == OB_MODE_EDIT) {
 				if (sima->mode == SI_MODE_PAINT)
 					return &ts->imapaint.paint;
 				else if (ts->use_uv_sculpt)
@@ -263,7 +262,7 @@ Paint *BKE_paint_get_active_from_context(const bContext *C)
 			}
 		}
 		else if (obact) {
-			switch (eval_ctx.object_mode) {
+			switch (workspace->object_mode) {
 				case OB_MODE_SCULPT:
 					return &ts->sculpt->paint;
 				case OB_MODE_VERTEX_PAINT:
@@ -296,9 +295,7 @@ ePaintMode BKE_paintmode_get_active_from_context(const bContext *C)
 	SpaceImage *sima;
 
 	if (sce && view_layer) {
-		EvaluationContext eval_ctx;
-		CTX_data_eval_ctx(C, &eval_ctx);
-
+		const WorkSpace *workspace = CTX_wm_workspace(C);
 		ToolSettings *ts = sce->toolsettings;
 		Object *obact = NULL;
 
@@ -306,7 +303,7 @@ ePaintMode BKE_paintmode_get_active_from_context(const bContext *C)
 			obact = view_layer->basact->object;
 
 		if ((sima = CTX_wm_space_image(C)) != NULL) {
-			if (obact && eval_ctx.object_mode == OB_MODE_EDIT) {
+			if (obact && workspace->object_mode == OB_MODE_EDIT) {
 				if (sima->mode == SI_MODE_PAINT)
 					return ePaintTexture2D;
 				else if (ts->use_uv_sculpt)
@@ -317,7 +314,7 @@ ePaintMode BKE_paintmode_get_active_from_context(const bContext *C)
 			}
 		}
 		else if (obact) {
-			switch (eval_ctx.object_mode) {
+			switch (workspace->object_mode) {
 				case OB_MODE_SCULPT:
 					return ePaintSculpt;
 				case OB_MODE_VERTEX_PAINT:
@@ -699,24 +696,24 @@ PaletteColor *BKE_gpencil_palettecolor_getbyrgba(Palette *palette, float rgba[4]
 }
 
 /* are we in vertex paint or weight pain face select mode? */
-bool BKE_paint_select_face_test(const EvaluationContext *eval_ctx, Object *ob)
+bool BKE_paint_select_face_test(Object *ob, eObjectMode object_mode)
 {
 	return ( (ob != NULL) &&
 	         (ob->type == OB_MESH) &&
 	         (ob->data != NULL) &&
 	         (((Mesh *)ob->data)->editflag & ME_EDIT_PAINT_FACE_SEL) &&
-	         (eval_ctx->object_mode & (OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT | OB_MODE_TEXTURE_PAINT))
+	         (object_mode & (OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT | OB_MODE_TEXTURE_PAINT))
 	         );
 }
 
 /* are we in weight paint vertex select mode? */
-bool BKE_paint_select_vert_test(const EvaluationContext *eval_ctx, Object *ob)
+bool BKE_paint_select_vert_test(Object *ob, eObjectMode object_mode)
 {
 	return ( (ob != NULL) &&
 	         (ob->type == OB_MESH) &&
 	         (ob->data != NULL) &&
 	         (((Mesh *)ob->data)->editflag & ME_EDIT_PAINT_VERT_SEL) &&
-	         (eval_ctx->object_mode & OB_MODE_WEIGHT_PAINT || eval_ctx->object_mode & OB_MODE_VERTEX_PAINT)
+	         (object_mode & OB_MODE_WEIGHT_PAINT || object_mode & OB_MODE_VERTEX_PAINT)
 	         );
 }
 
@@ -724,10 +721,10 @@ bool BKE_paint_select_vert_test(const EvaluationContext *eval_ctx, Object *ob)
  * used to check if selection is possible
  * (when we don't care if its face or vert)
  */
-bool BKE_paint_select_elem_test(const EvaluationContext *eval_ctx, Object *ob)
+bool BKE_paint_select_elem_test(Object *ob, eObjectMode object_mode)
 {
-	return (BKE_paint_select_vert_test(eval_ctx, ob) ||
-	        BKE_paint_select_face_test(eval_ctx, ob));
+	return (BKE_paint_select_vert_test(ob, object_mode) ||
+	        BKE_paint_select_face_test(ob, object_mode));
 }
 
 void BKE_paint_cavity_curve_preset(Paint *p, int preset)
