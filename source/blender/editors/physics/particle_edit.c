@@ -43,6 +43,7 @@
 #include "DNA_view3d_types.h"
 #include "DNA_screen_types.h"
 #include "DNA_space_types.h"
+#include "DNA_workspace_types.h"
 
 #include "BLI_math.h"
 #include "BLI_lasso.h"
@@ -113,13 +114,12 @@ void update_world_cos(Object *ob, PTCacheEdit *edit);
 
 int PE_poll(bContext *C)
 {
-	EvaluationContext eval_ctx;
-	CTX_data_eval_ctx(C, &eval_ctx);
+	const WorkSpace *workspace = CTX_wm_workspace(C);
 	Scene *scene= CTX_data_scene(C);
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	Object *ob= CTX_data_active_object(C);
 
-	if (!scene || !view_layer || !ob || !(eval_ctx.object_mode & OB_MODE_PARTICLE_EDIT)) {
+	if (!scene || !view_layer || !ob || !(workspace->object_mode & OB_MODE_PARTICLE_EDIT)) {
 		return 0;
 	}
 	return (PE_get_current(scene, view_layer, ob) != NULL);
@@ -127,14 +127,13 @@ int PE_poll(bContext *C)
 
 int PE_hair_poll(bContext *C)
 {
-	EvaluationContext eval_ctx;
-	CTX_data_eval_ctx(C, &eval_ctx);
+	const WorkSpace *workspace = CTX_wm_workspace(C);
 	Scene *scene= CTX_data_scene(C);
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	Object *ob= CTX_data_active_object(C);
 	PTCacheEdit *edit;
 
-	if (!scene || !ob || !(eval_ctx.object_mode & OB_MODE_PARTICLE_EDIT)) {
+	if (!scene || !ob || !(workspace->object_mode & OB_MODE_PARTICLE_EDIT)) {
 		return 0;
 	}
 	edit= PE_get_current(scene, view_layer, ob);
@@ -4784,26 +4783,27 @@ static int particle_edit_toggle_poll(bContext *C)
 
 static int particle_edit_toggle_exec(bContext *C, wmOperator *op)
 {
+	struct WorkSpace *workspace = CTX_wm_workspace(C);
+	EvaluationContext eval_ctx;
+	CTX_data_eval_ctx(C, &eval_ctx);
 	Scene *scene = CTX_data_scene(C);
 	Object *ob = CTX_data_active_object(C);
 	const int mode_flag = OB_MODE_PARTICLE_EDIT;
-	const bool is_mode_set = (ob->mode & mode_flag) != 0;
+	const bool is_mode_set = (eval_ctx.object_mode & mode_flag) != 0;
 
 	BKE_report(op->reports, RPT_INFO, "Particles are changing, editing is not possible");
 	return OPERATOR_CANCELLED;
 
 	if (!is_mode_set) {
-		if (!ED_object_mode_compat_set(C, ob, mode_flag, op->reports)) {
+		if (!ED_object_mode_compat_set(C, workspace, mode_flag, op->reports)) {
 			return OPERATOR_CANCELLED;
 		}
 	}
 
 	if (!is_mode_set) {
 		PTCacheEdit *edit;
-		EvaluationContext eval_ctx;
-		CTX_data_eval_ctx(C, &eval_ctx);
 
-		ob->mode |= mode_flag;
+		workspace->object_mode |= mode_flag;
 		edit= PE_create_current(&eval_ctx, scene, ob);
 	
 		/* mesh may have changed since last entering editmode.
@@ -4815,7 +4815,7 @@ static int particle_edit_toggle_exec(bContext *C, wmOperator *op)
 		WM_event_add_notifier(C, NC_SCENE|ND_MODE|NS_MODE_PARTICLE, NULL);
 	}
 	else {
-		ob->mode &= ~mode_flag;
+		workspace->object_mode &= ~mode_flag;
 		toggle_particle_cursor(C, 0);
 		WM_event_add_notifier(C, NC_SCENE|ND_MODE|NS_MODE_OBJECT, NULL);
 	}

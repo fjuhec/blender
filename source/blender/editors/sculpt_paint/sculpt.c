@@ -4082,10 +4082,9 @@ static void sculpt_update_tex(const Scene *scene, Sculpt *sd, SculptSession *ss)
 
 int sculpt_mode_poll(bContext *C)
 {
-	EvaluationContext eval_ctx;
-	CTX_data_eval_ctx(C, &eval_ctx);
+	const WorkSpace *workspace = CTX_wm_workspace(C);
 	Object *ob = CTX_data_active_object(C);
-	return ob && eval_ctx.object_mode & OB_MODE_SCULPT;
+	return ob && workspace->object_mode & OB_MODE_SCULPT;
 }
 
 int sculpt_mode_poll_view3d(bContext *C)
@@ -4597,19 +4596,17 @@ static bool sculpt_any_smooth_mode(const Brush *brush,
 	         (brush->mask_tool == BRUSH_MASK_SMOOTH)));
 }
 
-static void sculpt_stroke_modifiers_check(const bContext *C, Object *ob)
+static void sculpt_stroke_modifiers_check(const bContext *C, Object *ob, const Brush *brush)
 {
 	SculptSession *ss = ob->sculpt;
 
 	if (ss->kb || ss->modifiers_active) {
 		EvaluationContext eval_ctx;
-		Sculpt *sd = CTX_data_tool_settings(C)->sculpt;
-		Brush *brush = BKE_paint_brush(&sd->paint);
-
 		CTX_data_eval_ctx(C, &eval_ctx);
-
-		BKE_sculpt_update_mesh_elements(&eval_ctx, CTX_data_scene(C), sd, ob,
-		                            sculpt_any_smooth_mode(brush, ss->cache, 0), false);
+		Scene *scene = CTX_data_scene(C);
+		Sculpt *sd = scene->toolsettings->sculpt;
+		bool need_pmap = sculpt_any_smooth_mode(brush, ss->cache, 0);
+		BKE_sculpt_update_mesh_elements(&eval_ctx, scene, sd, ob, need_pmap, false);
 	}
 }
 
@@ -4738,7 +4735,9 @@ bool sculpt_stroke_get_location(bContext *C, float out[3], const float mouse[2])
 	cache = ss->cache;
 	original = (cache) ? cache->original : 0;
 
-	sculpt_stroke_modifiers_check(C, ob);
+	const Brush *brush = BKE_paint_brush(BKE_paint_get_active_from_context(C));
+
+	sculpt_stroke_modifiers_check(C, ob, brush);
 
 	depth = sculpt_raycast_init(&vc, mouse, ray_start, ray_end, ray_normal, original);
 
@@ -4764,7 +4763,6 @@ bool sculpt_stroke_get_location(bContext *C, float out[3], const float mouse[2])
 	}
 
 	if (hit == false) {
-		const Brush *brush = BKE_paint_brush(BKE_paint_get_active_from_context(C));
 		if (ELEM(brush->falloff_shape, PAINT_FALLOFF_SHAPE_TUBE)) {
 			SculptFindNearestToRayData srd = {
 				.original = original,
@@ -4955,7 +4953,7 @@ static void sculpt_stroke_update_step(bContext *C, struct PaintStroke *UNUSED(st
 	SculptSession *ss = ob->sculpt;
 	const Brush *brush = BKE_paint_brush(&sd->paint);
 	
-	sculpt_stroke_modifiers_check(C, ob);
+	sculpt_stroke_modifiers_check(C, ob, brush);
 	sculpt_update_cache_variants(C, sd, ob, itemptr);
 	sculpt_restore_mesh(sd, ob);
 
@@ -5030,7 +5028,7 @@ static void sculpt_stroke_done(const bContext *C, struct PaintStroke *UNUSED(str
 		BLI_assert(brush == ss->cache->brush);  /* const, so we shouldn't change. */
 		ups->draw_inverted = false;
 
-		sculpt_stroke_modifiers_check(C, ob);
+		sculpt_stroke_modifiers_check(C, ob, brush);
 
 		/* Alt-Smooth */
 		if (ss->cache->alt_smooth) {
@@ -5221,7 +5219,7 @@ void sculpt_pbvh_clear(Object *ob)
 		BKE_pbvh_free(ss->pbvh);
 	ss->pbvh = NULL;
 	if (dm)
-		dm->getPBVH(NULL, dm);
+		dm->getPBVH(NULL, dm, OB_MODE_OBJECT);
 	BKE_object_free_derived_caches(ob);
 }
 
@@ -5601,31 +5599,29 @@ static void SCULPT_OT_symmetrize(wmOperatorType *ot)
 
 /**** Toggle operator for turning sculpt mode on or off ****/
 
-static void sculpt_init_session(const bContext *C, Scene *scene, Object *ob)
+static void sculpt_init_session(const EvaluationContext *eval_ctx, Scene *scene, Object *ob)
 {
-	EvaluationContext eval_ctx;
-	CTX_data_eval_ctx(C, &eval_ctx);
-
 	/* Create persistent sculpt mode data */
 	BKE_sculpt_toolsettings_data_ensure(scene);
 
 	ob->sculpt = MEM_callocN(sizeof(SculptSession), "sculpt session");
-	BKE_sculpt_update_mesh_elements(&eval_ctx, scene, scene->toolsettings->sculpt, ob, 0, false);
+	BKE_sculpt_update_mesh_elements(eval_ctx, scene, scene->toolsettings->sculpt, ob, 0, false);
 }
 
 
 static int sculpt_mode_toggle_exec(bContext *C, wmOperator *op)
 {
+	WorkSpace *workspace = CTX_wm_workspace(C);
 	Scene *scene = CTX_data_scene(C);
 	Object *ob = CTX_data_active_object(C);
 	const int mode_flag = OB_MODE_SCULPT;
-	const bool is_mode_set = (ob->mode & mode_flag) != 0;
+	const bool is_mode_set = (workspace->object_mode & mode_flag) != 0;
 	Mesh *me;
 	MultiresModifierData *mmd = BKE_sculpt_multires_active(scene, ob);
 	int flush_recalc = 0;
 
 	if (!is_mode_set) {
-		if (!ED_object_mode_compat_set(C, ob, mode_flag, op->reports)) {
+		if (!ED_object_mode_compat_set(C, workspace, mode_flag, op->reports)) {
 			return OPERATOR_CANCELLED;
 		}
 	}
@@ -5659,7 +5655,7 @@ static int sculpt_mode_toggle_exec(bContext *C, wmOperator *op)
 		}
 
 		/* Leave sculptmode */
-		ob->mode &= ~mode_flag;
+		workspace->object_mode &= ~mode_flag;
 
 		BKE_sculptsession_free(ob);
 
@@ -5667,16 +5663,19 @@ static int sculpt_mode_toggle_exec(bContext *C, wmOperator *op)
 	}
 	else {
 		/* Enter sculptmode */
-		ob->mode |= mode_flag;
+		workspace->object_mode |= mode_flag;
 
 		if (flush_recalc)
 			DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 
 		/* Create sculpt mode session data */
-		if (ob->sculpt)
+		if (ob->sculpt) {
 			BKE_sculptsession_free(ob);
+		}
 
-		sculpt_init_session(C, scene, ob);
+		EvaluationContext eval_ctx;
+		CTX_data_eval_ctx(C, &eval_ctx);
+		sculpt_init_session(&eval_ctx, scene, ob);
 
 		/* Mask layer is required */
 		if (mmd) {
@@ -5853,7 +5852,9 @@ static void sample_detail(bContext *C, int ss_co[2])
 	sd = CTX_data_tool_settings(C)->sculpt;
 	ob = vc.obact;
 
-	sculpt_stroke_modifiers_check(C, ob);
+	Brush *brush = BKE_paint_brush(&sd->paint);
+
+	sculpt_stroke_modifiers_check(C, ob, brush);
 
 	depth = sculpt_raycast_init(&vc, mouse, ray_start, ray_end, ray_normal, false);
 

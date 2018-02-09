@@ -715,9 +715,6 @@ static void recalcData_spaceclip(TransInfo *t)
 static void recalcData_objects(TransInfo *t)
 {
 	Base *base = t->view_layer->basact;
-	EvaluationContext eval_ctx;
-
-	CTX_data_eval_ctx(t->context, &eval_ctx);
 
 	if (t->obedit) {
 		if (ELEM(t->obedit->type, OB_CURVE, OB_SURF)) {
@@ -902,9 +899,9 @@ static void recalcData_objects(TransInfo *t)
 			BIK_clear_data(ob->pose);
 		}
 		else
-			BKE_pose_where_is(&eval_ctx, t->scene, ob);
+			BKE_pose_where_is(&t->eval_ctx, t->scene, ob);
 	}
-	else if (base && (eval_ctx.object_mode & OB_MODE_PARTICLE_EDIT) &&
+	else if (base && (t->eval_ctx.object_mode & OB_MODE_PARTICLE_EDIT) &&
 	         PE_get_current(t->scene, t->view_layer, base->object))
 	{
 		if (t->state != TRANS_CANCEL) {
@@ -1117,8 +1114,7 @@ static int initTransInfo_edit_pet_to_flag(const int proportional)
  */
 void initTransInfo(bContext *C, TransInfo *t, wmOperator *op, const wmEvent *event)
 {
-	EvaluationContext eval_ctx;
-	CTX_data_eval_ctx(C, &eval_ctx);
+	CTX_data_eval_ctx(C, &t->eval_ctx);
 	Depsgraph *depsgraph = CTX_data_depsgraph(C);
 	Scene *sce = CTX_data_scene(C);
 	ViewLayer *view_layer = CTX_data_view_layer(C);
@@ -1270,7 +1266,7 @@ void initTransInfo(bContext *C, TransInfo *t, wmOperator *op, const wmEvent *eve
 			}
 		}
 
-		if (ob && eval_ctx.object_mode & OB_MODE_ALL_PAINT) {
+		if (ob && t->eval_ctx.object_mode & OB_MODE_ALL_PAINT) {
 			Paint *p = BKE_paint_get_active_from_context(C);
 			if (p && p->brush && (p->brush->flag & BRUSH_CURVE)) {
 				t->options |= CTX_PAINT_CURVE;

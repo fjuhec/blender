@@ -153,11 +153,6 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         layout.row().prop(md, "offset_type", expand=True)
 
     def BOOLEAN(self, layout, ob, md):
-        solver = md.solver
-        if not bpy.app.build_options.mod_boolean:
-            if solver == 'CARVE':
-                layout.label("Built without Carve solver")
-
         split = layout.split()
 
         col = split.column()
@@ -168,15 +163,10 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         col.label(text="Object:")
         col.prop(md, "object", text="")
 
-        split = layout.split()
-        split.column().label(text="Solver:")
-        split.column().prop(md, "solver", text="")
+        layout.prop(md, "double_threshold")
 
-        if solver == 'BMESH':
-            layout.prop(md, "double_threshold")
-
-            if bpy.app.debug:
-                layout.prop(md, "debug_options")
+        if bpy.app.debug:
+            layout.prop(md, "debug_options")
 
 
     def BUILD(self, layout, ob, md):
@@ -414,6 +404,8 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         layout.label(text="Settings are inside the Physics tab")
 
     def HOOK(self, layout, ob, md):
+        from bpy import context
+        workspace = context.workspace
         use_falloff = (md.falloff_type != 'NONE')
         split = layout.split()
 
@@ -445,7 +437,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         col = split.column()
         col.prop(md, "use_falloff_uniform")
 
-        if ob.mode == 'EDIT':
+        if workspace.object_mode == 'EDIT':
             row = col.row(align=True)
             row.operator("object.hook_reset", text="Reset")
             row.operator("object.hook_recenter", text="Recenter")
@@ -601,6 +593,9 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         col.prop(md, "mirror_object", text="")
 
     def MULTIRES(self, layout, ob, md):
+        from bpy import context
+        workspace = context.workspace
+
         layout.row().prop(md, "subdivision_type", expand=True)
 
         split = layout.split()
@@ -611,7 +606,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
 
         col = split.column()
 
-        col.enabled = ob.mode != 'EDIT'
+        col.enabled = workspace.object_mode != 'EDIT'
         col.operator("object.multires_subdivide", text="Subdivide")
         col.operator("object.multires_higher_levels_delete", text="Delete Higher")
         col.operator("object.multires_reshape", text="Reshape")

@@ -1002,9 +1002,6 @@ static short pose_grab_with_ik(Object *ob)
 		return 0;
 
 	arm = ob->data;
-	if ((arm->flag & ARM_POSEMODE) == 0) {
-		return 0;
-	}
 
 	/* Rule: allow multiple Bones (but they must be selected, and only one ik-solver per chain should get added) */
 	for (pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
@@ -8231,13 +8228,11 @@ void createTransData(bContext *C, TransInfo *t)
 		 * lines below just check is also visible */
 		Object *ob_armature = modifiers_isDeformedByArmature(ob);
 		if (ob_armature) {
-			const bArmature *arm = ob_armature->data;
-			if (arm->flag & ARM_POSEMODE) {
-				Base *base_arm = BKE_view_layer_base_find(t->view_layer, ob_armature);
-				if (base_arm) {
-					if (BASE_VISIBLE(base_arm)) {
-						createTransPose(t, ob_armature);
-					}
+//			const bArmature *arm = ob_armature->data;
+			Base *base_arm = BKE_view_layer_base_find(t->view_layer, ob_armature);
+			if (base_arm) {
+				if (BASE_VISIBLE(base_arm)) {
+					createTransPose(t, ob_armature);
 				}
 			}
 		}

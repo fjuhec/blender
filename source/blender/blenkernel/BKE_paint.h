@@ -93,8 +93,10 @@ typedef enum eOverlayControlFlags {
 						     PAINT_OVERLAY_OVERRIDE_PRIMARY | \
 						     PAINT_OVERLAY_OVERRIDE_CURSOR)
 
-void BKE_paint_invalidate_overlay_tex(struct Scene *scene, struct ViewLayer *view_layer, const struct Tex *tex);
-void BKE_paint_invalidate_cursor_overlay(struct Scene *scene, struct ViewLayer *view_layer, struct CurveMapping *curve);
+void BKE_paint_invalidate_overlay_tex(
+        struct Scene *scene, struct ViewLayer *view_layer, const struct Tex *tex, eObjectMode object_mode);
+void BKE_paint_invalidate_cursor_overlay(
+        struct Scene *scene, struct ViewLayer *view_layer, struct CurveMapping *curve, eObjectMode object_mode);
 void BKE_paint_invalidate_overlay_all(void);
 eOverlayControlFlags BKE_paint_get_overlay_flags(void);
 void BKE_paint_reset_overlay_invalid(eOverlayControlFlags flag);
@@ -145,12 +147,9 @@ bool BKE_paint_proj_mesh_data_check(struct Scene *scene, struct Object *ob, bool
 /* testing face select mode
  * Texture paint could be removed since selected faces are not used
  * however hiding faces is useful */
-bool BKE_paint_select_face_test(
-        const struct EvaluationContext *eval_ctx, struct Object *ob);
-bool BKE_paint_select_vert_test(
-        const struct EvaluationContext *eval_ctx, struct Object *ob);
-bool BKE_paint_select_elem_test(
-        const struct EvaluationContext *eval_ctx, struct Object *ob);
+bool BKE_paint_select_face_test(struct Object *ob, eObjectMode object_mode);
+bool BKE_paint_select_vert_test(struct Object *ob, eObjectMode object_mode);
+bool BKE_paint_select_elem_test(struct Object *ob, eObjectMode object_mode);
 
 /* partial visibility */
 bool paint_is_face_hidden(const struct MLoopTri *lt, const struct MVert *mvert, const struct MLoop *mloop);
