@@ -235,6 +235,8 @@ struct GPUFrameBuffer *DRW_framebuffer_create(void);
 void DRW_framebuffer_init(
         struct GPUFrameBuffer **fb, void *engine_type, int width, int height,
         DRWFboTexture textures[MAX_FBO_TEX], int textures_len);
+void DRW_framebuffer_create_multisample(struct DefaultFramebufferList *dfbl, 
+		struct DefaultTextureList *dtx, int rect_w, int rect_h);
 void DRW_framebuffer_bind(struct GPUFrameBuffer *fb);
 void DRW_framebuffer_clear(bool color, bool depth, bool stencil, float clear_col[4], float clear_depth);
 void DRW_framebuffer_read_data(int x, int y, int w, int h, int channels, int slot, float *data);

@@ -896,6 +896,13 @@ void GPENCIL_render_init(GPENCIL_Data *ved, RenderEngine *engine, struct Depsgra
 	* because there is no viewport. So we need to manually create one 
 	* NOTE : use 32 bit format for precision in render mode. 
 	*/
+	DefaultFramebufferList *dfbl = DRW_viewport_framebuffer_list_get();
+	DefaultTextureList *dtxl = DRW_viewport_texture_list_get();
+
+	int rect_w = (int)viewport_size[0];
+	int rect_h = (int)viewport_size[1];
+	DRW_framebuffer_create_multisample(dfbl, dtxl, rect_w, rect_h);
+
 	DRWFboTexture tex_color[2] = {
 		{ &e_data.render_depth_tx, DRW_TEX_DEPTH_24_STENCIL_8, DRW_TEX_TEMP },
 		{ &e_data.render_color_tx, DRW_TEX_RGBA_32, DRW_TEX_TEMP }
