@@ -3640,6 +3640,20 @@ void DRW_draw_render_loop_offscreen(
 	GPU_offscreen_bind(ofs, false);
 }
 
+/* helper to check if exit object type to render */
+static bool DRW_render_check_object_type(struct Depsgraph *depsgraph, short obtype)
+{
+	DEG_OBJECT_ITER_FOR_RENDER_ENGINE(depsgraph, ob, DRW_iterator_mode_get())
+	{
+		if ((ob->type == obtype) && (DRW_check_object_visible_within_active_context(ob))) {
+			return true;
+		}
+	}
+	DEG_OBJECT_ITER_FOR_RENDER_ENGINE_END
+
+	return false;
+}
+
 void DRW_render_to_image(RenderEngine *re, struct Depsgraph *depsgraph)
 {
 	Scene *scene = DEG_get_evaluated_scene(depsgraph);
@@ -3687,10 +3701,11 @@ void DRW_render_to_image(RenderEngine *re, struct Depsgraph *depsgraph)
 		engine_type->draw_engine->render_to_image(data, re, depsgraph);
 	}
 
-	/* TODO grease pencil */
-	/* enabled only in debug mode */
-	if (G.debug_value >= 663) {
-		if (draw_engine_gpencil_type.render_to_image) {
+	/* grease pencil 
+	 * the grease pencil render result is merged in the previous render result.
+	 */
+	if (draw_engine_gpencil_type.render_to_image) {
+		if (DRW_render_check_object_type(depsgraph, OB_GPENCIL)) {
 			ViewportEngineData *gpdata = DRW_viewport_engine_data_ensure(&draw_engine_gpencil_type);
 			draw_engine_gpencil_type.render_to_image(gpdata, re, depsgraph);
 		}
