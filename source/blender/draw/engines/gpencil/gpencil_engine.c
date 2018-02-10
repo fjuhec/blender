@@ -1059,8 +1059,13 @@ static void GPENCIL_render_to_image(void *vedata, struct RenderEngine *engine, s
 	RenderLayer *rl_src = rr_src->layers.first;
 	RenderPass *rp_color_src = RE_pass_find_by_name(rl_src, RE_PASSNAME_COMBINED, viewname);
 	RenderPass *rp_depth_src = RE_pass_find_by_name(rl_src, RE_PASSNAME_Z, viewname);
-	float *rect_color_src = MEM_dupallocN(rp_color_src->rect);
-	float *rect_depth_src = MEM_dupallocN(rp_depth_src->rect);
+	float *rect_color_src = NULL;
+	float *rect_depth_src = NULL;
+	if ((rp_color_src) && (rp_depth_src) && (rp_color_src->rect) && (rp_depth_src->rect)) {
+		rect_color_src = MEM_dupallocN(rp_color_src->rect);
+		rect_depth_src = MEM_dupallocN(rp_depth_src->rect);
+	}
+
 	int imgsize = rr_src->rectx * rr_src->recty;
 
 	const float *render_size = DRW_viewport_size_get();
@@ -1099,45 +1104,47 @@ static void GPENCIL_render_to_image(void *vedata, struct RenderEngine *engine, s
 	RE_engine_end_result(engine, rr, false, false, false);
 
 	/* merge previous render image with new GP image */ 
-	rl_src = rr_src->layers.first;
-	RenderPass *rp_color_gp = RE_pass_find_by_name(rl_src, RE_PASSNAME_COMBINED, viewname);
-	RenderPass *rp_depth_gp = RE_pass_find_by_name(rl_src, RE_PASSNAME_Z, viewname);
-	float *rect_color_gp = rp_color_gp->rect;
-	float *rect_depth_gp = rp_depth_gp->rect;
+	if (rect_color_src) {
+		rl_src = rr_src->layers.first;
+		RenderPass *rp_color_gp = RE_pass_find_by_name(rl_src, RE_PASSNAME_COMBINED, viewname);
+		RenderPass *rp_depth_gp = RE_pass_find_by_name(rl_src, RE_PASSNAME_Z, viewname);
+		float *rect_color_gp = rp_color_gp->rect;
+		float *rect_depth_gp = rp_depth_gp->rect;
 
-	for (int i = 0; i < imgsize; i++) {
-		float *gp_rgba = &rect_color_gp[i * 4];
-		float *gp_depth = &rect_depth_gp[i];
-		float *src_rgba = &rect_color_src[i * 4];
-		float *src_depth = &rect_depth_src[i];
-		/* check transparency */
-		if (gp_rgba[3] > 0.0f) {
-			/* grease pencil is on back of source render */
-			if (gp_depth[0] >= src_depth[0]) {
-				/* interpolate source color on top of grease pencil */
-				interp_v3_v3v3(gp_rgba, gp_rgba, src_rgba, src_rgba[3]);
-				/* copy source z-depth */
-				gp_depth[0] = src_depth[0];
-			}
-			else {
-				if (src_rgba[3] > 0.0f) {
-					float tmp[4];
-					copy_v4_v4(tmp, gp_rgba);
-					copy_v4_v4(gp_rgba, src_rgba);
-					/* interpolate background with grease pencil */
-					interp_v3_v3v3(gp_rgba, gp_rgba, tmp, tmp[3]);
+		for (int i = 0; i < imgsize; i++) {
+			float *gp_rgba = &rect_color_gp[i * 4];
+			float *gp_depth = &rect_depth_gp[i];
+			float *src_rgba = &rect_color_src[i * 4];
+			float *src_depth = &rect_depth_src[i];
+			/* check transparency */
+			if (gp_rgba[3] > 0.0f) {
+				/* grease pencil is on back of source render */
+				if (gp_depth[0] >= src_depth[0]) {
+					/* interpolate source color on top of grease pencil */
+					interp_v3_v3v3(gp_rgba, gp_rgba, src_rgba, src_rgba[3]);
+					/* copy source z-depth */
+					gp_depth[0] = src_depth[0];
+				}
+				else {
+					if (src_rgba[3] > 0.0f) {
+						float tmp[4];
+						copy_v4_v4(tmp, gp_rgba);
+						copy_v4_v4(gp_rgba, src_rgba);
+						/* interpolate background with grease pencil */
+						interp_v3_v3v3(gp_rgba, gp_rgba, tmp, tmp[3]);
+					}
 				}
 			}
+			else {
+				copy_v4_v4(gp_rgba, src_rgba);
+				gp_depth[0] = src_depth[0];
+			}
 		}
-		else {
-			copy_v4_v4(gp_rgba, src_rgba);
-			gp_depth[0] = src_depth[0];
-		}
-	}
 
-	/* free memory */
-	MEM_SAFE_FREE(rect_color_src);
-	MEM_SAFE_FREE(rect_depth_src);
+		/* free memory */
+		MEM_SAFE_FREE(rect_color_src);
+		MEM_SAFE_FREE(rect_depth_src);
+	}
 }
 
 static const DrawEngineDataSize GPENCIL_data_size = DRW_VIEWPORT_DATA_SIZE(GPENCIL_Data);
