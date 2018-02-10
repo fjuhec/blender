@@ -1113,15 +1113,21 @@ static void GPENCIL_render_to_image(void *vedata, struct RenderEngine *engine, s
 		/* check transparency */
 		if (gp_rgba[3] > 0.0f) {
 			/* grease pencil is on back of source render */
-			if (gp_depth[0] >= src_depth[0]){
-				/* copy source color */
-				copy_v4_v4(gp_rgba, src_rgba);
+			if (gp_depth[0] >= src_depth[0]) {
+				/* interpolate source color on top of grease pencil */
+				interp_v3_v3v3(gp_rgba, gp_rgba, src_rgba, src_rgba[3]);
 				/* copy source z-depth */
 				gp_depth[0] = src_depth[0];
 			}
+			else {
+				float tmp[4];
+				copy_v4_v4(tmp, gp_rgba);
+				copy_v4_v4(gp_rgba, src_rgba);
+				/* interpolate background with grease pencil */
+				interp_v3_v3v3(gp_rgba, gp_rgba, tmp, tmp[3]);
+			}
 		}
 		else {
-			/* transparent grease pencil, so copy source render data */
 			copy_v4_v4(gp_rgba, src_rgba);
 			gp_depth[0] = src_depth[0];
 		}
