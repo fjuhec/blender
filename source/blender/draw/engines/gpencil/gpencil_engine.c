@@ -296,10 +296,9 @@ static void GPENCIL_cache_init(void *vedata)
 		stl->storage->is_render = DRW_state_is_image_render();
 
 		/* save pixsize */
-		if (!stl->storage->is_render) {
-			stl->storage->pixsize = DRW_viewport_pixelsize_get();
-		}
-		else {
+		stl->storage->pixsize = DRW_viewport_pixelsize_get();
+		/* TODO: Remove OpenGL render check if this operator is replaced by new system */
+		if (((G.f & G_RENDER_OGL) == 0) && (stl->storage->is_render)) {
 			stl->storage->pixsize = &stl->storage->render_pixsize;
 		}
 
