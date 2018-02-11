@@ -180,7 +180,7 @@ typedef struct tGPsdata {
 	bGPDbrush *brush;    /* current drawing brush */
 	short straight[2];   /* 1: line horizontal, 2: line vertical, other: not defined, second element position */
 	int lock_axis;       /* lock drawing to one axis */
-	bool no_fill;        /* the stroke is no fill mode */
+	bool disable_fill;   /* the stroke is no fill mode */
 
 	short keymodifier;   /* key used for invoking the operator */
 	short shift;         /* shift modifier flag */
@@ -1431,7 +1431,7 @@ static bool gp_session_initdata(bContext *C, wmOperator *op, tGPsdata *p)
 	p->scene = CTX_data_scene(C);
 	p->graph = CTX_data_depsgraph(C);
 	p->win = CTX_wm_window(C);
-	p->no_fill = RNA_boolean_get(op->ptr, "no_fill");
+	p->disable_fill = RNA_boolean_get(op->ptr, "disable_fill");
 	
 	unit_m4(p->imat);
 	unit_m4(p->mat);
@@ -1795,7 +1795,7 @@ static void gp_paint_initstroke(tGPsdata *p, eGPencil_PaintModes paintmode, cons
 	}
 
 	/* set special fill stroke mode */
-	if (p->no_fill == true) {
+	if (p->disable_fill == true) {
 		p->gpd->sbuffer_sflag |= GP_STROKE_NOFILL;
 		/* replace stroke color with fill color */
 		copy_v4_v4(p->gpd->scolor, p->gpd->sfill);
@@ -2238,7 +2238,7 @@ static void gpencil_draw_apply_event(bContext *C, wmOperator *op, const wmEvent 
 	p->shift = event->shift;
 
 	/* verify key status for straight lines */
-	if ((event->ctrl > 0) && (RNA_boolean_get(op->ptr, "no_straight") == false)) {
+	if ((event->ctrl > 0) && (RNA_boolean_get(op->ptr, "disable_straight") == false)) {
 		if (p->straight[0] == 0) {
 			int dx = abs(p->mval[0] - p->mvalo[0]);
 			int dy = abs(p->mval[1] - p->mvalo[1]);
@@ -2964,9 +2964,9 @@ void GPENCIL_OT_draw(wmOperatorType *ot)
 	prop = RNA_def_boolean(ot->srna, "wait_for_input", true, "Wait for Input", "Wait for first click instead of painting immediately");
 	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 
-	prop = RNA_def_boolean(ot->srna, "no_straight", false, "No Straight lines", "Disable Ctrl key for straight lines");
+	prop = RNA_def_boolean(ot->srna, "disable_straight", false, "No Straight lines", "Disable key for straight lines");
 	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 
-	prop = RNA_def_boolean(ot->srna, "no_fill", false, "No Fill Areas", "Disable fill to use stroke as fill boundary");
+	prop = RNA_def_boolean(ot->srna, "disable_fill", false, "No Fill Areas", "Disable fill to use stroke as fill boundary");
 	RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 }
