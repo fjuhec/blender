@@ -68,7 +68,7 @@ def draw_vpaint_symmetry(layout, vpaint):
 def is_not_gpencil_edit_mode(context):
     workspace = context.workspace
     is_gpmode = context.active_object and \
-                workspace.active_object_mode in {'GPENCIL_EDIT', 'GPENCIL_PAINT', 'GPENCIL_SCULPT', 'GPENCIL_WEIGHT'}
+                workspace.object_mode in {'GPENCIL_EDIT', 'GPENCIL_PAINT', 'GPENCIL_SCULPT', 'GPENCIL_WEIGHT'}
     return not is_gpmode
 
 
@@ -2455,8 +2455,8 @@ class VIEW3D_PT_tools_grease_pencil_falloff(Panel):
 # Grease Pencil drawing brushes
 class VIEW3D_PT_tools_grease_pencil_appearance(Panel):
     bl_space_type = 'VIEW_3D'
-    bl_label = "Brush Appearance"
-    bl_category = "Tools"
+    bl_label = "Appearance"
+    bl_category = "Options"
     bl_region_type = 'TOOLS'
     bl_options = {'DEFAULT_CLOSED'}
 
