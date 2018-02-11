@@ -564,7 +564,7 @@ static void ed_keymap_gpencil_painting(wmKeyConfig *keyconf)
 	WM_keymap_add_menu(keymap, "GPENCIL_MT_gpencil_draw_specials", XKEY, KM_PRESS, 0, 0);
 
 	/* color picker */
-	WM_keymap_add_item(keymap, "GPENCIL_OT_colorpick", F6KEY, KM_PRESS, 0, 0);
+	WM_keymap_add_item(keymap, "GPENCIL_OT_colorpick", PKEY, KM_PRESS, 0, 0);
 }
 
 /* Stroke Sculpting Keymap - Only when sculptmode is enabled */
