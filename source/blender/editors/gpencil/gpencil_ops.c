@@ -472,6 +472,14 @@ static void ed_keymap_gpencil_painting_draw(wmKeyConfig *keyconf)
 	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_draw", TABLET_ERASER, KM_PRESS, 0, 0);
 	RNA_enum_set(kmi->ptr, "mode", GP_PAINTMODE_ERASER);
 	RNA_boolean_set(kmi->ptr, "wait_for_input", false);
+
+	/* Selection (used by eraser) */
+	/* border select */
+	WM_keymap_add_item(keymap, "GPENCIL_OT_select_border", BKEY, KM_PRESS, 0, 0);
+
+	/* lasso select */
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_select_lasso", EVT_TWEAK_A, KM_ANY, KM_CTRL | KM_SHIFT, 0);
+	RNA_boolean_set(kmi->ptr, "deselect", false);
 }
 
 /* keys for draw with a fill brush */
