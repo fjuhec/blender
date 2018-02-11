@@ -69,12 +69,12 @@ static void ed_keymap_gpencil_general(wmKeyConfig *keyconf)
 	RNA_boolean_set(kmi->ptr, "wait_for_input", false);
 	
 	/* draw - straight lines */
-	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_draw", LEFTMOUSE, KM_PRESS, KM_CTRL, DKEY);
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_draw", LEFTMOUSE, KM_PRESS, KM_ALT, DKEY);
 	RNA_enum_set(kmi->ptr, "mode", GP_PAINTMODE_DRAW_STRAIGHT);
 	RNA_boolean_set(kmi->ptr, "wait_for_input", false);
 	
 	/* draw - poly lines */
-	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_draw", RIGHTMOUSE, KM_PRESS, KM_CTRL, DKEY);
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_draw", RIGHTMOUSE, KM_PRESS, KM_SHIFT | KM_ALT, DKEY);
 	RNA_enum_set(kmi->ptr, "mode", GP_PAINTMODE_DRAW_POLY);
 	RNA_boolean_set(kmi->ptr, "wait_for_input", false);
 	/* Viewport Tools ------------------------------- */
@@ -445,17 +445,17 @@ static void ed_keymap_gpencil_painting_draw(wmKeyConfig *keyconf)
 	RNA_boolean_set(kmi->ptr, "wait_for_input", false);
 
 	/* draw - straight lines */
-	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_draw", LEFTMOUSE, KM_PRESS, KM_CTRL, 0);
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_draw", LEFTMOUSE, KM_PRESS, KM_ALT, 0);
 	RNA_enum_set(kmi->ptr, "mode", GP_PAINTMODE_DRAW_STRAIGHT);
 	RNA_boolean_set(kmi->ptr, "wait_for_input", false);
 
 	/* draw - poly lines */
-	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_draw", LEFTMOUSE, KM_PRESS, KM_SHIFT | KM_CTRL, 0);
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_draw", LEFTMOUSE, KM_PRESS, KM_SHIFT | KM_ALT, 0);
 	RNA_enum_set(kmi->ptr, "mode", GP_PAINTMODE_DRAW_POLY);
 	RNA_boolean_set(kmi->ptr, "wait_for_input", false);
 
 	/* erase */
-	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_draw", LEFTMOUSE, KM_PRESS, KM_ALT, 0);
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_draw", LEFTMOUSE, KM_PRESS, KM_CTRL, 0);
 	RNA_enum_set(kmi->ptr, "mode", GP_PAINTMODE_ERASER);
 	RNA_boolean_set(kmi->ptr, "wait_for_input", false);
 

@@ -2238,7 +2238,7 @@ static void gpencil_draw_apply_event(bContext *C, wmOperator *op, const wmEvent 
 	p->shift = event->shift;
 
 	/* verify key status for straight lines */
-	if ((event->ctrl > 0) && (RNA_boolean_get(op->ptr, "disable_straight") == false)) {
+	if ((event->alt > 0) && (RNA_boolean_get(op->ptr, "disable_straight") == false)) {
 		if (p->straight[0] == 0) {
 			int dx = abs(p->mval[0] - p->mvalo[0]);
 			int dy = abs(p->mval[1] - p->mvalo[1]);
@@ -2295,7 +2295,7 @@ static void gpencil_draw_apply_event(bContext *C, wmOperator *op, const wmEvent 
 		else {
 			p->flags &= ~GP_PAINTFLAG_HARD_ERASER;
 		}
-		if (event->ctrl > 0) {
+		if (event->alt > 0) {
 			p->flags |= GP_PAINTFLAG_STROKE_ERASER;
 		}
 		else {
