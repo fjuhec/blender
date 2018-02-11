@@ -2500,7 +2500,6 @@ static int gpencil_draw_invoke(bContext *C, wmOperator *op, const wmEvent *event
 			/* set workspace mode */
 			workspace->object_mode_restore = workspace->object_mode;
 			workspace->object_mode = OB_MODE_GPENCIL_PAINT;
-			ED_object_base_activate(C, view_layer->basact); // XXX
 			/* redraw mode on screen */
 			WM_event_add_notifier(C, NC_SCENE | ND_MODE, NULL);
 		}
