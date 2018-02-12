@@ -143,10 +143,6 @@ static int gpencil_editmode_toggle_exec(bContext *C, wmOperator *op)
 		workspace->object_mode = mode;
 	}
 
-	/* set workspace mode */
-	// XXX: was BKE_workspace_object_mode_set()
-	ViewLayer *view_layer = BKE_workspace_view_layer_get(workspace, scene);
-	//ED_object_base_activate(C, view_layer->basact);
 	/* setup other modes */
 	ED_gpencil_setup_modes(C, gpd, mode);
 	/* set cache as dirty */
@@ -226,10 +222,6 @@ static int gpencil_paintmode_toggle_exec(bContext *C, wmOperator *op)
 		workspace->object_mode = mode;
 	}
 
-	/* set workspace mode */
-	// XXX: was BKE_workspace_object_mode_set()
-	ViewLayer *view_layer = BKE_workspace_view_layer_get(workspace, scene);
-	//ED_object_base_activate(C, view_layer->basact);
 	/* setup other modes */
 	ED_gpencil_setup_modes(C, gpd, mode);
 	/* set cache as dirty */
@@ -308,10 +300,6 @@ static int gpencil_sculptmode_toggle_exec(bContext *C, wmOperator *op)
 		workspace->object_mode = mode;
 	}
 
-	/* set workspace mode */
-	// XXX: was BKE_workspace_object_mode_set()
-	ViewLayer *view_layer = BKE_workspace_view_layer_get(workspace, scene);
-	//ED_object_base_activate(C, view_layer->basact);
 	/* setup other modes */
 	ED_gpencil_setup_modes(C, gpd, mode);
 	/* set cache as dirty */
@@ -390,10 +378,6 @@ static int gpencil_weightmode_toggle_exec(bContext *C, wmOperator *op)
 		workspace->object_mode = mode;
 	}
 
-	/* set workspace mode */
-	// XXX: was BKE_workspace_object_mode_set()
-	ViewLayer *view_layer = BKE_workspace_view_layer_get(workspace, scene);
-	//ED_object_base_activate(C, view_layer->basact);
 	/* setup other modes */
 	ED_gpencil_setup_modes(C, gpd, mode);
 	/* set cache as dirty */
