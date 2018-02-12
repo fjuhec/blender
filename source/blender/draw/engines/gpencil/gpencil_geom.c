@@ -58,7 +58,7 @@ static void gpencil_linear_colorspace(const float color[4], float r_color[4])
 	Scene *scene = draw_ctx->scene;
 
 	display_device = scene->display_settings.display_device;
-	if ((DRW_state_is_image_render()) && (strcmp(display_device, "sRGB") == 0)) {
+	if ((DRW_state_is_image_render()) && (STREQ(display_device, "sRGB"))) {
 		srgb_to_linearrgb_v4(r_color, color);
 	}
 	else {
