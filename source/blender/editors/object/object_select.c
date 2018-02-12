@@ -42,6 +42,7 @@
 #include "DNA_armature_types.h"
 #include "DNA_lamp_types.h"
 #include "DNA_workspace_types.h"
+#include "DNA_gpencil_types.h"
 
 #include "BLI_math.h"
 #include "BLI_listbase.h"
@@ -72,6 +73,7 @@
 #include "ED_object.h"
 #include "ED_screen.h"
 #include "ED_keyframing.h"
+#include "ED_gpencil.h"
 
 #include "UI_interface.h"
 #include "UI_resources.h"
@@ -137,8 +139,31 @@ void ED_object_base_activate(bContext *C, Base *base)
 
 	eObjectMode object_mode = workspace->object_mode;
 	workspace->object_mode = OB_MODE_OBJECT;
-
 	view_layer->basact = base;
+
+	/* grease pencil modes */
+	if ((base->object) && (base->object->type == OB_GPENCIL)) {
+		if (base->object->data) {
+			bGPdata *gpd = (bGPdata *)base->object->data;
+			reset = true;
+			if (gpd->flag & GP_DATA_STROKE_EDITMODE) { 
+				workspace->object_mode = OB_MODE_GPENCIL_EDIT;
+			}
+			else if (gpd->flag & GP_DATA_STROKE_PAINTMODE) { 
+				workspace->object_mode = OB_MODE_GPENCIL_PAINT;
+			}
+			else if (gpd->flag & GP_DATA_STROKE_SCULPTMODE) { 
+				workspace->object_mode = OB_MODE_GPENCIL_SCULPT;
+			}
+			else if (gpd->flag & GP_DATA_STROKE_WEIGHTMODE){ 
+				workspace->object_mode = OB_MODE_GPENCIL_WEIGHT;
+			}
+			else { 
+				workspace->object_mode = OB_MODE_OBJECT; 
+			}
+			ED_gpencil_setup_modes(C, gpd, workspace->object_mode);
+		}
+	}
 
 	if (reset == false) {
 		wmOperatorType *ot = WM_operatortype_find("OBJECT_OT_mode_set", false);

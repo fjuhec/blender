@@ -1455,5 +1455,76 @@ void ED_gpencil_toggle_brush_cursor(bContext *C, bool enable, void *customdata)
 	}
 }
 
+/* verify if is using the right brush */
+static void gpencil_verify_brush_type(bContext *C, int newmode)
+{
+	ToolSettings *ts = CTX_data_tool_settings(C);
+	GP_BrushEdit_Settings *gset = &ts->gp_sculpt;
+
+	switch (newmode) {
+	case OB_MODE_GPENCIL_SCULPT:
+		gset->flag &= ~GP_BRUSHEDIT_FLAG_WEIGHT_MODE;
+		if ((gset->brushtype < 0) || (gset->brushtype >= GP_EDITBRUSH_TYPE_WEIGHT)) {
+			gset->brushtype = GP_EDITBRUSH_TYPE_PUSH;
+		}
+		break;
+	case OB_MODE_GPENCIL_WEIGHT:
+		gset->flag |= GP_BRUSHEDIT_FLAG_WEIGHT_MODE;
+		if ((gset->weighttype < GP_EDITBRUSH_TYPE_WEIGHT) || (gset->weighttype >= TOT_GP_EDITBRUSH_TYPES)) {
+			gset->weighttype = GP_EDITBRUSH_TYPE_WEIGHT;
+		}
+		break;
+	default:
+		break;
+	}
+}
+
+/* set object modes */
+void ED_gpencil_setup_modes(bContext *C, bGPdata *gpd, int newmode)
+{
+	if (!gpd) {
+		return;
+	}
+
+	switch (newmode) {
+	case OB_MODE_GPENCIL_EDIT:
+		gpd->flag |= GP_DATA_STROKE_EDITMODE;
+		gpd->flag &= ~GP_DATA_STROKE_PAINTMODE;
+		gpd->flag &= ~GP_DATA_STROKE_SCULPTMODE;
+		gpd->flag &= ~GP_DATA_STROKE_WEIGHTMODE;
+		ED_gpencil_toggle_brush_cursor(C, false, NULL);
+		break;
+	case OB_MODE_GPENCIL_PAINT:
+		gpd->flag &= ~GP_DATA_STROKE_EDITMODE;
+		gpd->flag |= GP_DATA_STROKE_PAINTMODE;
+		gpd->flag &= ~GP_DATA_STROKE_SCULPTMODE;
+		gpd->flag &= ~GP_DATA_STROKE_WEIGHTMODE;
+		ED_gpencil_toggle_brush_cursor(C, true, NULL);
+		break;
+	case OB_MODE_GPENCIL_SCULPT:
+		gpd->flag &= ~GP_DATA_STROKE_EDITMODE;
+		gpd->flag &= ~GP_DATA_STROKE_PAINTMODE;
+		gpd->flag |= GP_DATA_STROKE_SCULPTMODE;
+		gpd->flag &= ~GP_DATA_STROKE_WEIGHTMODE;
+		gpencil_verify_brush_type(C, OB_MODE_GPENCIL_SCULPT);
+		ED_gpencil_toggle_brush_cursor(C, true, NULL);
+		break;
+	case OB_MODE_GPENCIL_WEIGHT:
+		gpd->flag &= ~GP_DATA_STROKE_EDITMODE;
+		gpd->flag &= ~GP_DATA_STROKE_PAINTMODE;
+		gpd->flag &= ~GP_DATA_STROKE_SCULPTMODE;
+		gpd->flag |= GP_DATA_STROKE_WEIGHTMODE;
+		gpencil_verify_brush_type(C, OB_MODE_GPENCIL_WEIGHT);
+		ED_gpencil_toggle_brush_cursor(C, true, NULL);
+		break;
+	default:
+		gpd->flag &= ~GP_DATA_STROKE_EDITMODE;
+		gpd->flag &= ~GP_DATA_STROKE_PAINTMODE;
+		gpd->flag &= ~GP_DATA_STROKE_SCULPTMODE;
+		ED_gpencil_toggle_brush_cursor(C, false, NULL);
+		break;
+	}
+}
+
 /* ******************************************************** */
 

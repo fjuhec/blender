@@ -187,6 +187,8 @@ void ED_gpencil_create_monkey(struct bContext *C, struct bGPdata *gpd);
 /* ------------ Object Utilities ------------ */
 struct Object *ED_add_gpencil_object(struct bContext *C, struct Scene *scene, const float loc[3]);
 void ED_gpencil_add_defaults(struct bContext *C);
+/* set object modes */
+void ED_gpencil_setup_modes(struct bContext *C, struct bGPdata *gpd, int newmode);
 
 struct tGPencilSort *ED_gpencil_allocate_cache(struct tGPencilSort *cache, int *gp_cache_size, int gp_cache_used);
 void ED_gpencil_add_to_cache(struct tGPencilSort *cache, struct RegionView3D *rv3d, struct Base *base, int *gp_cache_used);

@@ -90,78 +90,6 @@
 #include "gpencil_intern.h"
 
 /* ************************************************ */
-/* verify if is using the right brush */
-static void gpencil_verify_brush_type(bContext *C, int newmode)
-{
-	ToolSettings *ts = CTX_data_tool_settings(C);
-	GP_BrushEdit_Settings *gset = &ts->gp_sculpt;
-
-	switch (newmode) {
-		case OB_MODE_GPENCIL_SCULPT:
-			gset->flag &= ~GP_BRUSHEDIT_FLAG_WEIGHT_MODE;
-			if ((gset->brushtype < 0) || (gset->brushtype >= GP_EDITBRUSH_TYPE_WEIGHT)) {
-				gset->brushtype = GP_EDITBRUSH_TYPE_PUSH;
-			}
-			break;
-		case OB_MODE_GPENCIL_WEIGHT:
-			gset->flag |= GP_BRUSHEDIT_FLAG_WEIGHT_MODE;
-			if ((gset->weighttype < GP_EDITBRUSH_TYPE_WEIGHT) || (gset->weighttype >= TOT_GP_EDITBRUSH_TYPES)) {
-				gset->weighttype = GP_EDITBRUSH_TYPE_WEIGHT;
-			}
-			break;
-		default:
-			break;
-	}
-}
-
-
-/* setup modes and cursor */
-static void gpencil_setup_modes(bContext *C, bGPdata *gpd, int newmode)
-{
-	if (!gpd) {
-		return;
-	}
-
-	switch (newmode) {
-		case OB_MODE_GPENCIL_EDIT:
-			gpd->flag |= GP_DATA_STROKE_EDITMODE;
-			gpd->flag &= ~GP_DATA_STROKE_PAINTMODE;
-			gpd->flag &= ~GP_DATA_STROKE_SCULPTMODE;
-			gpd->flag &= ~GP_DATA_STROKE_WEIGHTMODE;
-			ED_gpencil_toggle_brush_cursor(C, false, NULL);
-			break;
-		case OB_MODE_GPENCIL_PAINT:
-			gpd->flag &= ~GP_DATA_STROKE_EDITMODE;
-			gpd->flag |= GP_DATA_STROKE_PAINTMODE;
-			gpd->flag &= ~GP_DATA_STROKE_SCULPTMODE;
-			gpd->flag &= ~GP_DATA_STROKE_WEIGHTMODE;
-			ED_gpencil_toggle_brush_cursor(C, true, NULL);
-			break;
-		case OB_MODE_GPENCIL_SCULPT:
-			gpd->flag &= ~GP_DATA_STROKE_EDITMODE;
-			gpd->flag &= ~GP_DATA_STROKE_PAINTMODE;
-			gpd->flag |= GP_DATA_STROKE_SCULPTMODE;
-			gpd->flag &= ~GP_DATA_STROKE_WEIGHTMODE;
-			gpencil_verify_brush_type(C, OB_MODE_GPENCIL_SCULPT);
-			ED_gpencil_toggle_brush_cursor(C, true, NULL);
-			break;
-		case OB_MODE_GPENCIL_WEIGHT:
-			gpd->flag &= ~GP_DATA_STROKE_EDITMODE;
-			gpd->flag &= ~GP_DATA_STROKE_PAINTMODE;
-			gpd->flag &= ~GP_DATA_STROKE_SCULPTMODE;
-			gpd->flag |= GP_DATA_STROKE_WEIGHTMODE;
-			gpencil_verify_brush_type(C, OB_MODE_GPENCIL_WEIGHT);
-			ED_gpencil_toggle_brush_cursor(C, true, NULL);
-			break;
-		default:
-			gpd->flag &= ~GP_DATA_STROKE_EDITMODE;
-			gpd->flag &= ~GP_DATA_STROKE_PAINTMODE;
-			gpd->flag &= ~GP_DATA_STROKE_SCULPTMODE;
-			ED_gpencil_toggle_brush_cursor(C, false, NULL);
-			break;
-	}
-}
-
 /* Stroke Edit Mode Management */
 static int gpencil_editmode_toggle_poll(bContext *C)
 {
@@ -220,7 +148,7 @@ static int gpencil_editmode_toggle_exec(bContext *C, wmOperator *op)
 	ViewLayer *view_layer = BKE_workspace_view_layer_get(workspace, scene);
 	//ED_object_base_activate(C, view_layer->basact);
 	/* setup other modes */
-	gpencil_setup_modes(C, gpd, mode);
+	ED_gpencil_setup_modes(C, gpd, mode);
 	/* set cache as dirty */
 	BKE_gpencil_batch_cache_dirty(gpd);
 
@@ -303,7 +231,7 @@ static int gpencil_paintmode_toggle_exec(bContext *C, wmOperator *op)
 	ViewLayer *view_layer = BKE_workspace_view_layer_get(workspace, scene);
 	//ED_object_base_activate(C, view_layer->basact);
 	/* setup other modes */
-	gpencil_setup_modes(C, gpd, mode);
+	ED_gpencil_setup_modes(C, gpd, mode);
 	/* set cache as dirty */
 	BKE_gpencil_batch_cache_dirty(gpd);
 
@@ -385,7 +313,7 @@ static int gpencil_sculptmode_toggle_exec(bContext *C, wmOperator *op)
 	ViewLayer *view_layer = BKE_workspace_view_layer_get(workspace, scene);
 	//ED_object_base_activate(C, view_layer->basact);
 	/* setup other modes */
-	gpencil_setup_modes(C, gpd, mode);
+	ED_gpencil_setup_modes(C, gpd, mode);
 	/* set cache as dirty */
 	BKE_gpencil_batch_cache_dirty(gpd);
 
@@ -467,7 +395,7 @@ static int gpencil_weightmode_toggle_exec(bContext *C, wmOperator *op)
 	ViewLayer *view_layer = BKE_workspace_view_layer_get(workspace, scene);
 	//ED_object_base_activate(C, view_layer->basact);
 	/* setup other modes */
-	gpencil_setup_modes(C, gpd, mode);
+	ED_gpencil_setup_modes(C, gpd, mode);
 	/* set cache as dirty */
 	BKE_gpencil_batch_cache_dirty(gpd);
 
