@@ -206,6 +206,9 @@ typedef struct AssetUUID {
 	short width;
 	short height;
 	char *ibuff;  /* RGBA 8bits. */
+
+	/* Used for load_post... */
+	struct ID *id;
 } AssetUUID;
 
 /**

@@ -495,6 +495,10 @@ class AssetEngineAmber(AssetEngine):
         entries.root_path = ""
         return True
 
+    def load_post(self, context, uuids):
+        print("load_post: active object:", context.object.name if context.object else "<NONE>")
+        print("load_post: for", ", ".join(uuid.id.name for uuid in uuids.uuids))
+
     def check_dir(self, entries, do_change):
         while do_change and not os.path.exists(entries.root_path):
             entries.root_path = os.path.normpath(os.path.join(entries.root_path, ".."))

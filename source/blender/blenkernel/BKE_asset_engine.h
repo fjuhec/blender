@@ -41,6 +41,7 @@ extern "C" {
 struct AssetEngine;
 struct AssetEngineType;
 struct AssetUUIDList;
+struct bContext;
 struct FileDirEntryArr;
 struct FileDirEntry;
 struct FileDirEntryVariant;
@@ -160,7 +161,7 @@ typedef bool (*ae_load_pre)(struct AssetEngine *engine, struct AssetUUIDList *uu
 /* 'post-loading' hook, called after opening/appending/linking/updating given entries.
  * E.g. allows an advanced engine to make fancy scripted operations over loaded items. */
 /* TODO */
-typedef bool (*ae_load_post)(struct AssetEngine *engine, struct ID *items, const int *num_items);
+typedef bool (*ae_load_post)(struct bContext *C, struct AssetEngine *engine,  struct AssetUUIDList *uuids);
 
 /* Check if given dirpath is valid for current asset engine, it can also modify it if do_change is true.
  * r_dir is assumed to be least FILE_MAX.

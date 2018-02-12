@@ -234,6 +234,28 @@ static WMLinkAppendDataItem *wm_link_append_data_item_add(
 	return item;
 }
 
+static bool wm_asset_engine_load_post_from_append_data(bContext *C, AssetEngine *ae, WMLinkAppendData *lapp_data)
+{
+	if (lapp_data->num_items > 0 && ae->type->load_post != NULL) {
+		LinkNode *itemlink;
+		AssetUUID *uuid;
+		AssetUUIDList uuids = {
+		    .uuids = MEM_callocN(sizeof(*uuids.uuids) * lapp_data->num_items, __func__),
+		    .nbr_uuids = lapp_data->num_items,
+		    .asset_engine_version = ae->type->version
+		};
+
+		for (itemlink = lapp_data->items.list, uuid = uuids.uuids; itemlink; itemlink = itemlink->next, uuid++) {
+			WMLinkAppendDataItem *lapp_item = itemlink->link;
+			*uuid = *lapp_item->uuid;
+			uuid->id = lapp_item->new_id;
+		}
+
+		return ae->type->load_post(C, ae, &uuids);
+	}
+	return true;
+}
+
 static int path_to_idcode(const char *path)
 {
 	const int filetype = ED_path_extension_type(path);
@@ -612,7 +634,7 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
 		return OPERATOR_CANCELLED;
 	}
 
-	if ((flag & FILE_LINK) != 0) {
+	if (!do_append) {
 		/* XXX Currently this only applies to virtual libs ('linking' mere image files...).
 		 *     However, we may want to make this a general option at link time when importing assets... */
 		lapp_data->flag |= BLO_LIBLINK_GENERATE_OVERRIDE;
@@ -674,6 +696,11 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
 
 			BLI_gset_free(done_libraries, NULL);
 		}
+	}
+
+	if (aet != NULL && aet->load_post != NULL) {
+		AssetEngine *ae = BKE_asset_engine_create(aet, NULL);
+		wm_asset_engine_load_post_from_append_data(C, ae, lapp_data);
 	}
 
 	wm_link_append_data_free(lapp_data);
@@ -1620,6 +1647,8 @@ static int wm_assets_reload_exec(bContext *C, wmOperator *op)
 		}
 
 		lib_relocate_do(bmain, NULL, lapp_data, op->reports, auce->ae->type, do_reload);
+
+		wm_asset_engine_load_post_from_append_data(C, auce->ae, lapp_data);
 
 		wm_link_append_data_free(lapp_data);
 		BLI_ghash_free(libraries, MEM_freeN, NULL);
