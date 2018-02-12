@@ -198,9 +198,6 @@ static void ed_keymap_gpencil_selection(wmKeyMap *keymap)
 	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_select_lasso", EVT_TWEAK_A, KM_ANY, KM_SHIFT | KM_CTRL | KM_ALT, 0);
 	RNA_boolean_set(kmi->ptr, "deselect", true);
 
-	/* normal select */
-	WM_keymap_add_item(keymap, "GPENCIL_OT_select", SELECTMOUSE, KM_PRESS, 0, 0);
-
 	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_select", SELECTMOUSE, KM_PRESS, KM_SHIFT, 0);
 	RNA_boolean_set(kmi->ptr, "extend", true);
 	RNA_boolean_set(kmi->ptr, "toggle", true);
@@ -318,6 +315,9 @@ static void ed_keymap_gpencil_editing(wmKeyConfig *keyconf)
 	/* Interpolation */
 	WM_keymap_add_item(keymap, "GPENCIL_OT_interpolate", EKEY, KM_PRESS, KM_CTRL | KM_ALT, 0);
 	WM_keymap_add_item(keymap, "GPENCIL_OT_interpolate_sequence", EKEY, KM_PRESS, KM_SHIFT | KM_CTRL, 0);
+
+	/* normal select */
+	WM_keymap_add_item(keymap, "GPENCIL_OT_select", SELECTMOUSE, KM_PRESS, 0, 0);
 
 	/* Selection */
 	ed_keymap_gpencil_selection(keymap);
