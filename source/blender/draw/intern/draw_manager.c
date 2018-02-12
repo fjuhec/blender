@@ -2386,7 +2386,7 @@ void DRW_framebuffer_init(
 void DRW_framebuffer_create_multisample(DefaultFramebufferList *dfbl, DefaultTextureList *dtxl, int rect_w, int rect_h)
 {
 	if (U.ogl_multisamples > 0) {
-		if (!dfbl->default_fb) {
+		if (!dfbl->multisample_fb) {
 			dfbl->multisample_fb = GPU_framebuffer_create();
 			if (dfbl->multisample_fb) {
 				/* Color */
