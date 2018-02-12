@@ -535,6 +535,10 @@ static void GPENCIL_cache_finish(void *vedata)
 					DRW_gpencil_vfx_modifiers(i, &e_data, vedata, ob, cache);
 				}
 			}
+			/* if render set to dirty to refresh viewport */
+			if (stl->storage->is_render == true) {
+				gpd->flag |= GP_DATA_CACHE_IS_DIRTY;
+			}
 		}
 	}
 }
