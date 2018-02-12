@@ -139,13 +139,16 @@ void ED_object_base_activate(bContext *C, Base *base)
 
 	eObjectMode object_mode = workspace->object_mode;
 	workspace->object_mode = OB_MODE_OBJECT;
+	
 	view_layer->basact = base;
 
 	/* grease pencil modes */
-	if ((base->object) && (base->object->type == OB_GPENCIL)) {
-		if (base->object->data) {
-			bGPdata *gpd = (bGPdata *)base->object->data;
+	if ((base) && (base->object)) {
+		Object *ob = base->object;
+		if ((ob->type == OB_GPENCIL) && (ob->data)) {
+			bGPdata *gpd = (bGPdata *)ob->data;
 			reset = true;
+
 			if (gpd->flag & GP_DATA_STROKE_EDITMODE) { 
 				workspace->object_mode = OB_MODE_GPENCIL_EDIT;
 			}
