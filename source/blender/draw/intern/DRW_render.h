@@ -465,7 +465,7 @@ typedef struct DRWContextState {
 	struct Scene *scene;    /* 'CTX_data_scene(C)' */
 	struct ViewLayer *view_layer;  /* 'CTX_data_view_layer(C)' */
 
-	/* Use 'scene->obedit' for edit-mode */
+	/* Use 'object_edit' for edit-mode */
 	struct Object *obact;   /* 'OBACT' */
 
 	struct RenderEngineType *engine_type;
@@ -478,7 +478,11 @@ typedef struct DRWContextState {
 	 * May be NULL when used for selection or depth buffer. */
 	const struct bContext *evil_C;
 
+	/* ---- */
+
+	/* Cache: initialized by 'drw_context_state_init'. */
 	struct Object *object_pose;
+	struct Object *object_edit;
 
 } DRWContextState;
 

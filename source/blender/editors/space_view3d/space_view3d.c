@@ -920,10 +920,10 @@ static void view3d_main_region_listener(
 				case ND_SELECT:
 				{
 					WM_manipulatormap_tag_refresh(mmap);
-					if (scene->obedit) {
-						Object *ob = scene->obedit;
+					Object *obedit = OBEDIT_FROM_WINDOW(wmn->window);
+					if (obedit) {
 						/* TODO(sergey): Notifiers shouldn't really be doing DEG tags. */
-						DEG_id_tag_update((ID *)ob->data, DEG_TAG_SELECT_UPDATE);
+						DEG_id_tag_update((ID *)obedit->data, DEG_TAG_SELECT_UPDATE);
 					}
 					ATTR_FALLTHROUGH;
 				}
@@ -1137,9 +1137,8 @@ static void view3d_main_region_message_subscribe(
 /* concept is to retrieve cursor type context-less */
 static void view3d_main_region_cursor(wmWindow *win, ScrArea *UNUSED(sa), ARegion *UNUSED(ar))
 {
-	const Scene *scene = WM_window_get_active_scene(win);
-
-	if (scene->obedit) {
+	WorkSpace *workspace = WM_window_get_active_workspace(win);
+	if (workspace->object_mode & OB_MODE_EDIT) {
 		WM_cursor_set(win, CURSOR_EDIT);
 	}
 	else {
