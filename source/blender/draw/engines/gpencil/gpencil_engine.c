@@ -41,6 +41,8 @@
 
 #include "UI_resources.h"
 
+#include "IMB_colormanagement.h"
+
 #include "RE_pipeline.h"
 
 #include "gpencil_engine.h"
@@ -301,6 +303,9 @@ static void GPENCIL_cache_init(void *vedata)
 		if (((G.f & G_RENDER_OGL) == 0) && (stl->storage->is_render)) {
 			stl->storage->pixsize = &stl->storage->render_pixsize;
 		}
+
+		/* save color space */
+		stl->storage->colorspace = colormanage_colorspace_get_named(colormanage_display_get_default_name());
 
 		/* detect if painting session */
 		bGPdata *obact_gpd = NULL;

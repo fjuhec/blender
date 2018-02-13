@@ -48,17 +48,16 @@
 
 #include "UI_resources.h"
 
+#include "IMB_colormanagement.h"
+
 #include "gpencil_engine.h"
 
 /* helper to convert color space to linear */
-static void gpencil_linear_colorspace(const float color[4], float r_color[4])
+static void gpencil_linear_colorspace(const float color[4], ColorSpace *colorspace, float r_color[4])
 {
-	const char *display_device;
-	const DRWContextState *draw_ctx = DRW_context_state_get();
-	Scene *scene = draw_ctx->scene;
-
-	display_device = scene->display_settings.display_device;
-	if ((DRW_state_is_image_render()) && (STREQ(display_device, "sRGB"))) {
+	if ((DRW_state_is_image_render()) && (colorspace != NULL)) { 
+		copy_v4_v4(r_color, color);
+		IMB_colormanagement_colorspace_to_scene_linear_v4(r_color, false, colorspace);
 		srgb_to_linearrgb_v4(r_color, color);
 	}
 	else {
@@ -71,7 +70,7 @@ static void gpencil_set_stroke_point(
         Gwn_VertBuf *vbo, float matrix[4][4], const bGPDspoint *pt, int idx,
         uint pos_id, uint color_id,
         uint thickness_id, short thickness,
-        const float ink[4])
+        const float ink[4], ColorSpace *colorspace)
 {
 	float viewfpt[3];
 	float space_color[4];
@@ -81,7 +80,7 @@ static void gpencil_set_stroke_point(
 	float col[4];
 	ARRAY_SET_ITEMS(col, ink[0], ink[1], ink[2], alpha);
 
-	gpencil_linear_colorspace(col, space_color);
+	gpencil_linear_colorspace(col, colorspace, space_color);
 	GWN_vertbuf_attr_set(vbo, color_id, idx, space_color);
 
 	/* the thickness of the stroke must be affected by zoom, so a pixel scale is calculated */
@@ -93,7 +92,7 @@ static void gpencil_set_stroke_point(
 }
 
 /* create batch geometry data for points stroke shader */
-Gwn_Batch *DRW_gpencil_get_point_geom(bGPDstroke *gps, short thickness, const float ink[4])
+Gwn_Batch *DRW_gpencil_get_point_geom(bGPDstroke *gps, short thickness, const float ink[4], ColorSpace *colorspace)
 {
 	static Gwn_VertFormat format = { 0 };
 	static uint pos_id, color_id, size_id;
@@ -121,7 +120,7 @@ Gwn_Batch *DRW_gpencil_get_point_geom(bGPDstroke *gps, short thickness, const fl
 
 		float thick = max_ff(pt->pressure * thickness, 1.0f);
 
-		gpencil_linear_colorspace(col, space_color);
+		gpencil_linear_colorspace(col, colorspace, space_color);
 		GWN_vertbuf_attr_set(vbo, color_id, idx, space_color);
 		GWN_vertbuf_attr_set(vbo, size_id, idx, &thick);
 		GWN_vertbuf_attr_set(vbo, pos_id, idx, &pt->x);
@@ -132,7 +131,7 @@ Gwn_Batch *DRW_gpencil_get_point_geom(bGPDstroke *gps, short thickness, const fl
 }
 
 /* create batch geometry data for stroke shader */
-Gwn_Batch *DRW_gpencil_get_stroke_geom(bGPDframe *gpf, bGPDstroke *gps, short thickness, const float ink[4])
+Gwn_Batch *DRW_gpencil_get_stroke_geom(bGPDframe *gpf, bGPDstroke *gps, short thickness, const float ink[4], ColorSpace *colorspace)
 {
 	bGPDspoint *points = gps->points;
 	int totpoints = gps->totpoints;
@@ -157,30 +156,30 @@ Gwn_Batch *DRW_gpencil_get_stroke_geom(bGPDframe *gpf, bGPDstroke *gps, short th
 		/* first point for adjacency (not drawn) */
 		if (i == 0) {
 			if (gps->flag & GP_STROKE_CYCLIC && totpoints > 2) {
-				gpencil_set_stroke_point(vbo, gpf->viewmatrix, &points[totpoints - 1], idx, pos_id, color_id, thickness_id, thickness, ink);
+				gpencil_set_stroke_point(vbo, gpf->viewmatrix, &points[totpoints - 1], idx, pos_id, color_id, thickness_id, thickness, ink, colorspace);
 				++idx;
 			}
 			else {
-				gpencil_set_stroke_point(vbo, gpf->viewmatrix, &points[1], idx, pos_id, color_id, thickness_id, thickness, ink);
+				gpencil_set_stroke_point(vbo, gpf->viewmatrix, &points[1], idx, pos_id, color_id, thickness_id, thickness, ink, colorspace);
 				++idx;
 			}
 		}
 		/* set point */
-		gpencil_set_stroke_point(vbo, gpf->viewmatrix, pt, idx, pos_id, color_id, thickness_id, thickness, ink);
+		gpencil_set_stroke_point(vbo, gpf->viewmatrix, pt, idx, pos_id, color_id, thickness_id, thickness, ink, colorspace);
 		++idx;
 	}
 
 	if (gps->flag & GP_STROKE_CYCLIC && totpoints > 2) {
 		/* draw line to first point to complete the cycle */
-		gpencil_set_stroke_point(vbo, gpf->viewmatrix, &points[0], idx, pos_id, color_id, thickness_id, thickness, ink);
+		gpencil_set_stroke_point(vbo, gpf->viewmatrix, &points[0], idx, pos_id, color_id, thickness_id, thickness, ink, colorspace);
 		++idx;
 		/* now add adjacency point (not drawn) */
-		gpencil_set_stroke_point(vbo, gpf->viewmatrix, &points[1], idx, pos_id, color_id, thickness_id, thickness, ink);
+		gpencil_set_stroke_point(vbo, gpf->viewmatrix, &points[1], idx, pos_id, color_id, thickness_id, thickness, ink, colorspace);
 		++idx;
 	}
 	/* last adjacency point (not drawn) */
 	else {
-		gpencil_set_stroke_point(vbo, gpf->viewmatrix, &points[totpoints - 2], idx, pos_id, color_id, thickness_id, thickness, ink);
+		gpencil_set_stroke_point(vbo, gpf->viewmatrix, &points[totpoints - 2], idx, pos_id, color_id, thickness_id, thickness, ink, colorspace);
 	}
 
 	return GWN_batch_create_ex(GWN_PRIM_LINE_STRIP_ADJ, vbo, NULL, GWN_BATCH_OWNS_VBO);
@@ -264,25 +263,25 @@ Gwn_Batch *DRW_gpencil_get_buffer_stroke_geom(bGPdata *gpd, float matrix[4][4], 
 		if (i == 0) {
 			if (totpoints > 1) {
 				gpencil_tpoint_to_point(scene, ar, v3d, origin, &points[1], &pt2);
-				gpencil_set_stroke_point(vbo, matrix, &pt2, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor);
+				gpencil_set_stroke_point(vbo, matrix, &pt2, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor, NULL);
 			}
 			else {
-				gpencil_set_stroke_point(vbo, matrix, &pt, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor);
+				gpencil_set_stroke_point(vbo, matrix, &pt, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor, NULL);
 			}
 			idx++;
 		}
 		/* set point */
-		gpencil_set_stroke_point(vbo, matrix, &pt, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor);
+		gpencil_set_stroke_point(vbo, matrix, &pt, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor, NULL);
 		idx++;
 	}
 
 	/* last adjacency point (not drawn) */
 	if (totpoints > 2) {
 		gpencil_tpoint_to_point(scene, ar, v3d, origin, &points[totpoints - 2], &pt2);
-		gpencil_set_stroke_point(vbo, matrix, &pt2, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor);
+		gpencil_set_stroke_point(vbo, matrix, &pt2, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor, NULL);
 	}
 	else {
-		gpencil_set_stroke_point(vbo, matrix, &pt, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor);
+		gpencil_set_stroke_point(vbo, matrix, &pt, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor, NULL);
 	}
 
 	return GWN_batch_create_ex(GWN_PRIM_LINE_STRIP_ADJ, vbo, NULL, GWN_BATCH_OWNS_VBO);
@@ -328,7 +327,7 @@ Gwn_Batch *DRW_gpencil_get_buffer_point_geom(bGPdata *gpd, float matrix[4][4], s
 		ED_gp_project_point_to_plane(ob, rv3d, origin, ts->gp_sculpt.lock_axis - 1, ts->gpencil_src, &pt);
 
 		/* set point */
-		gpencil_set_stroke_point(vbo, matrix, &pt, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor);
+		gpencil_set_stroke_point(vbo, matrix, &pt, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor, NULL);
 		++idx;
 	}
 
@@ -604,12 +603,12 @@ static void gpencil_set_fill_point(
 }
 
 /* create batch geometry data for stroke shader */
-Gwn_Batch *DRW_gpencil_get_fill_geom(bGPDstroke *gps, const float color[4])
+Gwn_Batch *DRW_gpencil_get_fill_geom(bGPDstroke *gps, const float color[4], ColorSpace *colorspace)
 {
 	BLI_assert(gps->totpoints >= 3);
 	
 	float space_color[4];
-	gpencil_linear_colorspace(color, space_color);
+	gpencil_linear_colorspace(color, colorspace, space_color);
 
 	/* Calculate triangles cache for filling area (must be done only after changes) */
 	if ((gps->flag & GP_STROKE_RECALC_CACHES) || (gps->tot_triangles == 0) || (gps->triangles == NULL)) {
