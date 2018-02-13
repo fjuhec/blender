@@ -58,7 +58,6 @@ static void gpencil_linear_colorspace(const float color[4], ColorSpace *colorspa
 	if ((DRW_state_is_image_render()) && (colorspace != NULL)) { 
 		copy_v4_v4(r_color, color);
 		IMB_colormanagement_colorspace_to_scene_linear_v4(r_color, false, colorspace);
-		srgb_to_linearrgb_v4(r_color, color);
 	}
 	else {
 		copy_v4_v4(r_color, color);
