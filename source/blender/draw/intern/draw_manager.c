@@ -2210,13 +2210,10 @@ struct DRWTextStore *DRW_text_cache_ensure(void)
 
 bool DRW_object_is_renderable(Object *ob)
 {
-	Scene *scene = DST.draw_ctx.scene;
-	Object *obedit = scene->obedit;
-
 	BLI_assert(BKE_object_is_visible(ob, OB_VISIBILITY_CHECK_UNKNOWN_RENDER_MODE));
 
 	if (ob->type == OB_MESH) {
-		if (ob == obedit) {
+		if (ob == DST.draw_ctx.object_edit) {
 			IDProperty *props = BKE_layer_collection_engine_evaluated_get(ob, COLLECTION_MODE_EDIT, "");
 			bool do_show_occlude_wire = BKE_collection_engine_property_value_get_bool(props, "show_occlude_wire");
 			if (do_show_occlude_wire) {
@@ -2609,6 +2606,28 @@ static void drw_viewport_var_init(void)
 {
 	RegionView3D *rv3d = DST.draw_ctx.rv3d;
 
+	/* Not a viewport variable, we could split this out. */
+	{
+		/* Edit object. */
+		if (DST.draw_ctx.object_mode & OB_MODE_EDIT) {
+			DST.draw_ctx.object_edit = DST.draw_ctx.obact;
+		}
+		else {
+			DST.draw_ctx.object_edit = NULL;
+		}
+
+		/* Pose object. */
+		if (DST.draw_ctx.object_mode & OB_MODE_POSE) {
+			DST.draw_ctx.object_pose = DST.draw_ctx.obact;
+		}
+		else if (DST.draw_ctx.object_mode & OB_MODE_WEIGHT_PAINT) {
+			DST.draw_ctx.object_pose = BKE_object_pose_armature_get(DST.draw_ctx.obact);
+		}
+		else {
+			DST.draw_ctx.object_pose = NULL;
+		}
+	}
+
 	/* Refresh DST.size */
 	if (DST.viewport) {
 		int size[2];
@@ -2664,8 +2683,8 @@ static void drw_viewport_var_init(void)
 	DST.backface = GL_CW;
 	glFrontFace(DST.frontface);
 
-	if (DST.draw_ctx.scene->obedit) {
-		ED_view3d_init_mats_rv3d(DST.draw_ctx.scene->obedit, rv3d);
+	if (DST.draw_ctx.object_edit) {
+		ED_view3d_init_mats_rv3d(DST.draw_ctx.object_edit, rv3d);
 	}
 
 	/* Alloc array of texture reference. */
@@ -2678,19 +2697,6 @@ static void drw_viewport_var_init(void)
 
 	memset(viewport_matrix_override.override, 0x0, sizeof(viewport_matrix_override.override));
 	memset(DST.common_instance_data, 0x0, sizeof(DST.common_instance_data));
-
-	/* Not a viewport variable, we could split this out. */
-	{
-		if (DST.draw_ctx.object_mode & OB_MODE_POSE) {
-			DST.draw_ctx.object_pose = DST.draw_ctx.obact;
-		}
-		else if (DST.draw_ctx.object_mode & OB_MODE_WEIGHT_PAINT) {
-			DST.draw_ctx.object_pose = BKE_object_pose_armature_get(DST.draw_ctx.obact);
-		}
-		else {
-			DST.draw_ctx.object_pose = NULL;
-		}
-	}
 }
 
 void DRW_viewport_matrix_get(float mat[4][4], DRWViewportMatrixType type)
@@ -3185,10 +3191,10 @@ static void drw_engines_enable_external(void)
 	use_drw_engine(DRW_engine_viewport_external_type.draw_engine);
 }
 
-static void drw_engines_enable(const Scene *scene, ViewLayer *view_layer, RenderEngineType *engine_type)
+static void drw_engines_enable(ViewLayer *view_layer, RenderEngineType *engine_type)
 {
 	Object *obact = OBACT(view_layer);
-	const int mode = CTX_data_mode_enum_ex(scene->obedit, obact, DST.draw_ctx.object_mode);
+	const int mode = CTX_data_mode_enum_ex(DST.draw_ctx.object_edit, obact, DST.draw_ctx.object_mode);
 
 	drw_engines_enable_from_engine(engine_type);
 
@@ -3366,7 +3372,7 @@ void DRW_notify_view_update(const DRWUpdateContext *update_ctx)
 		NULL,
 	};
 
-	drw_engines_enable(scene, view_layer, engine_type);
+	drw_engines_enable(view_layer, engine_type);
 
 	for (LinkData *link = DST.enabled_engines.first; link; link = link->next) {
 		DrawEngineType *draw_engine = link->data;
@@ -3411,7 +3417,7 @@ void DRW_notify_id_update(const DRWUpdateContext *update_ctx, ID *id)
 	DST.draw_ctx = (DRWContextState){
 		ar, rv3d, v3d, scene, view_layer, OBACT(view_layer), engine_type, depsgraph, OB_MODE_OBJECT, NULL,
 	};
-	drw_engines_enable(scene, view_layer, engine_type);
+	drw_engines_enable(view_layer, engine_type);
 	for (LinkData *link = DST.enabled_engines.first; link; link = link->next) {
 		DrawEngineType *draw_engine = link->data;
 		ViewportEngineData *data = DRW_viewport_engine_data_ensure(draw_engine);
@@ -3478,7 +3484,7 @@ void DRW_draw_render_loop_ex(
 	drw_viewport_var_init();
 
 	/* Get list of enabled engines */
-	drw_engines_enable(scene, view_layer, engine_type);
+	drw_engines_enable(view_layer, engine_type);
 
 	/* Update ubos */
 	DRW_globals_update();
@@ -3723,6 +3729,7 @@ void DRW_draw_select_loop(
 	Scene *scene = DEG_get_evaluated_scene(depsgraph);
 	RenderEngineType *engine_type = RE_engines_find(scene->view_render.engine_id);
 	ViewLayer *view_layer = DEG_get_evaluated_view_layer(depsgraph);
+	Object *obact = OBACT(view_layer);
 #ifndef USE_GPU_SELECT
 	UNUSED_VARS(vc, scene, view_layer, v3d, ar, rect);
 #else
@@ -3737,14 +3744,12 @@ void DRW_draw_select_loop(
 
 	bool use_obedit = false;
 	int obedit_mode = 0;
-	if (scene->obedit && scene->obedit->type == OB_MBALL) {
-		use_obedit = true;
-		obedit_mode = CTX_MODE_EDIT_METABALL;
-	}
-	else if ((scene->obedit && scene->obedit->type == OB_ARMATURE)) {
-		/* if not drawing sketch, draw bones */
-		// if (!BDR_drawSketchNames(vc))
-		{
+	if (object_mode & OB_MODE_EDIT) {
+		if (obact->type == OB_MBALL) {
+			use_obedit = true;
+			obedit_mode = CTX_MODE_EDIT_METABALL;
+		}
+		else if (obact->type == OB_ARMATURE) {
 			use_obedit = true;
 			obedit_mode = CTX_MODE_EDIT_ARMATURE;
 		}
@@ -3773,7 +3778,7 @@ void DRW_draw_select_loop(
 
 	/* Instead of 'DRW_context_state_init(C, &DST.draw_ctx)', assign from args */
 	DST.draw_ctx = (DRWContextState){
-		ar, rv3d, v3d, scene, view_layer, OBACT(view_layer), engine_type, depsgraph, object_mode,
+		ar, rv3d, v3d, scene, view_layer, obact, engine_type, depsgraph, object_mode,
 		(bContext *)NULL,
 	};
 
@@ -3792,7 +3797,7 @@ void DRW_draw_select_loop(
 		drw_engines_cache_init();
 
 		if (use_obedit) {
-			drw_engines_cache_populate(scene->obedit);
+			drw_engines_cache_populate(obact);
 		}
 		else {
 			DEG_OBJECT_ITER(depsgraph, ob, DRW_iterator_mode_get(),

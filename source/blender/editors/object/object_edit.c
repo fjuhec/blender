@@ -84,6 +84,7 @@
 #include "BKE_modifier.h"
 #include "BKE_editmesh.h"
 #include "BKE_report.h"
+#include "BKE_object.h"
 #include "BKE_workspace.h"
 
 #include "DEG_depsgraph.h"
@@ -283,9 +284,6 @@ void ED_object_editmode_exit(bContext *C, int flag)
 		ListBase pidlist;
 		PTCacheID *pid;
 
-		/* for example; displist make is different in editmode */
-		scene->obedit = NULL; // XXX for context
-
 		/* flag object caches as outdated */
 		BKE_ptcache_ids_from_object(&pidlist, obedit, scene, 0);
 		for (pid = pidlist.first; pid; pid = pid->next) {
@@ -358,8 +356,6 @@ void ED_object_editmode_enter(bContext *C, int flag)
 	if (ob->type == OB_MESH) {
 		BMEditMesh *em;
 		ok = 1;
-		scene->obedit = ob;  /* context sees this */
-
 		const bool use_key_index = mesh_needs_keyindex(ob->data);
 
 		EDBM_mesh_make(scene->toolsettings, ob, use_key_index);
@@ -389,7 +385,6 @@ void ED_object_editmode_enter(bContext *C, int flag)
 			return;
 		}
 		ok = 1;
-		scene->obedit = ob;
 		ED_armature_to_edit(arm);
 		/* to ensure all goes in restposition and without striding */
 		DEG_id_tag_update(&ob->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME); /* XXX: should this be OB_RECALC_DATA? */
@@ -397,21 +392,18 @@ void ED_object_editmode_enter(bContext *C, int flag)
 		WM_event_add_notifier(C, NC_SCENE | ND_MODE | NS_EDITMODE_ARMATURE, scene);
 	}
 	else if (ob->type == OB_FONT) {
-		scene->obedit = ob; /* XXX for context */
 		ok = 1;
 		ED_curve_editfont_make(ob);
 
 		WM_event_add_notifier(C, NC_SCENE | ND_MODE | NS_EDITMODE_TEXT, scene);
 	}
 	else if (ob->type == OB_MBALL) {
-		scene->obedit = ob; /* XXX for context */
 		ok = 1;
 		ED_mball_editmball_make(ob);
 
 		WM_event_add_notifier(C, NC_SCENE | ND_MODE | NS_EDITMODE_MBALL, scene);
 	}
 	else if (ob->type == OB_LATTICE) {
-		scene->obedit = ob; /* XXX for context */
 		ok = 1;
 		ED_lattice_editlatt_make(ob);
 
@@ -419,7 +411,6 @@ void ED_object_editmode_enter(bContext *C, int flag)
 	}
 	else if (ob->type == OB_SURF || ob->type == OB_CURVE) {
 		ok = 1;
-		scene->obedit = ob; /* XXX for context */
 		ED_curve_editnurb_make(ob);
 
 		WM_event_add_notifier(C, NC_SCENE | ND_MODE | NS_EDITMODE_CURVE, scene);
@@ -431,7 +422,6 @@ void ED_object_editmode_enter(bContext *C, int flag)
 		DEG_id_tag_update(&scene->id, 0);
 	}
 	else {
-		scene->obedit = NULL; /* XXX for context */
 		workspace->object_mode &= ~OB_MODE_EDIT;
 		WM_event_add_notifier(C, NC_SCENE | ND_MODE | NS_MODE_OBJECT, scene);
 	}
@@ -703,7 +693,7 @@ static void copy_attr(Main *bmain, Scene *scene, ViewLayer *view_layer, short ev
 
 	if (!(ob = OBACT(view_layer))) return;
 	
-	if (scene->obedit) { // XXX get from context
+	if (BKE_object_is_in_editmode(ob)) { // XXX get from context
 		/* obedit_copymenu(); */
 		return;
 	}
@@ -942,7 +932,7 @@ static void copy_attr(Main *bmain, Scene *scene, ViewLayer *view_layer, short ev
 		DEG_relations_tag_update(bmain);
 }
 
-static void UNUSED_FUNCTION(copy_attr_menu) (Main *bmain, Scene *scene, ViewLayer *view_layer)
+static void UNUSED_FUNCTION(copy_attr_menu) (Main *bmain, Scene *scene, ViewLayer *view_layer, Object *obedit)
 {
 	Object *ob;
 	short event;
@@ -950,7 +940,7 @@ static void UNUSED_FUNCTION(copy_attr_menu) (Main *bmain, Scene *scene, ViewLaye
 	
 	if (!(ob = OBACT(view_layer))) return;
 	
-	if (scene->obedit) { /* XXX get from context */
+	if (obedit) { /* XXX get from context */
 /*		if (ob->type == OB_MESH) */
 /* XXX			mesh_copy_menu(); */
 		return;
@@ -1367,7 +1357,7 @@ void OBJECT_OT_shade_smooth(wmOperatorType *ot)
 
 /* ********************** */
 
-static void UNUSED_FUNCTION(image_aspect) (Scene *scene, ViewLayer *view_layer)
+static void UNUSED_FUNCTION(image_aspect) (Scene *scene, ViewLayer *view_layer, Object *obedit)
 {
 	/* all selected objects with an image map: scale in image aspect */
 	Base *base;
@@ -1377,7 +1367,7 @@ static void UNUSED_FUNCTION(image_aspect) (Scene *scene, ViewLayer *view_layer)
 	float x, y, space;
 	int a, b, done;
 	
-	if (scene->obedit) return;  // XXX get from context
+	if (obedit) return;
 	if (ID_IS_LINKED(scene)) return;
 	
 	for (base = FIRSTBASE(view_layer); base; base = base->next) {

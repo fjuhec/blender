@@ -847,7 +847,10 @@ static void rna_LayerObjects_active_object_update(struct bContext *C, PointerRNA
 	}
 
 	ViewLayer *view_layer = (ViewLayer *)ptr->data;
-	if (scene->obedit) {
+
+	/* OBMODE/TODO edit_object from _previous_ state needs to be freed! */
+	Object *obedit = CTX_data_edit_object(C);
+	if (obedit) {
 		ED_object_editmode_exit(C, EM_FREEDATA);
 	}
 	ED_object_base_activate(C, view_layer->basact);

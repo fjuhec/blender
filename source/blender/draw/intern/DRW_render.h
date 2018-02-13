@@ -477,6 +477,7 @@ typedef struct DRWContextState {
 	const struct bContext *evil_C;
 
 	struct Object *object_pose;
+	struct Object *object_edit;
 
 } DRWContextState;
 
