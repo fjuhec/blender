@@ -243,8 +243,8 @@ static int ed_undo_step(bContext *C, int step, const char *undoname)
 				ED_gpencil_toggle_brush_cursor(C, false, NULL);
 			}
 			/* set workspace mode */
-			//workspace->object_mode = workspace->object_mode;
-			ED_object_base_activate(C, view_layer->basact); // XXX
+			Base *basact = CTX_data_active_base(C);
+			ED_object_base_activate(C, basact);
 		}
 	}
 

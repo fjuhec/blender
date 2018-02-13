@@ -73,7 +73,6 @@
 #include "ED_object.h"
 #include "ED_screen.h"
 #include "ED_keyframing.h"
-#include "ED_gpencil.h"
 
 #include "UI_interface.h"
 #include "UI_resources.h"
@@ -90,8 +89,8 @@
  * this takes into account the 'restrict selection in 3d view' flag.
  * deselect works always, the restriction just prevents selection */
 
-/* Note: send a NC_SCENE|ND_OB_SELECT notifier yourself! (or 
- * or a NC_SCENE|ND_OB_VISIBLE in case of visibility toggling */
+ /* Note: send a NC_SCENE|ND_OB_SELECT notifier yourself! (or
+  * or a NC_SCENE|ND_OB_VISIBLE in case of visibility toggling */
 
 void ED_object_base_select(Base *base, eObjectSelect_Mode mode)
 {
@@ -101,17 +100,17 @@ void ED_object_base_select(Base *base, eObjectSelect_Mode mode)
 
 	if (base) {
 		switch (mode) {
-			case BA_SELECT:
-				if ((base->flag & BASE_SELECTABLED) != 0) {
-					base->flag |= BASE_SELECTED;
-				}
-				break;
-			case BA_DESELECT:
-				base->flag &= ~BASE_SELECTED;
-				break;
-			case BA_INVERT:
-				/* Never happens. */
-				break;
+		case BA_SELECT:
+			if ((base->flag & BASE_SELECTABLED) != 0) {
+				base->flag |= BASE_SELECTED;
+			}
+			break;
+		case BA_DESELECT:
+			base->flag &= ~BASE_SELECTED;
+			break;
+		case BA_INVERT:
+			/* Never happens. */
+			break;
 		}
 		BKE_scene_object_base_flag_sync_from_base(base);
 	}
@@ -131,7 +130,7 @@ void ED_object_base_activate(bContext *C, Base *base)
 		Object *ob_prev = OBACT(view_layer);
 		Object *ob_curr = base->object;
 		if (ob_prev != NULL) {
-			if (ob_prev->type == ob_curr->type) {
+			if ((ob_prev->type == ob_curr->type) || (ob_curr->type == OB_GPENCIL)) {
 				reset = false;
 			}
 		}
@@ -141,32 +140,6 @@ void ED_object_base_activate(bContext *C, Base *base)
 	workspace->object_mode = OB_MODE_OBJECT;
 	
 	view_layer->basact = base;
-
-	/* grease pencil modes */
-	if ((base) && (base->object)) {
-		Object *ob = base->object;
-		if ((ob->type == OB_GPENCIL) && (ob->data)) {
-			bGPdata *gpd = (bGPdata *)ob->data;
-			reset = true;
-
-			if (gpd->flag & GP_DATA_STROKE_EDITMODE) { 
-				workspace->object_mode = OB_MODE_GPENCIL_EDIT;
-			}
-			else if (gpd->flag & GP_DATA_STROKE_PAINTMODE) { 
-				workspace->object_mode = OB_MODE_GPENCIL_PAINT;
-			}
-			else if (gpd->flag & GP_DATA_STROKE_SCULPTMODE) { 
-				workspace->object_mode = OB_MODE_GPENCIL_SCULPT;
-			}
-			else if (gpd->flag & GP_DATA_STROKE_WEIGHTMODE){ 
-				workspace->object_mode = OB_MODE_GPENCIL_WEIGHT;
-			}
-			else { 
-				workspace->object_mode = OB_MODE_OBJECT; 
-			}
-			ED_gpencil_setup_modes(C, gpd, workspace->object_mode);
-		}
-	}
 
 	if (reset == false) {
 		wmOperatorType *ot = WM_operatortype_find("OBJECT_OT_mode_set", false);

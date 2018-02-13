@@ -98,6 +98,7 @@
 #include "ED_screen.h"
 #include "ED_util.h"
 #include "ED_image.h"
+#include "ED_gpencil.h"
 
 #include "RNA_access.h"
 #include "RNA_define.h"
@@ -1592,9 +1593,34 @@ static int object_mode_set_exec(bContext *C, wmOperator *op)
 	const bool toggle = RNA_boolean_get(op->ptr, "toggle");
 
 	/* if type is OB_GPENCIL, select mode for grease pencil strokes */
-	// XXX: Review this behaviour... something seems sketchy here (Aligorith)	
 	if ((ob) && (ob->type == OB_GPENCIL)) {
 		if ((ob->data) && (ob->data == gpd)) {
+			/* restore status */
+			if ((workspace->object_mode == OB_MODE_OBJECT) && 
+				((workspace->object_mode != mode) || (mode == OB_MODE_OBJECT)))
+			{
+				if (gpd->flag & GP_DATA_STROKE_EDITMODE) {
+					workspace->object_mode = OB_MODE_GPENCIL_EDIT;
+					ED_gpencil_setup_modes(C, gpd, workspace->object_mode);
+					return OPERATOR_FINISHED;
+				}
+				else if (gpd->flag & GP_DATA_STROKE_PAINTMODE) {
+					workspace->object_mode = OB_MODE_GPENCIL_PAINT;
+					ED_gpencil_setup_modes(C, gpd, workspace->object_mode);
+					return OPERATOR_FINISHED;
+				}
+				else if (gpd->flag & GP_DATA_STROKE_SCULPTMODE) {
+					workspace->object_mode = OB_MODE_GPENCIL_SCULPT;
+					ED_gpencil_setup_modes(C, gpd, workspace->object_mode);
+					return OPERATOR_FINISHED;
+				}
+				else if (gpd->flag & GP_DATA_STROKE_WEIGHTMODE) {
+					workspace->object_mode = OB_MODE_GPENCIL_WEIGHT;
+					ED_gpencil_setup_modes(C, gpd, workspace->object_mode);
+					return OPERATOR_FINISHED;
+				}
+			}
+
 			if (ELEM(mode, OB_MODE_OBJECT, OB_MODE_EDIT, OB_MODE_POSE)) {
 				workspace->object_mode_restore = OB_MODE_OBJECT;
 				if (ELEM(workspace->object_mode, OB_MODE_EDIT, OB_MODE_GPENCIL_EDIT)) {
