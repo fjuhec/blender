@@ -100,17 +100,17 @@ void ED_object_base_select(Base *base, eObjectSelect_Mode mode)
 
 	if (base) {
 		switch (mode) {
-		case BA_SELECT:
-			if ((base->flag & BASE_SELECTABLED) != 0) {
-				base->flag |= BASE_SELECTED;
-			}
-			break;
-		case BA_DESELECT:
-			base->flag &= ~BASE_SELECTED;
-			break;
-		case BA_INVERT:
-			/* Never happens. */
-			break;
+			case BA_SELECT:
+				if ((base->flag & BASE_SELECTABLED) != 0) {
+					base->flag |= BASE_SELECTED;
+				}
+				break;
+			case BA_DESELECT:
+				base->flag &= ~BASE_SELECTED;
+				break;
+			case BA_INVERT:
+				/* Never happens. */
+				break;
 		}
 		BKE_scene_object_base_flag_sync_from_base(base);
 	}
