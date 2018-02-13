@@ -223,7 +223,7 @@ void BKE_object_handle_data_update(
 	}
 
 	/* particles */
-	if (ob != OBEDIT_FROM_EVAL_CTX(eval_ctx) && ob->particlesystem.first) {
+	if ((ob != OBEDIT_FROM_EVAL_CTX(eval_ctx)) && ob->particlesystem.first) {
 		ParticleSystem *tpsys, *psys;
 		DerivedMesh *dm;
 		ob->transflag &= ~OB_DUPLIPARTS;

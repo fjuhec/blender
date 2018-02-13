@@ -1444,8 +1444,7 @@ static bool render_view3d_flag_changed(RenderEngine *engine, const bContext *C)
 		job_update_flag |= PR_UPDATE_DATABASE;
 
 		/* load editmesh */
-		const EvaluationContext *eval_ctx = RE_GetEvalCtx(re);
-		Object *obedit = OBEDIT_FROM_EVAL_CTX(eval_ctx);
+		Object *obedit = CTX_data_edit_object(C);
 		if (obedit) {
 			ED_object_editmode_load(obedit);
 		}

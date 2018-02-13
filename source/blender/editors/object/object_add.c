@@ -1673,7 +1673,7 @@ static int convert_poll(bContext *C)
 	Base *base_act = CTX_data_active_base(C);
 	Object *obact = base_act ? base_act->object : NULL;
 
-	return (!ID_IS_LINKED(scene) && obact && BKE_object_is_in_editmode(obact) &&
+	return (!ID_IS_LINKED(scene) && obact && (BKE_object_is_in_editmode(obact) == false) &&
 	        (base_act->flag & BASE_SELECTED) && !ID_IS_LINKED(obact));
 }
 

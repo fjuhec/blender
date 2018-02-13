@@ -268,7 +268,7 @@ static void make_child_duplis(const DupliContext *ctx, void *userdata, MakeChild
 		ViewLayer *view_layer = ctx->view_layer;
 		for (Base *base = view_layer->object_bases.first; base; base = base->next, baseid++) {
 			Object *ob = base->object;
-			if (ob != ctx->obedit && is_child(ob, parent)) {
+			if ((ob != ctx->obedit) && is_child(ob, parent)) {
 				DupliContext pctx;
 				copy_dupli_context(&pctx, ctx, ctx->object, NULL, baseid, false);
 
