@@ -2598,6 +2598,30 @@ static void drw_viewport_cache_resize(void)
 	DRW_instance_data_list_resize(DST.idatalist);
 }
 
+
+/* Not a viewport variable, we could split this out. */
+static void drw_context_state_init(void)
+{
+	/* Edit object. */
+	if (DST.draw_ctx.object_mode & OB_MODE_EDIT) {
+		DST.draw_ctx.object_edit = DST.draw_ctx.obact;
+	}
+	else {
+		DST.draw_ctx.object_edit = NULL;
+	}
+
+	/* Pose object. */
+	if (DST.draw_ctx.object_mode & OB_MODE_POSE) {
+		DST.draw_ctx.object_pose = DST.draw_ctx.obact;
+	}
+	else if (DST.draw_ctx.object_mode & OB_MODE_WEIGHT_PAINT) {
+		DST.draw_ctx.object_pose = BKE_object_pose_armature_get(DST.draw_ctx.obact);
+	}
+	else {
+		DST.draw_ctx.object_pose = NULL;
+	}
+}
+
 /* It also stores viewport variable to an immutable place: DST
  * This is because a cache uniform only store reference
  * to its value. And we don't want to invalidate the cache
@@ -2605,29 +2629,6 @@ static void drw_viewport_cache_resize(void)
 static void drw_viewport_var_init(void)
 {
 	RegionView3D *rv3d = DST.draw_ctx.rv3d;
-
-	/* Not a viewport variable, we could split this out. */
-	{
-		/* Edit object. */
-		if (DST.draw_ctx.object_mode & OB_MODE_EDIT) {
-			DST.draw_ctx.object_edit = DST.draw_ctx.obact;
-		}
-		else {
-			DST.draw_ctx.object_edit = NULL;
-		}
-
-		/* Pose object. */
-		if (DST.draw_ctx.object_mode & OB_MODE_POSE) {
-			DST.draw_ctx.object_pose = DST.draw_ctx.obact;
-		}
-		else if (DST.draw_ctx.object_mode & OB_MODE_WEIGHT_PAINT) {
-			DST.draw_ctx.object_pose = BKE_object_pose_armature_get(DST.draw_ctx.obact);
-		}
-		else {
-			DST.draw_ctx.object_pose = NULL;
-		}
-	}
-
 	/* Refresh DST.size */
 	if (DST.viewport) {
 		int size[2];
@@ -3480,7 +3481,7 @@ void DRW_draw_render_loop_ex(
 	    /* reuse if caller sets */
 	    DST.draw_ctx.evil_C,
 	};
-
+	drw_context_state_init();
 	drw_viewport_var_init();
 
 	/* Get list of enabled engines */
@@ -3657,6 +3658,7 @@ void DRW_render_to_image(RenderEngine *re, struct Depsgraph *depsgraph)
 	DST.draw_ctx = (DRWContextState){
 	    NULL, NULL, NULL, scene, view_layer, OBACT(view_layer), engine_type, depsgraph, eval_ctx->object_mode, NULL,
 	};
+	drw_context_state_init();
 
 	DST.viewport = GPU_viewport_create();
 	const int size[2] = {(r->size * r->xsch) / 100, (r->size * r->ysch) / 100};
@@ -3781,7 +3783,7 @@ void DRW_draw_select_loop(
 		ar, rv3d, v3d, scene, view_layer, obact, engine_type, depsgraph, object_mode,
 		(bContext *)NULL,
 	};
-
+	drw_context_state_init();
 	drw_viewport_var_init();
 
 	/* Update ubos */
@@ -3881,7 +3883,7 @@ void DRW_draw_depth_loop(
 		ar, rv3d, v3d, scene, view_layer, OBACT(view_layer), engine_type, depsgraph, object_mode,
 		(bContext *)NULL,
 	};
-
+	drw_context_state_init();
 	drw_viewport_var_init();
 
 	/* Update ubos */
