@@ -1672,7 +1672,7 @@ static void view3d_draw_objects(
 					draw_dupli_objects(eval_ctx, scene, view_layer, ar, v3d, base);
 				}
 				if ((base->flag & BASE_SELECTED) == 0) {
-					if (base->object != obedit)
+					if (base->object != obedit) {
 						draw_object(eval_ctx, scene, view_layer, ar, v3d, base, 0);
 
 						/* draw grease pencil */
