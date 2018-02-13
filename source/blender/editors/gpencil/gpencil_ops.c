@@ -478,7 +478,7 @@ static void ed_keymap_gpencil_painting_draw(wmKeyConfig *keyconf)
 	WM_keymap_add_item(keymap, "GPENCIL_OT_select_border", BKEY, KM_PRESS, 0, 0);
 
 	/* lasso select */
-	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_select_lasso", EVT_TWEAK_A, KM_ANY, KM_CTRL | KM_SHIFT, 0);
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_select_lasso", EVT_TWEAK_A, KM_ANY, KM_CTRL | KM_ALT, 0);
 	RNA_boolean_set(kmi->ptr, "deselect", false);
 }
 
