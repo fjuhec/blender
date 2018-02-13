@@ -144,7 +144,7 @@ bool ED_do_pose_selectbuffer(
 	if (!ob || !ob->pose) return 0;
 
 	Object *ob_act = OBACT(view_layer);
-	Object *obedit = (eval_ctx->object_mode & OB_MODE_EDIT) ? ob_act : NULL;
+	Object *obedit = OBEDIT_FROM_EVAL_CTX(eval_ctx);
 
 	nearBone = get_bone_from_selectbuffer(base, obedit, buffer, hits, 1, do_nearest);
 	

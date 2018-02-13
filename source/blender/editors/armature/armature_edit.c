@@ -194,7 +194,7 @@ void ED_armature_origin_set(Object *ob, float cursor[3], int centermode, int aro
 	}
 
 	/* Adjust object location for new centerpoint */
-	if (centermode && is_editmode) {
+	if (centermode && (is_editmode == false)) {
 		mul_mat3_m4_v3(ob->obmat, cent); /* omit translation part */
 		add_v3_v3(ob->loc, cent);
 	}

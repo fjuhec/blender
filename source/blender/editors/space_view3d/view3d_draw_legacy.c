@@ -237,7 +237,7 @@ static void backdrawview3d(
 	{
 		/* do nothing */
 	}
-	else if ((eval_ctx->object_mode & OB_MODE_POSE) &&
+	else if ((eval_ctx->object_mode & OB_MODE_EDIT) &&
 	         V3D_IS_ZBUF(v3d))
 	{
 		/* do nothing */

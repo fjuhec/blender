@@ -1133,7 +1133,7 @@ static void view3d_main_region_message_subscribe(
 static void view3d_main_region_cursor(wmWindow *win, ScrArea *UNUSED(sa), ARegion *UNUSED(ar))
 {
 	WorkSpace *workspace = WM_window_get_active_workspace(win);
-	if (workspace->object_mode) {
+	if (workspace->object_mode & OB_MODE_EDIT) {
 		WM_cursor_set(win, CURSOR_EDIT);
 	}
 	else {

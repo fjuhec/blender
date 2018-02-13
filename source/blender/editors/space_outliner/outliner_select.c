@@ -50,7 +50,6 @@
 #include "BKE_scene.h"
 #include "BKE_sequencer.h"
 #include "BKE_armature.h"
-#include "BKE_workspace.h"
 
 #include "DEG_depsgraph.h"
 
@@ -195,7 +194,7 @@ static eOLDrawState tree_element_set_active_object(
 		}
 	}
 
-	if (!BKE_object_is_in_editmode(ob)) {
+	if (CTX_data_edit_object(C)) {
 		ED_object_editmode_exit(C, EM_FREEDATA | EM_FREEUNDO | EM_WAITCURSOR | EM_DO_UNDO);
 	}
 	return OL_DRAWSEL_NORMAL;
@@ -565,9 +564,9 @@ static void tree_element_active_ebone__sel(bContext *C, Object *obedit, bArmatur
 	WM_event_add_notifier(C, NC_OBJECT | ND_BONE_ACTIVE, obedit);
 }
 static eOLDrawState tree_element_active_ebone(
-        bContext *C, Scene *scene, TreeElement *te, TreeStoreElem *UNUSED(tselem), const eOLSetState set, bool recursive)
+        bContext *C, TreeElement *te, TreeStoreElem *UNUSED(tselem), const eOLSetState set, bool recursive)
 {
-	Object *obedit = BKE_workspace_edit_object(CTX_wm_workspace(C), scene);
+	Object *obedit = CTX_data_edit_object(C);
 	BLI_assert(obedit != NULL);
 	bArmature *arm = obedit->data;
 	EditBone *ebone = te->directdata;
@@ -851,7 +850,7 @@ eOLDrawState tree_element_type_active(
 		case TSE_BONE:
 			return tree_element_active_bone(C, view_layer, te, tselem, set, recursive);
 		case TSE_EBONE:
-			return tree_element_active_ebone(C, scene, te, tselem, set, recursive);
+			return tree_element_active_ebone(C, te, tselem, set, recursive);
 		case TSE_MODIFIER:
 			return tree_element_active_modifier(C, scene, view_layer, te, tselem, set);
 		case TSE_LINKED_OB:
