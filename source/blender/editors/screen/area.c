@@ -91,7 +91,7 @@ static void region_draw_emboss(const ARegion *ar, const rcti *scirct)
 	
 	/* set transp line */
 	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 	
 	Gwn_VertFormat *format = immVertexFormat();
 	unsigned int pos = GWN_vertformat_attr_add(format, "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
@@ -450,7 +450,7 @@ static void region_draw_azones(ScrArea *sa, ARegion *ar)
 
 	glLineWidth(1.0f);
 	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
 	gpuPushMatrix();
 	gpuTranslate2f(-ar->winrct.xmin, -ar->winrct.ymin);
@@ -493,23 +493,6 @@ static void region_draw_azones(ScrArea *sa, ARegion *ar)
 	gpuPopMatrix();
 
 	glDisable(GL_BLEND);
-}
-
-/* only exported for WM */
-/* makes region ready for drawing, sets pixelspace */
-void ED_region_set(const bContext *C, ARegion *ar)
-{
-	wmWindow *win = CTX_wm_window(C);
-	ScrArea *sa = CTX_wm_area(C);
-	
-	ar->drawrct = ar->winrct;
-	
-	/* note; this sets state, so we can use wmOrtho and friends */
-	wmSubWindowScissorSet(win, ar->swinid, &ar->drawrct, true);
-	
-	UI_SetTheme(sa ? sa->spacetype : 0, ar->type ? ar->type->regionid : 0);
-	
-	ED_region_pixelspace(ar);
 }
 
 /* Follow wmMsgNotifyFn spec */
@@ -2238,7 +2221,7 @@ void ED_region_info_draw_multiline(ARegion *ar, const char *text_array[], float 
 	          BLI_rcti_size_x(&rect) + 1, BLI_rcti_size_y(&rect) + 1);
 
 	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 	Gwn_VertFormat *format = immVertexFormat();
 	unsigned int pos = GWN_vertformat_attr_add(format, "pos", GWN_COMP_I32, 2, GWN_FETCH_INT_TO_FLOAT);
 	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);

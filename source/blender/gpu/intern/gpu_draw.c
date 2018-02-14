@@ -39,11 +39,11 @@
 #include <string.h>
 
 #include "BLI_blenlib.h"
+#include "BLI_hash.h"
 #include "BLI_linklist.h"
 #include "BLI_math.h"
 #include "BLI_threads.h"
 #include "BLI_utildefines.h"
-#include "BLI_hash.h"
 
 #include "DNA_lamp_types.h"
 #include "DNA_material_types.h"
@@ -398,7 +398,7 @@ static void gpu_set_alpha_blend(GPUBlendMode alphablend)
 	if (alphablend == GPU_BLEND_SOLID) {
 		glDisable(GL_BLEND);
 		glDisable(GL_SAMPLE_ALPHA_TO_COVERAGE);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 	}
 	else if (alphablend == GPU_BLEND_ADD) {
 		glEnable(GL_BLEND);
@@ -1730,7 +1730,7 @@ static int gpu_get_particle_info(GPUParticleInfo *pi)
 		if (ind >= 0) {
 			ParticleData *p = &dob->particle_system->particles[ind];
 
-			pi->scalprops[0] = ind;
+			pi->scalprops[0] = BLI_hash_int_01(ind);
 			pi->scalprops[1] = GMS.gscene->r.cfra - p->time;
 			pi->scalprops[2] = p->lifetime;
 			pi->scalprops[3] = p->size;
@@ -2095,7 +2095,7 @@ int GPU_scene_object_lights(ViewLayer *view_layer, float viewmat[4][4], int orth
 	return count;
 }
 
-static void gpu_multisample(bool enable)
+static void gpu_disable_multisample()
 {
 #ifdef __linux__
 	/* changing multisample from the default (enabled) causes problems on some
@@ -2111,16 +2111,10 @@ static void gpu_multisample(bool enable)
 	}
 
 	if (toggle_ok) {
-		if (enable)
-			glEnable(GL_MULTISAMPLE);
-		else
-			glDisable(GL_MULTISAMPLE);
+		glDisable(GL_MULTISAMPLE);
 	}
 #else
-	if (enable)
-		glEnable(GL_MULTISAMPLE);
-	else
-		glDisable(GL_MULTISAMPLE);
+	glDisable(GL_MULTISAMPLE);
 #endif
 }
 
@@ -2152,7 +2146,7 @@ void GPU_state_init(void)
 	glCullFace(GL_BACK);
 	glDisable(GL_CULL_FACE);
 
-	gpu_multisample(false);
+	gpu_disable_multisample();
 }
 
 void GPU_enable_program_point_size(void)
