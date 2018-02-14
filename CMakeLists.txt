@@ -310,7 +310,6 @@ endif()
 # Modifiers
 option(WITH_MOD_FLUID           "Enable Elbeem Modifier (Fluid Simulation)" ON)
 option(WITH_MOD_SMOKE           "Enable Smoke Modifier (Smoke Simulation)" ON)
-option(WITH_MOD_BOOLEAN         "Enable Boolean Modifier" ON)
 option(WITH_MOD_REMESH          "Enable Remesh Modifier" ON)
 # option(WITH_MOD_CLOTH_ELTOPO    "Enable Experimental cloth solver" OFF)  # this is now only available in a branch
 # mark_as_advanced(WITH_MOD_CLOTH_ELTOPO)
@@ -409,12 +408,14 @@ option(WITH_CYCLES_STANDALONE_GUI	"Build Cycles standalone with GUI" OFF)
 option(WITH_CYCLES_OSL				"Build Cycles with OSL support" ${_init_CYCLES_OSL})
 option(WITH_CYCLES_OPENSUBDIV		"Build Cycles with OpenSubdiv support" ${_init_CYCLES_OPENSUBDIV})
 option(WITH_CYCLES_CUDA_BINARIES	"Build Cycles CUDA binaries" OFF)
+option(WITH_CYCLES_CUBIN_COMPILER	"Build cubins with nvrtc based compiler instead of nvcc" OFF)
 set(CYCLES_CUDA_BINARIES_ARCH sm_20 sm_21 sm_30 sm_35 sm_37 sm_50 sm_52 sm_60 sm_61 CACHE STRING "CUDA architectures to build binaries for")
 mark_as_advanced(CYCLES_CUDA_BINARIES_ARCH)
 unset(PLATFORM_DEFAULT)
 option(WITH_CYCLES_LOGGING	"Build Cycles with logging support" ON)
 option(WITH_CYCLES_DEBUG	"Build Cycles with extra debug capabilities" OFF)
 option(WITH_CYCLES_NATIVE_ONLY	"Build Cycles with native kernel only (which fits current CPU, use for development only)" OFF)
+mark_as_advanced(WITH_CYCLES_CUBIN_COMPILER)
 mark_as_advanced(WITH_CYCLES_LOGGING)
 mark_as_advanced(WITH_CYCLES_DEBUG)
 mark_as_advanced(WITH_CYCLES_NATIVE_ONLY)
@@ -542,6 +543,9 @@ if(WIN32)
 
 	set(WINDOWS_CODESIGN_PFX_PASSWORD CACHE STRING  "password for pfx file used for codesigning.")
 	mark_as_advanced(WINDOWS_CODESIGN_PFX_PASSWORD)
+
+	option(WINDOWS_USE_VISUAL_STUDIO_FOLDERS "Organize the visual studio project according to source folders." ON)
+	mark_as_advanced(WINDOWS_USE_VISUAL_STUDIO_FOLDERS)
 endif()
 
 # avoid using again
@@ -640,13 +644,12 @@ if(NOT WITH_BOOST)
 	set_and_warn(WITH_INTERNATIONAL  OFF)
 	set_and_warn(WITH_OPENVDB        OFF)
 	set_and_warn(WITH_OPENCOLORIO    OFF)
-	set_and_warn(WITH_MOD_BOOLEAN    OFF)
 
 	set_and_warn(WITH_OPENAL         OFF)  # depends on AUDASPACE
 	set_and_warn(WITH_GAMEENGINE     OFF)  # depends on AUDASPACE
 	set_and_warn(WITH_PLAYER         OFF)  # depends on GAMEENGINE
 elseif(WITH_CYCLES OR WITH_OPENIMAGEIO OR WITH_AUDASPACE OR WITH_INTERNATIONAL OR
-       WITH_OPENVDB OR WITH_OPENCOLORIO OR WITH_MOD_BOOLEAN)
+       WITH_OPENVDB OR WITH_OPENCOLORIO)
 	# Keep enabled
 else()
 	# New dependency graph needs either Boost or C++11 for function bindings.
@@ -1753,7 +1756,6 @@ if(FIRST_RUN)
 	endif()
 
 	info_cfg_text("Modifiers:")
-	info_cfg_option(WITH_MOD_BOOLEAN)
 	info_cfg_option(WITH_MOD_REMESH)
 	info_cfg_option(WITH_MOD_FLUID)
 	info_cfg_option(WITH_MOD_OCEANSIM)

@@ -114,7 +114,8 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 			float transmission_roughness = stack_load_float(stack, transmission_roughness_offset);
 			float eta = fmaxf(stack_load_float(stack, eta_offset), 1e-5f);
 
-			ClosureType distribution = stack_valid(data_node2.y) ? (ClosureType) data_node2.y : CLOSURE_BSDF_MICROFACET_MULTI_GGX_GLASS_ID;
+			ClosureType distribution = (ClosureType) data_node2.y;
+			ClosureType subsurface_method = (ClosureType) data_node2.z;
 
 			/* rotate tangent */
 			if(anisotropic_rotation != 0.0f)
@@ -186,14 +187,14 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 
 					if(bssrdf) {
 						bssrdf->radius = subsurface_radius * subsurface;
-						bssrdf->albedo = subsurface_color;
+						bssrdf->albedo = (subsurface_method == CLOSURE_BSSRDF_PRINCIPLED_ID)? subsurface_color:  mixed_ss_base_color;
 						bssrdf->texture_blur = 0.0f;
 						bssrdf->sharpness = 0.0f;
 						bssrdf->N = N;
 						bssrdf->roughness = roughness;
 
 						/* setup bsdf */
-						sd->flag |= bssrdf_setup(sd, bssrdf, (ClosureType)CLOSURE_BSSRDF_PRINCIPLED_ID);
+						sd->flag |= bssrdf_setup(sd, bssrdf, subsurface_method);
 					}
 				}
 			}
@@ -333,6 +334,8 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 							}
 
 							bsdf->N = N;
+							bsdf->T = make_float3(0.0f, 0.0f, 0.0f);
+							bsdf->extra = NULL;
 
 							if(distribution == CLOSURE_BSDF_MICROFACET_GGX_GLASS_ID)
 								transmission_roughness = 1.0f - (1.0f - refl_roughness) * (1.0f - transmission_roughness);
@@ -762,7 +765,8 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 #ifdef __SUBSURFACE__
 		case CLOSURE_BSSRDF_CUBIC_ID:
 		case CLOSURE_BSSRDF_GAUSSIAN_ID:
-		case CLOSURE_BSSRDF_BURLEY_ID: {
+		case CLOSURE_BSSRDF_BURLEY_ID:
+		case CLOSURE_BSSRDF_RANDOM_WALK_ID: {
 			float3 weight = sd->svm_closure_weight * mix_weight;
 			Bssrdf *bssrdf = bssrdf_alloc(sd, weight);
 
@@ -778,6 +782,7 @@ ccl_device void svm_node_closure_bsdf(KernelGlobals *kg, ShaderData *sd, float *
 				bssrdf->texture_blur = param2;
 				bssrdf->sharpness = stack_load_float(stack, data_node.w);
 				bssrdf->N = N;
+				bssrdf->roughness = 0.0f;
 				sd->flag |= bssrdf_setup(sd, bssrdf, (ClosureType)type);
 			}
 

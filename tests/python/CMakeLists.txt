@@ -116,14 +116,21 @@ add_test(
 # ------------------------------------------------------------------------------
 # MODELING TESTS
 add_test(
-	NAME bevel
+	NAME bmesh_bevel
 	COMMAND "$<TARGET_FILE:blender>" ${TEST_BLENDER_EXE_PARAMS}
 	${TEST_SRC_DIR}/modeling/bevel_regression.blend
 	--python-text run_tests
 )
 
 add_test(
-	NAME split_faces
+	NAME bmesh_boolean
+	COMMAND "$<TARGET_FILE:blender>" ${TEST_BLENDER_EXE_PARAMS}
+	${TEST_SRC_DIR}/modeling/bool_regression.blend
+	--python-text run_tests
+)
+
+add_test(
+	NAME bmesh_split_faces
 	COMMAND "$<TARGET_FILE:blender>" ${TEST_BLENDER_EXE_PARAMS}
 	${TEST_SRC_DIR}/modeling/split_faces_test.blend
 	--python-text run_tests
@@ -132,7 +139,7 @@ add_test(
 # ------------------------------------------------------------------------------
 # MODIFIERS TESTS
 add_test(
-	NAME modifier_array
+	NAME object_modifier_array
 	COMMAND "$<TARGET_FILE:blender>" ${TEST_BLENDER_EXE_PARAMS}
 	${TEST_SRC_DIR}/modifier_stack/array_test.blend
 	--python-text run_tests
@@ -547,6 +554,7 @@ if(WITH_CYCLES)
 		add_cycles_render_test(shader)
 		add_cycles_render_test(shader_tangent)
 		add_cycles_render_test(shadow_catcher)
+		add_cycles_render_test(sss)
 		add_cycles_render_test(texture_space)
 		add_cycles_render_test(volume)
 	else()

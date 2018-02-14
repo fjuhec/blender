@@ -108,7 +108,6 @@ set(SRC
 	intern/MOD_wireframe.c
 
 	MOD_modifiertypes.h
-	intern/MOD_boolean_util.h
 	intern/MOD_fluidsim_util.h
 	intern/MOD_meshcache_util.h
 	intern/MOD_util.h
@@ -123,16 +122,6 @@ if(WITH_ALEMBIC)
 	add_definitions(-DWITH_ALEMBIC)
 	list(APPEND INC
 		../alembic
-	)
-endif()
-
-if(WITH_MOD_BOOLEAN)
-	add_definitions(-DWITH_MOD_BOOLEAN)
-	list(APPEND SRC
-		intern/MOD_boolean_util.c
-	)
-	list(APPEND INC
-		../../../extern/carve
 	)
 endif()
 
