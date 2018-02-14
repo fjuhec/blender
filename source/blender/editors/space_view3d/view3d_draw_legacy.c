@@ -1499,7 +1499,7 @@ static void draw_gpencil_object_strokes(const bContext *C, Scene *scene, const s
 	const bool render_override = (v3d->flag2 & V3D_RENDER_OVERRIDE) != 0;
 	Object *ob = base->object;
 
-	if (ob != scene->obedit) {
+	if (ob != CTX_data_edit_object(C)) {
 		if (ob->restrictflag & OB_RESTRICT_VIEW)
 			return;
 

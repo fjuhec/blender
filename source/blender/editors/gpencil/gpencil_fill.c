@@ -268,7 +268,7 @@ static void gp_render_offscreen(tGPDfill *tgpf)
 	}
 
 	char err_out[256] = "unknown";
-	GPUOffScreen *offscreen = GPU_offscreen_create(tgpf->sizex, tgpf->sizey, 0, false, err_out);
+	GPUOffScreen *offscreen = GPU_offscreen_create(tgpf->sizex, tgpf->sizey, 0, true, false, err_out);
 	GPU_offscreen_bind(offscreen, true);
 	unsigned int flag = IB_rect | IB_rectfloat;
 	ImBuf *ibuf = IMB_allocImBuf(tgpf->sizex, tgpf->sizey, 32, flag);
