@@ -264,3 +264,27 @@ float (*BKE_editmesh_vertexCos_get_orco(BMEditMesh *em, int *r_numVerts))[3]
 
 	return orco;
 }
+
+void BKE_editmesh_lnorspace_update(BMEditMesh *em)
+{
+	BMesh *bm = em->bm;
+	if (bm->lnor_spacearr == NULL) {
+		float split_angle = ((Mesh *)em->ob->data)->smoothresh;
+		split_angle = cosf(split_angle);
+
+		BMEdge *e;
+		BMIter eiter;
+		BM_ITER_MESH(e, &eiter, em->bm, BM_EDGES_OF_MESH) {
+			BMLoop *l_1, *l_2;
+			if (BM_edge_loop_pair(e, &l_1, &l_2)) {
+				const float *no_1 = l_1->f->no;
+				const float *no_2 = l_2->f->no;
+
+				if (dot_v3v3(no_1, no_2) < split_angle && BM_elem_flag_test(e, BM_ELEM_SMOOTH)) {
+					BM_elem_flag_disable(e, BM_ELEM_SMOOTH);
+				}
+			}
+		}
+	}
+	BM_lnorspace_update(bm);
+}

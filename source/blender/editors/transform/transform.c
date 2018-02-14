@@ -2411,7 +2411,7 @@ bool initTransform(bContext *C, TransInfo *t, wmOperator *op, const wmEvent *eve
 			if (!all_select) {
 				const bool preserve_clnor = RNA_property_boolean_get(op->ptr, prop);
 				if (preserve_clnor) {
-					BM_lnorspace_update(em->bm);
+					BKE_editmesh_lnorspace_update(em);
 					t->flag |= T_CLNOR_REBUILD;
 				}
 				BM_lnorspace_invalidate(em->bm, true);
@@ -4280,7 +4280,7 @@ static void initNormalRotation(TransInfo *t)
 	BMEditMesh *em = BKE_editmesh_from_object(t->obedit);
 	BMesh *bm = em->bm;
 
-	BM_lnorspace_update(bm);
+	BKE_editmesh_lnorspace_update(em);
 
 	StoreCustomlnorValue(t, bm);
 	

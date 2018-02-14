@@ -5994,9 +5994,10 @@ void MESH_OT_mark_freestyle_face(wmOperatorType *ot)
 static int init_point_normals(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
 {
 	Object *obedit = CTX_data_edit_object(C);
-	BMesh *bm = BKE_editmesh_from_object(obedit)->bm;
+	BMEditMesh *em = BKE_editmesh_from_object(obedit);
+	BMesh *bm = em->bm;
 
-	BM_lnorspace_update(bm);
+	BKE_editmesh_lnorspace_update(em);
 	LoopNormalData *ld = BM_loop_normal_init(bm);
 
 	ld->funcdata = NULL;
@@ -6520,7 +6521,7 @@ static int split_merge_loop_normals(bContext *C, const bool do_merge)
 	BMEdge *e;
 	BMIter eiter;
 
-	BM_lnorspace_update(bm);
+	BKE_editmesh_lnorspace_update(em);
 
 	LoopNormalData *ld = do_merge ? BM_loop_normal_init(bm) : NULL;
 
@@ -6537,7 +6538,7 @@ static int split_merge_loop_normals(bContext *C, const bool do_merge)
 	}
 
 	bm->spacearr_dirty |= BM_SPACEARR_DIRTY_ALL;
-	BM_lnorspace_update(bm);
+	BKE_editmesh_lnorspace_update(em);
 
 	if (do_merge) {
 		merge_loop(C, ld);
@@ -6620,7 +6621,7 @@ static int edbm_average_loop_normals_exec(bContext *C, wmOperator *op)
 	BMIter fiter;
 
 	bm->spacearr_dirty |= BM_SPACEARR_DIRTY_ALL;
-	BM_lnorspace_update(bm);
+	BKE_editmesh_lnorspace_update(em);
 
 	const int average_type = RNA_enum_get(op->ptr, "average_type");
 	int cd_clnors_offset = CustomData_get_offset(&bm->ldata, CD_CUSTOMLOOPNORMAL);
@@ -6813,7 +6814,7 @@ static int edbm_custom_normal_tools_exec(bContext *C, wmOperator *op)
 	const int mode = RNA_enum_get(op->ptr, "mode");
 	const bool absolute = RNA_boolean_get(op->ptr, "absolute");
 
-	BM_lnorspace_update(bm);
+	BKE_editmesh_lnorspace_update(em);
 	LoopNormalData *ld = BM_loop_normal_init(bm);
 	TransDataLoopNormal *tld = ld->normal;
 
@@ -6965,7 +6966,7 @@ static int edbm_set_normals_from_faces_exec(bContext *C, wmOperator *op)
 
 	const bool keep_sharp = RNA_boolean_get(op->ptr, "keep_sharp");
 
-	BM_lnorspace_update(bm);
+	BKE_editmesh_lnorspace_update(em);
 
 	float(*vnors)[3] = MEM_callocN(sizeof(*vnors) * bm->totvert, __func__);
 	BM_ITER_MESH(f, &fiter, bm, BM_FACES_OF_MESH) {
@@ -7057,7 +7058,7 @@ static int edbm_smoothen_normals_exec(bContext *C, wmOperator *op)
 	BMLoop *l;
 	BMIter fiter, liter;
 
-	BM_lnorspace_update(bm);
+	BKE_editmesh_lnorspace_update(em);
 	LoopNormalData *ld = BM_loop_normal_init(bm);
 
 	float(*smooth_normal)[3] = MEM_callocN(sizeof(*smooth_normal) * ld->totloop, __func__);
