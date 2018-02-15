@@ -3564,7 +3564,7 @@ class VIEW3D_PT_gp_paper(Panel):
     @classmethod
     def poll(cls, context):
         view = context.space_data
-        return (view)
+        return (view and context.active_object and context.gpencil_data)
 
     def draw_header(self, context):
         view = context.space_data
