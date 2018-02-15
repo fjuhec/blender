@@ -1824,7 +1824,7 @@ void DepsgraphRelationBuilder::build_obdata_geom(Object *object)
 			 * settings change (e.g. when fill.opacity changes on/off,
 			 * we need to rebuild the bGPDstroke->triangles caches)
 			 */
-			BLI_LISTBASE_FOREACH (bGPDpaletteref *, palslot, &gpd->palette_slots) {
+			LISTBASE_FOREACH (bGPDpaletteref *, palslot, &gpd->palette_slots) {
 				if (palslot->palette) {
 					ComponentKey palette_key(&palslot->palette->id, DEG_NODE_TYPE_PARAMETERS);
 					add_relation(palette_key, geometry_key, "Palette -> GP Data");

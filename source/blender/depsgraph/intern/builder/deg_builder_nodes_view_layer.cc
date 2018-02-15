@@ -146,7 +146,7 @@ void DepsgraphNodeBuilder::build_view_layer(
 	}
 
 	/* Palettes. */
-	BLI_LISTBASE_FOREACH (Palette *, palette, &bmain_->palettes) {
+	LISTBASE_FOREACH (Palette *, palette, &bmain_->palettes) {
 		build_palette(palette);
 	}
 
