@@ -16,16 +16,18 @@ uniform int pixfactor;
 out vec4 FragColor;
 
 float defaultpixsize = pixsize * pixelsize * float(pixfactor);
+vec2 nsize = max(size, 3.0);
 
 /* This pixelation shader is a modified version of original Geeks3d.com code */
 void main()
 {
 	vec2 uv = vec2(gl_FragCoord.xy);
 	
-	float dx = (ProjectionMatrix[3][3] == 0.0) ? (size[0] / (loc.z * defaultpixsize)) : (size[0] / defaultpixsize);
-	float dy = (ProjectionMatrix[3][3] == 0.0) ? (size[1] / (loc.z * defaultpixsize)) : (size[1] / defaultpixsize);
-	dx = max(dx, 1);
-	dy = max(dy, 1);
+	float dx = (ProjectionMatrix[3][3] == 0.0) ? (nsize[0] / (loc.z * defaultpixsize)) : (nsize[0] / defaultpixsize);
+	float dy = (ProjectionMatrix[3][3] == 0.0) ? (nsize[1] / (loc.z * defaultpixsize)) : (nsize[1] / defaultpixsize);
+	
+	dx = max(abs(dx), 3.0);
+	dy = max(abs(dy), 3.0);
 	
 	vec2 coord = vec2(dx * floor(uv.x / dx), dy * floor(uv.y / dy));
 	
@@ -33,11 +35,11 @@ void main()
 	vec4 outcolor = texelFetch(strokeColor, ivec2(coord), 0);
 
 	if (uselines == 1) {
-		float difx = uv.x - (floor(uv.x / dx) * dx);
+		float difx = uv.x - (floor(uv.x / nsize[0]) * nsize[0]);
 		if ((difx == 0.5) && (outcolor.a > 0)) {
 			outcolor = color;
 		}
-		float dify = uv.y - (floor(uv.y / dy) * dy);
+		float dify = uv.y - (floor(uv.y / nsize[1]) * nsize[1]);
 		if ((dify == 0.5) && (outcolor.a > 0)) {
 			outcolor = color;
 		}
