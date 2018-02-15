@@ -3693,9 +3693,6 @@ void DRW_render_to_image(RenderEngine *re, struct Depsgraph *depsgraph)
 		engine_type->draw_engine->render_to_image(data, re, depsgraph);
 	}
 
-	DST.buffer_finish_called = false;
-
-	/* TODO grease pencil */
 	/* grease pencil 
 	 * the grease pencil render result is merged in the previous render result.
 	 */
@@ -3705,6 +3702,8 @@ void DRW_render_to_image(RenderEngine *re, struct Depsgraph *depsgraph)
 			draw_engine_gpencil_type.render_to_image(gpdata, re, depsgraph);
 		}
 	}
+
+	DST.buffer_finish_called = false;
 
 	GPU_viewport_free(DST.viewport);
 	MEM_freeN(DST.viewport);
