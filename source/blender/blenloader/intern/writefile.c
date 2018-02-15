@@ -1337,6 +1337,9 @@ static void write_particlesettings(WriteData *wd, ParticleSettings *part)
 		if (part->roughcurve) {
 			write_curvemapping(wd, part->roughcurve);
 		}
+		if (part->twistcurve) {
+			write_curvemapping(wd, part->twistcurve);
+		}
 
 		for (ParticleDupliWeight *dw = part->dupliweights.first; dw; dw = dw->next) {
 			/* update indices, but only if dw->ob is set (can be NULL after loading e.g.) */
@@ -2941,7 +2944,7 @@ static void write_soops(WriteData *wd, SpaceOops *so)
 	if (ts) {
 		SpaceOops so_flat = *so;
 
-		int elems = BLI_mempool_count(ts);
+		int elems = BLI_mempool_len(ts);
 		/* linearize mempool to array */
 		TreeStoreElem *data = elems ? BLI_mempool_as_arrayN(ts, "TreeStoreElem") : NULL;
 

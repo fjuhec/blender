@@ -198,7 +198,7 @@ IDDepsNode *DepsgraphNodeBuilder::add_id_node(ID *id, bool do_tag)
 	 *
 	 * NOTE: Zero number of components indicates that ID node was just created.
 	 */
-	if (BLI_ghash_size(id_node->components) == 0) {
+	if (BLI_ghash_len(id_node->components) == 0) {
 		ComponentDepsNode *comp_cow =
 		        id_node->add_component(DEG_NODE_TYPE_COPY_ON_WRITE);
 		OperationDepsNode *op_cow = comp_cow->add_operation(
@@ -431,7 +431,7 @@ void DepsgraphNodeBuilder::build_group(Group *group)
 	}
 	group_id->tag |= LIB_TAG_DOIT;
 	/* Build group objects. */
-	BLI_LISTBASE_FOREACH (Base *, base, &group->view_layer->object_bases) {
+	LISTBASE_FOREACH (Base *, base, &group->view_layer->object_bases) {
 		build_object(NULL, base->object, DEG_ID_LINKED_INDIRECTLY);
 	}
 	/* Operation to evaluate the whole view layer.
@@ -699,7 +699,7 @@ void DepsgraphNodeBuilder::build_animdata(ID *id)
 		}
 
 		/* drivers */
-		BLI_LISTBASE_FOREACH (FCurve *, fcu, &adt->drivers) {
+		LISTBASE_FOREACH (FCurve *, fcu, &adt->drivers) {
 			/* create driver */
 			build_driver(id, fcu);
 		}
@@ -817,7 +817,7 @@ void DepsgraphNodeBuilder::build_rigidbody(Scene *scene)
 
 	/* objects - simulation participants */
 	if (rbw->group) {
-		BLI_LISTBASE_FOREACH (Base *, base, &rbw->group->view_layer->object_bases) {
+		LISTBASE_FOREACH (Base *, base, &rbw->group->view_layer->object_bases) {
 			Object *object = base->object;
 
 			if (!object || (object->type != OB_MESH))
@@ -868,7 +868,7 @@ void DepsgraphNodeBuilder::build_particles(Object *object)
 	                                 ob_cow),
 	                   DEG_OPCODE_PARTICLE_SYSTEM_EVAL_INIT);
 	/* Build all particle systems. */
-	BLI_LISTBASE_FOREACH (ParticleSystem *, psys, &object->particlesystem) {
+	LISTBASE_FOREACH (ParticleSystem *, psys, &object->particlesystem) {
 		ParticleSettings *part = psys->part;
 		/* Build particle settings operations.
 		 *
@@ -1003,7 +1003,7 @@ void DepsgraphNodeBuilder::build_obdata_geom(Object *object)
 	// TODO: "Done" operation
 
 	/* Cloth modifier. */
-	BLI_LISTBASE_FOREACH (ModifierData *, md, &object->modifiers) {
+	LISTBASE_FOREACH (ModifierData *, md, &object->modifiers) {
 		if (md->type == eModifierType_Cloth) {
 			build_cloth(object);
 		}
@@ -1265,7 +1265,7 @@ void DepsgraphNodeBuilder::build_nodetree(bNodeTree *ntree)
 	                                 ntree),
 	                   DEG_OPCODE_MATERIAL_UPDATE);
 	/* nodetree's nodes... */
-	BLI_LISTBASE_FOREACH (bNode *, bnode, &ntree->nodes) {
+	LISTBASE_FOREACH (bNode *, bnode, &ntree->nodes) {
 		ID *id = bnode->id;
 		if (id == NULL) {
 			continue;

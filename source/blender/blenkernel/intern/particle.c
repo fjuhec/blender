@@ -290,9 +290,10 @@ void psys_enable_all(Object *ob)
 
 bool psys_in_edit_mode(const EvaluationContext *eval_ctx, ViewLayer *view_layer, ParticleSystem *psys)
 {
-	return (view_layer->basact &&
+	/* TODO(mai): the check for view_layer shouldnt be needed, remove when render engine api is updated for this */
+	return (view_layer && view_layer->basact &&
 	        (eval_ctx->object_mode & OB_MODE_PARTICLE_EDIT) &&
-	        psys == psys_get_current((view_layer->basact)->object) &&
+	        psys == psys_get_current(view_layer->basact->object) &&
 	        (psys->edit || psys->pointcache->edit) &&
 	        !psys->renderdata);
 }
@@ -412,6 +413,8 @@ void BKE_particlesettings_free(ParticleSettings *part)
 		curvemapping_free(part->clumpcurve);
 	if (part->roughcurve)
 		curvemapping_free(part->roughcurve);
+	if (part->twistcurve)
+		curvemapping_free(part->twistcurve);
 	
 	free_partdeflect(part->pd);
 	free_partdeflect(part->pd2);
@@ -2143,6 +2146,7 @@ static bool psys_thread_context_init_path(
 	ctx->vg_rough1 = psys_cache_vgroup(ctx->dm, psys, PSYS_VG_ROUGH1);
 	ctx->vg_rough2 = psys_cache_vgroup(ctx->dm, psys, PSYS_VG_ROUGH2);
 	ctx->vg_roughe = psys_cache_vgroup(ctx->dm, psys, PSYS_VG_ROUGHE);
+	ctx->vg_twist = psys_cache_vgroup(ctx->dm, psys, PSYS_VG_TWIST);
 	if (psys->part->flag & PART_CHILD_EFFECT)
 		ctx->vg_effector = psys_cache_vgroup(ctx->dm, psys, PSYS_VG_EFFECTOR);
 
@@ -2160,6 +2164,13 @@ static bool psys_thread_context_init_path(
 	}
 	else {
 		ctx->roughcurve = NULL;
+	}
+	if ((part->child_flag & PART_CHILD_USE_TWIST_CURVE) && part->twistcurve) {
+		ctx->twistcurve = curvemapping_copy(part->twistcurve);
+		curvemapping_changed_all(ctx->twistcurve);
+	}
+	else {
+		ctx->twistcurve = NULL;
 	}
 
 	return true;
@@ -2305,7 +2316,19 @@ static void psys_thread_create_path(ParticleTask *task, struct ChildParticle *cp
 
 		/* get the original coordinates (orco) for texture usage */
 		cpa_from = part->from;
-		cpa_num = pa->num;
+
+		/*
+		 * NOTE: Should in theory be the same as:
+		 cpa_num = psys_particle_dm_face_lookup(
+		        ctx->sim.psmd->dm_final,
+		        ctx->sim.psmd->dm_deformed,
+		        pa->num, pa->fuv,
+		        NULL);
+		*/
+		cpa_num = (ELEM(pa->num_dmcache, DMCACHE_ISCHILD, DMCACHE_NOTFOUND))
+		        ? pa->num
+		        : pa->num_dmcache;
+
 		/* XXX hack to avoid messed up particle num and subsequent crash (#40733) */
 		if (cpa_num > ctx->sim.psmd->dm_final->getNumTessFaces(ctx->sim.psmd->dm_final))
 			cpa_num = 0;
@@ -2590,9 +2613,11 @@ void psys_cache_paths(ParticleSimulationData *sim, float cfra, const bool use_re
 	if ((psys->flag & PSYS_HAIR_DONE || psys->flag & PSYS_KEYED || psys->pointcache) == 0)
 		return;
 
+#if 0 /* TODO(mai): something is very wrong with these conditionals, they dont make sense and the cache isnt updating */
 	if (psys_in_edit_mode(sim->eval_ctx, sim->eval_ctx->view_layer, psys))
 		if (psys->renderdata == 0 && (psys->edit == NULL || pset->flag & PE_DRAW_PART) == 0)
 			return;
+#endif
 
 	keyed = psys->flag & PSYS_KEYED;
 	baked = psys->pointcache->mem_cache.first && psys->part->type != PART_HAIR;
@@ -3346,6 +3371,18 @@ void BKE_particlesettings_rough_curve_init(ParticleSettings *part)
 	part->roughcurve = cumap;
 }
 
+void BKE_particlesettings_twist_curve_init(ParticleSettings *part)
+{
+	CurveMapping *cumap = curvemapping_add(1, 0.0f, 0.0f, 1.0f, 1.0f);
+
+	cumap->cm[0].curve[0].x = 0.0f;
+	cumap->cm[0].curve[0].y = 1.0f;
+	cumap->cm[0].curve[1].x = 1.0f;
+	cumap->cm[0].curve[1].y = 1.0f;
+
+	part->twistcurve = cumap;
+}
+
 /**
  * Only copy internal data of ParticleSettings ID from source to already allocated/initialized destination.
  * You probably nerver want to use that directly, use id_copy or BKE_id_copy_ex for typical needs.
@@ -3367,6 +3404,9 @@ void BKE_particlesettings_copy_data(
 	}
 	if (part_src->roughcurve) {
 		part_dst->roughcurve = curvemapping_copy(part_src->roughcurve);
+	}
+	if (part_src->twistcurve) {
+		part_dst->twistcurve = curvemapping_copy(part_src->twistcurve);
 	}
 
 	part_dst->boids = boid_copy_settings(part_src->boids);
@@ -3487,6 +3527,7 @@ static void get_cpa_texture(DerivedMesh *dm, ParticleSystem *psys, ParticleSetti
 	ptex->ivel = ptex->life = ptex->exist = ptex->size = ptex->damp =
 	ptex->gravity = ptex->field = ptex->time = ptex->clump = ptex->kink_freq = ptex->kink_amp =
 	ptex->effector = ptex->rough1 = ptex->rough2 = ptex->roughe = 1.0f;
+	ptex->twist = 1.0f;
 
 	ptex->length = 1.0f - part->randlength * psys_frand(psys, child_index + 26);
 	ptex->length *= part->clength_thres < psys_frand(psys, child_index + 27) ? part->clength : 1.0f;
@@ -3539,6 +3580,7 @@ static void get_cpa_texture(DerivedMesh *dm, ParticleSystem *psys, ParticleSetti
 			SET_PARTICLE_TEXTURE(PAMAP_KINK_AMP, ptex->kink_amp, mtex->kinkampfac);
 			SET_PARTICLE_TEXTURE(PAMAP_KINK_FREQ, ptex->kink_freq, mtex->kinkfac);
 			SET_PARTICLE_TEXTURE(PAMAP_DENS, ptex->exist, mtex->padensfac);
+			SET_PARTICLE_TEXTURE(PAMAP_TWIST, ptex->twist, mtex->twistfac);
 		}
 	}
 
@@ -3564,6 +3606,7 @@ void psys_get_texture(ParticleSimulationData *sim, ParticleData *pa, ParticleTex
 	ptex->ivel = ptex->life = ptex->exist = ptex->size = ptex->damp =
 	ptex->gravity = ptex->field = ptex->length = ptex->clump = ptex->kink_freq = ptex->kink_amp =
 	ptex->effector = ptex->rough1 = ptex->rough2 = ptex->roughe = 1.0f;
+	ptex->twist = 1.0f;
 
 	ptex->time = (float)(pa - sim->psys->particles) / (float)sim->psys->totpart;
 
@@ -3638,6 +3681,7 @@ void psys_get_texture(ParticleSimulationData *sim, ParticleData *pa, ParticleTex
 			SET_PARTICLE_TEXTURE(PAMAP_GRAVITY, ptex->gravity, mtex->gravityfac);
 			SET_PARTICLE_TEXTURE(PAMAP_DAMP, ptex->damp, mtex->dampfac);
 			SET_PARTICLE_TEXTURE(PAMAP_LENGTH, ptex->length, mtex->lengthfac);
+			SET_PARTICLE_TEXTURE(PAMAP_TWIST, ptex->twist, mtex->twistfac);
 		}
 	}
 
@@ -3729,6 +3773,8 @@ static void get_child_modifier_parameters(ParticleSettings *part, ParticleThread
 		ptex->roughe *= psys_interpolate_value_from_verts(ctx->dm, cpa_from, cpa_num, cpa_fuv, ctx->vg_roughe);
 	if (ctx->vg_effector)
 		ptex->effector *= psys_interpolate_value_from_verts(ctx->dm, cpa_from, cpa_num, cpa_fuv, ctx->vg_effector);
+	if (ctx->vg_twist)
+		ptex->twist *= psys_interpolate_value_from_verts(ctx->dm, cpa_from, cpa_num, cpa_fuv, ctx->vg_twist);
 }
 /* get's hair (or keyed) particles state at the "path time" specified in state->time */
 void psys_get_particle_on_path(ParticleSimulationData *sim, int p, ParticleKey *state, const bool vel)
@@ -3934,7 +3980,18 @@ void psys_get_particle_on_path(ParticleSimulationData *sim, int p, ParticleKey *
 				copy_particle_key(&tstate, state, 1);
 
 			/* apply different deformations to the child path */
-			do_child_modifiers(NULL, sim, &ptex, par->co, par->vel, par->rot, par_orco, cpa, orco, hairmat, state, t);
+			ParticleChildModifierContext modifier_ctx = {NULL};
+			modifier_ctx.thread_ctx = NULL;
+			modifier_ctx.sim = sim;
+			modifier_ctx.ptex = &ptex;
+			modifier_ctx.cpa = cpa;
+			modifier_ctx.orco = orco;
+			modifier_ctx.par_co = par->co;
+			modifier_ctx.par_vel = par->vel;
+			modifier_ctx.par_rot = par->rot;
+			modifier_ctx.par_orco = par_orco;
+			modifier_ctx.parent_keys = psys->childcache ? psys->childcache[p - totpart] : NULL;
+			do_child_modifiers(&modifier_ctx, hairmat, state, t);
 
 			/* try to estimate correct velocity */
 			if (vel) {
@@ -4037,7 +4094,19 @@ int psys_get_particle_state(ParticleSimulationData *sim, int p, ParticleKey *sta
 			CLAMP(t, 0.0f, 1.0f);
 
 			unit_m4(mat);
-			do_child_modifiers(NULL, sim, NULL, key1->co, key1->vel, key1->rot, par_orco, cpa, cpa->fuv, mat, state, t);
+			ParticleChildModifierContext modifier_ctx = {NULL};
+			modifier_ctx.thread_ctx = NULL;
+			modifier_ctx.sim = sim;
+			modifier_ctx.ptex = NULL;
+			modifier_ctx.cpa = cpa;
+			modifier_ctx.orco = cpa->fuv;
+			modifier_ctx.par_co = key1->co;
+			modifier_ctx.par_vel = key1->vel;
+			modifier_ctx.par_rot = key1->rot;
+			modifier_ctx.par_orco = par_orco;
+			modifier_ctx.parent_keys = psys->childcache ? psys->childcache[p - totpart] : NULL;
+
+			do_child_modifiers(&modifier_ctx, mat, state, t);
 
 			if (psys->lattice_deform_data)
 				calc_latt_deform(psys->lattice_deform_data, state->co, psys->lattice_strength);

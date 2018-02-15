@@ -315,7 +315,7 @@ PTCacheEdit *PE_get_current(Scene *scene, ViewLayer *view_layer, Object *ob)
 
 PTCacheEdit *PE_create_current(const EvaluationContext *eval_ctx, Scene *scene, Object *ob)
 {
-	return pe_get_current(eval_ctx, scene, NULL, ob, 1);
+	return pe_get_current(eval_ctx, scene, eval_ctx->view_layer, ob, 1);
 }
 
 void PE_current_changed(const EvaluationContext *eval_ctx, Scene *scene, Object *ob)
@@ -1315,6 +1315,8 @@ void PE_update_object(const EvaluationContext *eval_ctx, Scene *scene, ViewLayer
 
 	if (edit->psys)
 		edit->psys->flag &= ~PSYS_HAIR_UPDATED;
+
+	DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
 }
 
 /************************************************/
@@ -3869,6 +3871,7 @@ static void brush_edit_apply(bContext *C, wmOperator *op, PointerRNA *itemptr)
 	     (sqrtf(dx * dx + dy * dy) > pset->brush[PE_BRUSH_ADD].step) : (dx != 0 || dy != 0)) || bedit->first)
 	{
 		PEData data= bedit->data;
+		data.context = C; // TODO(mai): why isnt this set in bedit->data?
 
 		view3d_operator_needs_opengl(C);
 		selected= (short)count_selected_keys(scene, edit);
@@ -4790,9 +4793,6 @@ static int particle_edit_toggle_exec(bContext *C, wmOperator *op)
 	Object *ob = CTX_data_active_object(C);
 	const int mode_flag = OB_MODE_PARTICLE_EDIT;
 	const bool is_mode_set = (eval_ctx.object_mode & mode_flag) != 0;
-
-	BKE_report(op->reports, RPT_INFO, "Particles are changing, editing is not possible");
-	return OPERATOR_CANCELLED;
 
 	if (!is_mode_set) {
 		if (!ED_object_mode_compat_set(C, workspace, mode_flag, op->reports)) {
