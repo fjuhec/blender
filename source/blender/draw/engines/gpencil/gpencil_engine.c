@@ -1083,6 +1083,10 @@ static void GPENCIL_render_to_image(void *vedata, struct RenderEngine *engine, s
 		rect_color_src = MEM_dupallocN(rp_color_src->rect);
 		rect_depth_src = MEM_dupallocN(rp_depth_src->rect);
 	}
+	else {
+		/* TODO: put this message in a better place */
+		printf("Warning: To render grease pencil, enable Combined and Z passes.\n");
+	}
 
 	int imgsize = rr_src->rectx * rr_src->recty;
 
