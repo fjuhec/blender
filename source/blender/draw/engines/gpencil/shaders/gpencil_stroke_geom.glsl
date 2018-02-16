@@ -135,7 +135,7 @@ void main(void)
 
 	/* generate the start endcap (alpha < 0 used as endcap flag)*/
 	if (P0 == P2) {
-		mTexCoord = vec2(1, 0.5);
+		mTexCoord = vec2(2, 1);
 		mColor = vec4(finalColor[1].rgb, finalColor[1].a * -1.0) ;
 		vec2 svn1 =  normalize(sp1 - sp2) * length_a * 4.0;
 		gl_Position = vec4((sp1 + svn1) / Viewport, getZdepth(P1), 1.0);
@@ -146,7 +146,7 @@ void main(void)
 		gl_Position = vec4((sp1 - (length_a * 2.0) * miter_a) / Viewport, getZdepth(P1), 1.0);
 		EmitVertex();
 
-		mTexCoord = vec2(0, 1);
+		mTexCoord = vec2(0, 2);
 		mColor = vec4(finalColor[1].rgb, finalColor[1].a * -1.0) ;
 		gl_Position = vec4((sp1 + (length_a * 2.0) * miter_a) / Viewport, getZdepth(P1), 1.0);
 		EmitVertex();
@@ -175,7 +175,7 @@ void main(void)
 
 	/* generate the end endcap (alpha < 0 used as endcap flag)*/
 	if (P1 == P3) {
-		mTexCoord = vec2(0, 1);
+		mTexCoord = vec2(0, 2);
 		mColor = vec4(finalColor[2].rgb, finalColor[2].a * -1.0) ;
 		gl_Position = vec4((sp2 + (length_b * 2.0) * miter_b) / Viewport, getZdepth(P2), 1.0);
 		EmitVertex();
@@ -185,7 +185,7 @@ void main(void)
 		gl_Position = vec4((sp2 - (length_b * 2.0) * miter_b) / Viewport, getZdepth(P2), 1.0);
 		EmitVertex();
 
-		mTexCoord = vec2(1, 0.5);
+		mTexCoord = vec2(2, 1);
 		mColor = vec4(finalColor[2].rgb, finalColor[2].a * -1.0) ;
 		vec2 svn2 =  normalize(sp2 - sp1) * length_b * 4.0;
 		gl_Position = vec4((sp2 + svn2) / Viewport, getZdepth(P2), 1.0);
