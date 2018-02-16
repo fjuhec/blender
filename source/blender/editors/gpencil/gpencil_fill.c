@@ -49,7 +49,6 @@
 #include "BKE_context.h"
 #include "BKE_screen.h"
 #include "BKE_paint.h" 
-#include "BKE_report.h" 
 
 #include "ED_gpencil.h"
 #include "ED_screen.h"
