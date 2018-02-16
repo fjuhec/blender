@@ -564,6 +564,7 @@ struct ModifierData *ED_object_modifier_add(struct ReportList *reports, struct M
 void ED_object_modifier_clear(struct Main *bmain, struct Object *ob) RET_NONE
 void ED_object_editmode_enter(struct bContext *C, int flag) RET_NONE
 void ED_object_editmode_exit(struct bContext *C, int flag) RET_NONE
+void ED_object_editmode_exit_ex(struct bContext *C, struct WorkSpace *workspace, struct Scene *scene, struct Object *obedit, int flag) RET_NONE
 bool ED_object_editmode_load(struct Object *obedit) RET_ZERO
 void ED_object_check_force_modifiers(struct Main *bmain, struct Scene *scene, struct Object *object, eObjectMode object_mode) RET_NONE
 bool uiLayoutGetActive(struct uiLayout *layout) RET_ZERO
@@ -771,7 +772,7 @@ void RE_point_density_cache(struct Scene *scene, struct ViewLayer *view_layer, s
 void RE_point_density_minmax(struct Scene *scene, struct ViewLayer *view_layer, struct PointDensity *pd, const bool use_render_params, float r_min[3], float r_max[3]) RET_NONE
 void RE_point_density_sample(struct Scene *scene, struct ViewLayer *view_layer, struct PointDensity *pd, const int resolution, const bool use_render_params, float *values) RET_NONE
 void RE_point_density_free(struct PointDensity *pd) RET_NONE
-void RE_instance_get_particle_info(struct ObjectInstanceRen *obi, float *index, float *age, float *lifetime, float co[3], float *size, float vel[3], float angvel[3]) RET_NONE
+void RE_instance_get_particle_info(struct ObjectInstanceRen *obi, float *index, float *random, float *age, float *lifetime, float co[3], float *size, float vel[3], float angvel[3]) RET_NONE
 void RE_FreeAllPersistentData(void) RET_NONE
 float RE_fresnel_dielectric(float incoming[3], float normal[3], float eta) RET_ZERO
 void RE_engine_register_pass(struct RenderEngine *engine, struct Scene *scene, struct ViewLayer *view_layer, const char *name, int channels, const char *chanid, int type) RET_NONE
