@@ -737,7 +737,7 @@ static void reportContextString(const char *name, const char *dummy, const char 
 {
 	fprintf(stderr, "%s: %s\n", name, context);
 
-	if (strcmp(dummy, context) != 0)
+	if (dummy && strcmp(dummy, context) != 0)
 		fprintf(stderr, "Warning! Dummy %s: %s\n", name, dummy);
 }
 #endif
@@ -898,19 +898,28 @@ GHOST_TSuccess GHOST_ContextWGL::initializeDrawingContext()
 
 	initContextGLEW();
 
+	if (is_crappy_intel_card()) {
+		/* Some Intel cards with context 4.1 or 4.2
+		 * don't have the point sprite enabled by default.
+		 *
+		 * However GL_POINT_SPRITE was removed in 3.2 and is now permanently ON.
+		 * Then use brute force. */
+		glEnable(GL_POINT_SPRITE);
+	}
+
 	initClearGL();
 	::SwapBuffers(m_hDC);
 
+#ifndef NDEBUG
 	const char *vendor = reinterpret_cast<const char*>(glGetString(GL_VENDOR));
 	const char *renderer = reinterpret_cast<const char*>(glGetString(GL_RENDERER));
 	const char *version = reinterpret_cast<const char*>(glGetString(GL_VERSION));
 
-#ifndef NDEBUG
-	if (m_dummyVendor != NULL) {
-		reportContextString("Vendor", m_dummyVendor, vendor);
-		reportContextString("Renderer", m_dummyRenderer, renderer);
-		reportContextString("Version", m_dummyVersion, version);
-	}
+	reportContextString("Vendor", m_dummyVendor, vendor);
+	reportContextString("Renderer", m_dummyRenderer, renderer);
+	reportContextString("Version", m_dummyVersion, version);
+
+	fprintf(stderr, "Context Version: %d.%d\n", m_contextMajorVersion, m_contextMinorVersion);
 #endif
 
 	return GHOST_kSuccess;
