@@ -244,25 +244,25 @@ Gwn_Batch *DRW_gpencil_get_buffer_stroke_geom(bGPdata *gpd, float matrix[4][4], 
 		if (i == 0) {
 			if (totpoints > 1) {
 				gpencil_tpoint_to_point(scene, ar, v3d, origin, &points[1], &pt2);
-				gpencil_set_stroke_point(vbo, matrix, &pt2, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor, NULL);
+				gpencil_set_stroke_point(vbo, matrix, &pt2, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor);
 			}
 			else {
-				gpencil_set_stroke_point(vbo, matrix, &pt, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor, NULL);
+				gpencil_set_stroke_point(vbo, matrix, &pt, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor);
 			}
 			idx++;
 		}
 		/* set point */
-		gpencil_set_stroke_point(vbo, matrix, &pt, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor, NULL);
+		gpencil_set_stroke_point(vbo, matrix, &pt, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor);
 		idx++;
 	}
 
 	/* last adjacency point (not drawn) */
 	if (totpoints > 2) {
 		gpencil_tpoint_to_point(scene, ar, v3d, origin, &points[totpoints - 2], &pt2);
-		gpencil_set_stroke_point(vbo, matrix, &pt2, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor, NULL);
+		gpencil_set_stroke_point(vbo, matrix, &pt2, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor);
 	}
 	else {
-		gpencil_set_stroke_point(vbo, matrix, &pt, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor, NULL);
+		gpencil_set_stroke_point(vbo, matrix, &pt, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor);
 	}
 
 	return GWN_batch_create_ex(GWN_PRIM_LINE_STRIP_ADJ, vbo, NULL, GWN_BATCH_OWNS_VBO);
@@ -308,7 +308,7 @@ Gwn_Batch *DRW_gpencil_get_buffer_point_geom(bGPdata *gpd, float matrix[4][4], s
 		ED_gp_project_point_to_plane(ob, rv3d, origin, ts->gp_sculpt.lock_axis - 1, ts->gpencil_src, &pt);
 
 		/* set point */
-		gpencil_set_stroke_point(vbo, matrix, &pt, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor, NULL);
+		gpencil_set_stroke_point(vbo, matrix, &pt, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor);
 		++idx;
 	}
 
