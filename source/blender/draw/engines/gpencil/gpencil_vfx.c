@@ -104,6 +104,7 @@ static void DRW_gpencil_vfx_copy(
 	DRW_shgroup_call_add(vfx_shgrp, vfxquad, NULL);
 	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeColor", &e_data->temp_color_tx);
 	DRW_shgroup_uniform_buffer(vfx_shgrp, "strokeDepth", &e_data->temp_depth_tx);
+	DRW_shgroup_uniform_int(vfx_shgrp, "tonemapping", &stl->storage->tonemapping, 1);
 
 	cache->vfx_wave_sh = vfx_shgrp;
 }
