@@ -28,7 +28,7 @@
  */
 
 
-#include "BLI_polyfill2d.h"
+#include "BLI_polyfill_2d.h"
 #include "BLI_math_color.h"
 
 #include "DNA_gpencil_types.h"
