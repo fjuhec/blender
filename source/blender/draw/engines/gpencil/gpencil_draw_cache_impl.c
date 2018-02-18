@@ -47,7 +47,6 @@
 #include "DEG_depsgraph.h"
 
 #include "IMB_imbuf_types.h"
-#include "IMB_colormanagement.h"
 
 #include "draw_cache_impl.h"
 #include "gpencil_engine.h"
@@ -524,7 +523,7 @@ DRWShadingGroup *DRW_gpencil_shgroup_point_create(GPENCIL_e_data *e_data, GPENCI
 /* add fill shading group to pass */
 static void gpencil_add_fill_shgroup(GpencilBatchCache *cache, DRWShadingGroup *fillgrp, 
 	Object *ob, bGPdata *gpd, bGPDlayer *gpl, bGPDframe *gpf, bGPDstroke *gps,
-	const float tintcolor[4], const bool onion, const bool custonion, ColorSpace *colorspace)
+	const float tintcolor[4], const bool onion, const bool custonion)
 {
 	if (gps->totpoints >= 3) {
 		float tfill[4];
@@ -547,7 +546,7 @@ static void gpencil_add_fill_shgroup(GpencilBatchCache *cache, DRWShadingGroup *
 			}
 			if (cache->is_dirty) {
 				gpencil_batch_cache_check_free_slots(ob);
-				cache->batch_fill[cache->cache_idx] = DRW_gpencil_get_fill_geom(gps, color, colorspace);
+				cache->batch_fill[cache->cache_idx] = DRW_gpencil_get_fill_geom(gps, color);
 			}
 			DRW_shgroup_call_add(fillgrp, cache->batch_fill[cache->cache_idx], gpf->viewmatrix);
 		}
@@ -557,8 +556,7 @@ static void gpencil_add_fill_shgroup(GpencilBatchCache *cache, DRWShadingGroup *
 /* add stroke shading group to pass */
 static void gpencil_add_stroke_shgroup(GpencilBatchCache *cache, DRWShadingGroup *strokegrp,
 	Object *ob, bGPdata *gpd, bGPDlayer *gpl, bGPDframe *gpf, bGPDstroke *gps,
-	const float opacity, const float tintcolor[4], const bool onion, const bool custonion,
-	ColorSpace *colorspace)
+	const float opacity, const float tintcolor[4], const bool onion, const bool custonion)
 {
 	float tcolor[4];
 	float ink[4];
@@ -592,10 +590,10 @@ static void gpencil_add_stroke_shgroup(GpencilBatchCache *cache, DRWShadingGroup
 	if (cache->is_dirty) {
 		gpencil_batch_cache_check_free_slots(ob);
 		if ((gps->totpoints > 1) && ((gps->palcolor->flag & PAC_COLOR_DOT) == 0)) {
-			cache->batch_stroke[cache->cache_idx] = DRW_gpencil_get_stroke_geom(gpf, gps, sthickness, ink, colorspace);
+			cache->batch_stroke[cache->cache_idx] = DRW_gpencil_get_stroke_geom(gpf, gps, sthickness, ink);
 		}
 		else {
-			cache->batch_stroke[cache->cache_idx] = DRW_gpencil_get_point_geom(gps, sthickness, ink, colorspace);
+			cache->batch_stroke[cache->cache_idx] = DRW_gpencil_get_point_geom(gps, sthickness, ink);
 		}
 	}
 	DRW_shgroup_call_add(strokegrp, cache->batch_stroke[cache->cache_idx], gpf->viewmatrix);
@@ -674,7 +672,7 @@ static void gpencil_draw_onion_strokes(GpencilBatchCache *cache, GPENCIL_e_data 
 		}
 
 		/* stroke */
-		gpencil_add_stroke_shgroup(cache, stl->shgroups[id].shgrps_stroke, ob, gpd, gpl, gpf, gps, opacity, tintcolor, true, custonion, NULL);
+		gpencil_add_stroke_shgroup(cache, stl->shgroups[id].shgrps_stroke, ob, gpd, gpl, gpf, gps, opacity, tintcolor, true, custonion);
 
 		stl->storage->shgroup_id++;
 		cache->cache_idx++;
@@ -698,8 +696,7 @@ static void gpencil_init_evalctx_from_drawctx(const DRWContextState *draw_ctx, E
 /* main function to draw strokes */
 static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_data, void *vedata, ToolSettings *ts, Object *ob,
 	bGPdata *gpd, bGPDlayer *gpl, bGPDframe *src_gpf, bGPDframe *derived_gpf,
-	const float opacity, const float tintcolor[4], const bool custonion,
-	ColorSpace *colorspace)
+	const float opacity, const float tintcolor[4], const bool custonion)
 {
 	GPENCIL_PassList *psl = ((GPENCIL_Data *)vedata)->psl;
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
@@ -810,11 +807,11 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 			}
 			/* fill */
 			if ((fillgrp) && (!GP_SIMPLIFY_FILL(ts, playing))) {
-				gpencil_add_fill_shgroup(cache, fillgrp, ob, gpd, gpl, derived_gpf, gps, tintcolor, false, custonion, colorspace);
+				gpencil_add_fill_shgroup(cache, fillgrp, ob, gpd, gpl, derived_gpf, gps, tintcolor, false, custonion);
 			}
 			/* stroke */
 			if (strokegrp) {
-				gpencil_add_stroke_shgroup(cache, strokegrp, ob, gpd, gpl, derived_gpf, gps, opacity, tintcolor, false, custonion, colorspace);
+				gpencil_add_stroke_shgroup(cache, strokegrp, ob, gpd, gpl, derived_gpf, gps, opacity, tintcolor, false, custonion);
 			}
 		}
 
@@ -1107,7 +1104,7 @@ void DRW_gpencil_populate_multiedit(GPENCIL_e_data *e_data, void *vedata, Scene 
 			for (gpf = gpl->frames.first; gpf; gpf = gpf->next) {
 				if ((gpf == gpl->actframe) || (gpf->flag & GP_FRAME_SELECT)) {
 					gpencil_draw_strokes(cache, e_data, vedata, ts, ob, gpd, gpl, gpf, gpf,
-						gpl->opacity, gpl->tintcolor, false, NULL);
+						gpl->opacity, gpl->tintcolor, false);
 				}
 			}
 		}
@@ -1115,7 +1112,7 @@ void DRW_gpencil_populate_multiedit(GPENCIL_e_data *e_data, void *vedata, Scene 
 			gpf = BKE_gpencil_layer_getframe(gpl, CFRA, 0);
 			if (gpf) {
 				gpencil_draw_strokes(cache, e_data, vedata, ts, ob, gpd, gpl, gpf, gpf,
-					gpl->opacity, gpl->tintcolor, false, NULL);
+					gpl->opacity, gpl->tintcolor, false);
 			}
 		}
 
@@ -1192,7 +1189,7 @@ void DRW_gpencil_populate_datablock(GPENCIL_e_data *e_data, void *vedata, Scene 
 
 		/* draw normal strokes */
 		gpencil_draw_strokes(cache, e_data, vedata, ts, ob, gpd, gpl, gpf, derived_gpf,
-			gpl->opacity, gpl->tintcolor, false, stl->storage->colorspace);
+			gpl->opacity, gpl->tintcolor, false);
 
 	}
 

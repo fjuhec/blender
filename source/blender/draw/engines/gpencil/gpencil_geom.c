@@ -48,39 +48,23 @@
 
 #include "UI_resources.h"
 
-#include "IMB_colormanagement.h"
-
 #include "gpencil_engine.h"
-
-/* helper to convert color space to linear */
-static void gpencil_linear_colorspace(const float color[4], ColorSpace *colorspace, float r_color[4])
-{
-	//if ((DRW_state_is_image_render()) && (colorspace != NULL)) { 
-	//	copy_v4_v4(r_color, color);
-	//	IMB_colormanagement_colorspace_to_scene_linear_v4(r_color, false, colorspace);
-	//}
-	//else {
-		copy_v4_v4(r_color, color);
-	//}
-}
 
 /* set stroke point to vbo */
 static void gpencil_set_stroke_point(
         Gwn_VertBuf *vbo, float matrix[4][4], const bGPDspoint *pt, int idx,
         uint pos_id, uint color_id,
         uint thickness_id, short thickness,
-        const float ink[4], ColorSpace *colorspace)
+        const float ink[4])
 {
 	float viewfpt[3];
-	float space_color[4];
 
 	float alpha = ink[3] * pt->strength;
 	CLAMP(alpha, GPENCIL_STRENGTH_MIN, 1.0f);
 	float col[4];
 	ARRAY_SET_ITEMS(col, ink[0], ink[1], ink[2], alpha);
 
-	gpencil_linear_colorspace(col, colorspace, space_color);
-	GWN_vertbuf_attr_set(vbo, color_id, idx, space_color);
+	GWN_vertbuf_attr_set(vbo, color_id, idx, col);
 
 	/* the thickness of the stroke must be affected by zoom, so a pixel scale is calculated */
 	mul_v3_m4v3(viewfpt, matrix, &pt->x);
@@ -91,7 +75,7 @@ static void gpencil_set_stroke_point(
 }
 
 /* create batch geometry data for points stroke shader */
-Gwn_Batch *DRW_gpencil_get_point_geom(bGPDstroke *gps, short thickness, const float ink[4], ColorSpace *colorspace)
+Gwn_Batch *DRW_gpencil_get_point_geom(bGPDstroke *gps, short thickness, const float ink[4])
 {
 	static Gwn_VertFormat format = { 0 };
 	static uint pos_id, color_id, size_id;
@@ -109,7 +93,6 @@ Gwn_Batch *DRW_gpencil_get_point_geom(bGPDstroke *gps, short thickness, const fl
 	int idx = 0;
 	float alpha;
 	float col[4];
-	float space_color[4];
 
 	for (int i = 0; i < gps->totpoints; i++, pt++) {
 		/* set point */
@@ -119,8 +102,7 @@ Gwn_Batch *DRW_gpencil_get_point_geom(bGPDstroke *gps, short thickness, const fl
 
 		float thick = max_ff(pt->pressure * thickness, 1.0f);
 
-		gpencil_linear_colorspace(col, colorspace, space_color);
-		GWN_vertbuf_attr_set(vbo, color_id, idx, space_color);
+		GWN_vertbuf_attr_set(vbo, color_id, idx, col);
 		GWN_vertbuf_attr_set(vbo, size_id, idx, &thick);
 		GWN_vertbuf_attr_set(vbo, pos_id, idx, &pt->x);
 		++idx;
@@ -130,7 +112,7 @@ Gwn_Batch *DRW_gpencil_get_point_geom(bGPDstroke *gps, short thickness, const fl
 }
 
 /* create batch geometry data for stroke shader */
-Gwn_Batch *DRW_gpencil_get_stroke_geom(bGPDframe *gpf, bGPDstroke *gps, short thickness, const float ink[4], ColorSpace *colorspace)
+Gwn_Batch *DRW_gpencil_get_stroke_geom(bGPDframe *gpf, bGPDstroke *gps, short thickness, const float ink[4])
 {
 	bGPDspoint *points = gps->points;
 	int totpoints = gps->totpoints;
@@ -155,30 +137,30 @@ Gwn_Batch *DRW_gpencil_get_stroke_geom(bGPDframe *gpf, bGPDstroke *gps, short th
 		/* first point for adjacency (not drawn) */
 		if (i == 0) {
 			if (gps->flag & GP_STROKE_CYCLIC && totpoints > 2) {
-				gpencil_set_stroke_point(vbo, gpf->viewmatrix, &points[totpoints - 1], idx, pos_id, color_id, thickness_id, thickness, ink, colorspace);
+				gpencil_set_stroke_point(vbo, gpf->viewmatrix, &points[totpoints - 1], idx, pos_id, color_id, thickness_id, thickness, ink);
 				++idx;
 			}
 			else {
-				gpencil_set_stroke_point(vbo, gpf->viewmatrix, &points[1], idx, pos_id, color_id, thickness_id, thickness, ink, colorspace);
+				gpencil_set_stroke_point(vbo, gpf->viewmatrix, &points[1], idx, pos_id, color_id, thickness_id, thickness, ink);
 				++idx;
 			}
 		}
 		/* set point */
-		gpencil_set_stroke_point(vbo, gpf->viewmatrix, pt, idx, pos_id, color_id, thickness_id, thickness, ink, colorspace);
+		gpencil_set_stroke_point(vbo, gpf->viewmatrix, pt, idx, pos_id, color_id, thickness_id, thickness, ink);
 		++idx;
 	}
 
 	if (gps->flag & GP_STROKE_CYCLIC && totpoints > 2) {
 		/* draw line to first point to complete the cycle */
-		gpencil_set_stroke_point(vbo, gpf->viewmatrix, &points[0], idx, pos_id, color_id, thickness_id, thickness, ink, colorspace);
+		gpencil_set_stroke_point(vbo, gpf->viewmatrix, &points[0], idx, pos_id, color_id, thickness_id, thickness, ink);
 		++idx;
 		/* now add adjacency point (not drawn) */
-		gpencil_set_stroke_point(vbo, gpf->viewmatrix, &points[1], idx, pos_id, color_id, thickness_id, thickness, ink, colorspace);
+		gpencil_set_stroke_point(vbo, gpf->viewmatrix, &points[1], idx, pos_id, color_id, thickness_id, thickness, ink);
 		++idx;
 	}
 	/* last adjacency point (not drawn) */
 	else {
-		gpencil_set_stroke_point(vbo, gpf->viewmatrix, &points[totpoints - 2], idx, pos_id, color_id, thickness_id, thickness, ink, colorspace);
+		gpencil_set_stroke_point(vbo, gpf->viewmatrix, &points[totpoints - 2], idx, pos_id, color_id, thickness_id, thickness, ink);
 	}
 
 	return GWN_batch_create_ex(GWN_PRIM_LINE_STRIP_ADJ, vbo, NULL, GWN_BATCH_OWNS_VBO);
@@ -602,13 +584,10 @@ static void gpencil_set_fill_point(
 }
 
 /* create batch geometry data for stroke shader */
-Gwn_Batch *DRW_gpencil_get_fill_geom(bGPDstroke *gps, const float color[4], ColorSpace *colorspace)
+Gwn_Batch *DRW_gpencil_get_fill_geom(bGPDstroke *gps, const float color[4])
 {
 	BLI_assert(gps->totpoints >= 3);
 	
-	float space_color[4];
-	gpencil_linear_colorspace(color, colorspace, space_color);
-
 	/* Calculate triangles cache for filling area (must be done only after changes) */
 	if ((gps->flag & GP_STROKE_RECALC_CACHES) || (gps->tot_triangles == 0) || (gps->triangles == NULL)) {
 		gp_triangulate_stroke_fill(gps);
@@ -632,7 +611,7 @@ Gwn_Batch *DRW_gpencil_get_fill_geom(bGPDstroke *gps, const float color[4], Colo
 	for (int i = 0; i < gps->tot_triangles; i++, stroke_triangle++) {
 		for (int j = 0; j < 3; j++) {
 			gpencil_set_fill_point(
-			        vbo, idx, &gps->points[stroke_triangle->verts[j]], space_color, stroke_triangle->uv[j],
+			        vbo, idx, &gps->points[stroke_triangle->verts[j]], color, stroke_triangle->uv[j],
 			        pos_id, color_id, text_id);
 			++idx;
 		}

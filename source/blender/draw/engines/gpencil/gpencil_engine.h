@@ -31,7 +31,6 @@
 struct tGPspoint;
 struct ModifierData;
 struct GPENCIL_StorageList;
-struct ColorSpace;
 
  /* TODO: these could be system parameter in userprefs screen */
 #define GPENCIL_MAX_GP_OBJ 256 
@@ -177,7 +176,6 @@ typedef struct GPENCIL_Storage {
 	float viewmat[4][4], viewinv[4][4];
 	float winmat[4][4], wininv[4][4];
 	float view_vecs[2][4]; /* vec4[2] */
-	struct ColorSpace *colorspace;
 } GPENCIL_Storage;
 
 typedef struct GPENCIL_StorageList {
@@ -331,9 +329,9 @@ void DRW_gpencil_populate_datablock(struct GPENCIL_e_data *e_data, void *vedata,
 void DRW_gpencil_populate_buffer_strokes(struct GPENCIL_e_data *e_data, void *vedata, struct ToolSettings *ts, struct Object *ob);
 void DRW_gpencil_populate_multiedit(struct GPENCIL_e_data *e_data, void *vedata, struct Scene *scene, struct Object *ob, struct ToolSettings *ts, struct bGPdata *gpd);
 
-struct Gwn_Batch *DRW_gpencil_get_point_geom(struct bGPDstroke *gps, short thickness, const float ink[4], struct ColorSpace *colorspace);
-struct Gwn_Batch *DRW_gpencil_get_stroke_geom(struct bGPDframe *gpf, struct bGPDstroke *gps, short thickness, const float ink[4], struct ColorSpace *colorspace);
-struct Gwn_Batch *DRW_gpencil_get_fill_geom(struct bGPDstroke *gps, const float color[4], struct ColorSpace *colorspace);
+struct Gwn_Batch *DRW_gpencil_get_point_geom(struct bGPDstroke *gps, short thickness, const float ink[4]);
+struct Gwn_Batch *DRW_gpencil_get_stroke_geom(struct bGPDframe *gpf, struct bGPDstroke *gps, short thickness, const float ink[4]);
+struct Gwn_Batch *DRW_gpencil_get_fill_geom(struct bGPDstroke *gps, const float color[4]);
 struct Gwn_Batch *DRW_gpencil_get_edit_geom(struct bGPDstroke *gps, float alpha, short dflag);
 struct Gwn_Batch *DRW_gpencil_get_edlin_geom(struct bGPDstroke *gps, float alpha, short dflag);
 struct Gwn_Batch *DRW_gpencil_get_buffer_stroke_geom(struct bGPdata *gpd, float matrix[4][4], short thickness);
