@@ -55,13 +55,13 @@
 /* helper to convert color space to linear */
 static void gpencil_linear_colorspace(const float color[4], ColorSpace *colorspace, float r_color[4])
 {
-	if ((DRW_state_is_image_render()) && (colorspace != NULL)) { 
+	//if ((DRW_state_is_image_render()) && (colorspace != NULL)) { 
+	//	copy_v4_v4(r_color, color);
+	//	IMB_colormanagement_colorspace_to_scene_linear_v4(r_color, false, colorspace);
+	//}
+	//else {
 		copy_v4_v4(r_color, color);
-		IMB_colormanagement_colorspace_to_scene_linear_v4(r_color, false, colorspace);
-	}
-	else {
-		copy_v4_v4(r_color, color);
-	}
+	//}
 }
 
 /* set stroke point to vbo */

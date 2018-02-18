@@ -227,6 +227,7 @@ static void GPENCIL_cache_init(void *vedata)
 	stl->g_data->tot_sh_stroke = 0;
 	stl->g_data->tot_sh_fill = 0;
 	stl->g_data->tot_sh_point = 0;
+	stl->storage->tonemapping = 0;
 
 	stl->g_data->shgrps_edit_line = NULL;
 	stl->g_data->shgrps_edit_point = NULL;
@@ -370,6 +371,7 @@ static void GPENCIL_cache_init(void *vedata)
 		DRW_shgroup_call_add(mix_shgrp, quad, NULL);
 		DRW_shgroup_uniform_buffer(mix_shgrp, "strokeColor", &e_data.input_color_tx);
 		DRW_shgroup_uniform_buffer(mix_shgrp, "strokeDepth", &e_data.input_depth_tx);
+		DRW_shgroup_uniform_int(mix_shgrp, "tonemapping", &stl->storage->tonemapping, 1);
 
 		/* mix pass no blend */
 		struct Gwn_Batch *quad_noblend = DRW_cache_fullscreen_quad_get();
@@ -379,6 +381,7 @@ static void GPENCIL_cache_init(void *vedata)
 		DRW_shgroup_call_add(mix_shgrp_noblend, quad_noblend, NULL);
 		DRW_shgroup_uniform_buffer(mix_shgrp_noblend, "strokeColor", &e_data.input_color_tx);
 		DRW_shgroup_uniform_buffer(mix_shgrp_noblend, "strokeDepth", &e_data.input_depth_tx);
+		DRW_shgroup_uniform_int(mix_shgrp_noblend, "tonemapping", &stl->storage->tonemapping, 1);
 
 		/* vfx copy pass from txtb to txta */
 		struct Gwn_Batch *vfxquad = DRW_cache_fullscreen_quad_get();
@@ -388,6 +391,7 @@ static void GPENCIL_cache_init(void *vedata)
 		DRW_shgroup_call_add(vfx_copy_shgrp, vfxquad, NULL);
 		DRW_shgroup_uniform_buffer(vfx_copy_shgrp, "strokeColor", &e_data.vfx_color_tx_b);
 		DRW_shgroup_uniform_buffer(vfx_copy_shgrp, "strokeDepth", &e_data.vfx_depth_tx_b);
+		DRW_shgroup_uniform_int(vfx_copy_shgrp, "tonemapping", &stl->storage->tonemapping, 1);
 
 		/* VFX pass */
 		psl->vfx_wave_pass = DRW_pass_create("GPencil VFX Wave Pass", DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS);
@@ -825,7 +829,11 @@ static void GPENCIL_draw_scene(void *vedata)
 				else {
 					DRW_framebuffer_bind(fbl->main);
 				}
+				/* tonemapping */
+				stl->storage->tonemapping = stl->storage->is_render ? 1 : 0;
 				DRW_draw_pass(psl->mix_pass);
+
+				stl->storage->tonemapping = 0;
 				/* prepare for fast drawing */
 				if (!is_render) {
 					gpencil_prepare_fast_drawing(stl, dfbl, fbl, psl->mix_pass_noblend, clearcol);
