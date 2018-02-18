@@ -822,6 +822,18 @@ static void rna_def_gpencil_stroke_point(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Strength", "Color intensity (alpha factor)");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
+	prop = RNA_def_property(srna, "uv_factor", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_sdna(prop, NULL, "uv_fac");
+	RNA_def_property_range(prop, 0.0f, 1.0f);
+	RNA_def_property_ui_text(prop, "UV Factor", "Internal UV factor");
+	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+	prop = RNA_def_property(srna, "uv_rotation", PROP_FLOAT, PROP_ANGLE);
+	RNA_def_property_float_sdna(prop, NULL, "uv_rot");
+	RNA_def_property_range(prop, 0.0f, DEG2RADF(360.0f));
+	RNA_def_property_ui_text(prop, "UV Rotation", "Internal UV factor for dot mode");
+	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
 	prop = RNA_def_property(srna, "select", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_SPOINT_SELECT);
 	RNA_def_property_boolean_funcs(prop, NULL, "rna_GPencil_stroke_point_select_set");
