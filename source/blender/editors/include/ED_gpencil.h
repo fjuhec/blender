@@ -75,6 +75,8 @@ typedef struct tGPspoint {
 	float pressure;         /* pressure of tablet at this point */
 	float strength;         /* pressure of tablet at this point for alpha factor */
 	float time;             /* Time relative to stroke start (used when converting to path) */
+	float uv_fac;           /* factor of uv along the stroke */
+	float uv_rot;           /* uv rotation for dor mode */
 } tGPspoint;
 
 /* used to sort by zdepth gpencil objects in viewport */
@@ -208,5 +210,9 @@ void ED_gpencil_vgroup_deselect(struct bContext *C, struct Object *ob);
 
 /* join objects */
 int ED_gpencil_join_objects_exec(struct bContext *C, struct wmOperator *op);
+
+/* texture coordinate utilities */
+#define GPENCIL_STROKE_UV 1.0f /* TODO: Replace by brush parameter */
+void ED_gpencil_calc_stroke_uv(struct bGPDstroke *gps, float factor);
 
 #endif /*  __ED_GPENCIL_H__ */

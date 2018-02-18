@@ -591,6 +591,7 @@ Gwn_Batch *DRW_gpencil_get_fill_geom(bGPDstroke *gps, const float color[4])
 	/* Calculate triangles cache for filling area (must be done only after changes) */
 	if ((gps->flag & GP_STROKE_RECALC_CACHES) || (gps->tot_triangles == 0) || (gps->triangles == NULL)) {
 		gp_triangulate_stroke_fill(gps);
+		ED_gpencil_calc_stroke_uv(gps, GPENCIL_STROKE_UV);
 	}
 	BLI_assert(gps->tot_triangles >= 1);
 

@@ -805,12 +805,18 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 					BKE_gpencil_stroke_modifiers(&eval_ctx, ob, gpl, derived_gpf, gps, stl->storage->is_render);
 				}
 			}
+
 			/* fill */
 			if ((fillgrp) && (!GP_SIMPLIFY_FILL(ts, playing))) {
 				gpencil_add_fill_shgroup(cache, fillgrp, ob, gpd, gpl, derived_gpf, gps, tintcolor, false, custonion);
 			}
 			/* stroke */
 			if (strokegrp) {
+				/* be sure UVs are ready */
+				if (gps->flag & GP_STROKE_RECALC_CACHES) {
+					ED_gpencil_calc_stroke_uv(gps, GPENCIL_STROKE_UV);
+					gps->flag &= ~GP_STROKE_RECALC_CACHES;
+				}
 				gpencil_add_stroke_shgroup(cache, strokegrp, ob, gpd, gpl, derived_gpf, gps, opacity, tintcolor, false, custonion);
 			}
 		}

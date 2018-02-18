@@ -1526,5 +1526,40 @@ void ED_gpencil_setup_modes(bContext *C, bGPdata *gpd, int newmode)
 	}
 }
 
+/* texture coordinate utilities */
+void ED_gpencil_calc_stroke_uv(bGPDstroke *gps, float factor)
+{
+	if (gps == NULL) {
+		return;
+	}
+	bGPDspoint *pt = NULL;
+	bGPDspoint *ptb = NULL;
+	int i;
+	float totlen = 0;
+
+	/* first read all points and calc distance */
+	for (i = 0; i < gps->totpoints; i++) {
+		pt = &gps->points[i];
+		/* first point */
+		if (i == 0) {
+			pt->uv_fac = 0.0f;
+			pt->uv_rot = 0.0f;
+			continue;
+		}
+
+		ptb = &gps->points[i - 1];
+		totlen += len_v3v3(&pt->x, &ptb->x);
+
+		pt->uv_fac = totlen;
+		pt->uv_rot = 0.0f;
+	}
+
+	/* normalize the distance using a factor */
+	for (i = 0; i < gps->totpoints; i++) {
+		pt = &gps->points[i];
+		pt->uv_fac /= factor;
+	}
+}
+
 /* ******************************************************** */
 

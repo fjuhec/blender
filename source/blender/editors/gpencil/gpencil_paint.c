@@ -1016,6 +1016,9 @@ static void gp_stroke_newfrombuffer(tGPsdata *p)
 			MEM_freeN(depth_arr);
 	}
 	
+	/* calculate UVs along the stroke */
+	ED_gpencil_calc_stroke_uv(gps, GPENCIL_STROKE_UV);
+
 	/* Save palette color */
 	gps->palette = p->palette;
 	gps->palcolor = p->palettecolor;
