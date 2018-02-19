@@ -17,8 +17,8 @@ out vec4 fragColor;
 void main()
 {
 	vec4 tColor = vec4(mColor);
-	/* if alpha < 0, then encap */
-	if (mColor.a < 0) {
+	/* if alpha < 0, then encap (only solid mode ) */
+	if ((mColor.a < 0) && (color_type == GPENCIL_COLOR_SOLID)) {
 		vec2 center = vec2(uvfac, 1.0);
 		tColor.a = tColor.a * -1.0;
 		float dist = length(mTexCoord - center);
