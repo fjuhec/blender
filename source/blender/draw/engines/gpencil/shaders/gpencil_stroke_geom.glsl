@@ -1,6 +1,7 @@
 uniform mat4 ModelViewProjectionMatrix;
 uniform vec2 Viewport;
 uniform int xraymode;
+uniform int color_type;
 
 layout(lines_adjacency) in;
 layout(triangle_strip, max_vertices = 13) out;
@@ -16,6 +17,11 @@ out float uvfac;
 #define GP_XRAY_FRONT 0
 #define GP_XRAY_3DSPACE 1
 #define GP_XRAY_BACK  2
+
+/* keep this list synchronized with list in gpencil_engine.h */
+#define GPENCIL_COLOR_SOLID   0
+#define GPENCIL_COLOR_TEXTURE 1
+#define GPENCIL_COLOR_PATTERN 2
 
 /* project 3d point to 2d on screen space */
 vec2 toScreenSpace(vec4 vertex)
@@ -142,7 +148,7 @@ void main(void)
 	}
 
 	/* generate the start endcap (alpha < 0 used as endcap flag)*/
-	if (P0 == P2) {
+	if ((P0 == P2) && (color_type == GPENCIL_COLOR_SOLID)){
 		mTexCoord = vec2(2, 1);
 		mColor = vec4(finalColor[1].rgb, finalColor[1].a * -1.0) ;
 		uvfac = 0;
@@ -189,7 +195,7 @@ void main(void)
 	EmitVertex();
 
 	/* generate the end endcap (alpha < 0 used as endcap flag)*/
-	if (P1 == P3) {
+	if ((P1 == P3) && (color_type == GPENCIL_COLOR_SOLID)){ 
 		mTexCoord = vec2(finaluvdata[2].x, 2);
 		mColor = vec4(finalColor[2].rgb, finalColor[2].a * -1.0) ;
 		uvfac = finaluvdata[2].x;
