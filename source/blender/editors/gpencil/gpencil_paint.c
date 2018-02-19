@@ -185,6 +185,8 @@ typedef struct tGPsdata {
 	short keymodifier;   /* key used for invoking the operator */
 	short shift;         /* shift modifier flag */
 
+	float totpixlen;     /* size in pixels for uv calculation */
+
 	ReportList *reports;
 } tGPsdata;
 
@@ -497,6 +499,8 @@ static short gp_stroke_addpoint(
 	tGPspoint *pt;
 	ToolSettings *ts = p->scene->toolsettings;
 	Object *obact = (Object *)p->ownerPtr.data;
+	RegionView3D *rv3d = p->ar->regiondata;
+	PaletteColor *palcolor = p->palettecolor;
 
 	/* check painting mode */
 	if (p->paintmode == GP_PAINTMODE_DRAW_STRAIGHT) {
@@ -604,6 +608,19 @@ static short gp_stroke_addpoint(
 		/* point time */
 		pt->time = (float)(curtime - p->inittime);
 		
+		/* point uv */
+		if (gpd->sbuffer_size > 1) {
+			tGPspoint *ptb = (tGPspoint *)gpd->sbuffer + gpd->sbuffer_size - 2;
+			p->totpixlen += (float) len_v2v2_int(&pt->x, &ptb->x);
+			pt->uv_fac = p->totpixlen;
+			if ((palcolor) && (palcolor->sima)) {
+				pt->uv_fac /= palcolor->sima->gen_x;
+			}
+		}
+		else {
+			pt->uv_fac = 0.0f;
+		}
+
 		/* increment counters */
 		gpd->sbuffer_size++;
 

@@ -210,6 +210,8 @@ static void gpencil_tpoint_to_point(Scene *scene, ARegion *ar, View3D *v3d, floa
 
 	pt->pressure = tpt->pressure;
 	pt->strength = tpt->strength;
+	pt->uv_fac = tpt->uv_fac;
+	pt->uv_rot = tpt->uv_rot;
 }
 
 /* create batch geometry data for current buffer stroke shader */
