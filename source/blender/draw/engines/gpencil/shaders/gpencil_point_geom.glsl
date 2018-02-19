@@ -7,6 +7,7 @@ layout(triangle_strip, max_vertices = 4) out;
 
 in vec4 finalColor[1];
 in float finalThickness[1];
+in vec2 finaluvdata[1];
 
 out vec4 mColor;
 out vec2 mTexCoord;

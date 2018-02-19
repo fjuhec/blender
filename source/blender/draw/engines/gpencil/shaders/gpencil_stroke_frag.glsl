@@ -3,6 +3,7 @@ uniform sampler2D myTexture;
 
 in vec4 mColor;
 in vec2 mTexCoord;
+in float uvfac;
 
 out vec4 fragColor;
 
@@ -15,7 +16,7 @@ out vec4 fragColor;
 
 void main()
 {
-	const vec2 center = vec2(0, 1.0);
+	vec2 center = vec2(uvfac, 1.0);
 	vec4 tColor = vec4(mColor);
 	/* if alpha < 0, then encap */
 	if (mColor.a < 0) {

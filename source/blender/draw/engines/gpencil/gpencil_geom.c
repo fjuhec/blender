@@ -54,7 +54,7 @@
 static void gpencil_set_stroke_point(
         Gwn_VertBuf *vbo, float matrix[4][4], const bGPDspoint *pt, int idx,
         uint pos_id, uint color_id,
-        uint thickness_id, short thickness,
+        uint thickness_id, uint uvdata_id, short thickness,
         const float ink[4])
 {
 	float viewfpt[3];
@@ -65,6 +65,10 @@ static void gpencil_set_stroke_point(
 	ARRAY_SET_ITEMS(col, ink[0], ink[1], ink[2], alpha);
 
 	GWN_vertbuf_attr_set(vbo, color_id, idx, col);
+
+	/* transfer both values using the same shader variable */
+	float uvdata[2] = { pt->uv_fac , pt->uv_rot };
+	GWN_vertbuf_attr_set(vbo, uvdata_id, idx, uvdata);
 
 	/* the thickness of the stroke must be affected by zoom, so a pixel scale is calculated */
 	mul_v3_m4v3(viewfpt, matrix, &pt->x);
@@ -120,11 +124,12 @@ Gwn_Batch *DRW_gpencil_get_stroke_geom(bGPDframe *gpf, bGPDstroke *gps, short th
 	int cyclic_add = (gps->flag & GP_STROKE_CYCLIC) ? 1 : 0;
 
 	static Gwn_VertFormat format = { 0 };
-	static uint pos_id, color_id, thickness_id;
+	static uint pos_id, color_id, thickness_id, uvdata_id;
 	if (format.attrib_ct == 0) {
 		pos_id = GWN_vertformat_attr_add(&format, "pos", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
 		color_id = GWN_vertformat_attr_add(&format, "color", GWN_COMP_F32, 4, GWN_FETCH_FLOAT);
 		thickness_id = GWN_vertformat_attr_add(&format, "thickness", GWN_COMP_F32, 1, GWN_FETCH_FLOAT);
+		uvdata_id = GWN_vertformat_attr_add(&format, "uvdata", GWN_COMP_F32, 1, GWN_FETCH_FLOAT);
 	}
 
 	Gwn_VertBuf *vbo = GWN_vertbuf_create_with_format(&format);
@@ -137,30 +142,36 @@ Gwn_Batch *DRW_gpencil_get_stroke_geom(bGPDframe *gpf, bGPDstroke *gps, short th
 		/* first point for adjacency (not drawn) */
 		if (i == 0) {
 			if (gps->flag & GP_STROKE_CYCLIC && totpoints > 2) {
-				gpencil_set_stroke_point(vbo, gpf->viewmatrix, &points[totpoints - 1], idx, pos_id, color_id, thickness_id, thickness, ink);
+				gpencil_set_stroke_point(vbo, gpf->viewmatrix, &points[totpoints - 1], idx, 
+										 pos_id, color_id, thickness_id, uvdata_id, thickness, ink);
 				++idx;
 			}
 			else {
-				gpencil_set_stroke_point(vbo, gpf->viewmatrix, &points[1], idx, pos_id, color_id, thickness_id, thickness, ink);
+				gpencil_set_stroke_point(vbo, gpf->viewmatrix, &points[1], idx, 
+										 pos_id, color_id, thickness_id, uvdata_id, thickness, ink);
 				++idx;
 			}
 		}
 		/* set point */
-		gpencil_set_stroke_point(vbo, gpf->viewmatrix, pt, idx, pos_id, color_id, thickness_id, thickness, ink);
+		gpencil_set_stroke_point(vbo, gpf->viewmatrix, pt, idx, 
+								 pos_id, color_id, thickness_id, uvdata_id, thickness, ink);
 		++idx;
 	}
 
 	if (gps->flag & GP_STROKE_CYCLIC && totpoints > 2) {
 		/* draw line to first point to complete the cycle */
-		gpencil_set_stroke_point(vbo, gpf->viewmatrix, &points[0], idx, pos_id, color_id, thickness_id, thickness, ink);
+		gpencil_set_stroke_point(vbo, gpf->viewmatrix, &points[0], idx, 
+								 pos_id, color_id, thickness_id, uvdata_id, thickness, ink);
 		++idx;
 		/* now add adjacency point (not drawn) */
-		gpencil_set_stroke_point(vbo, gpf->viewmatrix, &points[1], idx, pos_id, color_id, thickness_id, thickness, ink);
+		gpencil_set_stroke_point(vbo, gpf->viewmatrix, &points[1], idx, 
+								 pos_id, color_id, thickness_id, uvdata_id, thickness, ink);
 		++idx;
 	}
 	/* last adjacency point (not drawn) */
 	else {
-		gpencil_set_stroke_point(vbo, gpf->viewmatrix, &points[totpoints - 2], idx, pos_id, color_id, thickness_id, thickness, ink);
+		gpencil_set_stroke_point(vbo, gpf->viewmatrix, &points[totpoints - 2], idx, 
+								 pos_id, color_id, thickness_id, uvdata_id, thickness, ink);
 	}
 
 	return GWN_batch_create_ex(GWN_PRIM_LINE_STRIP_ADJ, vbo, NULL, GWN_BATCH_OWNS_VBO);
@@ -216,11 +227,12 @@ Gwn_Batch *DRW_gpencil_get_buffer_stroke_geom(bGPdata *gpd, float matrix[4][4], 
 	int totpoints = gpd->sbuffer_size;
 
 	static Gwn_VertFormat format = { 0 };
-	static uint pos_id, color_id, thickness_id;
+	static uint pos_id, color_id, thickness_id, uvdata_id;
 	if (format.attrib_ct == 0) {
 		pos_id = GWN_vertformat_attr_add(&format, "pos", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
 		color_id = GWN_vertformat_attr_add(&format, "color", GWN_COMP_F32, 4, GWN_FETCH_FLOAT);
 		thickness_id = GWN_vertformat_attr_add(&format, "thickness", GWN_COMP_F32, 1, GWN_FETCH_FLOAT);
+		uvdata_id = GWN_vertformat_attr_add(&format, "uvdata", GWN_COMP_F32, 1, GWN_FETCH_FLOAT);
 	}
 
 	Gwn_VertBuf *vbo = GWN_vertbuf_create_with_format(&format);
@@ -244,25 +256,30 @@ Gwn_Batch *DRW_gpencil_get_buffer_stroke_geom(bGPdata *gpd, float matrix[4][4], 
 		if (i == 0) {
 			if (totpoints > 1) {
 				gpencil_tpoint_to_point(scene, ar, v3d, origin, &points[1], &pt2);
-				gpencil_set_stroke_point(vbo, matrix, &pt2, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor);
+				gpencil_set_stroke_point(vbo, matrix, &pt2, idx, 
+										 pos_id, color_id, thickness_id, uvdata_id, thickness, gpd->scolor);
 			}
 			else {
-				gpencil_set_stroke_point(vbo, matrix, &pt, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor);
+				gpencil_set_stroke_point(vbo, matrix, &pt, idx, 
+										 pos_id, color_id, thickness_id, uvdata_id, thickness, gpd->scolor);
 			}
 			idx++;
 		}
 		/* set point */
-		gpencil_set_stroke_point(vbo, matrix, &pt, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor);
+		gpencil_set_stroke_point(vbo, matrix, &pt, idx, 
+								 pos_id, color_id, thickness_id, uvdata_id, thickness, gpd->scolor);
 		idx++;
 	}
 
 	/* last adjacency point (not drawn) */
 	if (totpoints > 2) {
 		gpencil_tpoint_to_point(scene, ar, v3d, origin, &points[totpoints - 2], &pt2);
-		gpencil_set_stroke_point(vbo, matrix, &pt2, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor);
+		gpencil_set_stroke_point(vbo, matrix, &pt2, idx, 
+								 pos_id, color_id, thickness_id, uvdata_id, thickness, gpd->scolor);
 	}
 	else {
-		gpencil_set_stroke_point(vbo, matrix, &pt, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor);
+		gpencil_set_stroke_point(vbo, matrix, &pt, idx, 
+								 pos_id, color_id, thickness_id, uvdata_id, thickness, gpd->scolor);
 	}
 
 	return GWN_batch_create_ex(GWN_PRIM_LINE_STRIP_ADJ, vbo, NULL, GWN_BATCH_OWNS_VBO);
@@ -283,11 +300,12 @@ Gwn_Batch *DRW_gpencil_get_buffer_point_geom(bGPdata *gpd, float matrix[4][4], s
 	int totpoints = gpd->sbuffer_size;
 
 	static Gwn_VertFormat format = { 0 };
-	static uint pos_id, color_id, thickness_id;
+	static uint pos_id, color_id, thickness_id, uvdata_id;
 	if (format.attrib_ct == 0) {
 		pos_id = GWN_vertformat_attr_add(&format, "pos", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
 		color_id = GWN_vertformat_attr_add(&format, "color", GWN_COMP_F32, 4, GWN_FETCH_FLOAT);
 		thickness_id = GWN_vertformat_attr_add(&format, "thickness", GWN_COMP_F32, 1, GWN_FETCH_FLOAT);
+		uvdata_id = GWN_vertformat_attr_add(&format, "uvdata", GWN_COMP_F32, 1, GWN_FETCH_FLOAT);
 	}
 
 	Gwn_VertBuf *vbo = GWN_vertbuf_create_with_format(&format);
@@ -308,7 +326,8 @@ Gwn_Batch *DRW_gpencil_get_buffer_point_geom(bGPdata *gpd, float matrix[4][4], s
 		ED_gp_project_point_to_plane(ob, rv3d, origin, ts->gp_sculpt.lock_axis - 1, ts->gpencil_src, &pt);
 
 		/* set point */
-		gpencil_set_stroke_point(vbo, matrix, &pt, idx, pos_id, color_id, thickness_id, thickness, gpd->scolor);
+		gpencil_set_stroke_point(vbo, matrix, &pt, idx, 
+								 pos_id, color_id, thickness_id, uvdata_id, thickness, gpd->scolor);
 		++idx;
 	}
 

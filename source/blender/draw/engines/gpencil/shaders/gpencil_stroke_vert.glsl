@@ -10,9 +10,11 @@ uniform int pixfactor;
 in vec3 pos;
 in vec4 color;
 in float thickness;
+in vec2 uvdata;
 
 out vec4 finalColor;
 out float finalThickness;
+out vec2 finaluvdata;
 
 #define TRUE 1
 
@@ -31,4 +33,5 @@ void main(void)
 		finalThickness = max(size * objscale, 1.0);
 	}
 	
+	finaluvdata = uvdata;
 } 
