@@ -773,7 +773,8 @@ static void gp_stroke_newfrombuffer(tGPsdata *p)
 	bGPDbrush *brush = p->brush;
 	ToolSettings *ts = p->scene->toolsettings;
 	Object *obact = (Object *)p->ownerPtr.data;
-	
+	RegionView3D *rv3d = p->ar->regiondata;
+
 	int i, totelem;
 	/* since strokes are so fine, when using their depth we need a margin otherwise they might get missed */
 	int depth_margin = (ts->gpencil_v3d_align & GP_PROJECT_DEPTH_STROKE) ? 4 : 0;
@@ -1016,14 +1017,14 @@ static void gp_stroke_newfrombuffer(tGPsdata *p)
 			MEM_freeN(depth_arr);
 	}
 	
-	/* calculate UVs along the stroke */
-	ED_gpencil_calc_stroke_uv(gps, GPENCIL_STROKE_UV);
-
 	/* Save palette color */
 	gps->palette = p->palette;
 	gps->palcolor = p->palettecolor;
 	if (p->palettecolor)
 		BLI_strncpy(gps->colorname, p->palettecolor->info, sizeof(gps->colorname));
+
+	/* calculate UVs along the stroke */
+	ED_gpencil_calc_stroke_uv(gps, rv3d->pixsize);
 
 	/* add stroke to frame, usually on tail of the listbase, but if on back is enabled the stroke is added on listbase head 
 	 * because the drawing order is inverse and the head stroke is the first to draw. This is very useful for artist

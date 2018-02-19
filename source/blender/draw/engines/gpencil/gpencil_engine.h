@@ -31,6 +31,7 @@
 struct tGPspoint;
 struct ModifierData;
 struct GPENCIL_StorageList;
+struct RegionView3D;
 
  /* TODO: these could be system parameter in userprefs screen */
 #define GPENCIL_MAX_GP_OBJ 256 
@@ -337,6 +338,8 @@ struct Gwn_Batch *DRW_gpencil_get_edlin_geom(struct bGPDstroke *gps, float alpha
 struct Gwn_Batch *DRW_gpencil_get_buffer_stroke_geom(struct bGPdata *gpd, float matrix[4][4], short thickness);
 struct Gwn_Batch *DRW_gpencil_get_buffer_fill_geom(struct bGPdata *gpd);
 struct Gwn_Batch *DRW_gpencil_get_buffer_point_geom(struct bGPdata *gpd, float matrix[4][4], short thickness);
+
+void DRW_gpencil_recalc_geometry_caches(struct bGPDstroke *gps, struct RegionView3D *rv3d);
 
 struct GPUTexture *DRW_gpencil_create_blank_texture(int width, int height);
 

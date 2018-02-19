@@ -68,7 +68,7 @@ typedef struct bGPDspoint {
 	int flag;				/* additional options (NOTE: can shrink this field down later if needed) */
 
 	float uv_fac;           /* factor of uv along the stroke */
-	float uv_rot;           /* uv rotation for dor mode */
+	float uv_rot;           /* uv rotation for dot mode */
 
 	int totweight;          /* number of vertexgroups used */
 	bGPDweight *weights;    /* vertex weight data */

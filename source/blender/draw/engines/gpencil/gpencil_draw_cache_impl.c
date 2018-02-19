@@ -714,6 +714,7 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 	 */
 	const DRWContextState *draw_ctx = DRW_context_state_get();
 	const bContext *C = draw_ctx->evil_C;
+	RegionView3D *rv3d = draw_ctx->rv3d;
 
 	EvaluationContext eval_ctx = {0};
 	if (C) {
@@ -752,6 +753,13 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 		if (stl->storage->shgroup_id >= GPENCIL_MAX_SHGROUPS) {
 			continue;
 		}
+
+		/* be sure recalc all chache in source stroke to avoid recalculation when frame change 
+		 * and improve fps */
+		if (src_gps) {
+			DRW_gpencil_recalc_geometry_caches(src_gps, rv3d);
+		}
+
 		/* if the fill has any value, it's considered a fill and is not drawn if simplify fill is enabled */
 		if ((GP_SIMPLIFY_FILL(ts, playing)) && (ts->gpencil_simplify & GP_TOOL_FLAG_SIMPLIFY_REMOVE_LINE)) {
 			if ((gps->palcolor->fill[3] > GPENCIL_ALPHA_OPACITY_THRESH) || 
@@ -812,11 +820,6 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 			}
 			/* stroke */
 			if (strokegrp) {
-				/* be sure UVs are ready */
-				if (gps->flag & GP_STROKE_RECALC_CACHES) {
-					ED_gpencil_calc_stroke_uv(gps, GPENCIL_STROKE_UV);
-					gps->flag &= ~GP_STROKE_RECALC_CACHES;
-				}
 				gpencil_add_stroke_shgroup(cache, strokegrp, ob, gpd, gpl, derived_gpf, gps, opacity, tintcolor, false, custonion);
 			}
 		}

@@ -602,16 +602,40 @@ static void gpencil_set_fill_point(
 	GWN_vertbuf_attr_set(vbo, text_id, idx, uv);
 }
 
+/* recalc the internal geometry caches for fill and uvs */
+void DRW_gpencil_recalc_geometry_caches(bGPDstroke *gps, RegionView3D *rv3d) {
+	if (gps->flag & GP_STROKE_RECALC_CACHES) {
+		/* Calculate triangles cache for filling area (must be done only after changes) */
+		if ((gps->tot_triangles == 0) || (gps->triangles == NULL)) {
+			if ((gps->totpoints > 2) && 
+				((gps->palcolor->fill[3] > GPENCIL_ALPHA_OPACITY_THRESH) || (gps->palcolor->fill_style > 0))) 
+			{
+				gp_triangulate_stroke_fill(gps);
+			}
+		}
+
+		/* calc uv data along the stroke */
+		ED_gpencil_calc_stroke_uv(gps, rv3d->pixsize);
+		
+		/* clear flag */
+		gps->flag &= ~GP_STROKE_RECALC_CACHES;
+	}
+}
+
 /* create batch geometry data for stroke shader */
 Gwn_Batch *DRW_gpencil_get_fill_geom(bGPDstroke *gps, const float color[4])
 {
 	BLI_assert(gps->totpoints >= 3);
-	
+
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	RegionView3D *rv3d = draw_ctx->rv3d;
+
 	/* Calculate triangles cache for filling area (must be done only after changes) */
 	if ((gps->flag & GP_STROKE_RECALC_CACHES) || (gps->tot_triangles == 0) || (gps->triangles == NULL)) {
 		gp_triangulate_stroke_fill(gps);
-		ED_gpencil_calc_stroke_uv(gps, GPENCIL_STROKE_UV);
+		ED_gpencil_calc_stroke_uv(gps, rv3d->pixsize);
 	}
+
 	BLI_assert(gps->tot_triangles >= 1);
 
 	static Gwn_VertFormat format = { 0 };

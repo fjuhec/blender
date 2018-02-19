@@ -16,10 +16,10 @@ out vec4 fragColor;
 
 void main()
 {
-	vec2 center = vec2(uvfac, 1.0);
 	vec4 tColor = vec4(mColor);
 	/* if alpha < 0, then encap */
 	if (mColor.a < 0) {
+		vec2 center = vec2(uvfac, 1.0);
 		tColor.a = tColor.a * -1.0;
 		float dist = length(mTexCoord - center);
 		if (dist > 0.50) {

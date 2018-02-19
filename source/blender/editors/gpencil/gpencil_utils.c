@@ -1527,13 +1527,15 @@ void ED_gpencil_setup_modes(bContext *C, bGPdata *gpd, int newmode)
 }
 
 /* texture coordinate utilities */
-void ED_gpencil_calc_stroke_uv(bGPDstroke *gps, float factor)
+void ED_gpencil_calc_stroke_uv(bGPDstroke *gps, float pixsize)
 {
 	if (gps == NULL) {
 		return;
 	}
+
 	bGPDspoint *pt = NULL;
 	bGPDspoint *ptb = NULL;
+	PaletteColor *palcolor = gps->palcolor;
 	int i;
 	float totlen = 0;
 
@@ -1543,18 +1545,22 @@ void ED_gpencil_calc_stroke_uv(bGPDstroke *gps, float factor)
 		/* first point */
 		if (i == 0) {
 			pt->uv_fac = 0.0f;
-			pt->uv_rot = 0.0f;
 			continue;
 		}
 
 		ptb = &gps->points[i - 1];
-		totlen += len_v3v3(&pt->x, &ptb->x);
-
+		totlen += len_v3v3(&pt->x, &ptb->x) / pixsize;
 		pt->uv_fac = totlen;
-		pt->uv_rot = 0.0f;
 	}
-
 	/* normalize the distance using a factor */
+	float factor;
+	/* if image, use texture width */
+	if ((palcolor) && (palcolor->sima)) {
+		factor = palcolor->sima->gen_x;
+	}
+	else {
+		factor = totlen;
+	}
 	for (i = 0; i < gps->totpoints; i++) {
 		pt = &gps->points[i];
 		pt->uv_fac /= factor;
