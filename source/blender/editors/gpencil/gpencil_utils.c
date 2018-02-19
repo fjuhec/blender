@@ -1529,6 +1529,7 @@ void ED_gpencil_setup_modes(bContext *C, bGPdata *gpd, int newmode)
 /* texture coordinate utilities */
 void ED_gpencil_calc_stroke_uv(bGPDstroke *gps, float pixsize)
 {
+	/* TODO: In camera view the pixsize (rv3d->pixsize) looks wrong */
 	if (gps == NULL) {
 		return;
 	}
