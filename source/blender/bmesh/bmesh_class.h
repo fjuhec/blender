@@ -375,9 +375,6 @@ enum {
 	 * since tools may want to tag verts and not have functions clobber them.
 	 * Leave cleared! */
 	BM_ELEM_INTERNAL_TAG = (1 << 7),
-
-	/* Space invalid when set. */
-	BM_ELEM_LNORSPACE = (1 << 6)
 };
 
 struct BPy_BMGeneric;

@@ -319,6 +319,10 @@ void BM_mesh_free(BMesh *bm)
  * Helpers for #BM_mesh_normals_update and #BM_verts_calc_normal_vcos
  */
 
+/* We use that existing internal API flag, assuming no other tool using it would run concurrently to clnors editing. */
+/* XXX Should we rather add a new internal flag? */
+#define BM_LNORSPACE_UPDATE _FLAG_MF
+
 typedef struct BMEdgesCalcVectorsData {
 	/* Read-only data. */
 	const float (*vcos)[3];
@@ -695,7 +699,7 @@ static void bm_mesh_loops_calc_normals(
 
 		l_curr = l_first = BM_FACE_FIRST_LOOP(f_curr);
 		do {
-			if (do_rebuild && !BM_elem_flag_test(l_curr, BM_ELEM_LNORSPACE) &&
+			if (do_rebuild && !BM_ELEM_API_FLAG_TEST(l_curr, BM_LNORSPACE_UPDATE) &&
 			    !(bm->spacearr_dirty & BM_SPACEARR_DIRTY_ALL))
 			{
 				continue;
@@ -1093,12 +1097,12 @@ void BM_lnorspace_invalidate(BMesh *bm, const bool do_invalidate_all)
 						MLoopNorSpace *lspace = lnors_spaces[BM_elem_index_get(l)];
 						if (lspace->flags & MLNOR_SPACE_IS_SINGLE) {
 							BLI_assert(l == (BMLoop *)lspace->loops);
-							BM_elem_flag_enable(l, BM_ELEM_LNORSPACE);
+							BM_ELEM_API_FLAG_ENABLE(l, BM_LNORSPACE_UPDATE);
 						}
 						else {
 							LinkNode *loops = lspace->loops;
 							for (; loops != NULL; loops = loops->next) {
-								BM_elem_flag_enable((BMLoop *)loops->link, BM_ELEM_LNORSPACE);
+								BM_ELEM_API_FLAG_ENABLE((BMLoop *)loops->link, BM_LNORSPACE_UPDATE);
 							}
 						}
 					}
@@ -1135,7 +1139,7 @@ void BM_lnorspace_rebuild(BMesh *bm, bool preserve_clnor)
 
 		BM_ITER_MESH(f, &fiter, bm, BM_FACES_OF_MESH) {
 			BM_ITER_ELEM(l, &liter, f, BM_LOOPS_OF_FACE) {
-				if (BM_elem_flag_test(l, BM_ELEM_LNORSPACE) || bm->spacearr_dirty & BM_SPACEARR_DIRTY_ALL) {
+				if (BM_ELEM_API_FLAG_TEST(l, BM_LNORSPACE_UPDATE) || bm->spacearr_dirty & BM_SPACEARR_DIRTY_ALL) {
 					short(*clnor)[2] = BM_ELEM_CD_GET_VOID_P(l, cd_loop_clnors_offset);
 					int l_index = BM_elem_index_get(l);
 
@@ -1155,7 +1159,7 @@ void BM_lnorspace_rebuild(BMesh *bm, bool preserve_clnor)
 	BM_ITER_MESH(f, &fiter, bm, BM_FACES_OF_MESH) {
 		BM_ITER_ELEM(l, &liter, f, BM_LOOPS_OF_FACE) {
 
-			if (BM_elem_flag_test(l, BM_ELEM_LNORSPACE) || bm->spacearr_dirty & BM_SPACEARR_DIRTY_ALL) {
+			if (BM_ELEM_API_FLAG_TEST(l, BM_LNORSPACE_UPDATE) || bm->spacearr_dirty & BM_SPACEARR_DIRTY_ALL) {
 
 #if 0
 				short(*clnor)[2] = BM_ELEM_CD_GET_VOID_P(l, cd_loop_clnors_offset);
@@ -1168,7 +1172,7 @@ void BM_lnorspace_rebuild(BMesh *bm, bool preserve_clnor)
 					BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[l_index], oldnors[l_index], *clnor);
 				}
 #endif
-				BM_elem_flag_disable(l, BM_ELEM_LNORSPACE);
+				BM_ELEM_API_FLAG_DISABLE(l, BM_LNORSPACE_UPDATE);
 			}
 		}
 	}
