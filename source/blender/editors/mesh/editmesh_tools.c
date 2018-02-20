@@ -6702,7 +6702,7 @@ static int edbm_average_loop_normals_exec(bContext *C, wmOperator *op)
 							count++;
 							val = cur_val;
 						}
-						l = BLI_heap_popmin(loop_weight);
+						l = BLI_heap_pop_min(loop_weight);
 						BLI_SMALLSTACK_PUSH(loops, l);
 
 						float n_weight = pow(weight, count);
