@@ -1079,7 +1079,7 @@ void BM_lnorspace_invalidate(BMesh *bm, const bool do_invalidate_all)
 
 	BM_mesh_elem_index_ensure(bm, BM_FACE);
 
-	BLI_assert(bm->lnor_spacearr->flags & MLNOR_SPACEARR_BMLOOP_PTR);
+	BLI_assert(bm->lnor_spacearr->data_type == MLNOR_SPACEARR_BMLOOP_PTR);
 	MLoopNorSpace **lnors_spaces = bm->lnor_spacearr->lspacearr;
 
 	/* TODO this has to be redone, way more looping than needed here ;) */
@@ -1246,7 +1246,7 @@ static int bm_loop_normal_mark_indiv(BMesh *bm, BLI_bitmap *loops)
 	BM_mesh_elem_index_ensure(bm, BM_LOOP);
 
 	BLI_assert(bm->lnor_spacearr != NULL);
-	BLI_assert(bm->lnor_spacearr->flags & MLNOR_SPACEARR_BMLOOP_PTR);
+	BLI_assert(bm->lnor_spacearr->data_type == MLNOR_SPACEARR_BMLOOP_PTR);
 
 	/* Goes from last selected to the first selected element. */
 	for (ese = bm->selected.last; ese; ese = ese->prev) {

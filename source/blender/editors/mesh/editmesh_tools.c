@@ -6411,7 +6411,7 @@ static void merge_loop(bContext *C, LoopNormalData *ld)
 
 	BLI_SMALLSTACK_DECLARE(clnors, short *);
 
-	BLI_assert(bm->lnor_spacearr->flags & MLNOR_SPACEARR_BMLOOP_PTR);
+	BLI_assert(bm->lnor_spacearr->data_type == MLNOR_SPACEARR_BMLOOP_PTR);
 
 	custom_loops_tag(bm, false);
 
@@ -6461,7 +6461,7 @@ static void split_loop(bContext *C)
 	BMLoop *l, *l_curr, *l_first;
 	BMIter fiter;
 
-	BLI_assert(bm->lnor_spacearr->flags & MLNOR_SPACEARR_BMLOOP_PTR);
+	BLI_assert(bm->lnor_spacearr->data_type == MLNOR_SPACEARR_BMLOOP_PTR);
 
 	custom_loops_tag(bm, true);
 

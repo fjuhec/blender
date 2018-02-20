@@ -209,7 +209,10 @@ typedef struct MLoopNorSpace {
 	float vec_ortho[3];     /* Third vector, orthogonal to vec_lnor and vec_ref. */
 	float ref_alpha;        /* Reference angle, around vec_ortho, in ]0, pi] range (0.0 marks that space as invalid). */
 	float ref_beta;         /* Reference angle, around vec_lnor, in ]0, 2pi] range (0.0 marks that space as invalid). */
-	struct LinkNode *loops; /* All indices (uint_in_ptr) of loops using this lnor space (i.e. smooth fan of loops). */
+	/* All loops using this lnor space (i.e. smooth fan of loops), as (depending on owning MLoopNorSpaceArrary.flags):
+     *     - Indices (uint_in_ptr), or
+	 *     - BMLoop pointers. */
+	struct LinkNode *loops;
 	char flags;
 } MLoopNorSpace;
 /**
@@ -218,22 +221,24 @@ typedef struct MLoopNorSpace {
 enum {
 	MLNOR_SPACE_IS_SINGLE = 1 << 0,
 };
+
 /**
  * Collection of #MLoopNorSpace basic storage & pre-allocation.
  */
 typedef struct MLoopNorSpaceArray {
 	MLoopNorSpace **lspacearr;    /* MLoop aligned array */
 	struct LinkNode *loops_pool;  /* Allocated once, avoids to call BLI_linklist_prepend_arena() for each loop! */
+	char data_type;               /* Whether we store loop indices, or pointers to BMLoop. */
 	struct MemArena *mem;
-	char flags;
 } MLoopNorSpaceArray;
 /**
- * MLoopNorSpaceArray.flags
+ * MLoopNorSpaceArray.data_type
  */
 enum {
-	MLNOR_SPACEARR_LOOP_INDEX = 1 << 0,
-	MLNOR_SPACEARR_BMLOOP_PTR = 1 << 1,
+	MLNOR_SPACEARR_LOOP_INDEX = 0,
+	MLNOR_SPACEARR_BMLOOP_PTR = 1,
 };
+
 void BKE_lnor_spacearr_init(MLoopNorSpaceArray *lnors_spacearr, const int numLoops, const char flags);
 void BKE_lnor_spacearr_clear(MLoopNorSpaceArray *lnors_spacearr);
 void BKE_lnor_spacearr_free(MLoopNorSpaceArray *lnors_spacearr);

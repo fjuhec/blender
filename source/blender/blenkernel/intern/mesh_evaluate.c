@@ -444,7 +444,7 @@ cleanup:
 		MEM_freeN(fnors);
 }
 
-void BKE_lnor_spacearr_init(MLoopNorSpaceArray *lnors_spacearr, const int numLoops, const char flags)
+void BKE_lnor_spacearr_init(MLoopNorSpaceArray *lnors_spacearr, const int numLoops, const char data_type)
 {
 	if (!(lnors_spacearr->lspacearr && lnors_spacearr->loops_pool)) {
 		MemArena *mem;
@@ -456,8 +456,8 @@ void BKE_lnor_spacearr_init(MLoopNorSpaceArray *lnors_spacearr, const int numLoo
 		lnors_spacearr->lspacearr = BLI_memarena_calloc(mem, sizeof(MLoopNorSpace *) * (size_t)numLoops);
 		lnors_spacearr->loops_pool = BLI_memarena_alloc(mem, sizeof(LinkNode) * (size_t)numLoops);
 	}
-	BLI_assert(!((flags & MLNOR_SPACEARR_BMLOOP_PTR) && (flags & MLNOR_SPACEARR_LOOP_INDEX)));
-	lnors_spacearr->flags = flags;
+	BLI_assert(ELEM(data_type, MLNOR_SPACEARR_BMLOOP_PTR, MLNOR_SPACEARR_LOOP_INDEX));
+	lnors_spacearr->data_type = data_type;
 }
 
 void BKE_lnor_spacearr_clear(MLoopNorSpaceArray *lnors_spacearr)
@@ -560,8 +560,8 @@ void BKE_lnor_space_add_loop(
         MLoopNorSpaceArray *lnors_spacearr, MLoopNorSpace *lnor_space,
         const int ml_index, void *bm_loop, const bool is_single)
 {
-	BLI_assert(((lnors_spacearr->flags & MLNOR_SPACEARR_LOOP_INDEX) && bm_loop == NULL) ||
-	           ((lnors_spacearr->flags & MLNOR_SPACEARR_BMLOOP_PTR) && bm_loop != NULL));
+	BLI_assert((lnors_spacearr->data_type == MLNOR_SPACEARR_LOOP_INDEX && bm_loop == NULL) ||
+	           (lnors_spacearr->data_type == MLNOR_SPACEARR_BMLOOP_PTR && bm_loop != NULL));
 
 	lnors_spacearr->lspacearr[ml_index] = lnor_space;
 	if (bm_loop == NULL) {
@@ -1515,7 +1515,7 @@ static void mesh_normals_loop_custom_set(
 		}
 	}
 
-	BLI_assert(lnors_spacearr.flags & MLNOR_SPACEARR_LOOP_INDEX);
+	BLI_assert(lnors_spacearr.data_type == MLNOR_SPACEARR_LOOP_INDEX);
 
 	/* Now, check each current smooth fan (one lnor space per smooth fan!), and if all its matching custom lnors
 	 * are not (enough) equal, add sharp edges as needed.
