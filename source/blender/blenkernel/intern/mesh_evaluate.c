@@ -553,8 +553,10 @@ void BKE_lnor_space_define(MLoopNorSpace *lnor_space, const float lnor[3],
 
 /**
  * Add a new given loop to given lnor_space.
- * If \a data is NULL and do_add_loop is set, the loop index is stored in the new linklist's link pointer.
- * If \a data is not NULL, it is always added as a new linklist's link pointer.
+ * Depending on \a lnor_space->data_type, we expect \a bm_loop to be a pointer to BMLoop struct (in case of BMLOOP_PTR),
+ * or NULL (in case of LOOP_INDEX), loop index is then stored in pointer.
+ * If \a is_single is set, the BMLoop or loop index is directly stored in \a lnor_space->loops pointer (since there
+ * is only one loop in this fan), else it is added to the linked list of loops in the fan.
  */
 void BKE_lnor_space_add_loop(
         MLoopNorSpaceArray *lnors_spacearr, MLoopNorSpace *lnor_space,
