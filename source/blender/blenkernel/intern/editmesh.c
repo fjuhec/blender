@@ -269,8 +269,7 @@ void BKE_editmesh_lnorspace_update(BMEditMesh *em)
 {
 	BMesh *bm = em->bm;
 	if (bm->lnor_spacearr == NULL) {
-		float split_angle = ((Mesh *)em->ob->data)->smoothresh;
-		split_angle = cosf(split_angle);
+		const float split_angle_cos = cosf(((Mesh *)em->ob->data)->smoothresh);
 
 		BMEdge *e;
 		BMIter eiter;
@@ -280,7 +279,7 @@ void BKE_editmesh_lnorspace_update(BMEditMesh *em)
 				const float *no_1 = l_1->f->no;
 				const float *no_2 = l_2->f->no;
 
-				if (dot_v3v3(no_1, no_2) < split_angle && BM_elem_flag_test(e, BM_ELEM_SMOOTH)) {
+				if (dot_v3v3(no_1, no_2) < split_angle_cos && BM_elem_flag_test(e, BM_ELEM_SMOOTH)) {
 					BM_elem_flag_disable(e, BM_ELEM_SMOOTH);
 				}
 			}
