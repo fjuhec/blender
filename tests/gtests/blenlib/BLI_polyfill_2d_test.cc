@@ -12,7 +12,7 @@
 extern "C" {
 #include "BLI_utildefines.h"
 #include "BLI_array_utils.h"
-#include "BLI_polyfill2d.h"
+#include "BLI_polyfill_2d.h"
 #include "BLI_edgehash.h"
 #include "BLI_math.h"
 #include "MEM_guardedalloc.h"
@@ -22,7 +22,7 @@ extern "C" {
 #endif
 
 #ifdef USE_BEAUTIFY
-#include "BLI_polyfill2d_beautify.h"
+#include "BLI_polyfill_2d_beautify.h"
 #include "BLI_memarena.h"
 #include "BLI_heap.h"
 #endif
@@ -101,7 +101,7 @@ static void  test_polyfill_topology(
 			}
 		}
 	}
-	EXPECT_EQ(BLI_edgehash_size(edgehash), poly_tot + (poly_tot - 3));
+	EXPECT_EQ(BLI_edgehash_len(edgehash), poly_tot + (poly_tot - 3));
 
 	for (i = 0; i < poly_tot; i++) {
 		const unsigned int v1 = i;
