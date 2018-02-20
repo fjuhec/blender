@@ -1070,15 +1070,16 @@ static void GPENCIL_render_result_combined(RenderResult *rr, const char *viewnam
 }
 
 /* render grease pencil to image */
-static void GPENCIL_render_to_image(void *vedata, struct RenderEngine *engine, struct Depsgraph *depsgraph)
+static void GPENCIL_render_to_image(void *vedata, RenderEngine *engine, struct RenderResult *render_result, struct RenderLayer *render_layer)
 {
 	const char *viewname = RE_GetActiveRenderView(engine->re);
-	
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	RenderResult *rr = render_result;
+	int imgsize = rr->rectx * rr->recty;
+
 	/* save previous render data */
-	RenderResult *rr_src = RE_engine_get_result(engine);
-	RenderLayer *rl_src = rr_src->layers.first;
-	RenderPass *rp_color_src = RE_pass_find_by_name(rl_src, RE_PASSNAME_COMBINED, viewname);
-	RenderPass *rp_depth_src = RE_pass_find_by_name(rl_src, RE_PASSNAME_Z, viewname);
+	RenderPass *rp_color_src = RE_pass_find_by_name(render_layer, RE_PASSNAME_COMBINED, viewname);
+	RenderPass *rp_depth_src = RE_pass_find_by_name(render_layer, RE_PASSNAME_Z, viewname);
 	float *rect_color_src = NULL;
 	float *rect_depth_src = NULL;
 	if ((rp_color_src) && (rp_depth_src) && (rp_color_src->rect) && (rp_depth_src->rect)) {
@@ -1090,13 +1091,8 @@ static void GPENCIL_render_to_image(void *vedata, struct RenderEngine *engine, s
 		printf("Warning: To render grease pencil, enable Combined and Z passes.\n");
 	}
 
-	int imgsize = rr_src->rectx * rr_src->recty;
-
-	const float *render_size = DRW_viewport_size_get();
-	RenderResult *rr = RE_engine_begin_result(engine, 0, 0, (int)render_size[0], (int)render_size[1], NULL, viewname);
-
 	GPENCIL_engine_init(vedata);
-	GPENCIL_render_init(vedata, engine, depsgraph);
+	GPENCIL_render_init(vedata, engine, draw_ctx->depsgraph);
 
 	GPENCIL_FramebufferList *fbl = ((GPENCIL_Data *)vedata)->fbl;
 	if (fbl->main) {
@@ -1109,7 +1105,7 @@ static void GPENCIL_render_to_image(void *vedata, struct RenderEngine *engine, s
 	}
 
 	/* loop all objects and draw */
-	DRW_render_object_iter(vedata, engine, depsgraph, GPENCIL_render_cache);
+	DRW_render_object_iter(vedata, engine, draw_ctx->depsgraph, GPENCIL_render_cache);
 
 	GPENCIL_cache_finish(vedata);
 	GPENCIL_draw_scene(vedata);
@@ -1125,13 +1121,10 @@ static void GPENCIL_render_to_image(void *vedata, struct RenderEngine *engine, s
 		DRW_framebuffer_texture_detach(e_data.render_color_tx);
 	}
 
-	RE_engine_end_result(engine, rr, false, false, false);
-
 	/* merge previous render image with new GP image */ 
 	if (rect_color_src) {
-		rl_src = rr_src->layers.first;
-		RenderPass *rp_color_gp = RE_pass_find_by_name(rl_src, RE_PASSNAME_COMBINED, viewname);
-		RenderPass *rp_depth_gp = RE_pass_find_by_name(rl_src, RE_PASSNAME_Z, viewname);
+		RenderPass *rp_color_gp = RE_pass_find_by_name(render_layer, RE_PASSNAME_COMBINED, viewname);
+		RenderPass *rp_depth_gp = RE_pass_find_by_name(render_layer, RE_PASSNAME_Z, viewname);
 		float *rect_color_gp = rp_color_gp->rect;
 		float *rect_depth_gp = rp_depth_gp->rect;
 
