@@ -917,6 +917,8 @@ void gp_subdivide_stroke(bGPDstroke *gps, const int sublevel)
 			pt_final->flag = pt->flag;
 			pt_final->totweight = pt->totweight;
 			pt_final->weights = pt->weights;
+			pt_final->uv_fac = pt->uv_fac;
+			pt_final->uv_rot = pt->uv_rot;
 			i2 -= 2;
 		}
 		/* interpolate mid points */
@@ -934,6 +936,9 @@ void gp_subdivide_stroke(bGPDstroke *gps, const int sublevel)
 			pt_final->time = interpf(pt->time, next->time, 0.5f);
 			pt_final->totweight = 0;
 			pt_final->weights = NULL;
+			pt_final->uv_fac = interpf(pt->uv_fac, next->uv_fac, 0.5f);
+			pt_final->uv_rot = interpf(pt->uv_rot, next->uv_rot, 0.5f);
+
 			i2 += 2;
 		}
 

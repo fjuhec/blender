@@ -586,7 +586,6 @@ static short gp_stroke_addpoint(
 		}
 		CLAMP(pt->uv_rot, -M_PI_2, M_PI_2);
 
-
 		/* apply angle of stroke to brush size */
 		if (brush->draw_angle_factor > 0.0f) {
 			gp_brush_angle(gpd, brush, pt, mval);
@@ -987,7 +986,6 @@ static void gp_stroke_newfrombuffer(tGPsdata *p)
 				}
 			}
 		}
-
 
 		pt = gps->points;
 
