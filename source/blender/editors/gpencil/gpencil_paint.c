@@ -578,11 +578,12 @@ static short gp_stroke_addpoint(
 		}
 
 		/* apply random to uv texture rotation */
+		/* TODO: Add a UI parameter to control randomness */
 		if (BLI_frand() > 0.5f) {
 			pt->uv_rot = BLI_frand() * M_PI * -1;
 		}
 		else {
-			pt->uv_rot = BLI_frand() * M_PI_4;
+			pt->uv_rot = BLI_frand() * M_PI;
 		}
 		CLAMP(pt->uv_rot, -M_PI_2, M_PI_2);
 
