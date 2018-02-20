@@ -6283,7 +6283,6 @@ static int edbm_point_normals_exec(bContext *C, wmOperator *op)
 {
 	Object *obedit = CTX_data_edit_object(C);
 	BMEditMesh *em = BKE_editmesh_from_object(obedit);
-	BMesh *bm = em->bm;
 
 	PropertyRNA *prop;
 
@@ -6292,10 +6291,6 @@ static int edbm_point_normals_exec(bContext *C, wmOperator *op)
 		return OPERATOR_CANCELLED;
 	}
 	float target[3];
-
-#if 0  /* UNUSED */
-	const bool point_away = RNA_boolean_get(op->ptr, "point_away");
-#endif
 
 	prop = RNA_struct_find_property(op->ptr, "target_location");
 	RNA_property_float_get_array(op->ptr, prop, target);
