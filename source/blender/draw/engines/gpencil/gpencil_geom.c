@@ -67,7 +67,7 @@ static void gpencil_set_stroke_point(
 	GWN_vertbuf_attr_set(vbo, color_id, idx, col);
 
 	/* transfer both values using the same shader variable */
-	float uvdata[2] = { pt->uv_fac , pt->uv_rot };
+	float uvdata[2] = { pt->uv_fac, pt->uv_rot };
 	GWN_vertbuf_attr_set(vbo, uvdata_id, idx, uvdata);
 
 	/* the thickness of the stroke must be affected by zoom, so a pixel scale is calculated */
@@ -82,11 +82,12 @@ static void gpencil_set_stroke_point(
 Gwn_Batch *DRW_gpencil_get_point_geom(bGPDstroke *gps, short thickness, const float ink[4])
 {
 	static Gwn_VertFormat format = { 0 };
-	static uint pos_id, color_id, size_id;
+	static uint pos_id, color_id, size_id, uvdata_id;
 	if (format.attrib_ct == 0) {
 		pos_id = GWN_vertformat_attr_add(&format, "pos", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
 		color_id = GWN_vertformat_attr_add(&format, "color", GWN_COMP_F32, 4, GWN_FETCH_FLOAT);
 		size_id = GWN_vertformat_attr_add(&format, "thickness", GWN_COMP_F32, 1, GWN_FETCH_FLOAT);
+		uvdata_id = GWN_vertformat_attr_add(&format, "uvdata", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
 	}
 
 	Gwn_VertBuf *vbo = GWN_vertbuf_create_with_format(&format);
@@ -108,6 +109,11 @@ Gwn_Batch *DRW_gpencil_get_point_geom(bGPDstroke *gps, short thickness, const fl
 
 		GWN_vertbuf_attr_set(vbo, color_id, idx, col);
 		GWN_vertbuf_attr_set(vbo, size_id, idx, &thick);
+
+		/* transfer both values using the same shader variable */
+		float uvdata[2] = { pt->uv_fac, pt->uv_rot };
+		GWN_vertbuf_attr_set(vbo, uvdata_id, idx, uvdata);
+
 		GWN_vertbuf_attr_set(vbo, pos_id, idx, &pt->x);
 		++idx;
 	}
@@ -129,7 +135,7 @@ Gwn_Batch *DRW_gpencil_get_stroke_geom(bGPDframe *gpf, bGPDstroke *gps, short th
 		pos_id = GWN_vertformat_attr_add(&format, "pos", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
 		color_id = GWN_vertformat_attr_add(&format, "color", GWN_COMP_F32, 4, GWN_FETCH_FLOAT);
 		thickness_id = GWN_vertformat_attr_add(&format, "thickness", GWN_COMP_F32, 1, GWN_FETCH_FLOAT);
-		uvdata_id = GWN_vertformat_attr_add(&format, "uvdata", GWN_COMP_F32, 1, GWN_FETCH_FLOAT);
+		uvdata_id = GWN_vertformat_attr_add(&format, "uvdata", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
 	}
 
 	Gwn_VertBuf *vbo = GWN_vertbuf_create_with_format(&format);
@@ -234,7 +240,7 @@ Gwn_Batch *DRW_gpencil_get_buffer_stroke_geom(bGPdata *gpd, float matrix[4][4], 
 		pos_id = GWN_vertformat_attr_add(&format, "pos", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
 		color_id = GWN_vertformat_attr_add(&format, "color", GWN_COMP_F32, 4, GWN_FETCH_FLOAT);
 		thickness_id = GWN_vertformat_attr_add(&format, "thickness", GWN_COMP_F32, 1, GWN_FETCH_FLOAT);
-		uvdata_id = GWN_vertformat_attr_add(&format, "uvdata", GWN_COMP_F32, 1, GWN_FETCH_FLOAT);
+		uvdata_id = GWN_vertformat_attr_add(&format, "uvdata", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
 	}
 
 	Gwn_VertBuf *vbo = GWN_vertbuf_create_with_format(&format);
@@ -307,7 +313,7 @@ Gwn_Batch *DRW_gpencil_get_buffer_point_geom(bGPdata *gpd, float matrix[4][4], s
 		pos_id = GWN_vertformat_attr_add(&format, "pos", GWN_COMP_F32, 3, GWN_FETCH_FLOAT);
 		color_id = GWN_vertformat_attr_add(&format, "color", GWN_COMP_F32, 4, GWN_FETCH_FLOAT);
 		thickness_id = GWN_vertformat_attr_add(&format, "thickness", GWN_COMP_F32, 1, GWN_FETCH_FLOAT);
-		uvdata_id = GWN_vertformat_attr_add(&format, "uvdata", GWN_COMP_F32, 1, GWN_FETCH_FLOAT);
+		uvdata_id = GWN_vertformat_attr_add(&format, "uvdata", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
 	}
 
 	Gwn_VertBuf *vbo = GWN_vertbuf_create_with_format(&format);

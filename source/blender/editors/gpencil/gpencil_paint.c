@@ -577,6 +577,16 @@ static short gp_stroke_addpoint(
 			CLAMP(pt->pressure, GPENCIL_STRENGTH_MIN, 1.0f);
 		}
 
+		/* apply random to uv texture rotation */
+		if (BLI_frand() > 0.5f) {
+			pt->uv_rot = BLI_frand() * M_PI * -1;
+		}
+		else {
+			pt->uv_rot = BLI_frand() * M_PI_4;
+		}
+		CLAMP(pt->uv_rot, -M_PI_2, M_PI_2);
+
+
 		/* apply angle of stroke to brush size */
 		if (brush->draw_angle_factor > 0.0f) {
 			gp_brush_angle(gpd, brush, pt, mval);
@@ -685,6 +695,8 @@ static short gp_stroke_addpoint(
 			pts->time = pt->time;
 			pts->totweight = 0;
 			pts->weights = NULL;
+			pts->uv_fac = pt->uv_fac;
+			pts->uv_rot = pt->uv_rot;
 
 			/* force fill recalc */
 			gps->flag |= GP_STROKE_RECALC_CACHES;
@@ -991,6 +1003,8 @@ static void gp_stroke_newfrombuffer(tGPsdata *p)
 			pt->time = ptc->time;
 			pt->totweight = 0;
 			pt->weights = NULL;
+			pt->uv_fac = ptc->uv_fac;
+			pt->uv_rot = ptc->uv_rot;
 		}
 
 		/* subdivide and smooth the stroke */

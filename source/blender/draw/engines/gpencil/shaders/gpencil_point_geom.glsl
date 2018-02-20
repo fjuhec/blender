@@ -38,6 +38,17 @@ float getZdepth(vec4 point)
 	/* in front by default */
 	return 0.0;
 }
+
+vec2 rotateUV(vec2 uv, float angle)
+{
+	/* translate center of rotation to the center of texture */
+	vec2 new_uv = uv - vec2(0.5f, 0.5f);
+	vec2 rot_uv;
+	rot_uv.x = new_uv.x * cos(angle) - new_uv.y * sin(angle);
+	rot_uv.y = new_uv.y * cos(angle) + new_uv.x * sin(angle);
+	return rot_uv + vec2(0.5f, 0.5f);
+}
+
 void main(void)
 {
 	/* receive 4 points */
@@ -46,24 +57,23 @@ void main(void)
 	
 	float size = finalThickness[0] * 0.5; 
 	float aspect = 1.0;
-
 	/* generate the triangle strip */
-	mTexCoord = vec2(0, 1);
+	mTexCoord = rotateUV(vec2(0, 1), finaluvdata[0].y);
 	mColor = finalColor[0];
 	gl_Position = vec4(vec2(sp0.x - size, sp0.y + size * aspect) / Viewport, getZdepth(P0), 1.0);
 	EmitVertex();
 
-	mTexCoord = vec2(0, 0);
+	mTexCoord = rotateUV(vec2(0, 0), finaluvdata[0].y);
 	mColor = finalColor[0];
 	gl_Position = vec4(vec2(sp0.x - size, sp0.y - size * aspect) / Viewport, getZdepth(P0), 1.0);
 	EmitVertex();
 
-	mTexCoord = vec2(1, 1);
+	mTexCoord = rotateUV(vec2(1, 1), finaluvdata[0].y);
 	mColor = finalColor[0];
 	gl_Position = vec4(vec2(sp0.x + size, sp0.y + size * aspect) / Viewport, getZdepth(P0), 1.0);
 	EmitVertex();
 
-	mTexCoord = vec2(1, 0);
+	mTexCoord = rotateUV(vec2(1, 0), finaluvdata[0].y);
 	mColor = finalColor[0];
 	gl_Position = vec4(vec2(sp0.x + size, sp0.y - size * aspect) / Viewport, getZdepth(P0), 1.0);
 	EmitVertex();
