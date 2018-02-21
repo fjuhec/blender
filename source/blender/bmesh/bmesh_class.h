@@ -238,6 +238,9 @@ typedef struct BMesh {
 	struct BLI_mempool *looplistpool;
 #endif
 
+	struct MLoopNorSpaceArray *lnor_spacearr;  /* Stores MLoopNorSpaceArray for this BMesh */
+	char spacearr_dirty;
+
 	/* should be copy of scene select mode */
 	/* stored in BMEditMesh too, this is a bit confusing,
 	 * make sure they're in sync!
@@ -255,9 +258,6 @@ typedef struct BMesh {
 	ListBase errorstack;
 
 	void *py_handle;
-
-	struct MLoopNorSpaceArray *lnor_spacearr;  /* Stores MLoopNorSpaceArray for this BMesh */
-	char spacearr_dirty;
 } BMesh;
 
 /* BMHeader->htype (char) */
