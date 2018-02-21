@@ -481,7 +481,7 @@ static void gpencil_calc_2d_bounding_box(
 }
 
 /* calc texture coordinates using flat projected points */
-static void gpencil_calc_stroke_uv(const float(*points2d)[2], int totpoints, float minv[2], float maxv[2], float(*r_uv)[2])
+static void gpencil_calc_stroke_fill_uv(const float(*points2d)[2], int totpoints, float minv[2], float maxv[2], float(*r_uv)[2])
 {
 	float d[2];
 	d[0] = maxv[0] - minv[0];
@@ -559,7 +559,7 @@ static void gp_triangulate_stroke_fill(bGPDstroke *gps)
 	/* first needs bounding box data */
 	gpencil_calc_2d_bounding_box(points2d, gps->totpoints, minv, maxv, false);
 	/* calc uv data */
-	gpencil_calc_stroke_uv(points2d, gps->totpoints, minv, maxv, uv);
+	gpencil_calc_stroke_fill_uv(points2d, gps->totpoints, minv, maxv, uv);
 
 	/* Number of triangles */
 	gps->tot_triangles = gps->totpoints - 2;
