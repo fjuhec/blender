@@ -66,7 +66,7 @@
 #include "MEM_guardedalloc.h"
 #include "DEG_depsgraph.h"
 
-#define DEBUG_PRINT if (G.debug & G_DEBUG_DEPSGRAPH) printf
+#define DEBUG_PRINT if (G.debug & G_DEBUG_DEPSGRAPH_EVAL) printf
 
 void BKE_object_eval_local_transform(const EvaluationContext *UNUSED(eval_ctx),
                                      Object *ob)
@@ -153,7 +153,7 @@ void BKE_object_handle_data_update(
 	Key *key;
 	float ctime = BKE_scene_frame_get(scene);
 
-	if (G.debug & G_DEBUG_DEPSGRAPH)
+	if (G.debug & G_DEBUG_DEPSGRAPH_EVAL)
 		printf("recalcdata %s\n", ob->id.name + 2);
 
 	/* TODO(sergey): Only used by legacy depsgraph. */
