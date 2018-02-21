@@ -63,8 +63,10 @@ extern "C" {
 #include "DNA_object_types.h"
 
 #ifdef NESTED_ID_NASTY_WORKAROUND
+#  include "DNA_curve_types.h"
 #  include "DNA_key_types.h"
 #  include "DNA_lamp_types.h"
+#  include "DNA_lattice_types.h"
 #  include "DNA_linestyle_types.h"
 #  include "DNA_material_types.h"
 #  include "DNA_node_types.h"
@@ -91,8 +93,10 @@ namespace {
 
 #ifdef NESTED_ID_NASTY_WORKAROUND
 union NestedIDHackTempStorage {
+	Curve curve;
 	FreestyleLineStyle linestyle;
 	Lamp lamp;
+	Lattice lattice;
 	Material material;
 	Mesh mesh;
 	Scene scene;
@@ -118,6 +122,8 @@ void nested_id_hack_discard_pointers(ID *id_cow)
 		SPECIAL_CASE(ID_TE, Tex, nodetree)
 		SPECIAL_CASE(ID_WO, World, nodetree)
 
+		SPECIAL_CASE(ID_CU, Curve, key)
+		SPECIAL_CASE(ID_LT, Lattice, key)
 		SPECIAL_CASE(ID_ME, Mesh, key)
 
 #  undef SPECIAL_CASE
@@ -150,6 +156,8 @@ const ID *nested_id_hack_get_discarded_pointers(NestedIDHackTempStorage *storage
 		SPECIAL_CASE(ID_TE, Tex, nodetree, tex)
 		SPECIAL_CASE(ID_WO, World, nodetree, world)
 
+		SPECIAL_CASE(ID_CU, Curve, key, curve)
+		SPECIAL_CASE(ID_LT, Lattice, key, lattice)
 		SPECIAL_CASE(ID_ME, Mesh, key, mesh)
 
 #  undef SPECIAL_CASE
@@ -182,6 +190,8 @@ void nested_id_hack_restore_pointers(const ID *old_id, ID *new_id)
 		SPECIAL_CASE(ID_TE, Tex, nodetree)
 		SPECIAL_CASE(ID_WO, World, nodetree)
 
+		SPECIAL_CASE(ID_CU, Curve, key)
+		SPECIAL_CASE(ID_LT, Lattice, key)
 		SPECIAL_CASE(ID_ME, Mesh, key)
 
 #undef SPECIAL_CASE
@@ -218,6 +228,8 @@ void ntree_hack_remap_pointers(const Depsgraph *depsgraph, ID *id_cow)
 		SPECIAL_CASE(ID_TE, Tex, nodetree, bNodeTree)
 		SPECIAL_CASE(ID_WO, World, nodetree, bNodeTree)
 
+		SPECIAL_CASE(ID_CU, Curve, key, Key)
+		SPECIAL_CASE(ID_LT, Lattice, key, Key)
 		SPECIAL_CASE(ID_ME, Mesh, key, Key)
 
 #undef SPECIAL_CASE
@@ -424,11 +436,9 @@ void update_special_pointers(const Depsgraph *depsgraph,
 			 * new copy of the object.
 			 */
 			Object *object_cow = (Object *)id_cow;
-			const Object *object_orig = (const Object *)id_orig;
 			(void) object_cow;  /* Ignored for release builds. */
 			BLI_assert(object_cow->derivedFinal == NULL);
 			BLI_assert(object_cow->derivedDeform == NULL);
-			object_cow->mode = object_orig->mode;
 			break;
 		}
 		case ID_ME:
@@ -448,18 +458,6 @@ void update_special_pointers(const Depsgraph *depsgraph,
 				        (Object *)depsgraph->get_cow_id(&mesh_orig->edit_btmesh->ob->id);
 				mesh_cow->edit_btmesh->derivedFinal = NULL;
 				mesh_cow->edit_btmesh->derivedCage = NULL;
-			}
-			break;
-		}
-		case ID_SCE:
-		{
-			const Scene *scene_orig = (const Scene *)id_orig;
-			Scene *scene_cow = (Scene *)id_cow;
-			if (scene_orig->obedit != NULL) {
-				scene_cow->obedit = (Object *)depsgraph->get_cow_id(&scene_orig->obedit->id);
-			}
-			else {
-				scene_cow->obedit = NULL;
 			}
 			break;
 		}
@@ -612,13 +610,6 @@ void update_copy_on_write_scene(const Depsgraph *depsgraph,
 	update_copy_on_write_view_layers(depsgraph, scene_cow, scene_orig);
 	update_copy_on_write_scene_collection(scene_cow->collection,
 	                                      scene_orig->collection);
-	// Update edit object pointer.
-	if (scene_orig->obedit != NULL) {
-		scene_cow->obedit = (Object *)depsgraph->get_cow_id(&scene_orig->obedit->id);
-	}
-	else {
-		scene_cow->obedit = NULL;
-	}
 	/* Synchronize active render engine. */
 	BLI_strncpy(scene_cow->view_render.engine_id,
 	            scene_orig->view_render.engine_id,
@@ -640,7 +631,6 @@ void update_copy_on_write_object(const Depsgraph * /*depsgraph*/,
 	extract_pose_from_pose(pose_cow, pose_orig);
 	/* Update object itself. */
 	BKE_object_transform_copy(object_cow, object_orig);
-	object_cow->mode = object_orig->mode;
 }
 
 /* Update copy-on-write version of datablock from it's original ID without re-building

@@ -56,13 +56,17 @@
 #include "BKE_layer.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
+#include "BKE_object.h"
 #include "BKE_particle.h"
+#include "BKE_paint.h"
 #include "BKE_property.h"
 #include "BKE_report.h"
 #include "BKE_scene.h"
 #include "BKE_workspace.h"
 #include "BKE_library.h"
 #include "BKE_deform.h"
+
+#include "DEG_depsgraph.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -119,12 +123,82 @@ void ED_object_base_select(Base *base, eObjectSelect_Mode mode)
 void ED_object_base_activate(bContext *C, Base *base)
 {
 	ViewLayer *view_layer = CTX_data_view_layer(C);
+
+	WorkSpace *workspace = CTX_wm_workspace(C);
+
+	bool reset = true;
+	if (base) {
+		Object *ob_prev = OBACT(view_layer);
+		Object *ob_curr = base->object;
+		if (ob_prev != NULL) {
+			if (ob_prev->type == ob_curr->type) {
+				reset = false;
+			}
+		}
+	}
+
+	eObjectMode object_mode = workspace->object_mode;
+
+	{
+		Scene *scene = CTX_data_scene(C);
+		/* We don't know the previous active object in update.
+		 *
+		 * Not correct because it's possible other work-spaces use these.
+		 * although that's a corner case. */
+		if (workspace->object_mode & OB_MODE_EDIT) {
+			FOREACH_OBJECT(view_layer, ob) {
+				if (ob != base->object) {
+					if (BKE_object_is_in_editmode(ob)) {
+						ED_object_editmode_exit_ex(NULL, workspace, scene, ob, EM_FREEDATA);
+					}
+				}
+			}
+			FOREACH_OBJECT_END;
+		}
+		else if (workspace->object_mode & (OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT | OB_MODE_SCULPT)) {
+			EvaluationContext eval_ctx;
+			CTX_data_eval_ctx(C, &eval_ctx);
+			FOREACH_OBJECT(view_layer, ob) {
+				if (ob != base->object) {
+					if (ob->sculpt) {
+						switch (ob->sculpt->mode_type) {
+							case OB_MODE_VERTEX_PAINT:
+							{
+								ED_object_vpaintmode_exit_ex(workspace, ob);
+								break;
+							}
+							case OB_MODE_WEIGHT_PAINT:
+							{
+								ED_object_wpaintmode_exit_ex(workspace, ob);
+								break;
+							}
+							case OB_MODE_SCULPT:
+							{
+								ED_object_sculptmode_exit_ex(&eval_ctx, workspace, scene, ob);
+								break;
+							}
+						}
+					}
+				}
+			}
+			FOREACH_OBJECT_END;
+		}
+	}
+
+	workspace->object_mode = OB_MODE_OBJECT;
+
 	view_layer->basact = base;
 
+	if (reset == false) {
+		wmOperatorType *ot = WM_operatortype_find("OBJECT_OT_mode_set", false);
+		PointerRNA ptr;
+		WM_operator_properties_create_ptr(&ptr, ot);
+		RNA_enum_set(&ptr, "mode", object_mode);
+		WM_operator_name_call_ptr(C, ot, WM_OP_INVOKE_DEFAULT, &ptr);
+		WM_operator_properties_free(&ptr);
+	}
+
 	if (base) {
-#ifdef USE_WORKSPACE_MODE
-		BKE_workspace_object_mode_set(CTX_wm_workspace(C), CTX_data_scene(C), base->object->mode);
-#endif
 		WM_event_add_notifier(C, NC_SCENE | ND_OB_ACTIVE, view_layer);
 	}
 	else {
@@ -138,13 +212,14 @@ static int objects_selectable_poll(bContext *C)
 {
 	/* we don't check for linked scenes here, selection is
 	 * still allowed then for inspection of scene */
-	Object *obact = CTX_data_active_object(C);
+	if (CTX_data_edit_object(C)) {
+		return 0;
+	}
 
-	if (CTX_data_edit_object(C))
+	const WorkSpace *workspace = CTX_wm_workspace(C);
+	if (workspace->object_mode != OB_MODE_OBJECT) {
 		return 0;
-	if (obact && obact->mode)
-		return 0;
-	
+	}
 	return 1;
 }
 

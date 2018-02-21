@@ -167,7 +167,7 @@ static bool pointer_to_component_node_criteria(
 			return true;
 		}
 		else if (object->pose != NULL) {
-			BLI_LISTBASE_FOREACH(bPoseChannel *, pchan, &object->pose->chanbase) {
+			LISTBASE_FOREACH(bPoseChannel *, pchan, &object->pose->chanbase) {
 				if (BLI_findindex(&pchan->constraints, con) != -1) {
 					/* bone transforms */
 					*type = DEG_NODE_TYPE_BONE;
@@ -218,6 +218,10 @@ static bool pointer_to_component_node_criteria(
 		/* Sequencer strip */
 		*type = DEG_NODE_TYPE_SEQUENCER;
 		*subdata = seq->name; // xxx?
+		return true;
+	}
+	else if (RNA_struct_is_a(ptr->type, &RNA_NodeSocket)) {
+		*type = DEG_NODE_TYPE_SHADING;
 		return true;
 	}
 	if (prop != NULL) {

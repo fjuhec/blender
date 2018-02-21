@@ -67,13 +67,13 @@ struct bNodeTree;
 struct Object;
 struct bPoseChannel;
 struct bConstraint;
+struct ParticleSystem;
+struct ParticleSettings;
 struct Scene;
 struct ViewLayer;
 struct Tex;
 struct World;
 struct EffectorWeights;
-struct ParticleSystem;
-struct ParticleSettings;
 
 struct PropertyRNA;
 
@@ -205,7 +205,14 @@ struct DepsgraphRelationBuilder
 	                       RootPChanMap *root_map);
 	void build_animdata(ID *id);
 	void build_animdata_curves(ID *id);
-	void build_animdata_curves_targets(ID *id);
+	void build_animdata_curves_targets(ID *id,
+	                                   ComponentKey &adt_key,
+	                                   OperationDepsNode *operation_from,
+	                                   ListBase *curves);
+	void build_animdata_nlastrip_targets(ID *id,
+	                                     ComponentKey &adt_key,
+	                                     OperationDepsNode *operation_from,
+	                                     ListBase *strips);
 	void build_animdata_drivers(ID *id);
 	void build_driver(ID *id, FCurve *fcurve);
 	void build_driver_data(ID *id, FCurve *fcurve);
@@ -214,6 +221,9 @@ struct DepsgraphRelationBuilder
 	void build_rigidbody(Scene *scene);
 	void build_particles(Object *object);
 	void build_particle_settings(ParticleSettings *part);
+	void build_particles_visualization_object(Object *object,
+	                                          ParticleSystem *psys,
+	                                          Object *draw_object);
 	void build_cloth(Object *object, ModifierData *md);
 	void build_ik_pose(Object *object,
 	                   bPoseChannel *pchan,

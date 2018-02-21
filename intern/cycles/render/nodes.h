@@ -390,6 +390,7 @@ public:
 	float3 normal, clearcoat_normal, tangent;
 	float surface_mix_weight;
 	ClosureType distribution, distribution_orig;
+	ClosureType subsurface_method;
 
 	bool has_integrator_dependency();
 	void attributes(Shader *shader, AttributeRequestSet *attributes);
@@ -1034,9 +1035,26 @@ public:
 		return NODE_FEATURE_BUMP;
 	}
 
+	NodeNormalMapSpace space;
 	float height;
+	float midlevel;
 	float scale;
 	float3 normal;
+};
+
+class VectorDisplacementNode : public ShaderNode {
+public:
+	SHADER_NODE_CLASS(VectorDisplacementNode)
+	void attributes(Shader *shader, AttributeRequestSet *attributes);
+	virtual int get_feature() {
+		return NODE_FEATURE_BUMP;
+	}
+
+	NodeNormalMapSpace space;
+	ustring attribute;
+	float3 vector;
+	float midlevel;
+	float scale;
 };
 
 CCL_NAMESPACE_END

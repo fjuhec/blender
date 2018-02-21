@@ -46,6 +46,7 @@
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
+#include "DNA_workspace_types.h"
 
 #include "BLI_math.h"
 #include "BLI_listbase.h"
@@ -72,6 +73,8 @@
 #include "BKE_tracking.h"
 #include "BKE_unit.h"
 #include "BKE_paint.h"
+
+#include "DEG_depsgraph.h"
 
 #include "ED_screen.h"
 #include "ED_util.h"
@@ -185,6 +188,7 @@ typedef struct uiSelectContextStore {
 	uiSelectContextElem *elems;
 	int elems_len;
 	bool do_free;
+	bool is_enabled;
 	/* When set, simply copy values (don't apply difference).
 	 * Rules are:
 	 * - dragging numbers uses delta.
@@ -200,9 +204,7 @@ static void ui_selectcontext_apply(
         bContext *C, uiBut *but, struct uiSelectContextStore *selctx_data,
         const double value, const double value_orig);
 
-#if 0
 #define IS_ALLSELECT_EVENT(event) ((event)->alt != 0)
-#endif
 
 /** just show a tinted color so users know its activated */
 #define UI_BUT_IS_SELECT_CONTEXT UI_BUT_NODE_ACTIVE
@@ -1194,11 +1196,14 @@ static void ui_multibut_states_apply(bContext *C, uiHandleButtonData *data, uiBl
 				ui_but_execute_begin(C, ar, but, &active_back);
 
 #ifdef USE_ALLSELECT
-				if (mbut_state->select_others.elems_len == 0) {
-					ui_selectcontext_begin(C, but, &mbut_state->select_others);
-				}
-				if (mbut_state->select_others.elems_len == 0) {
-					mbut_state->select_others.elems_len = -1;
+				if (data->select_others.is_enabled) {
+					/* init once! */
+					if (mbut_state->select_others.elems_len == 0) {
+						ui_selectcontext_begin(C, but, &mbut_state->select_others);
+					}
+					if (mbut_state->select_others.elems_len == 0) {
+						mbut_state->select_others.elems_len = -1;
+					}
 				}
 
 				/* needed so we apply the right deltas */
@@ -2081,7 +2086,12 @@ static void ui_apply_but(bContext *C, uiBlock *block, uiBut *but, uiHandleButton
 		else
 #  endif
 		if (data->select_others.elems_len == 0) {
-			ui_selectcontext_begin(C, but, &data->select_others);
+			wmWindow *win = CTX_wm_window(C);
+			/* may have been enabled before activating */
+			if (data->select_others.is_enabled || IS_ALLSELECT_EVENT(win->eventstate)) {
+				ui_selectcontext_begin(C, but, &data->select_others);
+				data->select_others.is_enabled = true;
+			}
 		}
 		if (data->select_others.elems_len == 0) {
 			/* dont check again */
@@ -3086,7 +3096,11 @@ static void ui_textedit_begin(bContext *C, uiBut *but, uiHandleButtonData *data)
 
 #ifdef USE_ALLSELECT
 	if (is_num_but) {
-		data->select_others.is_copy = true;
+		if (IS_ALLSELECT_EVENT(win->eventstate)) {
+			data->select_others.is_enabled = true;
+			data->select_others.is_copy = true;
+
+		}
 	}
 #endif
 
@@ -3690,6 +3704,15 @@ static void ui_block_open_begin(bContext *C, uiBut *but, uiHandleButtonData *dat
 		if (but->block->handle)
 			data->menu->popup = but->block->handle->popup;
 	}
+
+#ifdef USE_ALLSELECT
+	{
+		wmWindow *win = CTX_wm_window(C);
+		if (IS_ALLSELECT_EVENT(win->eventstate)) {
+			data->select_others.is_enabled = true;
+		}
+	}
+#endif
 
 	/* this makes adjacent blocks auto open from now on */
 	//if (but->block->auto_open == 0) but->block->auto_open = 1;
@@ -5252,9 +5275,10 @@ static int ui_do_but_COLOR(
 			if ((int)(but->a1) == UI_PALETTE_COLOR) {
 				if (!event->ctrl) {
 					float color[3];
+					const WorkSpace *workspace = CTX_wm_workspace(C);
 					Scene *scene = CTX_data_scene(C);
 					ViewLayer *view_layer = CTX_data_view_layer(C);
-					Paint *paint = BKE_paint_get_active(scene, view_layer);
+					Paint *paint = BKE_paint_get_active(scene, view_layer, workspace->object_mode);
 					Brush *brush = BKE_paint_brush(paint);
 
 					if (brush->flag & BRUSH_USE_GRADIENT) {
@@ -6170,6 +6194,7 @@ static int ui_do_but_CURVE(
 {
 	int mx, my, a;
 	bool changed = false;
+
 	Scene *scene = CTX_data_scene(C);
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 
@@ -6286,6 +6311,7 @@ static int ui_do_but_CURVE(
 		}
 		else if (event->type == LEFTMOUSE && event->val != KM_PRESS) {
 			if (data->dragsel != -1) {
+				const WorkSpace *workspace = CTX_wm_workspace(C);
 				CurveMapping *cumap = (CurveMapping *)but->poin;
 				CurveMap *cuma = cumap->cm + cumap->cur;
 				CurveMapPoint *cmp = cuma->curve;
@@ -6300,7 +6326,7 @@ static int ui_do_but_CURVE(
 				}
 				else {
 					curvemapping_changed(cumap, true);  /* remove doubles */
-					BKE_paint_invalidate_cursor_overlay(scene, view_layer, cumap);
+					BKE_paint_invalidate_cursor_overlay(scene, view_layer, cumap, workspace->object_mode);
 				}
 			}
 

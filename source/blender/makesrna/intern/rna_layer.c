@@ -64,6 +64,7 @@ const EnumPropertyItem rna_enum_collection_type_items[] = {
 
 #include "DNA_group_types.h"
 #include "DNA_object_types.h"
+#include "DNA_workspace_types.h"
 
 #include "RNA_access.h"
 
@@ -72,6 +73,8 @@ const EnumPropertyItem rna_enum_collection_type_items[] = {
 #include "BKE_node.h"
 #include "BKE_scene.h"
 #include "BKE_mesh.h"
+#include "BKE_object.h"
+#include "BKE_workspace.h"
 
 #include "DEG_depsgraph_build.h"
 #include "DEG_depsgraph_query.h"
@@ -94,7 +97,7 @@ static void rna_SceneCollection_name_set(PointerRNA *ptr, const char *value)
 {
 	Scene *scene = (Scene *)ptr->id.data;
 	SceneCollection *sc = (SceneCollection *)ptr->data;
-	BKE_collection_rename(scene, sc, value);
+	BKE_collection_rename(&scene->id, sc, value);
 }
 
 static PointerRNA rna_SceneCollection_objects_get(CollectionPropertyIterator *iter)
@@ -139,6 +142,23 @@ static int rna_SceneCollection_move_into(ID *id, SceneCollection *sc_src, Main *
 	WM_main_add_notifier(NC_SCENE | ND_LAYER, NULL);
 
 	return 1;
+}
+
+static SceneCollection *rna_SceneCollection_duplicate(
+        ID *id, SceneCollection *scene_collection, Main *bmain, bContext *C, ReportList *reports)
+{
+	if (scene_collection == BKE_collection_master(id)) {
+		BKE_report(reports, RPT_ERROR, "The master collection can't be duplicated");
+		return NULL;
+	}
+
+	SceneCollection *scene_collection_new = BKE_collection_duplicate(id, scene_collection);
+
+	DEG_relations_tag_update(bmain);
+	/* Don't use id here, since the layer collection may come from a group. */
+	WM_event_add_notifier(C, NC_SCENE | ND_LAYER, CTX_data_scene(C));
+
+	return scene_collection_new;
 }
 
 static SceneCollection *rna_SceneCollection_new(
@@ -635,9 +655,9 @@ static int rna_LayerCollection_name_length(PointerRNA *ptr)
 
 static void rna_LayerCollection_name_set(PointerRNA *ptr, const char *value)
 {
-	Scene *scene = (Scene *)ptr->id.data;
+	ID *owner_id = (ID *)ptr->id.data;
 	SceneCollection *sc = ((LayerCollection *)ptr->data)->scene_collection;
-	BKE_collection_rename(scene, sc, value);
+	BKE_collection_rename(owner_id, sc, value);
 }
 
 static PointerRNA rna_LayerCollection_objects_get(CollectionPropertyIterator *iter)
@@ -715,6 +735,23 @@ static Group *rna_LayerCollection_create_group(
 	DEG_id_tag_update(&scene->id, 0);
 	WM_event_add_notifier(C, NC_SCENE | ND_LAYER, scene);
 	return group;
+}
+
+static LayerCollection *rna_LayerCollection_duplicate(
+        ID *id, LayerCollection *layer_collection, Main *bmain, bContext *C, ReportList *reports)
+{
+	if (layer_collection->scene_collection == BKE_collection_master(id)) {
+		BKE_report(reports, RPT_ERROR, "The master collection can't be duplicated");
+		return NULL;
+	}
+
+	LayerCollection *layer_collection_new = BKE_layer_collection_duplicate(id, layer_collection);
+
+	DEG_relations_tag_update(bmain);
+	/* Don't use id here, since the layer collection may come from a group. */
+	WM_event_add_notifier(C, NC_SCENE | ND_LAYER, CTX_data_scene(C));
+
+	return layer_collection_new;
 }
 
 static int rna_LayerCollections_active_collection_index_get(PointerRNA *ptr)
@@ -801,6 +838,18 @@ static void rna_LayerObjects_active_object_set(PointerRNA *ptr, PointerRNA value
 		view_layer->basact = NULL;
 }
 
+static void rna_LayerObjects_active_object_update(struct bContext *C, PointerRNA *ptr)
+{
+	wmWindow *win = CTX_wm_window(C);
+	Scene *scene = WM_window_get_active_scene(win);
+
+	if (scene != ptr->id.data) {
+		return;
+	}
+	ViewLayer *view_layer = (ViewLayer *)ptr->data;
+	ED_object_base_activate(C, view_layer->basact);
+}
+
 static IDProperty *rna_ViewLayer_idprops(PointerRNA *ptr, bool create)
 {
 	ViewLayer *view_layer = (ViewLayer *)ptr->data;
@@ -843,10 +892,14 @@ static int rna_ViewLayer_objects_selected_skip(CollectionPropertyIterator *iter,
 
 static PointerRNA rna_ViewLayer_depsgraph_get(PointerRNA *ptr)
 {
-	Scene *scene = (Scene *)ptr->id.data;
-	ViewLayer *view_layer = (ViewLayer *)ptr->data;
-	Depsgraph *depsgraph = BKE_scene_get_depsgraph(scene, view_layer, false);
-	return rna_pointer_inherit_refine(ptr, &RNA_Depsgraph, depsgraph);
+	ID *id = ptr->id.data;
+	if (GS(id->name) == ID_SCE) {
+		Scene *scene = (Scene *)id;
+		ViewLayer *view_layer = (ViewLayer *)ptr->data;
+		Depsgraph *depsgraph = BKE_scene_get_depsgraph(scene, view_layer, false);
+		return rna_pointer_inherit_refine(ptr, &RNA_Depsgraph, depsgraph);
+	}
+	return PointerRNA_NULL;
 }
 
 static void rna_LayerObjects_selected_begin(CollectionPropertyIterator *iter, PointerRNA *ptr)
@@ -881,7 +934,7 @@ static void rna_ObjectBase_select_update(Main *UNUSED(bmain), Scene *UNUSED(scen
 
 static char *rna_ViewRenderSettings_path(PointerRNA *UNUSED(ptr))
 {
-	return BLI_sprintfN("viewport_render");
+	return BLI_sprintfN("view_render");
 }
 
 static void rna_ViewRenderSettings_engine_set(PointerRNA *ptr, int value)
@@ -1079,6 +1132,12 @@ static void rna_def_scene_collection(BlenderRNA *brna)
 	RNA_def_function_flag(func, FUNC_USE_SELF_ID | FUNC_USE_MAIN);
 	parm = RNA_def_pointer(func, "sc_dst", "SceneCollection", "Collection", "Collection to insert into");
 	parm = RNA_def_boolean(func, "result", false, "Result", "Whether the operation succeded");
+	RNA_def_function_return(func, parm);
+
+	func = RNA_def_function(srna, "duplicate", "rna_SceneCollection_duplicate");
+	RNA_def_function_ui_description(func, "Create a copy of the collection");
+	RNA_def_function_flag(func, FUNC_USE_SELF_ID | FUNC_USE_MAIN | FUNC_USE_CONTEXT | FUNC_USE_REPORTS);
+	parm = RNA_def_pointer(func, "result", "SceneCollection", "", "Newly created collection");
 	RNA_def_function_return(func, parm);
 }
 
@@ -1994,6 +2053,12 @@ static void rna_def_layer_collection(BlenderRNA *brna)
 	parm = RNA_def_pointer(func, "result", "Group", "", "Newly created Group");
 	RNA_def_function_return(func, parm);
 
+	func = RNA_def_function(srna, "duplicate", "rna_LayerCollection_duplicate");
+	RNA_def_function_ui_description(func, "Create a copy of the collection");
+	RNA_def_function_flag(func, FUNC_USE_SELF_ID | FUNC_USE_MAIN | FUNC_USE_CONTEXT | FUNC_USE_REPORTS);
+	parm = RNA_def_pointer(func, "result", "LayerCollection", "", "Newly created collection");
+	RNA_def_function_return(func, parm);
+
 	/* Flags */
 	prop = RNA_def_property(srna, "selectable", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", COLLECTION_SELECTABLE);
@@ -2079,11 +2144,11 @@ static void rna_def_layer_objects(BlenderRNA *brna, PropertyRNA *cprop)
 	prop = RNA_def_property(srna, "active", PROP_POINTER, PROP_NONE);
 	RNA_def_property_struct_type(prop, "Object");
 	RNA_def_property_pointer_funcs(prop, "rna_LayerObjects_active_object_get", "rna_LayerObjects_active_object_set", NULL, NULL);
-	RNA_def_property_flag(prop, PROP_EDITABLE | PROP_NEVER_UNLINK);
+	RNA_def_property_flag(prop, PROP_EDITABLE | PROP_NEVER_UNLINK | PROP_CONTEXT_UPDATE);
 	RNA_def_property_ui_text(prop, "Active Object", "Active object for this layer");
 	/* Could call: ED_object_base_activate(C, rl->basact);
 	 * but would be a bad level call and it seems the notifier is enough */
-	RNA_def_property_update(prop, NC_SCENE | ND_OB_ACTIVE, NULL);
+	RNA_def_property_update(prop, NC_SCENE | ND_OB_ACTIVE, "rna_LayerObjects_active_object_update");
 
 	prop = RNA_def_property(srna, "selected", PROP_COLLECTION, PROP_NONE);
 	RNA_def_property_collection_sdna(prop, NULL, "object_bases", NULL);

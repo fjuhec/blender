@@ -381,7 +381,10 @@ void EDBM_mesh_load(Object *ob)
 		bm->shapenr = 1;
 	}
 
-	BM_mesh_bm_to_me(bm, me, (&(struct BMeshToMeshParams){0}));
+	BM_mesh_bm_to_me(
+	        bm, me, (&(struct BMeshToMeshParams){
+	            .calc_object_remap = true,
+	        }));
 
 #ifdef USE_TESSFACE_DEFAULT
 	BKE_mesh_tessface_calc(me);
@@ -1013,7 +1016,7 @@ void EDBM_verts_mirror_cache_begin_ex(BMEditMesh *em, const int axis, const bool
 	BM_mesh_elem_index_ensure(bm, BM_VERT);
 
 	if (use_topology) {
-		ED_mesh_mirrtopo_init(me, NULL, -1, &mesh_topo_store, true);
+		ED_mesh_mirrtopo_init(me, NULL, &mesh_topo_store, true);
 	}
 	else {
 		tree = BLI_kdtree_new(bm->totvert);

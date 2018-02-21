@@ -68,6 +68,8 @@
 #include "WM_api.h"
 #include "WM_types.h"
 
+#include "DEG_depsgraph.h"
+
 #include "ED_armature.h"
 #include "ED_clip.h"
 #include "ED_image.h"
@@ -136,7 +138,7 @@ int ED_operator_screen_mainwinactive(bContext *C)
 	if (CTX_wm_window(C) == NULL) return 0;
 	screen = CTX_wm_screen(C);
 	if (screen == NULL) return 0;
-	if (screen->subwinactive != screen->mainwin) return 0;
+	if (screen->active_region != NULL) return 0;
 	return 1;
 }
 
@@ -150,6 +152,7 @@ int ED_operator_scene_editable(bContext *C)
 
 int ED_operator_objectmode(bContext *C)
 {
+	const WorkSpace *workspace = CTX_wm_workspace(C);
 	Scene *scene = CTX_data_scene(C);
 	Object *obact = CTX_data_active_object(C);
 
@@ -159,7 +162,7 @@ int ED_operator_objectmode(bContext *C)
 		return 0;
 	
 	/* add a check for ob->mode too? */
-	if (obact && (obact->mode != OB_MODE_OBJECT))
+	if (obact && (workspace->object_mode != OB_MODE_OBJECT))
 		return 0;
 	
 	return 1;
@@ -301,35 +304,39 @@ int ED_operator_console_active(bContext *C)
 	return ed_spacetype_test(C, SPACE_CONSOLE);
 }
 
-static int ed_object_hidden(Object *ob)
+static int ed_object_hidden(Object *ob, eObjectMode object_mode)
 {
 	/* if hidden but in edit mode, we still display, can happen with animation */
-	return ((ob->restrictflag & OB_RESTRICT_VIEW) && !(ob->mode & OB_MODE_EDIT));
+	return ((ob->restrictflag & OB_RESTRICT_VIEW) && !(object_mode & OB_MODE_EDIT));
 }
 
 int ED_operator_object_active(bContext *C)
 {
+	const WorkSpace *workspace = CTX_wm_workspace(C);
 	Object *ob = ED_object_active_context(C);
-	return ((ob != NULL) && !ed_object_hidden(ob));
+	return ((ob != NULL) && !ed_object_hidden(ob, workspace->object_mode));
 }
 
 int ED_operator_object_active_editable(bContext *C)
 {
+	const WorkSpace *workspace = CTX_wm_workspace(C);
 	Object *ob = ED_object_active_context(C);
-	return ((ob != NULL) && !ID_IS_LINKED(ob) && !ed_object_hidden(ob));
+	return ((ob != NULL) && !ID_IS_LINKED(ob) && !ed_object_hidden(ob, workspace->object_mode));
 }
 
 int ED_operator_object_active_editable_mesh(bContext *C)
 {
+	const WorkSpace *workspace = CTX_wm_workspace(C);
 	Object *ob = ED_object_active_context(C);
-	return ((ob != NULL) && !ID_IS_LINKED(ob) && !ed_object_hidden(ob) &&
+	return ((ob != NULL) && !ID_IS_LINKED(ob) && !ed_object_hidden(ob, workspace->object_mode) &&
 	        (ob->type == OB_MESH) && !ID_IS_LINKED(ob->data));
 }
 
 int ED_operator_object_active_editable_font(bContext *C)
 {
+	const WorkSpace *workspace = CTX_wm_workspace(C);
 	Object *ob = ED_object_active_context(C);
-	return ((ob != NULL) && !ID_IS_LINKED(ob) && !ed_object_hidden(ob) &&
+	return ((ob != NULL) && !ID_IS_LINKED(ob) && !ed_object_hidden(ob, workspace->object_mode) &&
 	        (ob->type == OB_FONT));
 }
 
@@ -374,11 +381,14 @@ int ED_operator_posemode_exclusive(bContext *C)
 {
 	Object *obact = CTX_data_active_object(C);
 
-	if (obact && !(obact->mode & OB_MODE_EDIT)) {
-		Object *obpose;
-		if ((obpose = BKE_object_pose_armature_get(obact))) {
-			if (obact == obpose) {
-				return 1;
+	if (obact) {
+		const WorkSpace *workspace = CTX_wm_workspace(C);
+		if ((workspace->object_mode & OB_MODE_EDIT) == 0) {
+			Object *obpose;
+			if ((obpose = BKE_object_pose_armature_get(obact))) {
+				if (obact == obpose) {
+					return 1;
+				}
 			}
 		}
 	}
@@ -392,9 +402,15 @@ int ED_operator_posemode_context(bContext *C)
 {
 	Object *obpose = ED_pose_object_from_context(C);
 
-	if (obpose && !(obpose->mode & OB_MODE_EDIT)) {
-		if (BKE_object_pose_context_check(obpose)) {
-			return 1;
+	if (obpose) {
+		const WorkSpace *workspace = CTX_wm_workspace(C);
+		/* TODO, should we allow this out of pose mode? */
+		if (workspace->object_mode & OB_MODE_POSE) {
+			// if ((workspace->object_mode & OB_MODE_EDIT) == 0) {
+			if (BKE_object_pose_context_check(obpose)) {
+				return 1;
+			}
+			// }
 		}
 	}
 
@@ -405,11 +421,17 @@ int ED_operator_posemode(bContext *C)
 {
 	Object *obact = CTX_data_active_object(C);
 
-	if (obact && !(obact->mode & OB_MODE_EDIT)) {
-		Object *obpose;
-		if ((obpose = BKE_object_pose_armature_get(obact))) {
-			if ((obact == obpose) || (obact->mode & OB_MODE_WEIGHT_PAINT)) {
-				return 1;
+
+	if (obact) {
+		const WorkSpace *workspace = CTX_wm_workspace(C);
+		if ((workspace->object_mode & OB_MODE_EDIT) == 0) {
+			Object *obpose;
+			if ((obpose = BKE_object_pose_armature_get(obact))) {
+				if (((workspace->object_mode & OB_MODE_POSE) && (obact == obpose)) ||
+				    (workspace->object_mode & OB_MODE_WEIGHT_PAINT))
+				{
+					return 1;
+				}
 			}
 		}
 	}
@@ -545,9 +567,10 @@ int ED_operator_mask(bContext *C)
 			}
 			case SPACE_IMAGE:
 			{
+				WorkSpace *workspace = CTX_wm_workspace(C);
 				SpaceImage *sima = sa->spacedata.first;
 				ViewLayer *view_layer = CTX_data_view_layer(C);
-				return ED_space_image_check_show_maskedit(view_layer, sima);
+				return ED_space_image_check_show_maskedit(sima, workspace, view_layer);
 			}
 		}
 	}

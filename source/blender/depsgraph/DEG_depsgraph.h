@@ -75,6 +75,8 @@ typedef enum eEvaluationMode {
 	DAG_EVAL_RENDER         = 2,    /* evaluate for render purposes */
 } eEvaluationMode;
 
+#include "DNA_object_enums.h"
+
 /* Dependency graph evaluation context
  *
  * This structure stores all the local dependency graph data,
@@ -83,6 +85,7 @@ typedef enum eEvaluationMode {
 typedef struct EvaluationContext {
 	eEvaluationMode mode;
 	float ctime;
+	eObjectMode object_mode;
 
 	struct Depsgraph *depsgraph;
 	struct ViewLayer *view_layer;
@@ -213,11 +216,13 @@ struct EvaluationContext *DEG_evaluation_context_new(eEvaluationMode mode);
  */
 void DEG_evaluation_context_init(struct EvaluationContext *eval_ctx,
                                  eEvaluationMode mode);
-void DEG_evaluation_context_init_from_scene(struct EvaluationContext *eval_ctx,
-                                            struct Scene *scene,
-                                            struct ViewLayer *view_layer,
-                                            struct RenderEngineType *engine_type,
-                                            eEvaluationMode mode);
+void DEG_evaluation_context_init_from_scene(
+        struct EvaluationContext *eval_ctx,
+        struct Scene *scene,
+        struct ViewLayer *view_layer,
+        struct RenderEngineType *engine_type,
+        const eObjectMode object_mode,
+        eEvaluationMode mode);
 
 /* Free evaluation context. */
 void DEG_evaluation_context_free(struct EvaluationContext *eval_ctx);

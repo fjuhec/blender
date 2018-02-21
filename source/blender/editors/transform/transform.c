@@ -1890,7 +1890,7 @@ static void drawAutoKeyWarning(TransInfo *UNUSED(t), ARegion *ar)
 #endif
 	
 	/* autokey recording icon... */
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 	glEnable(GL_BLEND);
 	
 	xco -= U.widget_unit;
@@ -2624,10 +2624,7 @@ static void constraintTransLim(TransInfo *t, TransData *td)
 	if (td->con) {
 		const bConstraintTypeInfo *ctiLoc = BKE_constraint_typeinfo_from_type(CONSTRAINT_TYPE_LOCLIMIT);
 		const bConstraintTypeInfo *ctiDist = BKE_constraint_typeinfo_from_type(CONSTRAINT_TYPE_DISTLIMIT);
-		EvaluationContext eval_ctx;
 
-		CTX_data_eval_ctx(t->context, &eval_ctx);
-		
 		bConstraintOb cob = {NULL};
 		bConstraint *con;
 		float ctime = (float)(t->scene->r.cfra);
@@ -2676,7 +2673,7 @@ static void constraintTransLim(TransInfo *t, TransData *td)
 				}
 				
 				/* get constraint targets if needed */
-				BKE_constraint_targets_for_solving_get(&eval_ctx, con, &cob, &targets, ctime);
+				BKE_constraint_targets_for_solving_get(&t->eval_ctx, con, &cob, &targets, ctime);
 				
 				/* do constraint */
 				cti->evaluate_constraint(con, &cob, &targets);
@@ -6883,7 +6880,7 @@ static void drawEdgeSlide(TransInfo *t)
 				glDisable(GL_DEPTH_TEST);
 
 			glEnable(GL_BLEND);
-			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+			glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
 			gpuPushMatrix();
 			gpuMultMatrix(t->obedit->obmat);
@@ -7495,7 +7492,7 @@ static void drawVertSlide(TransInfo *t)
 				glDisable(GL_DEPTH_TEST);
 
 			glEnable(GL_BLEND);
-			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+			glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
 			gpuPushMatrix();
 			gpuMultMatrix(t->obedit->obmat);

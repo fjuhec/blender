@@ -90,6 +90,7 @@ extern "C" {
 #include "BKE_node.h"
 #include "BKE_object.h"
 #include "BKE_particle.h"
+#include "BKE_pointcache.h"
 #include "BKE_rigidbody.h"
 #include "BKE_sound.h"
 #include "BKE_tracking.h"
@@ -196,7 +197,7 @@ IDDepsNode *DepsgraphNodeBuilder::add_id_node(ID *id, bool do_tag)
 	 *
 	 * NOTE: Zero number of components indicates that ID node was just created.
 	 */
-	if (BLI_ghash_size(id_node->components) == 0) {
+	if (BLI_ghash_len(id_node->components) == 0) {
 		ComponentDepsNode *comp_cow =
 		        id_node->add_component(DEG_NODE_TYPE_COPY_ON_WRITE);
 		OperationDepsNode *op_cow = comp_cow->add_operation(
@@ -429,7 +430,7 @@ void DepsgraphNodeBuilder::build_group(Group *group)
 	}
 	group_id->tag |= LIB_TAG_DOIT;
 	/* Build group objects. */
-	BLI_LISTBASE_FOREACH (Base *, base, &group->view_layer->object_bases) {
+	LISTBASE_FOREACH (Base *, base, &group->view_layer->object_bases) {
 		build_object(NULL, base->object, DEG_ID_LINKED_INDIRECTLY);
 	}
 	/* Operation to evaluate the whole view layer.
@@ -699,7 +700,7 @@ void DepsgraphNodeBuilder::build_animdata(ID *id)
 		}
 
 		/* drivers */
-		BLI_LISTBASE_FOREACH (FCurve *, fcu, &adt->drivers) {
+		LISTBASE_FOREACH (FCurve *, fcu, &adt->drivers) {
 			/* create driver */
 			build_driver(id, fcu);
 		}
@@ -817,7 +818,7 @@ void DepsgraphNodeBuilder::build_rigidbody(Scene *scene)
 
 	/* objects - simulation participants */
 	if (rbw->group) {
-		BLI_LISTBASE_FOREACH (Base *, base, &rbw->group->view_layer->object_bases) {
+		LISTBASE_FOREACH (Base *, base, &rbw->group->view_layer->object_bases) {
 			Object *object = base->object;
 
 			if (!object || (object->type != OB_MESH))
@@ -853,8 +854,7 @@ void DepsgraphNodeBuilder::build_particles(Object *object)
 	 *     blackbox evaluation step for one particle system referenced by
 	 *     the particle systems stack. All dependencies link to this operation.
 	 */
-
-	/* component for all particle systems */
+	/* Component for all particle systems. */
 	ComponentDepsNode *psys_comp =
 	        add_component_node(&object->id, DEG_NODE_TYPE_EVAL_PARTICLES);
 
@@ -868,17 +868,14 @@ void DepsgraphNodeBuilder::build_particles(Object *object)
 	                                 scene_cow,
 	                                 ob_cow),
 	                   DEG_OPCODE_PARTICLE_SYSTEM_EVAL_INIT);
-
-	/* particle systems */
-	BLI_LISTBASE_FOREACH (ParticleSystem *, psys, &object->particlesystem) {
+	/* Build all particle systems. */
+	LISTBASE_FOREACH (ParticleSystem *, psys, &object->particlesystem) {
 		ParticleSettings *part = psys->part;
-
 		/* Build particle settings operations.
 		 *
 		 * NOTE: The call itself ensures settings are only build once.
 		 */
 		build_particle_settings(part);
-
 		/* Update on particle settings change. */
 		add_operation_node(psys_comp,
 		                   function_bind(BKE_particle_system_settings_eval,
@@ -886,15 +883,36 @@ void DepsgraphNodeBuilder::build_particles(Object *object)
 		                                 psys),
 		                   DEG_OPCODE_PARTICLE_SETTINGS_EVAL,
 		                   psys->name);
-
 		/* Particle system evaluation. */
 		add_operation_node(psys_comp,
 		                   NULL,
 		                   DEG_OPCODE_PARTICLE_SYSTEM_EVAL,
 		                   psys->name);
+		/* Visualization of particle system. */
+		switch (part->ren_as) {
+			case PART_DRAW_OB:
+				if (part->dup_ob != NULL) {
+					build_object(NULL,
+					             part->dup_ob,
+					             DEG_ID_LINKED_INDIRECTLY);
+				}
+				break;
+			case PART_DRAW_GR:
+				if (part->dup_group != NULL) {
+					build_group(part->dup_group);
+				}
+				break;
+		}
 	}
 
 	/* TODO(sergey): Do we need a point cache operations here? */
+	add_operation_node(&object->id,
+	                   DEG_NODE_TYPE_CACHE,
+	                   function_bind(BKE_ptcache_object_reset,
+	                                 scene_cow,
+	                                 ob_cow,
+	                                 PTCACHE_RESET_DEPSGRAPH),
+	                   DEG_OPCODE_POINT_CACHE_RESET);
 }
 
 void DepsgraphNodeBuilder::build_particle_settings(ParticleSettings *part) {
@@ -986,7 +1004,7 @@ void DepsgraphNodeBuilder::build_obdata_geom(Object *object)
 	// TODO: "Done" operation
 
 	/* Cloth modifier. */
-	BLI_LISTBASE_FOREACH (ModifierData *, md, &object->modifiers) {
+	LISTBASE_FOREACH (ModifierData *, md, &object->modifiers) {
 		if (md->type == eModifierType_Cloth) {
 			build_cloth(object);
 		}
@@ -1231,7 +1249,7 @@ void DepsgraphNodeBuilder::build_nodetree(bNodeTree *ntree)
 	                                 ntree),
 	                   DEG_OPCODE_MATERIAL_UPDATE);
 	/* nodetree's nodes... */
-	BLI_LISTBASE_FOREACH (bNode *, bnode, &ntree->nodes) {
+	LISTBASE_FOREACH (bNode *, bnode, &ntree->nodes) {
 		ID *id = bnode->id;
 		if (id == NULL) {
 			continue;

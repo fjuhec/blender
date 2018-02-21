@@ -66,7 +66,6 @@ void    ED_region_do_listen(
 void    ED_region_do_draw(struct bContext *C, struct ARegion *ar);
 void    ED_region_exit(struct bContext *C, struct ARegion *ar);
 void    ED_region_pixelspace(struct ARegion *ar);
-void    ED_region_set(const struct bContext *C, struct ARegion *ar);
 void    ED_region_update_rect(struct bContext *C, struct ARegion *ar);
 void    ED_region_init(struct bContext *C, struct ARegion *ar);
 void    ED_region_tag_redraw(struct ARegion *ar);
@@ -152,7 +151,7 @@ void    ED_screen_update_after_scene_change(
         const struct bScreen *screen,
         struct Scene *scene_new,
         struct ViewLayer *view_layer);
-void    ED_screen_set_subwinactive(struct bContext *C, const struct wmEvent *event);
+void    ED_screen_set_active_region(struct bContext *C, const struct wmEvent *event);
 void    ED_screen_exit(struct bContext *C, struct wmWindow *window, struct bScreen *screen);
 void    ED_screen_animation_timer(struct bContext *C, int redraws, int refresh, int sync, int enable);
 void    ED_screen_animation_timer_update(struct bScreen *screen, int redraws, int refresh);
@@ -164,6 +163,8 @@ struct ScrArea *ED_screen_state_toggle(struct bContext *C, struct wmWindow *win,
 void    ED_screens_header_tools_menu_create(struct bContext *C, struct uiLayout *layout, void *arg);
 bool    ED_screen_stereo3d_required(const struct bScreen *screen, const struct Scene *scene);
 Scene   *ED_screen_scene_find(const struct bScreen *screen, const struct wmWindowManager *wm);
+Scene   *ED_screen_scene_find_with_window(const struct bScreen *screen, const struct wmWindowManager *wm, struct wmWindow **r_window);
+struct wmWindow *ED_screen_window_find(const struct bScreen *screen, const struct wmWindowManager *wm);
 void    ED_screen_preview_render(const struct bScreen *screen, int size_x, int size_y, unsigned int *r_rect) ATTR_NONNULL();
 
 /* workspaces */
@@ -176,7 +177,7 @@ struct WorkSpace *ED_workspace_add(
 bool ED_workspace_change(
         struct WorkSpace *workspace_new,
         struct bContext *C,
-        struct wmWindowManager *wm, struct wmWindow *win) ATTR_NONNULL();
+        struct wmWindow *win) ATTR_NONNULL();
 struct WorkSpace *ED_workspace_duplicate(
         struct WorkSpace *workspace_old,
         struct Main *bmain, struct wmWindow *win);

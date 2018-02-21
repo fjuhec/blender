@@ -179,7 +179,7 @@ static void draw_uvs_shadow(Object *obedit)
 	immUnbindProgram();
 }
 
-static void draw_uvs_stretch(SpaceImage *sima, Scene *scene, BMEditMesh *em, const BMFace *efa_act)
+static void draw_uvs_stretch(SpaceImage *sima, Scene *scene, Object *obedit, BMEditMesh *em, const BMFace *efa_act)
 {
 	BMesh *bm = em->bm;
 	BMFace *efa;
@@ -217,7 +217,7 @@ static void draw_uvs_stretch(SpaceImage *sima, Scene *scene, BMEditMesh *em, con
 				totarea += BM_face_calc_area(efa);
 				totuvarea += area_poly_v2(tf_uv, efa->len);
 				
-				if (uvedit_face_visible_test(scene, ima, efa)) {
+				if (uvedit_face_visible_test(scene, obedit, ima, efa)) {
 					BM_elem_flag_enable(efa, BM_ELEM_TAG);
 				}
 				else {
@@ -314,7 +314,7 @@ static void draw_uvs_stretch(SpaceImage *sima, Scene *scene, BMEditMesh *em, con
 			immBindBuiltinProgram(GPU_SHADER_2D_SMOOTH_COLOR);
 
 			BM_ITER_MESH (efa, &iter, bm, BM_FACES_OF_MESH) {
-				if (uvedit_face_visible_test(scene, ima, efa)) {
+				if (uvedit_face_visible_test(scene, obedit, ima, efa)) {
 					const int efa_len = efa->len;
 					float (*tf_uv)[2]     = (float (*)[2])BLI_buffer_reinit_data(&tf_uv_buf,     vec2f, efa_len);
 					float (*tf_uvorig)[2] = (float (*)[2])BLI_buffer_reinit_data(&tf_uvorig_buf, vec2f, efa_len);
@@ -669,12 +669,12 @@ static void draw_uvs(SpaceImage *sima, Scene *scene, ViewLayer *view_layer, Obje
 	/* 2. draw colored faces */
 	
 	if (sima->flag & SI_DRAW_STRETCH) {
-		draw_uvs_stretch(sima, scene, em, efa_act);
+		draw_uvs_stretch(sima, scene, obedit, em, efa_act);
 	}
 	else {
 		unsigned int tri_count = 0;
 		BM_ITER_MESH(efa, &iter, bm, BM_FACES_OF_MESH) {
-			if (uvedit_face_visible_test(scene, ima, efa)) {
+			if (uvedit_face_visible_test(scene, obedit, ima, efa)) {
 				BM_elem_flag_enable(efa, BM_ELEM_TAG);
 				tri_count += efa->len - 2;
 			}
@@ -687,7 +687,7 @@ static void draw_uvs(SpaceImage *sima, Scene *scene, ViewLayer *view_layer, Obje
 			/* draw transparent faces */
 			UI_GetThemeColor4ubv(TH_FACE, col1);
 			UI_GetThemeColor4ubv(TH_FACE_SELECT, col2);
-			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+			glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 			glEnable(GL_BLEND);
 
 			Gwn_VertFormat *format = immVertexFormat();
@@ -722,7 +722,7 @@ static void draw_uvs(SpaceImage *sima, Scene *scene, ViewLayer *view_layer, Obje
 			glDisable(GL_BLEND);
 		}
 		else {
-			if (efa_act && !uvedit_face_visible_test(scene, ima, efa_act)) {
+			if (efa_act && !uvedit_face_visible_test(scene, obedit, ima, efa_act)) {
 				efa_act = NULL;
 			}
 		}
@@ -736,7 +736,7 @@ static void draw_uvs(SpaceImage *sima, Scene *scene, ViewLayer *view_layer, Obje
 	if (sima->flag & SI_SMOOTH_UV) {
 		glEnable(GL_LINE_SMOOTH);
 		glEnable(GL_BLEND);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 	}
 
 	glLineWidth(1);
@@ -1032,7 +1032,9 @@ static void draw_uvs(SpaceImage *sima, Scene *scene, ViewLayer *view_layer, Obje
 }
 
 
-static void draw_uv_shadows_get(SpaceImage *sima, Object *ob, Object *obedit, bool *show_shadow, bool *show_texpaint)
+static void draw_uv_shadows_get(
+        SpaceImage *sima, const EvaluationContext *eval_ctx, Object *ob, Object *obedit,
+        bool *show_shadow, bool *show_texpaint)
 {
 	*show_shadow = *show_texpaint = false;
 
@@ -1045,16 +1047,18 @@ static void draw_uv_shadows_get(SpaceImage *sima, Object *ob, Object *obedit, bo
 		*show_shadow = EDBM_uv_check(em);
 	}
 	
-	*show_texpaint = (ob && ob->type == OB_MESH && ob->mode == OB_MODE_TEXTURE_PAINT);
+	*show_texpaint = (ob && ob->type == OB_MESH && eval_ctx->object_mode == OB_MODE_TEXTURE_PAINT);
 }
 
-void ED_uvedit_draw_main(SpaceImage *sima, ARegion *ar, Scene *scene, ViewLayer *view_layer, Object *obedit, Object *obact, Depsgraph *depsgraph)
+void ED_uvedit_draw_main(
+        SpaceImage *sima, const EvaluationContext *eval_ctx,
+        ARegion *ar, Scene *scene, ViewLayer *view_layer, Object *obedit, Object *obact, Depsgraph *depsgraph)
 {
 	ToolSettings *toolsettings = scene->toolsettings;
 	bool show_uvedit, show_uvshadow, show_texpaint_uvshadow;
 
 	show_uvedit = ED_space_image_show_uvedit(sima, obedit);
-	draw_uv_shadows_get(sima, obact, obedit, &show_uvshadow, &show_texpaint_uvshadow);
+	draw_uv_shadows_get(sima, eval_ctx, obact, obedit, &show_uvshadow, &show_texpaint_uvshadow);
 
 	if (show_uvedit || show_uvshadow || show_texpaint_uvshadow) {
 		if (show_uvshadow)

@@ -986,7 +986,7 @@ static void node_shader_buts_normal_map(uiLayout *layout, bContext *C, PointerRN
 {
 	uiItemR(layout, ptr, "space", 0, "", 0);
 
-	if (RNA_enum_get(ptr, "space") == SHD_NORMAL_MAP_TANGENT) {
+	if (RNA_enum_get(ptr, "space") == SHD_SPACE_TANGENT) {
 		PointerRNA obptr = CTX_data_pointer_get(C, "active_object");
 
 		if (obptr.data && RNA_enum_get(&obptr, "type") == OB_MESH) {
@@ -996,6 +996,11 @@ static void node_shader_buts_normal_map(uiLayout *layout, bContext *C, PointerRN
 		else
 			uiItemR(layout, ptr, "uv_map", 0, "", 0);
 	}
+}
+
+static void node_shader_buts_displacement(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
+{
+	uiItemR(layout, ptr, "space", 0, "", 0);
 }
 
 static void node_shader_buts_tangent(uiLayout *layout, bContext *C, PointerRNA *ptr)
@@ -1025,6 +1030,12 @@ static void node_shader_buts_tangent(uiLayout *layout, bContext *C, PointerRNA *
 static void node_shader_buts_glossy(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
 {
 	uiItemR(layout, ptr, "distribution", 0, "", ICON_NONE);
+}
+
+static void node_shader_buts_principled(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
+{
+	uiItemR(layout, ptr, "distribution", 0, "", ICON_NONE);
+	uiItemR(layout, ptr, "subsurface_method", 0, "", ICON_NONE);
 }
 
 static void node_shader_buts_anisotropic(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
@@ -1189,14 +1200,20 @@ static void node_shader_set_butfunc(bNodeType *ntype)
 		case SH_NODE_NORMAL_MAP:
 			ntype->draw_buttons = node_shader_buts_normal_map;
 			break;
+		case SH_NODE_DISPLACEMENT:
+		case SH_NODE_VECTOR_DISPLACEMENT:
+			ntype->draw_buttons = node_shader_buts_displacement;
+			break;
 		case SH_NODE_TANGENT:
 			ntype->draw_buttons = node_shader_buts_tangent;
 			break;
 		case SH_NODE_BSDF_GLOSSY:
 		case SH_NODE_BSDF_GLASS:
 		case SH_NODE_BSDF_REFRACTION:
-		case SH_NODE_BSDF_PRINCIPLED:
 			ntype->draw_buttons = node_shader_buts_glossy;
+			break;
+		case SH_NODE_BSDF_PRINCIPLED:
+			ntype->draw_buttons = node_shader_buts_principled;
 			break;
 		case SH_NODE_BSDF_ANISOTROPIC:
 			ntype->draw_buttons = node_shader_buts_anisotropic;
@@ -3205,8 +3222,6 @@ void draw_nodespace_back_pix(const bContext *C, ARegion *ar, SpaceNode *snode, b
 		gpuPushMatrix();
 
 		/* somehow the offset has to be calculated inverse */
-		
-		glaDefine2DArea(&ar->winrct);
 		wmOrtho2_region_pixelspace(ar);
 		
 		x = (ar->winx - snode->zoom * ibuf->x) / 2 + snode->xof;
@@ -3239,7 +3254,7 @@ void draw_nodespace_back_pix(const bContext *C, ARegion *ar, SpaceNode *snode, b
 			}
 			else if (snode->flag & SNODE_USE_ALPHA) {
 				glEnable(GL_BLEND);
-				glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+				glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
 				glaDrawImBuf_glsl_ctx(C, ibuf, x, y, GL_NEAREST, snode->zoom, snode->zoom);
 

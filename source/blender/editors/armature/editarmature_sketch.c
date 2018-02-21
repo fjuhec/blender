@@ -178,7 +178,7 @@ const char *BIF_listTemplates(const bContext *UNUSED(C))
 	GHashIterator ghi;
 	const char *menu_header = IFACE_("Template %t|None %x0|");
 	char *p;
-	const size_t template_size = (BLI_ghash_size(TEMPLATES_HASH) * 32 + 30);
+	const size_t template_size = (BLI_ghash_len(TEMPLATES_HASH) * 32 + 30);
 
 	if (TEMPLATES_MENU != NULL) {
 		MEM_freeN(TEMPLATES_MENU);
@@ -2031,7 +2031,7 @@ static void sk_drawSketch(Scene *scene, View3D *UNUSED(v3d), SK_Sketch *sketch, 
 				gpuPushMatrix();
 
 				glEnable(GL_BLEND);
-				glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+				glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
 				switch (sketch->next_point.mode) {
 					case PT_SNAP:

@@ -178,7 +178,7 @@ void AnimationExporter::export_morph_animation(Object *ob)
 
 void AnimationExporter::make_anim_frames_from_targets(Object *ob, std::vector<float> &frames )
 {
-	ListBase *conlist = get_active_constraints(ob);
+	ListBase *conlist = get_active_constraints(this->eval_ctx, ob);
 	if (conlist == NULL) return;
 	bConstraint *con;
 	for (con = (bConstraint *)conlist->first; con; con = con->next) {
@@ -989,6 +989,9 @@ std::string AnimationExporter::create_4x4_source(std::vector<float> &frames, Obj
 		double outmat[4][4];
 		converter.mat4_to_dae_double(outmat, mat);
 
+		if (this->export_settings->limit_precision)
+			bc_sanitize_mat(outmat, 6);
+
 		source.appendValues(outmat);
 
 		j++;
@@ -1539,7 +1542,7 @@ bool AnimationExporter::validateConstraints(bConstraint *con)
 
 void AnimationExporter::calc_ob_mat_at_time(Object *ob, float ctime , float mat[][4])
 {
-	ListBase *conlist = get_active_constraints(ob);
+	ListBase *conlist = get_active_constraints(this->eval_ctx, ob);
 	bConstraint *con;
 	for (con = (bConstraint *)conlist->first; con; con = con->next) {
 		ListBase targets = {NULL, NULL};

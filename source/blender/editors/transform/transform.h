@@ -41,6 +41,8 @@
 
 #include "DNA_listBase.h"
 
+#include "DEG_depsgraph.h"
+
 /* ************************** Types ***************************** */
 
 struct Depsgraph;
@@ -65,6 +67,8 @@ struct ReportList;
 struct EditBone;
 struct RenderEngineType;
 struct SnapObjectContext;
+
+#include "DNA_object_enums.h"
 
 /* transinfo->redraw */
 typedef enum {
@@ -465,6 +469,7 @@ typedef struct TransInfo {
 
 	bool		remove_on_cancel; /* remove elements if operator is canceled */
 
+	EvaluationContext eval_ctx;
 	void		*view;
 	struct bContext *context; /* Only valid (non null) during an operator called function. */
 	struct ScrArea	*sa;
@@ -649,7 +654,8 @@ void restoreBones(TransInfo *t);
 
 #define MANIPULATOR_AXIS_LINE_WIDTH 2.0f
 
-bool gimbal_axis(struct Object *ob, float gmat[3][3]); /* return 0 when no gimbal for selection */
+/* return 0 when no gimbal for selection */
+bool gimbal_axis(struct Object *ob, float gmat[3][3], const eObjectMode object_mode);
 
 /*********************** TransData Creation and General Handling *********** */
 void createTransData(struct bContext *C, TransInfo *t);

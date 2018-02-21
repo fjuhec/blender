@@ -69,7 +69,6 @@
 
 #include "WM_api.h"
 #include "WM_types.h"
-#include "wm_subwindow.h"
 #include "WM_message.h"
 
 #include "RNA_access.h"
@@ -1393,7 +1392,6 @@ void UI_block_draw(const bContext *C, uiBlock *block)
 	ARegion *ar;
 	uiBut *but;
 	rcti rect;
-	int multisample_enabled;
 	
 	/* get menu region or area region */
 	ar = CTX_wm_menu(C);
@@ -1403,13 +1401,8 @@ void UI_block_draw(const bContext *C, uiBlock *block)
 	if (!block->endblock)
 		UI_block_end(C, block);
 
-	/* disable AA, makes widgets too blurry */
-	multisample_enabled = glIsEnabled(GL_MULTISAMPLE);
-	if (multisample_enabled)
-		glDisable(GL_MULTISAMPLE);
-
 	/* we set this only once */
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 	
 	/* scale fonts */
 	ui_fontscale(&style.paneltitle.points, block->aspect);
@@ -1451,9 +1444,6 @@ void UI_block_draw(const bContext *C, uiBlock *block)
 	gpuPopProjectionMatrix();
 	gpuPopMatrix();
 
-	if (multisample_enabled)
-		glEnable(GL_MULTISAMPLE);
-	
 	ui_draw_links(block);
 }
 
@@ -2895,7 +2885,6 @@ uiBlock *UI_block_begin(const bContext *C, ARegion *region, const char *name, sh
 	uiBlock *block;
 	wmWindow *window;
 	Scene *scn;
-	int getsizex, getsizey;
 
 	window = CTX_wm_window(C);
 	scn = CTX_data_scene(C);
@@ -2926,22 +2915,22 @@ uiBlock *UI_block_begin(const bContext *C, ARegion *region, const char *name, sh
 		UI_block_region_set(block, region);
 
 	/* window matrix and aspect */
-	if (region && region->swinid) {
-		wm_subwindow_matrix_get(window, region->swinid, block->winmat);
-		wm_subwindow_size_get(window, region->swinid, &getsizex, &getsizey);
+	if (region && region->visible) {
+		gpuGetProjectionMatrix(block->winmat);
 
-		block->aspect = 2.0f / fabsf(getsizex * block->winmat[0][0]);
+		block->aspect = 2.0f / fabsf(region->winx * block->winmat[0][0]);
 	}
 	else {
-		const bScreen *screen = WM_window_get_active_screen(window);
-
 		/* no subwindow created yet, for menus for example, so we
 		 * use the main window instead, since buttons are created
 		 * there anyway */
-		wm_subwindow_matrix_get(window, screen->mainwin, block->winmat);
-		wm_subwindow_size_get(window, screen->mainwin, &getsizex, &getsizey);
+		int width = WM_window_pixels_x(window);
+		int height = WM_window_pixels_y(window);
+		rcti winrct = {0, width -1, 0, height - 1};
 
-		block->aspect = 2.0f / fabsf(getsizex * block->winmat[0][0]);
+		wmGetProjectionMatrix(block->winmat, &winrct);
+
+		block->aspect = 2.0f / fabsf(width * block->winmat[0][0]);
 		block->auto_open = true;
 		block->flag |= UI_BLOCK_LOOP; /* tag as menu */
 	}

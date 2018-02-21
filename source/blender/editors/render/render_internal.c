@@ -339,12 +339,12 @@ static int screen_render_exec(bContext *C, wmOperator *op)
 
 	RE_SetReports(re, op->reports);
 
-	BLI_begin_threaded_malloc();
+	BLI_threaded_malloc_begin();
 	if (is_animation)
 		RE_BlenderAnim(re, mainp, scene, camera_override, lay_override, scene->r.sfra, scene->r.efra, scene->r.frame_step);
 	else
 		RE_BlenderFrame(re, mainp, scene, view_layer, camera_override, lay_override, scene->r.cfra, is_write_still);
-	BLI_end_threaded_malloc();
+	BLI_threaded_malloc_end();
 
 	RE_SetReports(re, NULL);
 
@@ -873,6 +873,8 @@ static int screen_render_invoke(bContext *C, wmOperator *op, const wmEvent *even
 	 * This is a problem for animation rendering since you cannot abort them.
 	 * This also does not open an image editor space. */
 	if (RE_engine_is_opengl(re_type)) {
+		/* ensure at least 1 area shows result */
+		render_view_open(C, event->x, event->y, op->reports);
 		return screen_render_exec(C, op);
 	}
 	
@@ -1442,8 +1444,10 @@ static bool render_view3d_flag_changed(RenderEngine *engine, const bContext *C)
 		job_update_flag |= PR_UPDATE_DATABASE;
 
 		/* load editmesh */
-		if (scene->obedit)
-			ED_object_editmode_load(scene->obedit);
+		Object *obedit = CTX_data_edit_object(C);
+		if (obedit) {
+			ED_object_editmode_load(obedit);
+		}
 	}
 	
 	engine->update_flag = 0;

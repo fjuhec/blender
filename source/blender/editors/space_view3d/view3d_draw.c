@@ -35,7 +35,7 @@
 #include "BLI_rect.h"
 #include "BLI_string.h"
 #include "BLI_threads.h"
-#include "BLI_jitter.h"
+#include "BLI_jitter_2d.h"
 
 #include "BIF_gl.h"
 #include "BIF_glutil.h"
@@ -99,15 +99,15 @@
 
 /* ******************** general functions ***************** */
 
-static bool use_depth_doit(Scene *scene, View3D *v3d)
+static bool use_depth_doit(View3D *v3d, Object *obedit)
 {
 	if (v3d->drawtype > OB_WIRE)
 		return true;
 
 	/* special case (depth for wire color) */
 	if (v3d->drawtype <= OB_WIRE) {
-		if (scene->obedit && scene->obedit->type == OB_MESH) {
-			Mesh *me = scene->obedit->data;
+		if (obedit && obedit->type == OB_MESH) {
+			Mesh *me = obedit->data;
 			if (me->drawflag & ME_DRAWEIGHT) {
 				return true;
 			}
@@ -268,28 +268,28 @@ static void view3d_stereo3d_setup(
 		data = (Camera *)v3d->camera->data;
 		shiftx = data->shiftx;
 
-		BLI_lock_thread(LOCK_VIEW3D);
+		BLI_thread_lock(LOCK_VIEW3D);
 		data->shiftx = BKE_camera_multiview_shift_x(&scene->r, v3d->camera, viewname);
 
 		BKE_camera_multiview_view_matrix(&scene->r, v3d->camera, is_left, viewmat);
 		view3d_main_region_setup_view(eval_ctx, scene, v3d, ar, viewmat, NULL, rect);
 
 		data->shiftx = shiftx;
-		BLI_unlock_thread(LOCK_VIEW3D);
+		BLI_thread_unlock(LOCK_VIEW3D);
 	}
 	else { /* SCE_VIEWS_FORMAT_MULTIVIEW */
 		float viewmat[4][4];
 		Object *view_ob = v3d->camera;
 		Object *camera = BKE_camera_multiview_render(scene, v3d->camera, viewname);
 
-		BLI_lock_thread(LOCK_VIEW3D);
+		BLI_thread_lock(LOCK_VIEW3D);
 		v3d->camera = camera;
 
 		BKE_camera_multiview_view_matrix(&scene->r, camera, false, viewmat);
 		view3d_main_region_setup_view(eval_ctx, scene, v3d, ar, viewmat, NULL, rect);
 
 		v3d->camera = view_ob;
-		BLI_unlock_thread(LOCK_VIEW3D);
+		BLI_thread_unlock(LOCK_VIEW3D);
 	}
 }
 
@@ -494,7 +494,7 @@ static void drawviewborder(Scene *scene, const Depsgraph *depsgraph, ARegion *ar
 			float alpha = 1.0f;
 
 			if (ca->passepartalpha != 1.0f) {
-				glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+				glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 				glEnable(GL_BLEND);
 				alpha = ca->passepartalpha;
 			}
@@ -752,7 +752,7 @@ void ED_view3d_draw_depth(
 	else
 #endif /* WITH_OPENGL_LEGACY */
 	{
-		DRW_draw_depth_loop(graph, ar, v3d);
+		DRW_draw_depth_loop(graph, ar, v3d, eval_ctx->object_mode);
 	}
 
 	if (rv3d->rflag & RV3D_CLIPPING) {
@@ -1326,7 +1326,7 @@ float ED_view3d_grid_scale(Scene *scene, View3D *v3d, const char **grid_unit)
 	return v3d->grid * ED_scene_grid_scale(scene, grid_unit);
 }
 
-static bool is_cursor_visible(Scene *scene, ViewLayer *view_layer)
+static bool is_cursor_visible(const EvaluationContext *eval_ctx, Scene *scene, ViewLayer *view_layer)
 {
 	if (U.app_flag & USER_APP_VIEW3D_HIDE_CURSOR) {
 		return false;
@@ -1335,16 +1335,16 @@ static bool is_cursor_visible(Scene *scene, ViewLayer *view_layer)
 	Object *ob = OBACT(view_layer);
 
 	/* don't draw cursor in paint modes, but with a few exceptions */
-	if (ob && ob->mode & OB_MODE_ALL_PAINT) {
+	if (ob && eval_ctx->object_mode & OB_MODE_ALL_PAINT) {
 		/* exception: object is in weight paint and has deforming armature in pose mode */
-		if (ob->mode & OB_MODE_WEIGHT_PAINT) {
+		if (eval_ctx->object_mode & OB_MODE_WEIGHT_PAINT) {
 			if (BKE_object_pose_armature_get(ob) != NULL) {
 				return true;
 			}
 		}
 		/* exception: object in texture paint mode, clone brush, use_clone_layer disabled */
-		else if (ob->mode & OB_MODE_TEXTURE_PAINT) {
-			const Paint *p = BKE_paint_get_active(scene, view_layer);
+		else if (eval_ctx->object_mode & OB_MODE_TEXTURE_PAINT) {
+			const Paint *p = BKE_paint_get_active(scene, view_layer, eval_ctx->object_mode);
 
 			if (p && p->brush && p->brush->imagepaint_tool == PAINT_TOOL_CLONE) {
 				if ((scene->toolsettings->imapaint.flag & IMAGEPAINT_PROJECT_LAYER_CLONE) == 0) {
@@ -1422,7 +1422,7 @@ static void drawcursor(Scene *scene, ARegion *ar, View3D *v3d)
 	}
 }
 
-static void draw_view_axis(RegionView3D *rv3d, rcti *rect)
+static void draw_view_axis(RegionView3D *rv3d, const rcti *rect)
 {
 	const float k = U.rvisize * U.pixelsize;  /* axis size */
 	const int bright = - 20 * (10 - U.rvibright);  /* axis alpha offset (rvibright has range 0-10) */
@@ -1455,7 +1455,7 @@ static void draw_view_axis(RegionView3D *rv3d, rcti *rect)
 	glLineWidth(2.0f);
 	glEnable(GL_LINE_SMOOTH);
 	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
 	Gwn_VertFormat *format = immVertexFormat();
 	unsigned int pos = GWN_vertformat_attr_add(format, "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
@@ -1498,7 +1498,7 @@ static void UNUSED_FUNCTION(draw_rotation_guide)(RegionView3D *rv3d)
 	negate_v3_v3(o, rv3d->ofs);
 
 	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 	glDepthMask(GL_FALSE);  /* don't overwrite zbuf */
 
 	Gwn_VertFormat *format = immVertexFormat();
@@ -1689,7 +1689,7 @@ static const char *view3d_get_name(View3D *v3d, RegionView3D *rv3d)
 	return name;
 }
 
-static void draw_viewport_name(ARegion *ar, View3D *v3d, rcti *rect)
+static void draw_viewport_name(ARegion *ar, View3D *v3d, const rcti *rect)
 {
 	RegionView3D *rv3d = ar->regiondata;
 	const char *name = view3d_get_name(v3d, rv3d);
@@ -1718,7 +1718,8 @@ static void draw_viewport_name(ARegion *ar, View3D *v3d, rcti *rect)
  * framenum, object name, bone name (if available), marker name (if available)
  */
 
-static void draw_selected_name(Scene *scene, Object *ob, rcti *rect)
+static void draw_selected_name(
+        Scene *scene, Object *ob, const eObjectMode object_mode, const rcti *rect)
 {
 	const int cfra = CFRA;
 	const char *msg_pin = " (Pinned)";
@@ -1760,7 +1761,7 @@ static void draw_selected_name(Scene *scene, Object *ob, rcti *rect)
 					s += BLI_strcpy_rlen(s, arm->act_edbone->name);
 				}
 			}
-			else if (ob->mode & OB_MODE_POSE) {
+			else if (object_mode & OB_MODE_POSE) {
 				if (arm->act_bone) {
 
 					if (arm->act_bone->layer & arm->layer) {
@@ -1773,9 +1774,9 @@ static void draw_selected_name(Scene *scene, Object *ob, rcti *rect)
 		else if (ELEM(ob->type, OB_MESH, OB_LATTICE, OB_CURVE)) {
 			/* try to display active bone and active shapekey too (if they exist) */
 
-			if (ob->type == OB_MESH && ob->mode & OB_MODE_WEIGHT_PAINT) {
+			if (ob->type == OB_MESH && object_mode & OB_MODE_WEIGHT_PAINT) {
 				Object *armobj = BKE_object_pose_armature_get(ob);
-				if (armobj  && armobj->mode & OB_MODE_POSE) {
+				if (armobj) {
 					bArmature *arm = armobj->data;
 					if (arm->act_bone) {
 						if (arm->act_bone->layer & arm->layer) {
@@ -1862,9 +1863,10 @@ void view3d_draw_region_info(const bContext *C, ARegion *ar, const int offset)
 	}
 
 	if (U.uiflag & USER_DRAWVIEWINFO) {
+		const WorkSpace *workspace = CTX_wm_workspace(C);
 		ViewLayer *view_layer = CTX_data_view_layer(C);
 		Object *ob = OBACT(view_layer);
-		draw_selected_name(scene, ob, &rect);
+		draw_selected_name(scene, ob, workspace->object_mode, &rect);
 	}
 #if 0 /* TODO */
 	if (grid_unit) { /* draw below the viewport name */
@@ -1916,6 +1918,10 @@ void view3d_main_region_draw(const bContext *C, ARegion *ar)
 	view3d_draw_view(C, ar);
 	GPU_viewport_unbind(rv3d->viewport);
 
+	rcti rect = ar->winrct;
+	BLI_rcti_translate(&rect, -ar->winrct.xmin, -ar->winrct.ymin);
+	GPU_viewport_draw_to_screen(rv3d->viewport, &rect);
+
 	v3d->flag |= V3D_INVALID_BACKBUF;
 }
 
@@ -1951,7 +1957,7 @@ void ED_view3d_draw_offscreen_init(const EvaluationContext *eval_ctx, Scene *sce
 	RenderEngineType *engine_type = eval_ctx->engine_type;
 	if (engine_type->flag & RE_USE_LEGACY_PIPELINE) {
 		/* shadow buffers, before we setup matrices */
-		if (draw_glsl_material(scene, view_layer, NULL, v3d, v3d->drawtype)) {
+		if (draw_glsl_material(eval_ctx, scene, view_layer, NULL, v3d, v3d->drawtype)) {
 			VP_deprecated_gpu_update_lamps_shadows_world(eval_ctx, scene, v3d);
 		}
 	}
@@ -2076,7 +2082,9 @@ void ED_view3d_draw_offscreen(
 		}
 	}
 	else {
-		DRW_draw_render_loop_offscreen(depsgraph, eval_ctx->engine_type, ar, v3d, do_sky, ofs, viewport);
+		DRW_draw_render_loop_offscreen(
+		        eval_ctx->depsgraph, eval_ctx->engine_type, ar, v3d, eval_ctx->object_mode,
+		        do_sky, ofs, viewport);
 	}
 
 	/* restore size */
@@ -2126,7 +2134,7 @@ ImBuf *ED_view3d_draw_offscreen_imbuf(
 
 	if (own_ofs) {
 		/* bind */
-		ofs = GPU_offscreen_create(sizex, sizey, use_full_sample ? 0 : samples, false, err_out);
+		ofs = GPU_offscreen_create(sizex, sizey, use_full_sample ? 0 : samples, true, false, err_out);
 		if (ofs == NULL) {
 			return NULL;
 		}
@@ -2352,26 +2360,27 @@ ImBuf *ED_view3d_draw_offscreen_imbuf_simple(
  *
  * \{ */
 
-void VP_legacy_drawcursor(Scene *scene, ViewLayer *view_layer, ARegion *ar, View3D *v3d)
+void VP_legacy_drawcursor(
+        const EvaluationContext *eval_ctx, Scene *scene, ViewLayer *view_layer, ARegion *ar, View3D *v3d)
 {
-	if (is_cursor_visible(scene, view_layer)) {
+	if (is_cursor_visible(eval_ctx, scene, view_layer)) {
 		drawcursor(scene, ar, v3d);
 	}
 }
 
-void VP_legacy_draw_view_axis(RegionView3D *rv3d, rcti *rect)
+void VP_legacy_draw_view_axis(RegionView3D *rv3d, const rcti *rect)
 {
 	draw_view_axis(rv3d, rect);
 }
 
-void VP_legacy_draw_viewport_name(ARegion *ar, View3D *v3d, rcti *rect)
+void VP_legacy_draw_viewport_name(ARegion *ar, View3D *v3d, const rcti *rect)
 {
 	draw_viewport_name(ar, v3d, rect);
 }
 
-void VP_legacy_draw_selected_name(Scene *scene, Object *ob, rcti *rect)
+void VP_legacy_draw_selected_name(Scene *scene, Object *ob, eObjectMode object_mode, const rcti *rect)
 {
-	draw_selected_name(scene, ob, rect);
+	draw_selected_name(scene, ob, object_mode, rect);
 }
 
 void VP_legacy_drawgrid(UnitSettings *unit, ARegion *ar, View3D *v3d, const char **grid_unit)
@@ -2401,9 +2410,9 @@ void VP_legacy_view3d_stereo3d_setup(const EvaluationContext *eval_ctx, Scene *s
 	view3d_stereo3d_setup(eval_ctx, scene, v3d, ar, NULL);
 }
 
-bool VP_legacy_use_depth(Scene *scene, View3D *v3d)
+bool VP_legacy_use_depth(View3D *v3d, Object *obedit)
 {
-	return use_depth_doit(scene, v3d);
+	return use_depth_doit(v3d, obedit);
 }
 
 void VP_drawviewborder(Scene *scene, const struct Depsgraph *depsgraph, ARegion *ar, View3D *v3d)

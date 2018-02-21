@@ -140,7 +140,7 @@ typedef struct DrawEngineType {
 	void (*view_update)(void *vedata);
 	void (*id_update)(void *vedata, struct ID *id);
 
-	void (*render_to_image)(void *vedata, struct RenderEngine *engine, struct Depsgraph *graph);
+	void (*render_to_image)(void *vedata, struct RenderEngine *engine, struct RenderResult *result, struct RenderLayer *layer);
 } DrawEngineType;
 
 #ifndef __DRW_ENGINE_H__
@@ -305,13 +305,33 @@ typedef enum {
 
 #define DRW_STATE_DEFAULT (DRW_STATE_WRITE_DEPTH | DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_LESS)
 
+typedef enum {
+	DRW_ATTRIB_INT,
+	DRW_ATTRIB_FLOAT,
+} DRWAttribType;
+
+typedef struct DRWInstanceAttribFormat {
+	char name[32];
+	DRWAttribType type;
+	int components;
+} DRWInstanceAttribFormat;
+
+struct Gwn_VertFormat *DRW_shgroup_instance_format_array(const DRWInstanceAttribFormat attribs[], int arraysize);
+#define DRW_shgroup_instance_format(format, ...) do { \
+	if (format == NULL) { \
+		DRWInstanceAttribFormat drw_format[] = __VA_ARGS__;\
+		format = DRW_shgroup_instance_format_array(drw_format, (sizeof(drw_format) / sizeof(DRWInstanceAttribFormat))); \
+	} \
+} while (0)
 
 DRWShadingGroup *DRW_shgroup_create(struct GPUShader *shader, DRWPass *pass);
 DRWShadingGroup *DRW_shgroup_material_create(struct GPUMaterial *material, DRWPass *pass);
 DRWShadingGroup *DRW_shgroup_material_instance_create(
-        struct GPUMaterial *material, DRWPass *pass, struct Gwn_Batch *geom, struct Object *ob);
+        struct GPUMaterial *material, DRWPass *pass, struct Gwn_Batch *geom, struct Object *ob,
+        struct Gwn_VertFormat *format);
 DRWShadingGroup *DRW_shgroup_material_empty_tri_batch_create(struct GPUMaterial *material, DRWPass *pass, int size);
-DRWShadingGroup *DRW_shgroup_instance_create(struct GPUShader *shader, DRWPass *pass, struct Gwn_Batch *geom);
+DRWShadingGroup *DRW_shgroup_instance_create(
+        struct GPUShader *shader, DRWPass *pass, struct Gwn_Batch *geom, struct Gwn_VertFormat *format);
 DRWShadingGroup *DRW_shgroup_point_batch_create(struct GPUShader *shader, DRWPass *pass);
 DRWShadingGroup *DRW_shgroup_line_batch_create(struct GPUShader *shader, DRWPass *pass);
 DRWShadingGroup *DRW_shgroup_empty_tri_batch_create(struct GPUShader *shader, DRWPass *pass, int size);
@@ -335,12 +355,12 @@ void DRW_shgroup_call_dynamic_add_array(DRWShadingGroup *shgroup, const void *at
 	DRW_shgroup_call_dynamic_add_array(shgroup, array, (sizeof(array) / sizeof(*array))); \
 } while (0)
 /* Use this to set a high number of instances. */
-void DRW_shgroup_set_instance_count(DRWShadingGroup *shgroup, int count);
+void DRW_shgroup_set_instance_count(DRWShadingGroup *shgroup, unsigned int count);
+unsigned int DRW_shgroup_get_instance_count(const DRWShadingGroup *shgroup);
 
 void DRW_shgroup_state_enable(DRWShadingGroup *shgroup, DRWState state);
 void DRW_shgroup_state_disable(DRWShadingGroup *shgroup, DRWState state);
 void DRW_shgroup_stencil_mask(DRWShadingGroup *shgroup, unsigned int mask);
-void DRW_shgroup_attrib_float(DRWShadingGroup *shgroup, const char *name, int size);
 
 void DRW_shgroup_uniform_texture(DRWShadingGroup *shgroup, const char *name, const struct GPUTexture *tex);
 void DRW_shgroup_uniform_block(DRWShadingGroup *shgroup, const char *name, const struct GPUUniformBuffer *ubo);
@@ -393,6 +413,7 @@ void DRW_render_to_image(struct RenderEngine *re, struct Depsgraph *depsgraph);
 void DRW_render_object_iter(
 	void *vedata, struct RenderEngine *engine, struct Depsgraph *graph,
 	void (*callback)(void *vedata, struct Object *ob, struct RenderEngine *engine, struct Depsgraph *graph));
+void DRW_render_instance_buffer_finish(void);
 
 /* ViewLayers */
 void *DRW_view_layer_engine_data_get(DrawEngineType *engine_type);
@@ -445,6 +466,7 @@ bool DRW_state_is_select(void);
 bool DRW_state_is_depth(void);
 bool DRW_state_is_image_render(void);
 bool DRW_state_is_scene_render(void);
+bool DRW_state_is_opengl_render(void);
 bool DRW_state_show_text(void);
 bool DRW_state_draw_support(void);
 bool DRW_state_draw_background(void);
@@ -455,6 +477,7 @@ struct DRWTextStore *DRW_state_text_cache_get(void);
 
 /* Avoid too many lookups while drawing */
 typedef struct DRWContextState {
+
 	struct ARegion *ar;         /* 'CTX_wm_region(C)' */
 	struct RegionView3D *rv3d;  /* 'CTX_wm_region_view3d(C)' */
 	struct View3D *v3d;     /* 'CTX_wm_view3d(C)' */
@@ -462,16 +485,25 @@ typedef struct DRWContextState {
 	struct Scene *scene;    /* 'CTX_data_scene(C)' */
 	struct ViewLayer *view_layer;  /* 'CTX_data_view_layer(C)' */
 
-	/* Use 'scene->obedit' for edit-mode */
+	/* Use 'object_edit' for edit-mode */
 	struct Object *obact;   /* 'OBACT' */
 
 	struct RenderEngineType *engine_type;
 
 	struct Depsgraph *depsgraph;
 
+	eObjectMode object_mode;
+
 	/* Last resort (some functions take this as an arg so we can't easily avoid).
 	 * May be NULL when used for selection or depth buffer. */
 	const struct bContext *evil_C;
+
+	/* ---- */
+
+	/* Cache: initialized by 'drw_context_state_init'. */
+	struct Object *object_pose;
+	struct Object *object_edit;
+
 } DRWContextState;
 
 const DRWContextState *DRW_context_state_get(void);

@@ -262,7 +262,9 @@ bool BKE_object_support_modifier_type_check(Object *ob, int modifier_type)
 	return true;
 }
 
-void BKE_object_link_modifiers(struct Object *ob_dst, const struct Object *ob_src)
+void BKE_object_link_modifiers(
+        struct Object *ob_dst, const struct Object *ob_src,
+        eObjectMode object_mode)
 {
 	ModifierData *md;
 	BKE_object_free_modifiers(ob_dst);
@@ -301,7 +303,8 @@ void BKE_object_link_modifiers(struct Object *ob_dst, const struct Object *ob_sr
 
 		if (md->type == eModifierType_Multires) {
 			/* Has to be done after mod creation, but *before* we actually copy its settings! */
-			multiresModifier_sync_levels_ex(ob_dst, (MultiresModifierData *)md, (MultiresModifierData *)nmd);
+			multiresModifier_sync_levels_ex(
+			        ob_dst, (MultiresModifierData *)md, (MultiresModifierData *)nmd, object_mode);
 		}
 
 		modifier_copyData(md, nmd);
@@ -486,7 +489,7 @@ void BKE_object_free(Object *ob)
 }
 
 /* actual check for internal data, not context or flags */
-bool BKE_object_is_in_editmode(Object *ob)
+bool BKE_object_is_in_editmode(const Object *ob)
 {
 	if (ob->data == NULL)
 		return false;
@@ -535,11 +538,11 @@ bool BKE_object_is_in_editmode_vgroup(Object *ob)
 	        BKE_object_is_in_editmode(ob));
 }
 
-bool BKE_object_is_in_wpaint_select_vert(Object *ob)
+bool BKE_object_is_in_wpaint_select_vert(const Object *ob, eObjectMode object_mode)
 {
 	if (ob->type == OB_MESH) {
-		Mesh *me = ob->data;
-		return ((ob->mode & OB_MODE_WEIGHT_PAINT) &&
+		const Mesh *me = ob->data;
+		return ((object_mode & OB_MODE_WEIGHT_PAINT) &&
 		        (me->edit_btmesh == NULL) &&
 		        (ME_EDIT_PAINT_SEL_MODE(me) == SCE_SELECT_VERTEX));
 	}
@@ -884,10 +887,10 @@ static LodLevel *lod_level_select(Object *ob, const float camera_position[3])
 	return current;
 }
 
-bool BKE_object_lod_is_usable(Object *ob, ViewLayer *view_layer)
+bool BKE_object_lod_is_usable(Object *ob, ViewLayer *view_layer, const eObjectMode object_mode)
 {
 	bool active = (view_layer) ? ob == OBACT(view_layer) : false;
-	return (ob->mode == OB_MODE_OBJECT || !active);
+	return (object_mode == OB_MODE_OBJECT || !active);
 }
 
 void BKE_object_lod_update(Object *ob, const float camera_position[3])
@@ -900,11 +903,11 @@ void BKE_object_lod_update(Object *ob, const float camera_position[3])
 	}
 }
 
-static Object *lod_ob_get(Object *ob, ViewLayer *view_layer, int flag)
+static Object *lod_ob_get(Object *ob, ViewLayer *view_layer, int flag, const eObjectMode object_mode)
 {
 	LodLevel *current = ob->currentlod;
 
-	if (!current || !BKE_object_lod_is_usable(ob, view_layer))
+	if (!current || !BKE_object_lod_is_usable(ob, view_layer, object_mode))
 		return ob;
 
 	while (current->prev && (!(current->flags & flag) || !current->source || current->source->type != OB_MESH)) {
@@ -914,14 +917,14 @@ static Object *lod_ob_get(Object *ob, ViewLayer *view_layer, int flag)
 	return current->source;
 }
 
-struct Object *BKE_object_lod_meshob_get(Object *ob, ViewLayer *view_layer)
+struct Object *BKE_object_lod_meshob_get(Object *ob, ViewLayer *view_layer, const eObjectMode object_mode)
 {
-	return lod_ob_get(ob, view_layer, OB_LOD_USE_MESH);
+	return lod_ob_get(ob, view_layer, OB_LOD_USE_MESH, object_mode);
 }
 
-struct Object *BKE_object_lod_matob_get(Object *ob, ViewLayer *view_layer)
+struct Object *BKE_object_lod_matob_get(Object *ob, ViewLayer *view_layer, const eObjectMode object_mode)
 {
-	return lod_ob_get(ob, view_layer, OB_LOD_USE_MAT);
+	return lod_ob_get(ob, view_layer, OB_LOD_USE_MAT, object_mode);
 }
 
 #endif  /* WITH_GAMEENGINE */
@@ -1150,12 +1153,13 @@ static void copy_object_lod(Object *obn, const Object *ob, const int UNUSED(flag
 	obn->currentlod = (LodLevel *)obn->lodlevels.first;
 }
 
-bool BKE_object_pose_context_check(Object *ob)
+bool BKE_object_pose_context_check_ex(Object *ob, bool selected)
 {
 	if ((ob) &&
 	    (ob->type == OB_ARMATURE) &&
 	    (ob->pose) &&
-	    (ob->mode & OB_MODE_POSE))
+	    /* Currently using selection when the object isn't active. */
+	    ((selected == false) || (ob->flag & SELECT)))
 	{
 		return true;
 	}
@@ -1164,22 +1168,41 @@ bool BKE_object_pose_context_check(Object *ob)
 	}
 }
 
+bool BKE_object_pose_context_check(Object *ob)
+{
+	return BKE_object_pose_context_check_ex(ob, false);
+}
+
 Object *BKE_object_pose_armature_get(Object *ob)
 {
 	if (ob == NULL)
 		return NULL;
 
-	if (BKE_object_pose_context_check(ob))
+	if (BKE_object_pose_context_check_ex(ob, false))
 		return ob;
 
 	ob = modifiers_isDeformedByArmature(ob);
 
-	if (BKE_object_pose_context_check(ob))
+	/* Only use selected check when non-active. */
+	if (BKE_object_pose_context_check_ex(ob, true))
 		return ob;
 
 	return NULL;
 }
 
+Object *BKE_object_pose_armature_get_visible(Object *ob, ViewLayer *view_layer)
+{
+	Object *ob_armature = BKE_object_pose_armature_get(ob);
+	if (ob_armature) {
+		Base *base = BKE_view_layer_base_find(view_layer, ob_armature);
+		if (base) {
+			if (BASE_VISIBLE(base)) {
+				return ob_armature;
+			}
+		}
+	}
+	return NULL;
+}
 void BKE_object_transform_copy(Object *ob_tar, const Object *ob_src)
 {
 	copy_v3_v3(ob_tar->loc, ob_src->loc);
@@ -1241,7 +1264,6 @@ void BKE_object_copy_data(Main *UNUSED(bmain), Object *ob_dst, const Object *ob_
 	BKE_object_facemap_copy_list(&ob_dst->fmaps, &ob_src->fmaps);
 	BKE_constraints_copy_ex(&ob_dst->constraints, &ob_src->constraints, flag_subdata, true);
 
-	ob_dst->mode = OB_MODE_OBJECT;
 	ob_dst->sculpt = NULL;
 
 	if (ob_src->pd) {

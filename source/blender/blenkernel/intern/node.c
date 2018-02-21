@@ -2787,7 +2787,7 @@ int BKE_node_instance_hash_haskey(bNodeInstanceHash *hash, bNodeInstanceKey key)
 
 int BKE_node_instance_hash_size(bNodeInstanceHash *hash)
 {
-	return BLI_ghash_size(hash->ghash);
+	return BLI_ghash_len(hash->ghash);
 }
 
 void BKE_node_instance_hash_clear_tags(bNodeInstanceHash *hash)
@@ -3590,6 +3590,7 @@ static void registerShaderNodes(void)
 	register_node_type_sh_attribute();
 	register_node_type_sh_bevel();
 	register_node_type_sh_displacement();
+	register_node_type_sh_vector_displacement();
 	register_node_type_sh_geometry();
 	register_node_type_sh_light_path();
 	register_node_type_sh_light_falloff();
@@ -3819,6 +3820,7 @@ bool BKE_node_tree_iter_step(struct NodeTreeIterStore *ntreeiter,
 
 void BKE_nodetree_remove_layer_n(bNodeTree *ntree, Scene *scene, const int layer_index)
 {
+	BLI_assert(layer_index != -1);
 	for (bNode *node = ntree->nodes.first; node; node = node->next) {
 		if (node->type == CMP_NODE_R_LAYERS && (Scene *)node->id == scene) {
 			if (node->custom1 == layer_index) {

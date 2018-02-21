@@ -213,7 +213,7 @@ static void draw_join_shape(ScrArea *sa, char dir, unsigned int pos)
  */
 static void scrarea_draw_shape_dark(ScrArea *sa, char dir, unsigned int pos)
 {
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 	immUniformColor4ub(0, 0, 0, 50);
 
 	draw_join_shape(sa, dir, pos);
@@ -298,7 +298,7 @@ void ED_screen_draw_edges(wmWindow *win)
 
 	ScrArea *sa;
 
-	wmSubWindowSet(win, screen->mainwin);
+	wmWindowViewport(win);
 
 	unsigned int pos = GWN_vertformat_attr_add(immVertexFormat(), "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
 	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
@@ -499,7 +499,7 @@ static void screen_preview_draw(const bScreen *screen, int size_x, int size_y)
 void ED_screen_preview_render(const bScreen *screen, int size_x, int size_y, unsigned int *r_rect)
 {
 	char err_out[256] = "unknown";
-	GPUOffScreen *offscreen = GPU_offscreen_create(size_x, size_y, 0, false, err_out);
+	GPUOffScreen *offscreen = GPU_offscreen_create(size_x, size_y, 0, true, false, err_out);
 
 	GPU_offscreen_bind(offscreen, true);
 	glClearColor(0.0, 0.0, 0.0, 0.0);

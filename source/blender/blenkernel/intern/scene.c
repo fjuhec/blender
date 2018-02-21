@@ -166,7 +166,6 @@ void BKE_scene_copy_data(Main *bmain, Scene *sce_dst, const Scene *sce_src, cons
 
 	sce_dst->ed = NULL;
 	sce_dst->depsgraph_hash = NULL;
-	sce_dst->obedit = NULL;
 	sce_dst->fps_info = NULL;
 
 	/* layers and collections */
@@ -618,7 +617,7 @@ void BKE_scene_init(Scene *sce)
 	 */
 	sce->r.color_mgt_flag |= R_COLOR_MANAGEMENT;
 
-	sce->r.gauss = 1.0;
+	sce->r.gauss = 1.5f;
 	
 	/* deprecated but keep for upwards compat */
 	sce->r.postgamma = 1.0;
@@ -982,10 +981,6 @@ void BKE_scene_set_background(Main *bmain, Scene *scene)
 	/* check for cyclic sets, for reading old files but also for definite security (py?) */
 	BKE_scene_validate_setscene(bmain, scene);
 	
-	/* can happen when switching modes in other scenes */
-	if (scene->obedit && !(scene->obedit->mode & OB_MODE_EDIT))
-		scene->obedit = NULL;
-
 	/* deselect objects (for dataselect) */
 	for (ob = bmain->object.first; ob; ob = ob->id.next)
 		ob->flag &= ~(SELECT | OB_FROMGROUP);
@@ -1381,7 +1376,7 @@ static bool check_rendered_viewport_visible(Main *bmain)
 	return false;
 }
 
-static void prepare_mesh_for_viewport_render(Main *bmain, Scene *scene)
+static void prepare_mesh_for_viewport_render(Main *bmain, const EvaluationContext *eval_ctx)
 {
 	/* This is needed to prepare mesh to be used by the render
 	 * engine from the viewport rendering. We do loading here
@@ -1392,7 +1387,7 @@ static void prepare_mesh_for_viewport_render(Main *bmain, Scene *scene)
 	 * call loading of the edit data for the mesh objects.
 	 */
 
-	Object *obedit = scene->obedit;
+	Object *obedit = OBEDIT_FROM_EVAL_CTX(eval_ctx);
 	if (obedit) {
 		Mesh *mesh = obedit->data;
 		if ((obedit->type == OB_MESH) &&
@@ -1401,7 +1396,11 @@ static void prepare_mesh_for_viewport_render(Main *bmain, Scene *scene)
 		{
 			if (check_rendered_viewport_visible(bmain)) {
 				BMesh *bm = mesh->edit_btmesh->bm;
-				BM_mesh_bm_to_me(bm, mesh, (&(struct BMeshToMeshParams){0}));
+				BM_mesh_bm_to_me(
+				        bm, mesh,
+				        (&(struct BMeshToMeshParams){
+				            .calc_object_remap = true,
+				        }));
 				DEG_id_tag_update(&mesh->id, 0);
 			}
 		}
@@ -1430,7 +1429,7 @@ void BKE_scene_graph_update_tagged(EvaluationContext *eval_ctx,
 	/* Uncomment this to check if graph was properly tagged for update. */
 	// DEG_debug_graph_relations_validate(depsgraph, bmain, scene);
 	/* Flush editing data if needed. */
-	prepare_mesh_for_viewport_render(bmain, scene);
+	prepare_mesh_for_viewport_render(bmain, eval_ctx);
 	/* Flush recalc flags to dependencies. */
 	DEG_graph_flush_update(bmain, depsgraph);
 	/* Update all objects: drivers, matrices, displists, etc. flags set

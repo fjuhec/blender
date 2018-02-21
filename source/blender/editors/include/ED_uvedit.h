@@ -62,7 +62,7 @@ void ED_object_assign_active_image(struct Main *bmain, struct Object *ob, int ma
 bool ED_uvedit_test(struct Object *obedit);
 
 /* visibility and selection */
-bool uvedit_face_visible_test(struct Scene *scene, struct Image *ima, struct BMFace *efa);
+bool uvedit_face_visible_test(struct Scene *scene, struct Object *obedit, struct Image *ima, struct BMFace *efa);
 bool uvedit_face_select_test(struct Scene *scene, struct BMFace *efa,
                              const int cd_loop_uv_offset);
 bool uvedit_edge_select_test(struct Scene *scene, struct BMLoop *l,
@@ -112,7 +112,10 @@ void ED_unwrap_lscm(struct Scene *scene, struct Object *obedit, const short sel)
 
 /* uvedit_draw.c */
 void ED_image_draw_cursor(struct ARegion *ar, const float cursor[2]);
-void ED_uvedit_draw_main(struct SpaceImage *sima, struct ARegion *ar, struct Scene *scene, struct ViewLayer *view_layer, struct Object *obedit, struct Object *obact, struct Depsgraph *depsgraph);
+void ED_uvedit_draw_main(
+        struct SpaceImage *sima, const struct EvaluationContext *eval_ctx,
+        struct ARegion *ar, struct Scene *scene, struct ViewLayer *view_layer,
+        struct Object *obedit, struct Object *obact, struct Depsgraph *depsgraph);
 
 /* uvedit_buttons.c */
 void ED_uvedit_buttons_register(struct ARegionType *art);

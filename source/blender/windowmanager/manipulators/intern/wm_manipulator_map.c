@@ -390,15 +390,8 @@ static void manipulators_draw_list(const wmManipulatorMap *mmap, const bContext 
 		return;
 	}
 
-	const bool draw_multisample = (U.ogl_multisamples != USER_MULTISAMPLE_NONE);
-
 	/* TODO this will need it own shader probably? don't think it can be handled from that point though. */
 /*	const bool use_lighting = (U.manipulator_flag & V3D_MANIPULATOR_SHADED) != 0; */
-
-	/* enable multisampling */
-	if (draw_multisample) {
-		glEnable(GL_MULTISAMPLE);
-	}
 
 	bool is_depth_prev = false;
 
@@ -434,10 +427,6 @@ static void manipulators_draw_list(const wmManipulatorMap *mmap, const bContext 
 
 	if (is_depth_prev) {
 		glDisable(GL_DEPTH_TEST);
-	}
-
-	if (draw_multisample) {
-		glDisable(GL_MULTISAMPLE);
 	}
 }
 
@@ -619,7 +608,7 @@ wmManipulator *wm_manipulatormap_highlight_find(
 
 			if (do_step[step]) {
 				if ((mmap->update_flag[step] & MANIPULATORMAP_IS_REFRESH_CALLBACK) &&
-					(mgroup->type->refresh != NULL))
+				    (mgroup->type->refresh != NULL))
 				{
 					mgroup->type->refresh(C, mgroup);
 					/* cleared below */
@@ -760,7 +749,7 @@ static bool wm_manipulatormap_select_all_intern(
 	int i;
 	bool changed = false;
 
-	wm_manipulatormap_select_array_ensure_len_alloc(mmap, BLI_ghash_size(hash));
+	wm_manipulatormap_select_array_ensure_len_alloc(mmap, BLI_ghash_len(hash));
 
 	GHASH_ITER_INDEX (gh_iter, hash, i) {
 		wmManipulator *mpr_iter = BLI_ghashIterator_getValue(&gh_iter);
@@ -769,7 +758,7 @@ static bool wm_manipulatormap_select_all_intern(
 	/* highlight first manipulator */
 	wm_manipulatormap_highlight_set(mmap, C, msel->items[0], msel->items[0]->highlight_part);
 
-	BLI_assert(BLI_ghash_size(hash) == msel->len);
+	BLI_assert(BLI_ghash_len(hash) == msel->len);
 
 	BLI_ghash_free(hash, NULL, NULL);
 	return changed;

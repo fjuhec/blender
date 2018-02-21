@@ -46,6 +46,7 @@
 #include "DNA_object_types.h"
 #include "DNA_screen_types.h"
 #include "DNA_space_types.h"
+#include "DNA_workspace_types.h"
 
 #include "RNA_access.h"
 #include "RNA_enum_types.h"
@@ -60,6 +61,8 @@
 #include "IMB_thumbs.h"
 
 #include "BIF_glutil.h"
+
+#include "DEG_depsgraph.h"
 
 #include "ED_datafiles.h"
 #include "ED_keyframes_draw.h"
@@ -1112,7 +1115,7 @@ static void icon_draw_size(
 		glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 		icon_draw_texture(x, y, (float)w, (float)h, di->data.texture.x, di->data.texture.y,
 		                  di->data.texture.w, di->data.texture.h, alpha, rgb);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 	}
 	else if (di->type == ICON_TYPE_BUFFER) {
 		/* it is a builtin icon */
@@ -1122,9 +1125,9 @@ static void icon_draw_size(
 #endif
 		if (!iimg->rect) return;  /* something has gone wrong! */
 
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 		icon_draw_rect(x, y, w, h, aspect, iimg->w, iimg->h, iimg->rect, alpha, rgb, is_preview);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 	}
 	else if (di->type == ICON_TYPE_PREVIEW) {
 		PreviewImage *pi = (icon->type != 0) ? BKE_previewimg_id_ensure((ID *)icon->obj) : icon->obj;
@@ -1137,7 +1140,7 @@ static void icon_draw_size(
 			glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
 			icon_draw_rect(x, y, w, h, aspect, pi->w[size], pi->h[size], pi->rect[size], alpha, rgb, is_preview);
-			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+			glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 		}
 	}
 }
@@ -1193,6 +1196,7 @@ static int ui_id_brush_get_icon(const bContext *C, ID *id)
 		ui_id_icon_render(C, id, true);
 	}
 	else {
+		const WorkSpace *workspace = CTX_wm_workspace(C);
 		Object *ob = CTX_data_active_object(C);
 		SpaceImage *sima;
 		const EnumPropertyItem *items = NULL;
@@ -1203,11 +1207,11 @@ static int ui_id_brush_get_icon(const bContext *C, ID *id)
 		 * checking various context stuff here */
 
 		if (CTX_wm_view3d(C) && ob) {
-			if (ob->mode & OB_MODE_SCULPT)
+			if (workspace->object_mode & OB_MODE_SCULPT)
 				mode = OB_MODE_SCULPT;
-			else if (ob->mode & (OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT))
+			else if (workspace->object_mode & (OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT))
 				mode = OB_MODE_VERTEX_PAINT;
-			else if (ob->mode & OB_MODE_TEXTURE_PAINT)
+			else if (workspace->object_mode & OB_MODE_TEXTURE_PAINT)
 				mode = OB_MODE_TEXTURE_PAINT;
 		}
 		else if ((sima = CTX_wm_space_image(C)) &&

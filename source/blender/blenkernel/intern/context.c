@@ -1005,7 +1005,7 @@ SceneCollection *CTX_data_scene_collection(const bContext *C)
 	return BKE_collection_master(&scene->id);
 }
 
-int CTX_data_mode_enum_ex(const Object *obedit, const Object *ob)
+int CTX_data_mode_enum_ex(const Object *obedit, const Object *ob, const eObjectMode object_mode)
 {
 	// Object *obedit = CTX_data_edit_object(C);
 	if (obedit) {
@@ -1029,12 +1029,12 @@ int CTX_data_mode_enum_ex(const Object *obedit, const Object *ob)
 	else {
 		// Object *ob = CTX_data_active_object(C);
 		if (ob) {
-			if (ob->mode & OB_MODE_POSE) return CTX_MODE_POSE;
-			else if (ob->mode & OB_MODE_SCULPT) return CTX_MODE_SCULPT;
-			else if (ob->mode & OB_MODE_WEIGHT_PAINT) return CTX_MODE_PAINT_WEIGHT;
-			else if (ob->mode & OB_MODE_VERTEX_PAINT) return CTX_MODE_PAINT_VERTEX;
-			else if (ob->mode & OB_MODE_TEXTURE_PAINT) return CTX_MODE_PAINT_TEXTURE;
-			else if (ob->mode & OB_MODE_PARTICLE_EDIT) return CTX_MODE_PARTICLE;
+			if (object_mode & OB_MODE_POSE) return CTX_MODE_POSE;
+			else if (object_mode & OB_MODE_SCULPT) return CTX_MODE_SCULPT;
+			else if (object_mode & OB_MODE_WEIGHT_PAINT) return CTX_MODE_PAINT_WEIGHT;
+			else if (object_mode & OB_MODE_VERTEX_PAINT) return CTX_MODE_PAINT_VERTEX;
+			else if (object_mode & OB_MODE_TEXTURE_PAINT) return CTX_MODE_PAINT_TEXTURE;
+			else if (object_mode & OB_MODE_PARTICLE_EDIT) return CTX_MODE_PARTICLE;
 		}
 	}
 
@@ -1043,9 +1043,10 @@ int CTX_data_mode_enum_ex(const Object *obedit, const Object *ob)
 
 int CTX_data_mode_enum(const bContext *C)
 {
+	const WorkSpace *workspace = CTX_wm_workspace(C);
 	Object *obedit = CTX_data_edit_object(C);
 	Object *obact = obedit ? NULL : CTX_data_active_object(C);
-	return CTX_data_mode_enum_ex(obedit, obact);
+	return CTX_data_mode_enum_ex(obedit, obact, workspace->object_mode);
 }
 
 /* would prefer if we can use the enum version below over this one - Campbell */
@@ -1282,7 +1283,9 @@ void CTX_data_eval_ctx(const bContext *C, EvaluationContext *eval_ctx)
 	Scene *scene = CTX_data_scene(C);
 	ViewLayer *view_layer = CTX_data_view_layer(C);
 	RenderEngineType *engine_type = CTX_data_engine_type(C);
-	DEG_evaluation_context_init_from_scene(eval_ctx,
-	                                       scene, view_layer, engine_type,
-	                                       DAG_EVAL_VIEWPORT);
+	WorkSpace *workspace = CTX_wm_workspace(C);
+	DEG_evaluation_context_init_from_scene(
+	        eval_ctx,
+	        scene, view_layer, engine_type,
+	        workspace->object_mode, DAG_EVAL_VIEWPORT);
 }

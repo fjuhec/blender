@@ -1348,7 +1348,7 @@ static const char arg_handle_render_frame_doc[] =
 "\n"
 "\t* +<frame> start frame relative, -<frame> end frame relative.\n"
 "\t* A comma separated list of frames can also be used (no spaces).\n"
-"\t* A range of frames can be expressed using '..' seperator between the first and last frames (inclusive).\n"
+"\t* A range of frames can be expressed using '..' separator between the first and last frames (inclusive).\n"
 ;
 static int arg_handle_render_frame(int argc, const char **argv, void *data)
 {
@@ -1373,7 +1373,7 @@ static int arg_handle_render_frame(int argc, const char **argv, void *data)
 			}
 
 			re = RE_NewSceneRender(scene);
-			BLI_begin_threaded_malloc();
+			BLI_threaded_malloc_begin();
 			BKE_reports_init(&reports, RPT_STORE);
 			RE_SetReports(re, &reports);
 			render_set_depgraph(C, re);
@@ -1390,7 +1390,7 @@ static int arg_handle_render_frame(int argc, const char **argv, void *data)
 			}
 			RE_SetReports(re, NULL);
 			BKE_reports_clear(&reports);
-			BLI_end_threaded_malloc();
+			BLI_threaded_malloc_end();
 			MEM_freeN(frame_range_arr);
 			return 1;
 		}
@@ -1416,14 +1416,14 @@ static int arg_handle_render_animation(int UNUSED(argc), const char **UNUSED(arg
 		Main *bmain = CTX_data_main(C);
 		Render *re = RE_NewSceneRender(scene);
 		ReportList reports;
-		BLI_begin_threaded_malloc();
+		BLI_threaded_malloc_begin();
 		BKE_reports_init(&reports, RPT_STORE);
 		RE_SetReports(re, &reports);
 		render_set_depgraph(C, re);
 		RE_BlenderAnim(re, bmain, scene, NULL, scene->lay, scene->r.sfra, scene->r.efra, scene->r.frame_step);
 		RE_SetReports(re, NULL);
 		BKE_reports_clear(&reports);
-		BLI_end_threaded_malloc();
+		BLI_threaded_malloc_end();
 	}
 	else {
 		printf("\nError: no blend loaded. cannot use '-a'.\n");

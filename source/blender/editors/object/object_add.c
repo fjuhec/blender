@@ -42,8 +42,8 @@
 #include "DNA_material_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meta_types.h"
-#include "DNA_object_fluidsim.h"
-#include "DNA_object_force.h"
+#include "DNA_object_fluidsim_types.h"
+#include "DNA_object_force_types.h"
 #include "DNA_object_types.h"
 #include "DNA_lightprobe_types.h"
 #include "DNA_scene_types.h"
@@ -1673,7 +1673,7 @@ static int convert_poll(bContext *C)
 	Base *base_act = CTX_data_active_base(C);
 	Object *obact = base_act ? base_act->object : NULL;
 
-	return (!ID_IS_LINKED(scene) && obact && scene->obedit != obact &&
+	return (!ID_IS_LINKED(scene) && obact && (BKE_object_is_in_editmode(obact) == false) &&
 	        (base_act->flag & BASE_SELECTED) && !ID_IS_LINKED(obact));
 }
 
@@ -2081,7 +2081,9 @@ void OBJECT_OT_convert(wmOperatorType *ot)
 /* used below, assumes id.new is correct */
 /* leaves selection of base/object unaltered */
 /* Does set ID->newid pointers. */
-static Base *object_add_duplicate_internal(Main *bmain, Scene *scene, ViewLayer *view_layer, Object *ob, int dupflag)
+static Base *object_add_duplicate_internal(
+        Main *bmain, Scene *scene,
+        ViewLayer *view_layer, Object *ob, int dupflag)
 {
 #define ID_NEW_REMAP_US(a)	if (      (a)->id.newid) { (a) = (void *)(a)->id.newid;       (a)->id.us++; }
 #define ID_NEW_REMAP_US2(a)	if (((ID *)a)->newid)    { (a) = ((ID  *)a)->newid;     ((ID *)a)->us++;    }
@@ -2092,10 +2094,14 @@ static Base *object_add_duplicate_internal(Main *bmain, Scene *scene, ViewLayer 
 	ID *id;
 	int a, didit;
 
-	if (ob->mode & OB_MODE_POSE) {
+	/* ignore pose mode now, Caller can inspect mode. */
+#if 0
+	if (eval_ctx->object_mode & OB_MODE_POSE) {
 		; /* nothing? */
 	}
-	else {
+	else
+#endif
+	{
 		obn = ID_NEW_SET(ob, BKE_object_copy(bmain, ob));
 		DEG_id_tag_update(&obn->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
 
@@ -2523,10 +2529,10 @@ static int join_poll(bContext *C)
 
 static int join_exec(bContext *C, wmOperator *op)
 {
-	Scene *scene = CTX_data_scene(C);
+	const WorkSpace *workspace = CTX_wm_workspace(C);
 	Object *ob = CTX_data_active_object(C);
 
-	if (scene->obedit) {
+	if (workspace->object_mode & OB_MODE_EDIT) {
 		BKE_report(op->reports, RPT_ERROR, "This data does not support joining in edit mode");
 		return OPERATOR_CANCELLED;
 	}
@@ -2577,10 +2583,10 @@ static int join_shapes_poll(bContext *C)
 
 static int join_shapes_exec(bContext *C, wmOperator *op)
 {
-	Scene *scene = CTX_data_scene(C);
+	const WorkSpace *workspace = CTX_wm_workspace(C);
 	Object *ob = CTX_data_active_object(C);
 
-	if (scene->obedit) {
+	if (workspace->object_mode & OB_MODE_EDIT) {
 		BKE_report(op->reports, RPT_ERROR, "This data does not support joining in edit mode");
 		return OPERATOR_CANCELLED;
 	}

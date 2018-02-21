@@ -558,6 +558,18 @@ void do_versions_after_linking_280(Main *main)
 		}
 	}
 
+	if (!MAIN_VERSION_ATLEAST(main, 280, 3)) {
+		/* Due to several changes to particle RNA and draw code particles from older files may no longer
+		 * be visible. Here we correct this by setting a default draw size for those files. */
+		for (Object *object = main->object.first; object; object = object->id.next) {
+			for (ParticleSystem *psys = object->particlesystem.first; psys; psys=psys->next) {
+				if(psys->part->draw_size == 0.0f) {
+					psys->part->draw_size = 0.1f;
+				}
+			}
+		}
+	}
+
 	{
 		for (WorkSpace *workspace = main->workspaces.first; workspace; workspace = workspace->id.next) {
 			if (workspace->view_layer) {
@@ -623,7 +635,7 @@ void do_versions_after_linking_280(Main *main)
 #endif
 			if (object->particlesystem.first) {
 				object->duplicator_visibility_flag = OB_DUPLI_FLAG_VIEWPORT;
-				for (ParticleSystem *psys = object->particlesystem.first; psys; psys=psys->next) {
+				for (ParticleSystem *psys = object->particlesystem.first; psys; psys = psys->next) {
 					if (psys->part->draw & PART_DRAW_EMITTER) {
 						object->duplicator_visibility_flag |= OB_DUPLI_FLAG_RENDER;
 #ifndef VERSION_280_SUBVERSION_4
@@ -712,6 +724,10 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 					do_version_layer_collections_idproperties(&view_layer->layer_collections);
 				}
 			}
+		}
+
+		for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
+			scene->r.gauss = 1.5f;
 		}
 	}
 
@@ -910,11 +926,11 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 							SpaceOops *so = (SpaceOops *)sl;
 
 							if (!ELEM(so->outlinevis,
-									  SO_SCENES,
-									  SO_GROUPS,
-									  SO_LIBRARIES,
-									  SO_SEQUENCE,
-									  SO_DATABLOCKS,
+							          SO_SCENES,
+							          SO_GROUPS,
+							          SO_LIBRARIES,
+							          SO_SEQUENCE,
+							          SO_DATABLOCKS,
 							          SO_ID_ORPHANS,
 							          SO_VIEW_LAYER,
 							          SO_COLLECTIONS))

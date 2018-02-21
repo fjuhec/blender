@@ -245,6 +245,7 @@ static int object_clear_transform_generic_exec(bContext *C, wmOperator *op,
                                                void (*clear_func)(Object *, const bool),
                                                const char default_ksName[])
 {
+	const WorkSpace *workspace = CTX_wm_workspace(C);
 	Scene *scene = CTX_data_scene(C);
 	KeyingSet *ks;
 	const bool clear_delta = RNA_boolean_get(op->ptr, "clear_delta");
@@ -263,7 +264,7 @@ static int object_clear_transform_generic_exec(bContext *C, wmOperator *op,
 	 */
 	CTX_DATA_BEGIN (C, Object *, ob, selected_editable_objects)
 	{
-		if (!(ob->mode & OB_MODE_WEIGHT_PAINT)) {
+		if (!(workspace->object_mode & OB_MODE_WEIGHT_PAINT)) {
 			/* run provided clearing function */
 			clear_func(ob, clear_delta);
 			
@@ -982,7 +983,7 @@ static int object_origin_set_exec(bContext *C, wmOperator *op)
 					/* Function to recenter armatures in editarmature.c
 					 * Bone + object locations are handled there.
 					 */
-					ED_armature_origin_set(scene, ob, cursor, centermode, around);
+					ED_armature_origin_set(ob, cursor, centermode, around);
 
 					tot_change++;
 					arm->id.tag |= LIB_TAG_DOIT;

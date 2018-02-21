@@ -467,6 +467,16 @@ class VIEWLAYER_PT_eevee_layer_passes(ViewLayerButtonsPanel, Panel):
         col = split.column()
         col.prop(view_layer, "use_pass_combined")
         col.prop(view_layer, "use_pass_z")
+        col.prop(view_layer, "use_pass_mist")
+        col.prop(view_layer, "use_pass_normal")
+        col.separator()
+        col.prop(view_layer, "use_pass_ambient_occlusion")
+
+        col = split.column()
+        col.label(text="Subsurface:")
+        row = col.row(align=True)
+        row.prop(view_layer, "use_pass_subsurface_direct", text="Direct", toggle=True)
+        row.prop(view_layer, "use_pass_subsurface_color", text="Color", toggle=True)
 
 
 classes = (

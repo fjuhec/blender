@@ -448,7 +448,7 @@ void UI_view2d_sync(struct bScreen *screen, struct ScrArea *sa, struct View2D *v
 
 struct EditBone *ED_armature_bone_get_mirrored(const struct ListBase *edbo, EditBone *ebo) RET_NULL
 struct EditBone *ED_armature_edit_bone_add(struct bArmature *arm, const char *name) RET_NULL
-struct ListBase *get_active_constraints (struct Object *ob) RET_NULL
+struct ListBase *get_active_constraints (const struct EvaluationContext *eval_ctx, struct Object *ob) RET_NULL
 struct ListBase *get_constraint_lb(struct Object *ob, struct bConstraint *con, struct bPoseChannel **r_pchan) RET_NULL
 
 bool ED_space_image_show_uvedit(struct SpaceImage *sima, struct Object *obedit) RET_ZERO
@@ -521,7 +521,7 @@ bool ANIM_remove_driver(struct ReportList *reports, struct ID *id, const char rn
 void ED_space_image_release_buffer(struct SpaceImage *sima, struct ImBuf *ibuf, void *lock) RET_NONE
 struct ImBuf *ED_space_image_acquire_buffer(struct SpaceImage *sima, void **r_lock) RET_NULL
 void ED_space_image_get_zoom(struct SpaceImage *sima, struct ARegion *ar, float *zoomx, float *zoomy) RET_NONE
-const char *ED_info_stats_string(struct Scene *scene, struct ViewLayer *view_layer) RET_NULL
+const char *ED_info_stats_string(struct Scene *scene, struct WorkSpace *workspace, struct ViewLayer *view_layer) RET_NULL
 void ED_area_tag_redraw(struct ScrArea *sa) RET_NONE
 void ED_area_tag_refresh(struct ScrArea *sa) RET_NONE
 void ED_area_newspace(struct bContext *C, struct ScrArea *sa, int type, const bool skip_ar_exit) RET_NONE
@@ -548,21 +548,25 @@ void ED_view3d_quadview_update(struct ScrArea *sa, struct ARegion *ar, bool do_c
 void ED_view3d_from_m4(float mat[4][4], float ofs[3], float quat[4], float *dist) RET_NONE
 void ED_view3d_update_viewmat(const struct EvaluationContext *eval_ctx, struct Scene *scene, struct View3D *v3d, struct ARegion *ar, float viewmat[4][4], float winmat[4][4], const struct rcti *rect) RET_NONE
 float ED_view3d_grid_scale(struct Scene *scene, struct View3D *v3d, const char **grid_unit) RET_ZERO
-void ED_view3d_shade_update(struct Main *bmain, struct Scene *scene, struct View3D *v3d, struct ScrArea *sa) RET_NONE
+void ED_view3d_shade_update(struct Main *bmain, struct View3D *v3d, struct ScrArea *sa) RET_NONE
 void ED_node_shader_default(const struct bContext *C, struct ID *id) RET_NONE
 void ED_screen_animation_timer_update(struct bScreen *screen, int redraws, int refresh) RET_NONE
 struct bScreen *ED_screen_animation_playing(const struct wmWindowManager *wm) RET_NULL
 struct Scene *ED_screen_scene_find(const struct bScreen *screen, const struct wmWindowManager *wm) RET_NULL
+struct Scene *ED_screen_scene_find_with_window(const struct bScreen *screen, const struct wmWindowManager *wm, struct wmWindow **r_window) RET_NULL
+struct wmWindow *ED_screen_window_find(const struct bScreen *screen, const struct wmWindowManager *wm) RET_NULL;
 void ED_screen_global_topbar_area_create(const struct bContext *C, struct wmWindow *win, const struct bScreen *screen) RET_NONE
 bool ED_scene_view_layer_delete(struct Main *bmain, Scene *scene, ViewLayer *layer, ReportList *reports) RET_ZERO
 void ED_object_base_select(struct Base *base, eObjectSelect_Mode mode) RET_NONE
+void ED_object_base_activate(struct bContext *C, struct Base *base) RET_NONE
 bool ED_object_modifier_remove(struct ReportList *reports, struct Main *bmain, struct Object *ob, struct ModifierData *md) RET_ZERO
-struct ModifierData *ED_object_modifier_add(struct ReportList *reports, struct Main *bmain, struct Scene *scene, struct Object *ob, const char *name, int type) RET_ZERO
+struct ModifierData *ED_object_modifier_add(struct ReportList *reports, struct Main *bmain, struct Scene *scene, struct Object *ob, eObjectMode object_mode, const char *name, int type) RET_ZERO
 void ED_object_modifier_clear(struct Main *bmain, struct Object *ob) RET_NONE
 void ED_object_editmode_enter(struct bContext *C, int flag) RET_NONE
 void ED_object_editmode_exit(struct bContext *C, int flag) RET_NONE
+void ED_object_editmode_exit_ex(struct bContext *C, struct WorkSpace *workspace, struct Scene *scene, struct Object *obedit, int flag) RET_NONE
 bool ED_object_editmode_load(struct Object *obedit) RET_ZERO
-void ED_object_check_force_modifiers(struct Main *bmain, struct Scene *scene, struct Object *object) RET_NONE
+void ED_object_check_force_modifiers(struct Main *bmain, struct Scene *scene, struct Object *object, eObjectMode object_mode) RET_NONE
 bool uiLayoutGetActive(struct uiLayout *layout) RET_ZERO
 int uiLayoutGetOperatorContext(struct uiLayout *layout) RET_ZERO
 int uiLayoutGetAlignment(struct uiLayout *layout) RET_ZERO
@@ -602,7 +606,7 @@ int ED_mesh_mirror_spatial_table(struct Object *ob, struct BMEditMesh *em, struc
 
 float ED_rollBoneToVector(EditBone *bone, const float new_up_axis[3], const bool axis_only) RET_ZERO
 void ED_space_image_get_size(struct SpaceImage *sima, int *width, int *height) RET_NONE
-bool ED_space_image_check_show_maskedit(struct ViewLayer *view_layer, struct SpaceImage *sima) RET_ZERO
+bool ED_space_image_check_show_maskedit(struct SpaceImage *sima, const struct WorkSpace *workspace, struct ViewLayer *view_layer) RET_ZERO
 
 bool ED_texture_context_check_world(const struct bContext *C) RET_ZERO
 bool ED_texture_context_check_material(const struct bContext *C) RET_ZERO
@@ -774,7 +778,7 @@ void RE_point_density_cache(struct Scene *scene, struct ViewLayer *view_layer, s
 void RE_point_density_minmax(struct Scene *scene, struct ViewLayer *view_layer, struct PointDensity *pd, const bool use_render_params, float r_min[3], float r_max[3]) RET_NONE
 void RE_point_density_sample(struct Scene *scene, struct ViewLayer *view_layer, struct PointDensity *pd, const int resolution, const bool use_render_params, float *values) RET_NONE
 void RE_point_density_free(struct PointDensity *pd) RET_NONE
-void RE_instance_get_particle_info(struct ObjectInstanceRen *obi, float *index, float *age, float *lifetime, float co[3], float *size, float vel[3], float angvel[3]) RET_NONE
+void RE_instance_get_particle_info(struct ObjectInstanceRen *obi, float *index, float *random, float *age, float *lifetime, float co[3], float *size, float vel[3], float angvel[3]) RET_NONE
 void RE_FreeAllPersistentData(void) RET_NONE
 float RE_fresnel_dielectric(float incoming[3], float normal[3], float eta) RET_ZERO
 void RE_engine_register_pass(struct RenderEngine *engine, struct Scene *scene, struct ViewLayer *view_layer, const char *name, int channels, const char *chanid, int type) RET_NONE

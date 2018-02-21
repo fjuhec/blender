@@ -286,7 +286,7 @@ void ED_view3d_stop_render_preview(wmWindowManager *wm, ARegion *ar)
 	}
 }
 
-void ED_view3d_shade_update(Main *bmain, Scene *scene, View3D *v3d, ScrArea *sa)
+void ED_view3d_shade_update(Main *bmain, View3D *v3d, ScrArea *sa)
 {
 	wmWindowManager *wm = bmain->wm.first;
 
@@ -297,10 +297,6 @@ void ED_view3d_shade_update(Main *bmain, Scene *scene, View3D *v3d, ScrArea *sa)
 			if (ar->regiondata)
 				ED_view3d_stop_render_preview(wm, ar);
 		}
-	}
-	else if (scene->obedit != NULL && scene->obedit->type == OB_MESH) {
-		/* Tag mesh to load edit data. */
-		DEG_id_tag_update(scene->obedit->data, 0);
 	}
 }
 
@@ -901,10 +897,10 @@ static void view3d_main_region_listener(
 				case ND_SELECT:
 				{
 					WM_manipulatormap_tag_refresh(mmap);
-					if (scene->obedit) {
-						Object *ob = scene->obedit;
+					Object *obedit = OBEDIT_FROM_WINDOW(wmn->window);
+					if (obedit) {
 						/* TODO(sergey): Notifiers shouldn't really be doing DEG tags. */
-						DEG_id_tag_update((ID *)ob->data, DEG_TAG_SELECT_UPDATE);
+						DEG_id_tag_update((ID *)obedit->data, DEG_TAG_SELECT_UPDATE);
 					}
 					ATTR_FALLTHROUGH;
 				}
@@ -1118,9 +1114,8 @@ static void view3d_main_region_message_subscribe(
 /* concept is to retrieve cursor type context-less */
 static void view3d_main_region_cursor(wmWindow *win, ScrArea *UNUSED(sa), ARegion *UNUSED(ar))
 {
-	const Scene *scene = WM_window_get_active_scene(win);
-
-	if (scene->obedit) {
+	WorkSpace *workspace = WM_window_get_active_workspace(win);
+	if (workspace->object_mode & OB_MODE_EDIT) {
 		WM_cursor_set(win, CURSOR_EDIT);
 	}
 	else {
@@ -1351,9 +1346,9 @@ static int view3d_context(const bContext *C, const char *member, bContextDataRes
 		Scene *scene = CTX_data_scene(C);
 		ViewLayer *view_layer = CTX_data_view_layer(C);
 		if (view_layer->basact) {
-			Object *ob = view_layer->basact->object;
+			const WorkSpace *workspace = CTX_wm_workspace(C);
 			/* if hidden but in edit mode, we still display, can happen with animation */
-			if ((view_layer->basact->flag & BASE_VISIBLED) != 0 || (ob->mode & OB_MODE_EDIT)) {
+			if ((view_layer->basact->flag & BASE_VISIBLED) != 0 || (workspace->object_mode & OB_MODE_EDIT)) {
 				CTX_data_pointer_set(result, &scene->id, &RNA_ObjectBase, view_layer->basact);
 			}
 		}
@@ -1363,9 +1358,10 @@ static int view3d_context(const bContext *C, const char *member, bContextDataRes
 	else if (CTX_data_equals(member, "active_object")) {
 		ViewLayer *view_layer = CTX_data_view_layer(C);
 		if (view_layer->basact) {
+			const WorkSpace *workspace = CTX_wm_workspace(C);
 			Object *ob = view_layer->basact->object;
 			/* if hidden but in edit mode, we still display, can happen with animation */
-			if ((view_layer->basact->flag & BASE_VISIBLED) != 0 || (ob->mode & OB_MODE_EDIT) != 0) {
+			if ((view_layer->basact->flag & BASE_VISIBLED) != 0 || (workspace->object_mode & OB_MODE_EDIT) != 0) {
 				CTX_data_id_pointer_set(result, &ob->id);
 			}
 		}

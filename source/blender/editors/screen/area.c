@@ -52,7 +52,6 @@
 #include "WM_api.h"
 #include "WM_types.h"
 #include "WM_message.h"
-#include "wm_subwindow.h"
 
 #include "ED_screen.h"
 #include "ED_screen_types.h"
@@ -91,7 +90,7 @@ static void region_draw_emboss(const ARegion *ar, const rcti *scirct)
 	
 	/* set transp line */
 	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 	
 	Gwn_VertFormat *format = immVertexFormat();
 	unsigned int pos = GWN_vertformat_attr_add(format, "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
@@ -450,7 +449,7 @@ static void region_draw_azones(ScrArea *sa, ARegion *ar)
 
 	glLineWidth(1.0f);
 	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
 	gpuPushMatrix();
 	gpuTranslate2f(-ar->winrct.xmin, -ar->winrct.ymin);
@@ -495,23 +494,6 @@ static void region_draw_azones(ScrArea *sa, ARegion *ar)
 	glDisable(GL_BLEND);
 }
 
-/* only exported for WM */
-/* makes region ready for drawing, sets pixelspace */
-void ED_region_set(const bContext *C, ARegion *ar)
-{
-	wmWindow *win = CTX_wm_window(C);
-	ScrArea *sa = CTX_wm_area(C);
-	
-	ar->drawrct = ar->winrct;
-	
-	/* note; this sets state, so we can use wmOrtho and friends */
-	wmSubWindowScissorSet(win, ar->swinid, &ar->drawrct, true);
-	
-	UI_SetTheme(sa ? sa->spacetype : 0, ar->type ? ar->type->regionid : 0);
-	
-	ED_region_pixelspace(ar);
-}
-
 /* Follow wmMsgNotifyFn spec */
 void ED_region_do_msg_notify_tag_redraw(
         bContext *UNUSED(C), wmMsgSubscribeKey *UNUSED(msg_key), wmMsgSubscribeValue *msg_val)
@@ -546,27 +528,15 @@ void ED_region_do_draw(bContext *C, ARegion *ar)
 	wmWindow *win = CTX_wm_window(C);
 	ScrArea *sa = CTX_wm_area(C);
 	ARegionType *at = ar->type;
-	bool scissor_pad;
 
 	/* see BKE_spacedata_draw_locks() */
 	if (at->do_lock)
 		return;
 
-	/* if no partial draw rect set, full rect */
-	if (ar->drawrct.xmin == ar->drawrct.xmax) {
-		ar->drawrct = ar->winrct;
-		scissor_pad = true;
-	}
-	else {
-		/* extra clip for safety */
-		BLI_rcti_isect(&ar->winrct, &ar->drawrct, &ar->drawrct);
-		scissor_pad = false;
-	}
-
 	ar->do_draw |= RGN_DRAWING;
 	
-	/* note; this sets state, so we can use wmOrtho and friends */
-	wmSubWindowScissorSet(win, ar->swinid, &ar->drawrct, scissor_pad);
+	/* Set viewport, scissor, ortho and ar->drawrct. */
+	wmPartialViewport(&ar->drawrct, &ar->winrct, &ar->drawrct);
 
 	wmOrtho2_region_pixelspace(ar);
 	
@@ -1470,24 +1440,14 @@ static void area_calc_totrct(ScrArea *sa, int window_size_x, int window_size_y)
 
 
 /* used for area initialize below */
-static void region_subwindow(wmWindow *win, ARegion *ar, bool activate)
+static void region_subwindow(ARegion *ar)
 {
 	bool hidden = (ar->flag & (RGN_FLAG_HIDDEN | RGN_FLAG_TOO_SMALL)) != 0;
 
 	if ((ar->alignment & RGN_SPLIT_PREV) && ar->prev)
 		hidden = hidden || (ar->prev->flag & (RGN_FLAG_HIDDEN | RGN_FLAG_TOO_SMALL));
 
-	if (hidden) {
-		if (ar->swinid)
-			wm_subwindow_close(win, ar->swinid);
-		ar->swinid = 0;
-	}
-	else if (ar->swinid == 0) {
-		ar->swinid = wm_subwindow_open(win, &ar->winrct, activate);
-	}
-	else {
-		wm_subwindow_position(win, ar->swinid, &ar->winrct, activate);
-	}
+	ar->visible = !hidden;
 }
 
 static void ed_default_handlers(wmWindowManager *wm, ScrArea *sa, ListBase *handlers, int flag)
@@ -1570,7 +1530,7 @@ void screen_area_update_region_sizes(wmWindowManager *wm, wmWindow *win, ScrArea
 	region_rect_recursive(win, area, area->regionbase.first, &rect, 0, false);
 
 	for (ARegion *ar = area->regionbase.first; ar; ar = ar->next) {
-		region_subwindow(win, ar, false);
+		region_subwindow(ar);
 
 		/* region size may have changed, init does necessary adjustments */
 		if (ar->type->init) {
@@ -1620,9 +1580,9 @@ void ED_area_initialize(wmWindowManager *wm, wmWindow *win, ScrArea *sa)
 	
 	/* region windows, default and own handlers */
 	for (ar = sa->regionbase.first; ar; ar = ar->next) {
-		region_subwindow(win, ar, false);
+		region_subwindow(ar);
 		
-		if (ar->swinid) {
+		if (ar->visible) {
 			/* default region handlers */
 			ed_default_handlers(wm, sa, &ar->handlers, ar->type->keymapflag);
 			/* own handlers */
@@ -1649,22 +1609,16 @@ static void region_update_rect(ARegion *ar)
 /**
  * Call to move a popup window (keep OpenGL context free!)
  */
-void ED_region_update_rect(bContext *C, ARegion *ar)
+void ED_region_update_rect(bContext *UNUSED(C), ARegion *ar)
 {
-	wmWindow *win = CTX_wm_window(C);
-
-	wm_subwindow_rect_set(win, ar->swinid, &ar->winrct);
-
 	region_update_rect(ar);
 }
 
 /* externally called for floating regions like menus */
-void ED_region_init(bContext *C, ARegion *ar)
+void ED_region_init(bContext *UNUSED(C), ARegion *ar)
 {
-//	ARegionType *at = ar->type;
-
 	/* refresh can be called before window opened */
-	region_subwindow(CTX_wm_window(C), ar, false);
+	region_subwindow(ar);
 
 	region_update_rect(ar);
 }
@@ -2327,7 +2281,7 @@ void ED_region_info_draw_multiline(ARegion *ar, const char *text_array[], float 
 	          BLI_rcti_size_x(&rect) + 1, BLI_rcti_size_y(&rect) + 1);
 
 	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 	Gwn_VertFormat *format = immVertexFormat();
 	unsigned int pos = GWN_vertformat_attr_add(format, "pos", GWN_COMP_I32, 2, GWN_FETCH_INT_TO_FLOAT);
 	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);

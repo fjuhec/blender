@@ -36,6 +36,7 @@
 #include "DNA_view3d_types.h"
 
 #include "BKE_object.h"
+#include "MEM_guardedalloc.h"
 
 #include "GPU_material.h"
 #include "GPU_texture.h"
@@ -81,6 +82,9 @@ static struct {
 	struct GPUTexture *depth_placeholder;
 	struct GPUTexture *depth_array_placeholder;
 	struct GPUTexture *cube_face_minmaxz;
+
+	struct Gwn_VertFormat *format_probe_display_cube;
+	struct Gwn_VertFormat *format_probe_display_planar;
 
 	int update_world;
 } e_data = {NULL}; /* Engine data */
@@ -433,9 +437,7 @@ void EEVEE_lightprobes_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedat
 	{
 		psl->probe_glossy_compute = DRW_pass_create("LightProbe Glossy Compute", DRW_STATE_WRITE_COLOR);
 
-		struct Gwn_Batch *geom = DRW_cache_fullscreen_quad_get();
-
-		DRWShadingGroup *grp = DRW_shgroup_instance_create(e_data.probe_filter_glossy_sh, psl->probe_glossy_compute, geom);
+		DRWShadingGroup *grp = DRW_shgroup_create(e_data.probe_filter_glossy_sh, psl->probe_glossy_compute);
 		DRW_shgroup_uniform_float(grp, "intensityFac", &pinfo->intensity_fac, 1);
 		DRW_shgroup_uniform_float(grp, "sampleCount", &pinfo->samples_ct, 1);
 		DRW_shgroup_uniform_float(grp, "invSampleCount", &pinfo->invsamples_ct, 1);
@@ -448,8 +450,7 @@ void EEVEE_lightprobes_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedat
 		DRW_shgroup_uniform_texture(grp, "texHammersley", e_data.hammersley);
 		// DRW_shgroup_uniform_texture(grp, "texJitter", e_data.jitter);
 		DRW_shgroup_uniform_texture(grp, "probeHdr", sldata->probe_rt);
-
-		DRW_shgroup_set_instance_count(grp, 1);
+		DRW_shgroup_call_add(grp, DRW_cache_fullscreen_quad_get(), NULL);
 	}
 
 	{
@@ -505,18 +506,32 @@ void EEVEE_lightprobes_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedat
 		DRWState state = DRW_STATE_WRITE_COLOR | DRW_STATE_WRITE_DEPTH | DRW_STATE_DEPTH_LESS | DRW_STATE_CULL_BACK;
 		psl->probe_display = DRW_pass_create("LightProbe Display", state);
 
-		struct Gwn_Batch *geom = DRW_cache_sphere_get();
-		DRWShadingGroup *grp = stl->g_data->cube_display_shgrp = DRW_shgroup_instance_create(e_data.probe_cube_display_sh, psl->probe_display, geom);
-		DRW_shgroup_attrib_float(grp, "probe_id", 1); /* XXX this works because we are still uploading 4bytes and using the right stride */
-		DRW_shgroup_attrib_float(grp, "probe_location", 3);
-		DRW_shgroup_attrib_float(grp, "sphere_size", 1);
+		DRW_shgroup_instance_format(e_data.format_probe_display_cube, {
+		    {"probe_id",       DRW_ATTRIB_INT, 1},
+		    {"probe_location", DRW_ATTRIB_FLOAT, 3},
+		    {"sphere_size",    DRW_ATTRIB_FLOAT, 1},
+		});
+
+		DRWShadingGroup *grp = DRW_shgroup_instance_create(
+		        e_data.probe_cube_display_sh,
+		        psl->probe_display,
+		        DRW_cache_sphere_get(),
+		        e_data.format_probe_display_cube);
+		stl->g_data->cube_display_shgrp = grp;
 		DRW_shgroup_uniform_buffer(grp, "probeCubes", &sldata->probe_pool);
 		DRW_shgroup_uniform_block(grp, "common_block", sldata->common_ubo);
 
-		geom = DRW_cache_quad_get();
-		grp = stl->g_data->planar_display_shgrp = DRW_shgroup_instance_create(e_data.probe_planar_display_sh, psl->probe_display, geom);
-		DRW_shgroup_attrib_float(grp, "probe_id", 1); /* XXX this works because we are still uploading 4bytes and using the right stride */
-		DRW_shgroup_attrib_float(grp, "probe_mat", 16);
+		DRW_shgroup_instance_format(e_data.format_probe_display_planar, {
+		    {"probe_id", DRW_ATTRIB_INT, 1},
+		    {"probe_mat", DRW_ATTRIB_FLOAT, 16},
+		});
+
+		grp = DRW_shgroup_instance_create(
+		        e_data.probe_planar_display_sh,
+		        psl->probe_display,
+		        DRW_cache_quad_get(),
+		        e_data.format_probe_display_planar);
+		stl->g_data->planar_display_shgrp = grp;
 		DRW_shgroup_uniform_buffer(grp, "probePlanars", &txl->planar_pool);
 	}
 
@@ -524,7 +539,11 @@ void EEVEE_lightprobes_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedat
 		psl->probe_planar_downsample_ps = DRW_pass_create("LightProbe Planar Downsample", DRW_STATE_WRITE_COLOR);
 
 		struct Gwn_Batch *geom = DRW_cache_fullscreen_quad_get();
-		DRWShadingGroup *grp = stl->g_data->planar_downsample = DRW_shgroup_instance_create(e_data.probe_planar_downsample_sh, psl->probe_planar_downsample_ps, geom);
+		DRWShadingGroup *grp = DRW_shgroup_instance_create(
+		        e_data.probe_planar_downsample_sh,
+		        psl->probe_planar_downsample_ps,
+		        geom, NULL);
+		stl->g_data->planar_downsample = grp;
 		DRW_shgroup_uniform_buffer(grp, "source", &txl->planar_pool);
 		DRW_shgroup_uniform_float(grp, "fireflyFactor", &sldata->common_data.ssr_firefly_fac, 1);
 	}
@@ -548,7 +567,7 @@ void EEVEE_lightprobes_cache_add(EEVEE_ViewLayerData *sldata, Object *ob)
 	ped->num_cell = probe->grid_resolution_x * probe->grid_resolution_y * probe->grid_resolution_z;
 
 	if ((probe->type == LIGHTPROBE_TYPE_GRID) &&
-		((pinfo->total_irradiance_samples + ped->num_cell) >= MAX_IRRADIANCE_SAMPLES))
+	    ((pinfo->total_irradiance_samples + ped->num_cell) >= MAX_IRRADIANCE_SAMPLES))
 	{
 		printf("Too much grid samples !!!\n");
 		return;
@@ -818,16 +837,20 @@ static void EEVEE_lightprobes_updates(EEVEE_ViewLayerData *sldata, EEVEE_PassLis
 		/* Visibility bias */
 		egrid->visibility_bias = 0.05f * probe->vis_bias;
 		egrid->visibility_bleed = probe->vis_bleedbias;
-		egrid->visibility_range = max_ff(max_ff(len_v3(egrid->increment_x),
-		                                        len_v3(egrid->increment_y)),
-		                                        len_v3(egrid->increment_z)) + 1.0f;
+		egrid->visibility_range = (
+		        sqrtf(max_fff(len_squared_v3(egrid->increment_x),
+		                      len_squared_v3(egrid->increment_y),
+		                      len_squared_v3(egrid->increment_z))) + 1.0f);
 
 		/* Debug Display */
 		if (DRW_state_draw_support() &&
 		    (probe->flag & LIGHTPROBE_FLAG_SHOW_DATA))
 		{
 			struct Gwn_Batch *geom = DRW_cache_sphere_get();
-			DRWShadingGroup *grp = DRW_shgroup_instance_create(e_data.probe_grid_display_sh, psl->probe_display, geom);
+			DRWShadingGroup *grp = DRW_shgroup_instance_create(
+			        e_data.probe_grid_display_sh,
+			        psl->probe_display,
+			        geom, NULL);
 			DRW_shgroup_set_instance_count(grp, ped->num_cell);
 			DRW_shgroup_uniform_int(grp, "offset", &egrid->offset, 1);
 			DRW_shgroup_uniform_ivec3(grp, "grid_resolution", egrid->resolution, 1);
@@ -1420,7 +1443,7 @@ static void lightprobes_refresh_initialize_grid(EEVEE_ViewLayerData *sldata, EEV
 	pinfo->grid_initialized = true;
 }
 
-static void lightprobes_refresh_planar(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
+void EEVEE_lightprobes_refresh_planar(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
 {
 	EEVEE_CommonUniformBuffer *common_data = &sldata->common_data;
 	EEVEE_TextureList *txl = vedata->txl;
@@ -1428,6 +1451,8 @@ static void lightprobes_refresh_planar(EEVEE_ViewLayerData *sldata, EEVEE_Data *
 	EEVEE_LightProbesInfo *pinfo = sldata->probes;
 
 	if (pinfo->num_planar == 0) {
+		/* Disable SSR if we cannot read previous frame */
+		common_data->ssr_toggle = vedata->stl->g_data->valid_double_buffer;
 		return;
 	}
 
@@ -1464,6 +1489,9 @@ static void lightprobes_refresh_planar(EEVEE_ViewLayerData *sldata, EEVEE_Data *
 		common_data->prb_lod_planar_max = (float)(max_lod);
 		DRW_stats_group_end();
 	}
+
+	/* Disable SSR if we cannot read previous frame */
+	common_data->ssr_toggle = vedata->stl->g_data->valid_double_buffer;
 }
 
 static void lightprobes_refresh_cube(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
@@ -1497,6 +1525,8 @@ static void lightprobes_refresh_cube(EEVEE_ViewLayerData *sldata, EEVEE_Data *ve
 		/* Only do one probe per frame */
 		return;
 	}
+
+	pinfo->do_cube_update = false;
 }
 
 static void lightprobes_refresh_all_no_world(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
@@ -1645,9 +1675,18 @@ static void lightprobes_refresh_all_no_world(EEVEE_ViewLayerData *sldata, EEVEE_
 	lightprobes_refresh_cube(sldata, vedata);
 }
 
-void EEVEE_lightprobes_refresh(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
+bool EEVEE_lightprobes_all_probes_ready(EEVEE_ViewLayerData *sldata, EEVEE_Data *UNUSED(vedata))
 {
 	EEVEE_LightProbesInfo *pinfo = sldata->probes;
+	EEVEE_CommonUniformBuffer *common_data = &sldata->common_data;
+
+	return ((pinfo->do_cube_update == false) &&
+	        (pinfo->updated_bounce == pinfo->num_bounce) &&
+	        (common_data->prb_num_render_cube == pinfo->num_cube));
+}
+
+void EEVEE_lightprobes_refresh(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
+{
 	EEVEE_CommonUniformBuffer *common_data = &sldata->common_data;
 
 	/* Disable specular lighting when rendering probes to avoid feedback loops (looks bad). */
@@ -1665,7 +1704,7 @@ void EEVEE_lightprobes_refresh(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
 	if (e_data.update_world) {
 		lightprobes_refresh_world(sldata, vedata);
 	}
-	else if (pinfo->do_cube_update || (pinfo->updated_bounce < pinfo->num_bounce)) {
+	else if (EEVEE_lightprobes_all_probes_ready(sldata, vedata) == false) {
 		lightprobes_refresh_all_no_world(sldata, vedata);
 	}
 
@@ -1675,15 +1714,12 @@ void EEVEE_lightprobes_refresh(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
 	common_data->sss_toggle = true;
 	common_data->ao_dist = tmp_ao_dist;
 	common_data->ao_settings = tmp_ao_settings;
-
-	lightprobes_refresh_planar(sldata, vedata);
-
-	/* Disable SSR if we cannot read previous frame */
-	common_data->ssr_toggle = vedata->stl->g_data->valid_double_buffer;
 }
 
 void EEVEE_lightprobes_free(void)
 {
+	MEM_SAFE_FREE(e_data.format_probe_display_cube);
+	MEM_SAFE_FREE(e_data.format_probe_display_planar);
 	DRW_SHADER_FREE_SAFE(e_data.probe_default_sh);
 	DRW_SHADER_FREE_SAFE(e_data.probe_filter_glossy_sh);
 	DRW_SHADER_FREE_SAFE(e_data.probe_filter_diffuse_sh);

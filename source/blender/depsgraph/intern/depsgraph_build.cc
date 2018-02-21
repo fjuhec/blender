@@ -47,7 +47,7 @@ extern "C" {
 #include "DNA_cachefile_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
-#include "DNA_object_force.h"
+#include "DNA_object_force_types.h"
 
 #include "BKE_main.h"
 #include "BKE_collision.h"
@@ -215,7 +215,7 @@ void DEG_graph_build_from_view_layer(Depsgraph *graph,
 	 * This now could happen for both visible scene is changed and extra
 	 * dependency graph was created for render engine.
 	 */
-	const bool need_on_visible_update = (deg_graph->scene == NULL);
+	const bool need_on_visible_update = (deg_graph->id_nodes.size() == 0);
 
 	/* 1) Generate all the nodes in the graph first */
 	DEG::DepsgraphNodeBuilder node_builder(bmain, deg_graph);
@@ -294,8 +294,8 @@ void DEG_graph_relations_update(Depsgraph *graph,
 void DEG_relations_tag_update(Main *bmain)
 {
 	DEG_DEBUG_PRINTF("%s: Tagging relations for update.\n", __func__);
-	BLI_LISTBASE_FOREACH (Scene *, scene, &bmain->scene) {
-		BLI_LISTBASE_FOREACH (ViewLayer *, view_layer, &scene->view_layers) {
+	LISTBASE_FOREACH (Scene *, scene, &bmain->scene) {
+		LISTBASE_FOREACH (ViewLayer *, view_layer, &scene->view_layers) {
 			Depsgraph *depsgraph =
 			        (Depsgraph *)BKE_scene_get_depsgraph(scene,
 			                                             view_layer,

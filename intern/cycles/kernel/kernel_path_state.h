@@ -179,13 +179,13 @@ ccl_device_inline float path_state_continuation_probability(KernelGlobals *kg,
 #endif
 	}
 	else {
-		/* Test max bounces for various ray types. 
-		   The check for max_volume_bounce doesn't happen here but inside volume_shader_sample().
-		   See T53914.
-		 */
+		/* Test max bounces for various ray types. */
 		if((state->bounce >= kernel_data.integrator.max_bounce) ||
 		   (state->diffuse_bounce >= kernel_data.integrator.max_diffuse_bounce) ||
 		   (state->glossy_bounce >= kernel_data.integrator.max_glossy_bounce) ||
+#ifdef __VOLUME__
+		   (state->volume_bounce >= kernel_data.integrator.max_volume_bounce) ||
+#endif
 		   (state->transmission_bounce >= kernel_data.integrator.max_transmission_bounce))
 		{
 			return 0.0f;
@@ -231,8 +231,6 @@ ccl_device_inline void path_state_branch(ccl_addr_space PathState *state,
                                          int branch,
                                          int num_branches)
 {
-	state->rng_offset += PRNG_BOUNCE_NUM;
-
 	if(num_branches > 1) {
 		/* Path is splitting into a branch, adjust so that each branch
 		 * still gets a unique sample from the same sequence. */

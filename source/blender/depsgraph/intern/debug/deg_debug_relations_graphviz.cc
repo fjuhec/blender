@@ -346,7 +346,7 @@ static void deg_debug_graphviz_node(const DebugContext &ctx,
 		case DEG_NODE_TYPE_ID_REF:
 		{
 			const IDDepsNode *id_node = (const IDDepsNode *)node;
-			if (BLI_ghash_size(id_node->components) == 0) {
+			if (BLI_ghash_len(id_node->components) == 0) {
 				deg_debug_graphviz_node_single(ctx, node);
 			}
 			else {
@@ -405,7 +405,7 @@ static bool deg_debug_graphviz_is_cluster(const DepsNode *node)
 		case DEG_NODE_TYPE_ID_REF:
 		{
 			const IDDepsNode *id_node = (const IDDepsNode *)node;
-			return BLI_ghash_size(id_node->components) > 0;
+			return BLI_ghash_len(id_node->components) > 0;
 		}
 		case DEG_NODE_TYPE_PARAMETERS:
 		case DEG_NODE_TYPE_ANIMATION:
@@ -467,7 +467,7 @@ static void deg_debug_graphviz_node_relations(const DebugContext &ctx,
 		deg_debug_fprintf(ctx, "[");
 		/* Note: without label an id seem necessary to avoid bugs in graphviz/dot */
 		deg_debug_fprintf(ctx, "id=\"%s\"", rel->name);
-		deg_debug_fprintf(ctx, "label=\"%s\"", rel->name);
+		// deg_debug_fprintf(ctx, "label=\"%s\"", rel->name);
 		deg_debug_fprintf(ctx, ",color="); deg_debug_graphviz_relation_color(ctx, rel);
 		deg_debug_fprintf(ctx, ",penwidth=\"%f\"", penwidth);
 		/* NOTE: edge from node to own cluster is not possible and gives graphviz

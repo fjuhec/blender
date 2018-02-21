@@ -105,9 +105,10 @@ void EEVEE_effects_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata, Object 
 	EEVEE_FramebufferList *fbl = vedata->fbl;
 	EEVEE_TextureList *txl = vedata->txl;
 	EEVEE_EffectsInfo *effects;
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	ViewLayer *view_layer = draw_ctx->view_layer;
 
 	const float *viewport_size = DRW_viewport_size_get();
-
 	/* Shaders */
 	if (!e_data.downsample_sh) {
 		eevee_create_shader_downsample();
@@ -128,6 +129,13 @@ void EEVEE_effects_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata, Object 
 	effects->enabled_effects |= EEVEE_subsurface_init(sldata, vedata);
 	effects->enabled_effects |= EEVEE_screen_raytrace_init(sldata, vedata);
 	effects->enabled_effects |= EEVEE_volumes_init(sldata, vedata);
+
+	/* Force normal buffer creation. */
+	if (DRW_state_is_image_render() &&
+	    (view_layer->passflag & SCE_PASS_NORMAL) != 0)
+	{
+		effects->enabled_effects |= EFFECT_NORMAL_BUFFER;
+	}
 
 	/**
 	 * Ping Pong buffer
@@ -233,7 +241,8 @@ void EEVEE_effects_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
 	{
 		static int zero = 0;
 		psl->color_downsample_cube_ps = DRW_pass_create("Downsample Cube", DRW_STATE_WRITE_COLOR);
-		DRWShadingGroup *grp = DRW_shgroup_instance_create(e_data.downsample_cube_sh, psl->color_downsample_cube_ps, quad);
+		DRWShadingGroup *grp = DRW_shgroup_instance_create(e_data.downsample_cube_sh, psl->color_downsample_cube_ps,
+		                                                   quad, NULL);
 		DRW_shgroup_uniform_buffer(grp, "source", &e_data.color_src);
 		DRW_shgroup_uniform_float(grp, "texelSize", &e_data.cube_texel_size, 1);
 		DRW_shgroup_uniform_int(grp, "Layer", &zero, 1);

@@ -717,7 +717,8 @@ bool ED_object_parent_set(ReportList *reports, const bContext *C, Scene *scene, 
 					switch (partype) {
 						case PAR_CURVE: /* curve deform */
 							if (modifiers_isDeformedByCurve(ob) != par) {
-								md = ED_object_modifier_add(reports, bmain, scene, ob, NULL, eModifierType_Curve);
+								md = ED_object_modifier_add(
+								        reports, bmain, scene, ob, eval_ctx.object_mode, NULL, eModifierType_Curve);
 								if (md) {
 									((CurveModifierData *)md)->object = par;
 								}
@@ -728,7 +729,8 @@ bool ED_object_parent_set(ReportList *reports, const bContext *C, Scene *scene, 
 							break;
 						case PAR_LATTICE: /* lattice deform */
 							if (modifiers_isDeformedByLattice(ob) != par) {
-								md = ED_object_modifier_add(reports, bmain, scene, ob, NULL, eModifierType_Lattice);
+								md = ED_object_modifier_add(
+								        reports, bmain, scene, ob, eval_ctx.object_mode, NULL, eModifierType_Lattice);
 								if (md) {
 									((LatticeModifierData *)md)->object = par;
 								}
@@ -736,7 +738,8 @@ bool ED_object_parent_set(ReportList *reports, const bContext *C, Scene *scene, 
 							break;
 						default: /* armature deform */
 							if (modifiers_isDeformedByArmature(ob) != par) {
-								md = ED_object_modifier_add(reports, bmain, scene, ob, NULL, eModifierType_Armature);
+								md = ED_object_modifier_add(
+								        reports, bmain, scene, ob, eval_ctx.object_mode, NULL, eModifierType_Armature);
 								if (md) {
 									((ArmatureModifierData *)md)->object = par;
 								}
@@ -1425,6 +1428,7 @@ static bool allow_make_links_data(const int type, Object *ob_src, Object *ob_dst
 
 static int make_links_data_exec(bContext *C, wmOperator *op)
 {
+	const WorkSpace *workspace = CTX_wm_workspace(C);
 	Main *bmain = CTX_data_main(C);
 	const int type = RNA_enum_get(op->ptr, "type");
 	Object *ob_src;
@@ -1509,7 +1513,7 @@ static int make_links_data_exec(bContext *C, wmOperator *op)
 						}
 						break;
 					case MAKE_LINKS_MODIFIERS:
-						BKE_object_link_modifiers(ob_dst, ob_src);
+						BKE_object_link_modifiers(ob_dst, ob_src, workspace->object_mode);
 						DEG_id_tag_update(&ob_dst->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME);
 						break;
 					case MAKE_LINKS_FONTS:
@@ -2411,7 +2415,6 @@ static int make_override_static_exec(bContext *C, wmOperator *op)
 	bool success = false;
 
 	if (!ID_IS_LINKED(obact) && obact->dup_group != NULL && ID_IS_LINKED(obact->dup_group)) {
-#if 0  /* Not working yet! */
 		Base *base = BLI_findlink(&obact->dup_group->view_layer->object_bases, RNA_enum_get(op->ptr, "object"));
 		Object *obgroup = obact;
 		obact = base->object;
@@ -2424,7 +2427,7 @@ static int make_override_static_exec(bContext *C, wmOperator *op)
 
 		FOREACH_GROUP_OBJECT(obgroup->dup_group, ob)
 		{
-			make_override_tag_object(obact, ob);
+			make_override_static_tag_object(obact, ob);
 		}
 		FOREACH_GROUP_OBJECT_END;
 
@@ -2435,7 +2438,7 @@ static int make_override_static_exec(bContext *C, wmOperator *op)
 		ViewLayer *view_layer = CTX_data_view_layer(C);
 		Object *new_obact = (Object *)obact->id.newid;
 		if (new_obact != NULL && (base = BKE_view_layer_base_find(view_layer, new_obact)) == NULL) {
-			BKE_collection_object_add_from(scene, obact, new_obact);
+			BKE_collection_object_add_from(scene, obgroup, new_obact);
 			base = BKE_view_layer_base_find(view_layer, new_obact);
 			BKE_view_layer_base_select(view_layer, base);
 		}
@@ -2453,9 +2456,6 @@ static int make_override_static_exec(bContext *C, wmOperator *op)
 		/* Cleanup. */
 		BKE_main_id_clear_newpoins(bmain);
 		BKE_main_id_tag_listbase(&bmain->object, LIB_TAG_DOIT, false);
-#else
-		UNUSED_VARS(op);
-#endif
 	}
 	/* Else, poll func ensures us that ID_IS_LINKED(obact) is true. */
 	else if (obact->type == OB_ARMATURE) {
@@ -2512,8 +2512,8 @@ void OBJECT_OT_make_override_static(wmOperatorType *ot)
 
 	/* properties */
 	PropertyRNA *prop;
-	prop = RNA_def_enum(ot->srna, "object", DummyRNA_DEFAULT_items, 0, "Proxy Object",
-	                    "Name of lib-linked/grouped object to make a proxy for");
+	prop = RNA_def_enum(ot->srna, "object", DummyRNA_DEFAULT_items, 0, "Override Object",
+	                    "Name of lib-linked/group object to make an override from");
 	RNA_def_enum_funcs(prop, proxy_group_object_itemf);
 	RNA_def_property_flag(prop, PROP_ENUM_NO_TRANSLATE);
 	ot->prop = prop;

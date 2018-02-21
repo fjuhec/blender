@@ -68,7 +68,6 @@
 #include "wm.h"
 #include "wm_draw.h"
 #include "wm_window.h"
-#include "wm_subwindow.h"
 #include "wm_event_system.h"
 
 #include "ED_scene.h"
@@ -175,7 +174,6 @@ static void wm_ghostwindow_destroy(wmWindow *win)
 	if (win->ghostwin) {
 		GHOST_DisposeWindow(g_system, win->ghostwin);
 		win->ghostwin = NULL;
-		win->multisamples = 0;
 	}
 }
 
@@ -228,7 +226,6 @@ void wm_window_free(bContext *C, wmWindowManager *wm, wmWindow *win)
 	if (win->eventstate) MEM_freeN(win->eventstate);
 	
 	wm_event_free_all(win);
-	wm_subwindows_free(win);
 
 	wm_draw_data_free(win);
 
@@ -474,16 +471,8 @@ static void wm_window_ghostwindow_add(wmWindowManager *wm, const char *title, wm
 {
 	GHOST_WindowHandle ghostwin;
 	GHOST_GLSettings glSettings = {0};
-	static int multisamples = -1;
 	int scr_w, scr_h, posy;
 	
-	/* force setting multisamples only once, it requires restart - and you cannot 
-	 * mix it, either all windows have it, or none (tested in OSX opengl) */
-	if (multisamples == -1)
-		multisamples = U.ogl_multisamples;
-
-	glSettings.numOfAASamples = multisamples;
-
 	/* a new window is created when pageflip mode is required for a window */
 	if (win->stereo3d_format->display_mode == S3D_DISPLAY_PAGEFLIP)
 		glSettings.flags |= GHOST_glStereoVisual;
@@ -521,9 +510,6 @@ static void wm_window_ghostwindow_add(wmWindowManager *wm, const char *title, wm
 		if (win->eventstate == NULL)
 			win->eventstate = MEM_callocN(sizeof(wmEvent), "window event state");
 
-		/* store multisamples window was created with, in case user prefs change */
-		win->multisamples = multisamples;
-		
 		/* store actual window size in blender window */
 		bounds = GHOST_GetClientBounds(win->ghostwin);
 
@@ -1627,6 +1613,7 @@ wmTimer *WM_event_add_timer_notifier(wmWindowManager *wm, wmWindow *win, unsigne
 	wt->timestep = timestep;
 	wt->win = win;
 	wt->customdata = SET_UINT_IN_POINTER(type);
+	wt->flags |= WM_TIMER_NO_FREE_CUSTOM_DATA;
 
 	BLI_addtail(&wm->timers, wt);
 
@@ -1648,8 +1635,9 @@ void WM_event_remove_timer(wmWindowManager *wm, wmWindow *UNUSED(win), wmTimer *
 			wm->reports.reporttimer = NULL;
 		
 		BLI_remlink(&wm->timers, wt);
-		if (wt->customdata)
+		if (wt->customdata != NULL && (wt->flags & WM_TIMER_NO_FREE_CUSTOM_DATA) == 0) {
 			MEM_freeN(wt->customdata);
+		}
 		MEM_freeN(wt);
 		
 		/* there might be events in queue with this timer as customdata */
@@ -1977,6 +1965,18 @@ WorkSpace *WM_windows_workspace_get_from_screen(const wmWindowManager *wm, const
 		}
 	}
 	return NULL;
+}
+
+eObjectMode WM_windows_object_mode_get(const struct wmWindowManager *wm)
+{
+	eObjectMode object_mode = 0;
+	for (wmWindow *win = wm->windows.first; win; win = win->next) {
+		const WorkSpace *workspace = BKE_workspace_active_get(win->workspace_hook);
+		if (workspace != NULL) {
+			object_mode |= workspace->object_mode;
+		}
+	}
+	return object_mode;
 }
 
 Scene *WM_window_get_active_scene(const wmWindow *win)

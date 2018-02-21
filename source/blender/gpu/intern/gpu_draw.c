@@ -39,11 +39,11 @@
 #include <string.h>
 
 #include "BLI_blenlib.h"
+#include "BLI_hash.h"
 #include "BLI_linklist.h"
 #include "BLI_math.h"
 #include "BLI_threads.h"
 #include "BLI_utildefines.h"
-#include "BLI_hash.h"
 
 #include "DNA_lamp_types.h"
 #include "DNA_material_types.h"
@@ -398,7 +398,7 @@ static void gpu_set_alpha_blend(GPUBlendMode alphablend)
 	if (alphablend == GPU_BLEND_SOLID) {
 		glDisable(GL_BLEND);
 		glDisable(GL_SAMPLE_ALPHA_TO_COVERAGE);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 	}
 	else if (alphablend == GPU_BLEND_ADD) {
 		glEnable(GL_BLEND);
@@ -1319,9 +1319,9 @@ static LinkNode *image_free_queue = NULL;
 
 static void gpu_queue_image_for_free(Image *ima)
 {
-	BLI_lock_thread(LOCK_OPENGL);
+	BLI_thread_lock(LOCK_OPENGL);
 	BLI_linklist_prepend(&image_free_queue, ima);
-	BLI_unlock_thread(LOCK_OPENGL);
+	BLI_thread_unlock(LOCK_OPENGL);
 }
 
 void GPU_free_unused_buffers(void)
@@ -1329,7 +1329,7 @@ void GPU_free_unused_buffers(void)
 	if (!BLI_thread_is_main())
 		return;
 
-	BLI_lock_thread(LOCK_OPENGL);
+	BLI_thread_lock(LOCK_OPENGL);
 
 	/* images */
 	for (LinkNode *node = image_free_queue; node; node = node->next) {
@@ -1346,7 +1346,7 @@ void GPU_free_unused_buffers(void)
 	/* vbo buffers */
 	GPU_global_buffer_pool_free_unused();
 
-	BLI_unlock_thread(LOCK_OPENGL);
+	BLI_thread_unlock(LOCK_OPENGL);
 }
 
 void GPU_free_image(Image *ima)
@@ -1460,6 +1460,7 @@ static struct GPUMaterialState {
 	Material *gmatbuf_fixed[FIXEDMAT];
 	Material *gboundmat;
 	Object *gob;
+	eObjectMode gob_object_mode;
 	DupliObject *dob;
 	Scene *gscene;
 	int glay;
@@ -1554,7 +1555,7 @@ void GPU_end_dupli_object(void)
 
 void GPU_begin_object_materials(
         View3D *v3d, RegionView3D *rv3d, Scene *scene, ViewLayer *view_layer, Object *ob,
-        bool glsl, bool *do_alpha_after)
+        bool glsl, const eObjectMode object_mode, bool *do_alpha_after)
 {
 	Material *ma;
 	GPUMaterial *gpumat;
@@ -1592,7 +1593,7 @@ void GPU_begin_object_materials(
 
 #ifdef WITH_GAMEENGINE
 	if (rv3d->rflag & RV3D_IS_GAME_ENGINE) {
-		ob = BKE_object_lod_matob_get(ob, view_layer);
+		ob = BKE_object_lod_matob_get(ob, view_layer, object_mode);
 	}
 #else
 	UNUSED_VARS(view_layer);
@@ -1616,6 +1617,7 @@ void GPU_begin_object_materials(
 		GMS.two_sided_lighting = (((Mesh *)ob->data)->flag & ME_TWOSIDED) != 0;
 
 	GMS.gob = ob;
+	GMS.gob_object_mode = object_mode;
 	GMS.gscene = scene;
 	GMS.is_opensubdiv = use_opensubdiv;
 	GMS.totmat = use_matcap ? 1 : ob->totcol + 1;  /* materials start from 1, default material is 0 */
@@ -1734,6 +1736,8 @@ static int gpu_get_particle_info(GPUParticleInfo *pi)
 			pi->scalprops[3] = p->size;
 
 			copy_v3_v3(pi->location, p->state.co);
+			pi->location[3] = BLI_hash_int_01(ind);
+
 			copy_v3_v3(pi->velocity, p->state.vel);
 			copy_v3_v3(pi->angular_velocity, p->state.ave);
 			return 1;
@@ -1834,7 +1838,7 @@ int GPU_object_material_bind(int nr, void *attribs)
 			}
 
 			GPU_material_bind(
-			        gpumat, GMS.gob->lay, GMS.glay, 1.0, !(GMS.gob->mode & OB_MODE_TEXTURE_PAINT),
+			        gpumat, GMS.gob->lay, GMS.glay, 1.0, !(GMS.gob_object_mode & OB_MODE_TEXTURE_PAINT),
 			        GMS.gviewmat, GMS.gviewinv, GMS.gviewcamtexcofac);
 
 			auto_bump_scale = GMS.gob->derivedFinal != NULL ? GMS.gob->derivedFinal->auto_bump_scale : 1.0f;
@@ -2093,7 +2097,7 @@ int GPU_scene_object_lights(ViewLayer *view_layer, float viewmat[4][4], int orth
 	return count;
 }
 
-static void gpu_multisample(bool enable)
+static void gpu_disable_multisample(void)
 {
 #ifdef __linux__
 	/* changing multisample from the default (enabled) causes problems on some
@@ -2109,16 +2113,10 @@ static void gpu_multisample(bool enable)
 	}
 
 	if (toggle_ok) {
-		if (enable)
-			glEnable(GL_MULTISAMPLE);
-		else
-			glDisable(GL_MULTISAMPLE);
+		glDisable(GL_MULTISAMPLE);
 	}
 #else
-	if (enable)
-		glEnable(GL_MULTISAMPLE);
-	else
-		glDisable(GL_MULTISAMPLE);
+	glDisable(GL_MULTISAMPLE);
 #endif
 }
 
@@ -2150,7 +2148,7 @@ void GPU_state_init(void)
 	glCullFace(GL_BACK);
 	glDisable(GL_CULL_FACE);
 
-	gpu_multisample(false);
+	gpu_disable_multisample();
 }
 
 void GPU_enable_program_point_size(void)

@@ -427,6 +427,9 @@ static ShaderNode *add_node(Scene *scene,
 			case BL::ShaderNodeSubsurfaceScattering::falloff_BURLEY:
 				subsurface->falloff = CLOSURE_BSSRDF_BURLEY_ID;
 				break;
+			case BL::ShaderNodeSubsurfaceScattering::falloff_RANDOM_WALK:
+				subsurface->falloff = CLOSURE_BSSRDF_RANDOM_WALK_ID;
+				break;
 		}
 
 		node = subsurface;
@@ -524,6 +527,14 @@ static ShaderNode *add_node(Scene *scene,
 				break;
 			case BL::ShaderNodeBsdfPrincipled::distribution_MULTI_GGX:
 				principled->distribution = CLOSURE_BSDF_MICROFACET_MULTI_GGX_GLASS_ID;
+				break;
+		}
+		switch (b_principled_node.subsurface_method()) {
+			case BL::ShaderNodeBsdfPrincipled::subsurface_method_BURLEY:
+				principled->subsurface_method = CLOSURE_BSSRDF_PRINCIPLED_ID;
+				break;
+			case BL::ShaderNodeBsdfPrincipled::subsurface_method_RANDOM_WALK:
+				principled->subsurface_method = CLOSURE_BSSRDF_PRINCIPLED_RANDOM_WALK_ID;
 				break;
 		}
 		node = principled;
@@ -867,7 +878,17 @@ static ShaderNode *add_node(Scene *scene,
 		node = bevel;
 	}
 	else if(b_node.is_a(&RNA_ShaderNodeDisplacement)) {
-		node = new DisplacementNode();
+		BL::ShaderNodeDisplacement b_disp_node(b_node);
+		DisplacementNode *disp = new DisplacementNode();
+		disp->space = (NodeNormalMapSpace)b_disp_node.space();
+		node = disp;
+	}
+	else if(b_node.is_a(&RNA_ShaderNodeVectorDisplacement)) {
+		BL::ShaderNodeVectorDisplacement b_disp_node(b_node);
+		VectorDisplacementNode *disp = new VectorDisplacementNode();
+		disp->space = (NodeNormalMapSpace)b_disp_node.space();
+		disp->attribute = "";
+		node = disp;
 	}
 
 	if(node) {
@@ -1235,7 +1256,7 @@ void BlenderSync::sync_materials(bool update_all)
 			shader->heterogeneous_volume = !get_boolean(cmat, "homogeneous_volume");
 			shader->volume_sampling_method = get_volume_sampling(cmat);
 			shader->volume_interpolation_method = get_volume_interpolation(cmat);
-			shader->displacement_method = (experimental) ? get_displacement_method(cmat) : DISPLACE_BUMP;
+			shader->displacement_method = get_displacement_method(cmat);
 
 			shader->set_graph(graph);
 

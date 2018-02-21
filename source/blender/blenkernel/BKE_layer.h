@@ -29,6 +29,8 @@
 
 #include "BKE_collection.h"
 
+#include "DNA_scene_types.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -76,10 +78,17 @@ struct Base *BKE_view_layer_base_find(struct ViewLayer *view_layer, struct Objec
 void BKE_view_layer_base_deselect_all(struct ViewLayer *view_layer);
 void BKE_view_layer_base_select(struct ViewLayer *view_layer, struct Base *selbase);
 
+void BKE_layer_collection_sync_flags(
+        struct ID *owner_id,
+        struct SceneCollection *scene_collection_dst,
+        struct SceneCollection *scene_collection_src);
+
 void BKE_view_layer_copy_data(
         struct ViewLayer *view_layer_dst, struct ViewLayer *view_layer_src,
         struct SceneCollection *mc_dst, struct SceneCollection *mc_src,
         const int flag);
+
+struct LayerCollection *BKE_layer_collection_duplicate(struct ID *owner_id, struct LayerCollection *layer_collection);
 
 void BKE_layer_collection_free(struct ViewLayer *view_layer, struct LayerCollection *lc);
 
@@ -105,6 +114,8 @@ void BKE_collection_enable(struct ViewLayer *view_layer, struct LayerCollection 
 
 bool BKE_view_layer_has_collection(struct ViewLayer *view_layer, const struct SceneCollection *sc);
 bool BKE_scene_has_object(struct Scene *scene, struct Object *ob);
+
+void BKE_layer_collection_objects_select(struct LayerCollection *layer_collection);
 
 /* syncing */
 
@@ -228,9 +239,9 @@ void BKE_visible_bases_iterator_end(BLI_Iterator *iter);
 #define FOREACH_OBJECT(view_layer, _instance)                                 \
 {                                                                             \
 	Object *_instance;                                                        \
-	Base *base;                                                               \
-	for (base = (view_layer)->object_bases.first; base; base = base->next) {  \
-		_instance = base->object;
+	Base *_base;                                                              \
+	for (_base = (view_layer)->object_bases.first; _base; _base = _base->next) { \
+		_instance = _base->object;
 
 #define FOREACH_OBJECT_END                                                    \
     }                                                                         \
@@ -263,6 +274,8 @@ void BKE_visible_bases_iterator_end(BLI_Iterator *iter);
 
 typedef struct ObjectsRenderableIteratorData {
 	struct Scene *scene;
+	struct Base base_temp;
+	struct Scene scene_temp;
 
 	struct {
 		struct ViewLayer *view_layer;

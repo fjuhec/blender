@@ -575,12 +575,12 @@ static void rna_SpaceView3D_layer_update(Main *bmain, Scene *UNUSED(scene), Poin
 	DEG_on_visible_update(bmain, false);
 }
 
-static void rna_SpaceView3D_viewport_shade_update(Main *bmain, Scene *scene, PointerRNA *ptr)
+static void rna_SpaceView3D_viewport_shade_update(Main *bmain, Scene *UNUSED(scene), PointerRNA *ptr)
 {
 	View3D *v3d = (View3D *)(ptr->data);
 	ScrArea *sa = rna_area_from_space(ptr);
 
-	ED_view3d_shade_update(bmain, scene, v3d, sa);
+	ED_view3d_shade_update(bmain, v3d, sa);
 }
 
 static void rna_SpaceView3D_matcap_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)
@@ -859,28 +859,31 @@ static int rna_SpaceImageEditor_show_uvedit_get(PointerRNA *ptr)
 {
 	SpaceImage *sima = (SpaceImage *)(ptr->data);
 	bScreen *sc = (bScreen *)ptr->id.data;
-	Scene *scene = ED_screen_scene_find(sc, G.main->wm.first);
+	wmWindow *win = ED_screen_window_find(sc, G.main->wm.first);
+	Object *obedit = OBEDIT_FROM_WINDOW(win);
 
-	return ED_space_image_show_uvedit(sima, scene->obedit);
+	return ED_space_image_show_uvedit(sima, obedit);
 }
 
 static int rna_SpaceImageEditor_show_maskedit_get(PointerRNA *ptr)
 {
 	SpaceImage *sima = (SpaceImage *)(ptr->data);
 	bScreen *sc = (bScreen *)ptr->id.data;
-	Scene *scene = ED_screen_scene_find(sc, G.main->wm.first);
+	wmWindow *window = NULL;
+	Scene *scene = ED_screen_scene_find_with_window(sc, G.main->wm.first, &window);
 	ViewLayer *view_layer = BKE_view_layer_context_active_PLACEHOLDER(scene);
-
-	return ED_space_image_check_show_maskedit(view_layer, sima);
+	const WorkSpace *workspace = WM_window_get_active_workspace(window);
+	return ED_space_image_check_show_maskedit(sima, workspace, view_layer);
 }
 
 static void rna_SpaceImageEditor_image_set(PointerRNA *ptr, PointerRNA value)
 {
 	SpaceImage *sima = (SpaceImage *)(ptr->data);
 	bScreen *sc = (bScreen *)ptr->id.data;
-	Scene *scene = ED_screen_scene_find(sc, G.main->wm.first);
-
-	ED_space_image_set(sima, scene, scene->obedit, (Image *)value.data);
+	wmWindow *win;
+	Scene *scene = ED_screen_scene_find_with_window(sc, G.main->wm.first, &win);
+	Object *obedit = OBEDIT_FROM_WINDOW(win);
+	ED_space_image_set(sima, scene, obedit, (Image *)value.data);
 }
 
 static void rna_SpaceImageEditor_mask_set(PointerRNA *ptr, PointerRNA value)

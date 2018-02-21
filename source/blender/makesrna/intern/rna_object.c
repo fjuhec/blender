@@ -33,11 +33,12 @@
 #include "DNA_group_types.h"
 #include "DNA_material_types.h"
 #include "DNA_mesh_types.h"
-#include "DNA_object_force.h"
+#include "DNA_object_force_types.h"
 #include "DNA_object_types.h"
 #include "DNA_property_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_meta_types.h"
+#include "DNA_workspace_types.h"
 
 #include "BLI_utildefines.h"
 #include "BLI_listbase.h"
@@ -217,6 +218,12 @@ static void rna_Object_internal_update(Main *UNUSED(bmain), Scene *UNUSED(scene)
 	DEG_id_tag_update(ptr->id.data, OB_RECALC_OB);
 }
 
+static void rna_Object_internal_update_draw(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)
+{
+	DEG_id_tag_update(ptr->id.data, OB_RECALC_OB);
+	WM_main_add_notifier(NC_OBJECT | ND_DRAW, ptr->id.data);
+}
+
 static void rna_Object_matrix_world_update(Main *bmain, Scene *scene, PointerRNA *ptr)
 {
 	/* don't use compat so we get predictable rotation */
@@ -294,11 +301,11 @@ void rna_Object_internal_update_data(Main *UNUSED(bmain), Scene *UNUSED(scene), 
 	WM_main_add_notifier(NC_OBJECT | ND_DRAW, ptr->id.data);
 }
 
-static void rna_Object_active_shape_update(Main *bmain, Scene *scene, PointerRNA *ptr)
+static void rna_Object_active_shape_update(bContext *C, Main *bmain, Scene *scene, PointerRNA *ptr)
 {
 	Object *ob = ptr->id.data;
 
-	if (scene->obedit == ob) {
+	if (CTX_data_edit_object(C) == ob) {
 		/* exit/enter editmode to get new shape */
 		switch (ob->type) {
 			case OB_MESH:
@@ -337,7 +344,7 @@ static void rna_Object_data_set(PointerRNA *ptr, PointerRNA value)
 	Object *ob = (Object *)ptr->data;
 	ID *id = value.data;
 
-	if (ob->mode & OB_MODE_EDIT) {
+	if (BKE_object_is_in_editmode(ob)) {
 		return;
 	}
 
@@ -1394,7 +1401,9 @@ static void rna_Object_constraints_clear(Object *object)
 static ModifierData *rna_Object_modifier_new(Object *object, bContext *C, ReportList *reports,
                                              const char *name, int type)
 {
-	return ED_object_modifier_add(reports, CTX_data_main(C), CTX_data_scene(C), object, name, type);
+	Main *bmain = CTX_data_main(C);
+	const WorkSpace *workspace = CTX_wm_workspace(C);
+	return ED_object_modifier_add(reports, bmain, CTX_data_scene(C), object, workspace->object_mode, name, type);
 }
 
 static void rna_Object_modifier_remove(Object *object, bContext *C, ReportList *reports, PointerRNA *md_ptr)
@@ -2419,12 +2428,6 @@ static void rna_def_object(BlenderRNA *brna)
 	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
 	RNA_def_property_ui_text(prop, "Type", "Type of Object");
 
-	prop = RNA_def_property(srna, "mode", PROP_ENUM, PROP_NONE);
-	RNA_def_property_enum_sdna(prop, NULL, "mode");
-	RNA_def_property_enum_items(prop, rna_enum_object_mode_items);
-	RNA_def_property_clear_flag(prop, PROP_EDITABLE);
-	RNA_def_property_ui_text(prop, "Mode", "Object interaction mode");
-
 	prop = RNA_def_property(srna, "layers_local_view", PROP_BOOLEAN, PROP_LAYER_MEMBER);
 	RNA_def_property_boolean_sdna(prop, NULL, "lay", 0x01000000);
 	RNA_def_property_array(prop, 8);
@@ -2754,7 +2757,7 @@ static void rna_def_object(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "pass_index", PROP_INT, PROP_UNSIGNED);
 	RNA_def_property_int_sdna(prop, NULL, "index");
 	RNA_def_property_ui_text(prop, "Pass Index", "Index number for the \"Object Index\" render pass");
-	RNA_def_property_update(prop, NC_OBJECT, "rna_Object_internal_update");
+	RNA_def_property_update(prop, NC_OBJECT, "rna_Object_internal_update_draw");
 	
 	prop = RNA_def_property(srna, "color", PROP_FLOAT, PROP_COLOR);
 	RNA_def_property_float_sdna(prop, NULL, "col");
@@ -3021,6 +3024,7 @@ static void rna_def_object(BlenderRNA *brna)
 
 	prop = RNA_def_property(srna, "active_shape_key_index", PROP_INT, PROP_NONE);
 	RNA_def_property_int_sdna(prop, NULL, "shapenr");
+	RNA_def_property_flag(prop, PROP_CONTEXT_UPDATE);
 	RNA_def_property_clear_flag(prop, PROP_ANIMATABLE); /* XXX this is really unpredictable... */
 	RNA_def_property_int_funcs(prop, "rna_Object_active_shape_key_index_get", "rna_Object_active_shape_key_index_set",
 	                           "rna_Object_active_shape_key_index_range");

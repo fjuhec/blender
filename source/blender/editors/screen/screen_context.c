@@ -53,6 +53,8 @@
 #include "BKE_sequencer.h"
 #include "BKE_workspace.h"
 
+#include "DEG_depsgraph.h"
+
 #include "RNA_access.h"
 
 #include "ED_armature.h"
@@ -90,8 +92,8 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 	Scene *scene = WM_window_get_active_scene(win);
 	WorkSpace *workspace = BKE_workspace_active_get(win->workspace_hook);
 	ViewLayer *view_layer = BKE_view_layer_from_workspace_get(scene, workspace);
-	Object *obedit = scene->obedit;
 	Object *obact = (view_layer && view_layer->basact) ? view_layer->basact->object : NULL;
+	Object *obedit = BKE_workspace_edit_object(workspace, scene);
 
 	if (CTX_data_dir(member)) {
 		CTX_data_dir_set(result, screen_context_dir);
@@ -371,31 +373,31 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 		return 1;
 	}
 	else if (CTX_data_equals(member, "sculpt_object")) {
-		if (obact && (obact->mode & OB_MODE_SCULPT))
+		if (obact && (workspace->object_mode & OB_MODE_SCULPT)) {
 			CTX_data_id_pointer_set(result, &obact->id);
-
+		}
 		return 1;
 	}
 	else if (CTX_data_equals(member, "vertex_paint_object")) {
-		if (obact && (obact->mode & OB_MODE_VERTEX_PAINT))
+		if (obact && (workspace->object_mode & OB_MODE_VERTEX_PAINT))
 			CTX_data_id_pointer_set(result, &obact->id);
 
 		return 1;
 	}
 	else if (CTX_data_equals(member, "weight_paint_object")) {
-		if (obact && (obact->mode & OB_MODE_WEIGHT_PAINT))
+		if (obact && (workspace->object_mode & OB_MODE_WEIGHT_PAINT))
 			CTX_data_id_pointer_set(result, &obact->id);
 
 		return 1;
 	}
 	else if (CTX_data_equals(member, "image_paint_object")) {
-		if (obact && (obact->mode & OB_MODE_TEXTURE_PAINT))
+		if (obact && (workspace->object_mode & OB_MODE_TEXTURE_PAINT))
 			CTX_data_id_pointer_set(result, &obact->id);
 
 		return 1;
 	}
 	else if (CTX_data_equals(member, "particle_edit_object")) {
-		if (obact && (obact->mode & OB_MODE_PARTICLE_EDIT))
+		if (obact && (workspace->object_mode & OB_MODE_PARTICLE_EDIT))
 			CTX_data_id_pointer_set(result, &obact->id);
 
 		return 1;

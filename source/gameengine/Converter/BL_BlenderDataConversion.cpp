@@ -132,7 +132,7 @@
 #include "DNA_key_types.h"
 #include "DNA_armature_types.h"
 #include "DNA_action_types.h"
-#include "DNA_object_force.h"
+#include "DNA_object_force_types.h"
 #include "DNA_constraint_types.h"
 
 #include "MEM_guardedalloc.h"
@@ -1688,6 +1688,7 @@ struct parentChildLink {
 	SG_Node* m_gamechildnode;
 };
 
+#if 0
 static bPoseChannel *get_active_posechannel2(Object *ob)
 {
 	bArmature *arm= (bArmature*)ob->data;
@@ -1701,6 +1702,7 @@ static bPoseChannel *get_active_posechannel2(Object *ob)
 	
 	return NULL;
 }
+#endif
 
 static ListBase *get_active_constraints2(Object *ob)
 {
@@ -1708,6 +1710,7 @@ static ListBase *get_active_constraints2(Object *ob)
 		return NULL;
 
   // XXX - shouldnt we care about the pose data and not the mode???
+#if 0
 	if (ob->mode & OB_MODE_POSE) { 
 		bPoseChannel *pchan;
 
@@ -1715,8 +1718,11 @@ static ListBase *get_active_constraints2(Object *ob)
 		if (pchan)
 			return &pchan->constraints;
 	}
-	else 
+	else
+#endif
+	{
 		return &ob->constraints;
+	}
 
 	return NULL;
 }

@@ -177,6 +177,9 @@ static void eevee_draw_background(void *vedata)
 	DefaultTextureList *dtxl = DRW_viewport_texture_list_get();
 	DefaultFramebufferList *dfbl = DRW_viewport_framebuffer_list_get();
 
+	/* Sort transparents before the loop. */
+	DRW_pass_sort_shgroup_z(psl->transparent_pass);
+
 	/* Number of iteration: needed for all temporal effect (SSR, TAA)
 	 * when using opengl render. */
 	int loop_ct = DRW_state_is_image_render() ? 4 : 1;
@@ -187,15 +190,18 @@ static void eevee_draw_background(void *vedata)
 		double r[3];
 
 		if (DRW_state_is_image_render() ||
-			((stl->effects->enabled_effects & EFFECT_TAA) != 0))
+		    ((stl->effects->enabled_effects & EFFECT_TAA) != 0))
 		{
 			BLI_halton_3D(primes, offset, stl->effects->taa_current_sample, r);
 			EEVEE_update_noise(psl, fbl, r);
+			EEVEE_volumes_set_jitter(sldata, stl->effects->taa_current_sample - 1);
+			EEVEE_materials_init(sldata, stl, fbl);
 		}
 
 		/* Refresh Probes */
 		DRW_stats_group_start("Probes Refresh");
 		EEVEE_lightprobes_refresh(sldata, vedata);
+		EEVEE_lightprobes_refresh_planar(sldata, vedata);
 		DRW_stats_group_end();
 
 		/* Update common buffer after probe rendering. */
@@ -220,8 +226,8 @@ static void eevee_draw_background(void *vedata)
 		}
 
 		if (((stl->effects->enabled_effects & EFFECT_TAA) != 0) &&
-			 (stl->effects->taa_current_sample > 1) &&
-			 !DRW_state_is_image_render())
+		    (stl->effects->taa_current_sample > 1) &&
+		    !DRW_state_is_image_render())
 		{
 			DRW_viewport_matrix_override_set(stl->effects->overide_persmat, DRW_MAT_PERS);
 			DRW_viewport_matrix_override_set(stl->effects->overide_persinv, DRW_MAT_PERSINV);
@@ -271,7 +277,6 @@ static void eevee_draw_background(void *vedata)
 		EEVEE_volumes_resolve(sldata, vedata);
 
 		/* Transparent */
-		DRW_pass_sort_shgroup_z(psl->transparent_pass);
 		DRW_draw_pass(psl->transparent_pass);
 
 		/* Post Process */
@@ -372,15 +377,15 @@ static void eevee_id_update(void *vedata, ID *id)
 	}
 }
 
-static void eevee_render_to_image(void *vedata, struct RenderEngine *engine, struct Depsgraph *depsgraph)
+static void eevee_render_to_image(void *vedata, RenderEngine *engine, struct RenderResult *render_result, struct RenderLayer *render_layer)
 {
-	EEVEE_render_init(vedata, engine, depsgraph);
+	const DRWContextState *draw_ctx = DRW_context_state_get();
+	EEVEE_render_init(vedata, engine, draw_ctx->depsgraph);
 
-	DRW_render_object_iter(vedata, engine, depsgraph, EEVEE_render_cache);
+	DRW_render_object_iter(vedata, engine, draw_ctx->depsgraph, EEVEE_render_cache);
+
 	/* Actually do the rendering. */
-	EEVEE_render_draw(vedata, engine, depsgraph);
-	/* Write outputs to RenderResult. */
-	EEVEE_render_output(vedata, engine, depsgraph);
+	EEVEE_render_draw(vedata, engine, render_result, render_layer);
 }
 
 static void eevee_engine_free(void)
@@ -391,6 +396,7 @@ static void eevee_engine_free(void)
 	EEVEE_lightprobes_free();
 	EEVEE_lights_free();
 	EEVEE_materials_free();
+	EEVEE_mist_free();
 	EEVEE_motion_blur_free();
 	EEVEE_occlusion_free();
 	EEVEE_screen_raytrace_free();
@@ -497,7 +503,8 @@ DrawEngineType draw_engine_eevee_type = {
 RenderEngineType DRW_engine_viewport_eevee_type = {
 	NULL, NULL,
 	EEVEE_ENGINE, N_("Eevee"), RE_INTERNAL | RE_USE_SHADING_NODES,
-	NULL, &DRW_render_to_image, NULL, NULL, NULL, NULL, NULL,
+	NULL, &DRW_render_to_image, NULL, NULL, NULL, NULL,
+	&EEVEE_render_update_passes,
 	&eevee_layer_collection_settings_create,
 	&eevee_view_layer_settings_create,
 	&draw_engine_eevee_type,

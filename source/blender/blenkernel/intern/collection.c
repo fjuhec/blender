@@ -68,10 +68,9 @@ static SceneCollection *collection_master_from_id(const ID *owner_id)
 }
 
 /**
- * Add a collection to a collection ListBase and syncronize all render layers
- * The ListBase is NULL when the collection is to be added to the master collection
+ * Add a new collection, but don't handle syncing with layer collections
  */
-SceneCollection *BKE_collection_add(ID *owner_id, SceneCollection *sc_parent, const int type, const char *name_custom)
+static SceneCollection *collection_add(ID *owner_id, SceneCollection *sc_parent, const int type, const char *name_custom)
 {
 	SceneCollection *sc_master = collection_master_from_id(owner_id);
 	SceneCollection *sc = MEM_callocN(sizeof(SceneCollection), "New Collection");
@@ -89,23 +88,34 @@ SceneCollection *BKE_collection_add(ID *owner_id, SceneCollection *sc_parent, co
 		else {
 			const int number = BLI_listbase_count(&sc_parent->scene_collections) + 1;
 			const int digits = integer_digits_i(number);
-			const int max_len = sizeof(sc_parent->name)
-			                    - 1 /* NULL terminator */
-			                    - (1 + digits) /* " %d" */;
+			const int max_len = sizeof(sc_parent->name) - 1 /* NULL terminator */ - (1 + digits) /* " %d" */;
 			name = BLI_sprintfN("%.*s %d", max_len, sc_parent->name, number);
 		}
 	}
 
 	BLI_addtail(&sc_parent->scene_collections, sc);
-	BKE_collection_rename((Scene *)owner_id, sc, name);
-
-	BKE_layer_sync_new_scene_collection(owner_id, sc_parent, sc);
+	BKE_collection_rename(owner_id, sc, name);
 
 	if (name != name_custom) {
 		MEM_freeN((char *)name);
 	}
 
 	return sc;
+}
+
+/**
+ * Add a collection to a collection ListBase and syncronize all render layers
+ * The ListBase is NULL when the collection is to be added to the master collection
+ */
+SceneCollection *BKE_collection_add(ID *owner_id, SceneCollection *sc_parent, const int type, const char *name_custom)
+{
+	if (sc_parent == NULL) {
+		sc_parent = BKE_collection_master(owner_id);
+	}
+
+	SceneCollection *scene_collection = collection_add(owner_id, sc_parent, type, name_custom);
+	BKE_layer_sync_new_scene_collection(owner_id, sc_parent, scene_collection);
+	return scene_collection;
 }
 
 /**
@@ -270,6 +280,43 @@ void BKE_collection_copy_data(SceneCollection *sc_dst, SceneCollection *sc_src, 
 	}
 }
 
+/**
+ * Makes a shallow copy of a SceneCollection
+ *
+ * Add a new collection in the same level as the old one, copy any nested collections
+ * but link the objects to the new collection (as oppose to copy them).
+ */
+SceneCollection *BKE_collection_duplicate(ID *owner_id, SceneCollection *scene_collection)
+{
+	SceneCollection *scene_collection_master = BKE_collection_master(owner_id);
+	SceneCollection *scene_collection_parent = find_collection_parent(scene_collection, scene_collection_master);
+
+	/* It's not allowed to copy the master collection. */
+	if (scene_collection_master == scene_collection) {
+		return NULL;
+	}
+
+	SceneCollection *scene_collection_new = collection_add(
+	                                            owner_id,
+	                                            scene_collection_parent,
+	                                            scene_collection->type,
+	                                            scene_collection->name);
+
+	if (scene_collection_new != scene_collection->next) {
+		BLI_remlink(&scene_collection_parent->scene_collections, scene_collection_new);
+		BLI_insertlinkafter(&scene_collection_parent->scene_collections, scene_collection, scene_collection_new);
+	}
+
+	BKE_collection_copy_data(scene_collection_new, scene_collection, 0);
+	BKE_layer_sync_new_scene_collection(owner_id, scene_collection_parent, scene_collection_new);
+
+	/* Make sure every linked instance of the new collection has the same values (flags, overrides, ...) as the
+	 * corresponding original collection. */
+	BKE_layer_collection_sync_flags(owner_id, scene_collection_new, scene_collection);
+
+	return scene_collection_new;
+}
+
 static SceneCollection *master_collection_from_id(const ID *owner_id)
 {
 	switch (GS(owner_id->name)) {
@@ -298,9 +345,9 @@ static void collection_rename(const ID *owner_id, SceneCollection *sc, const cha
 	BLI_uniquename(&sc_parent->scene_collections, sc, DATA_("Collection"), '.', offsetof(SceneCollection, name), sizeof(sc->name));
 }
 
-void BKE_collection_rename(const Scene *scene, SceneCollection *sc, const char *name)
+void BKE_collection_rename(const ID *owner_id, SceneCollection *sc, const char *name)
 {
-	collection_rename(&scene->id, sc, name);
+	collection_rename(owner_id, sc, name);
 }
 
 /**

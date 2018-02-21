@@ -59,7 +59,7 @@
 #include "PIL_time.h"
 
 #include "BLI_blenlib.h"
-#include "BLI_dial.h"
+#include "BLI_dial_2d.h"
 #include "BLI_dynstr.h" /*for WM_operator_pystring */
 #include "BLI_math.h"
 #include "BLI_utildefines.h"
@@ -3313,7 +3313,7 @@ static void redraw_timer_step(
 			CTX_wm_area_set(C, sa_iter);
 
 			for (ar_iter = sa_iter->regionbase.first; ar_iter; ar_iter = ar_iter->next) {
-				if (ar_iter->swinid) {
+				if (ar_iter->visible) {
 					CTX_wm_region_set(C, ar_iter);
 					ED_region_do_draw(C, ar_iter);
 					ar_iter->do_draw = false;

@@ -471,7 +471,7 @@ static void eevee_init_util_texture(void)
 	MEM_freeN(texels);
 }
 
-void EEVEE_update_noise(EEVEE_PassList *psl, EEVEE_FramebufferList *fbl, double offsets[3])
+void EEVEE_update_noise(EEVEE_PassList *psl, EEVEE_FramebufferList *fbl, const double offsets[3])
 {
 	e_data.noise_offsets[0] = offsets[0];
 	e_data.noise_offsets[1] = offsets[1];
@@ -483,6 +483,46 @@ void EEVEE_update_noise(EEVEE_PassList *psl, EEVEE_FramebufferList *fbl, double 
 	DRW_framebuffer_bind(fbl->update_noise_fb);
 	DRW_draw_pass(psl->update_noise_pass);
 	DRW_framebuffer_texture_detach(e_data.util_tex);
+}
+
+static void EEVEE_update_viewvecs(float invproj[4][4], float winmat[4][4], float (*r_viewvecs)[4])
+{
+	/* view vectors for the corners of the view frustum.
+	 * Can be used to recreate the world space position easily */
+	float view_vecs[4][4] = {
+	    {-1.0f, -1.0f, -1.0f, 1.0f},
+	    { 1.0f, -1.0f, -1.0f, 1.0f},
+	    {-1.0f,  1.0f, -1.0f, 1.0f},
+	    {-1.0f, -1.0f,  1.0f, 1.0f}
+	};
+
+	/* convert the view vectors to view space */
+	const bool is_persp = (winmat[3][3] == 0.0f);
+	for (int i = 0; i < 4; i++) {
+		mul_project_m4_v3(invproj, view_vecs[i]);
+		/* normalized trick see:
+		 * http://www.derschmale.com/2014/01/26/reconstructing-positions-from-the-depth-buffer */
+		if (is_persp) {
+			/* Divide XY by Z. */
+			mul_v2_fl(view_vecs[i], 1.0f / view_vecs[i][2]);
+		}
+	}
+
+	/**
+	 * If ortho : view_vecs[0] is the near-bottom-left corner of the frustum and
+	 *            view_vecs[1] is the vector going from the near-bottom-left corner to
+	 *            the far-top-right corner.
+	 * If Persp : view_vecs[0].xy and view_vecs[1].xy are respectively the bottom-left corner
+	 *            when Z = 1, and top-left corner if Z = 1.
+	 *            view_vecs[0].z the near clip distance and view_vecs[1].z is the (signed)
+	 *            distance from the near plane to the far clip plane.
+	 **/
+	copy_v4_v4(r_viewvecs[0], view_vecs[0]);
+
+	/* we need to store the differences */
+	r_viewvecs[1][0] = view_vecs[1][0] - view_vecs[0][0];
+	r_viewvecs[1][1] = view_vecs[2][1] - view_vecs[0][1];
+	r_viewvecs[1][2] = view_vecs[3][2] - view_vecs[0][2];
 }
 
 void EEVEE_materials_init(EEVEE_ViewLayerData *sldata, EEVEE_StorageList *stl, EEVEE_FramebufferList *fbl)
@@ -553,60 +593,24 @@ void EEVEE_materials_init(EEVEE_ViewLayerData *sldata, EEVEE_StorageList *stl, E
 		eevee_init_noise_texture();
 	}
 
-	/* Alpha hash scale: Non-flickering size if we are not refining the render. */
 	if (!DRW_state_is_image_render() &&
-		(((stl->effects->enabled_effects & EFFECT_TAA) == 0) ||
-		 (stl->effects->taa_current_sample == 1)))
+	    ((stl->effects->enabled_effects & EFFECT_TAA) == 0))
 	{
 		e_data.alpha_hash_offset = 0.0f;
 	}
 	else {
 		double r;
-		BLI_halton_1D(5, 0.0, stl->effects->taa_current_sample, &r);
+		BLI_halton_1D(5, 0.0, stl->effects->taa_current_sample - 1, &r);
 		e_data.alpha_hash_offset = (float)r;
 	}
 
 	{
 		/* Update view_vecs */
 		float invproj[4][4], winmat[4][4];
-		/* view vectors for the corners of the view frustum.
-		 * Can be used to recreate the world space position easily */
-		float view_vecs[3][4] = {
-		    {-1.0f, -1.0f, -1.0f, 1.0f},
-		    {1.0f, -1.0f, -1.0f, 1.0f},
-		    {-1.0f, 1.0f, -1.0f, 1.0f}
-		};
-
-		/* invert the view matrix */
 		DRW_viewport_matrix_get(winmat, DRW_MAT_WIN);
-		invert_m4_m4(invproj, winmat);
-		const bool is_persp = (winmat[3][3] == 0.0f);
+		DRW_viewport_matrix_get(invproj, DRW_MAT_WININV);
 
-		/* convert the view vectors to view space */
-		for (int i = 0; i < 3; i++) {
-			mul_m4_v4(invproj, view_vecs[i]);
-			/* normalized trick see:
-			 * http://www.derschmale.com/2014/01/26/reconstructing-positions-from-the-depth-buffer */
-			mul_v3_fl(view_vecs[i], 1.0f / view_vecs[i][3]);
-			if (is_persp)
-				mul_v3_fl(view_vecs[i], 1.0f / view_vecs[i][2]);
-			view_vecs[i][3] = 1.0;
-		}
-
-		copy_v4_v4(sldata->common_data.view_vecs[0], view_vecs[0]);
-		copy_v4_v4(sldata->common_data.view_vecs[1], view_vecs[1]);
-
-		/* we need to store the differences */
-		sldata->common_data.view_vecs[1][0] -= view_vecs[0][0];
-		sldata->common_data.view_vecs[1][1] = view_vecs[2][1] - view_vecs[0][1];
-
-		/* calculate a depth offset as well */
-		if (!is_persp) {
-			float vec_far[] = {-1.0f, -1.0f, 1.0f, 1.0f};
-			mul_m4_v4(invproj, vec_far);
-			mul_v3_fl(vec_far, 1.0f / vec_far[3]);
-			sldata->common_data.view_vecs[1][2] = vec_far[2] - view_vecs[0][2];
-		}
+		EEVEE_update_viewvecs(invproj, winmat, sldata->common_data.view_vecs);
 	}
 
 	{
@@ -1056,9 +1060,16 @@ static void material_opaque(
 						DRW_shgroup_uniform_texture(*shgrp, "sssTexProfile", sss_tex_profile);
 					}
 
-					DRW_shgroup_stencil_mask(*shgrp, e_data.sss_count + 1);
-					EEVEE_subsurface_add_pass(sldata, vedata, e_data.sss_count + 1, sss_profile);
-					e_data.sss_count++;
+					/* Limit of 8 bit stencil buffer. ID 255 is refraction. */
+					if (e_data.sss_count < 254) {
+						DRW_shgroup_stencil_mask(*shgrp, e_data.sss_count + 1);
+						EEVEE_subsurface_add_pass(sldata, vedata, e_data.sss_count + 1, sss_profile);
+						e_data.sss_count++;
+					}
+					else {
+						/* TODO : display message. */
+						printf("Error: Too many different Subsurface shader in the scene.\n");
+					}
 				}
 			}
 		}
@@ -1230,7 +1241,7 @@ void EEVEE_materials_cache_populate(EEVEE_Data *vedata, EEVEE_ViewLayerData *sld
 	IDProperty *ces_mode_ob = BKE_layer_collection_engine_evaluated_get(ob, COLLECTION_MODE_OBJECT, "");
 	const bool do_cull = BKE_collection_engine_property_value_get_bool(ces_mode_ob, "show_backface_culling");
 	const bool is_active = (ob == draw_ctx->obact);
-	const bool is_sculpt_mode = is_active && (ob->mode & OB_MODE_SCULPT) != 0;
+	const bool is_sculpt_mode = is_active && (draw_ctx->object_mode & OB_MODE_SCULPT) != 0;
 #if 0
 	const bool is_sculpt_mode_draw = is_sculpt_mode && (draw_ctx->v3d->flag2 & V3D_SHOW_MODE_SHADE_OVERRIDE) == 0;
 #else
@@ -1366,7 +1377,7 @@ void EEVEE_materials_cache_populate(EEVEE_Data *vedata, EEVEE_ViewLayerData *sld
 	}
 
 	if (ob->type == OB_MESH) {
-		if (ob != draw_ctx->scene->obedit) {
+		if (ob != draw_ctx->object_edit) {
 			material_hash = stl->g_data->hair_material_hash;
 
 			for (ModifierData *md = ob->modifiers.first; md; md = md->next) {

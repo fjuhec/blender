@@ -364,8 +364,11 @@ static void rna_UserDef_weight_color_update(Main *bmain, Scene *scene, PointerRN
 	vDM_ColorBand_store((U.flag & USER_CUSTOM_RANGE) ? (&U.coba_weight) : NULL, btheme->tv3d.vertex_unreferenced);
 
 	for (ob = bmain->object.first; ob; ob = ob->id.next) {
-		if (ob->mode & OB_MODE_WEIGHT_PAINT)
+		/* TODO/OBMODE (not urgent) */
+		// if (ob->mode & OB_MODE_WEIGHT_PAINT)
+		{
 			DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
+		}
 	}
 
 	rna_userdef_update(bmain, scene, ptr);
@@ -395,26 +398,23 @@ static void rna_userdef_autosave_update(Main *bmain, Scene *scene, PointerRNA *p
 
 static bAddon *rna_userdef_addon_new(void)
 {
-	bAddon *bext = MEM_callocN(sizeof(bAddon), "bAddon");
-	BLI_addtail(&U.addons, bext);
-	return bext;
+	ListBase *addons_list = &U.addons;
+	bAddon *addon = BKE_addon_new();
+	BLI_addtail(addons_list, addon);
+	return addon;
 }
 
-static void rna_userdef_addon_remove(ReportList *reports, PointerRNA *path_cmp_ptr)
+static void rna_userdef_addon_remove(ReportList *reports, PointerRNA *addon_ptr)
 {
-	bAddon *bext = path_cmp_ptr->data;
-	if (BLI_findindex(&U.addons, bext) == -1) {
+	ListBase *addons_list = &U.addons;
+	bAddon *addon = addon_ptr->data;
+	if (BLI_findindex(addons_list, addon) == -1) {
 		BKE_report(reports, RPT_ERROR, "Add-on is no longer valid");
 		return;
 	}
-
-	if (bext->prop) {
-		IDP_FreeProperty(bext->prop);
-		MEM_freeN(bext->prop);
-	}
-
-	BLI_freelinkN(&U.addons, bext);
-	RNA_POINTER_INVALIDATE(path_cmp_ptr);
+	BLI_remlink(addons_list, addon);
+	BKE_addon_free(addon);
+	RNA_POINTER_INVALIDATE(addon_ptr);
 }
 
 static bPathCompare *rna_userdef_pathcompare_new(void)

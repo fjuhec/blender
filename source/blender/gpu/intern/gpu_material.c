@@ -417,7 +417,7 @@ void GPU_material_bind_uniforms(
 			GPU_shader_uniform_vector(shader, material->partscalarpropsloc, 4, 1, pi->scalprops);
 		}
 		if (material->builtins & GPU_PARTICLE_LOCATION) {
-			GPU_shader_uniform_vector(shader, material->partcoloc, 3, 1, pi->location);
+			GPU_shader_uniform_vector(shader, material->partcoloc, 4, 1, pi->location);
 		}
 		if (material->builtins & GPU_PARTICLE_VELOCITY) {
 			GPU_shader_uniform_vector(shader, material->partvel, 3, 1, pi->velocity);
@@ -557,7 +557,9 @@ static float eval_profile(float r, short falloff_type, float sharpness, float pa
 {
 	r = fabsf(r);
 
-	if (falloff_type == SHD_SUBSURFACE_BURLEY) {
+	if (falloff_type == SHD_SUBSURFACE_BURLEY ||
+	    falloff_type == SHD_SUBSURFACE_RANDOM_WALK)
+	{
 		return burley_profile(r, param) / BURLEY_TRUNCATE_CDF;
 	}
 	else if (falloff_type == SHD_SUBSURFACE_CUBIC) {
@@ -598,7 +600,9 @@ static void compute_sss_kernel(
 	/* Christensen-Burley fitting */
 	float l[3], d[3];
 
-	if (falloff_type == SHD_SUBSURFACE_BURLEY) {
+	if (falloff_type == SHD_SUBSURFACE_BURLEY ||
+	    falloff_type == SHD_SUBSURFACE_RANDOM_WALK)
+	{
 		mul_v3_v3fl(l, rad, 0.25f * M_1_PI);
 		const float A = 1.0f;
 		const float s = 1.9f - A + 3.5f * (A - 0.8f) * (A - 0.8f);
