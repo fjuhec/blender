@@ -122,9 +122,8 @@ void main()
 		}
 		/* pattern */
 		if (fill_type == PATTERN) {
-			/* normalize texture color */
-			float nvalue = 1.0 - ((text_color.x + text_color.y + text_color.z) / 3.0);
-			fragColor = mix(vec4(0.0, 0.0, 0.0, 0.0), finalColor, nvalue);
+			fragColor = finalColor;
+			fragColor.a = min(text_color.a, finalColor.a);
 		}
 	}
 
