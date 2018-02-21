@@ -183,43 +183,6 @@ Gwn_Batch *DRW_gpencil_get_stroke_geom(bGPDframe *gpf, bGPDstroke *gps, short th
 	return GWN_batch_create_ex(GWN_PRIM_LINE_STRIP_ADJ, vbo, NULL, GWN_BATCH_OWNS_VBO);
 }
 
-/* helper to convert 2d to 3d for simple drawing buffer */
-static void gpencil_stroke_convertcoords(Scene *scene, ARegion *ar, View3D *v3d, const tGPspoint *point2D, float origin[3], float out[3])
-{
-	float mval_f[2];
-	ARRAY_SET_ITEMS(mval_f, point2D->x, point2D->y);
-	float mval_prj[2];
-	float rvec[3], dvec[3];
-	float zfac;
-
-	copy_v3_v3(rvec, origin);
-
-	zfac = ED_view3d_calc_zfac(ar->regiondata, rvec, NULL);
-
-	if (ED_view3d_project_float_global(ar, rvec, mval_prj, V3D_PROJ_TEST_NOP) == V3D_PROJ_RET_OK) {
-		sub_v2_v2v2(mval_f, mval_prj, mval_f);
-		ED_view3d_win_to_delta(ar, mval_f, dvec, zfac);
-		sub_v3_v3v3(out, rvec, dvec);
-	}
-	else {
-		zero_v3(out);
-	}
-}
-
-/* convert 2d tGPspoint to 3d bGPDspoint */
-static void gpencil_tpoint_to_point(Scene *scene, ARegion *ar, View3D *v3d, float origin[3], const tGPspoint *tpt, bGPDspoint *pt)
-{
-	float p3d[3];
-	/* conversion to 3d format */
-	gpencil_stroke_convertcoords(scene, ar, v3d, tpt, origin, p3d);
-	copy_v3_v3(&pt->x, p3d);
-
-	pt->pressure = tpt->pressure;
-	pt->strength = tpt->strength;
-	pt->uv_fac = tpt->uv_fac;
-	pt->uv_rot = tpt->uv_rot;
-}
-
 /* create batch geometry data for current buffer stroke shader */
 Gwn_Batch *DRW_gpencil_get_buffer_stroke_geom(bGPdata *gpd, float matrix[4][4], short thickness)
 {
@@ -257,13 +220,13 @@ Gwn_Batch *DRW_gpencil_get_buffer_stroke_geom(bGPdata *gpd, float matrix[4][4], 
 	ED_gp_get_drawing_reference(v3d, scene, ob, gpl, ts->gpencil_v3d_align, origin);
 
 	for (int i = 0; i < totpoints; i++, tpt++) {
-		gpencil_tpoint_to_point(scene, ar, v3d, origin, tpt, &pt);
+		ED_gpencil_tpoint_to_point(scene, ar, v3d, origin, tpt, &pt);
 		ED_gp_project_point_to_plane(ob, rv3d, origin, ts->gp_sculpt.lock_axis - 1, ts->gpencil_src, &pt);
 
 		/* first point for adjacency (not drawn) */
 		if (i == 0) {
 			if (totpoints > 1) {
-				gpencil_tpoint_to_point(scene, ar, v3d, origin, &points[1], &pt2);
+				ED_gpencil_tpoint_to_point(scene, ar, v3d, origin, &points[1], &pt2);
 				gpencil_set_stroke_point(vbo, matrix, &pt2, idx, 
 										 pos_id, color_id, thickness_id, uvdata_id, thickness, gpd->scolor);
 			}
@@ -281,7 +244,7 @@ Gwn_Batch *DRW_gpencil_get_buffer_stroke_geom(bGPdata *gpd, float matrix[4][4], 
 
 	/* last adjacency point (not drawn) */
 	if (totpoints > 2) {
-		gpencil_tpoint_to_point(scene, ar, v3d, origin, &points[totpoints - 2], &pt2);
+		ED_gpencil_tpoint_to_point(scene, ar, v3d, origin, &points[totpoints - 2], &pt2);
 		gpencil_set_stroke_point(vbo, matrix, &pt2, idx, 
 								 pos_id, color_id, thickness_id, uvdata_id, thickness, gpd->scolor);
 	}
@@ -330,7 +293,7 @@ Gwn_Batch *DRW_gpencil_get_buffer_point_geom(bGPdata *gpd, float matrix[4][4], s
 	ED_gp_get_drawing_reference(v3d, scene, ob, gpl, ts->gpencil_v3d_align, origin);
 
 	for (int i = 0; i < totpoints; i++, tpt++) {
-		gpencil_tpoint_to_point(scene, ar, v3d, origin, tpt, &pt);
+		ED_gpencil_tpoint_to_point(scene, ar, v3d, origin, tpt, &pt);
 		ED_gp_project_point_to_plane(ob, rv3d, origin, ts->gp_sculpt.lock_axis - 1, ts->gpencil_src, &pt);
 
 		/* set point */
@@ -404,7 +367,7 @@ Gwn_Batch *DRW_gpencil_get_buffer_fill_geom(bGPdata *gpd)
 		for (int i = 0; i < tot_triangles; i++) {
 			for (int j = 0; j < 3; j++) {
 				tpt = &points[tmp_triangles[i][j]];
-				gpencil_tpoint_to_point(scene, ar, v3d, origin, tpt, &pt);
+				ED_gpencil_tpoint_to_point(scene, ar, v3d, origin, tpt, &pt);
 				GWN_vertbuf_attr_set(vbo, pos_id, idx, &pt.x);
 				GWN_vertbuf_attr_set(vbo, color_id, idx, gpd->sfill);
 				idx++;

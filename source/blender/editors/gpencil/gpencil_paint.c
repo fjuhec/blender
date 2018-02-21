@@ -499,6 +499,7 @@ static short gp_stroke_addpoint(
 	tGPspoint *pt;
 	ToolSettings *ts = p->scene->toolsettings;
 	Object *obact = (Object *)p->ownerPtr.data;
+	View3D *v3d = p->sa->spacedata.first;
 	RegionView3D *rv3d = p->ar->regiondata;
 	PaletteColor *palcolor = p->palettecolor;
 
@@ -623,15 +624,30 @@ static short gp_stroke_addpoint(
 		pt->time = (float)(curtime - p->inittime);
 		
 		/* point uv */
-		if (gpd->sbuffer_size > 1) {
+		if (gpd->sbuffer_size > 0) {
+			float pixsize = palcolor->t_pixsize / 1000000.0f;
 			tGPspoint *ptb = (tGPspoint *)gpd->sbuffer + gpd->sbuffer_size - 2;
-			p->totpixlen += (float) len_v2v2_int(&pt->x, &ptb->x);
+			bGPDspoint spt, spt2;
+
+			/* get origin to reproject point */
+			float origin[3];
+			gp_get_3d_reference(p, origin);
+			/* reproject current */
+			ED_gpencil_tpoint_to_point(p->scene, p->ar, v3d, origin, pt, &spt);
+			ED_gp_project_point_to_plane(obact, rv3d, origin, ts->gp_sculpt.lock_axis - 1, ts->gpencil_src, &spt);
+			
+			/* reproject previous */
+			ED_gpencil_tpoint_to_point(p->scene, p->ar, v3d, origin, ptb, &spt2);
+			ED_gp_project_point_to_plane(obact, rv3d, origin, ts->gp_sculpt.lock_axis - 1, ts->gpencil_src, &spt2);
+
+			p->totpixlen += len_v3v3(&spt.x, &spt2.x) / pixsize;
 			pt->uv_fac = p->totpixlen;
 			if ((palcolor) && (palcolor->sima)) {
 				pt->uv_fac /= palcolor->sima->gen_x;
 			}
 		}
 		else {
+			p->totpixlen = 0.0f;
 			pt->uv_fac = 0.0f;
 		}
 

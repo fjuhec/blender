@@ -1531,6 +1531,43 @@ void ED_gpencil_setup_modes(bContext *C, bGPdata *gpd, int newmode)
 	}
 }
 
+/* helper to convert 2d to 3d for simple drawing buffer */
+static void gpencil_stroke_convertcoords(Scene *scene, ARegion *ar, View3D *v3d, const tGPspoint *point2D, float origin[3], float out[3])
+{
+	float mval_f[2];
+	ARRAY_SET_ITEMS(mval_f, point2D->x, point2D->y);
+	float mval_prj[2];
+	float rvec[3], dvec[3];
+	float zfac;
+
+	copy_v3_v3(rvec, origin);
+
+	zfac = ED_view3d_calc_zfac(ar->regiondata, rvec, NULL);
+
+	if (ED_view3d_project_float_global(ar, rvec, mval_prj, V3D_PROJ_TEST_NOP) == V3D_PROJ_RET_OK) {
+		sub_v2_v2v2(mval_f, mval_prj, mval_f);
+		ED_view3d_win_to_delta(ar, mval_f, dvec, zfac);
+		sub_v3_v3v3(out, rvec, dvec);
+	}
+	else {
+		zero_v3(out);
+	}
+}
+
+/* convert 2d tGPspoint to 3d bGPDspoint */
+void ED_gpencil_tpoint_to_point(Scene *scene, ARegion *ar, View3D *v3d, float origin[3], const tGPspoint *tpt, bGPDspoint *pt)
+{
+	float p3d[3];
+	/* conversion to 3d format */
+	gpencil_stroke_convertcoords(scene, ar, v3d, tpt, origin, p3d);
+	copy_v3_v3(&pt->x, p3d);
+
+	pt->pressure = tpt->pressure;
+	pt->strength = tpt->strength;
+	pt->uv_fac = tpt->uv_fac;
+	pt->uv_rot = tpt->uv_rot;
+}
+
 /* texture coordinate utilities */
 void ED_gpencil_calc_stroke_uv(bGPDstroke *gps)
 {
