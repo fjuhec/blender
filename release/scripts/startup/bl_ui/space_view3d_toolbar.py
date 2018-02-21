@@ -2180,6 +2180,9 @@ class VIEW3D_PT_tools_grease_pencil_brush_option(Panel):
                     col.prop(brush, "lazy_radius", text="Distance")
                     col.prop(brush, "lazy_factor", slider=True)
 
+            row = layout.row(align=True)
+            row.prop(brush, "uv_random", slider=True)
+
 
 # Grease Pencil drawingcurves
 class VIEW3D_PT_tools_grease_pencil_brushcurves(Panel):

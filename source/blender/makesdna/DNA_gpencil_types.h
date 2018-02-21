@@ -135,7 +135,8 @@ typedef struct bGPDbrush {
 
 	int   lazy_radius;        /* distance to last point to create new point */
 	float lazy_factor;        /* factor of smooth */
-	char  pad[4];
+	
+	float uv_random;          /* random factor for UV rotation */
 } bGPDbrush;
 
 /* bGPDbrush->flag */
