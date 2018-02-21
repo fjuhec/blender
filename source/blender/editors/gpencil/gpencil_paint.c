@@ -577,15 +577,19 @@ static short gp_stroke_addpoint(
 			CLAMP(pt->pressure, GPENCIL_STRENGTH_MIN, 1.0f);
 		}
 
-		/* apply random to uv texture rotation */
-		/* TODO: Add a UI parameter to control randomness */
-		if (BLI_frand() > 0.5f) {
-			pt->uv_rot = BLI_frand() * M_PI * -1;
+		/* apply randomness to uv texture rotation */
+		if (brush->uv_random > 0.0f) {
+			if (BLI_frand() > 0.5f) {
+				pt->uv_rot = (BLI_frand() * M_PI * -1) * brush->uv_random;
+			}
+			else {
+				pt->uv_rot = (BLI_frand() * M_PI) * brush->uv_random;
+			}
+			CLAMP(pt->uv_rot, -M_PI_2, M_PI_2);
 		}
 		else {
-			pt->uv_rot = BLI_frand() * M_PI;
+			pt->uv_rot = 0.0f;
 		}
-		CLAMP(pt->uv_rot, -M_PI_2, M_PI_2);
 
 		/* apply angle of stroke to brush size */
 		if (brush->draw_angle_factor > 0.0f) {
