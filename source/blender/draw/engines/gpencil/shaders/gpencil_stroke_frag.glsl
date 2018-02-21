@@ -37,8 +37,7 @@ void main()
 	/* pattern */
 	if (color_type == GPENCIL_COLOR_PATTERN) {
 		vec4 text_color = texture2D(myTexture, mTexCoord);
-		/* normalize texture color */
-		float nvalue = 1.0 - ((text_color.x + text_color.y + text_color.z) / 3.0);
-		fragColor = mix(vec4(0.0, 0.0, 0.0, 0.0), tColor, nvalue);
+		fragColor = tColor;
+		fragColor.a = min(text_color.a, tColor.a);
 	}
 }
