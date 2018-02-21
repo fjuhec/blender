@@ -164,9 +164,9 @@ typedef struct PaletteColor {
 	float g_shift[2];        /* factor to shift filling in 2d space */
 	float t_angle;           /* angle used for texture orientation */
 	float t_scale[2];        /* texture scale (separated of uv scale) */
-	float t_offset[2];        /* factor to shift texture in 2d space */
+	float t_offset[2];       /* factor to shift texture in 2d space */
 	float t_opacity;         /* texture opacity */
-	char pad[4];
+	float t_pixsize;         /* pixel size for uv along the stroke */
 } PaletteColor;
 
 /* PaletteColor->flag (mainly used by grease pencil) */

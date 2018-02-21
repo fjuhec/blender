@@ -714,7 +714,6 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 	 */
 	const DRWContextState *draw_ctx = DRW_context_state_get();
 	const bContext *C = draw_ctx->evil_C;
-	RegionView3D *rv3d = draw_ctx->rv3d;
 
 	EvaluationContext eval_ctx = {0};
 	if (C) {
@@ -757,7 +756,7 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 		/* be sure recalc all chache in source stroke to avoid recalculation when frame change 
 		 * and improve fps */
 		if (src_gps) {
-			DRW_gpencil_recalc_geometry_caches(src_gps, rv3d);
+			DRW_gpencil_recalc_geometry_caches(src_gps);
 		}
 
 		/* if the fill has any value, it's considered a fill and is not drawn if simplify fill is enabled */

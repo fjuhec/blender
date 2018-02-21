@@ -169,7 +169,10 @@ class MATERIAL_PT_gpencil_palette_strokecolor(Panel):
         # Options
         row = layout.row()
         row.active = not pcolor.lock
-        row.prop(pcolor, "pass_index")
+        col = row.column(align=True)
+        col.prop(pcolor, "pass_index")
+        if pcolor.stroke_style == 'TEXTURE':
+            col.prop(pcolor, "pixel_size", text="Pixel Factor")
 
 
 class MATERIAL_PT_gpencil_palette_fillcolor(Panel):

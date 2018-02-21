@@ -212,6 +212,6 @@ void ED_gpencil_vgroup_deselect(struct bContext *C, struct Object *ob);
 int ED_gpencil_join_objects_exec(struct bContext *C, struct wmOperator *op);
 
 /* texture coordinate utilities */
-void ED_gpencil_calc_stroke_uv(struct bGPDstroke *gps, float pixsize);
+void ED_gpencil_calc_stroke_uv(struct bGPDstroke *gps);
 
 #endif /*  __ED_GPENCIL_H__ */

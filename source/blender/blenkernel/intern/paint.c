@@ -606,6 +606,7 @@ PaletteColor *BKE_palette_color_copy(Palette *palette, PaletteColor *palcolor)
 	copy_v2_v2(newcolor->t_scale, palcolor->t_scale);
 	copy_v2_v2(newcolor->t_offset, palcolor->t_offset);
 	newcolor->t_opacity = palcolor->t_opacity;
+	newcolor->t_pixsize = palcolor->t_pixsize;
 	newcolor->sima = palcolor->sima;
 	newcolor->ima = palcolor->ima;
 
@@ -630,6 +631,7 @@ PaletteColor *BKE_palette_color_add_name(Palette *palette, const char *name)
 	ARRAY_SET_ITEMS(color->g_scale, 1.0f, 1.0f);
 	ARRAY_SET_ITEMS(color->t_scale, 1.0f, 1.0f);
 	color->t_opacity = 1.0f;
+	color->t_pixsize = 100.0f;
 
 	/* auto-name */
 	BLI_strncpy(color->info, name, sizeof(color->info));

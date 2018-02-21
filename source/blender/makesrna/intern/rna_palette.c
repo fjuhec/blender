@@ -382,6 +382,13 @@ static void rna_def_palettecolor(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Opacity", "Texture Opacity");
 	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS | ND_DATA | NC_GPENCIL, "rna_Palette_dependency_update");
 
+	/* texture pixsize (used for UV along the stroke */
+	prop = RNA_def_property(srna, "pixel_size", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_sdna(prop, NULL, "t_pixsize");
+	RNA_def_property_range(prop, 1, 5000);
+	RNA_def_property_ui_text(prop, "Pixel", "Texture Pixel Size factor along the stroke");
+	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS | ND_DATA | NC_GPENCIL, "rna_Palette_dependency_update");
+
 	/* Flags */
 	prop = RNA_def_property(srna, "hide", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", PAC_COLOR_HIDE);

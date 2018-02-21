@@ -1532,16 +1532,24 @@ void ED_gpencil_setup_modes(bContext *C, bGPdata *gpd, int newmode)
 }
 
 /* texture coordinate utilities */
-void ED_gpencil_calc_stroke_uv(bGPDstroke *gps, float pixsize)
+void ED_gpencil_calc_stroke_uv(bGPDstroke *gps)
 {
-	/* TODO: In camera view the pixsize (rv3d->pixsize) looks wrong */
 	if (gps == NULL) {
 		return;
 	}
+	PaletteColor *palcolor = gps->palcolor;
+	float pixsize;
+	if (palcolor) {
+		pixsize = palcolor->t_pixsize / 1000000.0f;
+	}
+	else {
+		/* use this value by default */
+		pixsize = 0.000100f;
+	}
+	pixsize = MAX2(pixsize, 0.0000001f);
 
 	bGPDspoint *pt = NULL;
 	bGPDspoint *ptb = NULL;
-	PaletteColor *palcolor = gps->palcolor;
 	int i;
 	float totlen = 0;
 
