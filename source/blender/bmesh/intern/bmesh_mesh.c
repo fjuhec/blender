@@ -1078,7 +1078,7 @@ void BM_lnorspacearr_store(BMesh *bm, float (*r_lnors)[3])
 }
 
 /* will change later */
-#define CLEAR_SPACEARRAY_THRESHOLD(x) x/2
+#define CLEAR_SPACEARRAY_THRESHOLD(x) ((x) / 2)
 
 void BM_lnorspace_invalidate(BMesh *bm, const bool do_invalidate_all)
 {
@@ -1094,45 +1094,56 @@ void BM_lnorspace_invalidate(BMesh *bm, const bool do_invalidate_all)
 		return;
 	}
 
-	BMFace *f;
 	BMVert *v;
 	BMLoop *l;
-	BMIter viter, fiter, liter;
-	/* Note: we could use temp tag of BMItem for that, but probably better not use it in such low-level func? --mont29 */
-	BLI_bitmap *done_faces = BLI_BITMAP_NEW(bm->totface, __func__);
+	BMIter viter, liter;
+	/* Note: we could use temp tag of BMItem for that, but probably better not use it in such a low-level func?
+	 * --mont29 */
+	BLI_bitmap *done_verts = BLI_BITMAP_NEW(bm->totvert, __func__);
 
-	BM_mesh_elem_index_ensure(bm, BM_FACE);
+	BM_mesh_elem_index_ensure(bm, BM_VERT);
 
-	BLI_assert(bm->lnor_spacearr->data_type == MLNOR_SPACEARR_BMLOOP_PTR);
-	MLoopNorSpace **lnors_spaces = bm->lnor_spacearr->lspacearr;
-
-	/* TODO this has to be redone, way more looping than needed here ;) */
-	/* Note: Unfortunately, we have to invalidate all loops from any potentially affected face, in some cases only
-	 *       taking into account neighbors of selected vertices ones is not enough... */
+	/* When we affect a given vertex, we may affect following smooth fans:
+	 *     - all smooth fans of said vertex;
+	 *     - all smooth fans of all immediate loop-neighbors vertices;
+	 * This can be simplified as 'all loops of selected vertices and their immediate neighbors'
+	 * need to be tagged for update.
+	 */
 	BM_ITER_MESH(v, &viter, bm, BM_VERTS_OF_MESH) {
 		if (BM_elem_flag_test(v, BM_ELEM_SELECT)) {
-			BM_ITER_ELEM(f, &fiter, v, BM_FACES_OF_VERT) {
-				if (!BLI_BITMAP_TEST(done_faces, BM_elem_index_get(f))) {
-					BM_ITER_ELEM(l, &liter, f, BM_LOOPS_OF_FACE) {
-						MLoopNorSpace *lspace = lnors_spaces[BM_elem_index_get(l)];
-						if (lspace->flags & MLNOR_SPACE_IS_SINGLE) {
-							BLI_assert(l == (BMLoop *)lspace->loops);
-							BM_ELEM_API_FLAG_ENABLE(l, BM_LNORSPACE_UPDATE);
-						}
-						else {
-							LinkNode *loops = lspace->loops;
-							for (; loops != NULL; loops = loops->next) {
-								BM_ELEM_API_FLAG_ENABLE((BMLoop *)loops->link, BM_LNORSPACE_UPDATE);
-							}
-						}
+			BM_ITER_ELEM(l, &liter, v, BM_LOOPS_OF_VERT) {
+				BM_ELEM_API_FLAG_ENABLE(l, BM_LNORSPACE_UPDATE);
+
+				/* Note that we only handle unselected neighbor vertices here, main loop will take care of
+				 * selected ones. */
+				if (!BM_elem_flag_test(l->prev->v, BM_ELEM_SELECT) &&
+				    !BLI_BITMAP_TEST(done_verts, BM_elem_index_get(l->prev->v)))
+				{
+					BMLoop *l_prev;
+					BMIter liter_prev;
+					BM_ITER_ELEM(l_prev, &liter_prev, l->prev->v, BM_LOOPS_OF_VERT) {
+						BM_ELEM_API_FLAG_ENABLE(l_prev, BM_LNORSPACE_UPDATE);
 					}
-					BLI_BITMAP_ENABLE(done_faces, BM_elem_index_get(f));  /* No need to iterate through it again. */
+					BLI_BITMAP_ENABLE(done_verts, BM_elem_index_get(l_prev->v));
+				}
+
+				if (!BM_elem_flag_test(l->next->v, BM_ELEM_SELECT) &&
+				    !BLI_BITMAP_TEST(done_verts, BM_elem_index_get(l->next->v)))
+				{
+					BMLoop *l_next;
+					BMIter liter_next;
+					BM_ITER_ELEM(l_next, &liter_next, l->next->v, BM_LOOPS_OF_VERT) {
+						BM_ELEM_API_FLAG_ENABLE(l_next, BM_LNORSPACE_UPDATE);
+					}
+					BLI_BITMAP_ENABLE(done_verts, BM_elem_index_get(l_next->v));
 				}
 			}
+
+			BLI_BITMAP_ENABLE(done_verts, BM_elem_index_get(v));
 		}
 	}
 
-	MEM_freeN(done_faces);
+	MEM_freeN(done_verts);
 	bm->spacearr_dirty |= BM_SPACEARR_DIRTY;
 }
 
