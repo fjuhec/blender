@@ -268,22 +268,17 @@ float (*BKE_editmesh_vertexCos_get_orco(BMEditMesh *em, int *r_numVerts))[3]
 void BKE_editmesh_lnorspace_update(BMEditMesh *em)
 {
 	BMesh *bm = em->bm;
-	if (bm->lnor_spacearr == NULL) {
-		const float split_angle_cos = cosf(((Mesh *)em->ob->data)->smoothresh);
 
-		BMEdge *e;
-		BMIter eiter;
-		BM_ITER_MESH(e, &eiter, em->bm, BM_EDGES_OF_MESH) {
-			BMLoop *l_1, *l_2;
-			if (BM_edge_loop_pair(e, &l_1, &l_2)) {
-				const float *no_1 = l_1->f->no;
-				const float *no_2 = l_2->f->no;
+	/* Similar code to MESH_OT_customdata_custom_splitnormals_add operator, we want to keep same shading
+	 * in case we were using autosmooth so far... */
+	if (!CustomData_has_layer(&bm->ldata, CD_CUSTOMLOOPNORMAL)) {
+		Mesh *me = em->ob->data;
+		if (me->flag & ME_AUTOSMOOTH) {
+			BM_edges_sharp_from_angle_set(bm, me->smoothresh);
 
-				if (dot_v3v3(no_1, no_2) < split_angle_cos && BM_elem_flag_test(e, BM_ELEM_SMOOTH)) {
-					BM_elem_flag_disable(e, BM_ELEM_SMOOTH);
-				}
-			}
+			me->drawflag |= ME_DRAWSHARP;
 		}
 	}
+
 	BM_lnorspace_update(bm);
 }
