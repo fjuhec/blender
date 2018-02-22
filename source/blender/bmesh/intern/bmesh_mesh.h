@@ -66,6 +66,8 @@ void BM_loop_normal_free(LoopNormalData *ld);
 int BM_total_loop_select(BMesh *bm);
 void InitTransDataNormal(BMesh *bm, TransDataLoopNormal *tld, BMVert *v, BMLoop *l, int offset);
 
+void BM_edges_sharp_from_angle_set(BMesh *bm, const float split_angle);
+
 void bmesh_edit_begin(BMesh *bm, const BMOpTypeFlag type_flag);
 void bmesh_edit_end(BMesh *bm, const BMOpTypeFlag type_flag);
 

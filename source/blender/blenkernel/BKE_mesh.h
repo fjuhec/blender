@@ -200,6 +200,13 @@ void BKE_mesh_loop_manifold_fan_around_vert_next(
         const int *loop_to_poly, const int *e2lfan_curr, const uint mv_pivot_index,
         const struct MLoop **r_mlfan_curr, int *r_mlfan_curr_index, int *r_mlfan_vert_index, int *r_mpfan_curr_index);
 
+void BKE_edges_sharp_from_angle_set(
+        const struct MVert *mverts, const int numVerts,
+        struct MEdge *medges, const int numEdges,
+        struct MLoop *mloops, const int numLoops,
+        struct MPoly *mpolys, const float (*polynors)[3], const int numPolys,
+        const float split_angle);
+
 /**
  * References a contiguous loop-fan with normal offset vars.
  */
