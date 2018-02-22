@@ -51,18 +51,14 @@ static void initData(ModifierData *md)
 	gpmd->angle = M_PI_2;
 }
 
-static void updateDepsgraph(ModifierData *md,
-	struct Main *UNUSED(bmain),
-	struct Scene *UNUSED(scene),
-	Object *object,
-	struct DepsNodeHandle *node)
+static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphContext *ctx)
 {
 	GpencilSwirlModifierData *lmd = (GpencilSwirlModifierData *)md;
 	if (lmd->object != NULL) {
-		DEG_add_object_relation(node, lmd->object, DEG_OB_COMP_GEOMETRY, "Swirl Modifier");
-		DEG_add_object_relation(node, lmd->object, DEG_OB_COMP_TRANSFORM, "Swirl Modifier");
+		DEG_add_object_relation(ctx->node, lmd->object, DEG_OB_COMP_GEOMETRY, "Swirl Modifier");
+		DEG_add_object_relation(ctx->node, lmd->object, DEG_OB_COMP_TRANSFORM, "Swirl Modifier");
 	}
-	DEG_add_object_relation(node, object, DEG_OB_COMP_TRANSFORM, "Swirl Modifier");
+	DEG_add_object_relation(ctx->node, ctx->object, DEG_OB_COMP_TRANSFORM, "Swirl Modifier");
 }
 
 static bool isDisabled(ModifierData *md, int UNUSED(userRenderParams))

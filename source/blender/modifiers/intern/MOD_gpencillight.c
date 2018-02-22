@@ -52,18 +52,14 @@ static void initData(ModifierData *md)
 	gpmd->object = NULL;
 }
 
-static void updateDepsgraph(ModifierData *md,
-	struct Main *UNUSED(bmain),
-	struct Scene *UNUSED(scene),
-	Object *object,
-	struct DepsNodeHandle *node)
+static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphContext *ctx)
 {
 	GpencilLightModifierData *lmd = (GpencilLightModifierData *)md;
 	if (lmd->object != NULL) {
-		DEG_add_object_relation(node, lmd->object, DEG_OB_COMP_GEOMETRY, "Light Modifier");
-		DEG_add_object_relation(node, lmd->object, DEG_OB_COMP_TRANSFORM, "Light Modifier");
+		DEG_add_object_relation(ctx->node, lmd->object, DEG_OB_COMP_GEOMETRY, "Light Modifier");
+		DEG_add_object_relation(ctx->node, lmd->object, DEG_OB_COMP_TRANSFORM, "Light Modifier");
 	}
-	DEG_add_object_relation(node, object, DEG_OB_COMP_TRANSFORM, "Light Modifier");
+	DEG_add_object_relation(ctx->node, ctx->object, DEG_OB_COMP_TRANSFORM, "Light Modifier");
 }
 
 static bool isDisabled(ModifierData *md, int UNUSED(userRenderParams))
