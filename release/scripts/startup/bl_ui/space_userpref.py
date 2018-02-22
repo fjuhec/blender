@@ -75,10 +75,10 @@ class USERPREF_HT_header(Header):
             layout.operator("wm.theme_install")
 
 
-class USERPREF_PT_tabs(Panel):
+class USERPREF_PT_navigation(Panel):
     bl_label = ""
     bl_space_type = 'USER_PREFERENCES'
-    bl_region_type = 'WINDOW'
+    bl_region_type = 'UI'
     bl_options = {'HIDE_HEADER'}
 
     def draw(self, context):
@@ -86,7 +86,9 @@ class USERPREF_PT_tabs(Panel):
 
         userpref = context.user_preferences
 
-        layout.row().prop(userpref, "active_section", expand=True)
+        col = layout.column()
+
+        col.prop(userpref, "active_section", expand=True)
 
 
 class USERPREF_MT_interaction_presets(Menu):
@@ -1582,7 +1584,7 @@ class USERPREF_PT_addons(Panel):
 
 classes = (
     USERPREF_HT_header,
-    USERPREF_PT_tabs,
+    USERPREF_PT_navigation,
     USERPREF_MT_interaction_presets,
     USERPREF_MT_templates_splash,
     USERPREF_MT_app_templates,

@@ -52,6 +52,7 @@
 #include "DNA_genfile.h"
 #include "DNA_workspace_types.h"
 
+#include "BKE_screen.h"
 #include "BKE_collection.h"
 #include "BKE_customdata.h"
 #include "BKE_freestyle.h"
@@ -936,6 +937,29 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 		if (!DNA_struct_elem_find(fd->filesdna, "LightProbe", "float", "intensity")) {
 			for (LightProbe *probe = main->lightprobe.first; probe; probe = probe->id.next) {
 				probe->intensity = 1.0f;
+			}
+		}
+	}
+
+	{
+		for (bScreen *screen = main->screen.first; screen; screen = screen->id.next) {
+			for (ScrArea *area = screen->areabase.first; area; area = area->next) {
+				for (SpaceLink *slink = area->spacedata.first; slink; slink = slink->next) {
+					if (slink->spacetype == SPACE_USERPREF) {
+						ARegion *navigation_region = BKE_spacedata_find_region_type(slink, area, RGN_TYPE_UI);
+
+						if (!navigation_region) {
+							ListBase *regionbase = (slink == area->spacedata.first) ?
+							                           &area->regionbase : &slink->regionbase;
+
+							navigation_region = MEM_callocN(sizeof(ARegion), "userpref navigation-region do_versions");
+
+							BLI_addhead(regionbase, navigation_region); /* order matters, addhead not addtail! */
+							navigation_region->regiontype = RGN_TYPE_UI;
+							navigation_region->alignment = RGN_ALIGN_LEFT;
+						}
+					}
+				}
 			}
 		}
 	}

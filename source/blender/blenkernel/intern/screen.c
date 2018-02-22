@@ -278,6 +278,30 @@ void BKE_spacedata_draw_locks(int set)
 	}
 }
 
+/**
+ * Version of #BKE_area_find_region_type that also works if \a slink is not the active space of \a area.
+ */
+ARegion *BKE_spacedata_find_region_type(const SpaceLink *slink, const ScrArea *area, int region_type)
+{
+	const bool is_slink_active = slink == area->spacedata.first;
+	const ListBase *regionbase = (is_slink_active) ?
+	                           &area->regionbase : &slink->regionbase;
+	ARegion *region = NULL;
+
+	BLI_assert(BLI_findindex(&area->spacedata, slink) != -1);
+	for (region = regionbase->first; region; region = region->next) {
+		if (region->regiontype == region_type) {
+			break;
+		}
+	}
+
+	/* Should really unit test this instead. */
+	BLI_assert(!is_slink_active || region == BKE_area_find_region_type(area, region_type));
+
+	return region;
+}
+
+
 static void (*spacedata_id_remap_cb)(struct ScrArea *sa, struct SpaceLink *sl, ID *old_id, ID *new_id) = NULL;
 
 void BKE_spacedata_callback_id_remap_set(void (*func)(ScrArea *sa, SpaceLink *sl, ID *, ID *))
@@ -455,17 +479,21 @@ unsigned int BKE_screen_visible_layers(bScreen *screen, Scene *scene)
 
 /* ***************** Utilities ********************** */
 
-/* Find a region of the specified type from the given area */
-ARegion *BKE_area_find_region_type(ScrArea *sa, int type)
+/**
+ * Find a region of type \a region_type in the currently active space of \a area.
+ *
+ * \note This does __not__ work if the region to look up is not in the active
+ *       space. Use #BKE_spacedata_find_region_type if that may be the case.
+ */
+ARegion *BKE_area_find_region_type(const ScrArea *area, int region_type)
 {
-	if (sa) {
-		ARegion *ar;
-		
-		for (ar = sa->regionbase.first; ar; ar = ar->next) {
-			if (ar->regiontype == type)
-				return ar;
+	if (area) {
+		for (ARegion *region = area->regionbase.first; region; region = region->next) {
+			if (region->regiontype == region_type)
+				return region;
 		}
 	}
+
 	return NULL;
 }
 
