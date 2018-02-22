@@ -34,8 +34,6 @@
 
 struct ID;
 struct DerivedMesh;
-struct DagForest;
-struct DagNode;
 struct EvaluationContext;
 struct bContext;
 struct Object;
@@ -138,6 +136,12 @@ typedef enum ModifierApplyFlag {
 	                                */
 } ModifierApplyFlag;
 
+
+typedef struct ModifierUpdateDepsgraphContext {
+	struct Scene *scene;
+	struct Object *object;
+	struct DepsNodeHandle *node;
+} ModifierUpdateDepsgraphContext;
 
 typedef struct ModifierTypeInfo {
 	/* The user visible name for this modifier */
@@ -318,10 +322,7 @@ typedef struct ModifierTypeInfo {
 	 * This function is optional.
 	 */
 	void (*updateDepsgraph)(struct ModifierData *md,
-	                        struct Main *bmain,
-	                        struct Scene *scene,
-	                        struct Object *ob,
-	                        struct DepsNodeHandle *node);
+	                        const ModifierUpdateDepsgraphContext* ctx);
 
 	/* Should return true if the modifier needs to be recalculated on time
 	 * changes.
