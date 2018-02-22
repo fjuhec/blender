@@ -268,7 +268,7 @@ static void borderselect_action(bAnimContext *ac, const rcti rect, short mode, s
 		{
 			/* loop over data selecting */
 			switch (ale->type) {
-#if 0 /* XXXX: Keyframes are not currently shown here */
+#if 0 /* XXX: Keyframes are not currently shown here */
 				case ANIMTYPE_GPDATABLOCK:
 				{
 					bGPdata *gpd = ale->data;
