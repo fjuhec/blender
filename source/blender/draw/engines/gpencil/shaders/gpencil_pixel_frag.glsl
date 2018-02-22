@@ -1,4 +1,3 @@
-uniform mat4 ModelViewProjectionMatrix;
 uniform mat4 ProjectionMatrix;
 uniform mat4 ViewMatrix;
 
@@ -23,7 +22,7 @@ vec2 nsize = max(size, 3.0);
 void main()
 {
 	vec2 uv = vec2(gl_FragCoord.xy);
-	vec4 nloc = ModelViewProjectionMatrix * vec4(loc, 1.0);
+	vec4 nloc = ProjectionMatrix * ViewMatrix * vec4(loc.xyz, 1.0);
 	
 	float dx = (ProjectionMatrix[3][3] == 0.0) ? (nsize[0] / (nloc.z * defaultpixsize)) : (nsize[0] / defaultpixsize);
 	float dy = (ProjectionMatrix[3][3] == 0.0) ? (nsize[1] / (nloc.z * defaultpixsize)) : (nsize[1] / defaultpixsize);
