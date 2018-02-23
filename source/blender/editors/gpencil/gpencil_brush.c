@@ -283,7 +283,8 @@ static bool gp_brush_smooth_apply(
 	/* need one flag enabled by default */
 	if ((gso->settings->flag & (GP_BRUSHEDIT_FLAG_APPLY_POSITION |
 	                            GP_BRUSHEDIT_FLAG_APPLY_STRENGTH |
-	                            GP_BRUSHEDIT_FLAG_APPLY_THICKNESS)) == 0)
+	                            GP_BRUSHEDIT_FLAG_APPLY_THICKNESS |
+								GP_BRUSHEDIT_FLAG_APPLY_UV)) == 0)
 	{
 		gso->settings->flag |= GP_BRUSHEDIT_FLAG_APPLY_POSITION;
 	}
@@ -298,7 +299,10 @@ static bool gp_brush_smooth_apply(
 	if (gso->settings->flag & GP_BRUSHEDIT_FLAG_APPLY_THICKNESS) {
 		BKE_gp_smooth_stroke_thickness(gps, pt_index, inf);
 	}
-	
+	if (gso->settings->flag & GP_BRUSHEDIT_FLAG_APPLY_UV) {
+		BKE_gp_smooth_stroke_uv(gps, pt_index, inf);
+	}
+
 	return true;
 }
 
@@ -741,7 +745,8 @@ static bool gp_brush_randomize_apply(
 	/* need one flag enabled by default */
 	if ((gso->settings->flag & (GP_BRUSHEDIT_FLAG_APPLY_POSITION |
 	                            GP_BRUSHEDIT_FLAG_APPLY_STRENGTH |
-	                            GP_BRUSHEDIT_FLAG_APPLY_THICKNESS)) == 0)
+								GP_BRUSHEDIT_FLAG_APPLY_THICKNESS |
+								GP_BRUSHEDIT_FLAG_APPLY_UV)) == 0)
 	{
 		gso->settings->flag |= GP_BRUSHEDIT_FLAG_APPLY_POSITION;
 	}
@@ -824,6 +829,16 @@ static bool gp_brush_randomize_apply(
 		}
 		/* only limit lower value */
 		CLAMP_MIN(pt->pressure, 0.0f);
+	}
+	/* apply random to UV (use pressure) */
+	if (gso->settings->flag & GP_BRUSHEDIT_FLAG_APPLY_UV) {
+		if (BLI_frand() > 0.5f) {
+			pt->uv_rot += fac;
+		}
+		else {
+			pt->uv_rot -= fac;
+		}
+		CLAMP(pt->uv_rot, -M_PI_2, M_PI_2);
 	}
 
 	/* done */

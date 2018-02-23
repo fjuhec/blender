@@ -1236,6 +1236,8 @@ typedef enum eGP_BrushEdit_SettingsFlag {
 	GP_BRUSHEDIT_FLAG_WEIGHT_MODE = (1 << 4),
 	/* enable falloff for multiframe editing */
 	GP_BRUSHEDIT_FLAG_FRAME_FALLOFF = (1 << 5),
+	/* apply brush to uv data */
+	GP_BRUSHEDIT_FLAG_APPLY_UV = (1 << 6),
 } eGP_BrushEdit_SettingsFlag;
 
 

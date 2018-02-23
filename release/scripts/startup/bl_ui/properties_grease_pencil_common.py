@@ -280,6 +280,7 @@ class GreasePencilStrokeSculptPanel:
             row.prop(settings, "affect_position", text="Position", icon='MESH_DATA', toggle=True)
             row.prop(settings, "affect_strength", text="Strength", icon='COLOR', toggle=True)
             row.prop(settings, "affect_thickness", text="Thickness", icon='LINE_DATA', toggle=True)
+            row.prop(settings, "affect_uv", text="UV", icon='MOD_UVPROJECT', toggle=True)
 
         layout.separator()
 

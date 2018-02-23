@@ -2634,6 +2634,45 @@ bool BKE_gp_smooth_stroke_thickness(bGPDstroke *gps, int i, float inf)
 }
 
 /**
+* Apply smooth for UV rotation to stroke point (use pressure)
+* \param gps              Stroke to smooth
+* \param i                Point index
+* \param inf              Amount of smoothing to apply
+*/
+bool BKE_gp_smooth_stroke_uv(bGPDstroke *gps, int i, float inf)
+{
+	bGPDspoint *ptb = &gps->points[i];
+
+	/* Do nothing if not enough points */
+	if (gps->totpoints <= 2) {
+		return false;
+	}
+
+	/* Compute theoretical optimal value */
+	bGPDspoint *pta, *ptc;
+	int before = i - 1;
+	int after = i + 1;
+
+	CLAMP_MIN(before, 0);
+	CLAMP_MAX(after, gps->totpoints - 1);
+
+	pta = &gps->points[before];
+	ptc = &gps->points[after];
+
+	/* the optimal value is the corresponding to the interpolation of the pressure
+	*  at the distance of point b
+	*/
+	float fac = line_point_factor_v3(&ptb->x, &pta->x, &ptc->x);
+	float optimal = interpf(ptc->uv_rot, pta->uv_rot, fac);
+
+	/* Based on influence factor, blend between original and optimal */
+	ptb->uv_rot = interpf(optimal, ptb->uv_rot, inf);
+	CLAMP(ptb->uv_rot, -M_PI_2, M_PI_2);
+
+	return true;
+}
+
+/**
  * Get range of selected frames in layer.
  * Always the active frame is considered as selected, so if no more selected the range
  * will be equal to the current active frame.
