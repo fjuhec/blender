@@ -1100,7 +1100,6 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 				do_version_view_layer_visibility(group->view_layer);
 			}
 		}
-
 	}
 
 	{
