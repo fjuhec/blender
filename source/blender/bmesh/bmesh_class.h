@@ -292,9 +292,11 @@ typedef struct LoopNormalData {
 #define BM_ALL (BM_VERT | BM_EDGE | BM_LOOP | BM_FACE)
 #define BM_ALL_NOLOOP (BM_VERT | BM_EDGE | BM_FACE)
 
-#define BM_SPACEARR_DIRTY (1 << 1)
-#define BM_SPACEARR_DIRTY_ALL (1 << 2)
-#define BM_SPACEARR_BMO_SET (1 << 3)
+enum {
+	BM_SPACEARR_DIRTY = 1 << 0,
+	BM_SPACEARR_DIRTY_ALL = 1 << 1,
+	BM_SPACEARR_BMO_SET = 1 << 2,
+};
 
 /* args for _Generic */
 #define _BM_GENERIC_TYPE_ELEM_NONCONST \
