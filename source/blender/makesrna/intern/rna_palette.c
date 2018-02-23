@@ -62,6 +62,16 @@ static void rna_Palette_dependency_update(Main *UNUSED(bmain), Scene *UNUSED(sce
 	WM_main_add_notifier(NC_GPENCIL | NA_EDITED, NULL);
 }
 
+static void rna_Palette_uv_update(Main *bmain, Scene *scene, PointerRNA *ptr)
+{
+	/* update all uv strokes of this color */
+	Palette *palette = ptr->id.data;
+	PaletteColor *palcolor = (PaletteColor *)ptr->data;
+	ED_gpencil_update_color_uv(bmain, palette, palcolor);
+
+	rna_Palette_dependency_update(bmain, scene, ptr);
+}
+
 static PaletteColor *rna_Palette_color_new(Palette *palette)
 {
 	PaletteColor *color = BKE_palette_color_add(palette);
@@ -387,7 +397,7 @@ static void rna_def_palettecolor(BlenderRNA *brna)
 	RNA_def_property_float_sdna(prop, NULL, "t_pixsize");
 	RNA_def_property_range(prop, 1, 5000);
 	RNA_def_property_ui_text(prop, "UV Factor", "Texture Pixel Size factor along the stroke");
-	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS | ND_DATA | NC_GPENCIL, "rna_Palette_dependency_update");
+	RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS | ND_DATA | NC_GPENCIL, "rna_Palette_uv_update");
 
 	/* Flags */
 	prop = RNA_def_property(srna, "hide", PROP_BOOLEAN, PROP_NONE);

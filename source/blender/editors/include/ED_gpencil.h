@@ -41,6 +41,7 @@ struct bGPDframe;
 struct bGPDstroke;
 struct bGPDspoint;
 
+struct Main;
 struct bContext;
 struct EvaluationContext;
 struct Depsgraph;
@@ -214,5 +215,6 @@ int ED_gpencil_join_objects_exec(struct bContext *C, struct wmOperator *op);
 /* texture coordinate utilities */
 void ED_gpencil_tpoint_to_point(struct Scene *scene, struct ARegion *ar, struct View3D *v3d, float origin[3], const struct tGPspoint *tpt, struct bGPDspoint *pt);
 void ED_gpencil_calc_stroke_uv(struct bGPDstroke *gps);
+void ED_gpencil_update_color_uv(struct Main *bmain, struct Palette *palette, struct PaletteColor *palcolor);
 
 #endif /*  __ED_GPENCIL_H__ */

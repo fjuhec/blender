@@ -48,6 +48,7 @@
 #include "DNA_space_types.h"
 #include "DNA_view3d_types.h"
 
+#include "BKE_main.h"
 #include "BKE_context.h"
 #include "BKE_gpencil.h"
 #include "BKE_object.h"
@@ -1618,5 +1619,33 @@ void ED_gpencil_calc_stroke_uv(bGPDstroke *gps)
 	}
 }
 
+/* recalc uv for any stroke using the color */
+void ED_gpencil_update_color_uv(Main *bmain, Palette *palette, PaletteColor *palcolor)
+{
+	/* read all strokes  */
+	for (bGPdata *gpd = bmain->gpencil.first; gpd; gpd = gpd->id.next) {
+		for (bGPDlayer *gpl = gpd->layers.first; gpl; gpl = gpl->next) {
+			/* only editable and visible layers are considered */
+			if (gpencil_layer_is_editable(gpl)) {
+				for (bGPDframe *gpf = gpl->frames.first; gpf; gpf = gpf->next) {
+					for (bGPDstroke *gps = gpf->strokes.first; gps; gps = gps->next) {
+						/* check if the color is editable */
+						if (ED_gpencil_stroke_color_use(gpl, gps) == false) {
+							continue;
+						}
+						if (gps->palette != palette) {
+							continue;
+						}
+
+						/* update */
+						if (strcmp(palcolor->info, gps->colorname) == 0) {
+							ED_gpencil_calc_stroke_uv(gps);
+						}
+					}
+				}
+			}
+		}
+	}
+}
 /* ******************************************************** */
 
