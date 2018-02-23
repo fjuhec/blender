@@ -139,7 +139,7 @@ class DATA_PT_gpencil_display(DataButtonsPanel, Panel):
         col.prop(gpd, "keep_stroke_thickness")
         sub = col.column()
         sub.active = not gpd.keep_stroke_thickness
-        sub.prop(gpd, "pixfactor", text="Pixel Factor")
+        sub.prop(gpd, "pixfactor", text="Scale")
 
         layout.separator()
 
