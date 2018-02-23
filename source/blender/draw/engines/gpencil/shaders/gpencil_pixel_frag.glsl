@@ -11,11 +11,11 @@ uniform int uselines;
 uniform vec3 loc;
 uniform float pixsize;   /* rv3d->pixsize */
 uniform float pixelsize; /* U.pixelsize */
-uniform int pixfactor;
+uniform float pixfactor;
 
 out vec4 FragColor;
 
-float defaultpixsize = pixsize * pixelsize * float(pixfactor);
+float defaultpixsize = pixsize * pixelsize * (1000.0 / pixfactor);
 vec2 nsize = max(size, 3.0);
 
 /* This pixelation shader is a modified version of original Geeks3d.com code */

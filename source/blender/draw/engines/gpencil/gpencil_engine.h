@@ -161,7 +161,7 @@ typedef struct GPENCIL_Storage {
 	int xray;
 	int keep_size;
 	float obj_scale;
-	int pixfactor;
+	float pixfactor;
 	int playing;
 	bool is_render;
 	int uselines;

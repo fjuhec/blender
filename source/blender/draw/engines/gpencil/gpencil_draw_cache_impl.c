@@ -374,7 +374,7 @@ DRWShadingGroup *DRW_gpencil_shgroup_stroke_create(GPENCIL_e_data *e_data, GPENC
 			}
 		}
 		DRW_shgroup_uniform_int(grp, "color_type", &stl->shgroups[id].color_type, 1);
-		DRW_shgroup_uniform_int(grp, "pixfactor", &gpd->pixfactor, 1);
+		DRW_shgroup_uniform_float(grp, "pixfactor", &gpd->pixfactor, 1);
 	}
 	else {
 		stl->storage->obj_scale = 1.0f;
@@ -384,10 +384,10 @@ DRWShadingGroup *DRW_gpencil_shgroup_stroke_create(GPENCIL_e_data *e_data, GPENC
 		DRW_shgroup_uniform_int(grp, "keep_size", &stl->storage->keep_size, 1);
 		DRW_shgroup_uniform_int(grp, "color_type", &stl->storage->color_type, 1);
 		if (gpd) {
-			DRW_shgroup_uniform_int(grp, "pixfactor", &gpd->pixfactor, 1);
+			DRW_shgroup_uniform_float(grp, "pixfactor", &gpd->pixfactor, 1);
 		}
 		else {
-			DRW_shgroup_uniform_int(grp, "pixfactor", &stl->storage->pixfactor, 1);
+			DRW_shgroup_uniform_float(grp, "pixfactor", &stl->storage->pixfactor, 1);
 		}
 	}
 
@@ -466,7 +466,7 @@ DRWShadingGroup *DRW_gpencil_shgroup_point_create(GPENCIL_e_data *e_data, GPENCI
 			}
 		}
 		DRW_shgroup_uniform_int(grp, "color_type", &stl->shgroups[id].color_type, 1);
-		DRW_shgroup_uniform_int(grp, "pixfactor", &gpd->pixfactor, 1);
+		DRW_shgroup_uniform_float(grp, "pixfactor", &gpd->pixfactor, 1);
 	}
 	else {
 		stl->storage->obj_scale = 1.0f;
@@ -476,10 +476,10 @@ DRWShadingGroup *DRW_gpencil_shgroup_point_create(GPENCIL_e_data *e_data, GPENCI
 		DRW_shgroup_uniform_int(grp, "keep_size", &stl->storage->keep_size, 1);
 		DRW_shgroup_uniform_int(grp, "color_type", &stl->storage->color_type, 1);
 		if (gpd) {
-			DRW_shgroup_uniform_int(grp, "pixfactor", &gpd->pixfactor, 1);
+			DRW_shgroup_uniform_float(grp, "pixfactor", &gpd->pixfactor, 1);
 		}
 		else {
-			DRW_shgroup_uniform_int(grp, "pixfactor", &stl->storage->pixfactor, 1);
+			DRW_shgroup_uniform_float(grp, "pixfactor", &stl->storage->pixfactor, 1);
 		}
 	}
 

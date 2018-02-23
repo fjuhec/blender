@@ -1100,6 +1100,7 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 				do_version_view_layer_visibility(group->view_layer);
 			}
 		}
+
 	}
 
 	{
@@ -1138,6 +1139,16 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 		if (!DNA_struct_elem_find(fd->filesdna, "LightProbe", "float", "intensity")) {
 			for (LightProbe *probe = main->lightprobe.first; probe; probe = probe->id.next) {
 				probe->intensity = 1.0f;
+			}
+		}
+	}
+
+	{
+		/* rescale old grease pencil pixel factor (needed for Hero open movie files) */
+		for (bGPdata *gpd = main->gpencil.first; gpd; gpd = gpd->id.next) {
+			/* old data was always bigger than 30 */
+			if (gpd->pixfactor > 30.0f) {
+				gpd->pixfactor = 1000.0f / gpd->pixfactor;
 			}
 		}
 	}

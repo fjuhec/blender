@@ -40,7 +40,7 @@ struct GHash;
 
 /* TODO: add size as userprefs parameter */
 #define GP_OBGPENCIL_DEFAULT_SIZE  0.2f 
-#define GP_DEFAULT_PIX_FACTOR 1000 
+#define GP_DEFAULT_PIX_FACTOR 1.0f
 #define GP_DEFAULT_GRID_SIZE 100 
 
 /* ***************************************** */
@@ -433,7 +433,7 @@ typedef struct bGPdata {
 	
 	
 	/* 3D Viewport/Appearance Settings */
-	int pixfactor;              /* factor to define pixel size conversion */
+	float pixfactor;            /* factor to define pixel size conversion */
 	float line_color[4];        /* color for edit line */
 
 	/* Onion skinning */

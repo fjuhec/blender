@@ -1494,10 +1494,11 @@ static void rna_def_gpencil_data(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Keep thickness", "Show stroke with same thickness when viewport zoom change");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
-	prop = RNA_def_property(srna, "pixfactor", PROP_INT, PROP_NONE);
-	RNA_def_property_int_sdna(prop, NULL, "pixfactor");
-	RNA_def_property_range(prop, 30, 10000);
-	RNA_def_property_ui_text(prop, "Pixel Factor", "Conversion factor for pixel size (use larger values for thinner lines)");
+	prop = RNA_def_property(srna, "pixfactor", PROP_FLOAT, PROP_NONE);
+	RNA_def_property_float_sdna(prop, NULL, "pixfactor");
+	RNA_def_property_range(prop, 0.1f, 30.0f);
+	RNA_def_property_ui_range(prop, 0.1f, 30.0f, 1, 2);
+	RNA_def_property_ui_text(prop, "Pixel Factor", "Conversion factor for pixel size (use larger values for thicker lines)");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
 	prop = RNA_def_property(srna, "use_multiedit", PROP_BOOLEAN, PROP_NONE);

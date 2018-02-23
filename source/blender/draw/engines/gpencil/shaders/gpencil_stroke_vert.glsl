@@ -5,7 +5,7 @@ uniform float pixsize;   /* rv3d->pixsize */
 uniform float pixelsize; /* U.pixelsize */
 uniform int keep_size;    
 uniform float objscale;
-uniform int pixfactor;
+uniform float pixfactor;
 
 in vec3 pos;
 in vec4 color;
@@ -18,7 +18,7 @@ out vec2 finaluvdata;
 
 #define TRUE 1
 
-float defaultpixsize = pixsize * pixelsize * float(pixfactor);
+float defaultpixsize = pixsize * pixelsize * (1000.0 / pixfactor);;
 
 void main(void)
 {
