@@ -33,11 +33,14 @@ void main()
 	/* texture */
 	if (color_type == GPENCIL_COLOR_TEXTURE) {
 		fragColor =  texture2D(myTexture, mTexCoord);
+		/* mult both alpha factor to use strength factor */
+		fragColor.a = min(fragColor.a * tColor.a, fragColor.a);
 	}
 	/* pattern */
 	if (color_type == GPENCIL_COLOR_PATTERN) {
 		vec4 text_color = texture2D(myTexture, mTexCoord);
 		fragColor = tColor;
-		fragColor.a = min(text_color.a, tColor.a);
+		/* mult both alpha factor to use strength factor with color alpha limit */
+		fragColor.a = min(text_color.a * tColor.a, tColor.a);
 	}
 }
