@@ -22,6 +22,7 @@
 /** \file blender/draw/engines/gpencil/gpencil_engine.c
  *  \ingroup draw
  */
+#include "BLI_rect.h" 
 
 #include "DRW_engine.h"
 #include "DRW_render.h"
@@ -1024,24 +1025,23 @@ static void GPENCIL_render_update_vecs(GPENCIL_Data *vedata)
 }
 
 /* read z-depth render result */
-static void GPENCIL_render_result_z(RenderResult *rr, const char *viewname,	GPENCIL_Data *vedata)
+static void GPENCIL_render_result_z(struct RenderLayer *rl, const char *viewname, GPENCIL_Data *vedata, const rcti *rect)
 {
 	const DRWContextState *draw_ctx = DRW_context_state_get();
 	ViewLayer *view_layer = draw_ctx->view_layer;
 	GPENCIL_StorageList *stl = vedata->stl;
 
 	if ((view_layer->passflag & SCE_PASS_Z) != 0) {
-		RenderLayer *rl = rr->layers.first;
 		RenderPass *rp = RE_pass_find_by_name(rl, RE_PASSNAME_Z, viewname);
 
-		DRW_framebuffer_read_depth(rr->xof, rr->yof, rr->rectx, rr->recty, rp->rect);
+		DRW_framebuffer_read_depth(rect->xmin, rect->ymin, BLI_rcti_size_x(rect), BLI_rcti_size_y(rect), rp->rect);
 
 		bool is_persp = DRW_viewport_is_persp_get();
 
 		GPENCIL_render_update_vecs(vedata);
 
 		/* Convert ogl depth [0..1] to view Z [near..far] */
-		for (int i = 0; i < rr->rectx * rr->recty; i++) {
+		for (int i = 0; i < BLI_rcti_size_x(rect) * BLI_rcti_size_y(rect); i++) {
 			if (rp->rect[i] == 1.0f) {
 				rp->rect[i] = 1e10f; /* Background */
 			}
@@ -1059,23 +1059,21 @@ static void GPENCIL_render_result_z(RenderResult *rr, const char *viewname,	GPEN
 }
 
 /* read combined render result */
-static void GPENCIL_render_result_combined(RenderResult *rr, const char *viewname, GPENCIL_Data *vedata)
+static void GPENCIL_render_result_combined(struct RenderLayer *rl, const char *viewname, GPENCIL_Data *vedata, const rcti *rect)
 {
-	RenderLayer *rl = rr->layers.first;
 	RenderPass *rp = RE_pass_find_by_name(rl, RE_PASSNAME_COMBINED, viewname);
 	GPENCIL_FramebufferList *fbl = ((GPENCIL_Data *)vedata)->fbl;
 
 	DRW_framebuffer_bind(fbl->main);
-	DRW_framebuffer_read_data(rr->xof, rr->yof, rr->rectx, rr->recty, 4, 0, rp->rect);
+	DRW_framebuffer_read_data(rect->xmin, rect->ymin, BLI_rcti_size_x(rect), BLI_rcti_size_y(rect), 4, 0, rp->rect);
 }
 
 /* render grease pencil to image */
-static void GPENCIL_render_to_image(void *vedata, RenderEngine *engine, struct RenderResult *render_result, struct RenderLayer *render_layer)
+static void GPENCIL_render_to_image(void *vedata, RenderEngine *engine, struct RenderLayer *render_layer, const rcti *rect)
 {
 	const char *viewname = RE_GetActiveRenderView(engine->re);
 	const DRWContextState *draw_ctx = DRW_context_state_get();
-	RenderResult *rr = render_result;
-	int imgsize = rr->rectx * rr->recty;
+	int imgsize = BLI_rcti_size_x(rect) * BLI_rcti_size_y(rect);
 
 	/* save previous render data */
 	RenderPass *rp_color_src = RE_pass_find_by_name(render_layer, RE_PASSNAME_COMBINED, viewname);
@@ -1111,9 +1109,9 @@ static void GPENCIL_render_to_image(void *vedata, RenderEngine *engine, struct R
 	GPENCIL_draw_scene(vedata);
 	
 	/* combined data */
-	GPENCIL_render_result_combined(rr, viewname, vedata);
+	GPENCIL_render_result_combined(render_layer, viewname, vedata, rect);
 	/* z-depth data */
-	GPENCIL_render_result_z(rr, viewname, vedata);
+	GPENCIL_render_result_z(render_layer, viewname, vedata, rect);
 	
 	/* detach textures */
 	if (fbl->main) {

@@ -3663,14 +3663,14 @@ static bool DRW_render_check_object_type(struct Depsgraph *depsgraph, short obty
 	return false;
 }
 
-void DRW_render_gpencil_to_image(RenderEngine *engine, struct RenderResult *render_result, struct RenderLayer *render_layer)
+void DRW_render_gpencil_to_image(RenderEngine *engine, struct RenderLayer *render_layer, const rcti *rect)
 {
 	const DRWContextState *draw_ctx = DRW_context_state_get();
 
 	if (draw_engine_gpencil_type.render_to_image) {
 		if (DRW_render_check_object_type(draw_ctx->depsgraph, OB_GPENCIL)) {
 			ViewportEngineData *gpdata = DRW_viewport_engine_data_ensure(&draw_engine_gpencil_type);
-			draw_engine_gpencil_type.render_to_image(gpdata, engine, render_result, render_layer);
+			draw_engine_gpencil_type.render_to_image(gpdata, engine, render_layer, rect);
 		}
 	}
 }
@@ -3740,8 +3740,7 @@ void DRW_render_to_image(RenderEngine *engine, struct Depsgraph *depsgraph)
 			engine_type->draw_engine->render_to_image(data, engine, render_layer, &render_rect);
 
 			/* grease pencil: render result is merged in the previous render result. */
-			DRW_render_gpencil_to_image(engine, render_result, render_layer);
-
+			DRW_render_gpencil_to_image(engine, render_layer, &render_rect);
 			DST.buffer_finish_called = false;
 			/* Force cache to reset. */
 			drw_viewport_cache_resize();
