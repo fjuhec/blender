@@ -3075,6 +3075,85 @@ void node_volume_absorption(vec4 color, float density, out Closure result)
 #endif
 }
 
+void node_blackbody(float temperature, sampler2D spectrummap, out vec4 color)
+{
+    if(temperature >= 12000.0) {
+        color = vec4(0.826270103, 0.994478524, 1.56626022, 1.0);
+    }
+    else if(temperature < 965.0) {
+        color = vec4(4.70366907, 0.0, 0.0, 1.0);
+    }
+	else {
+		float t = (temperature - 965.0) / (12000.0 - 965.0);
+		color = vec4(texture(spectrummap, vec2(t, 0.0)).rgb, 1.0);
+	}
+}
+
+void node_volume_principled(
+	vec4 color,
+	float density,
+	float anisotropy,
+	vec4 absorption_color,
+	float emission_strength,
+	vec4 emission_color,
+	float blackbody_intensity,
+	vec4 blackbody_tint,
+	float temperature,
+	float density_attribute,
+	vec4 color_attribute,
+	float temperature_attribute,
+	sampler2D spectrummap,
+	out Closure result)
+{
+#ifdef VOLUMETRICS
+	vec3 absorption_coeff = vec3(0.0);
+	vec3 scatter_coeff = vec3(0.0);
+	vec3 emission_coeff = vec3(0.0);
+
+	/* Compute density. */
+	density = max(density, 0.0);
+
+	if(density > 1e-5) {
+		density = max(density * density_attribute, 0.0);
+	}
+
+	if(density > 1e-5) {
+		/* Compute scattering and absorption coefficients. */
+		vec3 scatter_color = color.rgb * color_attribute.rgb;
+
+		scatter_coeff = scatter_color * density;
+		absorption_coeff = max(1.0 - scatter_color, 0.0) * max(1.0 - absorption_color.rgb, 0.0) * density;
+	}
+
+	/* Compute emission. */
+	emission_strength = max(emission_strength, 0.0);
+
+	if(emission_strength > 1e-5) {
+		emission_coeff += emission_strength * emission_color.rgb;
+	}
+
+	if(blackbody_intensity > 1e-3) {
+		/* Add temperature from attribute. */
+		float T = max(temperature * max(temperature_attribute, 0.0), 0.0);
+
+		/* Stefan-Boltzman law. */
+		float T4 = (T * T) * (T * T);
+		float sigma = 5.670373e-8 * 1e-6 / M_PI;
+		float intensity = sigma * mix(1.0, T4, blackbody_intensity);
+
+		if(intensity > 1e-5) {
+			vec4 bb;
+			node_blackbody(T, spectrummap, bb);
+			emission_coeff += bb.rgb * blackbody_tint.rgb * intensity;
+		}
+	}
+
+	result = Closure(absorption_coeff, scatter_coeff, emission_coeff, anisotropy);
+#else
+	result = CLOSURE_DEFAULT;
+#endif
+}
+
 /* closures */
 
 void node_mix_shader(float fac, Closure shader1, Closure shader2, out Closure shader)
@@ -3153,7 +3232,13 @@ void node_attribute_volume_color(sampler3D tex, out vec4 outcol, out vec3 outvec
 #else
 	vec3 cos = vec3(0.0);
 #endif
-	outvec = texture(tex, cos).rgb;
+
+	vec4 value = texture(tex, cos).rgba;
+	/* Density is premultiplied for interpolation, divide it out here. */
+	if (value.a > 0.0)
+		value.rgb /= value.a;
+
+	outvec = value.rgb;
 	outcol = vec4(outvec, 1.0);
 	outf = dot(vec3(1.0 / 3.0), outvec);
 }
@@ -3165,9 +3250,23 @@ void node_attribute_volume_flame(sampler3D tex, out vec4 outcol, out vec3 outvec
 #else
 	vec3 cos = vec3(0.0);
 #endif
-	outvec = texture(tex, cos).rrr;
-	outcol = vec4(outvec, 1.0);
-	outf = dot(vec3(1.0 / 3.0), outvec);
+	outf = texture(tex, cos).r;
+	outvec = vec3(outf, outf, outf);
+	outcol = vec4(outf, outf, outf, 1.0);
+}
+
+void node_attribute_volume_temperature(sampler3D tex, vec2 temperature, out vec4 outcol, out vec3 outvec, out float outf)
+{
+#if defined(EEVEE_ENGINE) && defined(MESH_SHADER) && defined(VOLUMETRICS)
+	vec3 cos = volumeObjectLocalCoord;
+#else
+	vec3 cos = vec3(0.0);
+#endif
+	float flame = texture(tex, cos).r;
+
+	outf = (flame > 0.01) ? temperature.x + flame * (temperature.y - temperature.x): 0.0;
+	outvec = vec3(outf, outf, outf);
+	outcol = vec4(outf, outf, outf, 1.0);
 }
 
 void node_attribute(vec3 attr, out vec4 outcol, out vec3 outvec, out float outf)
