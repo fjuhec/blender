@@ -167,6 +167,8 @@ typedef struct PaletteColor {
 	float t_offset[2];       /* factor to shift texture in 2d space */
 	float t_opacity;         /* texture opacity */
 	float t_pixsize;         /* pixel size for uv along the stroke */
+	int mode;                /* drawing mode (line or dots) */
+	char pad[4];
 } PaletteColor;
 
 /* PaletteColor->flag (mainly used by grease pencil) */
@@ -184,10 +186,15 @@ typedef enum ePaletteColor_Flag {
 	/* Flip fill colors */
 	PAC_COLOR_FLIP_FILL = (1 << 6),
 	/* Stroke use Dots */
-	PAC_COLOR_DOT = (1 << 7),
+	/* PAC_COLOR_DOT = (1 << 7), DEPRECATED*
 	/* Texture is a pattern */
 	PAC_COLOR_PATTERN = (1 << 8)
 } ePaletteColor_Flag;
+
+typedef enum ePaletteColor_Mode {
+	PAC_MODE_LINE = 0, /* line */
+	PAC_MODE_DOTS = 1, /* dots */
+} ePaletteColor_Mode;
 
 typedef struct Palette {
 	ID id;

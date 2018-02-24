@@ -146,6 +146,11 @@ class MATERIAL_PT_gpencil_palette_strokecolor(Panel):
         split.active = not pcolor.lock
 
         col = split.column(align=True)
+        row = col.row(align=True)
+        row.enabled = not pcolor.lock
+        row.prop(pcolor, "mode", expand=True)
+        col.separator()
+
         col.enabled = not pcolor.lock
         col.prop(pcolor, "stroke_style", text="")
 
@@ -161,10 +166,6 @@ class MATERIAL_PT_gpencil_palette_strokecolor(Panel):
             col = row.column(align=True)
             col.prop(pcolor, "color", text="")
             col.prop(pcolor, "alpha", slider=True)
-
-        row = layout.row(align=True)
-        row.enabled = not pcolor.lock
-        row.prop(pcolor, "use_dot", text="Dots")
 
         # Options
         row = layout.row()

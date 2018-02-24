@@ -1453,7 +1453,7 @@ static void gp_init_palette(tGPsdata *p)
 			gpd->sfill[3] = 0.8f;
 		}
 
-		gpd->sflag = palcolor->flag;
+		gpd->mode = palcolor->mode;
 		gpd->bstroke_style = palcolor->stroke_style;
 		gpd->bfill_style = palcolor->fill_style;
 	}

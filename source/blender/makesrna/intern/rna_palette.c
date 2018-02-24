@@ -232,6 +232,13 @@ static void rna_def_palettecolor(BlenderRNA *brna)
 	StructRNA *srna;
 	PropertyRNA *prop;
 
+	/* mode type styles */
+	static EnumPropertyItem palettecolor_mode_types_items[] = {
+		{ PAC_MODE_LINE, "LINE", 0, "Line", "Draw strokes using a continuous line" },
+		{ PAC_MODE_DOTS, "DOTS", 0, "Dots", "Draw strokes using separated dots" },
+		{ 0, NULL, 0, NULL, NULL }
+	};
+
 	/* stroke styles */
 	static EnumPropertyItem stroke_style_items[] = {
 		{ STROKE_STYLE_SOLID, "SOLID", 0, "Solid", "Draw strokes with solid color" },
@@ -433,11 +440,6 @@ static void rna_def_palettecolor(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Flip", "Flip filling colors");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_Palette_dependency_update");
 
-	prop = RNA_def_property(srna, "use_dot", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag", PAC_COLOR_DOT);
-	RNA_def_property_ui_text(prop, "Use Dots", "Draw stroke using dots instead of lines");
-	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_Palette_dependency_update");
-
 	prop = RNA_def_property(srna, "use_pattern", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", PAC_COLOR_PATTERN);
 	RNA_def_property_ui_text(prop, "Pattern", "Texture is a pattern to apply color");
@@ -447,6 +449,13 @@ static void rna_def_palettecolor(BlenderRNA *brna)
 	prop = RNA_def_property(srna, "pass_index", PROP_INT, PROP_UNSIGNED);
 	RNA_def_property_int_sdna(prop, NULL, "index");
 	RNA_def_property_ui_text(prop, "Pass Index", "Index number for the \"Color Index\" pass");
+	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_Palette_dependency_update");
+
+	/* mode type */
+	prop = RNA_def_property(srna, "mode", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_bitflag_sdna(prop, NULL, "mode");
+	RNA_def_property_enum_items(prop, palettecolor_mode_types_items);
+	RNA_def_property_ui_text(prop, "Mode Type", "Select draw mode for stroke");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_Palette_dependency_update");
 
 	/* stroke style */

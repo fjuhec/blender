@@ -1099,7 +1099,7 @@ static void gp_draw_strokes(tGPDdraw *tgpw)
 					copy_v4_v4(ink, tcolor);
 				}
 			}
-			if (palcolor->flag & PAC_COLOR_DOT) {
+			if (palcolor->mode == PAC_MODE_DOTS) {
 				/* volumetric stroke drawing */
 				if (tgpw->disable_fill != 1) {
 					gp_draw_stroke_volumetric_3d(gps->points, gps->totpoints, sthickness, ink);
@@ -1167,7 +1167,7 @@ static void gp_draw_strokes(tGPDdraw *tgpw)
 					copy_v4_v4(ink, tcolor);
 				}
 			}
-			if (palcolor->flag & PAC_COLOR_DOT) {
+			if (palcolor->mode == PAC_MODE_DOTS) {
 				/* blob/disk-based "volumetric" drawing */
 				gp_draw_stroke_volumetric_2d(gps->points, gps->totpoints, sthickness, tgpw->dflag, gps->flag,
 					tgpw->offsx, tgpw->offsy, tgpw->winx, tgpw->winy, tgpw->diff_mat, ink);
@@ -1663,7 +1663,7 @@ static void gp_draw_data_layers(RegionView3D *rv3d,
 			 * It should also be noted that sbuffer contains temporary point types
 			 * i.e. tGPspoints NOT bGPDspoints
 			 */
-			if (gpd->sflag & PAC_COLOR_DOT) {
+			if (gpd->mode == PAC_MODE_DOTS) {
 				gp_draw_stroke_volumetric_buffer(gpd->sbuffer, gpd->sbuffer_size, lthick,
 				                                 dflag, gpd->scolor);
 			}

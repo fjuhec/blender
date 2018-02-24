@@ -589,7 +589,7 @@ static void gpencil_add_stroke_shgroup(GpencilBatchCache *cache, DRWShadingGroup
 	CLAMP_MIN(sthickness, 1);
 	if (cache->is_dirty) {
 		gpencil_batch_cache_check_free_slots(ob);
-		if ((gps->totpoints > 1) && ((gps->palcolor->flag & PAC_COLOR_DOT) == 0)) {
+		if ((gps->totpoints > 1) && (gps->palcolor->mode  == PAC_MODE_LINE)) {
 			cache->batch_stroke[cache->cache_idx] = DRW_gpencil_get_stroke_geom(gpf, gps, sthickness, ink);
 		}
 		else {
@@ -664,7 +664,7 @@ static void gpencil_draw_onion_strokes(GpencilBatchCache *cache, GPENCIL_e_data 
 		}
 
 		stl->shgroups[id].shgrps_fill = NULL;
-		if ((gps->totpoints > 1) && ((gps->palcolor->flag & PAC_COLOR_DOT) == 0)) {
+		if ((gps->totpoints > 1) && (gps->palcolor->mode == PAC_MODE_LINE)) {
 			stl->shgroups[id].shgrps_stroke = DRW_gpencil_shgroup_stroke_create(e_data, vedata, psl->stroke_pass, e_data->gpencil_stroke_sh, ob, gpd, gps->palcolor, id);
 		}
 		else {
@@ -780,7 +780,7 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 #endif
 		if ((gpl->actframe->framenum == derived_gpf->framenum) || (!is_multiedit) || ((gpd->flag & GP_DATA_STROKE_MULTIEDIT_LINES) == 0)) {
 			int id = stl->storage->shgroup_id;
-			if ((gps->totpoints > 1) && ((gps->palcolor->flag & PAC_COLOR_DOT) == 0)) {
+			if ((gps->totpoints > 1) && (gps->palcolor->mode == PAC_MODE_LINE)) {
 				if ((gps->totpoints > 2) && (!GP_SIMPLIFY_FILL(ts, playing)) && 
 					((gps->palcolor->fill[3] > GPENCIL_ALPHA_OPACITY_THRESH) || (gps->palcolor->fill_style > 0)) &&
 					((gps->flag & GP_STROKE_NOFILL) == 0))
@@ -871,7 +871,7 @@ void DRW_gpencil_populate_buffer_strokes(GPENCIL_e_data *e_data, void *vedata, T
 			short lthick = brush->thickness * obscale;
 			/* if only one point, don't need to draw buffer because the user has no time to see it */
 			if (gpd->sbuffer_size > 1) {
-				if ((palcolor) && (palcolor->flag & PAC_COLOR_DOT) == 0) {
+				if ((palcolor) && (palcolor->mode == PAC_MODE_LINE)) {
 					stl->g_data->shgrps_drawing_stroke = DRW_gpencil_shgroup_stroke_create(e_data, vedata, psl->drawing_pass, e_data->gpencil_stroke_sh, NULL, gpd, palcolor, -1);
 				}
 				else {
@@ -879,7 +879,7 @@ void DRW_gpencil_populate_buffer_strokes(GPENCIL_e_data *e_data, void *vedata, T
 				}
 
 				/* use unit matrix because the buffer is in screen space and does not need conversion */
-				if ((gpd->sflag & PAC_COLOR_DOT) == 0) {
+				if (gpd->mode == PAC_MODE_LINE) {
 					stl->g_data->batch_buffer_stroke = DRW_gpencil_get_buffer_stroke_geom(gpd, stl->storage->unit_matrix, lthick);
 				}
 				else {

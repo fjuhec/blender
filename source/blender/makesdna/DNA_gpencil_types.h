@@ -419,7 +419,7 @@ typedef struct bGPdata {
 	void *sbuffer;				/* stroke buffer (can hold GP_STROKE_BUFFER_MAX) */
 	float scolor[4];            /* buffer color using palettes */
 	float sfill[4];             /* buffer fill color */
-	short sflag;                /* settings for palette color */
+	short mode;                 /* settings for palette color */
 	short bstroke_style;        /* buffer style for drawing strokes (used to select shader type) */
 	short bfill_style;          /* buffer style for filling areas (used to select shader type) */
 
