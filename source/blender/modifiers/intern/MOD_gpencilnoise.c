@@ -206,6 +206,16 @@ static void deformStroke(ModifierData *md, const EvaluationContext *UNUSED(eval_
 			}
 			CLAMP_MIN(pt1->strength, GPENCIL_STRENGTH_MIN);
 		}
+		/* apply randomness to uv rotation */
+		if (mmd->flag & GP_NOISE_MOD_UV) {
+			if (vdir > 0.5f) {
+				pt1->uv_rot -= pt1->uv_rot * vran * mmd->factor;
+			}
+			else {
+				pt1->uv_rot += pt1->uv_rot * vran * mmd->factor;
+			}
+			CLAMP(pt1->uv_rot, -M_PI_2, M_PI_2);
+		}
 	}
 }
 

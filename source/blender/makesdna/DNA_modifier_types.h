@@ -1660,7 +1660,8 @@ typedef enum eGpencilNoise_Flag {
 	GP_NOISE_MOVE_EXTREME   = (1 << 5),
 	GP_NOISE_INVERSE_LAYER  = (1 << 6),
 	GP_NOISE_INVERSE_PASS   = (1 << 7),
-	GP_NOISE_INVERSE_VGROUP = (1 << 8)
+	GP_NOISE_INVERSE_VGROUP = (1 << 8),
+	GP_NOISE_MOD_UV         = (1 << 9),
 } eGpencilNoise_Flag;
 
 typedef struct GpencilSubdivModifierData {
@@ -1998,7 +1999,8 @@ typedef enum eGpencilSmooth_Flag {
 	GP_SMOOTH_MOD_THICKNESS = (1 << 2),
 	GP_SMOOTH_INVERSE_LAYER = (1 << 3),
 	GP_SMOOTH_INVERSE_PASS = (1 << 4),
-	GP_SMOOTH_INVERSE_VGROUP = (1 << 5)
+	GP_SMOOTH_INVERSE_VGROUP = (1 << 5),
+	GP_SMOOTH_MOD_UV         = (1 << 6),
 } eGpencilSmooth_Flag;
 
 #define MOD_MESHSEQ_READ_ALL \

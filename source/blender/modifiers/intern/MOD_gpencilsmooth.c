@@ -101,6 +101,9 @@ static void deformStroke(ModifierData *md, const EvaluationContext *UNUSED(eval_
 						BKE_gp_smooth_stroke_thickness(gps, i, val);
 					}
 				}
+				if (mmd->flag & GP_SMOOTH_MOD_UV) {
+					BKE_gp_smooth_stroke_uv(gps, i, val);
+				}
 			}
 		}
 	}

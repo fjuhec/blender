@@ -4960,6 +4960,11 @@ static void rna_def_modifier_gpencilnoise(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Affect Thickness", "The modifier affects the thickness of the point");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
+	prop = RNA_def_property(srna, "affect_uv", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_NOISE_MOD_UV);
+	RNA_def_property_ui_text(prop, "Affect UV", "The modifier affects the UV rotation factor of the point");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
 	prop = RNA_def_property(srna, "full_stroke", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_NOISE_FULL_STROKE);
 	RNA_def_property_ui_text(prop, "Full Stroke", "The noise moves the stroke as a whole, not point by point");
@@ -5040,6 +5045,11 @@ static void rna_def_modifier_gpencilsmooth(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Affect Thickness", "The modifier affects the thickness of the point");
 	RNA_def_property_update(prop, 0, "rna_Modifier_update");
 	
+	prop = RNA_def_property(srna, "affect_uv", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_SMOOTH_MOD_UV);
+	RNA_def_property_ui_text(prop, "Affect UV", "The modifier affects the UV rotation factor of the point");
+	RNA_def_property_update(prop, 0, "rna_Modifier_update");
+
 	prop = RNA_def_property(srna, "pass_index", PROP_INT, PROP_NONE);
 	RNA_def_property_int_sdna(prop, NULL, "pass_index");
 	RNA_def_property_range(prop, 0, 100);

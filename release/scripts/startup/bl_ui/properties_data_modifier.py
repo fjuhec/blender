@@ -1588,6 +1588,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         row.prop(md, "affect_position", text="Position", icon='MESH_DATA', toggle=True)
         row.prop(md, "affect_strength", text="Strength", icon='COLOR', toggle=True)
         row.prop(md, "affect_thickness", text="Thickness", icon='LINE_DATA', toggle=True)
+        row.prop(md, "affect_uv", text="UV", icon='MOD_UVPROJECT', toggle=True)
 
     def GP_SMOOTH(self, layout, ob, md):
         gpd = ob.data
@@ -1618,6 +1619,7 @@ class DATA_PT_modifiers(ModifierButtonsPanel, Panel):
         row.prop(md, "affect_position", text="Position", icon='MESH_DATA', toggle=True)
         row.prop(md, "affect_strength", text="Strength", icon='COLOR', toggle=True)
         row.prop(md, "affect_thickness", text="Thickness", icon='LINE_DATA', toggle=True)
+        row.prop(md, "affect_uv", text="UV", icon='MOD_UVPROJECT', toggle=True)
 
     def GP_SUBDIV(self, layout, ob, md):
         gpd = ob.data
