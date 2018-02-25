@@ -979,6 +979,12 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 							copy_v4_v4(newcolor->rgb, oldcolor->color);
 							copy_v4_v4(newcolor->fill, oldcolor->fill);
 							newcolor->flag = oldcolor->flag;
+							if (oldcolor->flag & PAC_COLOR_DOT) {
+								newcolor->mode = PAC_MODE_DOTS;
+							}
+							else {
+								newcolor->mode = PAC_MODE_LINE;
+							}
 						}
 						/* set first color active by default */
 						if (!BLI_listbase_is_empty(&newpalette->colors)) {

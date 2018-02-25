@@ -186,7 +186,7 @@ typedef enum ePaletteColor_Flag {
 	/* Flip fill colors */
 	PAC_COLOR_FLIP_FILL = (1 << 6),
 	/* Stroke use Dots */
-	/* PAC_COLOR_DOT = (1 << 7), DEPRECATED*
+	PAC_COLOR_DOT = (1 << 7), /* deprecated (only for old files) */
 	/* Texture is a pattern */
 	PAC_COLOR_PATTERN = (1 << 8)
 } ePaletteColor_Flag;
