@@ -439,9 +439,9 @@ static void rna_def_palettecolor(BlenderRNA *brna)
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", PAC_COLOR_FLIP_FILL);
 	RNA_def_property_ui_text(prop, "Flip", "Flip filling colors");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_Palette_dependency_update");
-	prop = RNA_def_property(srna, "use_dot", PROP_BOOLEAN, PROP_NONE);
 
 	/* deprecated - this data was moved to mode */
+	prop = RNA_def_property(srna, "use_dot", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", PAC_COLOR_DOT);
 	RNA_def_property_ui_text(prop, "Use Dots", "Draw stroke using dots instead of lines");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_Palette_dependency_update");
