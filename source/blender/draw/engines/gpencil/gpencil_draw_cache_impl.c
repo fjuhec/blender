@@ -780,7 +780,7 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 #endif
 		if ((gpl->actframe->framenum == derived_gpf->framenum) || (!is_multiedit) || ((gpd->flag & GP_DATA_STROKE_MULTIEDIT_LINES) == 0)) {
 			int id = stl->storage->shgroup_id;
-			if ((gps->totpoints > 1) && (gps->palcolor->mode == PAC_MODE_LINE)) {
+			if (gps->totpoints > 0) {
 				if ((gps->totpoints > 2) && (!GP_SIMPLIFY_FILL(ts, playing)) && 
 					((gps->palcolor->fill[3] > GPENCIL_ALPHA_OPACITY_THRESH) || (gps->palcolor->fill_style > 0)) &&
 					((gps->flag & GP_STROKE_NOFILL) == 0))
@@ -790,16 +790,16 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 				else {
 					stl->shgroups[id].shgrps_fill = NULL;
 				}
-				stl->shgroups[id].shgrps_stroke = DRW_gpencil_shgroup_stroke_create(e_data, vedata, psl->stroke_pass, e_data->gpencil_stroke_sh, ob, gpd, gps->palcolor, id);
+				if (gps->palcolor->mode == PAC_MODE_LINE) {
+					stl->shgroups[id].shgrps_stroke = DRW_gpencil_shgroup_stroke_create(e_data, vedata, psl->stroke_pass, e_data->gpencil_stroke_sh, ob, gpd, gps->palcolor, id);
+				}
+				else {
+					stl->shgroups[id].shgrps_stroke = DRW_gpencil_shgroup_point_create(e_data, vedata, psl->stroke_pass, e_data->gpencil_point_sh, ob, gpd, gps->palcolor, id);
+				}
 			}
 			else {
 				stl->shgroups[id].shgrps_fill = NULL;
-				if (gps->totpoints > 0) {
-					stl->shgroups[id].shgrps_stroke = DRW_gpencil_shgroup_point_create(e_data, vedata, psl->stroke_pass, e_data->gpencil_point_sh, ob, gpd, gps->palcolor, id);
-				}
-				else {
-					stl->shgroups[id].shgrps_stroke = NULL;
-				}
+				stl->shgroups[id].shgrps_stroke = NULL;
 			}
 			stl->storage->shgroup_id++;
 
