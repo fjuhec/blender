@@ -336,7 +336,7 @@ static DRWShadingGroup *DRW_gpencil_shgroup_fill_create(GPENCIL_e_data *e_data, 
 
 /* create shading group for strokes */
 DRWShadingGroup *DRW_gpencil_shgroup_stroke_create(GPENCIL_e_data *e_data, GPENCIL_Data *vedata, DRWPass *pass, GPUShader *shader, Object *ob,
-	bGPdata *gpd, PaletteColor *palcolor, int id)
+	bGPdata *gpd, PaletteColor *palcolor, int id, bool onion)
 {
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 	const float *viewport_size = DRW_viewport_size_get();
@@ -367,7 +367,7 @@ DRWShadingGroup *DRW_gpencil_shgroup_stroke_create(GPENCIL_e_data *e_data, GPENC
 
 		stl->shgroups[id].stroke_style = palcolor->stroke_style;
 		stl->shgroups[id].color_type = GPENCIL_COLOR_SOLID;
-		if (palcolor->stroke_style == STROKE_STYLE_TEXTURE) {
+		if ((palcolor->stroke_style == STROKE_STYLE_TEXTURE) && (!onion)) {
 			stl->shgroups[id].color_type = GPENCIL_COLOR_TEXTURE;
 			if (palcolor->flag & PAC_COLOR_PATTERN) {
 				stl->shgroups[id].color_type = GPENCIL_COLOR_PATTERN;
@@ -400,7 +400,7 @@ DRWShadingGroup *DRW_gpencil_shgroup_stroke_create(GPENCIL_e_data *e_data, GPENC
 	}
 
 	/* image texture for pattern */
-	if ((palcolor) && (palcolor->stroke_style == STROKE_STYLE_TEXTURE)) {
+	if ((palcolor) && (palcolor->stroke_style == STROKE_STYLE_TEXTURE) && (!onion)) {
 		ImBuf *ibuf;
 		Image *image = palcolor->sima;
 		ImageUser iuser = { NULL };
@@ -431,7 +431,7 @@ DRWShadingGroup *DRW_gpencil_shgroup_stroke_create(GPENCIL_e_data *e_data, GPENC
 
 /* create shading group for volumetrics */
 DRWShadingGroup *DRW_gpencil_shgroup_point_create(GPENCIL_e_data *e_data, GPENCIL_Data *vedata, DRWPass *pass, GPUShader *shader, Object *ob,
-	bGPdata *gpd, PaletteColor *palcolor, int id)
+	bGPdata *gpd, PaletteColor *palcolor, int id, bool onion)
 {
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;
 	const float *viewport_size = DRW_viewport_size_get();
@@ -459,7 +459,7 @@ DRWShadingGroup *DRW_gpencil_shgroup_point_create(GPENCIL_e_data *e_data, GPENCI
 
 		stl->shgroups[id].stroke_style = palcolor->stroke_style;
 		stl->shgroups[id].color_type = GPENCIL_COLOR_SOLID;
-		if (palcolor->stroke_style == STROKE_STYLE_TEXTURE) {
+		if ((palcolor->stroke_style == STROKE_STYLE_TEXTURE) && (!onion)) {
 			stl->shgroups[id].color_type = GPENCIL_COLOR_TEXTURE;
 			if (palcolor->flag & PAC_COLOR_PATTERN) {
 				stl->shgroups[id].color_type = GPENCIL_COLOR_PATTERN;
@@ -492,7 +492,7 @@ DRWShadingGroup *DRW_gpencil_shgroup_point_create(GPENCIL_e_data *e_data, GPENCI
 	}
 
 	/* image texture */
-	if ((palcolor) && (palcolor->stroke_style == STROKE_STYLE_TEXTURE)) {
+	if ((palcolor) && (palcolor->stroke_style == STROKE_STYLE_TEXTURE) && (!onion)) {
 		ImBuf *ibuf;
 		Image *image = palcolor->sima;
 		ImageUser iuser = { NULL };
@@ -665,10 +665,10 @@ static void gpencil_draw_onion_strokes(GpencilBatchCache *cache, GPENCIL_e_data 
 
 		stl->shgroups[id].shgrps_fill = NULL;
 		if ((gps->totpoints > 1) && (gps->palcolor->mode == PAC_MODE_LINE)) {
-			stl->shgroups[id].shgrps_stroke = DRW_gpencil_shgroup_stroke_create(e_data, vedata, psl->stroke_pass, e_data->gpencil_stroke_sh, ob, gpd, gps->palcolor, id);
+			stl->shgroups[id].shgrps_stroke = DRW_gpencil_shgroup_stroke_create(e_data, vedata, psl->stroke_pass, e_data->gpencil_stroke_sh, ob, gpd, gps->palcolor, id, true);
 		}
 		else {
-			stl->shgroups[id].shgrps_stroke = DRW_gpencil_shgroup_point_create(e_data, vedata, psl->stroke_pass, e_data->gpencil_point_sh, ob, gpd, gps->palcolor, id);
+			stl->shgroups[id].shgrps_stroke = DRW_gpencil_shgroup_point_create(e_data, vedata, psl->stroke_pass, e_data->gpencil_point_sh, ob, gpd, gps->palcolor, id, true);
 		}
 
 		/* stroke */
@@ -791,10 +791,10 @@ static void gpencil_draw_strokes(GpencilBatchCache *cache, GPENCIL_e_data *e_dat
 					stl->shgroups[id].shgrps_fill = NULL;
 				}
 				if (gps->palcolor->mode == PAC_MODE_LINE) {
-					stl->shgroups[id].shgrps_stroke = DRW_gpencil_shgroup_stroke_create(e_data, vedata, psl->stroke_pass, e_data->gpencil_stroke_sh, ob, gpd, gps->palcolor, id);
+					stl->shgroups[id].shgrps_stroke = DRW_gpencil_shgroup_stroke_create(e_data, vedata, psl->stroke_pass, e_data->gpencil_stroke_sh, ob, gpd, gps->palcolor, id, false);
 				}
 				else {
-					stl->shgroups[id].shgrps_stroke = DRW_gpencil_shgroup_point_create(e_data, vedata, psl->stroke_pass, e_data->gpencil_point_sh, ob, gpd, gps->palcolor, id);
+					stl->shgroups[id].shgrps_stroke = DRW_gpencil_shgroup_point_create(e_data, vedata, psl->stroke_pass, e_data->gpencil_point_sh, ob, gpd, gps->palcolor, id, false);
 				}
 			}
 			else {
@@ -872,10 +872,10 @@ void DRW_gpencil_populate_buffer_strokes(GPENCIL_e_data *e_data, void *vedata, T
 			/* if only one point, don't need to draw buffer because the user has no time to see it */
 			if (gpd->sbuffer_size > 1) {
 				if ((palcolor) && (palcolor->mode == PAC_MODE_LINE)) {
-					stl->g_data->shgrps_drawing_stroke = DRW_gpencil_shgroup_stroke_create(e_data, vedata, psl->drawing_pass, e_data->gpencil_stroke_sh, NULL, gpd, palcolor, -1);
+					stl->g_data->shgrps_drawing_stroke = DRW_gpencil_shgroup_stroke_create(e_data, vedata, psl->drawing_pass, e_data->gpencil_stroke_sh, NULL, gpd, palcolor, -1, false);
 				}
 				else {
-					stl->g_data->shgrps_drawing_stroke = DRW_gpencil_shgroup_point_create(e_data, vedata, psl->drawing_pass, e_data->gpencil_point_sh, NULL, gpd, palcolor, -1);
+					stl->g_data->shgrps_drawing_stroke = DRW_gpencil_shgroup_point_create(e_data, vedata, psl->drawing_pass, e_data->gpencil_point_sh, NULL, gpd, palcolor, -1, false);
 				}
 
 				/* use unit matrix because the buffer is in screen space and does not need conversion */
