@@ -66,6 +66,8 @@
 #include "GPU_viewport.h"
 #include "GPU_matrix.h"
 
+#include "DRW_engine.h"
+
 #include "WM_api.h"
 #include "WM_types.h"
 #include "WM_message.h"
@@ -577,7 +579,9 @@ static void view3d_main_region_exit(wmWindowManager *wm, ARegion *ar)
 	}
 
 	if (rv3d->viewport) {
+		DRW_opengl_context_enable();
 		GPU_viewport_free(rv3d->viewport);
+		DRW_opengl_context_disable();
 		MEM_freeN(rv3d->viewport);
 		rv3d->viewport = NULL;
 	}
@@ -762,7 +766,9 @@ static void view3d_main_region_free(ARegion *ar)
 			GPU_fx_compositor_destroy(rv3d->compositor);
 		}
 		if (rv3d->viewport) {
+			DRW_opengl_context_enable();
 			GPU_viewport_free(rv3d->viewport);
+			DRW_opengl_context_disable();
 			MEM_freeN(rv3d->viewport);
 		}
 
