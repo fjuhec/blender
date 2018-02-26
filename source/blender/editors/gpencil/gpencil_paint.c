@@ -2276,7 +2276,7 @@ static void gpencil_draw_apply(bContext *C, wmOperator *op, tGPsdata *p, const D
 }
 
 /* handle draw event */
-static void gpencil_draw_apply_event(bContext *C, wmOperator *op, const wmEvent *event, const Depsgraph *depsgraph)
+static void gpencil_draw_apply_event(bContext *C, wmOperator *op, const wmEvent *event, const Depsgraph *depsgraph, int x, int y)
 {
 	tGPsdata *p = op->customdata;
 	PointerRNA itemptr;
@@ -2284,10 +2284,11 @@ static void gpencil_draw_apply_event(bContext *C, wmOperator *op, const wmEvent 
 	int tablet = 0;
 	
 	/* convert from window-space to area-space mouse coordinates
+	 * add any x,y override position for fake events
 	 * NOTE: float to ints conversions, +1 factor is probably used to ensure a bit more accurate rounding...
 	 */
-	p->mval[0] = event->mval[0] + 1;
-	p->mval[1] = event->mval[1] + 1;
+	p->mval[0] = event->mval[0] + 1 - x;
+	p->mval[1] = event->mval[1] + 1 - y;
 	p->shift = event->shift;
 
 	/* verify key status for straight lines */
@@ -2528,7 +2529,8 @@ static int gpencil_draw_invoke(bContext *C, wmOperator *op, const wmEvent *event
 		p->status = GP_STATUS_PAINTING;
 
 		/* handle the initial drawing - i.e. for just doing a simple dot */
-		gpencil_draw_apply_event(C, op, event, CTX_data_depsgraph(C));
+
+		gpencil_draw_apply_event(C, op, event, CTX_data_depsgraph(C), 0, 0);
 		op->flag |= OP_IS_MODAL_CURSOR_REGION;
 	}
 	else {
@@ -2640,6 +2642,35 @@ static void gpencil_move_last_stroke_to_back(bContext *C)
 
 	BLI_remlink(&gpf->strokes, gps);
 	BLI_insertlinkbefore(&gpf->strokes, gpf->strokes.first, gps);
+}
+
+/* add events for missing mouse movements when the artist draw very fast */
+static void gpencil_add_missing_events(bContext *C, wmOperator *op, const wmEvent *event, tGPsdata *p)
+{
+	bGPDbrush *brush = p->brush;
+	int factor = brush->input_samples;
+	if (factor == 0) {
+		return;
+	}
+
+	float pt[2], a[2], b[2];
+	copy_v2fl_v2i(a, p->mvalo);
+	b[0] = event->mval[0] + 1;
+	b[1] = event->mval[1] + 1;
+	float dist = len_v2v2(a, b);
+	if (dist >= factor) {
+		int slices = (int)((dist / factor) + 1);
+		float n = 1.0f / slices;
+		for (int i = 1; i < slices; i++) {
+			interp_v2_v2v2(pt, a, b, n * i);
+			copy_v2_v2(a, pt);
+			sub_v2_v2v2(pt, b, pt);
+
+			/* create fake event */
+			gpencil_draw_apply_event(C, op, event, CTX_data_depsgraph(C),
+									(int)pt[0], (int)pt[1]);
+		}
+	}
 }
 
 /* events handling during interactive drawing part of operator */
@@ -2892,7 +2923,9 @@ static int gpencil_draw_modal(bContext *C, wmOperator *op, const wmEvent *event)
 		if (ELEM(event->type, MOUSEMOVE, INBETWEEN_MOUSEMOVE) || (p->flags & GP_PAINTFLAG_FIRSTRUN)) {
 			/* handle drawing event */
 			/* printf("\t\tGP - add point\n"); */
-			gpencil_draw_apply_event(C, op, event, CTX_data_depsgraph(C));
+			gpencil_add_missing_events(C, op, event, p);
+
+			gpencil_draw_apply_event(C, op, event, CTX_data_depsgraph(C), 0, 0);
 
 			/* finish painting operation if anything went wrong just now */
 			if (p->status == GP_STATUS_ERROR) {

@@ -2183,6 +2183,9 @@ class VIEW3D_PT_tools_grease_pencil_brush_option(Panel):
             row = layout.row(align=True)
             row.prop(brush, "uv_random", slider=True)
 
+            row = layout.row(align=True)
+            row.prop(brush, "input_samples")
+
 
 # Grease Pencil drawingcurves
 class VIEW3D_PT_tools_grease_pencil_brushcurves(Panel):

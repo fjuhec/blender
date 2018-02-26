@@ -137,6 +137,8 @@ typedef struct bGPDbrush {
 	float lazy_factor;        /* factor of smooth */
 	
 	float uv_random;          /* random factor for UV rotation */
+	int   input_samples;      /* maximum distance before generate new point for very fast mouse movements */
+	char  pad[4];
 } bGPDbrush;
 
 /* bGPDbrush->flag */
