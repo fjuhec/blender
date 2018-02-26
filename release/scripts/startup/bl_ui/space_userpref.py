@@ -332,16 +332,16 @@ class USERPREF_PT_interface(Panel):
 
 
 
-class USERPREF_PT_edit(Panel):
+class USERPREF_PT_general(Panel):
     bl_space_type = 'USER_PREFERENCES'
-    bl_label = "Edit"
+    bl_label = "General"
     bl_region_type = 'WINDOW'
     bl_options = {'HIDE_HEADER'}
 
     @classmethod
     def poll(cls, context):
         userpref = context.user_preferences
-        return (userpref.active_section == 'EDITING')
+        return (userpref.active_section == 'GENERAL')
 
     def draw(self, context):
         layout = self.layout
@@ -1592,7 +1592,7 @@ classes = (
     USERPREF_MT_splash,
     USERPREF_MT_splash_footer,
     USERPREF_PT_interface,
-    USERPREF_PT_edit,
+    USERPREF_PT_general,
     USERPREF_PT_system,
     USERPREF_MT_interface_theme_presets,
     USERPREF_PT_theme,

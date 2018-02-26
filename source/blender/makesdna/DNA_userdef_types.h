@@ -604,7 +604,7 @@ extern UserDef U; /* from blenkernel blender.c */
 /* UserDef.userpref (UI active_section) */
 typedef enum eUserPref_Section {
 	USER_SECTION_INTERFACE	= 0,
-	USER_SECTION_EDIT		= 1,
+	USER_SECTION_GENERAL		= 1,
 	USER_SECTION_FILE		= 2,
 	USER_SECTION_SYSTEM		= 3,
 	USER_SECTION_THEME		= 4,
