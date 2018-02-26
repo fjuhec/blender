@@ -110,7 +110,7 @@ kmi.properties.animation = True
 kmi = km.keymap_items.new('render.view_cancel', 'ESC', 'PRESS')
 kmi = km.keymap_items.new('render.view_show', 'F11', 'PRESS')
 kmi = km.keymap_items.new('render.play_rendered_anim', 'F11', 'PRESS', ctrl=True)
-kmi = km.keymap_items.new('screen.userpref_show', 'U', 'PRESS', ctrl=True, alt=True)
+kmi = km.keymap_items.new('screen.settings_show', 'U', 'PRESS', ctrl=True, alt=True)
 
 # Map Markers
 km = kc.keymaps.new('Markers', space_type='EMPTY', region_type='WINDOW', modal=False)

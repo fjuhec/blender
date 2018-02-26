@@ -4016,16 +4016,16 @@ static void SCREEN_OT_back_to_previous(struct wmOperatorType *ot)
 /** \} */
 
 /* -------------------------------------------------------------------- */
-/** \name Show User Preferences Operator
+/** \name Show Blender Settings Operator
  * \{ */
 
-static int userpref_show_invoke(bContext *C, wmOperator *op, const wmEvent *event)
+static int settings_show_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
 	const int sizex = 1024 * UI_DPI_FAC;
 	const int sizey = 614 * UI_DPI_FAC;
 
 	/* changes context! */
-	if (WM_window_open_temp(C, event->x, event->y, sizex, sizey, WM_WINDOW_USERPREFS) != NULL) {
+	if (WM_window_open_temp(C, event->x, event->y, sizex, sizey, WM_WINDOW_SETTINGS) != NULL) {
 		return OPERATOR_FINISHED;
 	}
 	else {
@@ -4035,15 +4035,16 @@ static int userpref_show_invoke(bContext *C, wmOperator *op, const wmEvent *even
 }
 
 
-static void SCREEN_OT_userpref_show(struct wmOperatorType *ot)
+static void SCREEN_OT_settings_show(struct wmOperatorType *ot)
 {
 	/* identifiers */
-	ot->name = "Show User Preferences";
-	ot->description = "Show user preferences";
-	ot->idname = "SCREEN_OT_userpref_show";
+	ot->name = "Show Blender Settings";
+	ot->description = "Show window for global Blender settings (user preferences, "
+	                  "workspace configurations, system settings)";
+	ot->idname = "SCREEN_OT_settings_show";
 	
 	/* api callbacks */
-	ot->invoke = userpref_show_invoke;
+	ot->invoke = settings_show_invoke;
 	ot->poll = ED_operator_screenactive;
 }
 
@@ -4373,7 +4374,7 @@ void ED_operatortypes_screen(void)
 	WM_operatortype_append(SCREEN_OT_spacedata_cleanup);
 	WM_operatortype_append(SCREEN_OT_screenshot);
 	WM_operatortype_append(SCREEN_OT_screencast);
-	WM_operatortype_append(SCREEN_OT_userpref_show);
+	WM_operatortype_append(SCREEN_OT_settings_show);
 	WM_operatortype_append(SCREEN_OT_region_blend);
 	WM_operatortype_append(SCREEN_OT_space_context_cycle);
 	
@@ -4545,9 +4546,9 @@ void ED_keymap_screen(wmKeyConfig *keyconf)
 	
 	/* user prefs */
 #ifdef __APPLE__
-	WM_keymap_add_item(keymap, "SCREEN_OT_userpref_show", COMMAKEY, KM_PRESS, KM_OSKEY, 0);
+	WM_keymap_add_item(keymap, "SCREEN_OT_settings_show", COMMAKEY, KM_PRESS, KM_OSKEY, 0);
 #endif
-	WM_keymap_add_item(keymap, "SCREEN_OT_userpref_show", UKEY, KM_PRESS, KM_CTRL | KM_ALT, 0);
+	WM_keymap_add_item(keymap, "SCREEN_OT_settings_show", UKEY, KM_PRESS, KM_CTRL | KM_ALT, 0);
 	
 	
 	/* Anim Playback ------------------------------------------------ */

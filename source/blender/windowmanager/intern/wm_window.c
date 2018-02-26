@@ -697,7 +697,7 @@ wmWindow *WM_window_open(bContext *C, const rcti *rect)
  * Uses `screen->temp` tag to define what to do, currently it limits
  * to only one "temp" window for render out, preferences, filewindow, etc...
  *
- * \param type: WM_WINDOW_RENDER, WM_WINDOW_USERPREFS...
+ * \param type: WM_WINDOW_RENDER, WM_WINDOW_SETTINGS...
  * \return the window or NULL.
  */
 wmWindow *WM_window_open_temp(bContext *C, int x, int y, int sizex, int sizey, int type)
@@ -797,7 +797,7 @@ wmWindow *WM_window_open_temp(bContext *C, int x, int y, int sizex, int sizey, i
 	if (sa->spacetype == SPACE_IMAGE)
 		title = IFACE_("Blender Render");
 	else if (ELEM(sa->spacetype, SPACE_OUTLINER, SPACE_USERPREF))
-		title = IFACE_("Blender User Preferences");
+		title = IFACE_("Blender Settings");
 	else if (sa->spacetype == SPACE_FILE)
 		title = IFACE_("Blender File View");
 	else

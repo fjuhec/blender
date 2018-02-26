@@ -2226,7 +2226,7 @@ class WM_OT_addon_userpref_show(Operator):
             context.user_preferences.active_section = 'ADDONS'
             context.window_manager.addon_filter = 'All'
             context.window_manager.addon_search = info["name"]
-            bpy.ops.screen.userpref_show('INVOKE_DEFAULT')
+            bpy.ops.screen.settings_show('INVOKE_DEFAULT')
 
         return {'FINISHED'}
 

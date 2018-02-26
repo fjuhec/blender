@@ -122,7 +122,7 @@ bool WM_window_is_temp_screen(const struct wmWindow *win) ATTR_WARN_UNUSED_RESUL
 /* defines for 'type' WM_window_open_temp */
 enum {
 	WM_WINDOW_RENDER = 1,
-	WM_WINDOW_USERPREFS,
+	WM_WINDOW_SETTINGS,
 	// WM_WINDOW_FILESEL // UNUSED
 };
 
