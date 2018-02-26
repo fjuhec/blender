@@ -2388,8 +2388,8 @@ static void rna_def_gpencil_brush(BlenderRNA *brna)
 
 	prop = RNA_def_property(srna, "input_samples", PROP_INT, PROP_NONE);
 	RNA_def_property_int_sdna(prop, NULL, "input_samples");
-	RNA_def_property_range(prop, 0, 200);
-	RNA_def_property_ui_text(prop, "Input Samples", "Maximum distance from last mouse position before generate a new control point. Set to 0 to disable");
+	RNA_def_property_range(prop, 0, GP_MAX_INPUT_SAMPLES);
+	RNA_def_property_ui_text(prop, "Input Samples", "Generate intermediate points for very fast mouse movements. Set to 0 to disable");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, NULL);
 
 	/* Flags */

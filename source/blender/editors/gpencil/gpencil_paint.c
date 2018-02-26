@@ -2648,11 +2648,11 @@ static void gpencil_move_last_stroke_to_back(bContext *C)
 static void gpencil_add_missing_events(bContext *C, wmOperator *op, const wmEvent *event, tGPsdata *p)
 {
 	bGPDbrush *brush = p->brush;
-	int factor = brush->input_samples;
-	if (factor == 0) {
+	if (brush->input_samples == 0) {
 		return;
 	}
 
+	int factor = GP_MAX_INPUT_SAMPLES - brush->input_samples + 1;
 	float pt[2], a[2], b[2];
 	copy_v2fl_v2i(a, p->mvalo);
 	b[0] = event->mval[0] + 1;
