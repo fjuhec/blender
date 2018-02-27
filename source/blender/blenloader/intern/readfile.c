@@ -6676,6 +6676,8 @@ static void lib_link_gpencil(FileData *fd, Main *main)
 								gps->palcolor = BKE_palette_color_add_name(gps->palette, gps->colorname);
 								/* Set to a different color. */
 								ARRAY_SET_ITEMS(gps->palcolor->rgb, 1.0f, 0.0f, 1.0f, 1.0f);
+								/* add to hash for avoiding create again */
+								BLI_ghash_insert(gp_palettecolors_buffer[i], gps->palcolor->info, gps->palcolor);
 							}
 						}
 						
