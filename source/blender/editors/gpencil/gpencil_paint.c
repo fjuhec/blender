@@ -2659,7 +2659,7 @@ static void gpencil_add_missing_events(bContext *C, wmOperator *op, const wmEven
 	b[1] = event->mval[1] + 1;
 	float dist = len_v2v2(a, b);
 	if (dist >= factor) {
-		int slices = 1 + (int)((dist - 1.0) / factor);
+		int slices = 2 + (int)((dist - 1.0) / factor);
 		float n = 1.0f / slices;
 		for (int i = 1; i < slices; i++) {
 			interp_v2_v2v2(pt, a, b, n * i);
