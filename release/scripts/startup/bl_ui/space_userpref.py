@@ -458,168 +458,6 @@ class USERPREF_PT_general(Panel):
         col.prop(edit, "use_duplicate_particle", text="Particle")
 
 
-class USERPREF_PT_system(Panel):
-    bl_space_type = 'USER_PREFERENCES'
-    bl_label = "System"
-    bl_region_type = 'WINDOW'
-    bl_options = {'HIDE_HEADER'}
-
-    @classmethod
-    def poll(cls, context):
-        userpref = context.user_preferences
-        return (userpref.active_section == 'SYSTEM')
-
-    def draw(self, context):
-        import sys
-        layout = self.layout
-
-        userpref = context.user_preferences
-        system = userpref.system
-
-        split = layout.split()
-
-        # 1. Column
-        column = split.column()
-        colsplit = column.split(percentage=0.85)
-
-        col = colsplit.column()
-        col.label(text="General:")
-
-        col.prop(system, "frame_server_port")
-        col.prop(system, "scrollback", text="Console Scrollback")
-
-        col.separator()
-
-        col.label(text="Sound:")
-        col.row().prop(system, "audio_device", expand=False)
-        sub = col.column()
-        sub.active = system.audio_device not in {'NONE', 'Null'}
-        #sub.prop(system, "use_preview_images")
-        sub.prop(system, "audio_channels", text="Channels")
-        sub.prop(system, "audio_mixing_buffer", text="Mixing Buffer")
-        sub.prop(system, "audio_sample_rate", text="Sample Rate")
-        sub.prop(system, "audio_sample_format", text="Sample Format")
-
-        col.separator()
-
-        col.label(text="Screencast:")
-        col.prop(system, "screencast_fps")
-        col.prop(system, "screencast_wait_time")
-
-        col.separator()
-
-        if bpy.app.build_options.cycles:
-            addon = userpref.addons.get("cycles")
-            if addon is not None:
-                addon.preferences.draw_impl(col, context)
-            del addon
-
-        if hasattr(system, "opensubdiv_compute_type"):
-            col.label(text="OpenSubdiv compute:")
-            col.row().prop(system, "opensubdiv_compute_type", text="")
-
-        # 2. Column
-        column = split.column()
-        colsplit = column.split(percentage=0.85)
-
-        col = colsplit.column()
-        col.label(text="OpenGL:")
-        col.prop(system, "gl_clip_alpha", slider=True)
-        col.prop(system, "use_mipmaps")
-        col.prop(system, "use_gpu_mipmap")
-        col.prop(system, "use_16bit_textures")
-
-        col.separator()
-        col.label(text="Selection")
-        col.prop(system, "select_method", text="")
-        col.prop(system, "use_select_pick_depth")
-
-        col.separator()
-
-        col.label(text="Anisotropic Filtering")
-        col.prop(system, "anisotropic_filter", text="")
-
-        col.separator()
-
-        col.label(text="Window Draw Method:")
-        col.prop(system, "window_draw_method", text="")
-        col.prop(system, "multi_sample", text="")
-        if sys.platform == "linux" and system.multi_sample != 'NONE':
-            col.label(text="Might fail for Mesh editing selection!")
-            col.separator()
-        col.prop(system, "use_region_overlap")
-
-        col.separator()
-
-        col.label(text="Text Draw Options:")
-        col.prop(system, "use_text_antialiasing")
-
-        col.separator()
-
-        col.label(text="Textures:")
-        col.prop(system, "gl_texture_limit", text="Limit Size")
-        col.prop(system, "texture_time_out", text="Time Out")
-        col.prop(system, "texture_collection_rate", text="Collection Rate")
-
-        col.separator()
-
-        col.label(text="Images Draw Method:")
-        col.prop(system, "image_draw_method", text="")
-
-        col.separator()
-
-        col.label(text="Sequencer/Clip Editor:")
-        # currently disabled in the code
-        # col.prop(system, "prefetch_frames")
-        col.prop(system, "memory_cache_limit")
-
-        # 3. Column
-        column = split.column()
-
-        column.label(text="Solid OpenGL Lights:")
-
-        split = column.split(percentage=0.1)
-        split.label()
-        split.label(text="Colors:")
-        split.label(text="Direction:")
-
-        lamp = system.solid_lights[0]
-        opengl_lamp_buttons(column, lamp)
-
-        lamp = system.solid_lights[1]
-        opengl_lamp_buttons(column, lamp)
-
-        lamp = system.solid_lights[2]
-        opengl_lamp_buttons(column, lamp)
-
-        column.separator()
-
-        column.label(text="Color Picker Type:")
-        column.row().prop(system, "color_picker_type", text="")
-
-        column.separator()
-
-        column.prop(system, "use_weight_color_range", text="Custom Weight Paint Range")
-        sub = column.column()
-        sub.active = system.use_weight_color_range
-        sub.template_color_ramp(system, "weight_color_range", expand=True)
-
-        column.separator()
-        column.prop(system, "font_path_ui")
-        column.prop(system, "font_path_ui_mono")
-
-        if bpy.app.build_options.international:
-            column.prop(system, "use_international_fonts")
-            if system.use_international_fonts:
-                column.prop(system, "language")
-                row = column.row()
-                row.label(text="Translate:", text_ctxt=i18n_contexts.id_windowmanager)
-                row = column.row(align=True)
-                row.prop(system, "use_translate_interface", text="Interface", toggle=True)
-                row.prop(system, "use_translate_tooltips", text="Tooltips", toggle=True)
-                row.prop(system, "use_translate_new_dataname", text="New Data", toggle=True)
-
-
 class USERPREF_MT_interface_theme_presets(Menu):
     bl_label = "Presets"
     preset_subdir = "interface_theme"
@@ -1634,6 +1472,196 @@ class USERPREF_PT_workspace_keymaps(Panel):
         layout.label("Nothing to see here yet!")
 
 
+class USERPREF_PT_system_general(Panel):
+    bl_space_type = 'USER_PREFERENCES'
+    bl_label = "System General"
+    bl_region_type = 'WINDOW'
+    bl_options = {'HIDE_HEADER'}
+
+    @classmethod
+    def poll(cls, context):
+        userpref = context.user_preferences
+        return (userpref.active_section == 'SYSTEM_GENERAL')
+
+    def draw(self, context):
+        layout = self.layout
+
+        userpref = context.user_preferences
+        system = userpref.system
+
+        col = layout.column()
+
+        col.label(text="General:")
+
+        row = col.row(align=True)
+        row.prop(system, "frame_server_port")
+        row.prop(system, "scrollback", text="Console Scrollback")
+
+        col.separator()
+
+        col.label(text="Sound:")
+        col.row().prop(system, "audio_device", expand=False)
+        sub = col.column()
+        sub.active = system.audio_device not in {'NONE', 'Null'}
+        #sub.prop(system, "use_preview_images")
+        sub.prop(system, "audio_channels", text="Channels")
+        sub.prop(system, "audio_mixing_buffer", text="Mixing Buffer")
+        sub.prop(system, "audio_sample_rate", text="Sample Rate")
+        sub.prop(system, "audio_sample_format", text="Sample Format")
+
+        col.separator()
+
+        col.label(text="Screencast:")
+        row = col.row(align=True)
+        row.prop(system, "screencast_fps")
+        row.prop(system, "screencast_wait_time")
+
+        row = col.row(align=True)
+        row.label(text="Sequencer/Clip Editor:")
+        # currently disabled in the code
+        # row.prop(system, "prefetch_frames")
+        row.prop(system, "memory_cache_limit")
+
+        col.separator()
+
+        col.prop(system, "color_picker_type")
+
+        col.separator()
+
+        col.prop(system, "use_weight_color_range", text="Custom Weight Paint Range")
+        sub = col.column()
+        sub.active = system.use_weight_color_range
+        sub.template_color_ramp(system, "weight_color_range", expand=True)
+
+        col.separator()
+        col.prop(system, "font_path_ui")
+        col.prop(system, "font_path_ui_mono")
+
+        if bpy.app.build_options.international:
+            col.prop(system, "use_international_fonts")
+            if system.use_international_fonts:
+                col.prop(system, "language")
+                row = col.row()
+                row.label(text="Translate:", text_ctxt=i18n_contexts.id_windowmanager)
+                row = col.row(align=True)
+                row.prop(system, "use_translate_interface", text="Interface", toggle=True)
+                row.prop(system, "use_translate_tooltips", text="Tooltips", toggle=True)
+                row.prop(system, "use_translate_new_dataname", text="New Data", toggle=True)
+
+
+class USERPREF_PT_system_drawing(Panel):
+    bl_space_type = 'USER_PREFERENCES'
+    bl_label = "System Drawing"
+    bl_region_type = 'WINDOW'
+    bl_options = {'HIDE_HEADER'}
+
+    @classmethod
+    def poll(cls, context):
+        userpref = context.user_preferences
+        return (userpref.active_section == 'SYSTEM_DRAWING')
+
+    def draw(self, context):
+        import sys
+
+        layout = self.layout
+
+        userpref = context.user_preferences
+        system = userpref.system
+
+        col = layout.column()
+
+        col.separator()
+        col.prop(system, "select_method")
+        col.prop(system, "use_select_pick_depth")
+
+        col.separator()
+
+        col.prop(system, "anisotropic_filter")
+        col.prop(system, "window_draw_method")
+        col.prop(system, "multi_sample")
+        if sys.platform == "linux" and system.multi_sample != 'NONE':
+            col.label(text="Might fail for Mesh editing selection!")
+            col.separator()
+        col.prop(system, "use_region_overlap")
+        col.prop(system, "use_text_antialiasing")
+
+        col.separator()
+
+        col.label(text="Textures:")
+        col.prop(system, "gl_texture_limit", text="Limit Size")
+        row = col.row(align=True)
+        row.prop(system, "texture_time_out", text="Time Out")
+        row.prop(system, "texture_collection_rate", text="Collection Rate")
+
+        col.separator()
+
+        col.prop(system, "image_draw_method")
+
+        col.separator()
+
+        col.label(text="OpenGL:")
+        row = col.row()
+        row.prop(system, "gl_clip_alpha", slider=True)
+        row.label()
+        col.prop(system, "use_mipmaps")
+        col.prop(system, "use_gpu_mipmap")
+        col.prop(system, "use_16bit_textures")
+
+        col.separator()
+
+        col.label(text="Solid OpenGL Lights:")
+
+        split = col.split(percentage=0.6)
+        col = split.column()
+
+        split = col.split(percentage=0.45)
+        split.label()
+        subsplit = split.split(percentage=0.75)
+        subsplit.label(text="Colors:")
+        subsplit.label(text="Direction:")
+
+        lamp = system.solid_lights[0]
+        opengl_lamp_buttons(col, lamp)
+
+        lamp = system.solid_lights[1]
+        opengl_lamp_buttons(col, lamp)
+
+        lamp = system.solid_lights[2]
+        opengl_lamp_buttons(col, lamp)
+
+
+class USERPREF_PT_system_devices(Panel):
+    bl_space_type = 'USER_PREFERENCES'
+    bl_label = "System Devices"
+    bl_region_type = 'WINDOW'
+    bl_options = {'HIDE_HEADER'}
+
+    @classmethod
+    def poll(cls, context):
+        userpref = context.user_preferences
+        return (userpref.active_section == 'SYSTEM_DEVICES')
+
+    def draw(self, context):
+        layout = self.layout
+
+        userpref = context.user_preferences
+        system = userpref.system
+
+        split = layout.split(percentage=0.5)
+        col = split.column()
+
+        if bpy.app.build_options.cycles:
+            addon = userpref.addons.get("cycles")
+            if addon is not None:
+                addon.preferences.draw_impl(col, context)
+            del addon
+
+        if hasattr(system, "opensubdiv_compute_type"):
+            col.label(text="OpenSubdiv compute:")
+            col.row().prop(system, "opensubdiv_compute_type", text="")
+
+
+
 classes = (
     USERPREF_HT_header,
     USERPREF_PT_navigation,
@@ -1645,7 +1673,6 @@ classes = (
     USERPREF_MT_splash_footer,
     USERPREF_PT_interface,
     USERPREF_PT_general,
-    USERPREF_PT_system,
     USERPREF_MT_interface_theme_presets,
     USERPREF_PT_theme,
     USERPREF_PT_file,
@@ -1657,6 +1684,9 @@ classes = (
     USERPREF_PT_workspace_config,
     USERPREF_PT_workspace_addons,
     USERPREF_PT_workspace_keymaps,
+    USERPREF_PT_system_general,
+    USERPREF_PT_system_drawing,
+    USERPREF_PT_system_devices,
 )
 
 if __name__ == "__main__":  # only for live edit.
