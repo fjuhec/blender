@@ -67,7 +67,8 @@ int collada_import(bContext *C,
 	return 0;
 }
 
-int collada_export(Scene *sce,
+int collada_export(EvaluationContext *eval_ctx,
+                   Scene *sce,
                    const char *filepath,
 
                    int apply_modifiers,
@@ -78,6 +79,8 @@ int collada_export(Scene *sce,
                    int include_armatures,
 				   int include_shapekeys,
                    int deform_bones_only,
+				   int include_animations,
+                   int sampling_rate,
 
 				   int active_uv_only,
 				   BC_export_texture_type export_texture_type,
@@ -103,6 +106,8 @@ int collada_export(Scene *sce,
 	export_settings.include_armatures        = include_armatures != 0;
 	export_settings.include_shapekeys        = include_shapekeys != 0;
 	export_settings.deform_bones_only        = deform_bones_only != 0;
+	export_settings.include_animations       = include_animations;
+	export_settings.sampling_rate = sampling_rate;
 
 	export_settings.active_uv_only           = active_uv_only != 0;
 	export_settings.export_texture_type      = export_texture_type;
@@ -139,7 +144,7 @@ int collada_export(Scene *sce,
 	}
 
 	DocumentExporter exporter(&export_settings);
-	int status = exporter.exportCurrentScene(sce);
+	int status = exporter.exportCurrentScene(eval_ctx, sce);
 
 	BLI_linklist_free(export_settings.export_set, NULL);
 

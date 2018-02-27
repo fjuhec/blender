@@ -39,6 +39,8 @@ public:
 	bool include_armatures;
 	bool include_shapekeys;
 	bool deform_bones_only;
+	bool include_animations;
+	int sampling_rate;
 
 	bool active_uv_only;
 	BC_export_texture_type export_texture_type;
