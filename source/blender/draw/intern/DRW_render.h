@@ -55,6 +55,7 @@
 
 #include "RE_engine.h"
 
+struct rcti;
 struct bContext;
 struct GPUFrameBuffer;
 struct GPUShader;
@@ -140,7 +141,7 @@ typedef struct DrawEngineType {
 	void (*view_update)(void *vedata);
 	void (*id_update)(void *vedata, struct ID *id);
 
-	void (*render_to_image)(void *vedata, struct RenderEngine *engine, struct RenderResult *result, struct RenderLayer *layer);
+	void (*render_to_image)(void *vedata, struct RenderEngine *engine, struct RenderLayer *layer, const struct rcti *rect);
 } DrawEngineType;
 
 #ifndef __DRW_ENGINE_H__
@@ -409,7 +410,7 @@ struct DefaultTextureList     *DRW_viewport_texture_list_get(void);
 
 void DRW_viewport_request_redraw(void);
 
-void DRW_render_to_image(struct RenderEngine *re, struct Depsgraph *depsgraph);
+void DRW_render_to_image(struct RenderEngine *engine, struct Depsgraph *graph);
 void DRW_render_object_iter(
 	void *vedata, struct RenderEngine *engine, struct Depsgraph *graph,
 	void (*callback)(void *vedata, struct Object *ob, struct RenderEngine *engine, struct Depsgraph *graph));

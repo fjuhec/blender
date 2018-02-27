@@ -514,6 +514,8 @@ typedef struct EEVEE_EffectsInfo {
 	float dof_bokeh[4];
 	float dof_layer_select[2];
 	int dof_target_size[2];
+	/* Other */
+	float prev_persmat[4][4];
 	/* Bloom */
 	int bloom_iteration_ct;
 	float source_texel_size[2];
@@ -888,7 +890,7 @@ void EEVEE_effects_free(void);
 /* eevee_render.c */
 void EEVEE_render_init(EEVEE_Data *vedata, struct RenderEngine *engine, struct Depsgraph *depsgraph);
 void EEVEE_render_cache(void *vedata, struct Object *ob, struct RenderEngine *engine, struct Depsgraph *depsgraph);
-void EEVEE_render_draw(EEVEE_Data *vedata, struct RenderEngine *engine, struct RenderResult *render_result, struct RenderLayer *render_layer);
+void EEVEE_render_draw(EEVEE_Data *vedata, struct RenderEngine *engine, struct RenderLayer *render_layer, const struct rcti *rect);
 void EEVEE_render_update_passes(struct RenderEngine *engine, struct Scene *scene, struct ViewLayer *view_layer);
 
 /* Shadow Matrix */

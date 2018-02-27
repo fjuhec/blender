@@ -32,6 +32,7 @@
 #define __GPU_BATCH_H__
 
 #include "../../../intern/gawain/gawain/gwn_batch.h"
+#include "../../../intern/gawain/gawain/gwn_batch_private.h"
 
 struct rctf;
 
@@ -58,11 +59,14 @@ void gpu_batch_init(void);
 void gpu_batch_exit(void);
 
 /* gpu_batch_presets.c */
+/* Only use by draw manager. Use the presets function instead for interface. */
+Gwn_Batch *gpu_batch_sphere(int lat_res, int lon_res) ATTR_WARN_UNUSED_RESULT;
 /* Replacement for gluSphere */
 Gwn_Batch *GPU_batch_preset_sphere(int lod) ATTR_WARN_UNUSED_RESULT;
 Gwn_Batch *GPU_batch_preset_sphere_wire(int lod) ATTR_WARN_UNUSED_RESULT;
 
 void gpu_batch_presets_init(void);
+void gpu_batch_presets_reset(void);
 void gpu_batch_presets_exit(void);
 
 #endif  /* __GPU_BATCH_H__ */

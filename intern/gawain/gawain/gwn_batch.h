@@ -95,14 +95,15 @@ int GWN_batch_vertbuf_add_ex(Gwn_Batch*, Gwn_VertBuf*, bool own_vbo);
 #define GWN_batch_vertbuf_add(batch, verts) \
 	GWN_batch_vertbuf_add_ex(batch, verts, false)
 
+void GWN_batch_program_set_no_use(Gwn_Batch*, GLuint program, const Gwn_ShaderInterface*);
 void GWN_batch_program_set(Gwn_Batch*, GLuint program, const Gwn_ShaderInterface*);
-void GWN_batch_program_unset(Gwn_Batch*);
 // Entire batch draws with one shader program, but can be redrawn later with another program.
 // Vertex shader's inputs must be compatible with the batch's vertex format.
 
 void GWN_batch_program_use_begin(Gwn_Batch*); // call before Batch_Uniform (temp hack?)
 void GWN_batch_program_use_end(Gwn_Batch*);
 
+void GWN_batch_uniform_1ui(Gwn_Batch*, const char* name, int value);
 void GWN_batch_uniform_1i(Gwn_Batch*, const char* name, int value);
 void GWN_batch_uniform_1b(Gwn_Batch*, const char* name, bool value);
 void GWN_batch_uniform_1f(Gwn_Batch*, const char* name, float value);

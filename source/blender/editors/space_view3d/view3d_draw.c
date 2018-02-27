@@ -2036,9 +2036,7 @@ void ED_view3d_draw_offscreen(
 	else
 		view3d_main_region_setup_view(eval_ctx, scene, v3d, ar, viewmat, winmat, NULL);
 
-	/* XXX, should take depsgraph as arg */
-	Depsgraph *depsgraph = BKE_scene_get_depsgraph(scene, view_layer, false);
-	BLI_assert(depsgraph != NULL);
+	Depsgraph *depsgraph = eval_ctx->depsgraph;
 
 	/* main drawing call */
 	RenderEngineType *engine_type = eval_ctx->engine_type;
@@ -2131,11 +2129,13 @@ ImBuf *ED_view3d_draw_offscreen_imbuf(
 	}
 
 	const bool own_ofs = (ofs == NULL);
+	DRW_opengl_context_enable();
 
 	if (own_ofs) {
 		/* bind */
 		ofs = GPU_offscreen_create(sizex, sizey, use_full_sample ? 0 : samples, true, false, err_out);
 		if (ofs == NULL) {
+			DRW_opengl_context_disable();
 			return NULL;
 		}
 	}
@@ -2266,6 +2266,8 @@ ImBuf *ED_view3d_draw_offscreen_imbuf(
 	if (own_ofs) {
 		GPU_offscreen_free(ofs);
 	}
+
+	DRW_opengl_context_disable();
 
 	if (ibuf->rect_float && ibuf->rect)
 		IMB_rect_from_float(ibuf);

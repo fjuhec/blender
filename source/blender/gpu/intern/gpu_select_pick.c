@@ -257,6 +257,7 @@ typedef struct GPUPickState {
 
 		/* Set after first draw */
 		bool is_init;
+		bool is_finalized;
 		unsigned int prev_id;
 	} gl;
 
@@ -364,6 +365,7 @@ void gpu_select_pick_begin(
 #endif
 
 		ps->gl.is_init = false;
+		ps->gl.is_finalized = false;
 		ps->gl.prev_id = 0;
 	}
 	else {
@@ -524,6 +526,20 @@ bool gpu_select_pick_load_id(unsigned int id)
 	return true;
 }
 
+ /**
+  * (Optional), call before 'gpu_select_pick_end' if GL context is not kept.
+  * is not compatible with regular select case.
+  * */
+void gpu_select_pick_finalize(void)
+{
+	GPUPickState *ps = &g_pick_state;
+	if (ps->gl.is_init) {
+		/* force finishing last pass */
+		gpu_select_pick_load_id(ps->gl.prev_id);
+	}
+	ps->gl.is_finalized = true;
+}
+
 unsigned int gpu_select_pick_end(void)
 {
 	GPUPickState *ps = &g_pick_state;
@@ -533,9 +549,8 @@ unsigned int gpu_select_pick_end(void)
 #endif
 
 	if (ps->is_cached == false) {
-		if (ps->gl.is_init) {
-			/* force finishing last pass */
-			gpu_select_pick_load_id(ps->gl.prev_id);
+		if (ps->gl.is_finalized == false) {
+			gpu_select_pick_finalize();
 		}
 
 		gpuPopAttrib();

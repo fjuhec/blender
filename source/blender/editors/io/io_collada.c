@@ -28,7 +28,7 @@
  *  \ingroup collada
  */
 #ifdef WITH_COLLADA
-#include "DNA_scene_types.h"
+#include "DNA_space_types.h"
 
 #include "BLT_translation.h"
 
@@ -92,6 +92,10 @@ static int wm_collada_export_exec(bContext *C, wmOperator *op)
 	int include_shapekeys;
 	int deform_bones_only;
 
+	int include_animations;
+	int sample_animations;
+	int sampling_rate;
+
 	int include_material_textures;
 	int use_texture_copies;
 	int active_uv_only;
@@ -143,6 +147,11 @@ static int wm_collada_export_exec(bContext *C, wmOperator *op)
 	include_children         = RNA_boolean_get(op->ptr, "include_children");
 	include_armatures        = RNA_boolean_get(op->ptr, "include_armatures");
 	include_shapekeys        = RNA_boolean_get(op->ptr, "include_shapekeys");
+
+	include_animations       = RNA_boolean_get(op->ptr, "include_animations");
+	sample_animations        = RNA_boolean_get(op->ptr, "sample_animations");
+	sampling_rate            = (sample_animations)? RNA_int_get(op->ptr, "sampling_rate") : 0;
+
 	deform_bones_only        = RNA_boolean_get(op->ptr, "deform_bones_only");
 
 	include_material_textures = RNA_boolean_get(op->ptr, "include_material_textures");
@@ -162,10 +171,11 @@ static int wm_collada_export_exec(bContext *C, wmOperator *op)
 	/* get editmode results */
 	ED_object_editmode_load(CTX_data_edit_object(C));
 
+	Scene *scene = CTX_data_scene(C);
+	CTX_data_eval_ctx(C, &eval_ctx);
 
 	export_count = collada_export(&eval_ctx,
-		CTX_data_scene(C),
-		CTX_data_view_layer(C),
+		scene,
 		filepath,
 		apply_modifiers,
 		export_mesh_type,
@@ -174,6 +184,8 @@ static int wm_collada_export_exec(bContext *C, wmOperator *op)
 		include_armatures,
 		include_shapekeys,
 		deform_bones_only,
+		include_animations,
+		sampling_rate,
 
 		active_uv_only,
 		include_material_textures,
@@ -209,6 +221,7 @@ static int wm_collada_export_exec(bContext *C, wmOperator *op)
 static void uiCollada_exportSettings(uiLayout *layout, PointerRNA *imfptr)
 {
 	uiLayout *box, *row, *col, *split;
+	bool include_animations = RNA_boolean_get(imfptr, "include_animations");
 
 	/* Export Options: */
 	box = uiLayoutBox(layout);
@@ -238,6 +251,16 @@ static void uiCollada_exportSettings(uiLayout *layout, PointerRNA *imfptr)
 	uiItemR(row, imfptr, "include_shapekeys", 0, NULL, ICON_NONE);
 	uiLayoutSetEnabled(row, RNA_boolean_get(imfptr, "selected"));
 
+	row = uiLayoutRow(box, false);
+	uiItemR(row, imfptr, "include_animations", 0, NULL, ICON_NONE);
+	row = uiLayoutRow(box, false);
+	if (include_animations) {
+		uiItemR(row, imfptr, "sample_animations", 0, NULL, ICON_NONE);
+		row = uiLayoutColumn(box, false);
+		uiItemR(row, imfptr, "sampling_rate", 0, NULL, ICON_NONE);
+		uiLayoutSetEnabled(row, RNA_boolean_get(imfptr, "sample_animations"));
+	}
+
 	/* Texture options */
 	box = uiLayoutBox(layout);
 	row = uiLayoutRow(box, false);
@@ -260,6 +283,7 @@ static void uiCollada_exportSettings(uiLayout *layout, PointerRNA *imfptr)
 
 	row = uiLayoutRow(box, false);
 	uiItemR(row, imfptr, "deform_bones_only", 0, NULL, ICON_NONE);
+
 	row = uiLayoutRow(box, false);
 	uiItemR(row, imfptr, "open_sim", 0, NULL, ICON_NONE);
 
@@ -279,7 +303,6 @@ static void uiCollada_exportSettings(uiLayout *layout, PointerRNA *imfptr)
 	split = uiLayoutSplit(row, 0.6f, UI_LAYOUT_ALIGN_RIGHT);
 	uiItemL(split, IFACE_("Transformation Type"), ICON_NONE);
 	uiItemR(split, imfptr, "export_transformation_type_selection", 0, "", ICON_NONE);
-
 	row = uiLayoutRow(box, false);
 	uiItemR(row, imfptr, "sort_by_name", 0, NULL, ICON_NONE);
 
@@ -356,20 +379,29 @@ void WM_OT_collada_export(wmOperatorType *ot)
 	RNA_def_enum(func, "export_mesh_type_selection", prop_bc_export_mesh_type, 0,
 	             "Resolution", "Modifier resolution for export");
 
-	RNA_def_boolean(func, "selected", 0, "Selection Only",
+	RNA_def_boolean(func, "selected", false, "Selection Only",
 	                "Export only selected elements");
 
-	RNA_def_boolean(func, "include_children", 0, "Include Children",
+	RNA_def_boolean(func, "include_children", false, "Include Children",
 	                "Export all children of selected objects (even if not selected)");
 
-	RNA_def_boolean(func, "include_armatures", 0, "Include Armatures",
+	RNA_def_boolean(func, "include_armatures", false, "Include Armatures",
 	                "Export related armatures (even if not selected)");
 
-	RNA_def_boolean(func, "include_shapekeys", 1, "Include Shape Keys",
+	RNA_def_boolean(func, "include_shapekeys", false, "Include Shape Keys",
 	                "Export all Shape Keys from Mesh Objects");
 
-	RNA_def_boolean(func, "deform_bones_only", 0, "Deform Bones only",
-	                "Only export deforming bones with armatures");
+	RNA_def_boolean(func, "deform_bones_only", false, "Deform Bones only",
+	            	"Only export deforming bones with armatures");
+
+	RNA_def_boolean(func, "include_animations", true,
+		"Include Animations", "Export Animations if available.\nExporting Animations will enforce the decomposition of node transforms\ninto  <translation> <rotation> and <scale> components");
+
+	RNA_def_boolean(func, "sample_animations", 0,
+		"Sample Animations", "Auto-generate keyframes with a frame distance set by 'Sampling Rate'.\nWhen disabled, export only the keyframes defined in the animation f-curves (may be less accurate)");
+
+	RNA_def_int(func, "sampling_rate", 1, 1, INT_MAX,
+		"Sampling Rate", "The distance between 2 keyframes. 1 means: Every frame is keyed", 1, INT_MAX);
 
 
 	RNA_def_boolean(func, "active_uv_only", 0, "Only Selected UV Map",

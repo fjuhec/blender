@@ -79,6 +79,7 @@
 
 #include "PIL_time.h"
 
+#include "GPU_batch.h"
 #include "GPU_draw.h"
 #include "GPU_extensions.h"
 #include "GPU_init_exit.h"
@@ -381,6 +382,7 @@ void wm_window_close(bContext *C, wmWindowManager *wm, wmWindow *win)
 		}
 
 		if (tmpwin) {
+			gpu_batch_presets_reset();
 			immDeactivate();
 		}
 
@@ -501,7 +503,7 @@ static void wm_window_ghostwindow_add(wmWindowManager *wm, const char *title, wm
 #endif
 	                              GHOST_kDrawingContextTypeOpenGL,
 	                              glSettings);
-	
+
 	if (ghostwin) {
 		GHOST_RectangleHandle bounds;
 
@@ -1028,6 +1030,7 @@ void wm_window_make_drawable(wmWindowManager *wm, wmWindow *win)
 			printf("%s: set drawable %d\n", __func__, win->winid);
 		}
 
+		gpu_batch_presets_reset();
 		immDeactivate();
 		GHOST_ActivateWindowDrawingContext(win->ghostwin);
 		GWN_context_active_set(win->gwnctx);
@@ -1035,6 +1038,26 @@ void wm_window_make_drawable(wmWindowManager *wm, wmWindow *win)
 
 		/* this can change per window */
 		WM_window_set_dpi(win);
+	}
+}
+
+/* Reset active the current window opengl drawing context. */
+void wm_window_reset_drawable(void)
+{
+	BLI_assert(BLI_thread_is_main());
+	wmWindowManager *wm = G.main->wm.first;
+
+	if (wm == NULL)
+		return;
+
+	wmWindow *win = wm->windrawable;
+
+	if (win && win->ghostwin) {
+		gpu_batch_presets_reset();
+		immDeactivate();
+		GHOST_ActivateWindowDrawingContext(win->ghostwin);
+		GWN_context_active_set(win->gwnctx);
+		immActivate();
 	}
 }
 
@@ -2044,3 +2067,25 @@ void wm_window_IME_end(wmWindow *win)
 	win->ime_data = NULL;
 }
 #endif  /* WITH_INPUT_IME */
+
+/* ****** direct opengl context management ****** */
+
+void *WM_opengl_context_create(void)
+{
+	return GHOST_CreateOpenGLContext(g_system);
+}
+
+void WM_opengl_context_dispose(void *context)
+{
+	GHOST_DisposeOpenGLContext(g_system, (GHOST_ContextHandle)context);
+}
+
+void WM_opengl_context_activate(void *context)
+{
+	GHOST_ActivateOpenGLContext((GHOST_ContextHandle)context);
+}
+
+void WM_opengl_context_release(void *context)
+{
+	GHOST_ReleaseOpenGLContext((GHOST_ContextHandle)context);
+}

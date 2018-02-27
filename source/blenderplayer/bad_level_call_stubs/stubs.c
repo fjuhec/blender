@@ -152,7 +152,6 @@ struct wmManipulatorMap;
 #include "../../intern/elbeem/extern/elbeem.h"
 #include "../blender/blenkernel/BKE_modifier.h"
 #include "../blender/blenkernel/BKE_paint.h"
-#include "../blender/collada/collada.h"
 #include "../blender/compositor/COM_compositor.h"
 #include "../blender/editors/include/ED_armature.h"
 #include "../blender/editors/include/ED_anim_api.h"
@@ -281,7 +280,7 @@ int	multitex_ext(struct Tex *tex, float texvec[3], float dxt[3], float dyt[3], i
 int multitex_ext_safe(struct Tex *tex, float texvec[3], struct TexResult *texres, struct ImagePool *pool, bool scene_color_manage, const bool skip_load_image) RET_ZERO
 int multitex_nodes(struct Tex *tex, float texvec[3], float dxt[3], float dyt[3], int osatex, struct TexResult *texres, const short thread, short which_output, struct ShadeInput *shi, struct MTex *mtex, struct ImagePool *pool) RET_ZERO
 
-struct Material *RE_sample_material_init(struct Material *orig_mat, struct Scene *scene) RET_NULL
+struct Material *RE_sample_material_init(const struct EvaluationContext *eval_ctx, struct Material *orig_mat, struct Scene *scene) RET_NULL
 void RE_sample_material_free(struct Material *mat) RET_NONE
 void RE_sample_material_color(
         struct Material *mat, float color[3], float *alpha, const float volume_co[3], const float surface_co[3],
@@ -775,8 +774,6 @@ void RE_instance_get_particle_info(struct ObjectInstanceRen *obi, float *index, 
 void RE_FreeAllPersistentData(void) RET_NONE
 float RE_fresnel_dielectric(float incoming[3], float normal[3], float eta) RET_ZERO
 void RE_engine_register_pass(struct RenderEngine *engine, struct Scene *scene, struct ViewLayer *view_layer, const char *name, int channels, const char *chanid, int type) RET_NONE
-struct ViewLayer *RE_engine_get_view_layer(struct Render *re) RET_NULL
-void RE_SetDepsgraph(struct Render *re, struct Depsgraph *graph) RET_NONE
 
 /* Draw */
 void OBJECT_collection_settings_create(struct IDProperty *properties) RET_NONE
@@ -824,33 +821,6 @@ void UI_pie_menu_end(struct bContext *C, uiPieMenu *pie) RET_NONE
 struct uiLayout *uiLayoutRadial(struct uiLayout *layout) RET_NULL
 int UI_pie_menu_invoke_from_operator_enum(struct bContext *C, const char *title, const char *opname,
                              const char *propname, const struct wmEvent *event) RET_ZERO
-
-/* RNA COLLADA dependency */
-int collada_export(const struct EvaluationContext *eval_ctx,
-                   struct Scene *sce,
-                   struct ViewLayer *view_layer,
-                   const char *filepath,
-                   int apply_modifiers,
-                   BC_export_mesh_type export_mesh_type,
-
-                   int selected,
-                   int include_children,
-                   int include_armatures,
-                   int include_shapekeys,
-                   int deform_bones_only,
-
-                   int active_uv_only,
-                   int include_material_textures,
-                   int use_texture_copies,
-
-                   int triangulate,
-                   int use_object_instantiation,
-                   int use_blender_profile,
-                   int sort_by_name,
-                   BC_export_transformation_type export_transformation_type,
-                   int open_sim,
-                   int limit_precision,
-                   int keep_bind_info) RET_ZERO
 
 void ED_mesh_calc_tessface(struct Mesh *mesh, bool free_mpoly) RET_NONE
 

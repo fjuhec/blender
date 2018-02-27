@@ -367,6 +367,8 @@ static void create_mesh_volume_attributes(Scene *scene,
 		create_mesh_volume_attribute(b_ob, mesh, scene->image_manager, ATTR_STD_VOLUME_FLAME, frame);
 	if(mesh->need_attribute(scene, ATTR_STD_VOLUME_HEAT))
 		create_mesh_volume_attribute(b_ob, mesh, scene->image_manager, ATTR_STD_VOLUME_HEAT, frame);
+	if(mesh->need_attribute(scene, ATTR_STD_VOLUME_TEMPERATURE))
+		create_mesh_volume_attribute(b_ob, mesh, scene->image_manager, ATTR_STD_VOLUME_TEMPERATURE, frame);
 	if(mesh->need_attribute(scene, ATTR_STD_VOLUME_VELOCITY))
 		create_mesh_volume_attribute(b_ob, mesh, scene->image_manager, ATTR_STD_VOLUME_VELOCITY, frame);
 }
@@ -1065,7 +1067,8 @@ static void sync_mesh_fluid_motion(BL::Object& b_ob, Scene *scene, Mesh *mesh)
 	}
 }
 
-Mesh *BlenderSync::sync_mesh(BL::Object& b_ob,
+Mesh *BlenderSync::sync_mesh(BL::Depsgraph& b_depsgraph,
+                             BL::Object& b_ob,
                              BL::Object& b_ob_instance,
                              bool object_updated,
                              bool hide_tris)
@@ -1184,7 +1187,7 @@ Mesh *BlenderSync::sync_mesh(BL::Object& b_ob,
 		BL::Mesh b_mesh = object_to_mesh(b_data,
 		                                 b_ob,
 		                                 b_scene,
-		                                 b_view_layer,
+		                                 b_depsgraph.view_layer(),
 		                                 true,
 		                                 !preview,
 		                                 need_undeformed,
@@ -1202,7 +1205,7 @@ Mesh *BlenderSync::sync_mesh(BL::Object& b_ob,
 			}
 
 			if(view_layer.use_hair && mesh->subdivision_type == Mesh::SUBDIVISION_NONE)
-				sync_curves(mesh, b_mesh, b_ob, false);
+				sync_curves(b_depsgraph, mesh, b_mesh, b_ob, false);
 
 			if(can_free_caches) {
 				b_ob.cache_release();
@@ -1229,7 +1232,8 @@ Mesh *BlenderSync::sync_mesh(BL::Object& b_ob,
 	return mesh;
 }
 
-void BlenderSync::sync_mesh_motion(BL::Object& b_ob,
+void BlenderSync::sync_mesh_motion(BL::Depsgraph& b_depsgraph,
+                                   BL::Object& b_ob,
                                    Object *object,
                                    float motion_time)
 {
@@ -1299,7 +1303,7 @@ void BlenderSync::sync_mesh_motion(BL::Object& b_ob,
 		b_mesh = object_to_mesh(b_data,
 		                        b_ob,
 		                        b_scene,
-		                        b_view_layer,
+		                        b_depsgraph.view_layer(),
 		                        true,
 		                        !preview,
 		                        false,
@@ -1410,7 +1414,7 @@ void BlenderSync::sync_mesh_motion(BL::Object& b_ob,
 
 	/* hair motion */
 	if(numkeys)
-		sync_curves(mesh, b_mesh, b_ob, true, time_index);
+		sync_curves(b_depsgraph, mesh, b_mesh, b_ob, true, time_index);
 
 	/* free derived mesh */
 	b_data.meshes.remove(b_mesh, false, true, false);

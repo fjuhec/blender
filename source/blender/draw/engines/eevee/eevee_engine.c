@@ -197,6 +197,8 @@ static void eevee_draw_background(void *vedata)
 			EEVEE_volumes_set_jitter(sldata, stl->effects->taa_current_sample - 1);
 			EEVEE_materials_init(sldata, stl, fbl);
 		}
+		/* Copy previous persmat to UBO data */
+		copy_m4_m4(sldata->common_data.prev_persmat, stl->effects->prev_persmat);
 
 		/* Refresh Probes */
 		DRW_stats_group_start("Probes Refresh");
@@ -377,7 +379,7 @@ static void eevee_id_update(void *vedata, ID *id)
 	}
 }
 
-static void eevee_render_to_image(void *vedata, RenderEngine *engine, struct RenderResult *render_result, struct RenderLayer *render_layer)
+static void eevee_render_to_image(void *vedata, RenderEngine *engine, struct RenderLayer *render_layer, const rcti *rect)
 {
 	const DRWContextState *draw_ctx = DRW_context_state_get();
 	EEVEE_render_init(vedata, engine, draw_ctx->depsgraph);
@@ -385,7 +387,7 @@ static void eevee_render_to_image(void *vedata, RenderEngine *engine, struct Ren
 	DRW_render_object_iter(vedata, engine, draw_ctx->depsgraph, EEVEE_render_cache);
 
 	/* Actually do the rendering. */
-	EEVEE_render_draw(vedata, engine, render_result, render_layer);
+	EEVEE_render_draw(vedata, engine, render_layer, rect);
 }
 
 static void eevee_engine_free(void)
@@ -502,7 +504,7 @@ DrawEngineType draw_engine_eevee_type = {
 
 RenderEngineType DRW_engine_viewport_eevee_type = {
 	NULL, NULL,
-	EEVEE_ENGINE, N_("Eevee"), RE_INTERNAL | RE_USE_SHADING_NODES,
+	EEVEE_ENGINE, N_("Eevee"), RE_INTERNAL | RE_USE_SHADING_NODES | RE_USE_PREVIEW,
 	NULL, &DRW_render_to_image, NULL, NULL, NULL, NULL,
 	&EEVEE_render_update_passes,
 	&eevee_layer_collection_settings_create,
