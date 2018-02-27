@@ -4697,6 +4697,7 @@ void RNA_def_userdef(BlenderRNA *brna)
 	PropertyRNA *prop;
 
 	static const EnumPropertyItem user_pref_sections[] = {
+		{0, "", 0, "User Preferences", ""},
 		{USER_SECTION_GENERAL, "GENERAL", 0, "General", ""},
 		{USER_SECTION_INTERFACE, "INTERFACE", 0, "Interface", ""},
 		{USER_SECTION_INPUT, "INPUT", 0, "Input", ""},
@@ -4704,9 +4705,10 @@ void RNA_def_userdef(BlenderRNA *brna)
 		{USER_SECTION_THEME, "THEMES", 0, "Themes", ""},
 		{USER_SECTION_FILE, "FILES", 0, "File", ""},
 		{0, "", 0, "Workspaces", ""},
-		{USER_SECTION_WORKSPACE_CONFIG, "WORKSPACE_CONFIG", 0, "Workspace Configuration File", ""},
-		{USER_SECTION_WORKSPACE_ADDONS, "WORKSPACE_ADDONS", 0, "Workspace Add-on Overrides", ""},
-		{USER_SECTION_WORKSPACE_KEYMAPS, "WORKSPACE_KEYMAPS", 0, "Workspace Key-map Overrides", ""},
+		{USER_SECTION_WORKSPACE_CONFIG, "WORKSPACE_CONFIG", 0, "Configuration File", ""},
+		{USER_SECTION_WORKSPACE_ADDONS, "WORKSPACE_ADDONS", 0, "Add-on Overrides", ""},
+		{USER_SECTION_WORKSPACE_KEYMAPS, "WORKSPACE_KEYMAPS", 0, "Key-map Overrides", ""},
+		{0, "", 0, "System", ""},
 		{USER_SECTION_SYSTEM, "SYSTEM", 0, "System", ""},
 		{0, NULL, 0, NULL, NULL}
 	};

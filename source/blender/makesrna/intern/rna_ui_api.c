@@ -95,8 +95,10 @@ const char *rna_translate_ui_text(
 	return BLT_pgettext(BLT_I18NCONTEXT_DEFAULT, text);
 }
 
-static void rna_uiItemR(uiLayout *layout, PointerRNA *ptr, const char *propname, const char *name, const char *text_ctxt,
-                        int translate, int icon, int expand, int slider, int toggle, int icon_only, int event,
+static void rna_uiItemR(uiLayout *layout, PointerRNA *ptr, const char *propname,
+                        const char *name, const char *text_ctxt,
+                        int translate, int icon, int expand, int group,
+                        int slider, int toggle, int icon_only, int event,
                         int full_event, int emboss, int index, int icon_value)
 {
 	PropertyRNA *prop = RNA_struct_find_property(ptr, propname);
@@ -116,6 +118,7 @@ static void rna_uiItemR(uiLayout *layout, PointerRNA *ptr, const char *propname,
 
 	flag |= (slider) ? UI_ITEM_R_SLIDER : 0;
 	flag |= (expand) ? UI_ITEM_R_EXPAND : 0;
+	flag |= (group) ? UI_ITEM_R_GROUP : 0;
 	flag |= (toggle) ? UI_ITEM_R_TOGGLE : 0;
 	flag |= (icon_only) ? UI_ITEM_R_ICON_ONLY : 0;
 	flag |= (event) ? UI_ITEM_R_EVENT : 0;
@@ -550,6 +553,8 @@ void RNA_api_ui_layout(StructRNA *srna)
 	api_ui_item_rna_common(func);
 	api_ui_item_common(func);
 	RNA_def_boolean(func, "expand", false, "", "Expand button to show more detail");
+	RNA_def_boolean(func, "group", false, "", "Allow grouping together enum items if the enum allows it "
+	                "(requires expand option to be enabled)");
 	RNA_def_boolean(func, "slider", false, "", "Use slider widget for numeric values");
 	RNA_def_boolean(func, "toggle", false, "", "Use toggle widget for boolean values");
 	RNA_def_boolean(func, "icon_only", false, "", "Draw only icons in buttons, no text");

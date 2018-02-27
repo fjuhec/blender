@@ -89,7 +89,7 @@ class USERPREF_PT_navigation(Panel):
 
         col = layout.column()
 
-        col.prop(userpref, "active_section", expand=True)
+        col.prop(userpref, "active_section", expand=True, group=True)
 
 
 class USERPREF_MT_interaction_presets(Menu):
