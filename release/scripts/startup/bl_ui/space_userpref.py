@@ -57,13 +57,14 @@ class USERPREF_HT_header(Header):
         userpref = context.user_preferences
 
         layout.operator_context = 'EXEC_AREA'
-        layout.operator("wm.save_userpref")
+        if userpref.active_section in {'WORKSPACE_CONFIG', 'WORKSPACE_ADDONS', 'WORKSPACE_KEYMAPS'}:
+            layout.operator("wm.save_workspace_file")
+        else:
+            layout.operator("wm.save_userpref")
 
         layout.operator_context = 'INVOKE_DEFAULT'
 
-        if userpref.active_section == 'INTERFACE':
-            layout.operator("wm.save_workspace_file")
-        elif userpref.active_section == 'INPUT':
+        if userpref.active_section == 'INPUT':
             layout.operator("wm.keyconfig_import")
             layout.operator("wm.keyconfig_export")
         elif userpref.active_section == 'ADDONS':
@@ -1582,6 +1583,57 @@ class USERPREF_PT_addons(Panel):
                 row.label(text=module_name, translate=False)
 
 
+class USERPREF_PT_workspace_config(Panel):
+    bl_space_type = 'USER_PREFERENCES'
+    bl_label = "Workspace Configuration File"
+    bl_region_type = 'WINDOW'
+    bl_options = {'HIDE_HEADER'}
+
+    @classmethod
+    def poll(cls, context):
+        userpref = context.user_preferences
+        return (userpref.active_section == 'WORKSPACE_CONFIG')
+
+    def draw(self, context):
+        layout = self.layout
+
+        layout.label("Nothing to see here yet!")
+
+
+class USERPREF_PT_workspace_addons(Panel):
+    bl_space_type = 'USER_PREFERENCES'
+    bl_label = "Workspace Add-on Overrides"
+    bl_region_type = 'WINDOW'
+    bl_options = {'HIDE_HEADER'}
+
+    @classmethod
+    def poll(cls, context):
+        userpref = context.user_preferences
+        return (userpref.active_section == 'WORKSPACE_ADDONS')
+
+    def draw(self, context):
+        layout = self.layout
+
+        layout.label("Nothing to see here yet!")
+
+
+class USERPREF_PT_workspace_keymaps(Panel):
+    bl_space_type = 'USER_PREFERENCES'
+    bl_label = "Workspace Key-map Overrides"
+    bl_region_type = 'WINDOW'
+    bl_options = {'HIDE_HEADER'}
+
+    @classmethod
+    def poll(cls, context):
+        userpref = context.user_preferences
+        return (userpref.active_section == 'WORKSPACE_KEYMAPS')
+
+    def draw(self, context):
+        layout = self.layout
+
+        layout.label("Nothing to see here yet!")
+
+
 classes = (
     USERPREF_HT_header,
     USERPREF_PT_navigation,
@@ -1602,6 +1654,9 @@ classes = (
     USERPREF_PT_input,
     USERPREF_MT_addons_online_resources,
     USERPREF_PT_addons,
+    USERPREF_PT_workspace_config,
+    USERPREF_PT_workspace_addons,
+    USERPREF_PT_workspace_keymaps,
 )
 
 if __name__ == "__main__":  # only for live edit.

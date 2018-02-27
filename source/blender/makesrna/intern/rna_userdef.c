@@ -4703,6 +4703,10 @@ void RNA_def_userdef(BlenderRNA *brna)
 		{USER_SECTION_ADDONS, "ADDONS", 0, "Add-ons", ""},
 		{USER_SECTION_THEME, "THEMES", 0, "Themes", ""},
 		{USER_SECTION_FILE, "FILES", 0, "File", ""},
+		{0, "", 0, "Workspaces", ""},
+		{USER_SECTION_WORKSPACE_CONFIG, "WORKSPACE_CONFIG", 0, "Workspace Configuration File", ""},
+		{USER_SECTION_WORKSPACE_ADDONS, "WORKSPACE_ADDONS", 0, "Workspace Add-on Overrides", ""},
+		{USER_SECTION_WORKSPACE_KEYMAPS, "WORKSPACE_KEYMAPS", 0, "Workspace Key-map Overrides", ""},
 		{USER_SECTION_SYSTEM, "SYSTEM", 0, "System", ""},
 		{0, NULL, 0, NULL, NULL}
 	};
