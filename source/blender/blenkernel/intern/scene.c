@@ -227,8 +227,8 @@ void BKE_toolsettings_free(ToolSettings *toolsettings)
 		curvemapping_free(toolsettings->gp_interpolate.custom_ipo);
 	}
 	/* free Grease Pencil multiframe falloff curve */
-	if (sce->toolsettings->gp_sculpt.cur_falloff) {
-		curvemapping_free(sce->toolsettings->gp_sculpt.cur_falloff);
+	if (toolsettings->gp_sculpt.cur_falloff) {
+		curvemapping_free(toolsettings->gp_sculpt.cur_falloff);
 	}
 
 	MEM_freeN(toolsettings);
