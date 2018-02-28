@@ -467,6 +467,7 @@ static DRWShadingGroup *DRW_gpencil_shgroup_point_create(GPENCIL_e_data *e_data,
 			}
 		}
 		DRW_shgroup_uniform_int(grp, "color_type", &stl->shgroups[id].color_type, 1);
+		DRW_shgroup_uniform_int(grp, "mode", &stl->shgroups[id].mode, 1);
 		DRW_shgroup_uniform_float(grp, "pixfactor", &gpd->pixfactor, 1);
 	}
 	else {
