@@ -18,7 +18,7 @@ out vec2 finaluvdata;
 
 #define TRUE 1
 
-float defaultpixsize = pixsize * pixelsize * (1000.0 / pixfactor);;
+float defaultpixsize = pixsize * pixelsize * (1000.0 / pixfactor);
 
 void main()
 {
