@@ -235,7 +235,7 @@ static ShaderNode *add_node(Scene *scene,
                             BL::RenderEngine& b_engine,
                             BL::BlendData& b_data,
                             BL::Scene& b_scene,
-                            BL::ViewLayer b_view_layer,
+                            BL::ViewLayer& b_view_layer,
                             const bool background,
                             ShaderGraph *graph,
                             BL::ShaderNodeTree& b_ntree,
@@ -835,6 +835,7 @@ static ShaderNode *add_node(Scene *scene,
 		node = uvm;
 	}
 	else if(b_node.is_a(&RNA_ShaderNodeTexPointDensity)) {
+		/* TODO: fix point density to work with new view layer depsgraph */
 		BL::ShaderNodeTexPointDensity b_point_density_node(b_node);
 		PointDensityTextureNode *point_density = new PointDensityTextureNode();
 		point_density->filename = b_point_density_node.name();
@@ -1225,8 +1226,9 @@ static void add_nodes(Scene *scene,
 
 /* Sync Materials */
 
-void BlenderSync::sync_materials(bool update_all)
+void BlenderSync::sync_materials(BL::Depsgraph& b_depsgraph, bool update_all)
 {
+	BL::ViewLayer b_view_layer(b_depsgraph.view_layer());
 	shader_map.set_default(scene->default_surface);
 
 	TaskPool pool;
@@ -1310,8 +1312,9 @@ void BlenderSync::sync_materials(bool update_all)
 
 /* Sync World */
 
-void BlenderSync::sync_world(bool update_all)
+void BlenderSync::sync_world(BL::Depsgraph& b_depsgraph, bool update_all)
 {
+	BL::ViewLayer b_view_layer(b_depsgraph.view_layer());
 	Background *background = scene->background;
 	Background prevbackground = *background;
 
@@ -1402,8 +1405,9 @@ void BlenderSync::sync_world(bool update_all)
 
 /* Sync Lamps */
 
-void BlenderSync::sync_lamps(bool update_all)
+void BlenderSync::sync_lamps(BL::Depsgraph& b_depsgraph, bool update_all)
 {
+	BL::ViewLayer b_view_layer(b_depsgraph.view_layer());
 	shader_map.set_default(scene->default_light);
 
 	/* lamp loop */
@@ -1454,7 +1458,7 @@ void BlenderSync::sync_lamps(bool update_all)
 	}
 }
 
-void BlenderSync::sync_shaders()
+void BlenderSync::sync_shaders(BL::Depsgraph& b_depsgraph)
 {
 	/* for auto refresh images */
 	bool auto_refresh_update = false;
@@ -1467,9 +1471,9 @@ void BlenderSync::sync_shaders()
 
 	shader_map.pre_sync();
 
-	sync_world(auto_refresh_update);
-	sync_lamps(auto_refresh_update);
-	sync_materials(auto_refresh_update);
+	sync_world(b_depsgraph, auto_refresh_update);
+	sync_lamps(b_depsgraph, auto_refresh_update);
+	sync_materials(b_depsgraph, auto_refresh_update);
 
 	/* false = don't delete unused shaders, not supported */
 	shader_map.post_sync(false);
