@@ -2135,7 +2135,8 @@ bool ED_object_mode_generic_enter(
         struct bContext *C, eObjectMode object_mode)
 {
 	WorkSpace *workspace = CTX_wm_workspace(C);
-	if (workspace->object_mode == object_mode) {
+	Object *ob = CTX_data_active_object(C);
+	if ((workspace->object_mode == object_mode) && (!(ob) || (ob->type != OB_GPENCIL))) {
 		return true;
 	}
 	wmOperatorType *ot = WM_operatortype_find("OBJECT_OT_mode_set", false);
