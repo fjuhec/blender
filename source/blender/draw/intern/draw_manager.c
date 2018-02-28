@@ -1250,7 +1250,7 @@ void DRW_render_gpencil_to_image(RenderEngine *engine, struct RenderLayer *rende
 
 	if (draw_engine_gpencil_type.render_to_image) {
 		if (DRW_render_check_object_type(draw_ctx->depsgraph, OB_GPENCIL)) {
-			ViewportEngineData *gpdata = DRW_viewport_engine_data_ensure(&draw_engine_gpencil_type);
+			ViewportEngineData *gpdata = drw_viewport_engine_data_ensure(&draw_engine_gpencil_type);
 			draw_engine_gpencil_type.render_to_image(gpdata, engine, render_layer, rect);
 		}
 	}

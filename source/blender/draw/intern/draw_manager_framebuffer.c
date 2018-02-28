@@ -30,6 +30,29 @@ GPUFrameBuffer *DRW_framebuffer_create(void)
 	return GPU_framebuffer_create();
 }
 
+/* create multisample framebuffer */
+void DRW_framebuffer_create_multisample(DefaultFramebufferList *dfbl, DefaultTextureList *dtxl, int rect_w, int rect_h)
+{
+	if (U.ogl_multisamples > 0) {
+		if (!dfbl->multisample_fb) {
+			dfbl->multisample_fb = GPU_framebuffer_create();
+			if (dfbl->multisample_fb) {
+				/* Color */
+				dtxl->multisample_color = GPU_texture_create_2D_multisample(rect_w, rect_h, NULL, U.ogl_multisamples, NULL);
+				GPU_framebuffer_texture_attach(dfbl->multisample_fb, dtxl->multisample_color, 0, 0);
+				/* Depth */
+				dtxl->multisample_depth = GPU_texture_create_depth_with_stencil_multisample(rect_w, rect_h,
+					U.ogl_multisamples, NULL);
+				GPU_framebuffer_texture_attach(dfbl->multisample_fb, dtxl->multisample_depth, 0, 0);
+
+				if (!GPU_framebuffer_check_valid(dfbl->multisample_fb, NULL)) {
+					GPU_framebuffer_free(dfbl->multisample_fb);
+				}
+			}
+		}
+	}
+}
+
 void DRW_framebuffer_init(
         GPUFrameBuffer **fb, void *engine_type, int width, int height,
         DRWFboTexture textures[MAX_FBO_TEX], int textures_len)
