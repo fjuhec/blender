@@ -29,6 +29,7 @@
 
 struct BMAllocTemplate;
 struct MLoopNorSpaceArray;
+struct BMLoopNorEditDataArray;
 
 void   BM_mesh_elem_toolflags_ensure(BMesh *bm);
 void   BM_mesh_elem_toolflags_clear(BMesh *bm);
@@ -63,10 +64,9 @@ void BM_lnorspace_err(BMesh *bm);
 #endif
 
 /* Loop Generics */
-LoopNormalData *BM_loop_normal_init(BMesh *bm);
-void BM_loop_normal_free(LoopNormalData *ld);
+struct BMLoopNorEditDataArray *BM_loop_normal_editdata_init(BMesh *bm);
+void BM_loop_normal_editdata_free(struct BMLoopNorEditDataArray *ld);
 int BM_total_loop_select(BMesh *bm);
-void InitTransDataNormal(BMesh *bm, TransDataLoopNormal *tld, BMVert *v, BMLoop *l, int offset);
 
 void BM_edges_sharp_from_angle_set(BMesh *bm, const float split_angle);
 

@@ -4223,12 +4223,12 @@ static void StoreCustomlnorValue(TransInfo *t, BMesh *bm)
 {
 	float mtx[3][3], smtx[3][3];
 
-	LoopNormalData *ld = BM_loop_normal_init(bm);
+	BMLoopNorEditDataArray *ld = BM_loop_normal_editdata_init(bm);
 
 	copy_m3_m4(mtx, t->obedit->obmat);
 	pseudoinverse_m3_m3(smtx, mtx, PSEUDOINVERSE_EPSILON);
 
-	TransDataLoopNormal *tld = ld->normal;
+	BMLoopNorEditData *tld = ld->lnor_editdata;
 	for (int i = 0; i < ld->totloop; i++, tld++) {
 		copy_m3_m3(tld->mtx, mtx);
 		copy_m3_m3(tld->smtx, smtx);
@@ -4240,10 +4240,10 @@ static void StoreCustomlnorValue(TransInfo *t, BMesh *bm)
 
 void freeCustomNormalArray(TransInfo *t, TransCustomData *custom_data)
 {
-	LoopNormalData *ld = custom_data->data;
+	BMLoopNorEditDataArray *ld = custom_data->data;
 
 	if (t->state == TRANS_CANCEL) {
-		TransDataLoopNormal *tld = ld->normal;
+		BMLoopNorEditData *tld = ld->lnor_editdata;
 		BMEditMesh *em = BKE_editmesh_from_object(t->obedit);
 		BMesh *bm = em->bm;
 
@@ -4252,7 +4252,7 @@ void freeCustomNormalArray(TransInfo *t, TransCustomData *custom_data)
 		}
 	}
 
-	BM_loop_normal_free(ld);
+	BM_loop_normal_editdata_free(ld);
 
 	t->custom.mode.data = NULL;
 	t->custom.mode.free_cb = NULL;
@@ -4305,8 +4305,8 @@ static void applyNormalRotation(TransInfo *t, const int UNUSED(mval[2]))
 		copy_v3_v3(t->axis, t->axis_orig);
 	}
 
-	LoopNormalData *ld = t->custom.mode.data;
-	TransDataLoopNormal *tld = ld->normal;
+	BMLoopNorEditDataArray *ld = t->custom.mode.data;
+	BMLoopNorEditData *tld = ld->lnor_editdata;
 
 	float axis[3];
 	float mat[3][3];

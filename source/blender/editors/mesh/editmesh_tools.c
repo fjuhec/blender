@@ -6002,7 +6002,7 @@ static int init_point_normals(bContext *C, wmOperator *op, const wmEvent *UNUSED
 	BMesh *bm = em->bm;
 
 	BKE_editmesh_lnorspace_update(em);
-	LoopNormalData *ld = BM_loop_normal_init(bm);
+	BMLoopNorEditDataArray *ld = BM_loop_normal_editdata_init(bm);
 
 	ld->funcdata = NULL;
 	op->customdata = ld;
@@ -6014,8 +6014,8 @@ static void apply_point_normals(bContext *C, wmOperator *op, const wmEvent *UNUS
 {
 	Object *obedit = CTX_data_edit_object(C);
 	BMesh *bm = BKE_editmesh_from_object(obedit)->bm;
-	LoopNormalData *ld = op->customdata;
-	TransDataLoopNormal *tld = ld->normal;
+	BMLoopNorEditDataArray *ld = op->customdata;
+	BMLoopNorEditData *tld = ld->lnor_editdata;
 
 	const bool point_away = RNA_boolean_get(op->ptr, "point_away");
 	const bool spherize = RNA_boolean_get(op->ptr, "spherize");
@@ -6068,8 +6068,8 @@ static void apply_point_normals(bContext *C, wmOperator *op, const wmEvent *UNUS
 
 static void point_normals_free(bContext *C, wmOperator *op)
 {
-	LoopNormalData *ld = op->customdata;
-	BM_loop_normal_free(ld);
+	BMLoopNorEditDataArray *ld = op->customdata;
+	BM_loop_normal_editdata_free(ld);
 	op->customdata = NULL;
 	ED_area_headerprint(CTX_wm_area(C), NULL);
 }
@@ -6110,8 +6110,8 @@ static int point_normals_mouse(bContext *C, wmOperator *op, const wmEvent *event
 		return OPERATOR_FINISHED;
 	}
 	else if ((ISKEYBOARD(event->type) || event->type == RIGHTMOUSE) && event->type != MKEY) {
-		LoopNormalData *ld = op->customdata;
-		TransDataLoopNormal *tld = ld->normal;
+		BMLoopNorEditDataArray *ld = op->customdata;
+		BMLoopNorEditData *tld = ld->lnor_editdata;
 
 		for (i = 0; i < ld->totloop; i++, tld++) {  /* Reset custom normal data. */
 			BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[tld->loop_index], tld->niloc, tld->clnors_data);
@@ -6133,7 +6133,7 @@ static int edbm_point_normals_modal(bContext *C, wmOperator *op, const wmEvent *
 
 	bool handled = false;
 	PropertyRNA *prop = RNA_struct_find_property(op->ptr, "target_location");
-	LoopNormalData *ld = op->customdata;
+	BMLoopNorEditDataArray *ld = op->customdata;
 
 	if (ld->funcdata) {  /* Executes and transfers control to point_normals_mouse. */
 		int(*apply)(bContext *, wmOperator *, const wmEvent *);
@@ -6396,13 +6396,13 @@ static void custom_loops_tag(BMesh *bm, const bool do_edges)
 	bm->elem_index_dirty &= ~(BM_FACE | BM_LOOP);
 }
 
-static void merge_loop(bContext *C, LoopNormalData *ld)
+static void merge_loop(bContext *C, BMLoopNorEditDataArray *ld)
 {
 	Object *obedit = CTX_data_edit_object(C);
 	BMEditMesh *em = BKE_editmesh_from_object(obedit);
 	BMesh *bm = em->bm;
 
-	TransDataLoopNormal *tld = ld->normal;
+	BMLoopNorEditData *tld = ld->lnor_editdata;
 
 	BLI_SMALLSTACK_DECLARE(clnors, short *);
 
@@ -6426,7 +6426,7 @@ static void merge_loop(bContext *C, LoopNormalData *ld)
 				BMLoop *l = loops->link;
 				const int loop_index = BM_elem_index_get(l);
 
-				TransDataLoopNormal *temp = ld->loop_idx_to_transdata_lnors[loop_index];
+				BMLoopNorEditData *temp = ld->lidx_to_lnor_editdata[loop_index];
 				BLI_assert(temp->loop_index == loop_index && temp->loop == l);
 				add_v3_v3(avg_normal, temp->nloc);
 				BLI_SMALLSTACK_PUSH(clnors, temp->clnors_data);
@@ -6522,7 +6522,7 @@ static int split_merge_loop_normals(bContext *C, const bool do_merge)
 
 	BKE_editmesh_lnorspace_update(em);
 
-	LoopNormalData *ld = do_merge ? BM_loop_normal_init(bm) : NULL;
+	BMLoopNorEditDataArray *ld = do_merge ? BM_loop_normal_editdata_init(bm) : NULL;
 
 	mesh_set_smooth_faces(em, do_merge);
 
@@ -6547,7 +6547,7 @@ static int split_merge_loop_normals(bContext *C, const bool do_merge)
 	}
 
 	if (ld) {
-		BM_loop_normal_free(ld);
+		BM_loop_normal_editdata_free(ld);
 	}
 
 	EDBM_update_generic(em, true, false);
@@ -6814,8 +6814,8 @@ static int edbm_custom_normal_tools_exec(bContext *C, wmOperator *op)
 	const bool absolute = RNA_boolean_get(op->ptr, "absolute");
 
 	BKE_editmesh_lnorspace_update(em);
-	LoopNormalData *ld = BM_loop_normal_init(bm);
-	TransDataLoopNormal *tld = ld->normal;
+	BMLoopNorEditDataArray *ld = BM_loop_normal_editdata_init(bm);
+	BMLoopNorEditData *tld = ld->lnor_editdata;
 
 	float *normal_vector = scene->toolsettings->normal_vector;
 
@@ -6823,17 +6823,17 @@ static int edbm_custom_normal_tools_exec(bContext *C, wmOperator *op)
 		case EDBM_CLNOR_TOOLS_COPY:
 			if (bm->totfacesel != 1 && ld->totloop != 1 && bm->totvertsel != 1) {
 				BKE_report(op->reports, RPT_ERROR, "Can only copy Split normal, Averaged vertex normal or Face normal");
-				BM_loop_normal_free(ld);
+				BM_loop_normal_editdata_free(ld);
 				return OPERATOR_CANCELLED;
 			}
 			bool join = true;
 			for (int i = 0; i < ld->totloop; i++, tld++) {
-				if (!compare_v3v3(ld->normal->nloc, tld->nloc, 1e-4f)) {
+				if (!compare_v3v3(ld->lnor_editdata->nloc, tld->nloc, 1e-4f)) {
 					join = false;
 				}
 			}
 			if (ld->totloop == 1) {
-				copy_v3_v3(scene->toolsettings->normal_vector, ld->normal->nloc);
+				copy_v3_v3(scene->toolsettings->normal_vector, ld->lnor_editdata->nloc);
 			}
 			else if (bm->totfacesel == 1) {
 				BMFace *f;
@@ -6845,7 +6845,7 @@ static int edbm_custom_normal_tools_exec(bContext *C, wmOperator *op)
 				}
 			}
 			else if (join) {
-				copy_v3_v3(scene->toolsettings->normal_vector, ld->normal->nloc);
+				copy_v3_v3(scene->toolsettings->normal_vector, ld->lnor_editdata->nloc);
 			}
 			break;
 
@@ -6898,7 +6898,7 @@ static int edbm_custom_normal_tools_exec(bContext *C, wmOperator *op)
 			break;
 	}
 
-	BM_loop_normal_free(ld);
+	BM_loop_normal_editdata_free(ld);
 
 	EDBM_update_generic(em, true, false);
 	return OPERATOR_FINISHED;
@@ -7058,11 +7058,11 @@ static int edbm_smoothen_normals_exec(bContext *C, wmOperator *op)
 	BMIter fiter, liter;
 
 	BKE_editmesh_lnorspace_update(em);
-	LoopNormalData *ld = BM_loop_normal_init(bm);
+	BMLoopNorEditDataArray *ld = BM_loop_normal_editdata_init(bm);
 
 	float(*smooth_normal)[3] = MEM_callocN(sizeof(*smooth_normal) * ld->totloop, __func__);
 
-	TransDataLoopNormal *tld = ld->normal;
+	BMLoopNorEditData *tld = ld->lnor_editdata;
 
 	for (int i = 0; i < ld->totloop; i++, tld++) {
 		l = tld->loop;
@@ -7072,7 +7072,7 @@ static int edbm_smoothen_normals_exec(bContext *C, wmOperator *op)
 			BMLoop *l_other;
 			BM_ITER_ELEM(l_other, &liter, f, BM_LOOPS_OF_FACE) {
 				int index_other = BM_elem_index_get(l_other);
-				short *clnors = BM_ELEM_CD_GET_VOID_P(l_other, ld->offset);
+				short *clnors = BM_ELEM_CD_GET_VOID_P(l_other, ld->cd_custom_normal_offset);
 				BKE_lnor_space_custom_data_to_normal(bm->lnor_spacearr->lspacearr[index_other], clnors, loop_normal);
 				add_v3_v3(smooth_normal[i], loop_normal);
 			}
@@ -7081,7 +7081,7 @@ static int edbm_smoothen_normals_exec(bContext *C, wmOperator *op)
 	}
 
 	float factor = RNA_float_get(op->ptr, "factor");
-	tld = ld->normal;
+	tld = ld->lnor_editdata;
 
 	for (int i = 0; i < ld->totloop; i++, tld++) {
 		float current_normal[3];
@@ -7096,7 +7096,7 @@ static int edbm_smoothen_normals_exec(bContext *C, wmOperator *op)
 		BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[tld->loop_index], current_normal, tld->clnors_data);
 	}
 
-	BM_loop_normal_free(ld);
+	BM_loop_normal_editdata_free(ld);
 	MEM_freeN(smooth_normal);
 
 	EDBM_update_generic(em, true, false);

@@ -268,7 +268,7 @@ enum {
 	BM_FACE = 8
 };
 
-typedef struct TransDataLoopNormal {
+typedef struct BMLoopNorEditData {
 	int loop_index;
 	BMLoop *loop;
 	float mtx[3][3];
@@ -277,17 +277,17 @@ typedef struct TransDataLoopNormal {
 	float nloc[3];
 	float *loc;
 	short *clnors_data;
-} TransDataLoopNormal;
+} BMLoopNorEditData;
 
-typedef struct LoopNormalData {
-	TransDataLoopNormal *normal;
-	/* This one has full amount of loops, used to map loop index to actual TransDataLoopNormal struct. */
-	TransDataLoopNormal **loop_idx_to_transdata_lnors;
+typedef struct BMLoopNorEditDataArray {
+	BMLoopNorEditData *lnor_editdata;
+	/* This one has full amount of loops, used to map loop index to actual BMLoopNorEditData struct. */
+	BMLoopNorEditData **lidx_to_lnor_editdata;
 
-	int offset;
+	int cd_custom_normal_offset;
 	int totloop;
 	void *funcdata;
-} LoopNormalData;
+} BMLoopNorEditDataArray;
 
 #define BM_ALL (BM_VERT | BM_EDGE | BM_LOOP | BM_FACE)
 #define BM_ALL_NOLOOP (BM_VERT | BM_EDGE | BM_FACE)
