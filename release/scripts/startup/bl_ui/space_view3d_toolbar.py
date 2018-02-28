@@ -2091,8 +2091,9 @@ class VIEW3D_PT_tools_grease_pencil_brush(Panel):
             layout.prop(brush, "name", text="")
             # layout.separator()
 
-            layout.prop(brush, "fill_only", text="Fill Brush")
-            if not brush.fill_only:
+            layout.prop(brush, "type", expand=True)
+
+            if brush.type == 'DRAW':
                 row = layout.row(align=True)
                 row.prop(brush, "use_random_pressure", text="", icon='RNDCURVE')
                 row.prop(brush, "line_width", text="Radius")
@@ -2101,7 +2102,8 @@ class VIEW3D_PT_tools_grease_pencil_brush(Panel):
                 row.prop(brush, "use_random_strength", text="", icon='RNDCURVE')
                 row.prop(brush, "strength", slider=True)
                 row.prop(brush, "use_strength_pressure", text="", icon='STYLUS_PRESSURE')
-            else:
+
+            if brush.type == 'FILL':
                 col = layout.column(align=True)
                 col.prop(brush, "fill_leak", text="Leak Size")
                 col.prop(brush, "line_width", text="Thickness")
@@ -2172,7 +2174,7 @@ class VIEW3D_PT_tools_grease_pencil_brush_option(Panel):
             row.prop(brush, "angle", slider=True)
             row.prop(brush, "angle_factor", text="Factor", slider=True)
 
-            if brush.fill_only is False:
+            if brush.type == 'DRAW':
                 row.separator()
                 col = layout.column(align=True)
                 col.prop(brush, "use_stabilizer", text="Stabilizer")

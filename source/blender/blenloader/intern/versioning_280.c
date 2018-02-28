@@ -1148,7 +1148,24 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *main)
 		}
 	}
 
+	/* Hero open movie special code. This could removed later */
 	{
+		/* set brush modes */
+		for (Scene *scene = main->scene.first; scene; scene = scene->id.next) {
+			/* drawing brushes */
+			ToolSettings *ts = scene->toolsettings;
+			for (bGPDbrush *brush = ts->gp_brushes.first; brush; brush = brush->next) {
+				if (brush->flag & GP_BRUSH_FILL_ONLY) {
+					brush->type = GP_BRUSH_TYPE_FILL;
+					brush->flag &= ~GP_BRUSH_FILL_ONLY;
+				}
+				else {
+					brush->type = GP_BRUSH_TYPE_DRAW;
+				}
+			}
+		}
+
+
 		/* rescale old grease pencil pixel factor (needed for Hero open movie files) */
 		for (bGPdata *gpd = main->gpencil.first; gpd; gpd = gpd->id.next) {
 			/* old data was always bigger than 30 */

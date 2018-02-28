@@ -1353,7 +1353,7 @@ static void gp_brush_drawcursor(bContext *C, int x, int y, void *customdata)
 			if ((palcolor) && (GPENCIL_PAINT_MODE(gpd)) && 
 				((paintbrush->flag & GP_BRUSH_STABILIZE_MOUSE) == 0) &&
 				((paintbrush->flag & GP_BRUSH_STABILIZE_MOUSE_TEMP) == 0) &&
-				((paintbrush->flag & GP_BRUSH_FILL_ONLY) == 0))
+				(paintbrush->type == GP_BRUSH_TYPE_DRAW))
 			{
 				radius = 2.0f;
 				copy_v3_v3(color, palcolor->rgb);
@@ -1395,7 +1395,7 @@ static void gp_brush_drawcursor(bContext *C, int x, int y, void *customdata)
 	if ((palcolor) && (GPENCIL_PAINT_MODE(gpd)) && 
 		((paintbrush->flag & GP_BRUSH_STABILIZE_MOUSE) == 0) &&
 		((paintbrush->flag & GP_BRUSH_STABILIZE_MOUSE_TEMP) == 0) &&
-		((paintbrush->flag & GP_BRUSH_FILL_ONLY) == 0))
+		(paintbrush->type == GP_BRUSH_TYPE_DRAW))
 	{
 		imm_draw_circle_fill_2d(pos, x, y, radius, 40);
 	}

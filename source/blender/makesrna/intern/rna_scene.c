@@ -446,10 +446,16 @@ EnumPropertyItem rna_enum_gpencil_drawing_brushes_items[] = {
 };
 
 static EnumPropertyItem rna_enum_gpencil_fill_draw_modes_items[] = {
-{ GP_FILL_DMODE_STROKE, "STROKE", 0, "Strokes", "Use visible strokes as fill boundary limits" },
-{ GP_FILL_DMODE_CONTROL, "CONTROL", 0, "Control", "Use internal control lines as fill boundary limits" },
-{ GP_FILL_DMODE_BOTH, "BOTH", 0, "Both", "Use visible strokes and control lines as fill boundary limits" },
-{ 0, NULL, 0, NULL, NULL }
+	{ GP_FILL_DMODE_STROKE, "STROKE", 0, "Strokes", "Use visible strokes as fill boundary limits" },
+	{ GP_FILL_DMODE_CONTROL, "CONTROL", 0, "Control", "Use internal control lines as fill boundary limits" },
+	{ GP_FILL_DMODE_BOTH, "BOTH", 0, "Both", "Use visible strokes and control lines as fill boundary limits" },
+	{ 0, NULL, 0, NULL, NULL }
+};
+static EnumPropertyItem rna_enum_gpencil_brush_types_items[] = {
+	{ GP_BRUSH_TYPE_DRAW, "DRAW", 0, "Draw", "The brush is of type used for drawing strokes" },
+	{ GP_BRUSH_TYPE_FILL, "FILL", 0, "Fill", "The brush is of type used for filling areas" },
+	//{ GP_BRUSH_TYPE_ERASE, "ERASE", 0, "Erase", "The brush is used for erasing" },
+	{ 0, NULL, 0, NULL, NULL }
 };
 
 #ifdef RNA_RUNTIME
@@ -691,7 +697,7 @@ static int gpencil_get_brush_icon(int type)
 		item_tmp.identifier = brush->info;
 		item_tmp.name = brush->info;
 		item_tmp.value = i;
-		if (brush->flag & GP_BRUSH_FILL_ONLY) {
+		if (brush->type == GP_BRUSH_TYPE_FILL) {
 			item_tmp.icon = ICON_GPBRUSH_FILL;
 		}
 		else {
@@ -2443,15 +2449,16 @@ static void rna_def_gpencil_brush(BlenderRNA *brna)
 	RNA_def_property_boolean_default(prop, true);
 	RNA_def_property_ui_text(prop, "Enable Cursor", "Enable cursor on screen");
 
-	prop = RNA_def_property(srna, "fill_only", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_BRUSH_FILL_ONLY);
-	RNA_def_property_boolean_default(prop, true);
-	RNA_def_property_ui_text(prop, "Fill Only", "The brush is only for filling strokes");
-
 	prop = RNA_def_property(srna, "fill_draw_mode", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_sdna(prop, NULL, "fill_draw_mode");
 	RNA_def_property_enum_items(prop, rna_enum_gpencil_fill_draw_modes_items);
 	RNA_def_property_ui_text(prop, "Mode", "Mode to draw boundary limits");
+	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+	prop = RNA_def_property(srna, "type", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_sdna(prop, NULL, "type");
+	RNA_def_property_enum_items(prop, rna_enum_gpencil_brush_types_items);
+	RNA_def_property_ui_text(prop, "Type", "Category of the brush");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
 	prop = RNA_def_property(srna, "fill_show_boundary", PROP_BOOLEAN, PROP_NONE);

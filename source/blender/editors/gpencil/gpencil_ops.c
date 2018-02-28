@@ -119,7 +119,7 @@ static int gp_stroke_paintmode_draw_poll(bContext *C)
 	bGPdata *gpd = CTX_data_gpencil_data(C);
 	ToolSettings *ts = CTX_data_tool_settings(C);
 	bGPDbrush *brush = BKE_gpencil_brush_getactive(ts);
-	return (gpd && (gpd->flag & GP_DATA_STROKE_PAINTMODE) && (brush) && ((brush->flag & GP_BRUSH_FILL_ONLY) == 0));
+	return (gpd && (gpd->flag & GP_DATA_STROKE_PAINTMODE) && (brush) && (brush->type == GP_BRUSH_TYPE_DRAW));
 }
 
 /* Poll callback for stroke painting (fill) */
@@ -129,7 +129,7 @@ static int gp_stroke_paintmode_fill_poll(bContext *C)
 	bGPdata *gpd = CTX_data_gpencil_data(C);
 	ToolSettings *ts = CTX_data_tool_settings(C);
 	bGPDbrush *brush = BKE_gpencil_brush_getactive(ts);
-	return (gpd && (gpd->flag & GP_DATA_STROKE_PAINTMODE) && (brush) && (brush->flag & GP_BRUSH_FILL_ONLY));
+	return (gpd && (gpd->flag & GP_DATA_STROKE_PAINTMODE) && (brush) && (brush->type == GP_BRUSH_TYPE_FILL));
 }
 
 /* Poll callback for stroke sculpting mode */

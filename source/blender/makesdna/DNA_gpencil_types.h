@@ -139,7 +139,7 @@ typedef struct bGPDbrush {
 	
 	float uv_random;          /* random factor for UV rotation */
 	int   input_samples;      /* maximum distance before generate new point for very fast mouse movements */
-	char  pad[4];
+	int   type;               /* type of brush (draw, fill, erase, etc..) */
 } bGPDbrush;
 
 /* bGPDbrush->flag */
@@ -159,7 +159,7 @@ typedef enum eGPDbrush_Flag {
 	/* enable screen cursor */
 	GP_BRUSH_ENABLE_CURSOR = (1 << 6),
 	/* brush is only for filling */
-	GP_BRUSH_FILL_ONLY = (1 << 7),
+	GP_BRUSH_FILL_ONLY = (1 << 7), /* Deprecated */
 	/* fill hide transparent */
 	GP_BRUSH_FILL_HIDE = (1 << 8),
 	/* show fill help lines */
@@ -538,6 +538,13 @@ typedef enum eGP_FillDrawModes {
 	GP_FILL_DMODE_STROKE = 1,
 	GP_FILL_DMODE_CONTROL = 2,
 } eGP_FillDrawModes;
+
+/* bGPDbrush->brush type */
+typedef enum eGP_BrushType {
+	GP_BRUSH_TYPE_DRAW = 0,
+	GP_BRUSH_TYPE_FILL = 1,
+	GP_BRUSH_TYPE_ERASE = 2,
+} eGP_BrushType;
 
 /* xray modes (Depth Ordering) */
 typedef enum eGP_DepthOrdering {

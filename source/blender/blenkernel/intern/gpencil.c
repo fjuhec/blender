@@ -590,6 +590,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->draw_random_sub = 0.0f;
 	copy_v3_v3(brush->curcolor, curcolor);
 	brush->icon = GPBRUSH_PENCIL;
+	brush->type = GP_BRUSH_TYPE_DRAW;
 
 	brush->lazy_radius = LAZY_RADIUS;
 	brush->lazy_factor = LAZY_FACTOR;
@@ -620,6 +621,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->draw_random_sub = 0.0f;
 	copy_v3_v3(brush->curcolor, curcolor);
 	brush->icon = GPBRUSH_PEN;
+	brush->type = GP_BRUSH_TYPE_DRAW;
 
 	brush->lazy_radius = LAZY_RADIUS;
 	brush->lazy_factor = LAZY_FACTOR;
@@ -648,6 +650,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->draw_random_sub = 0.0f;
 	copy_v3_v3(brush->curcolor, curcolor);
 	brush->icon = GPBRUSH_INK;
+	brush->type = GP_BRUSH_TYPE_DRAW;
 
 	brush->lazy_radius = LAZY_RADIUS;
 	brush->lazy_factor = LAZY_FACTOR;
@@ -682,6 +685,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->draw_random_sub = 0.0f;
 	copy_v3_v3(brush->curcolor, curcolor);
 	brush->icon = GPBRUSH_INKNOISE;
+	brush->type = GP_BRUSH_TYPE_DRAW;
 
 	brush->lazy_radius = LAZY_RADIUS;
 	brush->lazy_factor = LAZY_FACTOR;
@@ -717,6 +721,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->draw_random_sub = 0;
 	copy_v3_v3(brush->curcolor, curcolor);
 	brush->icon = GPBRUSH_BLOCK;
+	brush->type = GP_BRUSH_TYPE_DRAW;
 
 	brush->lazy_radius = LAZY_RADIUS;
 	brush->lazy_factor = LAZY_FACTOR;
@@ -745,6 +750,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->draw_random_sub = 0.0f;
 	copy_v3_v3(brush->curcolor, curcolor);
 	brush->icon = GPBRUSH_MARKER;
+	brush->type = GP_BRUSH_TYPE_DRAW;
 
 	brush->lazy_radius = LAZY_RADIUS;
 	brush->lazy_factor = LAZY_FACTOR;
@@ -752,12 +758,13 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	/* Fill brush */
 	brush = BKE_gpencil_brush_addnew(ts, "Fill", false);
 	brush->thickness = 1.0f;
-	brush->flag |= (GP_BRUSH_FILL_ONLY | GP_BRUSH_ENABLE_CURSOR);
+	brush->flag |= GP_BRUSH_ENABLE_CURSOR;
 	brush->draw_sensitivity = 1.0f;
 	brush->fill_leak = 3;
 	brush->fill_threshold = 0.1f;
 	brush->fill_simplylvl = 1;
 	brush->icon = GPBRUSH_FILL;
+	brush->type = GP_BRUSH_TYPE_FILL;
 
 	brush->draw_smoothfac = 0.5f;
 	brush->draw_smoothlvl = 1;
