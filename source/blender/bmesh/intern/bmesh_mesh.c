@@ -1267,10 +1267,35 @@ void BM_lnorspace_err(BMesh *bm)
 }
 #endif
 
+static void bm_loop_normal_mark_indiv_do_loop(
+        BMLoop *l, BLI_bitmap *loops, MLoopNorSpaceArray *lnor_spacearr, int *totloopsel)
+{
+	if (l != NULL) {
+		const int l_idx = BM_elem_index_get(l);
+
+		if (!BLI_BITMAP_TEST(loops, BM_elem_index_get(l))) {
+			/* If vert and face selected share a loop, mark it for editing. */
+			BLI_BITMAP_ENABLE(loops, l_idx);
+			(*totloopsel)++;
+
+			/* Mark all loops in same loop normal space (aka smooth fan). */
+			if ((lnor_spacearr->lspacearr[l_idx]->flags & MLNOR_SPACE_IS_SINGLE) == 0) {
+				for (LinkNode *node = lnor_spacearr->lspacearr[l_idx]->loops; node; node = node->next) {
+					const int lfan_idx = BM_elem_index_get((BMLoop *)node->link);
+					if (!BLI_BITMAP_TEST(loops, lfan_idx)) {
+						BLI_BITMAP_ENABLE(loops, lfan_idx);
+						(*totloopsel)++;
+					}
+				}
+			}
+		}
+	}
+}
+
 /* Mark the individual clnors to be edited, if multiple selection methods are used. */
 static int bm_loop_normal_mark_indiv(BMesh *bm, BLI_bitmap *loops)
 {
-	BMEditSelection *ese, *vert;
+	BMEditSelection *ese, *ese_prev;
 	int totloopsel = 0;
 
 	BM_mesh_elem_index_ensure(bm, BM_LOOP);
@@ -1281,43 +1306,22 @@ static int bm_loop_normal_mark_indiv(BMesh *bm, BLI_bitmap *loops)
 	/* Goes from last selected to the first selected element. */
 	for (ese = bm->selected.last; ese; ese = ese->prev) {
 		if (ese->htype == BM_FACE) {
-			vert = ese;
+			ese_prev = ese;
 			/* If current face is selected, then any verts to be edited must have been selected before it. */
-			while ((vert = vert->prev)) {
-				if (vert->htype == BM_VERT) {
-					BMLoop *l = BM_face_vert_share_loop((BMFace *)ese->ele, (BMVert *)vert->ele);	
-					if (l && !BLI_BITMAP_TEST(loops, BM_elem_index_get(l))) {
-						/* If vert and face selected share a loop, mark it for editing. */
-						BLI_BITMAP_ENABLE(loops, BM_elem_index_get(l));
-						totloopsel++;
-					}
+			while ((ese_prev = ese_prev->prev)) {
+				if (ese_prev->htype == BM_VERT) {
+					bm_loop_normal_mark_indiv_do_loop(
+					            BM_face_vert_share_loop((BMFace *)ese->ele, (BMVert *)ese_prev->ele),
+					            loops, bm->lnor_spacearr, &totloopsel);
 				}
-				else if (vert->htype == BM_EDGE) {
-					BMLoop *l = BM_face_vert_share_loop((BMFace *)ese->ele, ((BMEdge *)vert->ele)->v1);
-					if (l && !BLI_BITMAP_TEST(loops, BM_elem_index_get(l))) {
-						BLI_BITMAP_ENABLE(loops, BM_elem_index_get(l));
-						totloopsel++;
-					}
-					l = BM_face_vert_share_loop((BMFace *)ese->ele, ((BMEdge *)vert->ele)->v2);
-					if (l && !BLI_BITMAP_TEST(loops, BM_elem_index_get(l))) {
-						BLI_BITMAP_ENABLE(loops, BM_elem_index_get(l));
-						totloopsel++;
-					}
-				}
-			}
-		}
-	}
+				else if (ese_prev->htype == BM_EDGE) {
+					bm_loop_normal_mark_indiv_do_loop(
+					            BM_face_vert_share_loop((BMFace *)ese->ele, ((BMEdge *)ese_prev->ele)->v1),
+					            loops, bm->lnor_spacearr, &totloopsel);
 
-	for (int i = 0; i < bm->totloop; i++) {  /* Mark all loops in a loop normal space. */
-		if (BLI_BITMAP_TEST(loops, i)) {
-			if ((bm->lnor_spacearr->lspacearr[i]->flags & MLNOR_SPACE_IS_SINGLE) == 0) {
-				LinkNode *node = bm->lnor_spacearr->lspacearr[i]->loops;
-				for (; node; node = node->next) {
-					const int l_index = BM_elem_index_get((BMLoop *)node->link);
-					if (!BLI_BITMAP_TEST(loops, l_index)) {
-						BLI_BITMAP_ENABLE(loops, l_index);
-						totloopsel++;
-					}
+					bm_loop_normal_mark_indiv_do_loop(
+					            BM_face_vert_share_loop((BMFace *)ese->ele, ((BMEdge *)ese_prev->ele)->v2),
+					            loops, bm->lnor_spacearr, &totloopsel);
 				}
 			}
 		}
