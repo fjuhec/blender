@@ -213,19 +213,15 @@ void AnimationExporter::export_sampled_matrix_animation(Object *ob, std::vector<
 
 	for (std::vector<float>::iterator ctime = ctimes.begin(); ctime != ctimes.end(); ++ctime) {
 		float fmat[4][4];
-		float outmat[4][4];
 
 		bc_update_scene(scene, *ctime);
 		BKE_object_matrix_local_get(ob, fmat);
-
-		converter.mat4_to_dae(outmat, fmat);
-
 		if (this->export_settings->limit_precision)
-			bc_sanitize_mat(outmat, 6);
+			bc_sanitize_mat(fmat, 6);
 
 		for (int i = 0; i < 4; i++)
 			for (int j = 0; j < 4; j++)
-				values.push_back(outmat[j][i]);
+				values.push_back(fmat[i][j]);
 	}
 
 	std::string ob_name = id_name(ob);
@@ -251,7 +247,6 @@ void AnimationExporter::export_sampled_transrotloc_animation(Object *ob, std::ve
 		float feul[3];
 
 		bc_update_scene(scene, *ctime);
-
 		BKE_object_matrix_local_get(ob, fmat);
 		mat4_decompose(floc, fquat, fsize, fmat);
 		quat_to_eul(feul, fquat);
@@ -1943,49 +1938,3 @@ bool AnimationExporter::validateConstraints(bConstraint *con)
 
 	return valid;
 }
-
-#if 0
-/*
- * Needed for sampled animations. 
- * This function calculates the object matrix at a given time,
- * also taking constraints into account.
- *
- * XXX: Why looking at the constraints here is necessary?
- *      Maybe this can be done better?
- */
-void AnimationExporter::calc_obmat_at_time(Object *ob, float ctime )
-{
-	BKE_scene_frame_set(scene, ctime);
-
-	Main *bmain = bc_get_main();
-	EvaluationContext *ev_context = bc_get_evaluation_context();
-	BKE_scene_update_for_newframe(ev_context, bmain, scene, scene->lay);
-
-	ListBase *conlist = get_active_constraints(ob);
-	bConstraint *con;
-	for (con = (bConstraint *)conlist->first; con; con = con->next) {
-		ListBase targets = {NULL, NULL};
-		
-		const bConstraintTypeInfo *cti = BKE_constraint_typeinfo_get(con);
-		
-		if (cti && cti->get_constraint_targets) {
-			bConstraintTarget *ct;
-			Object *obtar;
-			cti->get_constraint_targets(con, &targets);
-			for (ct = (bConstraintTarget *)targets.first; ct; ct = ct->next) {
-				obtar = ct->tar;
-
-				if (obtar) {
-					BKE_animsys_evaluate_animdata(scene, &obtar->id, obtar->adt, ctime, ADT_RECALC_ANIM);
-					BKE_object_where_is_calc_time(scene, obtar, ctime);
-				}
-			}
-
-			if (cti->flush_constraint_targets)
-				cti->flush_constraint_targets(con, &targets, 1);
-		}
-	}
-	BKE_object_where_is_calc_time(scene, ob, ctime);
-}
-#endif
-
