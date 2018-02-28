@@ -658,6 +658,8 @@ static int gpencil_get_brush_icon(int type)
 			return ICON_GPBRUSH_MARKER;
 		case GPBRUSH_FILL:
 			return ICON_GPBRUSH_FILL;
+		case GPBRUSH_ERASE:
+			return ICON_GPBRUSH_ERASE;
 		default:
 			return ICON_GPBRUSH_CUSTOM;
 	}

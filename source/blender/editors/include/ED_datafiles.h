@@ -295,5 +295,8 @@ extern char datatoc_gp_brush_custom_png[];
 extern int datatoc_gp_brush_fill_png_size;
 extern char datatoc_gp_brush_fill_png[];
 
+extern int datatoc_gp_brush_erase_png_size;
+extern char datatoc_gp_brush_erase_png[];
+
 #endif /* __ED_DATAFILES_H__ */
 
