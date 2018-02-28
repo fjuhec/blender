@@ -144,7 +144,7 @@ void ED_object_base_activate(bContext *C, Base *base)
 			Object *ob_prev = OBACT(view_layer);
 			Object *ob_curr = base->object;
 			if (ob_prev != NULL) {
-				if (ob_prev->type == ob_curr->type) {
+				if ((ob_prev->type == ob_curr->type) || (ob_curr->type == OB_GPENCIL)) {
 					reset = false;
 				}
 			}
