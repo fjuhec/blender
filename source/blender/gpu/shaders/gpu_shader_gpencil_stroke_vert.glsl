@@ -16,7 +16,7 @@ out float finalThickness;
 
 #define TRUE 1
 
-float defaultpixsize = pixsize * pixelsize * float(pixfactor);
+float defaultpixsize = pixsize * pixelsize * (1000.0 / pixfactor);
 
 void main(void)
 {
