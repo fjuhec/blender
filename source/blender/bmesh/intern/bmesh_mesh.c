@@ -1159,7 +1159,7 @@ void BM_lnorspace_rebuild(BMesh *bm, bool preserve_clnor)
 	BMIter fiter, liter;
 
 	float (*r_lnors)[3] = MEM_callocN(sizeof(*r_lnors) * bm->totloop, __func__);
-	float (*oldnors)[3] = MEM_mallocN(sizeof(*oldnors) * bm->totloop, __func__);
+	float (*oldnors)[3] = preserve_clnor ? MEM_mallocN(sizeof(*oldnors) * bm->totloop, __func__) : NULL;
 
 	int cd_loop_clnors_offset = CustomData_get_offset(&bm->ldata, CD_CUSTOMLOOPNORMAL);
 
@@ -1189,25 +1189,18 @@ void BM_lnorspace_rebuild(BMesh *bm, bool preserve_clnor)
 
 	BM_ITER_MESH(f, &fiter, bm, BM_FACES_OF_MESH) {
 		BM_ITER_ELEM(l, &liter, f, BM_LOOPS_OF_FACE) {
-
 			if (BM_ELEM_API_FLAG_TEST(l, BM_LNORSPACE_UPDATE) || bm->spacearr_dirty & BM_SPACEARR_DIRTY_ALL) {
-
-#if 0
-				short(*clnor)[2] = BM_ELEM_CD_GET_VOID_P(l, cd_loop_clnors_offset);
-				int l_index = BM_elem_index_get(l);
-				BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[l_index], l->v->no, *clnor);
-#else
 				if (preserve_clnor) {
 					short(*clnor)[2] = BM_ELEM_CD_GET_VOID_P(l, cd_loop_clnors_offset);
 					int l_index = BM_elem_index_get(l);
 					BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[l_index], oldnors[l_index], *clnor);
 				}
-#endif
 				BM_ELEM_API_FLAG_DISABLE(l, BM_LNORSPACE_UPDATE);
 			}
 		}
 	}
-	MEM_freeN(oldnors);
+
+	MEM_SAFE_FREE(oldnors);
 	bm->spacearr_dirty &= ~(BM_SPACEARR_DIRTY | BM_SPACEARR_DIRTY_ALL);
 
 #ifndef NDEBUG
@@ -1217,26 +1210,27 @@ void BM_lnorspace_rebuild(BMesh *bm, bool preserve_clnor)
 
 void BM_lnorspace_update(BMesh *bm)
 {
-	float (*lnors)[3] = MEM_callocN(sizeof(*lnors) * bm->totloop, __func__);
-
-	BM_mesh_elem_index_ensure(bm, BM_LOOP);
-
 	if (bm->lnor_spacearr == NULL) {
 		bm->lnor_spacearr = MEM_callocN(sizeof(*bm->lnor_spacearr), __func__);
 	}
 	if (bm->lnor_spacearr->lspacearr == NULL) {
+		float (*lnors)[3] = MEM_callocN(sizeof(*lnors) * bm->totloop, __func__);
+
 		BM_lnorspacearr_store(bm, lnors);
+
+		MEM_freeN(lnors);
 	}
 	else if(bm->spacearr_dirty & (BM_SPACEARR_DIRTY | BM_SPACEARR_DIRTY_ALL)){
 		BM_lnorspace_rebuild(bm, false);
 	}
-	MEM_freeN(lnors);
 }
 
 /**
- * Auxillary function only used by rebuild to detect if any spaces were not marked in invalidate.
- * Reports error if any of the lnor spaces change after rebuilding, meaning that the all possible
- * lnor spaces to be rebuilt were not correctly marked */
+ * Auxillary function only used by rebuild to detect if any spaces were not marked as invalid.
+ * Reports error if any of the lnor spaces change after rebuilding, meaning that all the possible
+ * lnor spaces to be rebuilt were not correctly marked.
+ */
+#ifndef NDEBUG
 void BM_lnorspace_err(BMesh *bm)
 {
 	bm->spacearr_dirty |= BM_SPACEARR_DIRTY_ALL;
@@ -1271,6 +1265,7 @@ void BM_lnorspace_err(BMesh *bm)
 
 	bm->spacearr_dirty &= ~BM_SPACEARR_DIRTY_ALL;
 }
+#endif
 
 /* Mark the individual clnors to be edited, if multiple selection methods are used. */
 static int bm_loop_normal_mark_indiv(BMesh *bm, BLI_bitmap *loops)

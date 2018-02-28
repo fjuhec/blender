@@ -58,7 +58,9 @@ void BM_lnorspacearr_store(BMesh *bm, float (*r_lnors)[3]);
 void BM_lnorspace_invalidate(BMesh *bm, const bool do_invalidate_all);
 void BM_lnorspace_rebuild(BMesh *bm, bool preserve_clnor);
 void BM_lnorspace_update(BMesh *bm);
+#ifndef NDEBUG
 void BM_lnorspace_err(BMesh *bm);
+#endif
 
 /* Loop Generics */
 LoopNormalData *BM_loop_normal_init(BMesh *bm);
