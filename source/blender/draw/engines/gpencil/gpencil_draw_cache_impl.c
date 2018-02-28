@@ -430,7 +430,7 @@ DRWShadingGroup *DRW_gpencil_shgroup_stroke_create(GPENCIL_e_data *e_data, GPENC
 }
 
 /* create shading group for volumetrics */
-DRWShadingGroup *DRW_gpencil_shgroup_point_create(GPENCIL_e_data *e_data, GPENCIL_Data *vedata, DRWPass *pass, GPUShader *shader, Object *ob,
+static DRWShadingGroup *DRW_gpencil_shgroup_point_create(GPENCIL_e_data *e_data, GPENCIL_Data *vedata, DRWPass *pass, GPUShader *shader, Object *ob,
 	bGPdata *gpd, PaletteColor *palcolor, int id, bool onion)
 {
 	GPENCIL_StorageList *stl = ((GPENCIL_Data *)vedata)->stl;

@@ -324,8 +324,6 @@ typedef struct GpencilBatchCache {
 
 struct DRWShadingGroup *DRW_gpencil_shgroup_stroke_create(struct GPENCIL_e_data *e_data, struct GPENCIL_Data *vedata, struct DRWPass *pass, struct GPUShader *shader, struct Object *ob,
 	                                                      struct bGPdata *gpd, struct PaletteColor *palcolor, int id, bool onion);
-struct DRWShadingGroup *DRW_gpencil_shgroup_point_create(struct GPENCIL_e_data *e_data, struct GPENCIL_Data *vedata, struct DRWPass *pass, struct GPUShader *shader, struct Object *ob,
-	                                                     struct bGPdata *gpd, struct PaletteColor *palcolor, int id, bool onion);
 
 void DRW_gpencil_populate_datablock(struct GPENCIL_e_data *e_data, void *vedata, struct Scene *scene, struct Object *ob, struct ToolSettings *ts, struct bGPdata *gpd);
 void DRW_gpencil_populate_buffer_strokes(struct GPENCIL_e_data *e_data, void *vedata, struct ToolSettings *ts, struct Object *ob);
