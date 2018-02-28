@@ -37,6 +37,8 @@
 #include "DNA_view3d_types.h"
 #include "DNA_workspace_types.h"
 
+#include "DNA_object_enums.h"
+
 #include "BLI_compiler_attrs.h"
 
 struct Depsgraph;
@@ -186,6 +188,15 @@ bool ED_workspace_layout_delete(
 bool ED_workspace_layout_cycle(
         struct WorkSpace *workspace, const short direction,
         struct bContext *C) ATTR_NONNULL();
+
+void ED_workspace_object_mode_sync_from_object(
+        struct wmWindowManager *wm, WorkSpace *workspace, struct Object *obact);
+void ED_workspace_object_mode_sync_from_scene(
+        struct wmWindowManager *wm, WorkSpace *workspace, struct Scene *scene);
+
+bool ED_workspace_object_mode_in_other_window(
+        struct wmWindowManager *wm, WorkSpace *workspace, struct Object *obact,
+        eObjectMode *r_object_mode);
 
 /* anim */
 void    ED_update_for_newframe(struct Main *bmain, struct Scene *scene, struct ViewLayer *view_layer, struct Depsgraph *depsgraph);

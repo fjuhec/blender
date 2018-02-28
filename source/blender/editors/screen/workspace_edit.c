@@ -36,6 +36,7 @@
 #include "BKE_context.h"
 #include "BKE_idcode.h"
 #include "BKE_main.h"
+#include "BKE_layer.h"
 #include "BKE_library.h"
 #include "BKE_report.h"
 #include "BKE_scene.h"
@@ -248,6 +249,7 @@ WorkSpace *ED_workspace_duplicate(
 	BLI_duplicatelist(transform_orientations_new, transform_orientations_old);
 
 	workspace_new->tool = workspace_old->tool;
+	workspace_new->object_mode = workspace_old->object_mode;
 
 	for (WorkSpaceLayout *layout_old = layouts_old->first; layout_old; layout_old = layout_old->next) {
 		WorkSpaceLayout *layout_new = ED_workspace_layout_duplicate(workspace_new, layout_old, win);
@@ -302,6 +304,61 @@ void ED_workspace_view_layer_unset(
 			BKE_workspace_view_layer_set(workspace, layer_new, scene);
 		}
 	}
+}
+
+/**
+ * When a work-space mode has changed,
+ * flush it to all other visible work-spaces using the same object
+ * since we don't support one object being in two different modes at once.
+ * \note We could support this but it's more trouble than it's worth.
+ */
+
+void ED_workspace_object_mode_sync_from_object(wmWindowManager *wm, WorkSpace *workspace, Object *obact)
+{
+	if (obact == NULL) {
+		return;
+	}
+	for (wmWindow *win = wm->windows.first; win; win = win->next) {
+		WorkSpace *workspace_iter = BKE_workspace_active_get(win->workspace_hook);
+		if (workspace != workspace_iter) {
+			Scene *scene_iter = WM_window_get_active_scene(win);
+			ViewLayer *view_layer = BKE_view_layer_from_workspace_get(scene_iter, workspace_iter);
+			if (obact == OBACT(view_layer)) {
+				workspace_iter->object_mode = workspace->object_mode;
+				/* TODO(campbell), use msgbus */
+				WM_main_add_notifier(NC_SCENE | ND_MODE | NS_MODE_OBJECT, scene_iter);
+			}
+		}
+	}
+}
+
+void ED_workspace_object_mode_sync_from_scene(wmWindowManager *wm, WorkSpace *workspace, Scene *scene)
+{
+	ViewLayer *view_layer = BKE_workspace_view_layer_get(workspace, scene);
+	if (view_layer) {
+		Object *obact = OBACT(view_layer);
+		ED_workspace_object_mode_sync_from_object(wm, workspace, obact);
+	}
+}
+
+bool ED_workspace_object_mode_in_other_window(
+        struct wmWindowManager *wm, WorkSpace *workspace, Object *obact,
+        eObjectMode *r_object_mode)
+{
+	for (wmWindow *win = wm->windows.first; win; win = win->next) {
+		WorkSpace *workspace_iter = BKE_workspace_active_get(win->workspace_hook);
+		if (workspace != workspace_iter) {
+			Scene *scene_iter = WM_window_get_active_scene(win);
+			ViewLayer *view_layer_iter = BKE_view_layer_from_workspace_get(scene_iter, workspace_iter);
+			Object *obact_iter = OBACT(view_layer_iter);
+			if (obact == obact_iter) {
+				*r_object_mode = workspace_iter->object_mode;
+				return true;
+			}
+		}
+	}
+
+	return false;
 }
 
 /** \} Workspace API */
