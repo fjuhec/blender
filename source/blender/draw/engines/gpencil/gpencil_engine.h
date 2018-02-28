@@ -143,6 +143,7 @@ typedef struct GPENCIL_shgroup {
 	int s_clamp;
 	int stroke_style;
 	int color_type;
+	int mode;
 	int t_mix;
 	int t_flip;
 	int t_clamp;
@@ -158,6 +159,7 @@ typedef struct GPENCIL_Storage {
 	float unit_matrix[4][4];
 	int stroke_style;
 	int color_type;
+	int mode;
 	int xray;
 	int keep_size;
 	float obj_scale;

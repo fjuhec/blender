@@ -457,6 +457,7 @@ DRWShadingGroup *DRW_gpencil_shgroup_point_create(GPENCIL_e_data *e_data, GPENCI
 		stl->shgroups[id].keep_size = (int)((gpd) && (gpd->flag & GP_DATA_STROKE_KEEPTHICKNESS));
 		DRW_shgroup_uniform_int(grp, "keep_size", &stl->shgroups[id].keep_size, 1);
 
+		stl->shgroups[id].mode = palcolor->mode;
 		stl->shgroups[id].stroke_style = palcolor->stroke_style;
 		stl->shgroups[id].color_type = GPENCIL_COLOR_SOLID;
 		if ((palcolor->stroke_style == STROKE_STYLE_TEXTURE) && (!onion)) {
@@ -472,9 +473,11 @@ DRWShadingGroup *DRW_gpencil_shgroup_point_create(GPENCIL_e_data *e_data, GPENCI
 		stl->storage->obj_scale = 1.0f;
 		stl->storage->keep_size = 0;
 		stl->storage->pixfactor = GP_DEFAULT_PIX_FACTOR;
+		stl->storage->mode = palcolor->mode;
 		DRW_shgroup_uniform_float(grp, "objscale", &stl->storage->obj_scale, 1);
 		DRW_shgroup_uniform_int(grp, "keep_size", &stl->storage->keep_size, 1);
 		DRW_shgroup_uniform_int(grp, "color_type", &stl->storage->color_type, 1);
+		DRW_shgroup_uniform_int(grp, "mode", &stl->storage->mode, 1);
 		if (gpd) {
 			DRW_shgroup_uniform_float(grp, "pixfactor", &gpd->pixfactor, 1);
 		}

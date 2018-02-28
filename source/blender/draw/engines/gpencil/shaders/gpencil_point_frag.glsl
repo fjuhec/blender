@@ -1,4 +1,5 @@
 uniform int color_type;
+uniform int mode;
 uniform sampler2D myTexture;
 
 in vec4 mColor;
@@ -6,6 +7,9 @@ in vec2 mTexCoord;
 out vec4 fragColor;
 
 #define texture2D texture
+
+#define GPENCIL_MODE_DOTS   1
+#define GPENCIL_MODE_BOX    2
 
 /* keep this list synchronized with list in gpencil_engine.h */
 #define GPENCIL_COLOR_SOLID   0
@@ -19,7 +23,7 @@ void main()
 	const float rad_squared = 0.25;
 
 	// round point with jaggy edges
-	if (dist_squared > rad_squared)
+	if ((mode == GPENCIL_MODE_DOTS) && (dist_squared > rad_squared))
 		discard;
 
 	vec4 tmp_color = texture2D(myTexture, mTexCoord);

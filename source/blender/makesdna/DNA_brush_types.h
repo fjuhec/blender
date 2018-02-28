@@ -194,6 +194,7 @@ typedef enum ePaletteColor_Flag {
 typedef enum ePaletteColor_Mode {
 	PAC_MODE_LINE = 0, /* line */
 	PAC_MODE_DOTS = 1, /* dots */
+	PAC_MODE_BOX  = 2, /* rectangles */
 } ePaletteColor_Mode;
 
 typedef struct Palette {

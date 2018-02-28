@@ -236,6 +236,7 @@ static void rna_def_palettecolor(BlenderRNA *brna)
 	static EnumPropertyItem palettecolor_mode_types_items[] = {
 		{ PAC_MODE_LINE, "LINE", 0, "Line", "Draw strokes using a continuous line" },
 		{ PAC_MODE_DOTS, "DOTS", 0, "Dots", "Draw strokes using separated dots" },
+		{ PAC_MODE_BOX, "BOX", 0, "Boxes", "Draw strokes using separated rectangle boxes" },
 		{ 0, NULL, 0, NULL, NULL }
 	};
 
