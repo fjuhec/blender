@@ -1243,7 +1243,7 @@ void DRW_draw_render_loop_offscreen(
 /* helper to check if exit object type to render */
 static bool DRW_render_check_object_type(struct Depsgraph *depsgraph, short obtype)
 {
-	DEG_OBJECT_ITER_FOR_RENDER_ENGINE(depsgraph, ob, DRW_iterator_mode_get())
+	DEG_OBJECT_ITER_FOR_RENDER_ENGINE_BEGIN(depsgraph, ob, DRW_iterator_mode_get())
 	{
 		if ((ob->type == obtype) && (DRW_check_object_visible_within_active_context(ob))) {
 			return true;
