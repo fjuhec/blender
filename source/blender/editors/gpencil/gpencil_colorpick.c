@@ -275,7 +275,6 @@ static int gpencil_colorpick_poll(bContext *C)
 		CTX_wm_operator_poll_msg_set(C, "Active region not set");
 		return 0;
 	}
-	return 0;
 }
 
 /* Allocate memory and initialize values */
@@ -485,8 +484,6 @@ static int gpencil_colorpick_index_from_mouse(const tGPDpick *tgpk, const wmEven
 /* events handling during interactive part of operator */
 static int gpencil_colorpick_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
-	Scene *scene = CTX_data_scene(C);
-	Object *ob = CTX_data_active_object(C);
 	tGPDpick *tgpk = op->customdata;
 
 	int estate = OPERATOR_RUNNING_MODAL; 

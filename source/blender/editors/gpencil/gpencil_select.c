@@ -1176,7 +1176,6 @@ void GPENCIL_OT_select_lasso(wmOperatorType *ot)
 static int gpencil_select_exec(bContext *C, wmOperator *op)
 {
 	ScrArea *sa = CTX_wm_area(C);
-	bGPdata *gpd = ED_gpencil_data_get_active(C);
 	
 	/* "radius" is simply a threshold (screen space) to make it easier to test with a tolerance */
 	const float radius = 0.75f * U.widget_unit;

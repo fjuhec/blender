@@ -220,13 +220,13 @@ Gwn_Batch *DRW_gpencil_get_buffer_stroke_geom(bGPdata *gpd, float matrix[4][4], 
 	ED_gp_get_drawing_reference(v3d, scene, ob, gpl, ts->gpencil_v3d_align, origin);
 
 	for (int i = 0; i < totpoints; i++, tpt++) {
-		ED_gpencil_tpoint_to_point(scene, ar, v3d, origin, tpt, &pt);
+		ED_gpencil_tpoint_to_point(ar, origin, tpt, &pt);
 		ED_gp_project_point_to_plane(ob, rv3d, origin, ts->gp_sculpt.lock_axis - 1, ts->gpencil_src, &pt);
 
 		/* first point for adjacency (not drawn) */
 		if (i == 0) {
 			if (totpoints > 1) {
-				ED_gpencil_tpoint_to_point(scene, ar, v3d, origin, &points[1], &pt2);
+				ED_gpencil_tpoint_to_point(ar, origin, &points[1], &pt2);
 				gpencil_set_stroke_point(vbo, matrix, &pt2, idx, 
 										 pos_id, color_id, thickness_id, uvdata_id, thickness, gpd->scolor);
 			}
@@ -244,7 +244,7 @@ Gwn_Batch *DRW_gpencil_get_buffer_stroke_geom(bGPdata *gpd, float matrix[4][4], 
 
 	/* last adjacency point (not drawn) */
 	if (totpoints > 2) {
-		ED_gpencil_tpoint_to_point(scene, ar, v3d, origin, &points[totpoints - 2], &pt2);
+		ED_gpencil_tpoint_to_point(ar, origin, &points[totpoints - 2], &pt2);
 		gpencil_set_stroke_point(vbo, matrix, &pt2, idx, 
 								 pos_id, color_id, thickness_id, uvdata_id, thickness, gpd->scolor);
 	}
@@ -293,7 +293,7 @@ Gwn_Batch *DRW_gpencil_get_buffer_point_geom(bGPdata *gpd, float matrix[4][4], s
 	ED_gp_get_drawing_reference(v3d, scene, ob, gpl, ts->gpencil_v3d_align, origin);
 
 	for (int i = 0; i < totpoints; i++, tpt++) {
-		ED_gpencil_tpoint_to_point(scene, ar, v3d, origin, tpt, &pt);
+		ED_gpencil_tpoint_to_point(ar, origin, tpt, &pt);
 		ED_gp_project_point_to_plane(ob, rv3d, origin, ts->gp_sculpt.lock_axis - 1, ts->gpencil_src, &pt);
 
 		/* set point */
@@ -367,7 +367,7 @@ Gwn_Batch *DRW_gpencil_get_buffer_fill_geom(bGPdata *gpd)
 		for (int i = 0; i < tot_triangles; i++) {
 			for (int j = 0; j < 3; j++) {
 				tpt = &points[tmp_triangles[i][j]];
-				ED_gpencil_tpoint_to_point(scene, ar, v3d, origin, tpt, &pt);
+				ED_gpencil_tpoint_to_point(ar, origin, tpt, &pt);
 				GWN_vertbuf_attr_set(vbo, pos_id, idx, &pt.x);
 				GWN_vertbuf_attr_set(vbo, color_id, idx, gpd->sfill);
 				idx++;

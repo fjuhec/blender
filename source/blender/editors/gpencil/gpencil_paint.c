@@ -499,8 +499,8 @@ static short gp_stroke_addpoint(
 	tGPspoint *pt;
 	ToolSettings *ts = p->scene->toolsettings;
 	Object *obact = (Object *)p->ownerPtr.data;
-	View3D *v3d = p->sa->spacedata.first;
 	RegionView3D *rv3d = p->ar->regiondata;
+	View3D *v3d = p->sa->spacedata.first;
 	PaletteColor *palcolor = p->palettecolor;
 
 	/* check painting mode */
@@ -624,7 +624,7 @@ static short gp_stroke_addpoint(
 		pt->time = (float)(curtime - p->inittime);
 		
 		/* point uv */
-		if (gpd->sbuffer_size > 0) {
+		if (gpd->sbuffer_size > 1) {
 			float pixsize = palcolor->t_pixsize / 1000000.0f;
 			tGPspoint *ptb = (tGPspoint *)gpd->sbuffer + gpd->sbuffer_size - 2;
 			bGPDspoint spt, spt2;
@@ -633,11 +633,11 @@ static short gp_stroke_addpoint(
 			float origin[3];
 			gp_get_3d_reference(p, origin);
 			/* reproject current */
-			ED_gpencil_tpoint_to_point(p->scene, p->ar, v3d, origin, pt, &spt);
+			ED_gpencil_tpoint_to_point(p->ar, origin, pt, &spt);
 			ED_gp_project_point_to_plane(obact, rv3d, origin, ts->gp_sculpt.lock_axis - 1, ts->gpencil_src, &spt);
 			
 			/* reproject previous */
-			ED_gpencil_tpoint_to_point(p->scene, p->ar, v3d, origin, ptb, &spt2);
+			ED_gpencil_tpoint_to_point(p->ar, origin, ptb, &spt2);
 			ED_gp_project_point_to_plane(obact, rv3d, origin, ts->gp_sculpt.lock_axis - 1, ts->gpencil_src, &spt2);
 
 			p->totpixlen += len_v3v3(&spt.x, &spt2.x) / pixsize;
@@ -696,8 +696,6 @@ static short gp_stroke_addpoint(
 			 * so initialize depth buffer before converting coordinates
 			 */
 			if (gpencil_project_check(p)) {
-				View3D *v3d = p->sa->spacedata.first;
-				
 				view3d_region_operator_needs_opengl(p->win, p->ar);
 				ED_view3d_autodist_init(
 				        &p->eval_ctx, p->graph, p->ar, v3d, (ts->gpencil_v3d_align & GP_PROJECT_DEPTH_STROKE) ? 1 : 0);
@@ -1453,7 +1451,7 @@ static void gp_init_palette(tGPsdata *p)
 			gpd->sfill[3] = 0.8f;
 		}
 
-		gpd->mode = palcolor->mode;
+		gpd->mode = (short)palcolor->mode;
 		gpd->bstroke_style = palcolor->stroke_style;
 		gpd->bfill_style = palcolor->fill_style;
 	}
@@ -2301,12 +2299,12 @@ static void gpencil_draw_apply_event(bContext *C, wmOperator *op, const wmEvent 
 				if (dx >= dy) {
 					/* horizontal */
 					p->straight[0] = 1;
-					p->straight[1] = p->mval[1]; /* save y */
+					p->straight[1] = (short)p->mval[1]; /* save y */
 				}
 				else {
 					/* vertical */
 					p->straight[0] = 2;
-					p->straight[1] = p->mval[0]; /* save x */
+					p->straight[1] = (short)p->mval[0]; /* save x */
 				}
 			}
 		}
@@ -2542,9 +2540,7 @@ static int gpencil_draw_invoke(bContext *C, wmOperator *op, const wmEvent *event
 	/* enable paint mode */
 	if (p->sa->spacetype == SPACE_VIEW3D) {
 		Object *ob = CTX_data_active_object(C);
-		Scene *scene = CTX_data_scene(C);
 		WorkSpace *workspace = CTX_wm_workspace(C);
-		ViewLayer *view_layer = BKE_workspace_view_layer_get(workspace, scene);
 		if (ob && (ob->type == OB_GPENCIL) && ((p->gpd->flag & GP_DATA_STROKE_PAINTMODE) == 0)) {
 			/* Just set paintmode flag... */
 			p->gpd->flag |= GP_DATA_STROKE_PAINTMODE;

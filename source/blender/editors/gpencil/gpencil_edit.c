@@ -106,10 +106,9 @@ static int gpencil_editmode_toggle_exec(bContext *C, wmOperator *op)
 	const int back = RNA_int_get(op->ptr, "back");
 
 	WorkSpace *workspace = CTX_wm_workspace(C);
-	Scene *scene = CTX_data_scene(C);
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
 	bool is_object = false;
-	int mode;
+	short mode;
 	/* if using a gpencil object, use this datablock */
 	Object *ob = CTX_data_active_object(C);
 	if ((ob) && (ob->type == OB_GPENCIL)) {
@@ -189,10 +188,9 @@ static int gpencil_paintmode_toggle_exec(bContext *C, wmOperator *op)
 	const int back = RNA_int_get(op->ptr, "back");
 
 	WorkSpace *workspace = CTX_wm_workspace(C);
-	Scene *scene = CTX_data_scene(C);
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
 	bool is_object = false;
-	int mode;
+	short mode;
 	/* if using a gpencil object, use this datablock */
 	Object *ob = CTX_data_active_object(C);
 	if ((ob) && (ob->type == OB_GPENCIL)) {
@@ -267,10 +265,9 @@ static int gpencil_sculptmode_toggle_exec(bContext *C, wmOperator *op)
 	const int back = RNA_int_get(op->ptr, "back");
 
 	WorkSpace *workspace = CTX_wm_workspace(C);
-	Scene *scene = CTX_data_scene(C);
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
 	bool is_object = false;
-	int mode;
+	short mode;
 	/* if using a gpencil object, use this datablock */
 	Object *ob = CTX_data_active_object(C);
 	if ((ob) && (ob->type == OB_GPENCIL)) {
@@ -345,10 +342,9 @@ static int gpencil_weightmode_toggle_exec(bContext *C, wmOperator *op)
 	const int back = RNA_int_get(op->ptr, "back");
 
 	WorkSpace *workspace = CTX_wm_workspace(C);
-	Scene *scene = CTX_data_scene(C);
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
 	bool is_object = false;
-	int mode;
+	short mode;
 	/* if using a gpencil object, use this datablock */
 	Object *ob = CTX_data_active_object(C);
 	if ((ob) && (ob->type == OB_GPENCIL)) {
@@ -1431,7 +1427,8 @@ static int gp_dissolve_selected_points(bContext *C, eGP_DissolveMode mode)
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
 	bool is_multiedit = (bool)GPENCIL_MULTIEDIT_SESSIONS_ON(gpd);
 	bool changed = false;
-	int first, last;
+	int first = 0;
+	int last = 0;
 
 	CTX_DATA_BEGIN(C, bGPDlayer *, gpl, editable_gpencil_layers)
 	{
@@ -3178,9 +3175,8 @@ void GPENCIL_OT_stroke_separate(wmOperatorType *ot)
 }
 
 /* ***************** Split Strokes ********************** */
-static int gp_stroke_split_exec(bContext *C, wmOperator *op)
+static int gp_stroke_split_exec(bContext *C, wmOperator *UNUSED(op))
 {
-	Scene *scene = CTX_data_scene(C);
 	bGPdata *gpd = ED_gpencil_data_get_active(C);
 	bGPDspoint *pt;
 	int i;
@@ -3240,11 +3236,11 @@ static int gp_stroke_split_exec(bContext *C, wmOperator *op)
 				}
 				/* select again tagged points */
 				for (gps = gpf->strokes.first; gps; gps = gps->next) {
-					bGPDspoint *pt = gps->points;
-					for (int i = 0; i < gps->totpoints; i++, pt++) {
-						if (pt->flag & GP_SPOINT_TAG) {
-							pt->flag |= GP_SPOINT_SELECT;
-							pt->flag &= ~GP_SPOINT_TAG;
+					bGPDspoint *ptn = gps->points;
+					for (int i2 = 0; i2 < gps->totpoints; i2++, ptn++) {
+						if (ptn->flag & GP_SPOINT_TAG) {
+							ptn->flag |= GP_SPOINT_SELECT;
+							ptn->flag &= ~GP_SPOINT_TAG;
 						}
 					}
 				}

@@ -258,7 +258,6 @@ static void gp_draw_datablock(tGPDfill *tgpf, float ink[4])
  /* draw strokes in offscreen buffer */
 static void gp_render_offscreen(tGPDfill *tgpf)
 {
-	const char *viewname = "GP";
 	bool is_ortho = false;
 	float winmat[4][4];
 
@@ -288,8 +287,8 @@ static void gp_render_offscreen(tGPDfill *tgpf)
 	int bwiny = tgpf->ar->winy;
 	rcti brect = tgpf->ar->winrct;
 
-	tgpf->ar->winx = tgpf->sizex;
-	tgpf->ar->winy = tgpf->sizey;
+	tgpf->ar->winx = (short) tgpf->sizex;
+	tgpf->ar->winy = (short) tgpf->sizey;
 	tgpf->ar->winrct.xmin = 0;
 	tgpf->ar->winrct.ymin = 0;
 	tgpf->ar->winrct.xmax = tgpf->sizex;
@@ -314,8 +313,8 @@ static void gp_render_offscreen(tGPDfill *tgpf)
 	gp_draw_datablock(tgpf, ink);
 
 	/* restore size */
-	tgpf->ar->winx = bwinx;
-	tgpf->ar->winy = bwiny;
+	tgpf->ar->winx = (short)bwinx;
+	tgpf->ar->winy = (short)bwiny;
 	tgpf->ar->winrct = brect;
 
 	gpuPopProjectionMatrix();
@@ -771,7 +770,7 @@ static void gpencil_points_from_stack(tGPDfill *tgpf)
 		return;
 	}
 
-	tgpf->sbuffer_size = totpoints;
+	tgpf->sbuffer_size = (short)totpoints;
 	tgpf->sbuffer = MEM_callocN(sizeof(tGPspoint) * totpoints, __func__);
 
 	point2D = tgpf->sbuffer;
@@ -870,7 +869,6 @@ static void gpencil_stroke_from_buffer(tGPDfill *tgpf)
 	/* if axis locked, reproject to plane locked */
 	if ((tgpf->lock_axis > GP_LOCKAXIS_NONE) && ((ts->gpencil_v3d_align & GP_PROJECT_DEPTH_VIEW) == 0)) {
 		float origin[3];
-		bGPDspoint *tpt = gps->points;
 		ED_gp_get_drawing_reference(tgpf->v3d, tgpf->scene, tgpf->ob, tgpf->gpl,
 			ts->gpencil_v3d_align, origin);
 		ED_gp_project_stroke_to_plane(tgpf->ob, tgpf->rv3d, gps, origin, 
@@ -894,7 +892,6 @@ static void gpencil_stroke_from_buffer(tGPDfill *tgpf)
 /* Helper: Draw status message while the user is running the operator */
 static void gpencil_fill_status_indicators(tGPDfill *tgpf)
 {
-	Scene *scene = tgpf->scene;
 	char status_str[UI_MAX_DRAW_STR];
 
 	BLI_snprintf(status_str, sizeof(status_str), IFACE_("Fill: ESC/RMB cancel, LMB Fill, Shift Draw on Back"));
@@ -935,11 +932,10 @@ static int gpencil_fill_poll(bContext *C)
 		CTX_wm_operator_poll_msg_set(C, "Active region not set");
 		return 0;
 	}
-	return 0;
 }
 
 /* Allocate memory and initialize values */
-static tGPDfill *gp_session_init_fill(bContext *C, wmOperator *op)
+static tGPDfill *gp_session_init_fill(bContext *C, wmOperator *UNUSED(op))
 {
 	tGPDfill *tgpf = MEM_callocN(sizeof(tGPDfill), "GPencil Fill Data");
 
@@ -1003,7 +999,6 @@ static void gpencil_fill_exit(bContext *C, wmOperator *op)
 	WM_cursor_modal_restore(CTX_wm_window(C));
 
 	tGPDfill *tgpf = op->customdata;
-	bGPdata *gpd = tgpf->gpd;
 
 	/* don't assume that operator data exists at all */
 	if (tgpf) {
@@ -1039,9 +1034,9 @@ static void gpencil_fill_exit(bContext *C, wmOperator *op)
 
 	/* drawing batch cache is dirty now */
 	if ((ob) && (ob->type == OB_GPENCIL) && (ob->data)) {
-		bGPdata *gpd = ob->data;
-		BKE_gpencil_batch_cache_dirty(gpd);
-		gpd->flag |= GP_DATA_CACHE_IS_DIRTY;
+		bGPdata *gpd2 = ob->data;
+		BKE_gpencil_batch_cache_dirty(gpd2);
+		gpd2->flag |= GP_DATA_CACHE_IS_DIRTY;
 	}
 
 	WM_event_add_notifier(C, NC_GPENCIL | NA_EDITED, NULL);
@@ -1071,7 +1066,7 @@ static int gpencil_fill_init(bContext *C, wmOperator *op)
 }
 
 /* start of interactive part of operator */
-static int gpencil_fill_invoke(bContext *C, wmOperator *op, const wmEvent *event)
+static int gpencil_fill_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
 {
 	tGPDfill *tgpf = NULL;
 
@@ -1107,8 +1102,6 @@ static int gpencil_fill_invoke(bContext *C, wmOperator *op, const wmEvent *event
 /* events handling during interactive part of operator */
 static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
-	Scene *scene = CTX_data_scene(C);
-	Object *ob = CTX_data_active_object(C);
 	tGPDfill *tgpf = op->customdata;
 
 	int estate = OPERATOR_PASS_THROUGH; /* default exit state - pass through */

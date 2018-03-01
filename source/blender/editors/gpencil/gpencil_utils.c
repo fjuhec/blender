@@ -1286,8 +1286,6 @@ static bool gp_check_cursor_region(bContext *C, int mval[2])
 	else {
 		return false;
 	}
-
-	return false;
 }
 
 /* Helper callback for drawing the cursor itself */
@@ -1407,8 +1405,6 @@ static void gp_brush_drawcursor(bContext *C, int x, int y, void *customdata)
 	immUniformColor4f(darkcolor[0], darkcolor[1], darkcolor[2], 0.8f);
 	imm_draw_circle_wire_2d(pos, x, y, radius + 1, 40);
 
-	immUnbindProgram();
-
 	glDisable(GL_BLEND);
 	glDisable(GL_LINE_SMOOTH);
 
@@ -1417,8 +1413,6 @@ static void gp_brush_drawcursor(bContext *C, int x, int y, void *customdata)
 		glEnable(GL_LINE_SMOOTH);
 		glEnable(GL_BLEND);
 
-		unsigned int pos = GWN_vertformat_attr_add(immVertexFormat(), "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
-		immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 		copy_v3_v3(color, paintbrush->curcolor);
 		immUniformColor4f(color[0], color[1], color[2], 0.8f);
 
@@ -1433,6 +1427,7 @@ static void gp_brush_drawcursor(bContext *C, int x, int y, void *customdata)
 		glDisable(GL_LINE_SMOOTH);
 	}
 
+	immUnbindProgram();
 }
 
 /* Turn brush cursor in on/off */
@@ -1533,7 +1528,7 @@ void ED_gpencil_setup_modes(bContext *C, bGPdata *gpd, int newmode)
 }
 
 /* helper to convert 2d to 3d for simple drawing buffer */
-static void gpencil_stroke_convertcoords(Scene *scene, ARegion *ar, View3D *v3d, const tGPspoint *point2D, float origin[3], float out[3])
+static void gpencil_stroke_convertcoords(ARegion *ar, const tGPspoint *point2D, float origin[3], float out[3]) 
 {
 	float mval_f[2] = { (float)point2D->x, (float)point2D->y };
 	float mval_prj[2];
@@ -1555,11 +1550,11 @@ static void gpencil_stroke_convertcoords(Scene *scene, ARegion *ar, View3D *v3d,
 }
 
 /* convert 2d tGPspoint to 3d bGPDspoint */
-void ED_gpencil_tpoint_to_point(Scene *scene, ARegion *ar, View3D *v3d, float origin[3], const tGPspoint *tpt, bGPDspoint *pt)
+void ED_gpencil_tpoint_to_point(ARegion *ar, float origin[3], const tGPspoint *tpt, bGPDspoint *pt)
 {
 	float p3d[3];
 	/* conversion to 3d format */
-	gpencil_stroke_convertcoords(scene, ar, v3d, tpt, origin, p3d);
+	gpencil_stroke_convertcoords(ar, tpt, origin, p3d);
 	copy_v3_v3(&pt->x, p3d);
 
 	pt->pressure = tpt->pressure;
