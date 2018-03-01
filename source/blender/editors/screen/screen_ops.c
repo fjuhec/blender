@@ -356,8 +356,9 @@ int ED_operator_editmesh_region_view3d(bContext *C)
 int ED_operator_editmesh_auto_smooth(bContext *C)
 {
 	Object *obedit = CTX_data_edit_object(C);
-	if (obedit && obedit->type == OB_MESH && (((Mesh *)(obedit->data))->flag & ME_AUTOSMOOTH))
+	if (obedit && obedit->type == OB_MESH && (((Mesh *)(obedit->data))->flag & ME_AUTOSMOOTH)) {
 		return NULL != BKE_editmesh_from_object(obedit);
+	}
 	return 0;
 }
 
