@@ -84,6 +84,8 @@ struct HookModifierData;
 struct NodeBlurData;
 struct Nurb;
 struct Object;
+struct Palette;
+struct PaletteColor;
 struct PBVHNode;
 struct PyObject;
 struct Render;
@@ -441,6 +443,7 @@ void *ED_region_draw_cb_customdata(void *handle) RET_ZERO /* XXX This one looks 
 void ED_region_draw_cb_exit(struct ARegionType *art, void *handle) RET_NONE
 void ED_area_headerprint(struct ScrArea *sa, const char *str) RET_NONE
 void ED_gpencil_parent_location(struct Object *obact, struct bGPdata *gpd, struct bGPDlayer *gpl, float diff_mat[4][4]) RET_NONE
+void ED_gpencil_update_color_uv(struct Main *bmain, struct Palette *palette, struct PaletteColor *palcolor) RET_NONE
 void UI_view2d_region_to_view(struct View2D *v2d, float x, float y, float *viewx, float *viewy) RET_NONE
 bool UI_view2d_view_to_region_clip(struct View2D *v2d, float x, float y, int *regionx, int *regiony) RET_ZERO
 void UI_view2d_view_to_region(struct View2D *v2d, float x, float y, int *regionx, int *region_y) RET_NONE
