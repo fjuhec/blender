@@ -247,7 +247,7 @@ enum {
 	MLNOR_SPACEARR_BMLOOP_PTR = 1,
 };
 
-void BKE_lnor_spacearr_init(MLoopNorSpaceArray *lnors_spacearr, const int numLoops, const char flags);
+void BKE_lnor_spacearr_init(MLoopNorSpaceArray *lnors_spacearr, const int numLoops, const char data_type);
 void BKE_lnor_spacearr_clear(MLoopNorSpaceArray *lnors_spacearr);
 void BKE_lnor_spacearr_free(MLoopNorSpaceArray *lnors_spacearr);
 MLoopNorSpace *BKE_lnor_space_create(MLoopNorSpaceArray *lnors_spacearr);

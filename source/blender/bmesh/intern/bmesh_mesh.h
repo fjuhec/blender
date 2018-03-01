@@ -68,6 +68,9 @@ struct BMLoopNorEditDataArray *BM_loop_normal_editdata_init(BMesh *bm);
 void BM_loop_normal_editdata_free(struct BMLoopNorEditDataArray *ld);
 int BM_total_loop_select(BMesh *bm);
 
+bool BM_loop_check_cyclic_smooth_fan(BMLoop *l_curr);
+
+
 void BM_edges_sharp_from_angle_set(BMesh *bm, const float split_angle);
 
 void bmesh_edit_begin(BMesh *bm, const BMOpTypeFlag type_flag);
