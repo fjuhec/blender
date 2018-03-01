@@ -2651,12 +2651,32 @@ static void gpencil_add_missing_events(bContext *C, wmOperator *op, const wmEven
 	if (brush->input_samples == 0) {
 		return;
 	}
+	RegionView3D *rv3d = p->ar->regiondata;
+	float defaultpixsize = rv3d->pixsize * 1000.0f;
+	int samples = (GP_MAX_INPUT_SAMPLES - brush->input_samples + 1);
+	float thickness = (float)brush->thickness;
 
-	int factor = GP_MAX_INPUT_SAMPLES - brush->input_samples + 1;
 	float pt[2], a[2], b[2];
+	float vec[3];
+	float scale = 1.0f;
+
+	/* get pixel scale */
+	gp_get_3d_reference(p, vec);
+	mul_m4_v3(rv3d->persmat, vec);
+	if (rv3d->is_persp) {
+		scale = vec[2] * defaultpixsize;
+	}
+	else {
+		scale = defaultpixsize;
+	}
+	float factor = ((thickness * 0.30f) / scale) * samples;
+
+	/* get distance to generate new points. The thickness of the brush ir deduced at 30% of
+	 * thickness to get overlap dots */
 	copy_v2fl_v2i(a, p->mvalo);
 	b[0] = event->mval[0] + 1;
 	b[1] = event->mval[1] + 1;
+
 	float dist = len_v2v2(a, b);
 	if (dist >= factor) {
 		int slices = 2 + (int)((dist - 1.0) / factor);
