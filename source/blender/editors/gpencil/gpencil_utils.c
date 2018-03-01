@@ -1535,8 +1535,7 @@ void ED_gpencil_setup_modes(bContext *C, bGPdata *gpd, int newmode)
 /* helper to convert 2d to 3d for simple drawing buffer */
 static void gpencil_stroke_convertcoords(Scene *scene, ARegion *ar, View3D *v3d, const tGPspoint *point2D, float origin[3], float out[3])
 {
-	float mval_f[2];
-	ARRAY_SET_ITEMS(mval_f, point2D->x, point2D->y);
+	float mval_f[2] = { (float)point2D->x, (float)point2D->y };
 	float mval_prj[2];
 	float rvec[3], dvec[3];
 	float zfac;
