@@ -718,7 +718,7 @@ static void gp_draw_stroke_3d(tGPDdraw *tgpw, short thickness, const float ink[4
 	bGPDspoint *points = tgpw->gps->points;
 	int totpoints = tgpw->gps->totpoints;
 
-	float viewport[2] = { tgpw->winx, tgpw->winy };
+	const float viewport[2] = { (float)tgpw->winx, (float)tgpw->winy };
 	float curpressure = points[0].pressure;
 	float fpt[3];
 

@@ -366,7 +366,8 @@ static void gp_stroke_convertcoords(tGPsdata *p, const int mval[2], float out[3]
 		else {
 			float mval_prj[2];
 			float rvec[3], dvec[3];
-			float mval_f[2] = {UNPACK2(mval)};
+			float mval_f[2];
+			copy_v2fl_v2i(mval_f, mval);
 			float zfac;
 		
 			/* Current method just converts each point in screen-coordinates to

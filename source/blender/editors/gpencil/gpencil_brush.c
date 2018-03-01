@@ -575,7 +575,8 @@ static void gp_brush_calc_midpoint(tGP_BrushEditData *gso)
 		float *rvec = ED_view3d_cursor3d_get(gso->scene, v3d);
 		float zfac = ED_view3d_calc_zfac(rv3d, rvec, NULL);
 		
-		float mval_f[2] = {UNPACK2(gso->mval)};
+		float mval_f[2];
+		copy_v2fl_v2i(mval_f, gso->mval);
 		float mval_prj[2];
 		float dvec[3];
 		

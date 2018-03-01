@@ -680,7 +680,8 @@ bool gp_point_xy_to_3d(GP_SpaceConversion *gsc, Scene *scene, const float screen
 	View3D *v3d = gsc->sa->spacedata.first;
 	RegionView3D *rv3d = gsc->ar->regiondata;
 	float *rvec = ED_view3d_cursor3d_get(scene, v3d);
-	float ref[3] = {rvec[0], rvec[1], rvec[2]};
+	float ref[3];
+	copy_v3_v3(ref, rvec);
 	float zfac = ED_view3d_calc_zfac(rv3d, rvec, NULL);
 	
 	float mval_f[2], mval_prj[2];
