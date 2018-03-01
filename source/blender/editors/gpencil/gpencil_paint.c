@@ -2671,7 +2671,7 @@ static void gpencil_add_missing_events(bContext *C, wmOperator *op, const wmEven
 	}
 	float factor = ((thickness * 0.30f) / scale) * samples;
 
-	/* get distance to generate new points. The thickness of the brush ir deduced at 30% of
+	/* get distance to generate new points. The thickness of the brush is reduced at 30% of
 	 * thickness to get overlap dots */
 	copy_v2fl_v2i(a, p->mvalo);
 	b[0] = event->mval[0] + 1;
