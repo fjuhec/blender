@@ -76,6 +76,12 @@
 
 #endif  /* USE_PROFILE */
 
+/* TODO Put it somewhere else? */
+typedef struct BoundSphere {
+	float center[3], radius;
+} BoundSphere;
+
+
 /* ------------ Data Structure --------------- */
 /**
  * Data structure containing all drawcalls organized by passes and materials.
@@ -83,22 +89,31 @@
  *                           > DRWUniform
  **/
 
-typedef struct DRWCallHeader {
-	struct DRWCallHeader *next; /* in reality DRWCall or DRWCallGenerate. */
-#ifdef USE_GPU_SELECT
-	int select_id;
-#endif
-	unsigned char type;
-} DRWCallHeader;
+/* Used by DRWCallState.flag */
+enum {
+	DRW_CALL_CULLED                 = (1 << 0),
+	DRW_CALL_NEGSCALE               = (1 << 1),
+};
+
+/* Used by DRWCallState.matflag */
+enum {
+	DRW_CALL_MODELINVERSE           = (1 << 0),
+	DRW_CALL_MODELVIEW              = (1 << 1),
+	DRW_CALL_MODELVIEWINVERSE       = (1 << 2),
+	DRW_CALL_MODELVIEWPROJECTION    = (1 << 3),
+	DRW_CALL_NORMALVIEW             = (1 << 4),
+	DRW_CALL_NORMALWORLD            = (1 << 5),
+	DRW_CALL_ORCOTEXFAC             = (1 << 6),
+	DRW_CALL_EYEVEC                 = (1 << 7),
+};
 
 typedef struct DRWCallState {
 	unsigned char flag;
-	uint16_t matflag;
+	unsigned char cache_id;   /* Compared with DST.state_cache_id to see if matrices are still valid. */
+	uint16_t matflag;         /* Which matrices to compute. */
 	/* Culling: Using Bounding Sphere for now for faster culling.
 	 * Not ideal for planes. */
-	struct {
-		float loc[3], rad; /* Bypassed if radius is < 0.0. */
-	} bsphere;
+	BoundSphere bsphere;
 	/* Matrices */
 	float model[4][4];
 	float modelinverse[4][4];
@@ -111,20 +126,42 @@ typedef struct DRWCallState {
 	float eyevec[3];
 } DRWCallState;
 
-typedef struct DRWCall {
-	DRWCallHeader head;
-	DRWCallState state; /* For now integrated to the struct. */
+typedef enum {
+	DRW_CALL_SINGLE,                 /* A single batch */
+	DRW_CALL_GENERATE,               /* Uses a callback to draw with any number of batches. */
+} DRWCallType;
 
-	Gwn_Batch *geometry;
+typedef struct DRWCall {
+	struct DRWCall *next;
+	DRWCallState *state;
+
+	union {
+		struct { /* type == DRW_CALL_SINGLE */
+			Gwn_Batch *geometry;
+		} single;
+		struct { /* type == DRW_CALL_GENERATE */
+			DRWCallGenerateFn *geometry_fn;
+			void *user_data;
+		} generate;
+	};
+
+	DRWCallType type;
+#ifdef USE_GPU_SELECT
+	int select_id;
+#endif
 } DRWCall;
 
-typedef struct DRWCallGenerate {
-	DRWCallHeader head;
-	DRWCallState state; /* For now integrated to the struct. */
-
-	DRWCallGenerateFn *geometry_fn;
-	void *user_data;
-} DRWCallGenerate;
+/* Used by DRWUniform.type */
+typedef enum {
+	DRW_UNIFORM_BOOL,
+	DRW_UNIFORM_SHORT_TO_INT,
+	DRW_UNIFORM_SHORT_TO_FLOAT,
+	DRW_UNIFORM_INT,
+	DRW_UNIFORM_FLOAT,
+	DRW_UNIFORM_TEXTURE,
+	DRW_UNIFORM_BUFFER,
+	DRW_UNIFORM_BLOCK
+} DRWUniformType;
 
 struct DRWUniform {
 	DRWUniform *next; /* single-linked list */
@@ -135,6 +172,15 @@ struct DRWUniform {
 	char arraysize; /* cannot be more than 16 too */
 };
 
+typedef enum {
+	DRW_SHG_NORMAL,
+	DRW_SHG_POINT_BATCH,
+	DRW_SHG_LINE_BATCH,
+	DRW_SHG_TRIANGLE_BATCH,
+	DRW_SHG_INSTANCE,
+	DRW_SHG_INSTANCE_EXTERNAL,
+} DRWShadingGroupType;
+
 struct DRWShadingGroup {
 	DRWShadingGroup *next;
 
@@ -144,7 +190,7 @@ struct DRWShadingGroup {
 	/* Watch this! Can be nasty for debugging. */
 	union {
 		struct { /* DRW_SHG_NORMAL */
-			DRWCallHeader *first, *last; /* Linked list of DRWCall or DRWCallDynamic depending of type */
+			DRWCall *first, *last; /* Linked list of DRWCall or DRWCallDynamic depending of type */
 		} calls;
 		struct { /* DRW_SHG_***_BATCH */
 			struct Gwn_Batch *batch_geom;     /* Result of call batching */
@@ -162,7 +208,7 @@ struct DRWShadingGroup {
 	DRWState state_extra;            /* State changes for this batch only (or'd with the pass's state) */
 	DRWState state_extra_disable;    /* State changes for this batch only (and'd with the pass's state) */
 	unsigned int stencil_mask;       /* Stencil mask to use for stencil test / write operations */
-	int type;
+	DRWShadingGroupType type;
 
 	/* Builtin matrices locations */
 	int model;
@@ -200,52 +246,6 @@ struct DRWPass {
 	char name[MAX_PASS_NAME];
 };
 
-/* Used by DRWUniform.type */
-typedef enum {
-	DRW_UNIFORM_BOOL,
-	DRW_UNIFORM_SHORT_TO_INT,
-	DRW_UNIFORM_SHORT_TO_FLOAT,
-	DRW_UNIFORM_INT,
-	DRW_UNIFORM_FLOAT,
-	DRW_UNIFORM_TEXTURE,
-	DRW_UNIFORM_BUFFER,
-	DRW_UNIFORM_BLOCK
-} DRWUniformType;
-
-/* Used by DRWCall.flag */
-enum {
-	DRW_CALL_SINGLE,                 /* A single batch */
-	DRW_CALL_GENERATE,               /* Uses a callback to draw with any number of batches. */
-};
-
-/* Used by DRWCall.state */
-enum {
-	DRW_CALL_CULLED                 = (1 << 0),
-	DRW_CALL_NEGSCALE               = (1 << 1),
-};
-
-/* Used by DRWCall.flag */
-enum {
-	DRW_CALL_MODELINVERSE           = (1 << 0),
-	DRW_CALL_MODELVIEW              = (1 << 1),
-	DRW_CALL_MODELVIEWINVERSE       = (1 << 2),
-	DRW_CALL_MODELVIEWPROJECTION    = (1 << 3),
-	DRW_CALL_NORMALVIEW             = (1 << 4),
-	DRW_CALL_NORMALWORLD            = (1 << 5),
-	DRW_CALL_ORCOTEXFAC             = (1 << 6),
-	DRW_CALL_EYEVEC                 = (1 << 7),
-};
-
-/* Used by DRWShadingGroup.type */
-enum {
-	DRW_SHG_NORMAL,
-	DRW_SHG_POINT_BATCH,
-	DRW_SHG_LINE_BATCH,
-	DRW_SHG_TRIANGLE_BATCH,
-	DRW_SHG_INSTANCE,
-	DRW_SHG_INSTANCE_EXTERNAL,
-};
-
 /* ------------- DRAW MANAGER ------------ */
 
 #define MAX_CLIP_PLANES 6 /* GL_MAX_CLIP_PLANES is at least 6 */
@@ -254,18 +254,18 @@ typedef struct DRWManager {
 	/* TODO clean up this struct a bit */
 	/* Cache generation */
 	ViewportMemoryPool *vmempool;
-	DRWUniform *last_uniform;
-	DRWCall *last_call;
-	DRWCallGenerate *last_callgenerate;
-	DRWShadingGroup *last_shgroup;
 	DRWInstanceDataList *idatalist;
 	DRWInstanceData *common_instance_data[MAX_INSTANCE_DATA_SIZE];
+	/* State of the object being evaluated if already allocated. */
+	DRWCallState *ob_state;
+	unsigned char state_cache_id; /* Could be larger but 254 view changes is already a lot! */
 
 	/* Rendering state */
 	GPUShader *shader;
 
 	/* Managed by `DRW_state_set`, `DRW_state_reset` */
 	DRWState state;
+	DRWState state_lock;
 	unsigned int stencil_mask;
 
 	/* Per viewport */
@@ -300,14 +300,21 @@ typedef struct DRWManager {
 
 	/* View dependant uniforms. */
 	float original_mat[6][4][4]; /* Original rv3d matrices. */
-	int override_mat;           /* Bitflag of which matrices are overriden. */
+	int override_mat;            /* Bitflag of which matrices are overriden. */
 	int num_clip_planes;         /* Number of active clipplanes. */
+	bool dirty_mat;
 
 	struct {
 		float mat[6][4][4];
 		float viewcamtexcofac[4];
 		float clip_planes_eq[MAX_CLIP_PLANES][4];
 	} view_data;
+
+	struct {
+		float frustum_planes[6][4];
+		BoundSphere frustum_bsphere;
+		bool updated;
+	} clipping;
 
 #ifdef USE_GPU_SELECT
 	unsigned int select_id;

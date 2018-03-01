@@ -173,6 +173,7 @@ bool DRW_object_is_flat_normal(const Object *ob)
 int DRW_object_is_mode_shade(const Object *ob)
 {
 	BLI_assert(ob == DST.draw_ctx.obact);
+	UNUSED_VARS_NDEBUG(ob);
 	if ((DST.draw_ctx.object_mode & OB_MODE_EDIT) == 0) {
 		if (DST.draw_ctx.object_mode & (OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT | OB_MODE_TEXTURE_PAINT)) {
 			if ((DST.draw_ctx.v3d->flag2 & V3D_SHOW_MODE_SHADE_OVERRIDE) == 0) {
@@ -314,7 +315,7 @@ static void drw_viewport_cache_resize(void)
 
 	if (DST.vmempool != NULL) {
 		BLI_mempool_clear_ex(DST.vmempool->calls, BLI_mempool_len(DST.vmempool->calls));
-		BLI_mempool_clear_ex(DST.vmempool->calls_generate, BLI_mempool_len(DST.vmempool->calls_generate));
+		BLI_mempool_clear_ex(DST.vmempool->states, BLI_mempool_len(DST.vmempool->states));
 		BLI_mempool_clear_ex(DST.vmempool->shgroups, BLI_mempool_len(DST.vmempool->shgroups));
 		BLI_mempool_clear_ex(DST.vmempool->uniforms, BLI_mempool_len(DST.vmempool->uniforms));
 		BLI_mempool_clear_ex(DST.vmempool->passes, BLI_mempool_len(DST.vmempool->passes));
@@ -370,8 +371,8 @@ static void drw_viewport_var_init(void)
 		if (DST.vmempool->calls == NULL) {
 			DST.vmempool->calls = BLI_mempool_create(sizeof(DRWCall), 0, 512, 0);
 		}
-		if (DST.vmempool->calls_generate == NULL) {
-			DST.vmempool->calls_generate = BLI_mempool_create(sizeof(DRWCallGenerate), 0, 512, 0);
+		if (DST.vmempool->states == NULL) {
+			DST.vmempool->states = BLI_mempool_create(sizeof(DRWCallState), 0, 512, BLI_MEMPOOL_ALLOW_ITER);
 		}
 		if (DST.vmempool->shgroups == NULL) {
 			DST.vmempool->shgroups = BLI_mempool_create(sizeof(DRWShadingGroup), 0, 256, 0);
@@ -437,6 +438,11 @@ static void drw_viewport_var_init(void)
 	}
 
 	DST.override_mat = 0;
+	DST.dirty_mat = false;
+	DST.state_cache_id = 1;
+
+	DST.clipping.updated = false;
+
 	memset(DST.common_instance_data, 0x0, sizeof(DST.common_instance_data));
 }
 
@@ -452,12 +458,14 @@ void DRW_viewport_matrix_override_set(float mat[4][4], DRWViewportMatrixType typ
 {
 	copy_m4_m4(DST.view_data.mat[type], mat);
 	DST.override_mat |= (1 << type);
+	DST.dirty_mat = true;
 }
 
 void DRW_viewport_matrix_override_unset(DRWViewportMatrixType type)
 {
 	copy_m4_m4(DST.view_data.mat[type], DST.original_mat[type]);
 	DST.override_mat &= ~(1 << type);
+	DST.dirty_mat = true;
 }
 
 bool DRW_viewport_is_persp_get(void)
@@ -627,6 +635,8 @@ static void drw_engines_cache_init(void)
 
 static void drw_engines_cache_populate(Object *ob)
 {
+	DST.ob_state = NULL;
+
 	for (LinkData *link = DST.enabled_engines.first; link; link = link->next) {
 		DrawEngineType *engine = link->data;
 		ViewportEngineData *data = drw_viewport_engine_data_ensure(engine);
@@ -1357,6 +1367,7 @@ void DRW_render_object_iter(
 {
 	DEG_OBJECT_ITER_FOR_RENDER_ENGINE(depsgraph, ob, DRW_iterator_mode_get())
 	{
+		DST.ob_state = NULL;
 		callback(vedata, ob, engine, depsgraph);
 	}
 	DEG_OBJECT_ITER_FOR_RENDER_ENGINE_END
@@ -1407,7 +1418,8 @@ void DRW_render_instance_buffer_finish(void)
 void DRW_draw_select_loop(
         struct Depsgraph *depsgraph,
         ARegion *ar, View3D *v3d, const eObjectMode object_mode,
-        bool UNUSED(use_obedit_skip), bool UNUSED(use_nearest), const rcti *rect)
+        bool UNUSED(use_obedit_skip), bool UNUSED(use_nearest), const rcti *rect,
+        DRW_SelectPassFn select_pass_fn, void *select_pass_user_data)
 {
 	Scene *scene = DEG_get_evaluated_scene(depsgraph);
 	RenderEngineType *engine_type = RE_engines_find(scene->view_render.engine_id);
@@ -1486,7 +1498,7 @@ void DRW_draw_select_loop(
 			drw_engines_cache_populate(obact);
 		}
 		else {
-			DEG_OBJECT_ITER(depsgraph, ob, DRW_iterator_mode_get(),
+			DEG_OBJECT_ITER_BEGIN(depsgraph, ob, DRW_iterator_mode_get(),
 			                DEG_ITER_OBJECT_FLAG_LINKED_DIRECTLY |
 			                DEG_ITER_OBJECT_FLAG_VISIBLE |
 			                DEG_ITER_OBJECT_FLAG_DUPLI)
@@ -1507,12 +1519,32 @@ void DRW_draw_select_loop(
 	/* Start Drawing */
 	DRW_state_reset();
 	DRW_draw_callbacks_pre_scene();
-	drw_engines_draw_scene();
-	DRW_draw_callbacks_post_scene();
 
-#ifdef USE_GPU_SELECT
-	GPU_select_finalize();
-#endif
+
+	DRW_state_lock(
+	        DRW_STATE_WRITE_DEPTH |
+	        DRW_STATE_DEPTH_ALWAYS |
+	        DRW_STATE_DEPTH_LESS |
+	        DRW_STATE_DEPTH_EQUAL |
+	        DRW_STATE_DEPTH_GREATER |
+	        DRW_STATE_DEPTH_ALWAYS);
+
+	/* Only 1-2 passes. */
+	while (true) {
+		if (!select_pass_fn(DRW_SELECT_PASS_PRE, select_pass_user_data)) {
+			break;
+		}
+
+		drw_engines_draw_scene();
+
+		if (!select_pass_fn(DRW_SELECT_PASS_POST, select_pass_user_data)) {
+			break;
+		}
+	}
+
+	DRW_state_lock(0);
+
+	DRW_draw_callbacks_post_scene();
 
 	DRW_state_reset();
 	drw_engines_disable();

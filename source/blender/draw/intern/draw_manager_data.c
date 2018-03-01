@@ -28,6 +28,7 @@
 #include "BKE_curve.h"
 #include "BKE_global.h"
 #include "BKE_mesh.h"
+#include "BKE_object.h"
 #include "BKE_paint.h"
 #include "BKE_pbvh.h"
 
@@ -246,8 +247,13 @@ static void drw_call_calc_orco(ID *ob_data, float (*r_orcofacs)[3])
 	}
 }
 
-static void drw_call_set_matrices(DRWCallState *state, float (*obmat)[4], ID *ob_data)
+static DRWCallState *drw_call_state_create(DRWShadingGroup *shgroup, float (*obmat)[4], Object *ob)
 {
+	DRWCallState *state = BLI_mempool_alloc(DST.vmempool->states);
+	state->flag = 0;
+	state->cache_id = 0;
+	state->matflag = shgroup->matflag;
+
 	/* Matrices */
 	if (obmat != NULL) {
 		copy_m4_m4(state->model, obmat);
@@ -260,14 +266,40 @@ static void drw_call_set_matrices(DRWCallState *state, float (*obmat)[4], ID *ob
 		unit_m4(state->model);
 	}
 
-	/* Orco factors */
+	if (ob != NULL) {
+		float corner[3];
+		BoundBox *bbox = BKE_object_boundbox_get(ob);
+		/* Get BoundSphere center and radius from the BoundBox. */
+		mid_v3_v3v3(state->bsphere.center, bbox->vec[0], bbox->vec[6]);
+		mul_v3_m4v3(corner, obmat, bbox->vec[0]);
+		mul_m4_v3(obmat, state->bsphere.center);
+		state->bsphere.radius = len_v3v3(state->bsphere.center, corner);
+	}
+	else {
+		/* Bypass test. */
+		state->bsphere.radius = -1.0f;
+	}
+
+	/* Orco factors: We compute this at creation to not have to save the *ob_data */
 	if ((state->matflag & DRW_CALL_ORCOTEXFAC) != 0) {
-		drw_call_calc_orco(ob_data, state->orcotexfac);
+		drw_call_calc_orco(ob->data, state->orcotexfac);
 		state->matflag &= ~DRW_CALL_ORCOTEXFAC;
 	}
 
-	/* TODO Set culling bsphere IF needed by the DRWPass */
-	state->bsphere.rad = -1.0f;
+	return state;
+}
+
+static DRWCallState *drw_call_state_object(DRWShadingGroup *shgroup, float (*obmat)[4], Object *ob)
+{
+	if (DST.ob_state == NULL) {
+		DST.ob_state = drw_call_state_create(shgroup, obmat, ob);
+	}
+	else {
+		/* If the DRWCallState is reused, add necessary matrices. */
+		DST.ob_state->matflag |= shgroup->matflag;
+	}
+
+	return DST.ob_state;
 }
 
 void DRW_shgroup_call_add(DRWShadingGroup *shgroup, Gwn_Batch *geom, float (*obmat)[4])
@@ -276,32 +308,31 @@ void DRW_shgroup_call_add(DRWShadingGroup *shgroup, Gwn_Batch *geom, float (*obm
 	BLI_assert(shgroup->type == DRW_SHG_NORMAL);
 
 	DRWCall *call = BLI_mempool_alloc(DST.vmempool->calls);
-	call->head.type = DRW_CALL_SINGLE;
-	call->state.flag = 0;
-	call->state.matflag = shgroup->matflag;
+	call->state = drw_call_state_create(shgroup, obmat, NULL);
+	call->type = DRW_CALL_SINGLE;
+	call->single.geometry = geom;
 #ifdef USE_GPU_SELECT
-	call->head.select_id = DST.select_id;
+	call->select_id = DST.select_id;
 #endif
-	call->geometry = geom;
-	drw_call_set_matrices(&call->state, obmat, NULL);
-	BLI_LINKS_APPEND(&shgroup->calls, (DRWCallHeader *)call);
+
+	BLI_LINKS_APPEND(&shgroup->calls, call);
 }
 
+/* These calls can be culled and are optimized for redraw */
 void DRW_shgroup_call_object_add(DRWShadingGroup *shgroup, Gwn_Batch *geom, Object *ob)
 {
 	BLI_assert(geom != NULL);
 	BLI_assert(shgroup->type == DRW_SHG_NORMAL);
 
 	DRWCall *call = BLI_mempool_alloc(DST.vmempool->calls);
-	call->head.type = DRW_CALL_SINGLE;
-	call->state.flag = 0;
-	call->state.matflag = shgroup->matflag;
+	call->state = drw_call_state_object(shgroup, ob->obmat, ob);
+	call->type = DRW_CALL_SINGLE;
+	call->single.geometry = geom;
 #ifdef USE_GPU_SELECT
-	call->head.select_id = DST.select_id;
+	call->select_id = DST.select_id;
 #endif
-	call->geometry = geom;
-	drw_call_set_matrices(&call->state, ob->obmat, ob->data);
-	BLI_LINKS_APPEND(&shgroup->calls, (DRWCallHeader *)call);
+
+	BLI_LINKS_APPEND(&shgroup->calls, call);
 }
 
 void DRW_shgroup_call_generate_add(
@@ -312,17 +343,16 @@ void DRW_shgroup_call_generate_add(
 	BLI_assert(geometry_fn != NULL);
 	BLI_assert(shgroup->type == DRW_SHG_NORMAL);
 
-	DRWCallGenerate *call = BLI_mempool_alloc(DST.vmempool->calls_generate);
-	call->head.type = DRW_CALL_GENERATE;
-	call->state.flag = 0;
-	call->state.matflag = shgroup->matflag;
+	DRWCall *call = BLI_mempool_alloc(DST.vmempool->calls);
+	call->state = drw_call_state_create(shgroup, obmat, NULL);
+	call->type = DRW_CALL_GENERATE;
+	call->generate.geometry_fn = geometry_fn;
+	call->generate.user_data = user_data;
 #ifdef USE_GPU_SELECT
-	call->head.select_id = DST.select_id;
+	call->select_id = DST.select_id;
 #endif
-	call->geometry_fn = geometry_fn;
-	call->user_data = user_data;
-	drw_call_set_matrices(&call->state, obmat, NULL);
-	BLI_LINKS_APPEND(&shgroup->calls, (DRWCallHeader *)call);
+
+	BLI_LINKS_APPEND(&shgroup->calls, call);
 }
 
 static void sculpt_draw_cb(
@@ -809,9 +839,9 @@ static int pass_shgroup_dist_sort(void *thunk, const void *a, const void *b)
 	if (call_b == NULL) return -1;
 
 	float tmp[3];
-	sub_v3_v3v3(tmp, zsortdata->origin, call_a->state.model[3]);
+	sub_v3_v3v3(tmp, zsortdata->origin, call_a->state->model[3]);
 	const float a_sq = dot_v3v3(zsortdata->axis, tmp);
-	sub_v3_v3v3(tmp, zsortdata->origin, call_b->state.model[3]);
+	sub_v3_v3v3(tmp, zsortdata->origin, call_b->state->model[3]);
 	const float b_sq = dot_v3v3(zsortdata->axis, tmp);
 
 	if      (a_sq < b_sq) return  1;
