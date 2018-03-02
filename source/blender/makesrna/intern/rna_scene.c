@@ -545,6 +545,20 @@ static void rna_GPencilInterpolateSettings_type_set(PointerRNA *ptr, int value)
 }
 
 /* Grease pencil Drawing Brushes */
+static void rna_GPencil_brush_default_eraser(Main *UNUSED(bmain), Scene *scene, PointerRNA *UNUSED(ptr))
+{
+	ToolSettings *ts = scene->toolsettings;
+	bGPDbrush *brush_cur = BKE_gpencil_brush_getactive(ts);	
+
+	/* disable default eraser in all brushes */
+	for (bGPDbrush *brush = ts->gp_brushes.first; brush; brush = brush->next) {
+		if ((brush != brush_cur) && (brush->type == GP_BRUSH_TYPE_ERASE)) {
+			brush->flag &= ~GP_BRUSH_DEFAULT_ERASER;
+		}
+	}
+}
+
+
 static bGPDbrush *rna_GPencil_brush_new(ToolSettings *ts, const char *name, int setactive)
 {
 	bGPDbrush *brush = BKE_gpencil_brush_addnew(ts, name, setactive != 0);
@@ -2484,6 +2498,12 @@ static void rna_def_gpencil_brush(BlenderRNA *brna)
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_BRUSH_FILL_HIDE);
 	RNA_def_property_boolean_default(prop, true);
 	RNA_def_property_ui_text(prop, "Hide", "Hide transparent lines to use as boundary for filling");
+
+	prop = RNA_def_property(srna, "default_eraser", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_BRUSH_DEFAULT_ERASER);
+	RNA_def_property_boolean_default(prop, true);
+	RNA_def_property_ui_text(prop, "Default Eraser", "Use this brush when enable eraser with fast switch key");
+	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_brush_default_eraser");
 }
 
 /* Grease Pencil Drawing Brushes API */

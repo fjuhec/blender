@@ -2128,6 +2128,8 @@ class VIEW3D_PT_tools_grease_pencil_brush(Panel):
                 row = col.row()
                 row.prop(brush, "eraser_mode", expand=True)
 
+                col.prop(brush, "default_eraser")
+
             if brush.type != 'ERASE':
                 layout.separator()
                 layout.prop(context.tool_settings, "use_gpencil_draw_onback", text="Draw on Back")
