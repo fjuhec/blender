@@ -2666,22 +2666,31 @@ static void gpencil_add_missing_events(bContext *C, wmOperator *op, const wmEven
 	else {
 		scale = defaultpixsize;
 	}
+
+	/* The thickness of the brush is reduced at 30 % of thickness to get overlap dots */ 
 	float factor = ((thickness * 0.30f) / scale) * samples;
 
-	/* get distance to generate new points. The thickness of the brush is reduced at 30% of
-	 * thickness to get overlap dots */
 	copy_v2fl_v2i(a, p->mvalo);
 	b[0] = event->mval[0] + 1;
 	b[1] = event->mval[1] + 1;
 
+	/* get distance in pixels */
 	float dist = len_v2v2(a, b);
-	if (dist >= factor) {
+
+	/* for very small distances, add a half way point */
+	if (dist < 2.0f) {
+		interp_v2_v2v2(pt, a, b, 0.5f);
+		sub_v2_v2v2(pt, b, pt);
+		/* create fake event */
+		gpencil_draw_apply_event(C, op, event, CTX_data_depsgraph(C),
+			(int)pt[0], (int)pt[1]);
+	}
+	else if (dist >= factor) {
 		int slices = 2 + (int)((dist - 1.0) / factor);
 		float n = 1.0f / slices;
 		for (int i = 1; i < slices; i++) {
 			interp_v2_v2v2(pt, a, b, n * i);
 			sub_v2_v2v2(pt, b, pt);
-
 			/* create fake event */
 			gpencil_draw_apply_event(C, op, event, CTX_data_depsgraph(C),
 									(int)pt[0], (int)pt[1]);
