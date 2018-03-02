@@ -2678,7 +2678,7 @@ static void gpencil_add_missing_events(bContext *C, wmOperator *op, const wmEven
 	float dist = len_v2v2(a, b);
 
 	/* for very small distances, add a half way point */
-	if (dist < 2.0f) {
+	if (dist <= 2.0f) {
 		interp_v2_v2v2(pt, a, b, 0.5f);
 		sub_v2_v2v2(pt, b, pt);
 		/* create fake event */
