@@ -304,29 +304,6 @@ class GreasePencilStrokeSculptPanel:
             layout.prop(brush, "affect_pressure")
 
 
-class GreasePencilEraserPanel:
-    bl_label = "Eraser"
-    bl_category = "Tools"
-    bl_region_type = 'TOOLS'
-    bl_options = {'DEFAULT_CLOSED'}
-
-    @classmethod
-    def poll(cls, context):
-        if context.gpencil_data is None:
-            return False
-        workspace = context.workspace
-        return context.active_object and workspace.object_mode == 'GPENCIL_PAINT'
-
-    @staticmethod
-    def draw(self, context):
-        layout = self.layout
-        layout.operator("gpencil.draw", icon='FORCE_CURVE', text="Erase").mode = 'ERASER'
-        
-        col = layout.column(align=True)
-        col.prop(context.user_preferences.edit, "grease_pencil_eraser_radius", text="Radius")
-        # TODO: Hard/Soft mode, sensitivity factors, etc.
-
-
 ###############################
 
 class GPENCIL_MT_pie_tool_palette(Menu):

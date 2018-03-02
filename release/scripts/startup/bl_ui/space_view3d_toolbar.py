@@ -21,8 +21,7 @@ import bpy
 from bpy.types import Menu, Panel, UIList
 from .properties_grease_pencil_common import (
         GreasePencilStrokeEditPanel,
-        GreasePencilStrokeSculptPanel,
-        GreasePencilEraserPanel
+        GreasePencilStrokeSculptPanel
         )
 from .properties_paint_common import (
         UnifiedPaintPanel,
@@ -2122,8 +2121,14 @@ class VIEW3D_PT_tools_grease_pencil_brush(Panel):
                 sub.enabled = brush.fill_hide
                 sub.prop(brush, "fill_threshold", text="Threshold")
 
-            layout.separator()
-            layout.prop(context.tool_settings, "use_gpencil_draw_onback", text="Draw on Back")
+            if brush.type == 'ERASE':
+                col = layout.column(align=True)
+                col.prop(context.user_preferences.edit, "grease_pencil_eraser_radius", text="Radius")
+                # TODO: Hard/Soft mode, sensitivity factors, etc.
+
+            if brush.type != 'ERASE':
+                layout.separator()
+                layout.prop(context.tool_settings, "use_gpencil_draw_onback", text="Draw on Back")
 
 
 # Grease Pencil drawing brushes options
@@ -2502,11 +2507,6 @@ class VIEW3D_PT_tools_grease_pencil_appearance(Panel):
             row.prop(brush, "cursor_color_sub", text="Subtract")
 
 
-# Grease Pencil drawing brushes options
-class VIEW3D_PT_tools_grease_pencil_eraser(GreasePencilEraserPanel, Panel):
-    bl_space_type = 'VIEW_3D'
-
-
 # Note: moved here so that it's always in last position in 'Tools' panels!
 class VIEW3D_PT_tools_history(View3DPanel, Panel):
     bl_category = "Tools"
@@ -2589,7 +2589,6 @@ classes = (
     VIEW3D_PT_sculpt_symmetry,
     VIEW3D_PT_tools_brush_appearance,
     VIEW3D_PT_tools_grease_pencil_appearance,
-    VIEW3D_PT_tools_grease_pencil_eraser,
     VIEW3D_PT_tools_weightpaint,
     VIEW3D_PT_tools_weightpaint_symmetry,
     VIEW3D_PT_tools_weightpaint_options,

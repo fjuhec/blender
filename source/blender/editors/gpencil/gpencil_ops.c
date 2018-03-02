@@ -122,6 +122,16 @@ static int gp_stroke_paintmode_draw_poll(bContext *C)
 	return (gpd && (gpd->flag & GP_DATA_STROKE_PAINTMODE) && (brush) && (brush->type == GP_BRUSH_TYPE_DRAW));
 }
 
+/* Poll callback for stroke painting (erase brush) */
+static int gp_stroke_paintmode_erase_poll(bContext *C)
+{
+	/* TODO: limit this to mode, but review 2D editors */
+	bGPdata *gpd = CTX_data_gpencil_data(C);
+	ToolSettings *ts = CTX_data_tool_settings(C);
+	bGPDbrush *brush = BKE_gpencil_brush_getactive(ts);
+	return (gpd && (gpd->flag & GP_DATA_STROKE_PAINTMODE) && (brush) && (brush->type == GP_BRUSH_TYPE_ERASE));
+}
+
 /* Poll callback for stroke painting (fill) */
 static int gp_stroke_paintmode_fill_poll(bContext *C)
 {
@@ -482,6 +492,33 @@ static void ed_keymap_gpencil_painting_draw(wmKeyConfig *keyconf)
 	RNA_boolean_set(kmi->ptr, "deselect", false);
 }
 
+/* keys for draw with a eraser brush (erase) */
+static void ed_keymap_gpencil_painting_erase(wmKeyConfig *keyconf)
+{
+	wmKeyMap *keymap = WM_keymap_find(keyconf, "Grease Pencil Stroke Paint (Erase)", 0, 0);
+	wmKeyMapItem *kmi;
+
+	/* set poll callback */
+	keymap->poll = gp_stroke_paintmode_erase_poll;
+
+	/* erase */
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_draw", LEFTMOUSE, KM_PRESS, 0, 0);
+	RNA_enum_set(kmi->ptr, "mode", GP_PAINTMODE_ERASER);
+	RNA_boolean_set(kmi->ptr, "wait_for_input", false);
+
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_draw", TABLET_ERASER, KM_PRESS, 0, 0);
+	RNA_enum_set(kmi->ptr, "mode", GP_PAINTMODE_ERASER);
+	RNA_boolean_set(kmi->ptr, "wait_for_input", false);
+
+	/* Selection (used by eraser) */
+	/* border select */
+	WM_keymap_add_item(keymap, "GPENCIL_OT_select_border", BKEY, KM_PRESS, 0, 0);
+
+	/* lasso select */
+	kmi = WM_keymap_add_item(keymap, "GPENCIL_OT_select_lasso", EVT_TWEAK_A, KM_ANY, KM_CTRL | KM_ALT, 0);
+	RNA_boolean_set(kmi->ptr, "deselect", false);
+}
+
 /* keys for draw with a fill brush */
 static void ed_keymap_gpencil_painting_fill(wmKeyConfig *keyconf)
 {
@@ -684,6 +721,7 @@ void ED_keymap_gpencil(wmKeyConfig *keyconf)
 	ed_keymap_gpencil_editing(keyconf);
 	ed_keymap_gpencil_painting(keyconf);
 	ed_keymap_gpencil_painting_draw(keyconf);
+	ed_keymap_gpencil_painting_erase(keyconf);
 	ed_keymap_gpencil_painting_fill(keyconf);
 	ed_keymap_gpencil_sculpting(keyconf);
 	ed_keymap_gpencil_weightpainting(keyconf);

@@ -454,7 +454,7 @@ static EnumPropertyItem rna_enum_gpencil_fill_draw_modes_items[] = {
 static EnumPropertyItem rna_enum_gpencil_brush_types_items[] = {
 	{ GP_BRUSH_TYPE_DRAW, "DRAW", 0, "Draw", "The brush is of type used for drawing strokes" },
 	{ GP_BRUSH_TYPE_FILL, "FILL", 0, "Fill", "The brush is of type used for filling areas" },
-	//{ GP_BRUSH_TYPE_ERASE, "ERASE", 0, "Erase", "The brush is used for erasing" },
+	{ GP_BRUSH_TYPE_ERASE, "ERASE", 0, "Erase", "The brush is used for erasing strokes" },
 	{ 0, NULL, 0, NULL, NULL }
 };
 
@@ -701,6 +701,9 @@ static int gpencil_get_brush_icon(int type)
 		item_tmp.value = i;
 		if (brush->type == GP_BRUSH_TYPE_FILL) {
 			item_tmp.icon = ICON_GPBRUSH_FILL;
+		}
+		else if(brush->type == GP_BRUSH_TYPE_ERASE) {
+			item_tmp.icon = ICON_GPBRUSH_ERASE;
 		}
 		else {
 			item_tmp.icon = gpencil_get_brush_icon(brush->icon);

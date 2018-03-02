@@ -440,7 +440,7 @@ static void init_brush_icons(void)
 	INIT_BRUSH_ICON(ICON_GPBRUSH_MARKER, gp_brush_marker);
 	INIT_BRUSH_ICON(ICON_GPBRUSH_CUSTOM, gp_brush_custom);
 	INIT_BRUSH_ICON(ICON_GPBRUSH_FILL, gp_brush_fill);
-	INIT_BRUSH_ICON(ICON_GPBRUSH_ERASE, gp_brush_fill);
+	INIT_BRUSH_ICON(ICON_GPBRUSH_ERASE, gp_brush_erase);
 
 #undef INIT_BRUSH_ICON
 }
