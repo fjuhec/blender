@@ -1303,7 +1303,7 @@ static void gp_brush_draw_eraser(bContext *C, bGPDbrush *brush, int x, int y)
 	glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
 	immUniformColor4ub(255, 100, 100, 20);
-	imm_draw_circle_fill_2d(shdr_pos, x, y, U.gp_eraser, 40);
+	imm_draw_circle_fill_2d(shdr_pos, x, y, radius, 40);
 
 	immUnbindProgram();
 
