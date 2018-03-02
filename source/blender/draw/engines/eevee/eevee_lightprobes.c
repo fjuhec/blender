@@ -538,14 +538,10 @@ void EEVEE_lightprobes_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedat
 	{
 		psl->probe_planar_downsample_ps = DRW_pass_create("LightProbe Planar Downsample", DRW_STATE_WRITE_COLOR);
 
-		struct Gwn_Batch *geom = DRW_cache_fullscreen_quad_get();
-		DRWShadingGroup *grp = DRW_shgroup_instance_create(
-		        e_data.probe_planar_downsample_sh,
-		        psl->probe_planar_downsample_ps,
-		        geom, NULL);
-		stl->g_data->planar_downsample = grp;
+		DRWShadingGroup *grp = DRW_shgroup_create(e_data.probe_planar_downsample_sh, psl->probe_planar_downsample_ps);
 		DRW_shgroup_uniform_buffer(grp, "source", &txl->planar_pool);
 		DRW_shgroup_uniform_float(grp, "fireflyFactor", &sldata->common_data.ssr_firefly_fac, 1);
+		DRW_shgroup_call_instances_add(grp, DRW_cache_fullscreen_quad_get(), NULL, (unsigned int *)&pinfo->num_planar);
 	}
 }
 
@@ -846,12 +842,7 @@ static void EEVEE_lightprobes_updates(EEVEE_ViewLayerData *sldata, EEVEE_PassLis
 		if (DRW_state_draw_support() &&
 		    (probe->flag & LIGHTPROBE_FLAG_SHOW_DATA))
 		{
-			struct Gwn_Batch *geom = DRW_cache_sphere_get();
-			DRWShadingGroup *grp = DRW_shgroup_instance_create(
-			        e_data.probe_grid_display_sh,
-			        psl->probe_display,
-			        geom, NULL);
-			DRW_shgroup_set_instance_count(grp, ped->num_cell);
+			DRWShadingGroup *grp = DRW_shgroup_create(e_data.probe_grid_display_sh, psl->probe_display);
 			DRW_shgroup_uniform_int(grp, "offset", &egrid->offset, 1);
 			DRW_shgroup_uniform_ivec3(grp, "grid_resolution", egrid->resolution, 1);
 			DRW_shgroup_uniform_vec3(grp, "corner", egrid->corner, 1);
@@ -860,6 +851,7 @@ static void EEVEE_lightprobes_updates(EEVEE_ViewLayerData *sldata, EEVEE_PassLis
 			DRW_shgroup_uniform_vec3(grp, "increment_z", egrid->increment_z, 1);
 			DRW_shgroup_uniform_buffer(grp, "irradianceGrid", &sldata->irradiance_pool);
 			DRW_shgroup_uniform_float(grp, "sphere_size", &probe->data_draw_size, 1);
+			DRW_shgroup_call_instances_add(grp, DRW_cache_sphere_get(), NULL, (unsigned int *)&ped->num_cell);
 		}
 	}
 }
@@ -867,7 +859,6 @@ static void EEVEE_lightprobes_updates(EEVEE_ViewLayerData *sldata, EEVEE_PassLis
 void EEVEE_lightprobes_cache_finish(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
 {
 	EEVEE_CommonUniformBuffer *common_data = &sldata->common_data;
-	EEVEE_StorageList *stl = vedata->stl;
 	EEVEE_LightProbesInfo *pinfo = sldata->probes;
 	Object *ob;
 
@@ -897,9 +888,6 @@ void EEVEE_lightprobes_cache_finish(EEVEE_ViewLayerData *sldata, EEVEE_Data *ved
 
 	/* XXX this should be run each frame as it ensure planar_depth is set */
 	planar_pool_ensure_alloc(vedata, pinfo->num_planar);
-
-	/* Setup planar filtering pass */
-	DRW_shgroup_set_instance_count(stl->g_data->planar_downsample, pinfo->num_planar);
 
 	if (!sldata->probe_pool) {
 		sldata->probe_pool = DRW_texture_create_2D_array(pinfo->cubemap_res, pinfo->cubemap_res, max_ff(1, pinfo->num_cube),
@@ -1230,12 +1218,7 @@ static void render_scene_to_probe(
 	DRW_framebuffer_texture_attach(sldata->probe_fb, sldata->probe_rt, 0, 0);
 	DRW_framebuffer_texture_attach(sldata->probe_fb, sldata->probe_depth_rt, 0, 0);
 
-	DRW_viewport_matrix_override_unset(DRW_MAT_PERS);
-	DRW_viewport_matrix_override_unset(DRW_MAT_PERSINV);
-	DRW_viewport_matrix_override_unset(DRW_MAT_VIEW);
-	DRW_viewport_matrix_override_unset(DRW_MAT_VIEWINV);
-	DRW_viewport_matrix_override_unset(DRW_MAT_WIN);
-	DRW_viewport_matrix_override_unset(DRW_MAT_WININV);
+	DRW_viewport_matrix_override_unset_all();
 
 	/* Restore */
 	txl->planar_pool = tmp_planar_pool;
@@ -1263,12 +1246,12 @@ static void render_scene_to_planar(
 	DRW_viewport_matrix_override_set(viewmat, DRW_MAT_VIEW);
 	DRW_viewport_matrix_override_set(viewinv, DRW_MAT_VIEWINV);
 
+	/* Be sure that cascaded shadow maps are updated. */
+	EEVEE_draw_shadows(sldata, psl);
+
 	/* Since we are rendering with an inverted view matrix, we need
 	 * to invert the facing for backface culling to be the same. */
 	DRW_state_invert_facing();
-
-	/* Be sure that cascaded shadow maps are updated. */
-	EEVEE_draw_shadows(sldata, psl);
 
 	DRW_state_clip_planes_add(clip_plane);
 
@@ -1312,10 +1295,7 @@ static void render_scene_to_planar(
 	/* Restore */
 	txl->planar_pool = tmp_planar_pool;
 	txl->planar_depth = tmp_planar_depth;
-	DRW_viewport_matrix_override_unset(DRW_MAT_PERS);
-	DRW_viewport_matrix_override_unset(DRW_MAT_PERSINV);
-	DRW_viewport_matrix_override_unset(DRW_MAT_VIEW);
-	DRW_viewport_matrix_override_unset(DRW_MAT_VIEWINV);
+	DRW_viewport_matrix_override_unset_all();
 
 	DRW_framebuffer_texture_detach(txl->planar_pool);
 	DRW_framebuffer_texture_detach(txl->planar_depth);
@@ -1364,12 +1344,7 @@ static void render_world_to_probe(EEVEE_ViewLayerData *sldata, EEVEE_PassList *p
 	DRW_framebuffer_texture_attach(sldata->probe_fb, sldata->probe_rt, 0, 0);
 	DRW_framebuffer_texture_attach(sldata->probe_fb, sldata->probe_depth_rt, 0, 0);
 
-	DRW_viewport_matrix_override_unset(DRW_MAT_PERS);
-	DRW_viewport_matrix_override_unset(DRW_MAT_PERSINV);
-	DRW_viewport_matrix_override_unset(DRW_MAT_VIEW);
-	DRW_viewport_matrix_override_unset(DRW_MAT_VIEWINV);
-	DRW_viewport_matrix_override_unset(DRW_MAT_WIN);
-	DRW_viewport_matrix_override_unset(DRW_MAT_WININV);
+	DRW_viewport_matrix_override_unset_all();
 }
 
 static void lightprobe_cell_grid_location_get(EEVEE_LightGrid *egrid, int cell_idx, float r_local_cell[3])

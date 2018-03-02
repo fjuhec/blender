@@ -87,23 +87,19 @@ static void eevee_engine_init(void *ved)
 
 	if ((stl->effects->taa_current_sample > 1) && !DRW_state_is_image_render()) {
 		/* XXX otherwise it would break the other engines. */
-		DRW_viewport_matrix_override_unset(DRW_MAT_PERS);
-		DRW_viewport_matrix_override_unset(DRW_MAT_PERSINV);
-		DRW_viewport_matrix_override_unset(DRW_MAT_WIN);
-		DRW_viewport_matrix_override_unset(DRW_MAT_WININV);
+		DRW_viewport_matrix_override_unset_all();
 	}
 }
 
 static void eevee_cache_init(void *vedata)
 {
-	EEVEE_PassList *psl = ((EEVEE_Data *)vedata)->psl;
 	EEVEE_ViewLayerData *sldata = EEVEE_view_layer_data_ensure();
 
 	EEVEE_bloom_cache_init(sldata, vedata);
 	EEVEE_depth_of_field_cache_init(sldata, vedata);
 	EEVEE_effects_cache_init(sldata, vedata);
 	EEVEE_lightprobes_cache_init(sldata, vedata);
-	EEVEE_lights_cache_init(sldata, psl);
+	EEVEE_lights_cache_init(sldata, vedata);
 	EEVEE_materials_cache_init(vedata);
 	EEVEE_motion_blur_cache_init(sldata, vedata);
 	EEVEE_occlusion_cache_init(sldata, vedata);

@@ -1562,6 +1562,7 @@ typedef struct OBJECT_LightProbeEngineData {
 	float increment_y[3];
 	float increment_z[3];
 	float corner[3];
+	unsigned int cell_count;
 } OBJECT_LightProbeEngineData;
 
 static void DRW_shgroup_lightprobe(OBJECT_StorageList *stl, OBJECT_PassList *psl, Object *ob, ViewLayer *view_layer)
@@ -1615,9 +1616,8 @@ static void DRW_shgroup_lightprobe(OBJECT_StorageList *stl, OBJECT_PassList *psl
 			mul_m4_v3(ob->obmat, prb_data->increment_z);
 			sub_v3_v3(prb_data->increment_z, prb_data->corner);
 
-			DRWShadingGroup *grp = DRW_shgroup_instance_create(e_data.lightprobe_grid_sh, psl->lightprobes,
-			                                                   DRW_cache_sphere_get(), NULL);
-			DRW_shgroup_set_instance_count(grp, prb->grid_resolution_x * prb->grid_resolution_y * prb->grid_resolution_z);
+			prb_data->cell_count = prb->grid_resolution_x * prb->grid_resolution_y * prb->grid_resolution_z;
+			DRWShadingGroup *grp = DRW_shgroup_create(e_data.lightprobe_grid_sh, psl->lightprobes);
 			DRW_shgroup_uniform_vec4(grp, "color", color, 1);
 			DRW_shgroup_uniform_vec3(grp, "corner", prb_data->corner, 1);
 			DRW_shgroup_uniform_vec3(grp, "increment_x", prb_data->increment_x, 1);
@@ -1625,6 +1625,7 @@ static void DRW_shgroup_lightprobe(OBJECT_StorageList *stl, OBJECT_PassList *psl
 			DRW_shgroup_uniform_vec3(grp, "increment_z", prb_data->increment_z, 1);
 			DRW_shgroup_uniform_ivec3(grp, "grid_resolution", &prb->grid_resolution_x, 1);
 			DRW_shgroup_uniform_float(grp, "sphere_size", &prb->data_draw_size, 1);
+			DRW_shgroup_call_instances_add(grp, DRW_cache_sphere_get(), NULL, &prb_data->cell_count);
 		}
 		else if (prb->type == LIGHTPROBE_TYPE_CUBE) {
 			prb_data->draw_size = prb->data_draw_size * 0.1f;
@@ -1904,7 +1905,7 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 				theme_id = DRW_object_wire_theme_get(ob, view_layer, NULL);
 				DRWShadingGroup *shgroup = shgroup_theme_id_to_outline_or(stl, theme_id, NULL);
 				if (shgroup != NULL) {
-					DRW_shgroup_call_add(shgroup, geom, ob->obmat);
+					DRW_shgroup_call_object_add(shgroup, geom, ob);
 				}
 			}
 		}
@@ -1924,7 +1925,7 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 							}
 
 							DRWShadingGroup *shgroup = shgroup_theme_id_to_point_or(stl, theme_id, stl->g_data->points);
-							DRW_shgroup_call_add(shgroup, geom, ob->obmat);
+							DRW_shgroup_call_object_add(shgroup, geom, ob);
 						}
 					}
 					else {
@@ -1935,7 +1936,7 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 							}
 
 							DRWShadingGroup *shgroup = shgroup_theme_id_to_wire_or(stl, theme_id, stl->g_data->wire);
-							DRW_shgroup_call_add(shgroup, geom, ob->obmat);
+							DRW_shgroup_call_object_add(shgroup, geom, ob);
 						}
 					}
 				}
@@ -1953,7 +1954,7 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 				}
 
 				DRWShadingGroup *shgroup = shgroup_theme_id_to_wire_or(stl, theme_id, stl->g_data->wire);
-				DRW_shgroup_call_add(shgroup, geom, ob->obmat);
+				DRW_shgroup_call_object_add(shgroup, geom, ob);
 			}
 			break;
 		}
@@ -1966,7 +1967,7 @@ static void OBJECT_cache_populate(void *vedata, Object *ob)
 					theme_id = DRW_object_wire_theme_get(ob, view_layer, NULL);
 				}
 				DRWShadingGroup *shgroup = shgroup_theme_id_to_wire_or(stl, theme_id, stl->g_data->wire);
-				DRW_shgroup_call_add(shgroup, geom, ob->obmat);
+				DRW_shgroup_call_object_add(shgroup, geom, ob);
 			}
 			break;
 		}

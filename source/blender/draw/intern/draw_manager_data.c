@@ -335,6 +335,41 @@ void DRW_shgroup_call_object_add(DRWShadingGroup *shgroup, Gwn_Batch *geom, Obje
 	BLI_LINKS_APPEND(&shgroup->calls, call);
 }
 
+void DRW_shgroup_call_instances_add(DRWShadingGroup *shgroup, Gwn_Batch *geom, float (*obmat)[4], unsigned int *count)
+{
+	BLI_assert(geom != NULL);
+	BLI_assert(shgroup->type == DRW_SHG_NORMAL);
+
+	DRWCall *call = BLI_mempool_alloc(DST.vmempool->calls);
+	call->state = drw_call_state_create(shgroup, obmat, NULL);
+	call->type = DRW_CALL_INSTANCES;
+	call->instances.geometry = geom;
+	call->instances.count = count;
+#ifdef USE_GPU_SELECT
+	call->select_id = DST.select_id;
+#endif
+
+	BLI_LINKS_APPEND(&shgroup->calls, call);
+}
+
+/* These calls can be culled and are optimized for redraw */
+void DRW_shgroup_call_object_instances_add(DRWShadingGroup *shgroup, Gwn_Batch *geom, Object *ob, unsigned int *count)
+{
+	BLI_assert(geom != NULL);
+	BLI_assert(shgroup->type == DRW_SHG_NORMAL);
+
+	DRWCall *call = BLI_mempool_alloc(DST.vmempool->calls);
+	call->state = drw_call_state_object(shgroup, ob->obmat, ob);
+	call->type = DRW_CALL_INSTANCES;
+	call->instances.geometry = geom;
+	call->instances.count = count;
+#ifdef USE_GPU_SELECT
+	call->select_id = DST.select_id;
+#endif
+
+	BLI_LINKS_APPEND(&shgroup->calls, call);
+}
+
 void DRW_shgroup_call_generate_add(
         DRWShadingGroup *shgroup,
         DRWCallGenerateFn *geometry_fn, void *user_data,
@@ -423,12 +458,12 @@ static void drw_interface_init(DRWShadingGroup *shgroup, GPUShader *shader)
 #endif
 
 	/* TODO : They should be grouped inside a UBO updated once per redraw. */
-	drw_interface_builtin_uniform(shgroup, GWN_UNIFORM_VIEW, DST.view_data.mat[DRW_MAT_VIEW], 16, 1);
-	drw_interface_builtin_uniform(shgroup, GWN_UNIFORM_VIEW_INV, DST.view_data.mat[DRW_MAT_VIEWINV], 16, 1);
-	drw_interface_builtin_uniform(shgroup, GWN_UNIFORM_VIEWPROJECTION, DST.view_data.mat[DRW_MAT_PERS], 16, 1);
-	drw_interface_builtin_uniform(shgroup, GWN_UNIFORM_VIEWPROJECTION_INV, DST.view_data.mat[DRW_MAT_PERSINV], 16, 1);
-	drw_interface_builtin_uniform(shgroup, GWN_UNIFORM_PROJECTION, DST.view_data.mat[DRW_MAT_WIN], 16, 1);
-	drw_interface_builtin_uniform(shgroup, GWN_UNIFORM_PROJECTION_INV, DST.view_data.mat[DRW_MAT_WININV], 16, 1);
+	drw_interface_builtin_uniform(shgroup, GWN_UNIFORM_VIEW, DST.view_data.matstate.mat[DRW_MAT_VIEW], 16, 1);
+	drw_interface_builtin_uniform(shgroup, GWN_UNIFORM_VIEW_INV, DST.view_data.matstate.mat[DRW_MAT_VIEWINV], 16, 1);
+	drw_interface_builtin_uniform(shgroup, GWN_UNIFORM_VIEWPROJECTION, DST.view_data.matstate.mat[DRW_MAT_PERS], 16, 1);
+	drw_interface_builtin_uniform(shgroup, GWN_UNIFORM_VIEWPROJECTION_INV, DST.view_data.matstate.mat[DRW_MAT_PERSINV], 16, 1);
+	drw_interface_builtin_uniform(shgroup, GWN_UNIFORM_PROJECTION, DST.view_data.matstate.mat[DRW_MAT_WIN], 16, 1);
+	drw_interface_builtin_uniform(shgroup, GWN_UNIFORM_PROJECTION_INV, DST.view_data.matstate.mat[DRW_MAT_WININV], 16, 1);
 	drw_interface_builtin_uniform(shgroup, GWN_UNIFORM_CAMERATEXCO, DST.view_data.viewcamtexcofac, 3, 2);
 	drw_interface_builtin_uniform(shgroup, GWN_UNIFORM_CLIPPLANES, DST.view_data.clip_planes_eq, 4, DST.num_clip_planes); /* TO REMOVE */
 
@@ -466,18 +501,17 @@ static void drw_interface_instance_init(
 {
 	BLI_assert(shgroup->type == DRW_SHG_INSTANCE);
 	BLI_assert(batch != NULL);
+	BLI_assert(format != NULL);
 
 	drw_interface_init(shgroup, shader);
 
 	shgroup->instance_geom = batch;
 #ifndef NDEBUG
-	shgroup->attribs_count = (format != NULL) ? format->attrib_ct : 0;
+	shgroup->attribs_count = format->attrib_ct;
 #endif
 
-	if (format != NULL) {
-		DRW_instancing_buffer_request(DST.idatalist, format, batch, shgroup,
-		                              &shgroup->instance_geom, &shgroup->instance_vbo);
-	}
+	DRW_instancing_buffer_request(DST.idatalist, format, batch, shgroup,
+	                              &shgroup->instance_geom, &shgroup->instance_vbo);
 }
 
 static void drw_interface_batching_init(
@@ -741,22 +775,6 @@ void DRW_shgroup_instance_batch(DRWShadingGroup *shgroup, struct Gwn_Batch *batc
 #endif
 }
 
-/* Used for instancing with no attributes */
-void DRW_shgroup_set_instance_count(DRWShadingGroup *shgroup, unsigned int count)
-{
-	BLI_assert(shgroup->type == DRW_SHG_INSTANCE);
-	BLI_assert(shgroup->instance_count == 0);
-	BLI_assert(shgroup->attribs_count == 0);
-
-#ifdef USE_GPU_SELECT
-	if (G.f & G_PICKSEL) {
-		shgroup->override_selectid = DST.select_id;
-	}
-#endif
-
-	shgroup->instance_count = count;
-}
-
 unsigned int DRW_shgroup_get_instance_count(const DRWShadingGroup *shgroup)
 {
 	return shgroup->instance_count;
@@ -877,7 +895,7 @@ static int pass_shgroup_dist_sort(void *thunk, const void *a, const void *b)
 void DRW_pass_sort_shgroup_z(DRWPass *pass)
 {
 	float (*viewinv)[4];
-	viewinv = DST.view_data.mat[DRW_MAT_VIEWINV];
+	viewinv = DST.view_data.matstate.mat[DRW_MAT_VIEWINV];
 
 	ZSortData zsortdata = {viewinv[2], viewinv[3]};
 
