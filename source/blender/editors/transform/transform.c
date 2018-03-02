@@ -4223,7 +4223,7 @@ static void StoreCustomlnorValue(TransInfo *t, BMesh *bm)
 {
 	float mtx[3][3], smtx[3][3];
 
-	BMLoopNorEditDataArray *ld = BM_loop_normal_editdata_init(bm);
+	BMLoopNorEditDataArray *ld = BM_loop_normal_editdata_array_init(bm);
 
 	copy_m3_m4(mtx, t->obedit->obmat);
 	pseudoinverse_m3_m3(smtx, mtx, PSEUDOINVERSE_EPSILON);
@@ -4252,7 +4252,7 @@ void freeCustomNormalArray(TransInfo *t, TransCustomData *custom_data)
 		}
 	}
 
-	BM_loop_normal_editdata_free(ld);
+	BM_loop_normal_editdata_array_free(ld);
 
 	t->custom.mode.data = NULL;
 	t->custom.mode.free_cb = NULL;

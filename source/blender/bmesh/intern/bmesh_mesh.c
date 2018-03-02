@@ -1330,7 +1330,7 @@ static int bm_loop_normal_mark_indiv(BMesh *bm, BLI_bitmap *loops)
 	return totloopsel;
 }
 
-static void InitTransDataNormal(BMesh *bm, BMLoopNorEditData *tld, BMVert *v, BMLoop *l, const int offset)
+static void loop_normal_editdata_init(BMesh *bm, BMLoopNorEditData *lnor_ed, BMVert *v, BMLoop *l, const int offset)
 {
 	BLI_assert(bm->lnor_spacearr != NULL);
 	BLI_assert(bm->lnor_spacearr->lspacearr != NULL);
@@ -1338,25 +1338,25 @@ static void InitTransDataNormal(BMesh *bm, BMLoopNorEditData *tld, BMVert *v, BM
 	const int l_index = BM_elem_index_get(l);
 	short *clnors_data = BM_ELEM_CD_GET_VOID_P(l, offset);
 
-	tld->loop_index = l_index;
-	tld->loop = l;
+	lnor_ed->loop_index = l_index;
+	lnor_ed->loop = l;
 
 	float custom_normal[3];
 	BKE_lnor_space_custom_data_to_normal(bm->lnor_spacearr->lspacearr[l_index], clnors_data, custom_normal);
 
-	tld->clnors_data = clnors_data;
-	copy_v3_v3(tld->nloc, custom_normal);
-	copy_v3_v3(tld->niloc, custom_normal);
+	lnor_ed->clnors_data = clnors_data;
+	copy_v3_v3(lnor_ed->nloc, custom_normal);
+	copy_v3_v3(lnor_ed->niloc, custom_normal);
 
 	if (v) {
-		tld->loc = v->co;
+		lnor_ed->loc = v->co;
 	}
 	else {
-		tld->loc = NULL;
+		lnor_ed->loc = NULL;
 	}
 }
 
-BMLoopNorEditDataArray *BM_loop_normal_editdata_init(BMesh *bm)
+BMLoopNorEditDataArray *BM_loop_normal_editdata_array_init(BMesh *bm)
 {
 	BMLoop *l;
 	BMVert *v;
@@ -1369,8 +1369,8 @@ BMLoopNorEditDataArray *BM_loop_normal_editdata_init(BMesh *bm)
 
 	BLI_assert(bm->spacearr_dirty == 0);
 
-	BMLoopNorEditDataArray *ld = MEM_mallocN(sizeof(*ld), __func__);
-	ld->lidx_to_lnor_editdata = MEM_callocN(sizeof(*ld->lidx_to_lnor_editdata) * bm->totloop, __func__);
+	BMLoopNorEditDataArray *lnors_ed_arr = MEM_mallocN(sizeof(*lnors_ed_arr), __func__);
+	lnors_ed_arr->lidx_to_lnor_editdata = MEM_callocN(sizeof(*lnors_ed_arr->lidx_to_lnor_editdata) * bm->totloop, __func__);
 
 	if (!CustomData_has_layer(&bm->ldata, CD_CUSTOMLOOPNORMAL)) {
 		BM_data_layer_add(bm, &bm->ldata, CD_CUSTOMLOOPNORMAL);
@@ -1386,45 +1386,45 @@ BMLoopNorEditDataArray *BM_loop_normal_editdata_init(BMesh *bm)
 	}
 
 	if (totloopsel) {
-		BMLoopNorEditData *tld = ld->lnor_editdata = MEM_mallocN(sizeof(*tld) * totloopsel, __func__);
+		BMLoopNorEditData *lnor_ed = lnors_ed_arr->lnor_editdata = MEM_mallocN(sizeof(*lnor_ed) * totloopsel, __func__);
 
 		BM_ITER_MESH(v, &viter, bm, BM_VERTS_OF_MESH) {
 			BM_ITER_ELEM(l, &liter, v, BM_LOOPS_OF_VERT) {
 				if (BLI_BITMAP_TEST(loops, BM_elem_index_get(l))) {
-					InitTransDataNormal(bm, tld, v, l, cd_custom_normal_offset);
-					ld->lidx_to_lnor_editdata[BM_elem_index_get(l)] = tld;
-					tld++;
+					loop_normal_editdata_init(bm, lnor_ed, v, l, cd_custom_normal_offset);
+					lnors_ed_arr->lidx_to_lnor_editdata[BM_elem_index_get(l)] = lnor_ed;
+					lnor_ed++;
 				}
 			}
 		}
-		ld->totloop = totloopsel;
+		lnors_ed_arr->totloop = totloopsel;
 	}
 	else {  /* If multiple selection modes are inactive OR no such loop is found, fall back to editing all loops. */
 		totloopsel = BM_total_loop_select(bm);
-		BMLoopNorEditData *tld = ld->lnor_editdata = MEM_mallocN(sizeof(*tld) * totloopsel, __func__);
+		BMLoopNorEditData *tld = lnors_ed_arr->lnor_editdata = MEM_mallocN(sizeof(*tld) * totloopsel, __func__);
 
 		BM_ITER_MESH(v, &viter, bm, BM_VERTS_OF_MESH) {
 			if (BM_elem_flag_test(v, BM_ELEM_SELECT)) {
 				BM_ITER_ELEM(l, &liter, v, BM_LOOPS_OF_VERT) {
-					InitTransDataNormal(bm, tld, v, l, cd_custom_normal_offset);
-					ld->lidx_to_lnor_editdata[BM_elem_index_get(l)] = tld;
+					loop_normal_editdata_init(bm, tld, v, l, cd_custom_normal_offset);
+					lnors_ed_arr->lidx_to_lnor_editdata[BM_elem_index_get(l)] = tld;
 					tld++;
 				}
 			}
 		}
-		ld->totloop = totloopsel;
+		lnors_ed_arr->totloop = totloopsel;
 	}
 
 	MEM_freeN(loops);
-	ld->cd_custom_normal_offset = cd_custom_normal_offset;
-	return ld;
+	lnors_ed_arr->cd_custom_normal_offset = cd_custom_normal_offset;
+	return lnors_ed_arr;
 }
 
-void BM_loop_normal_editdata_free(BMLoopNorEditDataArray *ld)
+void BM_loop_normal_editdata_array_free(BMLoopNorEditDataArray *lnors_ed_arr)
 {
-	MEM_SAFE_FREE(ld->lnor_editdata);
-	MEM_SAFE_FREE(ld->lidx_to_lnor_editdata);
-	MEM_freeN(ld);
+	MEM_SAFE_FREE(lnors_ed_arr->lnor_editdata);
+	MEM_SAFE_FREE(lnors_ed_arr->lidx_to_lnor_editdata);
+	MEM_freeN(lnors_ed_arr);
 }
 
 int BM_total_loop_select(BMesh *bm)
