@@ -1289,6 +1289,47 @@ static bool gp_check_cursor_region(bContext *C, int mval[2])
 	}
 }
 
+/* draw eraser cursor */
+static void gp_brush_draw_eraser(bContext *C, int x, int y)
+{
+	/* TODO: Change to brush thickness, no global value */
+	short radius = U.gp_eraser;
+
+	Gwn_VertFormat *format = immVertexFormat();
+	const uint shdr_pos = GWN_vertformat_attr_add(format, "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
+	immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+
+	glEnable(GL_LINE_SMOOTH);
+	glEnable(GL_BLEND);
+	glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+
+	immUniformColor4ub(255, 100, 100, 20);
+	imm_draw_circle_fill_2d(shdr_pos, x, y, U.gp_eraser, 40);
+
+	immUnbindProgram();
+
+	immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_UNIFORM_COLOR);
+
+	float viewport_size[4];
+	glGetFloatv(GL_VIEWPORT, viewport_size);
+	immUniform2f("viewport_size", viewport_size[2], viewport_size[3]);
+
+	immUniformColor4f(1.0f, 0.39f, 0.39f, 0.78f);
+	immUniform1i("num_colors", 0);  /* "simple" mode */
+	immUniform1f("dash_width", 12.0f);
+	immUniform1f("dash_factor", 0.5f);
+
+	imm_draw_circle_wire_2d(shdr_pos, x, y, radius,
+		/* XXX Dashed shader gives bad results with sets of small segments currently,
+		*     temp hack around the issue. :( */
+		max_ii(8, radius / 2));  /* was fixed 40 */
+
+	immUnbindProgram();
+
+	glDisable(GL_BLEND);
+	glDisable(GL_LINE_SMOOTH);
+}
+
 /* Helper callback for drawing the cursor itself */
 static void gp_brush_drawcursor(bContext *C, int x, int y, void *customdata)
 {
@@ -1345,6 +1386,13 @@ static void gp_brush_drawcursor(bContext *C, int x, int y, void *customdata)
 			if ((paintbrush->flag & GP_BRUSH_ENABLE_CURSOR) == 0) {
 				return;
 			}
+
+			/* eraser has special shape and use a different shader program */
+			if (paintbrush->type == GP_BRUSH_TYPE_ERASE) {
+				gp_brush_draw_eraser(C, x, y);
+				return;
+			}
+
 			/* after some testing, display the size of the brush is not practical because 
 			 * is too disruptive and the size of cursor does not change with zoom factor.
 			 * The decision was to use a fix size, instead of paintbrush->thickness value. 

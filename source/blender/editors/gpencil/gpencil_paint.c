@@ -2147,10 +2147,13 @@ static int gpencil_draw_init(bContext *C, wmOperator *op, const wmEvent *event)
 /* ensure that the correct cursor icon is set */
 static void gpencil_draw_cursor_set(tGPsdata *p)
 {
-	if (p->paintmode == GP_PAINTMODE_ERASER)
+	bGPDbrush *brush = p->brush;
+	if ((p->paintmode == GP_PAINTMODE_ERASER) || (brush->type == GP_BRUSH_TYPE_ERASE)) {
 		WM_cursor_modal_set(p->win, BC_CROSSCURSOR);  /* XXX need a better cursor */
-	else
+	}
+	else {
 		WM_cursor_modal_set(p->win, CURSOR_STD);
+	}
 }
 
 /* update UI indicators of status, including cursor and header prints */
