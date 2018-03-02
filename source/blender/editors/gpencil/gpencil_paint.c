@@ -2519,14 +2519,14 @@ static int gpencil_draw_invoke(bContext *C, wmOperator *op, const wmEvent *event
 	if (p->paintmode == GP_PAINTMODE_ERASER) {
 		gpencil_draw_toggle_eraser_cursor(C, p, true);
 	}
+	else {
+		ED_gpencil_toggle_brush_cursor(C, true, NULL);
+	}
 	/* set cursor 
 	 * NOTE: This may change later (i.e. intentionally via brush toggle,
 	 *       or unintentionally if the user scrolls outside the area)...
 	 */
 	gpencil_draw_cursor_set(p);
-	if (p->paintmode != GP_PAINTMODE_ERASER) {
-		ED_gpencil_toggle_brush_cursor(C, true, NULL);
-	}
 
 	/* only start drawing immediately if we're allowed to do so... */
 	if (RNA_boolean_get(op->ptr, "wait_for_input") == false) {
