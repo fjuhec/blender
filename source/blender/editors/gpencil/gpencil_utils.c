@@ -1290,10 +1290,9 @@ static bool gp_check_cursor_region(bContext *C, int mval[2])
 }
 
 /* draw eraser cursor */
-static void gp_brush_draw_eraser(bContext *C, int x, int y)
+static void gp_brush_draw_eraser(bContext *C, bGPDbrush *brush, int x, int y)
 {
-	/* TODO: Change to brush thickness, no global value */
-	short radius = U.gp_eraser;
+	short radius = (short)brush->thickness;
 
 	Gwn_VertFormat *format = immVertexFormat();
 	const uint shdr_pos = GWN_vertformat_attr_add(format, "pos", GWN_COMP_F32, 2, GWN_FETCH_FLOAT);
@@ -1389,7 +1388,7 @@ static void gp_brush_drawcursor(bContext *C, int x, int y, void *customdata)
 
 			/* eraser has special shape and use a different shader program */
 			if (paintbrush->type == GP_BRUSH_TYPE_ERASE) {
-				gp_brush_draw_eraser(C, x, y);
+				gp_brush_draw_eraser(C, paintbrush, x, y);
 				return;
 			}
 

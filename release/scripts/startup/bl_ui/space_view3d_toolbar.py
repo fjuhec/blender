@@ -2123,7 +2123,8 @@ class VIEW3D_PT_tools_grease_pencil_brush(Panel):
 
             if brush.type == 'ERASE':
                 col = layout.column(align=True)
-                col.prop(context.user_preferences.edit, "grease_pencil_eraser_radius", text="Radius")
+                col.prop(brush, "line_width", text="Radius")
+                # col.prop(context.user_preferences.edit, "grease_pencil_eraser_radius", text="Radius")
                 # TODO: Hard/Soft mode, sensitivity factors, etc.
 
             if brush.type != 'ERASE':

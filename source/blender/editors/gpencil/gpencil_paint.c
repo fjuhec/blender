@@ -1420,6 +1420,8 @@ static void gp_init_drawing_brush(ToolSettings *ts, tGPsdata *p)
 
 	/* asign to temp tGPsdata */
 	p->brush = brush;
+	/* use radius as eraser */
+	p->radius = (short)brush->thickness;
 }
 
 
@@ -1695,11 +1697,13 @@ static tGPsdata *gp_session_initpaint(bContext *C, wmOperator *op)
 	
 	gp_session_initdata(C, op, p);
 	
+#if 0
 	/* radius for eraser circle is defined in userprefs now */
 	/* NOTE: we do this here, so that if we exit immediately,
 	 *       erase size won't get lost
 	 */
 	p->radius = U.gp_eraser;
+#endif
 
 	/* return context data for running paint operator */
 	return p;

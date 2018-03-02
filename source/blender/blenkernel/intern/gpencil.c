@@ -780,25 +780,11 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 
 	/* Eraser brush */
 	brush = BKE_gpencil_brush_addnew(ts, "Erase", false);
-	brush->thickness = 1.0f;
+	brush->thickness = 30.0f;
 	brush->flag |= GP_BRUSH_ENABLE_CURSOR;
-	brush->draw_sensitivity = 1.0f;
-	brush->fill_leak = 3;
-	brush->fill_threshold = 0.1f;
-	brush->fill_simplylvl = 1;
 	brush->icon = GPBRUSH_ERASE;
 	brush->type = GP_BRUSH_TYPE_ERASE;
 
-	brush->draw_smoothfac = 0.5f;
-	brush->draw_smoothlvl = 1;
-	brush->thick_smoothfac = 1.0f;
-	brush->thick_smoothlvl = 3;
-	brush->sublevel = 1;
-
-	brush->lazy_radius = LAZY_RADIUS;
-	brush->lazy_factor = LAZY_FACTOR;
-
-	brush->draw_strength = 1.0f;
 	copy_v3_v3(brush->curcolor, curcolor);
 }
 
