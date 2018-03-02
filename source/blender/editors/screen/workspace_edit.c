@@ -169,18 +169,18 @@ bool ED_workspace_change(
 	BLI_assert(BKE_workspace_layout_screen_get(layout_new) == screen_new);
 
 	if (screen_new) {
-		bool object_mode_set = false;
+		bool use_object_mode = false;
+
+		Scene *scene = WM_window_get_active_scene(win);
+		ViewLayer *view_layer_old = BKE_workspace_view_layer_get(workspace_old, scene);
+		ViewLayer *view_layer_new = BKE_workspace_view_layer_get(workspace_new, scene);
+		Object *obact_old = OBACT(view_layer_old);
+		Object *obact_new = OBACT(view_layer_new);
 
 		/* Handle object mode switching */
 		if ((workspace_old->object_mode != OB_MODE_OBJECT) ||
 		    (workspace_new->object_mode != OB_MODE_OBJECT))
 		{
-			Scene *scene = CTX_data_scene(C);
-			ViewLayer *view_layer_old = BKE_workspace_view_layer_get(workspace_old, scene);
-			ViewLayer *view_layer_new = BKE_workspace_view_layer_get(workspace_new, scene);
-			Object *obact_old = OBACT(view_layer_old);
-			Object *obact_new = OBACT(view_layer_new);
-
 			if ((workspace_old->object_mode == workspace_new->object_mode) &&
 			    (obact_old == obact_new))
 			{
@@ -189,17 +189,21 @@ bool ED_workspace_change(
 			else {
 				if (workspace_old->object_mode & OB_MODE_ALL_MODE_DATA) {
 					if (obact_old) {
-						eObjectMode object_mode = workspace_old->object_mode;
-						EvaluationContext eval_ctx;
-						CTX_data_eval_ctx(C, &eval_ctx);
-						ED_object_mode_generic_exit(&eval_ctx, workspace_old, scene, obact_old);
-						/* weak, set it back so it's used when activating again. */
-						workspace_old->object_mode = object_mode;
+						bool obact_old_is_active =
+							ED_workspace_object_mode_in_other_window(bmain->wm.first, win, obact_old, NULL);
+						if (obact_old_is_active == false) {
+							eObjectMode object_mode = workspace_old->object_mode;
+							EvaluationContext eval_ctx;
+							CTX_data_eval_ctx(C, &eval_ctx);
+							ED_object_mode_generic_exit(&eval_ctx, workspace_old, scene, obact_old);
+							/* weak, set it back so it's used when activating again. */
+							workspace_old->object_mode = object_mode;
+						}
 					}
 				}
 
 				if (workspace_new->object_mode != OB_MODE_OBJECT) {
-					object_mode_set = true;
+					use_object_mode = true;
 				}
 			}
 		}
@@ -208,7 +212,7 @@ bool ED_workspace_change(
 		WM_window_set_active_workspace(win, workspace_new);
 
 		/* update screen *after* changing workspace - which also causes the actual screen change */
-		screen_changed_update(C, win, screen_new);
+		screen_change_update(C, win, screen_new);
 		workspace_change_update(workspace_new, workspace_old, C);
 
 		BLI_assert(BKE_workspace_view_layer_get(workspace_new, CTX_data_scene(C)) != NULL);
@@ -217,10 +221,20 @@ bool ED_workspace_change(
 		WM_toolsystem_unlink(C, workspace_old);
 		WM_toolsystem_link(C, workspace_new);
 
-		if (object_mode_set) {
-			eObjectMode object_mode = workspace_new->object_mode;
+		if (obact_new == NULL) {
 			workspace_new->object_mode = OB_MODE_OBJECT;
-			ED_object_mode_generic_enter(C, object_mode);
+		}
+		else if (use_object_mode) {
+			eObjectMode object_mode_set = workspace_new->object_mode;
+			if (ED_workspace_object_mode_in_other_window(
+			            bmain->wm.first, win, obact_new, &object_mode_set))
+			{
+				workspace_new->object_mode = object_mode_set;
+			}
+			else {
+				workspace_new->object_mode = OB_MODE_OBJECT;
+				ED_object_mode_generic_enter(C, object_mode_set);
+			}
 		}
 
 		return true;
@@ -342,13 +356,13 @@ void ED_workspace_object_mode_sync_from_scene(wmWindowManager *wm, WorkSpace *wo
 }
 
 bool ED_workspace_object_mode_in_other_window(
-        struct wmWindowManager *wm, WorkSpace *workspace, Object *obact,
+        struct wmWindowManager *wm, const wmWindow *win_compare, Object *obact,
         eObjectMode *r_object_mode)
 {
-	for (wmWindow *win = wm->windows.first; win; win = win->next) {
-		WorkSpace *workspace_iter = BKE_workspace_active_get(win->workspace_hook);
-		if (workspace != workspace_iter) {
-			Scene *scene_iter = WM_window_get_active_scene(win);
+	for (wmWindow *win_iter = wm->windows.first; win_iter; win_iter = win_iter->next) {
+		if (win_compare != win_iter) {
+			WorkSpace *workspace_iter = BKE_workspace_active_get(win_iter->workspace_hook);
+			Scene *scene_iter = WM_window_get_active_scene(win_iter);
 			ViewLayer *view_layer_iter = BKE_view_layer_from_workspace_get(scene_iter, workspace_iter);
 			Object *obact_iter = OBACT(view_layer_iter);
 			if (obact == obact_iter) {
