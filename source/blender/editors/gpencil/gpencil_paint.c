@@ -2028,6 +2028,7 @@ static void gpencil_draw_toggle_eraser_cursor(bContext *C, tGPsdata *p, short en
 		p->erasercursor = NULL;
 	}
 	else if (enable && !p->erasercursor) {
+		ED_gpencil_toggle_brush_cursor(p->C, false, NULL);
 		/* enable cursor */
 		p->erasercursor = WM_paint_cursor_activate(CTX_wm_manager(C),
 		                                           NULL, /* XXX */
@@ -2266,11 +2267,15 @@ static void gpencil_draw_apply(bContext *C, wmOperator *op, tGPsdata *p, const D
 		p->ocurtime = p->curtime;
 		
 		pt = (tGPspoint *)gpd->sbuffer + gpd->sbuffer_size - 1;
-		ED_gpencil_toggle_brush_cursor(C, true, &pt->x);
+		if (p->paintmode != GP_PAINTMODE_ERASER) {
+			ED_gpencil_toggle_brush_cursor(C, true, &pt->x);
+		}
 	}
 	else if ((p->brush->flag & GP_BRUSH_STABILIZE_MOUSE_TEMP) && (gpd->sbuffer_size > 0)){
 		pt = (tGPspoint *)gpd->sbuffer + gpd->sbuffer_size - 1;
-		ED_gpencil_toggle_brush_cursor(C, true, &pt->x);
+		if (p->paintmode != GP_PAINTMODE_ERASER) {
+			ED_gpencil_toggle_brush_cursor(C, true, &pt->x);
+		}
 	}
 }
 
@@ -2519,7 +2524,9 @@ static int gpencil_draw_invoke(bContext *C, wmOperator *op, const wmEvent *event
 	 *       or unintentionally if the user scrolls outside the area)...
 	 */
 	gpencil_draw_cursor_set(p);
-	ED_gpencil_toggle_brush_cursor(C, true, NULL);
+	if (p->paintmode != GP_PAINTMODE_ERASER) {
+		ED_gpencil_toggle_brush_cursor(C, true, NULL);
+	}
 
 	/* only start drawing immediately if we're allowed to do so... */
 	if (RNA_boolean_get(op->ptr, "wait_for_input") == false) {
