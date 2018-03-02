@@ -1422,8 +1422,6 @@ static void gp_brush_drawcursor(bContext *C, int x, int y, void *customdata)
 		immVertex2f(pos, last_mouse_position[0], last_mouse_position[1]);
 		immEnd();
 
-		immUnbindProgram();
-
 		glDisable(GL_BLEND);
 		glDisable(GL_LINE_SMOOTH);
 	}
