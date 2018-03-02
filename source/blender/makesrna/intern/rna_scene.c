@@ -451,6 +451,12 @@ static EnumPropertyItem rna_enum_gpencil_fill_draw_modes_items[] = {
 	{ GP_FILL_DMODE_BOTH, "BOTH", 0, "Both", "Use visible strokes and control lines as fill boundary limits" },
 	{ 0, NULL, 0, NULL, NULL }
 };
+static EnumPropertyItem rna_enum_gpencil_brush_eraser_modes_items[] = {
+	{ GP_BRUSH_ERASER_SOFT, "SOFT", 0, "Soft", "Use soft eraser" },
+	{ GP_BRUSH_ERASER_HARD, "HARD", 0, "Hard", "Use hard eraser" },
+	{ GP_BRUSH_ERASER_STROKE, "STROKE", 0, "Stroke", "Use stroke eraser" },
+	{ 0, NULL, 0, NULL, NULL }
+};
 static EnumPropertyItem rna_enum_gpencil_brush_types_items[] = {
 	{ GP_BRUSH_TYPE_DRAW, "DRAW", 0, "Draw", "The brush is of type used for drawing strokes" },
 	{ GP_BRUSH_TYPE_FILL, "FILL", 0, "Fill", "The brush is of type used for filling areas" },
@@ -2458,13 +2464,16 @@ static void rna_def_gpencil_brush(BlenderRNA *brna)
 	RNA_def_property_enum_sdna(prop, NULL, "fill_draw_mode");
 	RNA_def_property_enum_items(prop, rna_enum_gpencil_fill_draw_modes_items);
 	RNA_def_property_ui_text(prop, "Mode", "Mode to draw boundary limits");
-	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
 
 	prop = RNA_def_property(srna, "type", PROP_ENUM, PROP_NONE);
 	RNA_def_property_enum_sdna(prop, NULL, "type");
 	RNA_def_property_enum_items(prop, rna_enum_gpencil_brush_types_items);
 	RNA_def_property_ui_text(prop, "Type", "Category of the brush");
-	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_update");
+
+	prop = RNA_def_property(srna, "eraser_mode", PROP_ENUM, PROP_NONE);
+	RNA_def_property_enum_sdna(prop, NULL, "eraser_mode");
+	RNA_def_property_enum_items(prop, rna_enum_gpencil_brush_eraser_modes_items);
+	RNA_def_property_ui_text(prop, "Mode", "Eraser Mode");
 
 	prop = RNA_def_property(srna, "fill_show_boundary", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag", GP_BRUSH_FILL_SHOW_HELPLINES);

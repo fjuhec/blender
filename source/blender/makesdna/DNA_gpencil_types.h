@@ -140,6 +140,8 @@ typedef struct bGPDbrush {
 	float uv_random;          /* random factor for UV rotation */
 	int   input_samples;      /* maximum distance before generate new point for very fast mouse movements */
 	int   type;               /* type of brush (draw, fill, erase, etc..) */
+	int   eraser_mode;        /* soft, hard or stroke */
+	char  pad[4];
 } bGPDbrush;
 
 /* bGPDbrush->flag */
@@ -545,6 +547,13 @@ typedef enum eGP_BrushType {
 	GP_BRUSH_TYPE_FILL = 1,
 	GP_BRUSH_TYPE_ERASE = 2,
 } eGP_BrushType;
+
+/* bGPDbrush->eraser_mode */
+typedef enum eGP_BrushEraserMode {
+	GP_BRUSH_ERASER_SOFT = 0,
+	GP_BRUSH_ERASER_HARD = 1,
+	GP_BRUSH_ERASER_STROKE = 2,
+} eGP_BrushEraserMode;
 
 /* xray modes (Depth Ordering) */
 typedef enum eGP_DepthOrdering {

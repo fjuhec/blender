@@ -1171,6 +1171,7 @@ static void gp_stroke_eraser_dostroke(tGPsdata *p,
                                       const int radius, const rcti *rect)
 {
 	Object *obact = (Object *)p->ownerPtr.data;
+	bGPDbrush *brush = p->brush;
 	bGPDspoint *pt1, *pt2;
 	int pc1[2] = {0};
 	int pc2[2] = {0};
@@ -1200,7 +1201,7 @@ static void gp_stroke_eraser_dostroke(tGPsdata *p,
 			}
 		}
 	}
-	else if (p->flags & GP_PAINTFLAG_STROKE_ERASER) {
+	else if ((p->flags & GP_PAINTFLAG_STROKE_ERASER) || (brush->eraser_mode == GP_BRUSH_ERASER_STROKE)) {
 		for (i = 0; (i + 1) < gps->totpoints; i++) {
 
 			/* only process if it hasn't been masked out... */
@@ -1290,11 +1291,11 @@ static void gp_stroke_eraser_dostroke(tGPsdata *p,
 						pt2->pressure -= gp_stroke_eraser_calc_influence(p, mval, radius, pc2) * strength / 2.0f;
 						
 						/* 2) Tag any point with overly low influence for removal in the next pass */
-						if ((pt1->pressure < cull_thresh) || (p->flags & GP_PAINTFLAG_HARD_ERASER)) {
+						if ((pt1->pressure < cull_thresh) || (p->flags & GP_PAINTFLAG_HARD_ERASER) || (brush->eraser_mode == GP_BRUSH_ERASER_HARD)) {
 							pt1->flag |= GP_SPOINT_TAG;
 							do_cull = true;
 						}
-						if ((pt2->pressure < cull_thresh) || (p->flags & GP_PAINTFLAG_HARD_ERASER)) {
+						if ((pt2->pressure < cull_thresh) || (p->flags & GP_PAINTFLAG_HARD_ERASER) || (brush->eraser_mode == GP_BRUSH_ERASER_HARD)) {
 							pt2->flag |= GP_SPOINT_TAG;
 							do_cull = true;
 						}
