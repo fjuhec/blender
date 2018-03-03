@@ -1456,7 +1456,12 @@ static void gp_init_drawing_brush(ToolSettings *ts, tGPsdata *p)
 
 	/* asign to temp tGPsdata */
 	p->brush = brush;
-	p->eraser = gp_get_default_eraser(ts);
+	if (brush->type != GP_BRUSH_TYPE_ERASE) {
+		p->eraser = gp_get_default_eraser(ts);
+	}
+	else {
+		p->eraser = brush;
+	}
 	/* use radius of eraser */
 	p->radius = (short)p->eraser->thickness;
 }
