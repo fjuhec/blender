@@ -2092,8 +2092,6 @@ class VIEW3D_PT_tools_grease_pencil_brush(Panel):
             if brush.type == 'ERASE':
                 row.prop(brush, "default_eraser", text="")
 
-            layout.prop(brush, "type", expand=True)
-
             if brush.type == 'DRAW':
                 row = layout.row(align=True)
                 row.prop(brush, "use_random_pressure", text="", icon='RNDCURVE')
@@ -2198,6 +2196,28 @@ class VIEW3D_PT_tools_grease_pencil_brush_option(Panel):
             row = layout.row(align=True)
             row.prop(brush, "input_samples")
 
+# Grease Pencil drawing brushes mode
+class VIEW3D_PT_tools_grease_pencil_brush_mode(Panel):
+    bl_space_type = 'VIEW_3D'
+    bl_label = "Brush Mode"
+    bl_category = "Tools"
+    bl_region_type = 'TOOLS'
+    bl_options = {'DEFAULT_CLOSED'}
+
+    @classmethod
+    def poll(cls, context):
+        if context.gpencil_data is None:
+            return False
+
+        gpd = context.gpencil_data
+        return gpd.is_stroke_paint_mode and context.active_gpencil_brush
+
+    @staticmethod
+    def draw(self, context):
+        layout = self.layout
+        brush = context.active_gpencil_brush
+        if brush is not None:
+            layout.prop(brush, "type", expand=True)
 
 # Grease Pencil drawingcurves
 class VIEW3D_PT_tools_grease_pencil_brushcurves(Panel):
@@ -2546,6 +2566,7 @@ classes = (
     VIEW3D_PT_tools_add_object,
     VIEW3D_PT_tools_grease_pencil_brush,
     VIEW3D_PT_tools_grease_pencil_brush_option,
+    VIEW3D_PT_tools_grease_pencil_brush_mode,
     VIEW3D_PT_tools_grease_pencil_brushcurves,
     VIEW3D_PT_tools_grease_pencil_shapes,
     VIEW3D_PT_tools_grease_pencil_edit,
