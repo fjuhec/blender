@@ -178,6 +178,7 @@ typedef struct tGPsdata {
 	PaletteColor *palettecolor; /* current palette color */
 	
 	bGPDbrush *brush;    /* current drawing brush */
+	bGPDbrush *eraser;   /* default eraser brush */
 	short straight[2];   /* 1: line horizontal, 2: line vertical, other: not defined, second element position */
 	int lock_axis;       /* lock drawing to one axis */
 	bool disable_fill;   /* the stroke is no fill mode */
@@ -1171,7 +1172,7 @@ static void gp_stroke_eraser_dostroke(tGPsdata *p,
                                       const int radius, const rcti *rect)
 {
 	Object *obact = (Object *)p->ownerPtr.data;
-	bGPDbrush *brush = p->brush;
+	bGPDbrush *eraser = p->eraser;
 	bGPDspoint *pt1, *pt2;
 	int pc1[2] = {0};
 	int pc2[2] = {0};
@@ -1201,7 +1202,7 @@ static void gp_stroke_eraser_dostroke(tGPsdata *p,
 			}
 		}
 	}
-	else if ((p->flags & GP_PAINTFLAG_STROKE_ERASER) || (brush->eraser_mode == GP_BRUSH_ERASER_STROKE)) {
+	else if ((p->flags & GP_PAINTFLAG_STROKE_ERASER) || (eraser->eraser_mode == GP_BRUSH_ERASER_STROKE)) {
 		for (i = 0; (i + 1) < gps->totpoints; i++) {
 
 			/* only process if it hasn't been masked out... */
@@ -1291,11 +1292,11 @@ static void gp_stroke_eraser_dostroke(tGPsdata *p,
 						pt2->pressure -= gp_stroke_eraser_calc_influence(p, mval, radius, pc2) * strength / 2.0f;
 						
 						/* 2) Tag any point with overly low influence for removal in the next pass */
-						if ((pt1->pressure < cull_thresh) || (p->flags & GP_PAINTFLAG_HARD_ERASER) || (brush->eraser_mode == GP_BRUSH_ERASER_HARD)) {
+						if ((pt1->pressure < cull_thresh) || (p->flags & GP_PAINTFLAG_HARD_ERASER) || (eraser->eraser_mode == GP_BRUSH_ERASER_HARD)) {
 							pt1->flag |= GP_SPOINT_TAG;
 							do_cull = true;
 						}
-						if ((pt2->pressure < cull_thresh) || (p->flags & GP_PAINTFLAG_HARD_ERASER) || (brush->eraser_mode == GP_BRUSH_ERASER_HARD)) {
+						if ((pt2->pressure < cull_thresh) || (p->flags & GP_PAINTFLAG_HARD_ERASER) || (eraser->eraser_mode == GP_BRUSH_ERASER_HARD)) {
 							pt2->flag |= GP_SPOINT_TAG;
 							do_cull = true;
 						}
@@ -1399,6 +1400,40 @@ static void gp_session_validatebuffer(tGPsdata *p)
 	}
 }
 
+/* helper to get default eraser and create one if no eraser brush */
+static bGPDbrush *gp_get_default_eraser(ToolSettings *ts)
+{
+	bGPDbrush *brush_dft = NULL;
+	for (bGPDbrush *brush = ts->gp_brushes.first; brush; brush = brush->next) {
+		if ((brush->type == GP_BRUSH_TYPE_ERASE)) {
+			/* save first eraser to use later if no default */
+			if (brush_dft == NULL) {
+				brush_dft = brush;
+			}
+			/* found default */
+			if(brush->flag & GP_BRUSH_DEFAULT_ERASER) {
+				return brush;
+			}
+		}
+	}
+
+	/* if no default, but exist eraser brush, return this */
+	if (brush_dft) {
+		return brush_dft;
+	}
+	/* create a new soft eraser brush */
+	else {
+		brush_dft = BKE_gpencil_brush_addnew(ts, "Soft Eraser", false);
+		brush_dft->thickness = 30.0f;
+		brush_dft->flag |= (GP_BRUSH_ENABLE_CURSOR | GP_BRUSH_DEFAULT_ERASER);
+		brush_dft->icon = GPBRUSH_ERASE;
+		brush_dft->type = GP_BRUSH_TYPE_ERASE;
+		brush_dft->eraser_mode = GP_BRUSH_ERASER_SOFT;
+
+		return brush_dft;
+	}
+}
+
 /* initialize a drawing brush */
 static void gp_init_drawing_brush(ToolSettings *ts, tGPsdata *p)
 {
@@ -1421,8 +1456,9 @@ static void gp_init_drawing_brush(ToolSettings *ts, tGPsdata *p)
 
 	/* asign to temp tGPsdata */
 	p->brush = brush;
-	/* use radius as eraser */
-	p->radius = (short)brush->thickness;
+	p->eraser = gp_get_default_eraser(ts);
+	/* use radius of eraser */
+	p->radius = (short)p->eraser->thickness;
 }
 
 
@@ -1988,7 +2024,7 @@ static void gpencil_draw_eraser(bContext *C, int x, int y, void *p_ptr)
 	tGPsdata *p = (tGPsdata *)p_ptr;
 
 	if ((p) && (p->paintmode == GP_PAINTMODE_ERASER)) {
-		ED_gpencil_brush_draw_eraser(C, p->brush, x, y);
+		ED_gpencil_brush_draw_eraser(C, p->eraser, x, y);
 	}
 }
 
