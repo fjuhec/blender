@@ -214,7 +214,8 @@ bool ED_workspace_change(
 			eObjectMode object_mode = workspace_old->object_mode;
 			ED_object_mode_generic_exit_or_other_window(&eval_ctx_old, bmain->wm.first, workspace_old, scene, obact_old);
 			workspace_old->object_mode = object_mode;
-			ED_object_mode_generic_enter_or_other_window(C, workspace_new->object_mode);
+			ED_workspace_object_mode_sync_from_object(bmain->wm.first, workspace_old, obact_old);
+			ED_object_mode_generic_enter_or_other_window(C, NULL, workspace_new->object_mode);
 		}
 		else {
 			if (obact_new == NULL) {
@@ -319,7 +320,7 @@ void ED_workspace_object_mode_sync_from_object(wmWindowManager *wm, WorkSpace *w
 	}
 	for (wmWindow *win = wm->windows.first; win; win = win->next) {
 		WorkSpace *workspace_iter = BKE_workspace_active_get(win->workspace_hook);
-		if (workspace != workspace_iter) {
+		if ((workspace != workspace_iter) && (workspace->object_mode != workspace_iter->object_mode)) {
 			Scene *scene_iter = WM_window_get_active_scene(win);
 			ViewLayer *view_layer = BKE_view_layer_from_workspace_get(scene_iter, workspace_iter);
 			if (obact == OBACT(view_layer)) {
