@@ -2121,7 +2121,16 @@ static int gpencil_draw_init(bContext *C, wmOperator *op, const wmEvent *event)
 {
 	tGPsdata *p;
 	eGPencil_PaintModes paintmode = RNA_enum_get(op->ptr, "mode");
+	ToolSettings *ts = CTX_data_tool_settings(C);
+	bGPDbrush *brush = BKE_gpencil_brush_getactive(ts);
 	
+	/* if mode is draw and the brush is eraser, cancel */
+	if (paintmode != GP_PAINTMODE_ERASER) {
+		if ((brush) && (brush->type == GP_BRUSH_TYPE_ERASE)) {
+			return 0;
+		}
+	}
+
 	/* check context */
 	p = op->customdata = gp_session_initpaint(C, op);
 	if ((p == NULL) || (p->status == GP_STATUS_ERROR)) {
