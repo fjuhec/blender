@@ -2123,12 +2123,12 @@ class VIEW3D_PT_tools_grease_pencil_brush(Panel):
 
             if brush.type == 'ERASE':
                 col = layout.column(align=True)
-                col.prop(brush, "line_width", text="Radius")
+                row = col.row(align=True)
+                row.prop(brush, "line_width", text="Radius")
+                row.prop(brush, "default_eraser", text="")
                 col.separator()
                 row = col.row()
                 row.prop(brush, "eraser_mode", expand=True)
-
-                col.prop(brush, "default_eraser")
 
             if brush.type != 'ERASE':
                 layout.separator()
