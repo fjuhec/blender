@@ -2484,7 +2484,10 @@ class VIEW3D_PT_tools_grease_pencil_appearance(Panel):
 
         workspace = context.workspace
         if context.active_object:
-            ob = context.active_object
+            brush = context.active_gpencil_brush
+            if brush and brush.type == 'ERASE':
+                return False
+
             return workspace.object_mode in {'GPENCIL_PAINT', 'GPENCIL_SCULPT', 'GPENCIL_WEIGHT'}
             
         return False
