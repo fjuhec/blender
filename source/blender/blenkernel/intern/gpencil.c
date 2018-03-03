@@ -778,13 +778,31 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->draw_strength = 1.0f;
 	copy_v3_v3(brush->curcolor, curcolor);
 
-	/* Eraser brush */
-	brush = BKE_gpencil_brush_addnew(ts, "Erase", false);
+	/* Soft Eraser brush */
+	brush = BKE_gpencil_brush_addnew(ts, "Soft Eraser", false);
+	brush->thickness = 30.0f;
+	brush->flag |= (GP_BRUSH_ENABLE_CURSOR | GP_BRUSH_DEFAULT_ERASER);
+	brush->icon = GPBRUSH_ERASE;
+	brush->type = GP_BRUSH_TYPE_ERASE;
+	brush->eraser_mode = GP_BRUSH_ERASER_SOFT;
+	copy_v3_v3(brush->curcolor, curcolor);
+
+	/* Hard Eraser brush */
+	brush = BKE_gpencil_brush_addnew(ts, "Hard Eraser", false);
 	brush->thickness = 30.0f;
 	brush->flag |= GP_BRUSH_ENABLE_CURSOR;
 	brush->icon = GPBRUSH_ERASE;
 	brush->type = GP_BRUSH_TYPE_ERASE;
+	brush->eraser_mode = GP_BRUSH_ERASER_HARD;
+	copy_v3_v3(brush->curcolor, curcolor);
 
+	/* Stroke Eraser brush */
+	brush = BKE_gpencil_brush_addnew(ts, "Stroke Eraser", false);
+	brush->thickness = 30.0f;
+	brush->flag |= GP_BRUSH_ENABLE_CURSOR;
+	brush->icon = GPBRUSH_ERASE;
+	brush->type = GP_BRUSH_TYPE_ERASE;
+	brush->eraser_mode = GP_BRUSH_ERASER_STROKE;
 	copy_v3_v3(brush->curcolor, curcolor);
 }
 
