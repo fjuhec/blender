@@ -197,34 +197,6 @@ static eOLDrawState tree_element_set_active_object(
 			WM_event_add_notifier(C, NC_SCENE | ND_OB_SELECT, scene);
 		}
 	}
-	
-	/* set special grease pencil modes */
-	if (ob->type == OB_GPENCIL) {
-		WorkSpace *workspace = CTX_wm_workspace(C);
-		wmWindow *win = CTX_wm_window(C);
-		
-		/* set cursor */
-		if (workspace->object_mode == OB_MODE_GPENCIL_PAINT) {
-			WM_cursor_modal_set(win, BC_PAINTBRUSHCURSOR);
-			ED_gpencil_toggle_brush_cursor(C, false, NULL);
-		}
-		else if (workspace->object_mode == OB_MODE_GPENCIL_SCULPT) {
-			WM_cursor_modal_set(win, BC_CROSSCURSOR);
-			ED_gpencil_toggle_brush_cursor(C, true, NULL);
-		}
-		else if (workspace->object_mode == OB_MODE_GPENCIL_WEIGHT) {
-			WM_cursor_modal_set(win, BC_CROSSCURSOR);
-			ED_gpencil_toggle_brush_cursor(C, true, NULL);
-		}
-		else {
-			WM_cursor_modal_set(win, CURSOR_STD);
-			ED_gpencil_toggle_brush_cursor(C, false, NULL);
-		}
-		/* set workspace mode */
-		workspace->object_mode_restore = workspace->object_mode;
-		workspace->object_mode = OB_MODE_GPENCIL_PAINT;
-		ED_object_base_activate(C, view_layer->basact); // XXX
-	}
 
 	if (CTX_data_edit_object(C)) {
 		ED_object_editmode_exit(C, EM_FREEDATA | EM_FREEUNDO | EM_WAITCURSOR | EM_DO_UNDO);

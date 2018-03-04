@@ -1502,14 +1502,14 @@ static int object_mode_set_exec(bContext *C, wmOperator *op)
 {
 	WorkSpace *workspace = CTX_wm_workspace(C);
 	Object *ob = CTX_data_active_object(C);
-	bGPdata *gpd = CTX_data_gpencil_data(C);
 	eObjectMode mode = RNA_enum_get(op->ptr, "mode");
 	eObjectMode restore_mode = workspace->object_mode;
 	const bool toggle = RNA_boolean_get(op->ptr, "toggle");
 
 	/* if type is OB_GPENCIL, select mode for grease pencil strokes */
 	if ((ob) && (ob->type == OB_GPENCIL)) {
-		if ((ob->data) && (ob->data == gpd)) {
+		if (ob->data) {
+			bGPdata *gpd = (bGPdata *)ob->data;
 			/* restore status */
 			if ((workspace->object_mode == OB_MODE_OBJECT) && 
 				((workspace->object_mode != mode) || (mode == OB_MODE_OBJECT)))
