@@ -476,14 +476,14 @@ class VIEW3D_PT_tools_normal(View3DPanel, Panel):
         col.prop(toolsettings, "normal_vector", text="")
 
         row = col.row(align=True)
-        row.operator("mesh.custom_normal_tools", text="Copy").mode = "Copy"
-        row.operator("mesh.custom_normal_tools", text="Paste").mode = "Paste"
+        row.operator("mesh.custom_normal_tools", text="Copy").mode = 'COPY'
+        row.operator("mesh.custom_normal_tools", text="Paste").mode = 'PASTE'
 
         row = col.row(align=True)
-        row.operator("mesh.custom_normal_tools", text="Multiply").mode = "Multiply"
-        row.operator("mesh.custom_normal_tools", text="Add").mode = "Add"
+        row.operator("mesh.custom_normal_tools", text="Multiply").mode = 'MULTIPLY'
+        row.operator("mesh.custom_normal_tools", text="Add").mode = 'ADD'
 
-        col.operator("mesh.custom_normal_tools", text="Reset").mode = "Reset"
+        col.operator("mesh.custom_normal_tools", text="Reset").mode = 'RESET'
 
         col = layout.column(align=True)
         col.operator("mesh.smoothen_custom_normals", text="Smoothen")
