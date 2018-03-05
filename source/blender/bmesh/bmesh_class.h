@@ -286,7 +286,6 @@ typedef struct BMLoopNorEditDataArray {
 
 	int cd_custom_normal_offset;
 	int totloop;
-	void *funcdata;
 } BMLoopNorEditDataArray;
 
 #define BM_ALL (BM_VERT | BM_EDGE | BM_LOOP | BM_FACE)

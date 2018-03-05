@@ -477,5 +477,6 @@ void ED_keymap_mesh(wmKeyConfig *keyconf)
 	ED_keymap_proportional_editmode(keyconf, keymap, true);
 
 	knifetool_modal_keymap(keyconf);
+	point_normals_modal_keymap(keyconf);
 }
 

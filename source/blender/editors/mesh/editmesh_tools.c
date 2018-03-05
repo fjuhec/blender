@@ -5994,6 +5994,102 @@ void MESH_OT_mark_freestyle_face(wmOperatorType *ot)
 
 #endif
 
+/********************** Loop normals editing tools modal map. **********************/
+
+/* NOTE: these defines are saved in keymap files, do not change values but just add new ones */
+/* NOTE: We could add more here, like e.g. a switch between local or global coordinates of target,
+ *       use numinput to type in explicit vector values... */
+enum {
+	/* Generic commands. */
+	EDBM_CLNOR_MODAL_CANCEL                   = 1,
+	EDBM_CLNOR_MODAL_CONFIRM                  = 2,
+
+	/* Point To operator. */
+	EDBM_CLNOR_MODAL_POINTTO_RESET            = 101,
+	EDBM_CLNOR_MODAL_POINTTO_INVERT           = 102,
+	EDBM_CLNOR_MODAL_POINTTO_SPHERIZE         = 103,
+	EDBM_CLNOR_MODAL_POINTTO_ALIGN            = 104,
+
+	EDBM_CLNOR_MODAL_POINTTO_USE_MOUSE        = 110,
+	EDBM_CLNOR_MODAL_POINTTO_USE_PIVOT        = 111,
+	EDBM_CLNOR_MODAL_POINTTO_USE_OBJECT       = 112,
+	EDBM_CLNOR_MODAL_POINTTO_SET_USE_3DCURSOR = 113,
+	EDBM_CLNOR_MODAL_POINTTO_SET_USE_SELECTED = 114,
+};
+
+/* called in transform_ops.c, on each regeneration of keymaps */
+wmKeyMap *point_normals_modal_keymap(wmKeyConfig *keyconf)
+{
+	static const EnumPropertyItem modal_items[] = {
+		{EDBM_CLNOR_MODAL_CANCEL, "CANCEL", 0, "Cancel", ""},
+		{EDBM_CLNOR_MODAL_CONFIRM, "CONFIRM", 0, "Confirm", ""},
+
+		/* Point To operator. */
+		{EDBM_CLNOR_MODAL_POINTTO_RESET, "RESET", 0, "Reset", "Reset normals to initial ones"},
+		{EDBM_CLNOR_MODAL_POINTTO_INVERT, "INVERT", 0, "Invert", "Toggle inversion of affected normals"},
+		{EDBM_CLNOR_MODAL_POINTTO_SPHERIZE, "SPHERIZE", 0, "Spherize", "Interpolate between new and original normals"},
+		{EDBM_CLNOR_MODAL_POINTTO_ALIGN, "ALIGN", 0, "Align", "Make all affected normals parallel"},
+
+		{EDBM_CLNOR_MODAL_POINTTO_USE_MOUSE, "USE_MOUSE", 0, "Use Mouse", "Follow mouse cursor position"},
+		{EDBM_CLNOR_MODAL_POINTTO_USE_PIVOT, "USE_PIVOT", 0, "Use Pivot",
+		 "Use current rotation/scaling pivot point coordinates"},
+		{EDBM_CLNOR_MODAL_POINTTO_USE_OBJECT, "USE_OBJECT", 0, "Use Object", "Use current edited object's location"},
+		{EDBM_CLNOR_MODAL_POINTTO_SET_USE_3DCURSOR, "SET_USE_3DCURSOR", 0, "Set and Use 3D Cursor",
+		 "Set new 3D cursor position and use it"},
+		{EDBM_CLNOR_MODAL_POINTTO_SET_USE_SELECTED, "SET_USE_SELECTED", 0, "Select and Use Mesh Item",
+		 "Select new active mesh element and use its location"},
+		{0, NULL, 0, NULL, NULL}
+	};
+	static const char *keymap_name = "Custom Normals Modal Map";
+
+	wmKeyMap *keymap = WM_modalkeymap_get(keyconf, keymap_name);
+
+	/* We only need to add map once */
+	if (keymap && keymap->modal_items)
+		return NULL;
+
+	keymap = WM_modalkeymap_add(keyconf, keymap_name, modal_items);
+
+	/* Generic items for modal map. */
+	WM_modalkeymap_add_item(keymap, ESCKEY,     KM_PRESS, KM_ANY,     0, EDBM_CLNOR_MODAL_CANCEL);
+	WM_modalkeymap_add_item(keymap, RIGHTMOUSE, KM_PRESS, KM_NOTHING, 0, EDBM_CLNOR_MODAL_CANCEL);
+
+	WM_modalkeymap_add_item(keymap, RETKEY,     KM_PRESS, KM_ANY,     0, EDBM_CLNOR_MODAL_CONFIRM);
+	WM_modalkeymap_add_item(keymap, PADENTER,   KM_PRESS, KM_ANY,     0, EDBM_CLNOR_MODAL_CONFIRM);
+	WM_modalkeymap_add_item(keymap, LEFTMOUSE,  KM_PRESS, KM_NOTHING, 0, EDBM_CLNOR_MODAL_CONFIRM);
+
+	/* Point To items for modal map */
+	WM_modalkeymap_add_item(keymap, RKEY,       KM_PRESS, KM_NOTHING, 0, EDBM_CLNOR_MODAL_POINTTO_RESET);
+	WM_modalkeymap_add_item(keymap, IKEY,       KM_PRESS, KM_NOTHING, 0, EDBM_CLNOR_MODAL_POINTTO_INVERT);
+	WM_modalkeymap_add_item(keymap, SKEY,       KM_PRESS, KM_NOTHING, 0, EDBM_CLNOR_MODAL_POINTTO_SPHERIZE);
+	WM_modalkeymap_add_item(keymap, AKEY,       KM_PRESS, KM_NOTHING, 0, EDBM_CLNOR_MODAL_POINTTO_ALIGN);
+
+	WM_modalkeymap_add_item(keymap, MKEY,       KM_PRESS, KM_NOTHING, 0, EDBM_CLNOR_MODAL_POINTTO_USE_MOUSE);
+	WM_modalkeymap_add_item(keymap, LKEY,       KM_PRESS, KM_NOTHING, 0, EDBM_CLNOR_MODAL_POINTTO_USE_PIVOT);
+	WM_modalkeymap_add_item(keymap, OKEY,       KM_PRESS, KM_NOTHING, 0, EDBM_CLNOR_MODAL_POINTTO_USE_OBJECT);
+
+	WM_modalkeymap_add_item(keymap, LEFTMOUSE,  KM_CLICK, KM_CTRL,    0, EDBM_CLNOR_MODAL_POINTTO_SET_USE_3DCURSOR);
+	WM_modalkeymap_add_item(keymap, RIGHTMOUSE, KM_CLICK, KM_CTRL,    0, EDBM_CLNOR_MODAL_POINTTO_SET_USE_SELECTED);
+
+	WM_modalkeymap_assign(keymap, "MESH_OT_point_normals");
+
+	return keymap;
+}
+
+/********************** 'Point to' Loop Normals **********************/
+
+enum {
+	EDBM_CLNOR_POINTTO_MODE_COORDINATES = 1,
+	EDBM_CLNOR_POINTTO_MODE_MOUSE = 2,
+};
+
+static EnumPropertyItem clnors_pointto_mode_items[] = {
+	{EDBM_CLNOR_POINTTO_MODE_COORDINATES, "COORDINATES", 0, "Coordinates",
+	                                      "Use static coordinates (defined by various means)"},
+	{EDBM_CLNOR_POINTTO_MODE_MOUSE, "MOUSE", 0, "Mouse", "Follow mouse cursor"},
+	{0, NULL, 0, NULL, NULL}
+};
+
 /* Initialize loop normal data */
 static int point_normals_init(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
 {
@@ -6004,68 +6100,9 @@ static int point_normals_init(bContext *C, wmOperator *op, const wmEvent *UNUSED
 	BKE_editmesh_lnorspace_update(em);
 	BMLoopNorEditDataArray *lnors_ed_arr = BM_loop_normal_editdata_array_init(bm);
 
-	lnors_ed_arr->funcdata = NULL;
 	op->customdata = lnors_ed_arr;
 
 	return lnors_ed_arr->totloop;
-}
-
-static void point_normals_apply(bContext *C, wmOperator *op, const wmEvent *UNUSED(event), float target[3])
-{
-	Object *obedit = CTX_data_edit_object(C);
-	BMesh *bm = BKE_editmesh_from_object(obedit)->bm;
-	BMLoopNorEditDataArray *lnors_ed_arr = op->customdata;
-
-	const bool do_point_away = RNA_boolean_get(op->ptr, "point_away");
-	const bool do_spherize = RNA_boolean_get(op->ptr, "spherize");
-	const bool do_align = RNA_boolean_get(op->ptr, "align");
-	const float null_vec[3] = { 0.0f };
-	float center[3];
-
-	if (do_align) {
-		BMVert *v;
-		BMIter viter;
-		int i = 0;
-		zero_v3(center);
-		BM_ITER_MESH(v, &viter, bm, BM_VERTS_OF_MESH) {
-			if (BM_elem_flag_test(v, BM_ELEM_SELECT)) {
-				add_v3_v3(center, v->co);
-				i++;
-			}
-		}
-		mul_v3_fl(center, 1.0f / (float)i);
-	}
-
-	BMLoopNorEditData *lnor_ed = lnors_ed_arr->lnor_editdata;
-	for (int i = 0; i < lnors_ed_arr->totloop; i++, lnor_ed++) {
-		if (do_spherize) {
-			const float strength = RNA_float_get(op->ptr, "strength");
-			float spherized_normal[3] = { 0.0f };
-
-			sub_v3_v3v3(spherized_normal, target, lnor_ed->loc);
-			sub_v3_v3(spherized_normal, obedit->loc);
-			mul_v3_fl(spherized_normal, strength);
-			mul_v3_fl(lnor_ed->nloc, 1.0f - strength);
-			sub_v3_v3(lnor_ed->nloc, spherized_normal);
-		}
-		else if (do_align) {
-			sub_v3_v3v3(lnor_ed->nloc, target, center);
-			sub_v3_v3(lnor_ed->nloc, obedit->loc);
-		}
-		else {
-			sub_v3_v3v3(lnor_ed->nloc, target, lnor_ed->loc);
-			sub_v3_v3(lnor_ed->nloc, obedit->loc);
-		}
-
-		if (do_point_away) {
-			negate_v3(lnor_ed->nloc);
-		}
-		if (lnor_ed->loop_index != -1 && !compare_v3v3(lnor_ed->nloc, null_vec, 1e-4f)) {
-			normalize_v3(lnor_ed->nloc);
-			BKE_lnor_space_custom_normal_to_data(
-			            bm->lnor_spacearr->lspacearr[lnor_ed->loop_index], lnor_ed->nloc, lnor_ed->clnors_data);
-		}
-	}
 }
 
 static void point_normals_free(bContext *C, wmOperator *op)
@@ -6076,55 +6113,102 @@ static void point_normals_free(bContext *C, wmOperator *op)
 	ED_area_headerprint(CTX_wm_area(C), NULL);
 }
 
-static int point_normals_mouse(bContext *C, wmOperator *op, const wmEvent *event)
+static void point_normals_update_header(bContext *C, wmOperator *op)
 {
-	View3D *v3d = CTX_wm_view3d(C);
-	Object *obedit = CTX_data_edit_object(C);
-	ARegion *ar = CTX_wm_region(C);
-	BMEditMesh *em = BKE_editmesh_from_object(obedit);
-	BMesh *bm = em->bm;
+	char header[UI_MAX_DRAW_STR];
+	char buf[UI_MAX_DRAW_STR];
+
+	char *p = buf;
+	int available_len = sizeof(buf);
+
+#define WM_MODALKEY(_id) \
+	WM_modalkeymap_operator_items_to_string_buf(op->type, (_id), true, UI_MAX_SHORTCUT_STR, &available_len, &p)
+
+	BLI_snprintf(header, sizeof(header), IFACE_("%s: confirm, %s: cancel, "
+	                                            "%s: point to mouse (%s), %s: point to Pivot, "
+	                                            "%s: point to object origin, %s: reset normals, "
+	                                            "%s: set & point to 3D cursor, %s: select & point to mesh item, "
+	                                            "%s: invert normals (%s), %s: spherize (%s), %s: align (%s)"),
+	             WM_MODALKEY(EDBM_CLNOR_MODAL_CONFIRM), WM_MODALKEY(EDBM_CLNOR_MODAL_CANCEL),
+	             WM_MODALKEY(EDBM_CLNOR_MODAL_POINTTO_USE_MOUSE),
+	             WM_bool_as_string(RNA_enum_get(op->ptr, "mode") == EDBM_CLNOR_POINTTO_MODE_MOUSE),
+	             WM_MODALKEY(EDBM_CLNOR_MODAL_POINTTO_USE_PIVOT), WM_MODALKEY(EDBM_CLNOR_MODAL_POINTTO_USE_OBJECT),
+	             WM_MODALKEY(EDBM_CLNOR_MODAL_POINTTO_RESET), WM_MODALKEY(EDBM_CLNOR_MODAL_POINTTO_SET_USE_3DCURSOR),
+	             WM_MODALKEY(EDBM_CLNOR_MODAL_POINTTO_SET_USE_SELECTED),
+	             WM_MODALKEY(EDBM_CLNOR_MODAL_POINTTO_INVERT), WM_bool_as_string(RNA_boolean_get(op->ptr, "invert")),
+	             WM_MODALKEY(EDBM_CLNOR_MODAL_POINTTO_SPHERIZE), WM_bool_as_string(RNA_boolean_get(op->ptr, "spherize")),
+	             WM_MODALKEY(EDBM_CLNOR_MODAL_POINTTO_ALIGN), WM_bool_as_string(RNA_boolean_get(op->ptr, "align")));
+
+#undef WM_MODALKEY
+
+	ED_area_headerprint(CTX_wm_area(C), header);
+}
+
+/* TODO move that to generic function in BMesh? */
+static void bmesh_selected_verts_center_calc(BMesh *bm, float *r_center)
+{
 	BMVert *v;
 	BMIter viter;
 	int i = 0;
 
-	float target[3], center[3];
-
-	RNA_float_get_array(op->ptr, "target_location", target);
-
-	zero_v3(center);
+	zero_v3(r_center);
 	BM_ITER_MESH(v, &viter, bm, BM_VERTS_OF_MESH) {
 		if (BM_elem_flag_test(v, BM_ELEM_SELECT)) {
-			add_v3_v3(center, v->co);
-			add_v3_v3(center, obedit->loc);
+			add_v3_v3(r_center, v->co);
 			i++;
 		}
 	}
-	mul_v3_fl(center, 1.0f / (float)i);
+	mul_v3_fl(r_center, 1.0f / (float)i);
+}
 
-	ED_view3d_win_to_3d_int(v3d, ar, center, event->mval, target);
+static void point_normals_apply(bContext *C, wmOperator *op, float target[3], const bool do_reset)
+{
+	Object *obedit = CTX_data_edit_object(C);
+	BMesh *bm = BKE_editmesh_from_object(obedit)->bm;
+	BMLoopNorEditDataArray *lnors_ed_arr = op->customdata;
 
-	point_normals_apply(C, op, event, target);
-	EDBM_update_generic(em, true, false);
+	const bool do_invert = RNA_boolean_get(op->ptr, "invert");
+	const bool do_spherize = RNA_boolean_get(op->ptr, "spherize");
+	const bool do_align = RNA_boolean_get(op->ptr, "align");
+	float center[3];
 
-	if (event->type == LEFTMOUSE) {
-		RNA_float_set_array(op->ptr, "target_location", target);
-		point_normals_free(C, op);
-		return OPERATOR_FINISHED;
+	if (do_align && !do_reset) {
+		bmesh_selected_verts_center_calc(bm, center);
 	}
-	else if ((ISKEYBOARD(event->type) || event->type == RIGHTMOUSE) && event->type != MKEY) {
-		BMLoopNorEditDataArray *lnors_ed_arr = op->customdata;
 
-		BMLoopNorEditData *lnor_ed = lnors_ed_arr->lnor_editdata;
-		for (i = 0; i < lnors_ed_arr->totloop; i++, lnor_ed++) {  /* Reset custom normal data. */
-			if (lnor_ed->loop_index != -1) {
-				BKE_lnor_space_custom_normal_to_data(
-				            bm->lnor_spacearr->lspacearr[lnor_ed->loop_index], lnor_ed->niloc, lnor_ed->clnors_data);
-			}
+	sub_v3_v3(target, obedit->loc);  /* Move target to local coordinates. */
+
+	BMLoopNorEditData *lnor_ed = lnors_ed_arr->lnor_editdata;
+	for (int i = 0; i < lnors_ed_arr->totloop; i++, lnor_ed++) {
+		if (do_reset) {
+			copy_v3_v3(lnor_ed->nloc, lnor_ed->niloc);
 		}
-		point_normals_free(C, op);
-		return OPERATOR_CANCELLED;
+		else if (do_spherize) {
+			/* Note that this is *not* real spherical interpolation. Probably good enough in this case though? */
+			const float strength = RNA_float_get(op->ptr, "spherize_strength");
+			float spherized_normal[3];
+
+			sub_v3_v3v3(spherized_normal, target, lnor_ed->loc);
+			normalize_v3(spherized_normal);  /* otherwise, multiplication by strength is meaningless... */
+			mul_v3_fl(spherized_normal, strength);
+			mul_v3_v3fl(lnor_ed->nloc, lnor_ed->niloc, 1.0f - strength);
+			add_v3_v3(lnor_ed->nloc, spherized_normal);
+		}
+		else if (do_align) {
+			sub_v3_v3v3(lnor_ed->nloc, target, center);
+		}
+		else {
+			sub_v3_v3v3(lnor_ed->nloc, target, lnor_ed->loc);
+		}
+
+		if (do_invert && !do_reset) {
+			negate_v3(lnor_ed->nloc);
+		}
+		if (normalize_v3(lnor_ed->nloc) != 0.0f) {
+			BKE_lnor_space_custom_normal_to_data(
+			            bm->lnor_spacearr->lspacearr[lnor_ed->loop_index], lnor_ed->nloc, lnor_ed->clnors_data);
+		}
 	}
-	return OPERATOR_PASS_THROUGH;
 }
 
 static int edbm_point_normals_modal(bContext *C, wmOperator *op, const wmEvent *event)
@@ -6134,133 +6218,180 @@ static int edbm_point_normals_modal(bContext *C, wmOperator *op, const wmEvent *
 	Object *obedit = CTX_data_edit_object(C);
 	BMEditMesh *em = BKE_editmesh_from_object(obedit);
 	BMesh *bm = em->bm;
+
 	float target[3];
 
-	bool handled = false;
+	int ret = OPERATOR_PASS_THROUGH;
+	int mode = RNA_enum_get(op->ptr, "mode");
+	int new_mode = mode;
+	bool force_mousemove = false;
+	bool do_reset = false;
+
 	PropertyRNA *prop_target = RNA_struct_find_property(op->ptr, "target_location");
-	BMLoopNorEditDataArray *lnors_ed_arr = op->customdata;
 
-	if (lnors_ed_arr->funcdata) {  /* Executes and transfers control to point_normals_mouse. */
-		int (*apply)(bContext *, wmOperator *, const wmEvent *);
-		apply = lnors_ed_arr->funcdata;
-		return apply(C, op, event);
-	}
+	if (event->type == EVT_MODAL_MAP) {
+		switch (event->val) {
+			case EDBM_CLNOR_MODAL_CONFIRM:
+				RNA_property_float_get_array(op->ptr, prop_target, target);
+				ret = OPERATOR_FINISHED;
+				break;
 
-	if (event->val == KM_PRESS) {
-		BMVert *v;
-		BMIter viter;
+			case EDBM_CLNOR_MODAL_CANCEL:
+				do_reset = true;
+				ret = OPERATOR_CANCELLED;
+				break;
 
-		if (event->type == LEFTMOUSE) {
-			ED_view3d_cursor3d_update(C, event->mval);
-			copy_v3_v3(target, ED_view3d_cursor3d_get(scene, v3d));
-			RNA_property_float_set_array(op->ptr, prop_target, target);
+			case EDBM_CLNOR_MODAL_POINTTO_RESET:
+				do_reset = true;
+				ret = OPERATOR_RUNNING_MODAL;
+				break;
 
-			handled = true;
-		}
-		if (event->type == RIGHTMOUSE) {
-			view3d_operator_needs_opengl(C);
-			const bool retval = EDBM_select_pick(C, event->mval, false, false, false);
-			if (!retval) {
-				point_normals_free(C, op);
-				return OPERATOR_CANCELLED;
+			case EDBM_CLNOR_MODAL_POINTTO_INVERT:
+			{
+				PropertyRNA *prop_invert = RNA_struct_find_property(op->ptr, "invert");
+				RNA_property_boolean_set(op->ptr, prop_invert, !RNA_property_boolean_get(op->ptr, prop_invert));
+				RNA_property_float_get_array(op->ptr, prop_target, target);
+				ret = OPERATOR_RUNNING_MODAL;
+				break;
 			}
-			ED_object_editmode_calc_active_center(obedit, false, target);  /* Point to newly selected active */
-			add_v3_v3(target, obedit->loc);
-			RNA_property_float_set_array(op->ptr, prop_target, target);
-			handled = true;
-		}
-		else if (event->type == LKEY) {
-			switch (v3d->around) {
-				case V3D_AROUND_CENTER_BOUNDS:  /* calculateCenterBound */
-				{
-					float min[3], max[3];
-					int i = 0;
-					BM_ITER_MESH(v, &viter, bm, BM_VERTS_OF_MESH) {
-						if (BM_elem_flag_test(v, BM_ELEM_SELECT)) {
-							if (i) {
-								minmax_v3v3_v3(min, max, v->co);
-							}
-							else {
-								copy_v3_v3(min, v->co);
-								copy_v3_v3(max, v->co);
-							}
-							i++;
-						}
-					}
-					mid_v3_v3v3(target, min, max);
-					add_v3_v3(target, obedit->loc);
-					RNA_property_float_set_array(op->ptr, prop_target, target);
-					break;
-				}
 
-				case V3D_AROUND_CENTER_MEAN:
-				{
-					zero_v3(target);
-					int i = 0;
-					BM_ITER_MESH(v, &viter, bm, BM_VERTS_OF_MESH) {
-						if (BM_elem_flag_test(v, BM_ELEM_SELECT)) {
-							add_v3_v3(target, v->co);
-							add_v3_v3(target, obedit->loc);
-							i++;
-						}
-					}
-					mul_v3_fl(target, 1.0f / (float)i);
-					RNA_property_float_set_array(op->ptr, prop_target, target);
-					break;
-				}
-
-				case V3D_AROUND_CURSOR:
-					copy_v3_v3(target, ED_view3d_cursor3d_get(scene, v3d));
-					RNA_property_float_set_array(op->ptr, prop_target, target);
-					break;
-
-				case V3D_AROUND_ACTIVE:
-					if (!ED_object_editmode_calc_active_center(obedit, false, target)) {
-						point_normals_free(C, op);
-						return OPERATOR_CANCELLED;
-					}
-					add_v3_v3(target, obedit->loc);
-					RNA_property_float_set_array(op->ptr, prop_target, target);
-					break;
-
-				default:
-					BKE_report(op->reports, RPT_ERROR, "Does not support Individual Origin as pivot");
-					point_normals_free(C, op);
-					return OPERATOR_CANCELLED;
+			case EDBM_CLNOR_MODAL_POINTTO_SPHERIZE:
+			{
+				PropertyRNA *prop_spherize = RNA_struct_find_property(op->ptr, "spherize");
+				RNA_property_boolean_set(op->ptr, prop_spherize, !RNA_property_boolean_get(op->ptr, prop_spherize));
+				RNA_property_float_get_array(op->ptr, prop_target, target);
+				ret = OPERATOR_RUNNING_MODAL;
+				break;
 			}
-			handled = true;
-		}
-		else if (event->type == MKEY) {
-			lnors_ed_arr->funcdata = point_normals_mouse;
-			char header[UI_MAX_DRAW_STR];
-			BLI_snprintf(header, sizeof(header), IFACE_("Left Click to Confirm, Right click to Cancel"));
 
-			ED_area_headerprint(CTX_wm_area(C), header);
+			case EDBM_CLNOR_MODAL_POINTTO_ALIGN:
+			{
+				PropertyRNA *prop_align = RNA_struct_find_property(op->ptr, "align");
+				RNA_property_boolean_set(op->ptr, prop_align, !RNA_property_boolean_get(op->ptr, prop_align));
+				RNA_property_float_get_array(op->ptr, prop_target, target);
+				ret = OPERATOR_RUNNING_MODAL;
+				break;
+			}
+
+			case EDBM_CLNOR_MODAL_POINTTO_USE_MOUSE:
+				new_mode = EDBM_CLNOR_POINTTO_MODE_MOUSE;
+				force_mousemove = true;  /* We want to immediately update to mouse cursor position... */
+				ret = OPERATOR_RUNNING_MODAL;
+				break;
+
+			case EDBM_CLNOR_MODAL_POINTTO_USE_OBJECT:
+				new_mode = EDBM_CLNOR_POINTTO_MODE_COORDINATES;
+				copy_v3_v3(target, obedit->loc);
+				ret = OPERATOR_RUNNING_MODAL;
+				break;
+
+			case EDBM_CLNOR_MODAL_POINTTO_SET_USE_3DCURSOR:
+				new_mode = EDBM_CLNOR_POINTTO_MODE_COORDINATES;
+				ED_view3d_cursor3d_update(C, event->mval);
+				copy_v3_v3(target, ED_view3d_cursor3d_get(scene, v3d));
+				ret = OPERATOR_RUNNING_MODAL;
+				break;
+
+			case EDBM_CLNOR_MODAL_POINTTO_SET_USE_SELECTED:
+				new_mode = EDBM_CLNOR_POINTTO_MODE_COORDINATES;
+				view3d_operator_needs_opengl(C);
+				if (EDBM_select_pick(C, event->mval, false, false, false)) {
+					ED_object_editmode_calc_active_center(obedit, false, target);  /* Point to newly selected active. */
+					add_v3_v3(target, obedit->loc);
+					ret = OPERATOR_RUNNING_MODAL;
+				}
+				break;
+
+			case EDBM_CLNOR_MODAL_POINTTO_USE_PIVOT:
+				new_mode = EDBM_CLNOR_POINTTO_MODE_COORDINATES;
+				switch (v3d->around) {
+					case V3D_AROUND_CENTER_BOUNDS:  /* calculateCenterBound */
+					{
+						BMVert *v;
+						BMIter viter;
+						float min[3], max[3];
+						int i = 0;
+
+						BM_ITER_MESH(v, &viter, bm, BM_VERTS_OF_MESH) {
+							if (BM_elem_flag_test(v, BM_ELEM_SELECT)) {
+								if (i) {
+									minmax_v3v3_v3(min, max, v->co);
+								}
+								else {
+									copy_v3_v3(min, v->co);
+									copy_v3_v3(max, v->co);
+								}
+								i++;
+							}
+						}
+						mid_v3_v3v3(target, min, max);
+						add_v3_v3(target, obedit->loc);
+						break;
+					}
+
+					case V3D_AROUND_CENTER_MEAN:
+					{
+						bmesh_selected_verts_center_calc(bm, target);
+						add_v3_v3(target, obedit->loc);
+						break;
+					}
+
+					case V3D_AROUND_CURSOR:
+						copy_v3_v3(target, ED_view3d_cursor3d_get(scene, v3d));
+						break;
+
+					case V3D_AROUND_ACTIVE:
+						if (!ED_object_editmode_calc_active_center(obedit, false, target)) {
+							zero_v3(target);
+						}
+						add_v3_v3(target, obedit->loc);
+						break;
+
+					default:
+						BKE_report(op->reports, RPT_WARNING, "Does not support Individual Origin as pivot");
+						copy_v3_v3(target, obedit->loc);
+				}
+				ret = OPERATOR_RUNNING_MODAL;
+				break;
+			default:
+				break;
 		}
-		else if (event->type == OKEY) {
-			copy_v3_v3(target, obedit->loc);
+	}
+
+	if (new_mode != mode) {
+		mode = new_mode;
+		RNA_enum_set(op->ptr, "mode", mode);
+	}
+
+	/* Only handle mousemove event in case we are in mouse mode. */
+	if (event->type == MOUSEMOVE || force_mousemove) {
+		if (mode == EDBM_CLNOR_POINTTO_MODE_MOUSE) {
+			ARegion *ar = CTX_wm_region(C);
+			float center[3];
+
+			bmesh_selected_verts_center_calc(bm, center);
+
+			ED_view3d_win_to_3d_int(v3d, ar, center, event->mval, target);
+
+			ret = OPERATOR_RUNNING_MODAL;
+		}
+	}
+
+	if (ret != OPERATOR_PASS_THROUGH) {
+		if (!ELEM(ret, OPERATOR_CANCELLED, OPERATOR_FINISHED)) {
 			RNA_property_float_set_array(op->ptr, prop_target, target);
-			handled = true;
 		}
-		else if (ISKEYBOARD(event->type) && event->type != RIGHTALTKEY) {
-			point_normals_free(C, op);
-			return OPERATOR_CANCELLED;
-		}
-	}
-	
-	if (handled || event->type == RIGHTMOUSE) {
-		RNA_boolean_set(op->ptr, "align", false);
-	}
-
-	if (handled) {
-		point_normals_apply(C, op, event, target);
+		point_normals_apply(C, op, target, do_reset);
 		EDBM_update_generic(em, true, false);  /* Recheck bools. */
-		point_normals_free(C, op);
 
-		return OPERATOR_FINISHED;
+		point_normals_update_header(C, op);
 	}
 
-	return OPERATOR_PASS_THROUGH;
+	if (ELEM(ret, OPERATOR_CANCELLED, OPERATOR_FINISHED)) {
+		point_normals_free(C, op);
+	}
+
+	return ret;
 }
 
 static int edbm_point_normals_invoke(bContext *C, wmOperator *op, const wmEvent *event)
@@ -6272,12 +6403,7 @@ static int edbm_point_normals_invoke(bContext *C, wmOperator *op, const wmEvent 
 
 	WM_event_add_modal_handler(C, op);
 
-	char header[UI_MAX_DRAW_STR];
-	BLI_snprintf(header, sizeof(header),
-	             IFACE_("L Key to use Pivot as target, M Key to point to mouse, O Key to point to object origin, "
-	                    "Left Click to point to new cursor location, Right Click on mesh to point to mesh"));
-
-	ED_area_headerprint(CTX_wm_area(C), header);
+	point_normals_update_header(C, op);
 
 	op->flag |= OP_IS_MODAL_GRAB_CURSOR;
 	return OPERATOR_RUNNING_MODAL;
@@ -6293,10 +6419,12 @@ static int edbm_point_normals_exec(bContext *C, wmOperator *op)
 		return OPERATOR_CANCELLED;
 	}
 
+	/* Note that 'mode' is ignored in exec case, we directly use vector stored in target_location, whatever that is. */
+
 	float target[3];
 	RNA_float_get_array(op->ptr, "target_location", target);
 
-	point_normals_apply(C, op, NULL, target);
+	point_normals_apply(C, op, target, false);
 
 	EDBM_update_generic(em, true, false);
 	point_normals_free(C, op);
@@ -6307,11 +6435,10 @@ static int edbm_point_normals_exec(bContext *C, wmOperator *op)
 static bool point_normals_draw_check_prop(PointerRNA *ptr, PropertyRNA *prop)
 {
 	const char *prop_id = RNA_property_identifier(prop);
-	const bool spherize = RNA_boolean_get(ptr, "spherize");
 
 	/* Only show strength option if spherize is enabled. */
-	if (STREQ(prop_id, "strength")) {
-		return spherize;
+	if (STREQ(prop_id, "spherize_strength")) {
+		return (bool)RNA_boolean_get(ptr, "spherize");
 	}
 
 	/* Else, show it! */
@@ -6343,22 +6470,27 @@ void MESH_OT_point_normals(struct wmOperatorType *ot)
 	ot->modal = edbm_point_normals_modal;
 	ot->poll = ED_operator_editmesh_auto_smooth;
 	ot->ui = edbm_point_normals_ui;
+	ot->cancel = point_normals_free;
 
 	/* flags */
 	ot->flag = OPTYPE_BLOCKING | OPTYPE_REGISTER | OPTYPE_UNDO;
 
-	RNA_def_boolean(ot->srna, "point_away", false, "Point Away", "Point Away from target");
+	ot->prop = RNA_def_enum(ot->srna, "mode", clnors_pointto_mode_items, EDBM_CLNOR_POINTTO_MODE_COORDINATES,
+	                        "Mode", "How to define coordinates to point custom normals to");
+	RNA_def_property_flag(ot->prop, PROP_HIDDEN);
 
-	RNA_def_boolean(ot->srna, "align", false, "Align", "Align normal with mouse location");
+	RNA_def_boolean(ot->srna, "invert", false, "Invert", "Invert affected normals");
+
+	RNA_def_boolean(ot->srna, "align", false, "Align", "Make all affected normals parallel");
 
 	RNA_def_float_vector(ot->srna, "target_location", 3, (float[3]){0.0f, 0.0f, 0.0f}, -FLT_MAX, FLT_MAX,
 	                     "Target", "Target location to which normals will point", -1000.0f, 1000.0f);
 
 	RNA_def_boolean(ot->srna, "spherize", false,
-	                "Spherize Normal", "Add normal vector of target to custom normal with given proportion");
+	                "Spherize", "Interpolate between original and new normals");
 
-	RNA_def_float(ot->srna, "strength", 0.1, 0.0f, 1.0f,
-	              "Strength", "Ratio of spherized normal to original normal", 0.0f, 1.0f);
+	RNA_def_float(ot->srna, "spherize_strength", 0.1, 0.0f, 1.0f,
+	              "Spherize Strength", "Ratio of spherized normal to original normal", 0.0f, 1.0f);
 }
 
 /********************** Split/Merge Loop Normals **********************/

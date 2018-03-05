@@ -1348,12 +1348,7 @@ static void loop_normal_editdata_init(BMesh *bm, BMLoopNorEditData *lnor_ed, BMV
 	copy_v3_v3(lnor_ed->nloc, custom_normal);
 	copy_v3_v3(lnor_ed->niloc, custom_normal);
 
-	if (v) {
-		lnor_ed->loc = v->co;
-	}
-	else {
-		lnor_ed->loc = NULL;
-	}
+	lnor_ed->loc = v->co;
 }
 
 BMLoopNorEditDataArray *BM_loop_normal_editdata_array_init(BMesh *bm)
