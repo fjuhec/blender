@@ -574,7 +574,9 @@ typedef enum eGP_BrushIcons {
 	GPBRUSH_BLOCK = 5,
 	GPBRUSH_MARKER = 6,
 	GPBRUSH_FILL = 7,
-	GPBRUSH_ERASE = 8
+	GPBRUSH_ERASE_SOFT = 8,
+	GPBRUSH_ERASE_HARD = 9,
+	GPBRUSH_ERASE_STROKE = 10
 } eGP_BrushIcons;
 
 /* ***************************************** */

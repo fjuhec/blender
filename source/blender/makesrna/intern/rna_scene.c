@@ -678,8 +678,12 @@ static int gpencil_get_brush_icon(int type)
 			return ICON_GPBRUSH_MARKER;
 		case GPBRUSH_FILL:
 			return ICON_GPBRUSH_FILL;
-		case GPBRUSH_ERASE:
-			return ICON_GPBRUSH_ERASE;
+		case GPBRUSH_ERASE_SOFT:
+			return ICON_GPBRUSH_ERASE_SOFT;
+		case GPBRUSH_ERASE_HARD:
+			return ICON_GPBRUSH_ERASE_HARD;
+		case GPBRUSH_ERASE_STROKE:
+			return ICON_GPBRUSH_ERASE_STROKE;
 		default:
 			return ICON_GPBRUSH_CUSTOM;
 	}
@@ -723,7 +727,20 @@ static int gpencil_get_brush_icon(int type)
 			item_tmp.icon = ICON_GPBRUSH_FILL;
 		}
 		else if(brush->type == GP_BRUSH_TYPE_ERASE) {
-			item_tmp.icon = ICON_GPBRUSH_ERASE;
+			switch (brush->eraser_mode) {
+				case GP_BRUSH_ERASER_SOFT:
+					item_tmp.icon = ICON_GPBRUSH_ERASE_SOFT;
+					break;
+				case GP_BRUSH_ERASER_HARD:
+					item_tmp.icon = ICON_GPBRUSH_ERASE_HARD;
+					break;
+				case GP_BRUSH_ERASER_STROKE:
+					item_tmp.icon = ICON_GPBRUSH_ERASE_STROKE;
+					break;
+				default:
+					item_tmp.icon = ICON_GPBRUSH_ERASE_SOFT;
+					break;
+			}
 		}
 		else {
 			item_tmp.icon = gpencil_get_brush_icon(brush->icon);
