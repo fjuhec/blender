@@ -107,18 +107,18 @@ enum {
 	VAR_MAT_BLEND    = (1 << 4),
 	VAR_MAT_VSM      = (1 << 5),
 	VAR_MAT_ESM      = (1 << 6),
+	VAR_MAT_VOLUME   = (1 << 7),
 	/* Max number of variation */
 	/* IMPORTANT : Leave it last and set
 	 * it's value accordingly. */
-	VAR_MAT_MAX      = (1 << 7),
+	VAR_MAT_MAX      = (1 << 8),
 	/* These are options that are not counted in VAR_MAT_MAX
 	 * because they are not cumulative with the others above. */
-	VAR_MAT_CLIP     = (1 << 8),
-	VAR_MAT_HASH     = (1 << 9),
-	VAR_MAT_MULT     = (1 << 10),
-	VAR_MAT_SHADOW   = (1 << 11),
-	VAR_MAT_REFRACT  = (1 << 12),
-	VAR_MAT_VOLUME   = (1 << 13),
+	VAR_MAT_CLIP     = (1 << 9),
+	VAR_MAT_HASH     = (1 << 10),
+	VAR_MAT_MULT     = (1 << 11),
+	VAR_MAT_SHADOW   = (1 << 12),
+	VAR_MAT_REFRACT  = (1 << 13),
 	VAR_MAT_SSS      = (1 << 14),
 	VAR_MAT_TRANSLUC = (1 << 15),
 	VAR_MAT_SSSALBED = (1 << 16),
@@ -441,7 +441,10 @@ typedef struct EEVEE_LightProbesInfo {
 	int target_size;
 	int grid_initialized;
 	struct World *prev_world;
+	int update_world;
+	bool prev_wo_sh_compiled;
 	bool do_cube_update;
+	bool all_materials_updated;
 	/* For rendering probes */
 	float probemat[6][4][4];
 	int layer;
@@ -766,7 +769,7 @@ EEVEE_LampEngineData *EEVEE_lamp_data_ensure(Object *ob);
 /* eevee_materials.c */
 struct GPUTexture *EEVEE_materials_get_util_tex(void); /* XXX */
 void EEVEE_materials_init(EEVEE_ViewLayerData *sldata, EEVEE_StorageList *stl, EEVEE_FramebufferList *fbl);
-void EEVEE_materials_cache_init(EEVEE_Data *vedata);
+void EEVEE_materials_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
 void EEVEE_materials_cache_populate(EEVEE_Data *vedata, EEVEE_ViewLayerData *sldata, Object *ob);
 void EEVEE_materials_cache_finish(EEVEE_Data *vedata);
 struct GPUMaterial *EEVEE_material_world_lightprobe_get(struct Scene *scene, struct World *wo);
