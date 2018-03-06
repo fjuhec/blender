@@ -1629,6 +1629,9 @@ typedef struct WeightedNormalModifierData {
 	float thresh;
 } WeightedNormalModifierData;
 
+/* Name/id of the generic PROP_INT cdlayer storing face weights. */
+#define MOD_WEIGHTEDNORMALS_FACEWEIGHT_CDLAYER_ID "__mod_weightednormals_faceweight"
+
 /* WeightedNormalModifierData.mode */
 enum {
 	MOD_WEIGHTEDNORMAL_MODE_FACE = 0,

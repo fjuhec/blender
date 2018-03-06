@@ -529,13 +529,13 @@ static DerivedMesh *applyModifier(ModifierData *md, Object *ob, DerivedMesh *dm,
 	}
 
 	short (*clnors)[2];
-
 	clnors = CustomData_duplicate_referenced_layer(&dm->loopData, CD_CUSTOMLOOPNORMAL, numLoops);
 	if (!clnors) {
 		DM_add_loop_layer(dm, CD_CUSTOMLOOPNORMAL, CD_CALLOC, NULL);
 		clnors = dm->getLoopDataArray(dm, CD_CUSTOMLOOPNORMAL);
 	}
-	int *strength = CustomData_get_layer(&dm->polyData, CD_PROP_INT);
+
+	int *strength = CustomData_get_layer_named(&dm->polyData, CD_PROP_INT, MOD_WEIGHTEDNORMALS_FACEWEIGHT_CDLAYER_ID);
 
 	modifier_get_vgroup(ob, dm, wnmd->defgrp_name, &dvert, &defgrp_index);
 
@@ -598,6 +598,7 @@ ModifierTypeInfo modifierType_WeightedNormal = {
 	/* structSize */        sizeof(WeightedNormalModifierData),
 	/* type */              eModifierTypeType_Constructive,
 	/* flags */             eModifierTypeFlag_AcceptsMesh |
+	                        eModifierTypeFlag_SupportsMapping |
 	                        eModifierTypeFlag_SupportsEditmode |
 	                        eModifierTypeFlag_EnableInEditmode,
 

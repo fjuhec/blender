@@ -7302,11 +7302,14 @@ static int edbm_mod_weighted_strength_exec(bContext *C, wmOperator *op)
 
 	BM_select_history_clear(bm);
 
-	int cd_prop_int_offset = CustomData_get_offset(&bm->pdata, CD_PROP_INT);
-	if (cd_prop_int_offset == -1) {
-		BM_data_layer_add(bm, &bm->pdata, CD_PROP_INT);
-		cd_prop_int_offset = CustomData_get_offset(&bm->pdata, CD_PROP_INT);
+	const char *layer_id = MOD_WEIGHTEDNORMALS_FACEWEIGHT_CDLAYER_ID;
+	int cd_prop_int_index = CustomData_get_named_layer_index(&bm->pdata, CD_PROP_INT, layer_id);
+	if (cd_prop_int_index == -1) {
+		BM_data_layer_add_named(bm, &bm->pdata, CD_PROP_INT, layer_id);
+		cd_prop_int_index = CustomData_get_named_layer_index(&bm->pdata, CD_PROP_INT, layer_id);
 	}
+	cd_prop_int_index -= CustomData_get_layer_index(&bm->pdata, CD_PROP_INT);
+	const int cd_prop_int_offset = CustomData_get_n_offset(&bm->pdata, CD_PROP_INT, cd_prop_int_index);
 
 	const int face_strength = scene->toolsettings->face_strength;
 	const bool set = RNA_boolean_get(op->ptr, "set");
