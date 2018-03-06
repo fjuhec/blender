@@ -1274,16 +1274,86 @@ static bool DRW_render_check_object_type(struct Depsgraph *depsgraph, short obty
 	return false;
 }
 
-void DRW_render_gpencil_to_image(RenderEngine *engine, struct RenderLayer *render_layer, const rcti *rect)
+static void DRW_render_gpencil_to_image(RenderEngine *engine, struct Depsgraph *depsgraph, struct RenderLayer *render_layer, const rcti *rect)
 {
-	const DRWContextState *draw_ctx = DRW_context_state_get();
-
 	if (draw_engine_gpencil_type.render_to_image) {
-		if (DRW_render_check_object_type(draw_ctx->depsgraph, OB_GPENCIL)) {
+		if (DRW_render_check_object_type(depsgraph, OB_GPENCIL)) {
 			ViewportEngineData *gpdata = drw_viewport_engine_data_ensure(&draw_engine_gpencil_type);
 			draw_engine_gpencil_type.render_to_image(gpdata, engine, render_layer, rect);
 		}
 	}
+}
+
+void DRW_render_gpencil(struct RenderEngine *engine, struct Depsgraph *depsgraph)
+{
+	/* This function is only valid for Cycles 
+	 * Eevee done all work in the Eevee render directly.
+	 * Maybe it can be done equal for both engines?
+	*/
+	if (STREQ(engine->type->name, "Eevee")) {
+		return;
+	}
+
+	Scene *scene = DEG_get_evaluated_scene(depsgraph);
+	ViewLayer *view_layer = DEG_get_evaluated_view_layer(depsgraph);
+	RenderEngineType *engine_type = engine->type;
+	DrawEngineType *draw_engine_type = engine_type->draw_engine;
+	RenderData *r = &scene->r;
+	Render *render = engine->re;
+	/* Changing Context */
+	DRW_opengl_context_enable();
+	/* Reset before using it. */
+	memset(&DST, 0x0, offsetof(DRWManager, ogl_context));
+	DST.options.is_image_render = true;
+	DST.options.is_scene_render = true;
+	DST.options.draw_background = scene->r.alphamode == R_ADDSKY;
+	DST.buffer_finish_called = true;
+
+	DST.draw_ctx = (DRWContextState) {
+		NULL, NULL, NULL, scene, view_layer, NULL, engine_type, depsgraph, OB_MODE_OBJECT, NULL,
+	};
+	drw_context_state_init();
+
+	DST.viewport = GPU_viewport_create();
+	const int size[2] = { (r->size * r->xsch) / 100, (r->size * r->ysch) / 100 };
+	GPU_viewport_size_set(DST.viewport, size);
+
+	drw_viewport_var_init();
+
+	/* set default viewport */
+	gpuPushAttrib(GPU_ENABLE_BIT | GPU_VIEWPORT_BIT);
+	glDisable(GL_SCISSOR_TEST);
+	glViewport(0, 0, size[0], size[1]);
+
+	/* Main rendering. */
+	rctf view_rect;
+	rcti render_rect;
+	RE_GetViewPlane(render, &view_rect, &render_rect);
+	if (BLI_rcti_is_empty(&render_rect)) {
+		BLI_rcti_init(&render_rect, 0, size[0], 0, size[1]);
+	}
+
+	RenderResult *render_result = RE_engine_get_result(engine);
+	RenderLayer *render_layer = render_result->layers.first;
+
+	DRW_render_gpencil_to_image(engine, depsgraph, render_layer, &render_rect);
+
+	/* Force cache to reset. */
+	drw_viewport_cache_resize();
+	GPU_viewport_free(DST.viewport);
+	DRW_state_reset();
+
+	glDisable(GL_DEPTH_TEST);
+
+	/* Restore Drawing area. */
+	gpuPopAttrib();
+	glEnable(GL_SCISSOR_TEST);
+	GPU_framebuffer_restore();
+
+	/* Changing Context */
+	DRW_opengl_context_disable();
+
+	DST.buffer_finish_called = false;
 }
 
 void DRW_render_to_image(RenderEngine *engine, struct Depsgraph *depsgraph)
@@ -1350,7 +1420,7 @@ void DRW_render_to_image(RenderEngine *engine, struct Depsgraph *depsgraph)
 		RE_SetActiveRenderView(render, render_view->name);
 		engine_type->draw_engine->render_to_image(data, engine, render_layer, &render_rect);
 		/* grease pencil: render result is merged in the previous render result. */
-		DRW_render_gpencil_to_image(engine, render_layer, &render_rect);
+		DRW_render_gpencil_to_image(engine, depsgraph, render_layer, &render_rect);
 		DST.buffer_finish_called = false;
 	}
 

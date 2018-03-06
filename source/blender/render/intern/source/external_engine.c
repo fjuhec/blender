@@ -768,6 +768,9 @@ int RE_engine_render(Render *re, int do_all)
 			BKE_scene_graph_update_tagged(eval_ctx, depsgraph, re->main, re->scene, view_layer);
 			type->render_to_image(engine, depsgraph);
 
+			/* grease pencil render over previous render result */
+			DRW_render_gpencil(engine, depsgraph);
+
 			DEG_graph_free(depsgraph);
 			DEG_evaluation_context_free(eval_ctx);
 		}

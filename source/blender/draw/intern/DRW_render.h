@@ -427,7 +427,6 @@ struct DefaultTextureList     *DRW_viewport_texture_list_get(void);
 void DRW_viewport_request_redraw(void);
 
 void DRW_render_to_image(struct RenderEngine *engine, struct Depsgraph *graph);
-void DRW_render_gpencil_to_image(struct RenderEngine *engine, struct RenderLayer *render_layer, const rcti *rect);
 void DRW_render_object_iter(
 	void *vedata, struct RenderEngine *engine, struct Depsgraph *graph,
 	void (*callback)(void *vedata, struct Object *ob, struct RenderEngine *engine, struct Depsgraph *graph));
