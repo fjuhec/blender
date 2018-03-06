@@ -457,7 +457,7 @@ class VIEW3D_PT_tools_normal(View3DPanel, Panel):
         col.operator("mesh.flip_normals", text="Flip Direction")
 
         layout.separator()
-        layout.label(text="Split Normals:")
+        layout.label(text="Custom Normals:")
 
         col = layout.column(align=True)
         col.operator("mesh.set_normals_from_faces", text="Set From Faces")
@@ -465,28 +465,28 @@ class VIEW3D_PT_tools_normal(View3DPanel, Panel):
         col.operator("mesh.point_normals", text="Point To...")
 
         row = layout.row(align=True)
-        row.operator("mesh.merge_loop_normals", text="Merge")
-        row.operator("mesh.split_loop_normals", text="Split")
+        row.operator("mesh.merge_normals", text="Merge")
+        row.operator("mesh.split_normals", text="Split")
 
         col = layout.column(align=True)
-        col.operator_menu_enum("mesh.average_loop_normals", "average_type")
+        col.operator_menu_enum("mesh.average_normals", "average_type")
 
         col = layout.column(align=True)
         col.label(text="Normal Vector:")
         col.prop(toolsettings, "normal_vector", text="")
 
         row = col.row(align=True)
-        row.operator("mesh.custom_normal_tools", text="Copy").mode = 'COPY'
-        row.operator("mesh.custom_normal_tools", text="Paste").mode = 'PASTE'
+        row.operator("mesh.normals_tools", text="Copy").mode = 'COPY'
+        row.operator("mesh.normals_tools", text="Paste").mode = 'PASTE'
 
         row = col.row(align=True)
-        row.operator("mesh.custom_normal_tools", text="Multiply").mode = 'MULTIPLY'
-        row.operator("mesh.custom_normal_tools", text="Add").mode = 'ADD'
+        row.operator("mesh.normals_tools", text="Multiply").mode = 'MULTIPLY'
+        row.operator("mesh.normals_tools", text="Add").mode = 'ADD'
 
-        col.operator("mesh.custom_normal_tools", text="Reset").mode = 'RESET'
+        col.operator("mesh.normals_tools", text="Reset").mode = 'RESET'
 
         col = layout.column(align=True)
-        col.operator("mesh.smoothen_custom_normals", text="Smoothen")
+        col.operator("mesh.smoothen_normals", text="Smoothen")
 
         col = layout.column(align=True)
         col.label(text="Face Strength:")

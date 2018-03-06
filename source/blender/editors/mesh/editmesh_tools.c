@@ -6460,8 +6460,8 @@ static void edbm_point_normals_ui(bContext *C, wmOperator *op)
 void MESH_OT_point_normals(struct wmOperatorType *ot)
 {
 	/* identifiers */
-	ot->name = "Point normals to Target";
-	ot->description = "Point selected normals to specified Target";
+	ot->name = "Point Normals to Target";
+	ot->description = "Point selected custom normals to specified Target";
 	ot->idname = "MESH_OT_point_normals";
 
 	/* api callbacks */
@@ -6495,7 +6495,7 @@ void MESH_OT_point_normals(struct wmOperatorType *ot)
 
 /********************** Split/Merge Loop Normals **********************/
 
-static void custom_loops_tag(BMesh *bm, const bool do_edges)
+static void normals_splitmerge_loops_edges_tag(BMesh *bm, const bool do_edges)
 {
 	BMFace *f;
 	BMEdge *e;
@@ -6530,19 +6530,15 @@ static void custom_loops_tag(BMesh *bm, const bool do_edges)
 	bm->elem_index_dirty &= ~(BM_FACE | BM_LOOP);
 }
 
-static void loop_normal_merge(bContext *C, BMLoopNorEditDataArray *lnors_ed_arr)
+static void normals_merge(BMesh *bm, BMLoopNorEditDataArray *lnors_ed_arr)
 {
-	Object *obedit = CTX_data_edit_object(C);
-	BMEditMesh *em = BKE_editmesh_from_object(obedit);
-	BMesh *bm = em->bm;
-
 	BMLoopNorEditData *lnor_ed = lnors_ed_arr->lnor_editdata;
 
 	BLI_SMALLSTACK_DECLARE(clnors, short *);
 
 	BLI_assert(bm->lnor_spacearr->data_type == MLNOR_SPACEARR_BMLOOP_PTR);
 
-	custom_loops_tag(bm, false);
+	normals_splitmerge_loops_edges_tag(bm, false);
 
 	for (int i = 0; i < lnors_ed_arr->totloop; i++, lnor_ed++) {
 		if (BM_elem_flag_test(lnor_ed->loop, BM_ELEM_TAG)) {
@@ -6566,33 +6562,25 @@ static void loop_normal_merge(bContext *C, BMLoopNorEditDataArray *lnors_ed_arr)
 				BLI_SMALLSTACK_PUSH(clnors, lnor_ed_tmp->clnors_data);
 				BM_elem_flag_enable(l, BM_ELEM_TAG);
 			}
-			if (len_squared_v3(avg_normal) < 1e-4f) {  /* If avg normal is nearly 0, set clnor to default value. */
-				while ((clnors_data = BLI_SMALLSTACK_POP(clnors))) {
-					copy_v2_v2_short(clnors_data, (short[2]){0, 0});
-				}
+			if (normalize_v3(avg_normal) < 1e-4f) {  /* If avg normal is nearly 0, set clnor to default value. */
+				zero_v3(avg_normal);
 			}
-			else {
-				normalize_v3(avg_normal);  /* Else set all clnors to this avg. */
-				while ((clnors_data = BLI_SMALLSTACK_POP(clnors))) {
-					BKE_lnor_space_custom_normal_to_data(lnor_space, avg_normal, clnors_data);
-				}
+			while ((clnors_data = BLI_SMALLSTACK_POP(clnors))) {
+				BKE_lnor_space_custom_normal_to_data(lnor_space, avg_normal, clnors_data);
 			}
 		}
 	}
 }
 
-static void loop_normla_split(bContext *C)
+static void normals_split(BMesh *bm)
 {
-	Object *obedit = CTX_data_edit_object(C);
-	BMEditMesh *em = BKE_editmesh_from_object(obedit);
-	BMesh *bm = em->bm;
 	BMFace *f;
 	BMLoop *l, *l_curr, *l_first;
 	BMIter fiter;
 
 	BLI_assert(bm->lnor_spacearr->data_type == MLNOR_SPACEARR_BMLOOP_PTR);
 
-	custom_loops_tag(bm, true);
+	normals_splitmerge_loops_edges_tag(bm, true);
 
 	const int cd_clnors_offset = CustomData_get_offset(&bm->ldata, CD_CUSTOMLOOPNORMAL);
 	BM_ITER_MESH(f, &fiter, bm, BM_FACES_OF_MESH) {
@@ -6646,7 +6634,7 @@ static void loop_normla_split(bContext *C)
 	}
 }
 
-static int loop_normals_split_merge(bContext *C, const bool do_merge)
+static int normals_split_merge(bContext *C, const bool do_merge)
 {
 	Object *obedit = CTX_data_edit_object(C);
 	BMEditMesh *em = BKE_editmesh_from_object(obedit);
@@ -6674,10 +6662,10 @@ static int loop_normals_split_merge(bContext *C, const bool do_merge)
 	BKE_editmesh_lnorspace_update(em);
 
 	if (do_merge) {
-		loop_normal_merge(C, lnors_ed_arr);
+		normals_merge(bm, lnors_ed_arr);
 	}
 	else {
-		loop_normla_split(C);
+		normals_split(bm);
 	}
 
 	if (lnors_ed_arr) {
@@ -6689,40 +6677,40 @@ static int loop_normals_split_merge(bContext *C, const bool do_merge)
 	return OPERATOR_FINISHED;
 }
 
-static int edbm_merge_loop_normals_exec(bContext *C, wmOperator *UNUSED(op))
+static int edbm_merge_normals_exec(bContext *C, wmOperator *UNUSED(op))
 {
-	return loop_normals_split_merge(C, true);
+	return normals_split_merge(C, true);
 }
 
-void MESH_OT_merge_loop_normals(struct wmOperatorType *ot)
+void MESH_OT_merge_normals(struct wmOperatorType *ot)
 {
 	/* identifiers */
-	ot->name = "Merge Loop Normals";
-	ot->description = "Merge loop normals of selected vertices";
-	ot->idname = "MESH_OT_merge_loop_normals";
+	ot->name = "Merge Normals";
+	ot->description = "Merge custom normals of selected vertices";
+	ot->idname = "MESH_OT_merge_normals";
 
 	/* api callbacks */
-	ot->exec = edbm_merge_loop_normals_exec;
+	ot->exec = edbm_merge_normals_exec;
 	ot->poll = ED_operator_editmesh_auto_smooth;
 
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
-static int edbm_split_loop_normals_exec(bContext *C, wmOperator *UNUSED(op))
+static int edbm_split_normals_exec(bContext *C, wmOperator *UNUSED(op))
 {
-	return loop_normals_split_merge(C, false);
+	return normals_split_merge(C, false);
 }
 
-void MESH_OT_split_loop_normals(struct wmOperatorType *ot)
+void MESH_OT_split_normals(struct wmOperatorType *ot)
 {
 	/* identifiers */
-	ot->name = "Split Loop Normals";
-	ot->description = "Split loop normals of selected vertices";
-	ot->idname = "MESH_OT_split_loop_normals";
+	ot->name = "Split Normals";
+	ot->description = "Split custom normals of selected vertices";
+	ot->idname = "MESH_OT_split_normals";
 
 	/* api callbacks */
-	ot->exec = edbm_split_loop_normals_exec;
+	ot->exec = edbm_split_normals_exec;
 	ot->poll = ED_operator_editmesh_auto_smooth;
 
 	/* flags */
@@ -6744,7 +6732,7 @@ static EnumPropertyItem average_method_items[] = {
 	{0, NULL, 0, NULL, NULL}
 };
 
-static int edbm_average_loop_normals_exec(bContext *C, wmOperator *op)
+static int edbm_average_normals_exec(bContext *C, wmOperator *op)
 {
 	Object *obedit = CTX_data_edit_object(C);
 	BMEditMesh *em = BKE_editmesh_from_object(obedit);
@@ -6772,7 +6760,7 @@ static int edbm_average_loop_normals_exec(bContext *C, wmOperator *op)
 		weight = (weight - 1) * 25;
 	}
 
-	custom_loops_tag(bm, true);
+	normals_splitmerge_loops_edges_tag(bm, true);
 
 	Heap *loop_weight = BLI_heap_new();
 
@@ -6866,7 +6854,7 @@ static int edbm_average_loop_normals_exec(bContext *C, wmOperator *op)
 	return OPERATOR_FINISHED;
 }
 
-static bool average_loop_normals_draw_check_prop(PointerRNA *ptr, PropertyRNA *prop)
+static bool average_normals_draw_check_prop(PointerRNA *ptr, PropertyRNA *prop)
 {
 	const char *prop_id = RNA_property_identifier(prop);
 	const int average_type = RNA_enum_get(ptr, "average_type");
@@ -6883,7 +6871,7 @@ static bool average_loop_normals_draw_check_prop(PointerRNA *ptr, PropertyRNA *p
 	return true;
 }
 
-static void edbm_average_loop_normals_ui(bContext *C, wmOperator *op)
+static void edbm_average_normals_ui(bContext *C, wmOperator *op)
 {
 	uiLayout *layout = op->layout;
 	wmWindowManager *wm = CTX_wm_manager(C);
@@ -6892,30 +6880,32 @@ static void edbm_average_loop_normals_ui(bContext *C, wmOperator *op)
 	RNA_pointer_create(&wm->id, op->type->srna, op->properties, &ptr);
 
 	/* Main auto-draw call */
-	uiDefAutoButsRNA(layout, &ptr, average_loop_normals_draw_check_prop, '\0');
+	uiDefAutoButsRNA(layout, &ptr, average_normals_draw_check_prop, '\0');
 }
 
-void MESH_OT_average_loop_normals(struct wmOperatorType *ot)
+void MESH_OT_average_normals(struct wmOperatorType *ot)
 {
 	/* identifiers */
-	ot->name = "Average";
-	ot->description = "Average loop normals of selected vertices";
-	ot->idname = "MESH_OT_average_loop_normals";
+	ot->name = "Average Normals";
+	ot->description = "Average custom normals of selected vertices";
+	ot->idname = "MESH_OT_average_normals";
 
 	/* api callbacks */
-	ot->exec = edbm_average_loop_normals_exec;
+	ot->exec = edbm_average_normals_exec;
 	ot->poll = ED_operator_editmesh_auto_smooth;
-	ot->ui = edbm_average_loop_normals_ui;
+	ot->ui = edbm_average_normals_ui;
 
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
-	ot->prop = RNA_def_enum(ot->srna, "average_type", average_method_items, EDBM_CLNOR_AVERAGE_LOOP, "Type", "Averaging method");
+	ot->prop = RNA_def_enum(ot->srna, "average_type", average_method_items, EDBM_CLNOR_AVERAGE_LOOP,
+	                        "Type", "Averaging method");
 	RNA_def_property_flag(ot->prop, PROP_HIDDEN);
 
 	RNA_def_int(ot->srna, "weight", 50, 1, 100, "Weight", "Weight applied per face", 1, 100);
 
-	RNA_def_float(ot->srna, "threshold", 0.01f, 0, 10, "Threshold", "Threshold value for different weights to be considered equal", 0, 5);
+	RNA_def_float(ot->srna, "threshold", 0.01f, 0, 10, "Threshold",
+	              "Threshold value for different weights to be considered equal", 0, 5);
 }
 
 /********************** Custom Normal Interface Tools **********************/
@@ -6937,7 +6927,7 @@ static EnumPropertyItem normal_vector_tool_items[] = {
 	{0, NULL, 0, NULL, NULL}
 };
 
-static int edbm_custom_normal_tools_exec(bContext *C, wmOperator *op)
+static int edbm_normals_tools_exec(bContext *C, wmOperator *op)
 {
 	Object *obedit = CTX_data_edit_object(C);
 	Scene *scene = CTX_data_scene(C);
@@ -7038,7 +7028,7 @@ static int edbm_custom_normal_tools_exec(bContext *C, wmOperator *op)
 	return OPERATOR_FINISHED;
 }
 
-static bool custom_normal_tools_draw_check_prop(PointerRNA *ptr, PropertyRNA *prop)
+static bool normals_tools_draw_check_prop(PointerRNA *ptr, PropertyRNA *prop)
 {
 	const char *prop_id = RNA_property_identifier(prop);
 	const int mode = RNA_enum_get(ptr, "mode");
@@ -7052,7 +7042,7 @@ static bool custom_normal_tools_draw_check_prop(PointerRNA *ptr, PropertyRNA *pr
 	return true;
 }
 
-static void edbm_custom_normal_tools_ui(bContext *C, wmOperator *op)
+static void edbm_normals_tools_ui(bContext *C, wmOperator *op)
 {
 	uiLayout *layout = op->layout;
 	wmWindowManager *wm = CTX_wm_manager(C);
@@ -7061,20 +7051,20 @@ static void edbm_custom_normal_tools_ui(bContext *C, wmOperator *op)
 	RNA_pointer_create(&wm->id, op->type->srna, op->properties, &ptr);
 
 	/* Main auto-draw call */
-	uiDefAutoButsRNA(layout, &ptr, custom_normal_tools_draw_check_prop, '\0');
+	uiDefAutoButsRNA(layout, &ptr, normals_tools_draw_check_prop, '\0');
 }
 
-void MESH_OT_custom_normal_tools(struct wmOperatorType *ot)
+void MESH_OT_normals_tools(struct wmOperatorType *ot)
 {
 	/* identifiers */
-	ot->name = "Custom Normal Vector tools";
-	ot->description = "Normal tools using Normal Vector of Interface";
-	ot->idname = "MESH_OT_custom_normal_tools";
+	ot->name = "Normals Vector Tools";
+	ot->description = "Custom normals tools using Normal Vector of UI";
+	ot->idname = "MESH_OT_normals_tools";
 
 	/* api callbacks */
-	ot->exec = edbm_custom_normal_tools_exec;
+	ot->exec = edbm_normals_tools_exec;
 	ot->poll = ED_operator_editmesh_auto_smooth;
-	ot->ui = edbm_custom_normal_tools_ui;
+	ot->ui = edbm_normals_tools_ui;
 
 	/* flags */
 	ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
@@ -7168,8 +7158,8 @@ static int edbm_set_normals_from_faces_exec(bContext *C, wmOperator *op)
 void MESH_OT_set_normals_from_faces(struct wmOperatorType *ot)
 {
 	/* identifiers */
-	ot->name = "Set Normals from faces";
-	ot->description = "Set the custom vertex normals from the selected faces ones";
+	ot->name = "Set Normals From Faces";
+	ot->description = "Set the custom normals from the selected faces ones";
 	ot->idname = "MESH_OT_set_normals_from_faces";
 
 	/* api callbacks */
@@ -7237,12 +7227,12 @@ static int edbm_smoothen_normals_exec(bContext *C, wmOperator *op)
 	return OPERATOR_FINISHED;
 }
 
-void MESH_OT_smoothen_custom_normals(struct wmOperatorType *ot)
+void MESH_OT_smoothen_normals(struct wmOperatorType *ot)
 {
 	/* identifiers */
-	ot->name = "Smoothen Custom Normal";
-	ot->description = "Smoothen custom normal based on adjacent vertex normals";
-	ot->idname = "MESH_OT_smoothen_custom_normals";
+	ot->name = "Smoothen Normals";
+	ot->description = "Smoothen custom normals based on adjacent vertex normals";
+	ot->idname = "MESH_OT_smoothen_normals";
 
 	/* api callbacks */
 	ot->exec = edbm_smoothen_normals_exec;

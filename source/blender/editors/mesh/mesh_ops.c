@@ -193,12 +193,12 @@ void ED_operatortypes_mesh(void)
 	WM_operatortype_append(MESH_OT_symmetry_snap);
 
 	WM_operatortype_append(MESH_OT_point_normals);
-	WM_operatortype_append(MESH_OT_merge_loop_normals);
-	WM_operatortype_append(MESH_OT_split_loop_normals);
-	WM_operatortype_append(MESH_OT_custom_normal_tools);
+	WM_operatortype_append(MESH_OT_merge_normals);
+	WM_operatortype_append(MESH_OT_split_normals);
+	WM_operatortype_append(MESH_OT_normals_tools);
 	WM_operatortype_append(MESH_OT_set_normals_from_faces);
-	WM_operatortype_append(MESH_OT_average_loop_normals);
-	WM_operatortype_append(MESH_OT_smoothen_custom_normals);
+	WM_operatortype_append(MESH_OT_average_normals);
+	WM_operatortype_append(MESH_OT_smoothen_normals);
 	WM_operatortype_append(MESH_OT_mod_weighted_strength);
 
 #ifdef WITH_GAMEENGINE
