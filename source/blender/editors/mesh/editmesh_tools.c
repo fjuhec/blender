@@ -6076,6 +6076,8 @@ wmKeyMap *point_normals_modal_keymap(wmKeyConfig *keyconf)
 	return keymap;
 }
 
+#define CLNORS_VALID_VEC_LEN (1e-4f)
+
 /********************** 'Point to' Loop Normals **********************/
 
 enum {
@@ -6204,7 +6206,7 @@ static void point_normals_apply(bContext *C, wmOperator *op, float target[3], co
 		if (do_invert && !do_reset) {
 			negate_v3(lnor_ed->nloc);
 		}
-		if (normalize_v3(lnor_ed->nloc) != 0.0f) {
+		if (normalize_v3(lnor_ed->nloc) >= CLNORS_VALID_VEC_LEN) {
 			BKE_lnor_space_custom_normal_to_data(
 			            bm->lnor_spacearr->lspacearr[lnor_ed->loop_index], lnor_ed->nloc, lnor_ed->clnors_data);
 		}
@@ -6562,7 +6564,8 @@ static void normals_merge(BMesh *bm, BMLoopNorEditDataArray *lnors_ed_arr)
 				BLI_SMALLSTACK_PUSH(clnors, lnor_ed_tmp->clnors_data);
 				BM_elem_flag_enable(l, BM_ELEM_TAG);
 			}
-			if (normalize_v3(avg_normal) < 1e-4f) {  /* If avg normal is nearly 0, set clnor to default value. */
+			if (normalize_v3(avg_normal) < CLNORS_VALID_VEC_LEN) {
+				/* If avg normal is nearly 0, set clnor to default value. */
 				zero_v3(avg_normal);
 			}
 			while ((clnors_data = BLI_SMALLSTACK_POP(clnors))) {
@@ -6622,7 +6625,10 @@ static void normals_split(BMesh *bm)
 						}
 						lfan_pivot = lfan_pivot_next;
 					}
-					normalize_v3(avg_normal);
+					if (normalize_v3(avg_normal) < CLNORS_VALID_VEC_LEN) {
+						/* If avg normal is nearly 0, set clnor to default value. */
+						zero_v3(avg_normal);
+					}
 					while ((l = BLI_SMALLSTACK_POP(loops))) {
 						const int l_index = BM_elem_index_get(l);
 						short *clnors = BM_ELEM_CD_GET_VOID_P(l, cd_clnors_offset);
@@ -6836,8 +6842,10 @@ static int edbm_average_normals_exec(bContext *C, wmOperator *op)
 						add_v3_v3(avg_normal, wnor);
 					}
 
-					normalize_v3(avg_normal);
-
+					if (normalize_v3(avg_normal) < CLNORS_VALID_VEC_LEN) {
+						/* If avg normal is nearly 0, set clnor to default value. */
+						zero_v3(avg_normal);
+					}
 					while ((l = BLI_SMALLSTACK_POP(loops))) {
 						const int l_index = BM_elem_index_get(l);
 						short *clnors = BM_ELEM_CD_GET_VOID_P(l, cd_clnors_offset);
@@ -6946,7 +6954,7 @@ static int edbm_normals_tools_exec(bContext *C, wmOperator *op)
 	switch (mode) {
 		case EDBM_CLNOR_TOOLS_COPY:
 			if (bm->totfacesel != 1 && lnors_ed_arr->totloop != 1 && bm->totvertsel != 1) {
-				BKE_report(op->reports, RPT_ERROR, "Can only copy Split normal, Averaged vertex normal or Face normal");
+				BKE_report(op->reports, RPT_ERROR, "Can only copy custom normal, vertex normal or face normal");
 				BM_loop_normal_editdata_array_free(lnors_ed_arr);
 				return OPERATOR_CANCELLED;
 			}
@@ -6975,7 +6983,10 @@ static int edbm_normals_tools_exec(bContext *C, wmOperator *op)
 
 		case EDBM_CLNOR_TOOLS_PASTE:
 			if (!absolute) {
-				normalize_v3(normal_vector);
+				if (normalize_v3(normal_vector) < CLNORS_VALID_VEC_LEN) {
+					/* If normal is nearly 0, do nothing. */
+					break;
+				}
 			}
 			for (int i = 0; i < lnors_ed_arr->totloop; i++, lnor_ed++) {
 				if (absolute) {
@@ -6983,12 +6994,17 @@ static int edbm_normals_tools_exec(bContext *C, wmOperator *op)
 					copy_v3_v3(abs_normal, lnor_ed->loc);
 					negate_v3(abs_normal);
 					add_v3_v3(abs_normal, normal_vector);
-					normalize_v3(abs_normal);
 
-					BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[lnor_ed->loop_index], abs_normal, lnor_ed->clnors_data);
+					if (normalize_v3(abs_normal) < CLNORS_VALID_VEC_LEN) {
+						/* If abs normal is nearly 0, set clnor to initial value. */
+						copy_v3_v3(abs_normal, lnor_ed->niloc);
+					}
+					BKE_lnor_space_custom_normal_to_data(
+					            bm->lnor_spacearr->lspacearr[lnor_ed->loop_index], abs_normal, lnor_ed->clnors_data);
 				}
 				else {
-					BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[lnor_ed->loop_index], normal_vector, lnor_ed->clnors_data);
+					BKE_lnor_space_custom_normal_to_data(
+					            bm->lnor_spacearr->lspacearr[lnor_ed->loop_index], normal_vector, lnor_ed->clnors_data);
 				}
 			}
 			break;
@@ -6996,24 +7012,34 @@ static int edbm_normals_tools_exec(bContext *C, wmOperator *op)
 		case EDBM_CLNOR_TOOLS_MULTIPLY:
 			for (int i = 0; i < lnors_ed_arr->totloop; i++, lnor_ed++) {
 				mul_v3_v3(lnor_ed->nloc, normal_vector);
-				normalize_v3(lnor_ed->nloc);
-				BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[lnor_ed->loop_index], lnor_ed->nloc, lnor_ed->clnors_data);
+
+				if (normalize_v3(lnor_ed->nloc) < CLNORS_VALID_VEC_LEN) {
+					/* If abs normal is nearly 0, set clnor to initial value. */
+					copy_v3_v3(lnor_ed->nloc, lnor_ed->niloc);
+				}
+				BKE_lnor_space_custom_normal_to_data(
+				            bm->lnor_spacearr->lspacearr[lnor_ed->loop_index], lnor_ed->nloc, lnor_ed->clnors_data);
 			}
 			break;
 
 		case EDBM_CLNOR_TOOLS_ADD:
 			for (int i = 0; i < lnors_ed_arr->totloop; i++, lnor_ed++) {
 				add_v3_v3(lnor_ed->nloc, normal_vector);
-				normalize_v3(lnor_ed->nloc);
-				BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[lnor_ed->loop_index], lnor_ed->nloc, lnor_ed->clnors_data);
+
+				if (normalize_v3(lnor_ed->nloc) < CLNORS_VALID_VEC_LEN) {
+					/* If abs normal is nearly 0, set clnor to initial value. */
+					copy_v3_v3(lnor_ed->nloc, lnor_ed->niloc);
+				}
+				BKE_lnor_space_custom_normal_to_data(
+				            bm->lnor_spacearr->lspacearr[lnor_ed->loop_index], lnor_ed->nloc, lnor_ed->clnors_data);
 			}
 			break;
 
 		case EDBM_CLNOR_TOOLS_RESET:
 			zero_v3(normal_vector);
 			for (int i = 0; i < lnors_ed_arr->totloop; i++, lnor_ed++) {
-				zero_v3(lnor_ed->nloc);
-				BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[lnor_ed->loop_index], lnor_ed->nloc, lnor_ed->clnors_data);
+				BKE_lnor_space_custom_normal_to_data(
+				            bm->lnor_spacearr->lspacearr[lnor_ed->loop_index], normal_vector, lnor_ed->clnors_data);
 			}
 			break;
 
@@ -7091,7 +7117,7 @@ static int edbm_set_normals_from_faces_exec(bContext *C, wmOperator *op)
 
 	BKE_editmesh_lnorspace_update(em);
 
-	float(*vnors)[3] = MEM_callocN(sizeof(*vnors) * bm->totvert, __func__);
+	float (*vnors)[3] = MEM_callocN(sizeof(*vnors) * bm->totvert, __func__);
 	BM_ITER_MESH(f, &fiter, bm, BM_FACES_OF_MESH) {
 		if (BM_elem_flag_test(f, BM_ELEM_SELECT)) {
 			BM_ITER_ELEM(v, &viter, f, BM_VERTS_OF_FACE) {
@@ -7101,8 +7127,8 @@ static int edbm_set_normals_from_faces_exec(bContext *C, wmOperator *op)
 		}
 	}
 	for (int i = 0; i < bm->totvert; i++) {
-		if (!is_zero_v3(vnors[i])) {
-			normalize_v3(vnors[i]);
+		if (!is_zero_v3(vnors[i]) && normalize_v3(vnors[i]) < CLNORS_VALID_VEC_LEN) {
+			zero_v3(vnors[i]);
 		}
 	}
 
@@ -7114,19 +7140,19 @@ static int edbm_set_normals_from_faces_exec(bContext *C, wmOperator *op)
 			if (!keep_sharp || (BM_elem_flag_test(e, BM_ELEM_SMOOTH) && BM_elem_flag_test(e, BM_ELEM_SELECT))) {
 				BM_ITER_ELEM(v, &viter, e, BM_VERTS_OF_EDGE) {
 					l = BM_face_vert_share_loop(f, v);
-					const int loop_index = BM_elem_index_get(l);
+					const int l_index = BM_elem_index_get(l);
 					const int v_index = BM_elem_index_get(l->v);
-					BLI_assert(l->f == f);
-					BLI_assert(l->v == v);
+
 					if (!is_zero_v3(vnors[v_index])) {
 						short *clnors = BM_ELEM_CD_GET_VOID_P(l, cd_clnors_offset);
-						BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[loop_index], vnors[v_index], clnors);
+						BKE_lnor_space_custom_normal_to_data(
+						            bm->lnor_spacearr->lspacearr[l_index], vnors[v_index], clnors);
 
-						if (bm->lnor_spacearr->lspacearr[loop_index]->flags & MLNOR_SPACE_IS_SINGLE) {
-							BLI_BITMAP_ENABLE(loop_set, loop_index);
+						if (bm->lnor_spacearr->lspacearr[l_index]->flags & MLNOR_SPACE_IS_SINGLE) {
+							BLI_BITMAP_ENABLE(loop_set, l_index);
 						}
 						else {
-							LinkNode *loops = bm->lnor_spacearr->lspacearr[loop_index]->loops;
+							LinkNode *loops = bm->lnor_spacearr->lspacearr[l_index]->loops;
 							for (; loops; loops = loops->next) {
 								BLI_BITMAP_ENABLE(loop_set, BM_elem_index_get((BMLoop *)loops->link));
 							}
@@ -7186,6 +7212,12 @@ static int edbm_smoothen_normals_exec(bContext *C, wmOperator *op)
 
 	float(*smooth_normal)[3] = MEM_callocN(sizeof(*smooth_normal) * lnors_ed_arr->totloop, __func__);
 
+	/* This is weird choice of operation, taking all loops of faces of current vertex... Could lead to some rather
+	 * far away loops weighting as much as very close ones (topologically speaking), with complex polygons.
+	 * Using topological distance here (rather than geometrical one) makes sense imho, but would rather go with
+	 * a more consistent and flexible code, we could even add max topological distance to take into account,
+	 * and a weighting curve...
+	 * Would do that later though, think for now we can live with that choice. --mont29 */
 	BMLoopNorEditData *lnor_ed = lnors_ed_arr->lnor_editdata;
 	for (int i = 0; i < lnors_ed_arr->totloop; i++, lnor_ed++) {
 		l = lnor_ed->loop;
@@ -7194,13 +7226,12 @@ static int edbm_smoothen_normals_exec(bContext *C, wmOperator *op)
 		BM_ITER_ELEM(f, &fiter, l->v, BM_FACES_OF_VERT) {
 			BMLoop *l_other;
 			BM_ITER_ELEM(l_other, &liter, f, BM_LOOPS_OF_FACE) {
-				const int index_other = BM_elem_index_get(l_other);
+				const int l_index_other = BM_elem_index_get(l_other);
 				short *clnors = BM_ELEM_CD_GET_VOID_P(l_other, lnors_ed_arr->cd_custom_normal_offset);
-				BKE_lnor_space_custom_data_to_normal(bm->lnor_spacearr->lspacearr[index_other], clnors, loop_normal);
+				BKE_lnor_space_custom_data_to_normal(bm->lnor_spacearr->lspacearr[l_index_other], clnors, loop_normal);
 				add_v3_v3(smooth_normal[i], loop_normal);
 			}
 		}
-		normalize_v3(smooth_normal[i]);
 	}
 
 	const float factor = RNA_float_get(op->ptr, "factor");
@@ -7209,14 +7240,27 @@ static int edbm_smoothen_normals_exec(bContext *C, wmOperator *op)
 	for (int i = 0; i < lnors_ed_arr->totloop; i++, lnor_ed++) {
 		float current_normal[3];
 
-		BKE_lnor_space_custom_data_to_normal(bm->lnor_spacearr->lspacearr[lnor_ed->loop_index], lnor_ed->clnors_data, current_normal);
+		if (normalize_v3(smooth_normal[i]) < CLNORS_VALID_VEC_LEN) {
+			/* Skip in case smoothen normal is invalid... */
+			continue;
+		}
 
+		BKE_lnor_space_custom_data_to_normal(
+		            bm->lnor_spacearr->lspacearr[lnor_ed->loop_index], lnor_ed->clnors_data, current_normal);
+
+		/* Note: again, this is not true spherical interpolation that normals would need...
+		 * But it's probably good enough for now. */
 		mul_v3_fl(current_normal, 1.0f - factor);
 		mul_v3_fl(smooth_normal[i], factor);
 		add_v3_v3(current_normal, smooth_normal[i]);
-		normalize_v3(current_normal);
 
-		BKE_lnor_space_custom_normal_to_data(bm->lnor_spacearr->lspacearr[lnor_ed->loop_index], current_normal, lnor_ed->clnors_data);
+		if (normalize_v3(current_normal) < CLNORS_VALID_VEC_LEN) {
+			/* Skip in case smoothen normal is invalid... */
+			continue;
+		}
+
+		BKE_lnor_space_custom_normal_to_data(
+		            bm->lnor_spacearr->lspacearr[lnor_ed->loop_index], current_normal, lnor_ed->clnors_data);
 	}
 
 	BM_loop_normal_editdata_array_free(lnors_ed_arr);
