@@ -61,6 +61,7 @@
 #include "BKE_report.h"
 #include "BKE_scene.h"
 #include "BKE_editmesh.h"
+#include "BKE_layer.h"
 
 #include "DEG_depsgraph.h"
 
@@ -202,6 +203,19 @@ static bool uvedit_have_selection(Scene *scene, BMEditMesh *em, bool implicit)
 	return false;
 }
 
+static bool uvedit_have_selection_multi(Scene *scene, ViewLayer *view_layer, bool implicit)
+{
+	bool have_select = false;
+	FOREACH_OBJECT_IN_EDIT_MODE_BEGIN (view_layer, ob_iter) {
+		BMEditMesh *em = BKE_editmesh_from_object(ob_iter);
+		if (uvedit_have_selection(scene, em, implicit)) {
+			have_select = true;
+			break;
+		}
+	} FOREACH_OBJECT_IN_EDIT_MODE_END;
+	return have_select;
+}
+
 void ED_uvedit_get_aspect(Scene *scene, Object *ob, BMesh *bm, float *aspx, float *aspy)
 {
 	bool sloppy = true;
@@ -258,9 +272,10 @@ static void construct_param_handle_face_add(ParamHandle *handle, Scene *scene,
 	param_face_add(handle, key, i, vkeys, co, uv, pin, select, efa->no);
 }
 
-static ParamHandle *construct_param_handle(Scene *scene, Object *ob, BMesh *bm,
-                                           const bool implicit, const bool fill, const bool sel,
-                                           const bool correct_aspect)
+static ParamHandle *construct_param_handle_single(
+        Scene *scene, Object *ob, BMesh *bm,
+        const bool implicit, const bool fill, const bool sel,
+        const bool correct_aspect)
 {
 	ParamHandle *handle;
 	BMFace *efa;
@@ -318,6 +333,91 @@ static ParamHandle *construct_param_handle(Scene *scene, Object *ob, BMesh *bm,
 			}
 		}
 	}
+
+	param_construct_end(handle, fill, implicit);
+
+	return handle;
+}
+
+/**
+ * Version of #construct_param_handle_single that handles multiple objects.
+ */
+static ParamHandle *construct_param_handle_multi(
+        Scene *scene, ViewLayer *view_layer,
+        const bool implicit, const bool fill, const bool sel,
+        const bool correct_aspect)
+{
+	ParamHandle *handle;
+	BMFace *efa;
+	BMLoop *l;
+	BMEdge *eed;
+	BMIter iter, liter;
+	int i;
+
+
+	handle = param_construct_begin();
+
+	if (correct_aspect) {
+		Object *ob = OBACT(view_layer);
+		BMEditMesh *em = BKE_editmesh_from_object(ob);
+		BMesh *bm = em->bm;
+		float aspx, aspy;
+
+		ED_uvedit_get_aspect(scene, ob, bm, &aspx, &aspy);
+
+		if (aspx != aspy)
+			param_aspect_ratio(handle, aspx, aspy);
+	}
+
+	/* we need the vert indices */
+	EDBM_mesh_elem_index_ensure_multi(view_layer, BM_VERT);
+
+	int offset = 0;
+
+	/* no indent, avoid diff noise */
+	FOREACH_OBJECT_IN_EDIT_MODE_BEGIN (view_layer, ob_iter) {
+	BMEditMesh *em = BKE_editmesh_from_object(ob_iter);
+	BMesh *bm = em->bm;
+
+	const int cd_loop_uv_offset = CustomData_get_offset(&bm->ldata, CD_MLOOPUV);
+
+	BM_ITER_MESH_INDEX (efa, &iter, bm, BM_FACES_OF_MESH, i) {
+
+		if ((BM_elem_flag_test(efa, BM_ELEM_HIDDEN)) || (sel && BM_elem_flag_test(efa, BM_ELEM_SELECT) == 0)) {
+			continue;
+		}
+
+		if (implicit) {
+			bool is_loopsel = false;
+
+			BM_ITER_ELEM (l, &liter, efa, BM_LOOPS_OF_FACE) {
+				if (uvedit_uv_select_test(scene, l, cd_loop_uv_offset)) {
+					is_loopsel = true;
+					break;
+				}
+			}
+			if (is_loopsel == false) {
+				continue;
+			}
+		}
+
+		construct_param_handle_face_add(handle, scene, efa, i + offset, cd_loop_uv_offset);
+	}
+
+	if (!implicit) {
+		BM_ITER_MESH (eed, &iter, bm, BM_EDGES_OF_MESH) {
+			if (BM_elem_flag_test(eed, BM_ELEM_SEAM)) {
+				ParamKey vkeys[2];
+				vkeys[0] = (ParamKey)BM_elem_index_get(eed->v1);
+				vkeys[1] = (ParamKey)BM_elem_index_get(eed->v2);
+				param_edge_set_seam(handle, vkeys);
+			}
+		}
+	}
+
+	offset += bm->totface;
+
+	} FOREACH_OBJECT_IN_EDIT_MODE_END;
 
 	param_construct_end(handle, fill, implicit);
 
@@ -535,7 +635,7 @@ static bool minimize_stretch_init(bContext *C, wmOperator *op)
 	ms->blend = RNA_float_get(op->ptr, "blend");
 	ms->iterations = RNA_int_get(op->ptr, "iterations");
 	ms->i = 0;
-	ms->handle = construct_param_handle(scene, obedit, em->bm, implicit, fill_holes, 1, 1);
+	ms->handle = construct_param_handle_single(scene, obedit, em->bm, implicit, fill_holes, 1, 1);
 	ms->lasttime = PIL_check_seconds_timer();
 
 	param_stretch_begin(ms->handle);
@@ -715,10 +815,20 @@ void UV_OT_minimize_stretch(wmOperatorType *ot)
 
 /* ******************** Pack Islands operator **************** */
 
-void ED_uvedit_pack_islands(Scene *scene, Object *ob, BMesh *bm, bool selected, bool correct_aspect, bool do_rotate)
+
+void ED_uvedit_pack_islands_single(Scene *scene, Object *ob, BMesh *bm, bool selected, bool correct_aspect, bool do_rotate)
 {
 	ParamHandle *handle;
-	handle = construct_param_handle(scene, ob, bm, true, false, selected, correct_aspect);
+	handle = construct_param_handle_single(scene, ob, bm, true, false, selected, correct_aspect);
+	param_pack(handle, scene->toolsettings->uvcalc_margin, do_rotate);
+	param_flush(handle);
+	param_delete(handle);
+}
+
+void ED_uvedit_pack_islands_multi(Scene *scene, ViewLayer *view_layer, bool selected, bool correct_aspect, bool do_rotate)
+{
+	ParamHandle *handle;
+	handle = construct_param_handle_multi(scene, view_layer, true, false, selected, correct_aspect);
 	param_pack(handle, scene->toolsettings->uvcalc_margin, do_rotate);
 	param_flush(handle);
 	param_delete(handle);
@@ -726,6 +836,7 @@ void ED_uvedit_pack_islands(Scene *scene, Object *ob, BMesh *bm, bool selected, 
 
 static int pack_islands_exec(bContext *C, wmOperator *op)
 {
+	ViewLayer *view_layer = CTX_data_view_layer(C);
 	Scene *scene = CTX_data_scene(C);
 	Object *obedit = CTX_data_edit_object(C);
 	BMEditMesh *em = BKE_editmesh_from_object(obedit);
@@ -740,7 +851,7 @@ static int pack_islands_exec(bContext *C, wmOperator *op)
 	else
 		RNA_float_set(op->ptr, "margin", scene->toolsettings->uvcalc_margin);
 
-	ED_uvedit_pack_islands(scene, obedit, em->bm, true, true, do_rotate);
+	ED_uvedit_pack_islands_multi(scene, view_layer, true, true, do_rotate);
 	
 	DEG_id_tag_update(obedit->data, 0);
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
@@ -780,7 +891,7 @@ static int average_islands_scale_exec(bContext *C, wmOperator *UNUSED(op))
 		return OPERATOR_CANCELLED;
 	}
 
-	handle = construct_param_handle(scene, obedit, em->bm, implicit, 0, 1, 1);
+	handle = construct_param_handle_single(scene, obedit, em->bm, implicit, 0, 1, 1);
 	param_average(handle);
 	param_flush(handle);
 	param_delete(handle);
@@ -825,7 +936,7 @@ void ED_uvedit_live_unwrap_begin(Scene *scene, Object *obedit)
 	if (use_subsurf)
 		liveHandle = construct_param_handle_subsurfed(scene, obedit, em, fillholes, false, true);
 	else
-		liveHandle = construct_param_handle(scene, obedit, em->bm, false, fillholes, false, true);
+		liveHandle = construct_param_handle_single(scene, obedit, em->bm, false, fillholes, false, true);
 
 	param_lscm_begin(liveHandle, PARAM_TRUE, abf);
 }
@@ -856,7 +967,7 @@ void ED_uvedit_live_unwrap(Scene *scene, Object *obedit)
 	if (scene->toolsettings->edge_mode_live_unwrap &&
 	    CustomData_has_layer(&em->bm->ldata, CD_MLOOPUV))
 	{
-		ED_unwrap_lscm(scene, obedit, false); /* unwrap all not just sel */
+		ED_unwrap_lscm(scene, obedit, false, false); /* unwrap all not just sel */
 	}
 }
 
@@ -1178,7 +1289,7 @@ static void uv_map_clip_correct(Scene *scene, Object *ob, BMEditMesh *em, wmOper
 /* ******************** Unwrap operator **************** */
 
 /* assumes UV Map is checked, doesn't run update funcs */
-void ED_unwrap_lscm(Scene *scene, Object *obedit, const short sel)
+void ED_unwrap_lscm(Scene *scene, Object *obedit, const short sel, const bool pack)
 {
 	BMEditMesh *em = BKE_editmesh_from_object(obedit);
 	ParamHandle *handle;
@@ -1192,14 +1303,17 @@ void ED_unwrap_lscm(Scene *scene, Object *obedit, const short sel)
 	if (use_subsurf)
 		handle = construct_param_handle_subsurfed(scene, obedit, em, fill_holes, sel, correct_aspect);
 	else
-		handle = construct_param_handle(scene, obedit, em->bm, false, fill_holes, sel, correct_aspect);
+		handle = construct_param_handle_single(scene, obedit, em->bm, false, fill_holes, sel, correct_aspect);
 
 	param_lscm_begin(handle, PARAM_FALSE, scene->toolsettings->unwrapper == 0);
 	param_lscm_solve(handle);
 	param_lscm_end(handle);
 
 	param_average(handle);
-	param_pack(handle, scene->toolsettings->uvcalc_margin, false);
+
+	if (pack) {
+		param_pack(handle, scene->toolsettings->uvcalc_margin, false);
+	}
 
 	param_flush(handle);
 
@@ -1208,33 +1322,42 @@ void ED_unwrap_lscm(Scene *scene, Object *obedit, const short sel)
 
 static int unwrap_exec(bContext *C, wmOperator *op)
 {
+	ViewLayer *view_layer = CTX_data_view_layer(C);
 	Scene *scene = CTX_data_scene(C);
-	Object *obedit = CTX_data_edit_object(C);
-	BMEditMesh *em = BKE_editmesh_from_object(obedit);
+#if 0
+	 Object *obedit = CTX_data_edit_object(C);
+	 BMEditMesh *em = BKE_editmesh_from_object(obedit);
+#endif
+
 	int method = RNA_enum_get(op->ptr, "method");
 	const bool fill_holes = RNA_boolean_get(op->ptr, "fill_holes");
 	const bool correct_aspect = RNA_boolean_get(op->ptr, "correct_aspect");
 	const bool use_subsurf = RNA_boolean_get(op->ptr, "use_subsurf_data");
+#if 0
 	bool use_subsurf_final;
+#endif
 	float obsize[3];
 	bool implicit = false;
 
-	if (!uvedit_have_selection(scene, em, implicit)) {
-		return OPERATOR_CANCELLED;
-	}
-	
-	/* add uvs if they don't exist yet */
-	if (!ED_uvedit_ensure_uvs(C, scene, obedit)) {
+	if (!uvedit_have_selection_multi(scene, view_layer, implicit)) {
 		return OPERATOR_CANCELLED;
 	}
 
-	mat4_to_size(obsize, obedit->obmat);
-	if (!(fabsf(obsize[0] - obsize[1]) < 1e-4f && fabsf(obsize[1] - obsize[2]) < 1e-4f))
-		BKE_report(op->reports, RPT_INFO,
-		           "Object has non-uniform scale, unwrap will operate on a non-scaled version of the mesh");
-	else if (is_negative_m4(obedit->obmat))
-		BKE_report(op->reports, RPT_INFO,
-		           "Object has negative scale, unwrap will operate on a non-flipped version of the mesh");
+	/* add uvs if they don't exist yet */
+	FOREACH_OBJECT_IN_EDIT_MODE_BEGIN (view_layer, ob_iter) {
+		if (!ED_uvedit_ensure_uvs(C, scene, ob_iter)) {
+			continue;
+		}
+
+		mat4_to_size(obsize, ob_iter->obmat);
+		if (!(fabsf(obsize[0] - obsize[1]) < 1e-4f && fabsf(obsize[1] - obsize[2]) < 1e-4f))
+			BKE_report(op->reports, RPT_INFO,
+			           "Object has non-uniform scale, unwrap will operate on a non-scaled version of the mesh");
+		else if (is_negative_m4(ob_iter->obmat))
+			BKE_report(op->reports, RPT_INFO,
+			           "Object has negative scale, unwrap will operate on a non-flipped version of the mesh");
+	} FOREACH_OBJECT_IN_EDIT_MODE_END;
+
 
 	/* remember last method for live unwrap */
 	if (RNA_struct_property_is_set(op->ptr, "method"))
@@ -1257,17 +1380,22 @@ static int unwrap_exec(bContext *C, wmOperator *op)
 	if (use_subsurf) scene->toolsettings->uvcalc_flag |= UVCALC_USESUBSURF;
 	else scene->toolsettings->uvcalc_flag &= ~UVCALC_USESUBSURF;
 
+#if 0
 	/* double up the check here but better keep ED_unwrap_lscm interface simple and not
 	 * pass operator for warning append */
 	modifier_unwrap_state(obedit, scene, &use_subsurf_final);
 	if (use_subsurf != use_subsurf_final)
 		BKE_report(op->reports, RPT_INFO, "Subdivision Surface modifier needs to be first to work with unwrap");
+#endif
 
 	/* execute unwrap */
-	ED_unwrap_lscm(scene, obedit, true);
+	FOREACH_OBJECT_IN_EDIT_MODE_BEGIN (view_layer, ob_iter) {
+		ED_unwrap_lscm(scene, ob_iter, true, false);
+		DEG_id_tag_update(ob_iter->data, 0);
+		WM_event_add_notifier(C, NC_GEOM | ND_DATA, ob_iter->data);
+	} FOREACH_OBJECT_IN_EDIT_MODE_END;
 
-	DEG_id_tag_update(obedit->data, 0);
-	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
+	ED_uvedit_pack_islands_multi(scene, view_layer, true, true, true);
 
 	return OPERATOR_FINISHED;
 }
@@ -1322,9 +1450,8 @@ static int uv_from_view_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSE
 
 static int uv_from_view_exec(bContext *C, wmOperator *op)
 {
+	ViewLayer *view_layer = CTX_data_view_layer(C);
 	Scene *scene = CTX_data_scene(C);
-	Object *obedit = CTX_data_edit_object(C);
-	BMEditMesh *em = BKE_editmesh_from_object(obedit);
 	ARegion *ar = CTX_wm_region(C);
 	View3D *v3d = CTX_wm_view3d(C);
 	RegionView3D *rv3d = CTX_wm_region_view3d(C);
@@ -1335,17 +1462,20 @@ static int uv_from_view_exec(bContext *C, wmOperator *op)
 	MLoopUV *luv;
 	float rotmat[4][4];
 
-	int cd_loop_uv_offset;
+
+	/* TODO(multimode), bounds accounting for all objects  */
+	FOREACH_OBJECT_IN_EDIT_MODE_BEGIN (view_layer, ob_iter) {
+	BMEditMesh *em = BKE_editmesh_from_object(ob_iter);
 
 	/* add uvs if they don't exist yet */
-	if (!ED_uvedit_ensure_uvs(C, scene, obedit)) {
-		return OPERATOR_CANCELLED;
+	if (!ED_uvedit_ensure_uvs(C, scene, ob_iter)) {
+		continue;
 	}
 
-	cd_loop_uv_offset = CustomData_get_offset(&em->bm->ldata, CD_MLOOPUV);
+	const int cd_loop_uv_offset = CustomData_get_offset(&em->bm->ldata, CD_MLOOPUV);
 
 	if (RNA_boolean_get(op->ptr, "orthographic")) {
-		uv_map_rotation_matrix(rotmat, rv3d, obedit, 90.0f, 0.0f, 1.0f);
+		uv_map_rotation_matrix(rotmat, rv3d, ob_iter, 90.0f, 0.0f, 1.0f);
 		
 		BM_ITER_MESH (efa, &iter, em->bm, BM_FACES_OF_MESH) {
 			if (!BM_elem_flag_test(efa, BM_ELEM_SELECT))
@@ -1359,7 +1489,7 @@ static int uv_from_view_exec(bContext *C, wmOperator *op)
 	}
 	else if (camera) {
 		const bool camera_bounds = RNA_boolean_get(op->ptr, "camera_bounds");
-		struct ProjCameraInfo *uci = BLI_uvproject_camera_info(v3d->camera, obedit->obmat,
+		struct ProjCameraInfo *uci = BLI_uvproject_camera_info(v3d->camera, ob_iter->obmat,
 		                                                       camera_bounds ? (scene->r.xsch * scene->r.xasp) : 1.0f,
 		                                                       camera_bounds ? (scene->r.ysch * scene->r.yasp) : 1.0f);
 
@@ -1378,7 +1508,7 @@ static int uv_from_view_exec(bContext *C, wmOperator *op)
 		}
 	}
 	else {
-		copy_m4_m4(rotmat, obedit->obmat);
+		copy_m4_m4(rotmat, ob_iter->obmat);
 
 		BM_ITER_MESH (efa, &iter, em->bm, BM_FACES_OF_MESH) {
 			if (!BM_elem_flag_test(efa, BM_ELEM_SELECT))
@@ -1391,10 +1521,12 @@ static int uv_from_view_exec(bContext *C, wmOperator *op)
 		}
 	}
 
-	uv_map_clip_correct(scene, obedit, em, op);
+	uv_map_clip_correct(scene, ob_iter, em, op);
 
-	DEG_id_tag_update(obedit->data, 0);
-	WM_event_add_notifier(C, NC_GEOM | ND_DATA, obedit->data);
+	DEG_id_tag_update(ob_iter->data, 0);
+	WM_event_add_notifier(C, NC_GEOM | ND_DATA, ob_iter->data);
+	
+	} FOREACH_OBJECT_IN_MODE_END;
 
 	return OPERATOR_FINISHED;
 }

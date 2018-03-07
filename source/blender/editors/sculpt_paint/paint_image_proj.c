@@ -5901,6 +5901,7 @@ void PAINT_OT_delete_texture_paint_slot(wmOperatorType *ot)
 static int add_simple_uvs_exec(bContext *C, wmOperator *UNUSED(op))
 {
 	/* no checks here, poll function does them for us */
+	ViewLayer *view_layer = CTX_data_view_layer(C);	
 	Object *ob = CTX_data_active_object(C);
 	Scene *scene = CTX_data_scene(C);
 	Mesh *me = ob->data;
@@ -5924,7 +5925,7 @@ static int add_simple_uvs_exec(bContext *C, wmOperator *UNUSED(op))
 	ED_uvedit_unwrap_cube_project(bm, 1.0, false, NULL);
 	/* set the margin really quickly before the packing operation*/
 	scene->toolsettings->uvcalc_margin = 0.001f;
-	ED_uvedit_pack_islands(scene, ob, bm, false, false, true);
+	ED_uvedit_pack_islands_multi(scene, view_layer, false, false, true); /* XXX, other code here isn't operating on all objects */
 	BM_mesh_bm_to_me(bm, me, (&(struct BMeshToMeshParams){0}));
 	BM_mesh_free(bm);
 

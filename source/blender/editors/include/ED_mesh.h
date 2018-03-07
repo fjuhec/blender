@@ -63,6 +63,7 @@ struct UvMapVert;
 struct ToolSettings;
 struct Object;
 struct rcti;
+struct ViewLayer;
 
 /* editmesh_utils.c */
 void           EDBM_verts_mirror_cache_begin_ex(struct BMEditMesh *em, const int axis,
@@ -81,7 +82,7 @@ void EDBM_mesh_normals_update(struct BMEditMesh *em);
 void EDBM_mesh_clear(struct BMEditMesh *em);
 
 void EDBM_selectmode_to_scene(struct bContext *C);
-void EDBM_mesh_make(struct ToolSettings *ts, struct Object *ob, const bool add_key_index);
+void EDBM_mesh_make(struct Object *ob, const int select_mode, const bool add_key_index);
 void EDBM_mesh_free(struct BMEditMesh *em);
 void EDBM_mesh_load(struct Object *ob);
 struct DerivedMesh *EDBM_mesh_deform_dm_get(struct BMEditMesh *em);
@@ -337,6 +338,9 @@ bool ED_mesh_pick_face_vert(struct bContext *C, struct Object *ob, const int mva
 struct MDeformVert *ED_mesh_active_dvert_get_em(struct Object *ob, struct BMVert **r_eve);
 struct MDeformVert *ED_mesh_active_dvert_get_ob(struct Object *ob, int *r_index);
 struct MDeformVert *ED_mesh_active_dvert_get_only(struct Object *ob);
+
+void EDBM_mesh_stats_multi(struct ViewLayer *view_layer, int totelem[3], int totelem_sel[3]);
+void EDBM_mesh_elem_index_ensure_multi(struct ViewLayer *view_layer, const char htype);
 
 #define ED_MESH_PICK_DEFAULT_VERT_SIZE 50
 #define ED_MESH_PICK_DEFAULT_FACE_SIZE 3

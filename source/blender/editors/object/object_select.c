@@ -152,7 +152,7 @@ void ED_object_base_activate(bContext *C, Base *base)
 			CTX_data_eval_ctx(C, &eval_ctx);
 			FOREACH_OBJECT_BEGIN(view_layer, ob) {
 				if (ob != obact) {
-					if (ED_object_mode_generic_has_data(&eval_ctx, ob) &&
+					if (BKE_object_has_mode_data(ob, eval_ctx.object_mode) &&
 					    ED_workspace_object_mode_in_other_window(wm, win, ob, NULL) == false)
 					{
 						ED_object_mode_generic_exit(&eval_ctx, workspace, scene, ob);

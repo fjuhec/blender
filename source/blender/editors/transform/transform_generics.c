@@ -82,6 +82,7 @@
 #include "BKE_tracking.h"
 #include "BKE_mask.h"
 #include "BKE_workspace.h"
+#include "BKE_layer.h"
 
 #include "DEG_depsgraph.h"
 
@@ -756,7 +757,6 @@ static void recalcData_objects(TransInfo *t)
 			if (la->editlatt->latt->flag & LT_OUTSIDE) outside_lattice(la->editlatt->latt);
 		}
 		else if (t->obedit->type == OB_MESH) {
-			BMEditMesh *em = BKE_editmesh_from_object(t->obedit);
 			/* mirror modifier clipping? */
 			if (t->state != TRANS_CANCEL) {
 				/* apply clipping after so we never project past the clip plane [#25423] */
@@ -773,10 +773,12 @@ static void recalcData_objects(TransInfo *t)
 				projectVertSlideData(t, false);
 			}
 
-			DEG_id_tag_update(t->obedit->data, 0);  /* sets recalc flags */
-			
-			EDBM_mesh_normals_update(em);
-			BKE_editmesh_tessface_calc(em);
+			FOREACH_OBJECT_IN_EDIT_MODE_BEGIN (t->eval_ctx.view_layer, ob_iter) {
+				DEG_id_tag_update(ob_iter->data, 0);  /* sets recalc flags */
+				BMEditMesh *em = BKE_editmesh_from_object(ob_iter);
+				EDBM_mesh_normals_update(em);
+				BKE_editmesh_tessface_calc(em);
+			} FOREACH_OBJECT_IN_EDIT_MODE_END;
 		}
 		else if (t->obedit->type == OB_ARMATURE) { /* no recalc flag, does pose */
 			bArmature *arm = t->obedit->data;

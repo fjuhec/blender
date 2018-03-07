@@ -3995,7 +3995,7 @@ static int uv_mark_seam_exec(bContext *C, wmOperator *op)
 	me->drawflag |= ME_DRAWSEAMS;
 
 	if (scene->toolsettings->edge_mode_live_unwrap)
-		ED_unwrap_lscm(scene, ob, false);
+		ED_unwrap_lscm(scene, ob, false, false);
 
 	DEG_id_tag_update(&me->id, 0);
 	WM_event_add_notifier(C, NC_GEOM | ND_DATA, me);

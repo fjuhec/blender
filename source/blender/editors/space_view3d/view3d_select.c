@@ -121,6 +121,21 @@ void ED_view3d_viewcontext_init(bContext *C, ViewContext *vc)
 	vc->obedit = CTX_data_edit_object(C);
 }
 
+void ED_view3d_viewcontext_init_object(ViewContext *vc, Object *obact)
+{
+	vc->obact = obact;
+	if (vc->obedit) {
+		BLI_assert(BKE_object_is_in_editmode(obact));
+		vc->obedit = obact;
+		/* previous selections are now invalid. */
+		vc->v3d->flag |= V3D_INVALID_BACKBUF;
+
+		if (vc->em) {
+			vc->em = BKE_editmesh_from_object(vc->obedit);
+		}
+	}
+}
+
 /* ********************** view3d_select: selection manipulations ********************* */
 
 /* local prototypes */
@@ -2119,11 +2134,16 @@ static int view3d_borderselect_exec(bContext *C, wmOperator *op)
 	extend = RNA_boolean_get(op->ptr, "extend");
 	WM_operator_properties_border_to_rcti(op, &rect);
 
+	/* don't indent to avoid diff noise! */
+	FOREACH_OBJECT_IN_MODE_BEGIN (eval_ctx.view_layer, eval_ctx.object_mode, ob_iter) {
+	ED_view3d_viewcontext_init_object(&vc, ob_iter);
+	/* --- */
+
 	if (vc.obedit) {
 		switch (vc.obedit->type) {
 			case OB_MESH:
 				vc.em = BKE_editmesh_from_object(vc.obedit);
-				ret = do_mesh_box_select(&eval_ctx, &vc, &rect, select, extend);
+				ret |= do_mesh_box_select(&eval_ctx, &vc, &rect, select, extend);
 //			if (EM_texFaceCheck())
 				if (ret & OPERATOR_FINISHED) {
 					WM_event_add_notifier(C, NC_GEOM | ND_SELECT, vc.obedit->data);
@@ -2131,25 +2151,25 @@ static int view3d_borderselect_exec(bContext *C, wmOperator *op)
 				break;
 			case OB_CURVE:
 			case OB_SURF:
-				ret = do_nurbs_box_select(&vc, &rect, select, extend);
+				ret |= do_nurbs_box_select(&vc, &rect, select, extend);
 				if (ret & OPERATOR_FINISHED) {
 					WM_event_add_notifier(C, NC_GEOM | ND_SELECT, vc.obedit->data);
 				}
 				break;
 			case OB_MBALL:
-				ret = do_meta_box_select(&eval_ctx, &vc, &rect, select, extend);
+				ret |= do_meta_box_select(&eval_ctx, &vc, &rect, select, extend);
 				if (ret & OPERATOR_FINISHED) {
 					WM_event_add_notifier(C, NC_GEOM | ND_SELECT, vc.obedit->data);
 				}
 				break;
 			case OB_ARMATURE:
-				ret = do_armature_box_select(&eval_ctx, &vc, &rect, select, extend);
+				ret |= do_armature_box_select(&eval_ctx, &vc, &rect, select, extend);
 				if (ret & OPERATOR_FINISHED) {
 					WM_event_add_notifier(C, NC_OBJECT | ND_BONE_SELECT, vc.obedit);
 				}
 				break;
 			case OB_LATTICE:
-				ret = do_lattice_box_select(&vc, &rect, select, extend);
+				ret |= do_lattice_box_select(&vc, &rect, select, extend);
 				if (ret & OPERATOR_FINISHED) {
 					WM_event_add_notifier(C, NC_GEOM | ND_SELECT, vc.obedit->data);
 				}
@@ -2161,20 +2181,27 @@ static int view3d_borderselect_exec(bContext *C, wmOperator *op)
 	}
 	else {  /* no editmode, unified for bones and objects */
 		if (vc.obact && eval_ctx.object_mode & OB_MODE_SCULPT) {
-			ret = ED_sculpt_mask_box_select(C, &vc, &rect, select, extend);
+			ret |= ED_sculpt_mask_box_select(C, &vc, &rect, select, extend);
 		}
 		else if (vc.obact && BKE_paint_select_face_test(vc.obact, eval_ctx.object_mode)) {
-			ret = do_paintface_box_select(&eval_ctx, &vc, &rect, select, extend);
+			ret |= do_paintface_box_select(&eval_ctx, &vc, &rect, select, extend);
 		}
 		else if (vc.obact && BKE_paint_select_vert_test(vc.obact, eval_ctx.object_mode)) {
-			ret = do_paintvert_box_select(&eval_ctx, &vc, &rect, select, extend);
+			ret |= do_paintvert_box_select(&eval_ctx, &vc, &rect, select, extend);
 		}
 		else if (vc.obact && eval_ctx.object_mode & OB_MODE_PARTICLE_EDIT) {
-			ret = PE_border_select(C, &rect, select, extend);
+			ret |= PE_border_select(C, &rect, select, extend);
 		}
 		else { /* object mode with none active */
-			ret = do_object_pose_box_select(C, &vc, &rect, select, extend);
+			ret |= do_object_pose_box_select(C, &vc, &rect, select, extend);
 		}
+	}} FOREACH_OBJECT_IN_MODE_END;
+
+	if (ret & OPERATOR_FINISHED) {
+		ret = OPERATOR_FINISHED;
+	}
+	else {
+		ret = OPERATOR_CANCELLED;
 	}
 
 	return ret;
@@ -2813,9 +2840,6 @@ static bool object_circle_select(ViewContext *vc, const bool select, const int m
 static int view3d_circle_select_exec(bContext *C, wmOperator *op)
 {
 	ViewContext vc;
-	ED_view3d_viewcontext_init(C, &vc);
-	Object *obact = vc.obact;
-	Object *obedit = vc.obedit;
 	EvaluationContext eval_ctx;
 	CTX_data_eval_ctx(C, &eval_ctx);
 	const int radius = RNA_int_get(op->ptr, "radius");
@@ -2823,10 +2847,24 @@ static int view3d_circle_select_exec(bContext *C, wmOperator *op)
 	const int mval[2] = {RNA_int_get(op->ptr, "x"),
 	                     RNA_int_get(op->ptr, "y")};
 
+
+	ED_view3d_viewcontext_init(C, &vc);
+
+	Object *obact = vc.obact;
+	Object *obedit = vc.obedit;
+
 	if (obedit || BKE_paint_select_elem_test(obact, eval_ctx.object_mode) ||
 	    (obact && (eval_ctx.object_mode & (OB_MODE_PARTICLE_EDIT | OB_MODE_POSE))) )
 	{
 		view3d_operator_needs_opengl(C);
+
+		/* don't indent to avoid diff noise! */
+		FOREACH_OBJECT_IN_MODE_BEGIN (eval_ctx.view_layer, eval_ctx.object_mode, ob_iter) {
+		ED_view3d_viewcontext_init_object(&vc, ob_iter);
+		/* --- */
+
+		obact = vc.obact;
+		obedit = vc.obedit;
 
 		if (CTX_data_edit_object(C)) {
 			obedit_circle_select(&eval_ctx, &vc, select, mval, (float)radius);
@@ -2844,6 +2882,8 @@ static int view3d_circle_select_exec(bContext *C, wmOperator *op)
 			pose_circle_select(&vc, select, mval, (float)radius);
 		else
 			return PE_circle_select(C, select, mval, (float)radius);
+
+		} FOREACH_OBJECT_IN_MODE_END;
 	}
 	else if (obact && eval_ctx.object_mode & OB_MODE_SCULPT) {
 		return OPERATOR_CANCELLED;

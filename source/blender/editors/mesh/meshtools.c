@@ -62,6 +62,7 @@
 #include "BKE_report.h"
 #include "BKE_editmesh.h"
 #include "BKE_multires.h"
+#include "BKE_layer.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_build.h"
@@ -1381,4 +1382,44 @@ MDeformVert *ED_mesh_active_dvert_get_only(Object *ob)
 	else {
 		return NULL;
 	}
+}
+
+void EDBM_mesh_stats_multi(ViewLayer *view_layer, int totelem[3], int totelem_sel[3])
+{
+	if (totelem) {
+		totelem[0] = 0;
+		totelem[1] = 0;
+		totelem[2] = 0;
+	}
+	if (totelem_sel) {
+		totelem_sel[0] = 0;
+		totelem_sel[1] = 0;
+		totelem_sel[2] = 0;
+	}
+
+	FOREACH_OBJECT_IN_EDIT_MODE_BEGIN (view_layer, ob_iter) {
+		BMEditMesh *em = BKE_editmesh_from_object(ob_iter);
+		BMesh *bm = em->bm;
+		if (totelem) {
+			totelem[0] += bm->totvert;
+			totelem[1] += bm->totedge;
+			totelem[2] += bm->totface;
+		}
+		if (totelem_sel) {
+			totelem_sel[0] += bm->totvertsel;
+			totelem_sel[1] += bm->totedgesel;
+			totelem_sel[2] += bm->totfacesel;
+		}
+	} FOREACH_OBJECT_IN_EDIT_MODE_END;
+}
+
+
+void EDBM_mesh_elem_index_ensure_multi(ViewLayer *view_layer, const char htype)
+{
+	int elem_offset[4] = {0, 0, 0, 0};
+	FOREACH_OBJECT_IN_EDIT_MODE_BEGIN (view_layer, ob_iter) {
+		BMEditMesh *em = BKE_editmesh_from_object(ob_iter);
+		BMesh *bm = em->bm;
+		BM_mesh_elem_index_ensure_ex(bm, htype, elem_offset);
+	} FOREACH_OBJECT_IN_EDIT_MODE_END;
 }

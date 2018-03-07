@@ -87,6 +87,7 @@
 #include "BKE_report.h"
 #include "BKE_object.h"
 #include "BKE_workspace.h"
+#include "BKE_layer.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_build.h"
@@ -329,26 +330,12 @@ void ED_object_editmode_exit(bContext *C, int flag)
 	ED_object_editmode_exit_ex(C, workspace, scene, obedit, flag);
 }
 
-void ED_object_editmode_enter(bContext *C, int flag)
+void ED_object_editmode_enter_ex(WorkSpace *workspace, Scene *scene, Object *ob, int flag)
 {
-	WorkSpace *workspace = CTX_wm_workspace(C);
-	Scene *scene = CTX_data_scene(C);
-	ViewLayer *view_layer = CTX_data_view_layer(C);
-	Object *ob;
 	bool ok = false;
 
-	if (ID_IS_LINKED(scene)) return;
-
-	if ((flag & EM_IGNORE_LAYER) == 0) {
-		ob = CTX_data_active_object(C); /* active layer checked here for view3d */
-
-		if (ob == NULL) return;
-	}
-	else {
-		ob = view_layer->basact->object;
-	}
-
 	if (ELEM(NULL, ob, ob->data)) return;
+	if (ID_IS_LINKED(ob)) return;
 
 	/* this checks actual object->data, for cases when other scenes have it in editmode context */
 	if (BKE_object_is_in_editmode(ob))
@@ -361,21 +348,12 @@ void ED_object_editmode_enter(bContext *C, int flag)
 
 	if (flag & EM_WAITCURSOR) waitcursor(1);
 
-	workspace->object_mode_restore = workspace->object_mode;
-
-	/* note, when switching scenes the object can have editmode data but
-	 * not be scene->obedit: bug 22954, this avoids calling self eternally */
-	if ((workspace->object_mode_restore & OB_MODE_EDIT) == 0)
-		ED_object_mode_toggle(C, workspace->object_mode);
-
-	workspace->object_mode = OB_MODE_EDIT;
-
 	if (ob->type == OB_MESH) {
 		BMEditMesh *em;
 		ok = 1;
 		const bool use_key_index = mesh_needs_keyindex(ob->data);
 
-		EDBM_mesh_make(scene->toolsettings, ob, use_key_index);
+		EDBM_mesh_make(ob, scene->toolsettings->selectmode, use_key_index);
 
 		em = BKE_editmesh_from_object(ob);
 		if (LIKELY(em)) {
@@ -384,7 +362,7 @@ void ED_object_editmode_enter(bContext *C, int flag)
 			BKE_editmesh_tessface_calc(em);
 		}
 
-		WM_event_add_notifier(C, NC_SCENE | ND_MODE | NS_EDITMODE_MESH, scene);
+		WM_main_add_notifier(NC_SCENE | ND_MODE | NS_EDITMODE_MESH, NULL);
 	}
 	else if (ob->type == OB_ARMATURE) {
 		bArmature *arm = ob->data;
@@ -406,52 +384,73 @@ void ED_object_editmode_enter(bContext *C, int flag)
 		/* to ensure all goes in restposition and without striding */
 		DEG_id_tag_update(&ob->id, OB_RECALC_OB | OB_RECALC_DATA | OB_RECALC_TIME); /* XXX: should this be OB_RECALC_DATA? */
 
-		WM_event_add_notifier(C, NC_SCENE | ND_MODE | NS_EDITMODE_ARMATURE, scene);
+		WM_main_add_notifier(NC_SCENE | ND_MODE | NS_EDITMODE_ARMATURE, scene);
 	}
 	else if (ob->type == OB_FONT) {
 		ok = 1;
 		ED_curve_editfont_make(ob);
 
-		WM_event_add_notifier(C, NC_SCENE | ND_MODE | NS_EDITMODE_TEXT, scene);
+		WM_main_add_notifier(NC_SCENE | ND_MODE | NS_EDITMODE_TEXT, scene);
 	}
 	else if (ob->type == OB_MBALL) {
 		ok = 1;
 		ED_mball_editmball_make(ob);
 
-		WM_event_add_notifier(C, NC_SCENE | ND_MODE | NS_EDITMODE_MBALL, scene);
+		WM_main_add_notifier(NC_SCENE | ND_MODE | NS_EDITMODE_MBALL, scene);
 	}
 	else if (ob->type == OB_LATTICE) {
 		ok = 1;
 		ED_lattice_editlatt_make(ob);
 
-		WM_event_add_notifier(C, NC_SCENE | ND_MODE | NS_EDITMODE_LATTICE, scene);
+		WM_main_add_notifier(NC_SCENE | ND_MODE | NS_EDITMODE_LATTICE, scene);
 	}
 	else if (ob->type == OB_SURF || ob->type == OB_CURVE) {
 		ok = 1;
 		ED_curve_editnurb_make(ob);
 
-		WM_event_add_notifier(C, NC_SCENE | ND_MODE | NS_EDITMODE_CURVE, scene);
+		WM_main_add_notifier(NC_SCENE | ND_MODE | NS_EDITMODE_CURVE, scene);
 	}
 
 	if (ok) {
 		DEG_id_tag_update(&ob->id, OB_RECALC_DATA);
-		/* This way we ensure scene's obedit is copied into all CoW scenes.  */
-		DEG_id_tag_update(&scene->id, 0);
 	}
 	else {
-		workspace->object_mode &= ~OB_MODE_EDIT;
-		WM_event_add_notifier(C, NC_SCENE | ND_MODE | NS_MODE_OBJECT, scene);
+		if ((flag & EM_NO_CONTEXT) == 0) {
+			workspace->object_mode &= ~OB_MODE_EDIT;
+		}
+		WM_main_add_notifier(NC_SCENE | ND_MODE | NS_MODE_OBJECT, scene);
 	}
 
 	ED_workspace_object_mode_sync_from_object(G.main->wm.first, workspace, ob);
 
-	if (flag & EM_DO_UNDO) ED_undo_push(C, "Enter Editmode");
 	if (flag & EM_WAITCURSOR) waitcursor(0);
+	BLI_assert((flag & EM_DO_UNDO) == 0);
+}
+
+void ED_object_editmode_enter(bContext *C, int flag)
+{
+	WorkSpace *workspace = CTX_wm_workspace(C);
+	Scene *scene = CTX_data_scene(C);
+	ViewLayer *view_layer = CTX_data_view_layer(C);
+	Object *ob;
+
+	if ((flag & EM_IGNORE_LAYER) == 0) {
+		ob = CTX_data_active_object(C); /* active layer checked here for view3d */
+	}
+	else {
+		ob = view_layer->basact->object;
+	}
+	if (ob == NULL) return;
+	if (ID_IS_LINKED(ob)) return;
+
+	ED_object_editmode_enter_ex(workspace, scene, ob, flag);
+	if (flag & EM_DO_UNDO) ED_undo_push(C, "Enter Editmode");
 }
 
 static int editmode_toggle_exec(bContext *C, wmOperator *op)
 {
 	WorkSpace *workspace = CTX_wm_workspace(C);
+	ViewLayer *view_layer = CTX_data_view_layer(C);
 	const int mode_flag = OB_MODE_EDIT;
 	const bool is_mode_set = (CTX_data_edit_object(C) != NULL);
 	Scene *scene =  CTX_data_scene(C);
@@ -462,10 +461,34 @@ static int editmode_toggle_exec(bContext *C, wmOperator *op)
 		}
 	}
 
-	if (!is_mode_set)
+	if (!is_mode_set) {
+		Object *obact = view_layer->basact->object;
+
+		workspace->object_mode_restore = workspace->object_mode;
+
+		/* note, when switching scenes the object can have editmode data but
+		 * not be scene->obedit: bug 22954, this avoids calling self eternally */
+		if ((workspace->object_mode_restore & OB_MODE_EDIT) == 0) {
+			ED_object_mode_toggle(C, workspace->object_mode);
+		}
+		workspace->object_mode = OB_MODE_EDIT;
+
 		ED_object_editmode_enter(C, EM_WAITCURSOR);
-	else
+		if (workspace->object_mode & mode_flag) {
+			FOREACH_SELECTED_OBJECT_BEGIN(view_layer, ob)
+			{
+				if (ob != obact) {
+					if (ob->flag & SELECT) {
+						ED_object_editmode_enter_ex(workspace, scene, ob, EM_WAITCURSOR | EM_NO_CONTEXT);
+					}
+				}
+			}
+			FOREACH_SELECTED_OBJECT_END;
+		}
+	}
+	else {
 		ED_object_editmode_exit(C, EM_FREEDATA | EM_FREEUNDO | EM_WAITCURSOR);  /* had EM_DO_UNDO but op flag calls undo too [#24685] */
+	}
 	
 	ED_space_image_uv_sculpt_update(CTX_wm_manager(C), scene);
 
