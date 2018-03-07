@@ -492,6 +492,59 @@ static void gp_brush_angle(bGPdata *gpd, bGPDbrush *brush, tGPspoint *pt, const 
 
 }
 
+/* Apply smooth to buffer while drawing
+* to smooth point C, use 2 before (A, B) and current point (D):
+*
+*   A----B-----C------D
+*/
+static void gp_smooth_buffer(tGPsdata *p, float inf)
+{
+	bGPdata *gpd = p->gpd;
+	short num_points = gpd->sbuffer_size;
+
+	/* Do nothing if not enough points to smooth out */
+	if ((num_points < 3) && (inf > 0.0f)) {
+		return;
+	}
+
+	tGPspoint *points = (tGPspoint *)gpd->sbuffer;
+	float steps = 4.0f;
+	if (num_points < 4) {
+		steps--;
+	}
+	
+	tGPspoint *pta = num_points >= 4 ? &points[num_points - 4] : NULL;
+	tGPspoint *ptb = num_points >= 3 ? &points[num_points - 3] : NULL;
+	tGPspoint *ptc = num_points >= 2 ? &points[num_points - 2] : NULL;
+	tGPspoint *ptd = &points[num_points - 1];
+
+	float sco[2] = { 0.0f };
+	float a[2], b[2], c[2], d[2];
+	const float average_fac = 1.0f / steps;
+
+	/* Compute smoothed coordinate by taking the ones nearby */
+	if (pta) {
+		copy_v2fl_v2i(a, &pta->x);
+		madd_v2_v2fl(sco, a, average_fac);
+	}
+	if (ptb) {
+		copy_v2fl_v2i(b, &ptb->x);
+		madd_v2_v2fl(sco, b, average_fac);
+	}
+	if (ptc) {
+		copy_v2fl_v2i(c, &ptc->x);
+		madd_v2_v2fl(sco, c, average_fac);
+	}
+	if (ptd) {
+		copy_v2fl_v2i(d, &ptd->x);
+		madd_v2_v2fl(sco, d, average_fac);
+	}
+
+	/* Based on influence factor, blend between original and optimal smoothed coordinate */
+	interp_v2_v2v2(c, c, sco, inf);
+	round_v2i_v2fl(&ptc->x, c);
+}
+
 /* add current stroke-point to buffer (returns whether point was successfully added) */
 static short gp_stroke_addpoint(
         tGPsdata *p, const int mval[2], float pressure, double curtime)
@@ -655,6 +708,9 @@ static short gp_stroke_addpoint(
 
 		/* increment counters */
 		gpd->sbuffer_size++;
+
+		/* smooth while drawing previous point */
+		gp_smooth_buffer(p, 0.8f);
 
 		/* check if another operation can still occur */
 		if (gpd->sbuffer_size == GP_STROKE_BUFFER_MAX)
@@ -2701,8 +2757,8 @@ static void gpencil_add_missing_events(bContext *C, wmOperator *op, const wmEven
 		scale = defaultpixsize;
 	}
 
-	/* The thickness of the brush is reduced at 50 % of thickness to get overlap dots */ 
-	float factor = ((thickness * 0.50f) / scale) * samples;
+	/* The thickness of the brush is reduced of thickness to get overlap dots */ 
+	float factor = ((thickness * 0.40f) / scale) * samples;
 
 	copy_v2fl_v2i(a, p->mvalo);
 	b[0] = event->mval[0] + 1;

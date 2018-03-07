@@ -141,7 +141,7 @@ typedef struct bGPDbrush {
 	int   input_samples;      /* maximum distance before generate new point for very fast mouse movements */
 	int   type;               /* type of brush (draw, fill, erase, etc..) */
 	int   eraser_mode;        /* soft, hard or stroke */
-	char  pad[4];
+	float active_smooth;      /* smooth while drawing factor */
 } bGPDbrush;
 
 /* bGPDbrush->flag */
