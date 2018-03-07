@@ -220,7 +220,7 @@ void BKE_gpencil_simplify_fixed(struct bGPDlayer *gpl, struct bGPDstroke *gps);
 
 void BKE_gpencil_transform(struct bGPdata *gpd, float mat[4][4]);
 
-bool BKE_gp_smooth_stroke(struct bGPDstroke *gps, int i, float inf, bool affect_pressure);
+bool BKE_gp_smooth_stroke(struct bGPDstroke *gps, int i, float inf);
 bool BKE_gp_smooth_stroke_strength(struct bGPDstroke *gps, int i, float inf);
 bool BKE_gp_smooth_stroke_thickness(struct bGPDstroke *gps, int i, float inf);
 bool BKE_gp_smooth_stroke_uv(struct bGPDstroke *gps, int i, float inf);

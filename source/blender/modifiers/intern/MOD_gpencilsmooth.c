@@ -90,7 +90,7 @@ static void deformStroke(ModifierData *md, const EvaluationContext *UNUSED(eval_
 				val = mmd->factor * weight;
 				/* perform smoothing */
 				if (mmd->flag & GP_SMOOTH_MOD_LOCATION) {
-					BKE_gp_smooth_stroke(gps, i, val, false);
+					BKE_gp_smooth_stroke(gps, i, val);
 				}
 				if (mmd->flag & GP_SMOOTH_MOD_STRENGTH) {
 					BKE_gp_smooth_stroke_strength(gps, i, val);

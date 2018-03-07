@@ -279,7 +279,6 @@ static bool gp_brush_smooth_apply(
 {
 	GP_EditBrush_Data *brush = gso->brush;
 	float inf = gp_brush_influence_calc(gso, radius, co);
-	bool affect_pressure = (brush->flag & GP_EDITBRUSH_FLAG_SMOOTH_PRESSURE) != 0;
 	/* need one flag enabled by default */
 	if ((gso->settings->flag & (GP_BRUSHEDIT_FLAG_APPLY_POSITION |
 	                            GP_BRUSHEDIT_FLAG_APPLY_STRENGTH |
@@ -291,7 +290,7 @@ static bool gp_brush_smooth_apply(
 
 	/* perform smoothing */
 	if (gso->settings->flag & GP_BRUSHEDIT_FLAG_APPLY_POSITION) {
-		BKE_gp_smooth_stroke(gps, pt_index, inf, affect_pressure);
+		BKE_gp_smooth_stroke(gps, pt_index, inf);
 	}
 	if (gso->settings->flag & GP_BRUSHEDIT_FLAG_APPLY_STRENGTH) {
 		BKE_gp_smooth_stroke_strength(gps, pt_index, inf);

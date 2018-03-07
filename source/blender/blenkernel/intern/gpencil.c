@@ -2514,9 +2514,8 @@ bool BKE_gpencil_vgroup_remove_point_weight(bGPDspoint *pt, int index)
  * \param gps              Stroke to smooth
  * \param i                Point index
  * \param inf              Amount of smoothing to apply
- * \param affect_pressure  Apply smoothing to pressure values too?
  */
-bool BKE_gp_smooth_stroke(bGPDstroke *gps, int i, float inf, bool affect_pressure)
+bool BKE_gp_smooth_stroke(bGPDstroke *gps, int i, float inf)
 {
 	bGPDspoint *pt = &gps->points[i];
 	float pressure = 0.0f;
@@ -2545,10 +2544,6 @@ bool BKE_gp_smooth_stroke(bGPDstroke *gps, int i, float inf, bool affect_pressur
 		/* add the point itself */
 		madd_v3_v3fl(sco, &pt->x, average_fac);
 
-		if (affect_pressure) {
-			pressure += pt->pressure * average_fac;
-		}
-
 		/* n-steps before/after current point */
 		// XXX: review how the endpoints are treated by this algorithm
 		// XXX: falloff measures should also introduce some weighting variations, so that further-out points get less weight
@@ -2567,26 +2562,11 @@ bool BKE_gp_smooth_stroke(bGPDstroke *gps, int i, float inf, bool affect_pressur
 			madd_v3_v3fl(sco, &pt1->x, average_fac);
 			madd_v3_v3fl(sco, &pt2->x, average_fac);
 
-#if 0
-			/* XXX: Disabled because get weird result */
-			/* do pressure too? */
-			if (affect_pressure) {
-				pressure += pt1->pressure * average_fac;
-				pressure += pt2->pressure * average_fac;
-			}
-#endif
 		}
 	}
 
 	/* Based on influence factor, blend between original and optimal smoothed coordinate */
 	interp_v3_v3v3(&pt->x, &pt->x, sco, inf);
-
-#if 0
-	/* XXX: Disabled because get weird result */
-	if (affect_pressure) {
-		pt->pressure = pressure;
-	}
-#endif
 
 	return true;
 }
