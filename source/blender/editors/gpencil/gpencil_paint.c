@@ -503,7 +503,7 @@ static void gp_smooth_buffer(tGPsdata *p, float inf)
 	short num_points = gpd->sbuffer_size;
 
 	/* Do nothing if not enough points to smooth out */
-	if ((num_points < 3) && (inf > 0.0f)) {
+	if ((num_points < 3) || (inf == 0.0f)) {
 		return;
 	}
 
@@ -710,7 +710,7 @@ static short gp_stroke_addpoint(
 		gpd->sbuffer_size++;
 
 		/* smooth while drawing previous point */
-		gp_smooth_buffer(p, 0.8f);
+		gp_smooth_buffer(p, brush->active_smooth);
 
 		/* check if another operation can still occur */
 		if (gpd->sbuffer_size == GP_STROKE_BUFFER_MAX)
