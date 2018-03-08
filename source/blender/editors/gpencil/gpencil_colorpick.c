@@ -160,11 +160,18 @@ static void gp_draw_pattern_box(int xmin, int ymin, int xmax, int ymax)
 }
 
 /* draw a toolbar with all colors of the palette */
-static void gpencil_draw_color_table(const bContext *UNUSED(C), tGPDpick *tgpk)
+static void gpencil_draw_color_table(const bContext *C, tGPDpick *tgpk)
 {
 	if (!tgpk->palette) {
 		return;
 	}
+
+	/* draw only in the region that originated operator. This is required for multiwindow */
+	ARegion *ar = CTX_wm_region(C);
+	if (ar != tgpk->ar) {
+		return;
+	}
+
 	const uiFontStyle *fstyle = UI_FSTYLE_WIDGET;
 	float background[4];
 	float line[4];
@@ -485,6 +492,7 @@ static int gpencil_colorpick_index_from_mouse(const tGPDpick *tgpk, const wmEven
 static int gpencil_colorpick_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
 	tGPDpick *tgpk = op->customdata;
+	ARegion *ar = CTX_wm_region(C);
 
 	int estate = OPERATOR_RUNNING_MODAL; 
 
@@ -495,7 +503,8 @@ static int gpencil_colorpick_modal(bContext *C, wmOperator *op, const wmEvent *e
 			break;
 
 		case LEFTMOUSE:
-			if (!BLI_rcti_isect_pt_v(&tgpk->panel, event->mval)) {
+			/* only in the region that originated operator. This is required for multiwindow */
+			if ((!BLI_rcti_isect_pt_v(&tgpk->panel, event->mval)) || (ar != tgpk->ar)) {
 				/* if click out of panel, end */
 				estate = OPERATOR_CANCELLED;
 			}
@@ -509,7 +518,7 @@ static int gpencil_colorpick_modal(bContext *C, wmOperator *op, const wmEvent *e
 			break;
 
 		case MOUSEMOVE:
-			if (BLI_rcti_isect_pt_v(&tgpk->panel, event->mval)) {
+			if ((BLI_rcti_isect_pt_v(&tgpk->panel, event->mval)) && (ar == tgpk->ar)) {
 				int index = gpencil_colorpick_index_from_mouse(tgpk, event);
 				if (index != -1) {
 					/* don't update active color if we move outside the grid */
