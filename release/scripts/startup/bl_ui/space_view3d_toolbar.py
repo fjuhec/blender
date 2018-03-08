@@ -2155,47 +2155,55 @@ class VIEW3D_PT_tools_grease_pencil_brush_option(Panel):
         layout = self.layout
         brush = context.active_gpencil_brush
         if brush is not None:
-            # XXX: Is this post-drawing, or while drawing?
             col = layout.column(align=True)
-            col.label(text="Stroke Quality:")
-            col.prop(brush, "pen_smooth_factor")
-            col.prop(brush, "pen_smooth_steps")
-
-            col = layout.column(align=True)
-            col.label(text="Thickness:")
-            col.prop(brush, "pen_thick_smooth_factor")
-            col.prop(brush, "pen_thick_smooth_steps")
-
-            col.separator()
-            row = col.row(align=False)
-            row.prop(brush, "pen_subdivision_steps")
-            row.prop(brush, "random_subdiv", text="Randomness", slider=True)
-
-            col = layout.column(align=True)
-            col.label(text="Settings:")
-            col.prop(brush, "random_press", slider=True)
-
-            row = layout.row(align=True)
-            row.prop(brush, "jitter", slider=True)
-            row.prop(brush, "use_jitter_pressure", text="", icon='STYLUS_PRESSURE')
-            row = layout.row(align=True) # FIXME: When not aligned, they're too small, but looks ugly when aligned
-            row.prop(brush, "angle", slider=True)
-            row.prop(brush, "angle_factor", text="Factor", slider=True)
-
-            if brush.type == 'DRAW':
-                row.separator()
-                col = layout.column(align=True)
-                col.prop(brush, "use_stabilizer", text="Stabilizer")
-                if brush.use_stabilizer:
-                    col.prop(brush, "lazy_radius", text="Distance")
-                    col.prop(brush, "lazy_factor", slider=True)
-
-            row = layout.row(align=True)
-            row.prop(brush, "uv_random", slider=True)
-
-            row = layout.row()
+            row = col.row()
             row.prop(brush, "input_samples")
             row.prop(brush, "active_smooth_factor")
+            col.separator()
+
+            if brush.type == 'DRAW':
+                col.prop(brush, "use_stabilizer", text="Stabilizer")
+                if brush.use_stabilizer:
+                    col.separator()
+                    col.prop(brush, "lazy_radius", text="Distance")
+                    col.prop(brush, "lazy_factor", slider=True)
+                    col.separator()
+
+            col.prop(brush, "enable_random", text="Random Settings")
+            if brush.enable_random is True:
+                col.separator()
+                col.prop(brush, "uv_random", slider=True)
+
+                col.separator()
+                col.label(text="Settings:")
+                col.prop(brush, "random_press", slider=True)
+
+                row = col.row(align=True)
+                row.prop(brush, "jitter", slider=True)
+                row.prop(brush, "use_jitter_pressure", text="", icon='STYLUS_PRESSURE')
+
+                row = col.row(align=True)
+                row.prop(brush, "angle", slider=True)
+                row.prop(brush, "angle_factor", text="Factor", slider=True)
+                col.separator()
+
+            col.prop(brush, "enable_smooth", text="Post-processing Smooth")
+            if brush.enable_smooth is True:
+                col.label(text="Stroke Quality:")
+                col.prop(brush, "pen_smooth_factor")
+                col.prop(brush, "pen_smooth_steps")
+
+                col = layout.column(align=True)
+                col.label(text="Thickness:")
+                col.prop(brush, "pen_thick_smooth_factor")
+                col.prop(brush, "pen_thick_smooth_steps")
+                col.separator()
+
+            col.prop(brush, "enable_subdiv", text="Post-processing Subdivide")
+            if brush.enable_subdiv is True:
+                col.separator()
+                col.prop(brush, "pen_subdivision_steps")
+                col.prop(brush, "random_subdiv", text="Randomness", slider=True)
 
 
 # Grease Pencil drawing brushes mode

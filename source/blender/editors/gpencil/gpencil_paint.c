@@ -616,7 +616,7 @@ static short gp_stroke_addpoint(
 		}
 
 		/* Apply jitter to position */
-		if (brush->draw_jitter > 0.0f) {
+		if ((brush->flag_group & GP_BRUSH_GROUP_RANDOM) && (brush->draw_jitter > 0.0f)) {
 			int r_mval[2];
 			gp_brush_jitter(gpd, brush, pt, mval, r_mval);
 			copy_v2_v2_int(&pt->x, r_mval);
@@ -625,7 +625,10 @@ static short gp_stroke_addpoint(
 			copy_v2_v2_int(&pt->x, mval);
 		}
 		/* apply randomness to pressure */
-		if ((brush->draw_random_press > 0.0f) && (brush->flag & GP_BRUSH_USE_RANDOM_PRESSURE)) {
+		if ((brush->flag_group & GP_BRUSH_GROUP_RANDOM) && 
+			(brush->draw_random_press > 0.0f) && 
+			(brush->flag & GP_BRUSH_USE_RANDOM_PRESSURE)) 
+		{
 			float curvef = curvemapping_evaluateF(brush->cur_sensitivity, 0, pressure);
 			float tmp_pressure = curvef * brush->draw_sensitivity;
 			if (BLI_frand() > 0.5f) {
@@ -638,7 +641,7 @@ static short gp_stroke_addpoint(
 		}
 
 		/* apply randomness to uv texture rotation */
-		if (brush->uv_random > 0.0f) {
+		if ((brush->flag_group & GP_BRUSH_GROUP_RANDOM) && (brush->uv_random > 0.0f)) {
 			if (BLI_frand() > 0.5f) {
 				pt->uv_rot = (BLI_frand() * M_PI * -1) * brush->uv_random;
 			}
@@ -652,7 +655,7 @@ static short gp_stroke_addpoint(
 		}
 
 		/* apply angle of stroke to brush size */
-		if (brush->draw_angle_factor > 0.0f) {
+		if ((brush->flag_group & GP_BRUSH_GROUP_RANDOM) && (brush->draw_angle_factor > 0.0f)) {
 			gp_brush_angle(gpd, brush, pt, mval);
 		}
 
@@ -669,7 +672,10 @@ static short gp_stroke_addpoint(
 		CLAMP(pt->strength, GPENCIL_STRENGTH_MIN, 1.0f);
 
 		/* apply randomness to color strength */
-		if ((brush->draw_random_press > 0.0f) && (brush->flag & GP_BRUSH_USE_RANDOM_STRENGTH)) {
+		if ((brush->flag_group & GP_BRUSH_GROUP_RANDOM) && 
+			(brush->draw_random_press > 0.0f) && 
+			(brush->flag & GP_BRUSH_USE_RANDOM_STRENGTH)) 
+		{
 			if (BLI_frand() > 0.5f) {
 				pt->strength -= pt->strength * brush->draw_random_press * BLI_frand();
 			}
@@ -1090,11 +1096,11 @@ static void gp_stroke_newfrombuffer(tGPsdata *p)
 		}
 
 		/* subdivide and smooth the stroke */
-		if (sublevel > 0) {
+		if ((brush->flag_group & GP_BRUSH_GROUP_SUBDIVIDE) && (sublevel > 0)) {
 			gp_subdivide_stroke(gps, sublevel);
 		}
 		/* apply randomness to stroke */
-		if (brush->draw_random_sub > 0.0f) {
+		if ((brush->flag_group & GP_BRUSH_GROUP_RANDOM) && (brush->draw_random_sub > 0.0f)) {
 			gp_randomize_stroke(gps, brush);
 		}
 
@@ -1102,7 +1108,7 @@ static void gp_stroke_newfrombuffer(tGPsdata *p)
 		 * for each iteration, the factor is reduced to get a better smoothing without changing too much
 		 * the original stroke
 		 */
-		if (brush->draw_smoothfac > 0.0f) {
+		if ((brush->flag_group & GP_BRUSH_GROUP_SMOOTH) && (brush->draw_smoothfac > 0.0f)) {
 			float reduce = 0.0f;
 			for (int r = 0; r < brush->draw_smoothlvl; r++) {
 				for (i = 0; i < gps->totpoints; i++) {

@@ -142,6 +142,9 @@ typedef struct bGPDbrush {
 	int   type;               /* type of brush (draw, fill, erase, etc..) */
 	int   eraser_mode;        /* soft, hard or stroke */
 	float active_smooth;      /* smooth while drawing factor */
+
+	int   flag_group;         /* falg to enable/disable groups of options */
+	char pad[4];
 } bGPDbrush;
 
 /* bGPDbrush->flag */
@@ -173,6 +176,16 @@ typedef enum eGPDbrush_Flag {
 	/* default eraser brush for quick switch */
 	GP_BRUSH_DEFAULT_ERASER = (1 << 13),
 } eGPDbrush_Flag;
+
+/* bGPDbrush->flag_group */
+typedef enum eGPDbrush_FlagGroup {
+	/* smooth group */
+	GP_BRUSH_GROUP_SMOOTH = (1 << 0),
+	/* subdivide group */
+	GP_BRUSH_GROUP_SUBDIVIDE = (1 << 1),
+	/* Random settings group */
+	GP_BRUSH_GROUP_RANDOM = (1 << 2),
+} eGPDbrush_FlagGroup;
 
 /* ***************************************** */
 /* GP Palettes (Deprecated - 2.78 - 2.79 only) */
