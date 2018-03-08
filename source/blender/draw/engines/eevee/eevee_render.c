@@ -407,7 +407,8 @@ void EEVEE_render_draw(EEVEE_Data *vedata, RenderEngine *engine, RenderLayer *rl
 	}
 
 	IDProperty *props = BKE_view_layer_engine_evaluated_get(view_layer, COLLECTION_MODE_NONE, RE_engine_id_BLENDER_EEVEE);
-	unsigned int render_samples = BKE_collection_engine_property_value_get_int(props, "taa_render_samples");
+	unsigned int tot_sample = BKE_collection_engine_property_value_get_int(props, "taa_render_samples");
+	unsigned int render_samples = tot_sample;
 
 	while (render_samples-- > 0) {
 		float clear_col[4] = {0.0f, 0.0f, 0.0f, 0.0f};
@@ -426,12 +427,6 @@ void EEVEE_render_draw(EEVEE_Data *vedata, RenderEngine *engine, RenderLayer *rl
 		EEVEE_volumes_set_jitter(sldata, stl->effects->taa_current_sample - 1);
 		EEVEE_materials_init(sldata, stl, fbl);
 
-		/* Refresh Probes */
-		while (EEVEE_lightprobes_all_probes_ready(sldata, vedata) == false) {
-			EEVEE_lightprobes_refresh(sldata, vedata);
-		}
-		EEVEE_lightprobes_refresh_planar(sldata, vedata);
-		DRW_uniformbuffer_update(sldata->common_ubo, &sldata->common_data);
 		/* Set matrices. */
 		DRW_viewport_matrix_override_set(stl->effects->overide_persmat, DRW_MAT_PERS);
 		DRW_viewport_matrix_override_set(stl->effects->overide_persinv, DRW_MAT_PERSINV);
@@ -439,6 +434,14 @@ void EEVEE_render_draw(EEVEE_Data *vedata, RenderEngine *engine, RenderLayer *rl
 		DRW_viewport_matrix_override_set(stl->effects->overide_wininv, DRW_MAT_WININV);
 		DRW_viewport_matrix_override_set(g_data->viewmat, DRW_MAT_VIEW);
 		DRW_viewport_matrix_override_set(g_data->viewinv, DRW_MAT_VIEWINV);
+
+		/* Refresh Probes */
+		while (EEVEE_lightprobes_all_probes_ready(sldata, vedata) == false) {
+			EEVEE_lightprobes_refresh(sldata, vedata);
+		}
+		EEVEE_lightprobes_refresh_planar(sldata, vedata);
+		DRW_uniformbuffer_update(sldata->common_ubo, &sldata->common_data);
+
 		/* Refresh Shadows */
 		EEVEE_draw_shadows(sldata, psl);
 
@@ -483,6 +486,8 @@ void EEVEE_render_draw(EEVEE_Data *vedata, RenderEngine *engine, RenderLayer *rl
 		eevee_render_result_z(rl, viewname, rect, vedata, sldata);
 		/* Post Process */
 		EEVEE_draw_effects(sldata, vedata);
+
+		RE_engine_update_progress(engine, (float)(tot_sample - render_samples) / (float)tot_sample);
 	}
 
 	eevee_render_result_combined(rl, viewname, rect, vedata, sldata);

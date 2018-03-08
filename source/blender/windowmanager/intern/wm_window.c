@@ -766,7 +766,11 @@ wmWindow *WM_window_open_temp(bContext *C, int x, int y, int sizex, int sizey, i
 		WM_window_set_active_layout(win, workspace, layout);
 	}
 
-	if (WM_window_get_active_scene(win) != scene) {
+	if (win->scene == NULL) {
+		win->scene = scene;
+	}
+	/* In case we reuse an already existing temp window (see win lookup above). */
+	else if (WM_window_get_active_scene(win) != scene) {
 		WM_window_change_active_scene(bmain, C, win, scene);
 	}
 
@@ -2071,6 +2075,11 @@ void wm_window_IME_end(wmWindow *win)
 
 void *WM_opengl_context_create(void)
 {
+	/* On Windows there is a problem creating contexts that share lists
+	 * from one context that is current in another thread.
+	 * So we should call this function only on the main thread.
+	 */
+	BLI_assert(BLI_thread_is_main());
 	return GHOST_CreateOpenGLContext(g_system);
 }
 

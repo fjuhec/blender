@@ -383,7 +383,6 @@ void DRW_state_clip_planes_reset(void)
  * \{ */
 
 static void draw_clipping_setup_from_view(void)
-
 {
 	if (DST.clipping.updated)
 		return;
@@ -413,6 +412,9 @@ static void draw_clipping_setup_from_view(void)
 			case 3:  q=2; r=6; break;
 			case 4:  q=0; r=3; break;
 			default: q=4; r=7; break;
+		}
+		if (DST.frontface == GL_CW) {
+			SWAP(int, q, r);
 		}
 
 		normal_tri_v3(DST.clipping.frustum_planes[p], bbox.vec[p], bbox.vec[q], bbox.vec[r]);

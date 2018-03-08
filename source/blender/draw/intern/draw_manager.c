@@ -2063,7 +2063,6 @@ void DRW_engines_free(void)
 void DRW_opengl_context_create(void)
 {
 	BLI_assert(DST.ogl_context == NULL); /* Ensure it's called once */
-	BLI_assert(BLI_thread_is_main());
 
 	BLI_mutex_init(&DST.ogl_context_mutex);
 
