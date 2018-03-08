@@ -510,7 +510,7 @@ static void gp_smooth_buffer(tGPsdata *p, float inf, int idx)
 	if ((num_points < 3) || (idx < 3) || (inf == 0.0f)) {
 		return;
 	}
-
+	
 	tGPspoint *points = (tGPspoint *)gpd->sbuffer;
 	float steps = 4.0f;
 	if (idx < 4) {
@@ -715,8 +715,9 @@ static short gp_stroke_addpoint(
 
 		/* smooth while drawing previous points with a reduction factor for previous */
 		if (brush->active_smooth > 0.0f) {
-			gp_smooth_buffer(p, brush->active_smooth * 0.5f, gpd->sbuffer_size - 1);
-			gp_smooth_buffer(p, brush->active_smooth, gpd->sbuffer_size);
+			for (int s = 0; s < 3; s++) {
+				gp_smooth_buffer(p, brush->active_smooth * ((3.0f - s) / 3.0f), gpd->sbuffer_size - s);
+			}
 		}
 
 		/* check if another operation can still occur */
