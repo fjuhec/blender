@@ -496,27 +496,31 @@ static void gp_brush_angle(bGPdata *gpd, bGPDbrush *brush, tGPspoint *pt, const 
 * to smooth point C, use 2 before (A, B) and current point (D):
 *
 *   A----B-----C------D
+*
+* \param p	    Temp data
+* \param inf    Influence factor
+* \param idx	Index of the last point (need minimum 3 points in the array)
 */
-static void gp_smooth_buffer(tGPsdata *p, float inf)
+static void gp_smooth_buffer(tGPsdata *p, float inf, int idx)
 {
 	bGPdata *gpd = p->gpd;
 	short num_points = gpd->sbuffer_size;
 
 	/* Do nothing if not enough points to smooth out */
-	if ((num_points < 3) || (inf == 0.0f)) {
+	if ((num_points < 3) || (idx < 3) || (inf == 0.0f)) {
 		return;
 	}
 
 	tGPspoint *points = (tGPspoint *)gpd->sbuffer;
 	float steps = 4.0f;
-	if (num_points < 4) {
+	if (idx < 4) {
 		steps--;
 	}
 	
-	tGPspoint *pta = num_points >= 4 ? &points[num_points - 4] : NULL;
-	tGPspoint *ptb = num_points >= 3 ? &points[num_points - 3] : NULL;
-	tGPspoint *ptc = num_points >= 2 ? &points[num_points - 2] : NULL;
-	tGPspoint *ptd = &points[num_points - 1];
+	tGPspoint *pta = idx >= 4 ? &points[idx - 4] : NULL;
+	tGPspoint *ptb = idx >= 3 ? &points[idx - 3] : NULL;
+	tGPspoint *ptc = idx >= 2 ? &points[idx - 2] : NULL;
+	tGPspoint *ptd = &points[idx - 1];
 
 	float sco[2] = { 0.0f };
 	float a[2], b[2], c[2], d[2];
@@ -709,8 +713,11 @@ static short gp_stroke_addpoint(
 		/* increment counters */
 		gpd->sbuffer_size++;
 
-		/* smooth while drawing previous point */
-		gp_smooth_buffer(p, brush->active_smooth);
+		/* smooth while drawing previous points with a reduction factor for previous */
+		if (brush->active_smooth > 0.0f) {
+			gp_smooth_buffer(p, brush->active_smooth * 0.5f, gpd->sbuffer_size - 1);
+			gp_smooth_buffer(p, brush->active_smooth, gpd->sbuffer_size);
+		}
 
 		/* check if another operation can still occur */
 		if (gpd->sbuffer_size == GP_STROKE_BUFFER_MAX)
