@@ -109,7 +109,7 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 		{
 			CTX_data_id_list_add(result, &ob->id);
 		}
-		FOREACH_VISIBLE_BASE_END
+		FOREACH_VISIBLE_BASE_END;
 		CTX_data_type_set(result, CTX_DATA_TYPE_COLLECTION);
 		return 1;
 	}
@@ -127,7 +127,7 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 		{
 			CTX_data_id_list_add(result, &ob->id);
 		}
-		FOREACH_SELECTED_OBJECT_END
+		FOREACH_SELECTED_OBJECT_END;
 		CTX_data_type_set(result, CTX_DATA_TYPE_COLLECTION);
 		return 1;
 	}
@@ -138,7 +138,7 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 				CTX_data_id_list_add(result, &ob->id);
 			}
 		}
-		FOREACH_SELECTED_OBJECT_END
+		FOREACH_SELECTED_OBJECT_END;
 		CTX_data_type_set(result, CTX_DATA_TYPE_COLLECTION);
 		return 1;
 	}
@@ -150,7 +150,7 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 				CTX_data_id_list_add(result, &ob->id);
 			}
 		}
-		FOREACH_VISIBLE_OBJECT_END
+		FOREACH_VISIBLE_OBJECT_END;
 		CTX_data_type_set(result, CTX_DATA_TYPE_COLLECTION);
 		return 1;
 	}
@@ -159,7 +159,7 @@ int ed_screen_context(const bContext *C, const char *member, bContextDataResult 
 		{
 			CTX_data_list_add(result, &scene->id, &RNA_ObjectBase, base);
 		}
-		FOREACH_VISIBLE_BASE_END
+		FOREACH_VISIBLE_BASE_END;
 		CTX_data_type_set(result, CTX_DATA_TYPE_COLLECTION);
 		return 1;
 	}
