@@ -582,6 +582,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->draw_angle = 0.0f;
 	brush->draw_angle_factor = 0.0f;
 
+	brush->flag_group |= GP_BRUSH_GROUP_SETTINGS;
 	brush->draw_smoothfac = 0.5f;
 	brush->draw_smoothlvl = 1;
 	brush->thick_smoothfac = 1.0f;
@@ -613,6 +614,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->draw_angle = 0.0f;
 	brush->draw_angle_factor = 0.0f;
 
+	brush->flag_group |= GP_BRUSH_GROUP_SETTINGS;
 	brush->draw_smoothfac = 0.5f;
 	brush->draw_smoothlvl = 1;
 	brush->sublevel = 1;
@@ -642,6 +644,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->draw_angle = 0.0f;
 	brush->draw_angle_factor = 0.0f;
 
+	brush->flag_group |= GP_BRUSH_GROUP_SETTINGS;
 	brush->draw_smoothfac = 0.5f;
 	brush->draw_smoothlvl = 1;
 	brush->thick_smoothfac = 1.0f;
@@ -677,6 +680,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->draw_angle = 0.0f;
 	brush->draw_angle_factor = 0.0f;
 
+	brush->flag_group |= GP_BRUSH_GROUP_SETTINGS;
 	brush->draw_smoothfac = 1.0f;
 	brush->draw_smoothlvl = 2;
 	brush->thick_smoothfac = 0.5f;
@@ -713,6 +717,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->draw_angle = 0.0f;
 	brush->draw_angle_factor = 0.0f;
 
+	brush->flag_group |= GP_BRUSH_GROUP_SETTINGS;
 	brush->draw_smoothfac = 0.0f;
 	brush->draw_smoothlvl = 1;
 	brush->thick_smoothfac = 1.0f;
@@ -742,6 +747,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->draw_angle = M_PI_4; /* 45 degrees */
 	brush->draw_angle_factor = 1.0f;
 
+	brush->flag_group |= GP_BRUSH_GROUP_SETTINGS;
 	brush->draw_smoothfac = 0.5f;
 	brush->draw_smoothlvl = 1;
 	brush->thick_smoothfac = 1.0f;
