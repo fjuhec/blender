@@ -110,7 +110,7 @@ typedef struct bGPDbrush {
 	short flag;
 	float draw_smoothfac;     /* amount of smoothing to apply to newly created strokes */
 	short draw_smoothlvl;     /* number of times to apply smooth factor to new strokes */
-	short sublevel;           /* number of times to subdivide new strokes */
+	short subdivide;          /* number of times to subdivide new strokes */
 
 	float draw_sensitivity;   /* amount of sensivity to apply to newly created strokes */
 	float draw_strength;      /* amount of alpha strength to apply to newly created strokes */
@@ -143,7 +143,7 @@ typedef struct bGPDbrush {
 	int   eraser_mode;        /* soft, hard or stroke */
 	float active_smooth;      /* smooth while drawing factor */
 
-	int   flag_group;         /* falg to enable/disable groups of options */
+	int   flag_group;         /* flag to enable/disable groups of options */
 	char pad[4];
 } bGPDbrush;
 

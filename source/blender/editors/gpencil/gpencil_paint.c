@@ -938,7 +938,7 @@ static void gp_stroke_newfrombuffer(tGPsdata *p)
 	gps->flag |= GP_STROKE_RECALC_CACHES;
 
 	/* allocate enough memory for a continuous array for storage points */
-	const int sublevel = brush->sublevel;
+	const int subdivide = brush->subdivide;
 
 	gps->points = MEM_callocN(sizeof(bGPDspoint) * gps->totpoints, "gp_stroke_points");
 	/* initialize triangle memory to dummy data */
@@ -1096,8 +1096,8 @@ static void gp_stroke_newfrombuffer(tGPsdata *p)
 		}
 
 		/* subdivide and smooth the stroke */
-		if ((brush->flag_group & GP_BRUSH_GROUP_SETTINGS) && (sublevel > 0)) {
-			gp_subdivide_stroke(gps, sublevel);
+		if ((brush->flag_group & GP_BRUSH_GROUP_SETTINGS) && (subdivide > 0)) {
+			gp_subdivide_stroke(gps, subdivide);
 		}
 		/* apply randomness to stroke */
 		if ((brush->flag_group & GP_BRUSH_GROUP_RANDOM) && (brush->draw_random_sub > 0.0f)) {

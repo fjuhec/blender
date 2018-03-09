@@ -587,7 +587,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->draw_smoothlvl = 1;
 	brush->thick_smoothfac = 1.0f;
 	brush->thick_smoothlvl = 3;
-	brush->sublevel = 1;
+	brush->subdivide = 1;
 	brush->draw_random_sub = 0.0f;
 	copy_v3_v3(brush->curcolor, curcolor);
 	brush->icon = GPBRUSH_PENCIL;
@@ -617,7 +617,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->flag_group |= GP_BRUSH_GROUP_SETTINGS;
 	brush->draw_smoothfac = 0.5f;
 	brush->draw_smoothlvl = 1;
-	brush->sublevel = 1;
+	brush->subdivide = 1;
 	brush->thick_smoothfac = 1.0f;
 	brush->thick_smoothlvl = 3;
 	brush->draw_random_sub = 0.0f;
@@ -649,7 +649,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->draw_smoothlvl = 1;
 	brush->thick_smoothfac = 1.0f;
 	brush->thick_smoothlvl = 3;
-	brush->sublevel = 1;
+	brush->subdivide = 1;
 	brush->draw_random_sub = 0.0f;
 	copy_v3_v3(brush->curcolor, curcolor);
 	brush->icon = GPBRUSH_INK;
@@ -685,7 +685,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->draw_smoothlvl = 2;
 	brush->thick_smoothfac = 0.5f;
 	brush->thick_smoothlvl = 2;
-	brush->sublevel = 1;
+	brush->subdivide = 1;
 	brush->draw_random_sub = 0.0f;
 	copy_v3_v3(brush->curcolor, curcolor);
 	brush->icon = GPBRUSH_INKNOISE;
@@ -722,7 +722,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->draw_smoothlvl = 1;
 	brush->thick_smoothfac = 1.0f;
 	brush->thick_smoothlvl = 3;
-	brush->sublevel = 0;
+	brush->subdivide = 0;
 	brush->draw_random_sub = 0;
 	copy_v3_v3(brush->curcolor, curcolor);
 	brush->icon = GPBRUSH_BLOCK;
@@ -752,7 +752,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->draw_smoothlvl = 1;
 	brush->thick_smoothfac = 1.0f;
 	brush->thick_smoothlvl = 3;
-	brush->sublevel = 1;
+	brush->subdivide = 1;
 	brush->draw_random_sub = 0.0f;
 	copy_v3_v3(brush->curcolor, curcolor);
 	brush->icon = GPBRUSH_MARKER;
@@ -776,7 +776,7 @@ void BKE_gpencil_brush_init_presets(ToolSettings *ts)
 	brush->draw_smoothlvl = 1;
 	brush->thick_smoothfac = 1.0f;
 	brush->thick_smoothlvl = 3;
-	brush->sublevel = 1;
+	brush->subdivide = 1;
 
 	brush->lazy_radius = LAZY_RADIUS;
 	brush->lazy_factor = LAZY_FACTOR;

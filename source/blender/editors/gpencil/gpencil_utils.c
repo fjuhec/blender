@@ -886,16 +886,16 @@ void ED_gp_project_point_to_plane(Object *ob, RegionView3D *rv3d, const float or
 /**
  * Subdivide a stroke once, by adding a point half way between each pair of existing points
  * \param gps           Stroke data
- * \param sublevel      Number of times to subdivide
+ * \param subdivide      Number of times to subdivide
  */
-void gp_subdivide_stroke(bGPDstroke *gps, const int sublevel)
+void gp_subdivide_stroke(bGPDstroke *gps, const int subdivide)
 {
 	bGPDspoint *temp_points;
 	int totnewpoints, oldtotpoints;
 	int i2;
 
 	/* loop as many times as levels */
-	for (int s = 0; s < sublevel; s++) {
+	for (int s = 0; s < subdivide; s++) {
 		totnewpoints = gps->totpoints - 1;
 		/* duplicate points in a temp area */
 		temp_points = MEM_dupallocN(gps->points);
