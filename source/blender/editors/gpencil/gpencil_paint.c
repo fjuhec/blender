@@ -1096,7 +1096,7 @@ static void gp_stroke_newfrombuffer(tGPsdata *p)
 		}
 
 		/* subdivide and smooth the stroke */
-		if ((brush->flag_group & GP_BRUSH_GROUP_SUBDIVIDE) && (sublevel > 0)) {
+		if ((brush->flag_group & GP_BRUSH_GROUP_SETTINGS) && (sublevel > 0)) {
 			gp_subdivide_stroke(gps, sublevel);
 		}
 		/* apply randomness to stroke */
@@ -1108,7 +1108,7 @@ static void gp_stroke_newfrombuffer(tGPsdata *p)
 		 * for each iteration, the factor is reduced to get a better smoothing without changing too much
 		 * the original stroke
 		 */
-		if ((brush->flag_group & GP_BRUSH_GROUP_SMOOTH) && (brush->draw_smoothfac > 0.0f)) {
+		if ((brush->flag_group & GP_BRUSH_GROUP_SETTINGS) && (brush->draw_smoothfac > 0.0f)) {
 			float reduce = 0.0f;
 			for (int r = 0; r < brush->draw_smoothlvl; r++) {
 				for (i = 0; i < gps->totpoints; i++) {
@@ -1119,7 +1119,7 @@ static void gp_stroke_newfrombuffer(tGPsdata *p)
 			}
 		}
 		/* smooth thickness */
-		if (brush->thick_smoothfac > 0.0f) {
+		if ((brush->flag_group & GP_BRUSH_GROUP_SETTINGS) && (brush->thick_smoothfac > 0.0f)) {
 			for (int r = 0; r < brush->thick_smoothlvl * 2; r++) {
 				for (i = 0; i < gps->totpoints; i++) {
 					BKE_gp_smooth_stroke_thickness(gps, i, brush->thick_smoothfac);

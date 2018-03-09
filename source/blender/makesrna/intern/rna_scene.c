@@ -2531,13 +2531,9 @@ static void rna_def_gpencil_brush(BlenderRNA *brna)
 	RNA_def_property_ui_text(prop, "Default Eraser", "Use this brush when enable eraser with fast switch key");
 	RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, "rna_GPencil_brush_default_eraser");
 
-	prop = RNA_def_property(srna, "enable_smooth", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag_group", GP_BRUSH_GROUP_SMOOTH);
-	RNA_def_property_ui_text(prop, "Smooth", "Enable post smooth processing for new strokes");
-
-	prop = RNA_def_property(srna, "enable_subdiv", PROP_BOOLEAN, PROP_NONE);
-	RNA_def_property_boolean_sdna(prop, NULL, "flag_group", GP_BRUSH_GROUP_SUBDIVIDE);
-	RNA_def_property_ui_text(prop, "Subdivide", "Enable post subdivide processing for new strokes");
+	prop = RNA_def_property(srna, "enable_settings", PROP_BOOLEAN, PROP_NONE);
+	RNA_def_property_boolean_sdna(prop, NULL, "flag_group", GP_BRUSH_GROUP_SETTINGS);
+	RNA_def_property_ui_text(prop, "Settings", "Enable additional post processing options for new strokes");
 
 	prop = RNA_def_property(srna, "enable_random", PROP_BOOLEAN, PROP_NONE);
 	RNA_def_property_boolean_sdna(prop, NULL, "flag_group", GP_BRUSH_GROUP_RANDOM);

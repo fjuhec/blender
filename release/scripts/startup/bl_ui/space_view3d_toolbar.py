@@ -2187,21 +2187,17 @@ class VIEW3D_PT_tools_grease_pencil_brush_option(Panel):
                 row.prop(brush, "angle_factor", text="Factor", slider=True)
                 col.separator()
 
-            col.prop(brush, "enable_smooth", text="Post-processing Smooth")
-            if brush.enable_smooth is True:
+            col.prop(brush, "enable_settings", text="Post-processing Settings")
+            if brush.enable_settings is True:
                 col.label(text="Stroke Quality:")
                 col.prop(brush, "pen_smooth_factor")
                 col.prop(brush, "pen_smooth_steps")
 
-                col = layout.column(align=True)
                 col.label(text="Thickness:")
                 col.prop(brush, "pen_thick_smooth_factor")
                 col.prop(brush, "pen_thick_smooth_steps")
-                col.separator()
 
-            col.prop(brush, "enable_subdiv", text="Post-processing Subdivide")
-            if brush.enable_subdiv is True:
-                col.separator()
+                col.label(text="Subdivide:")
                 col.prop(brush, "pen_subdivision_steps")
                 col.prop(brush, "random_subdiv", text="Randomness", slider=True)
 

@@ -179,12 +179,10 @@ typedef enum eGPDbrush_Flag {
 
 /* bGPDbrush->flag_group */
 typedef enum eGPDbrush_FlagGroup {
-	/* smooth group */
-	GP_BRUSH_GROUP_SMOOTH = (1 << 0),
-	/* subdivide group */
-	GP_BRUSH_GROUP_SUBDIVIDE = (1 << 1),
+	/* settings group */
+	GP_BRUSH_GROUP_SETTINGS = (1 << 0),
 	/* Random settings group */
-	GP_BRUSH_GROUP_RANDOM = (1 << 2),
+	GP_BRUSH_GROUP_RANDOM = (1 << 1),
 } eGPDbrush_FlagGroup;
 
 /* ***************************************** */
