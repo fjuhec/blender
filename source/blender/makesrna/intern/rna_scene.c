@@ -743,7 +743,7 @@ static int gpencil_get_brush_icon(int type)
 			}
 		}
 		else {
-			item_tmp.icon = gpencil_get_brush_icon(brush->icon);
+			item_tmp.icon = gpencil_get_brush_icon(brush->icon_id);
 		}
 
 		RNA_enum_item_add(&item, &totitem, &item_tmp);

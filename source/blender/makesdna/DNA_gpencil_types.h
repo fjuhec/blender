@@ -132,7 +132,7 @@ typedef struct bGPDbrush {
 	float fill_threshold;     /* factor for transparency */
 	int   fill_simplylvl;     /* number of simplify steps */
 	int   fill_draw_mode;     /* type of control lines drawing mode */
-	int   icon;               /* icon identifier */
+	int   icon_id;            /* icon identifier */
 
 	int   lazy_radius;        /* distance to last point to create new point */
 	float lazy_factor;        /* factor of smooth */

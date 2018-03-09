@@ -1497,7 +1497,7 @@ static bGPDbrush *gp_get_default_eraser(ToolSettings *ts)
 		brush_dft = BKE_gpencil_brush_addnew(ts, "Soft Eraser", false);
 		brush_dft->thickness = 30.0f;
 		brush_dft->flag |= (GP_BRUSH_ENABLE_CURSOR | GP_BRUSH_DEFAULT_ERASER);
-		brush_dft->icon = GPBRUSH_ERASE_SOFT;
+		brush_dft->icon_id = GPBRUSH_ERASE_SOFT;
 		brush_dft->type = GP_BRUSH_TYPE_ERASE;
 		brush_dft->eraser_mode = GP_BRUSH_ERASER_SOFT;
 
